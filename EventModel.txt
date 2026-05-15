@@ -1,0 +1,58 @@
+# Conference Data Entry
+
+## Plan Conference
+
+### Screen: Conference Plan Details
+
+Fields:
+* [conferenceId]
+* Conference Name
+* Start DateTime
+* End DateTime  
+* Address: [Venue, Street, City, State, Country, Postal Code]
+
+Actions:
+* [Speaking]
+* [Attending]
+* [Tentative]
+
+### Command: Plan Conference
+
+Fields:
+* All of the Screen fields
+* Commitment: <action taken>
+    # e.g., click on [Tentative] button => commitment=TENTATIVE
+
+### Event: ConferencePlanned
+
+Fields:
+* All of the Command fields
+
+---
+
+### Read Model: TentativeConferences
+
+List of:
+    Fields:
+        * conferenceId
+        * Conference Name
+        * Start DateTime
+        * End DateTime
+        * Address.City, Address.State, Address.Country
+
+### Screen: Confirm Conference
+
+List of:
+    Fields:
+    * All from TentativeConferences
+
+    Actions:
+    * [Attending]
+    * [Speaking]
+
+### Command: Confirm Conference
+
+Fields:
+* All of the Single Item fields
+
+### Event: ConferenceConfirmed

@@ -4,10 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class JittertravelApplication {
+public class JitterTravelApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(JittertravelApplication.class, args);
+        SpringApplication.run(JitterTravelApplication.class, args);
     }
 
 }

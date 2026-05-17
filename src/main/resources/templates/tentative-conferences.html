@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Tentative Conferences</title>
+</head>
+<body>
+<h1>Tentative Conferences</h1>
+<div th:replace="~{fragments/tentative-conferences-fragment :: list}"></div>
+<br/>
+<a th:href="@{/plan-conference}">Plan another conference</a>
+</body>
+</html>

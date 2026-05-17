@@ -1,0 +1,40 @@
+[flows]
+ui:Enter Tentative Conference
+
+cmd:Plan Tentative Conference
+
+evt:Conference Tentatively Planned
+
+rm:Tentative Conferences
+
+Enter Tentative Conference -> Plan Tentative Conference -> Conference Tentatively Planned -> Tentative Conferences
+
+Tentative Conferences -> ui:Choose Conference to Confirm -> cmd:Confirm Conference -> evt:ConferenceConfirmed
+
+[schemas]
+Plan Tentative Conference(
+  conferenceId: UUID
+  name: string
+  startDate: LocalDateTime
+  endDate: LocalDateTime
+  venue_name: string
+  venue_address: Address
+)
+
+Address(
+  street: string
+  city: string
+  state: string (optional)
+  country: string
+  postalCode: string
+)
+
+Tentative Conferences(
+  list:
+    conferenceId
+    name
+    startDate
+    endDate
+    venue_address.city
+    venue_address.country
+)

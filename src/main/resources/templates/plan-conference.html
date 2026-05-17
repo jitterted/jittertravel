@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Plan Tentative Conference</title>
+</head>
+<body>
+<h1>Plan Tentative Conference</h1>
+<form th:action="@{/plan-conference}" th:object="${planTentativeConference}" method="post">
+    <input type="hidden" th:field="*{conferenceId}"/>
+
+    <div>
+        <label>Conference Name:</label>
+        <input type="text" th:field="*{name}"/>
+        <span th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
+    </div>
+
+    <div>
+        <label>Start Date:</label>
+        <input type="datetime-local" th:field="*{startDate}"/>
+        <span th:if="${#fields.hasErrors('startDate')}" th:errors="*{startDate}"></span>
+    </div>
+
+    <div>
+        <label>End Date:</label>
+        <input type="datetime-local" th:field="*{endDate}"/>
+        <span th:if="${#fields.hasErrors('endDate')}" th:errors="*{endDate}"></span>
+    </div>
+
+    <div>
+        <label>Venue Name:</label>
+        <input type="text" th:field="*{venueName}"/>
+    </div>
+
+    <div th:object="${planTentativeConference}">
+        <h3>Venue Address</h3>
+        <div>
+            <label>Street:</label>
+            <input type="text" th:field="*{venueStreet}"/>
+        </div>
+        <div>
+            <label>City:</label>
+            <input type="text" th:field="*{venueCity}"/>
+        </div>
+        <div>
+            <label>State:</label>
+            <input type="text" th:field="*{venueState}"/>
+        </div>
+        <div>
+            <label>Country:</label>
+            <input type="text" th:field="*{venueCountry}"/>
+        </div>
+        <div>
+            <label>Postal Code:</label>
+            <input type="text" th:field="*{venuePostalCode}"/>
+        </div>
+    </div>
+
+    <button type="submit">Plan Conference</button>
+</form>
+</body>
+</html>

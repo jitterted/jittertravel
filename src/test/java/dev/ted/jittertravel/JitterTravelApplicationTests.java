@@ -7,6 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class JitterTravelApplicationTests extends AbstractTestcontainerIntegrationTest {
 
+    @SuppressWarnings("EmptyMethod")
     @Test
     void contextLoads() {
     }

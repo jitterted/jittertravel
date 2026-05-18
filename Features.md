@@ -24,7 +24,7 @@ A tiny app to help me see the logistics of my travel, especially for trips invol
         - Address
         - Start date
         - End date
-        - Committment: Speaking/Attending/Tentative
+        - Commitment: Speaking/Attending/Tentative
             = Tentative -> Confirm: Attending
             = Tentative -> Confirm: Speaking
             = Tentative -> CANCEL

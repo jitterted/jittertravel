@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.domain.Event;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.json.JsonMapper;
@@ -66,10 +67,11 @@ public class PostgresPersister {
                         String typeName = rs.getString("type");
                         String payloadJson = rs.getString("payload");
                         
-                        Class<?> type = Class.forName(typeName);
-                        Object payload = jsonMapper.readValue(payloadJson, type);
+                        @SuppressWarnings("unchecked")
+                        Class<? extends Event> eventClass = (Class<? extends Event>) Class.forName(typeName);
+                        Event payload = jsonMapper.readValue(payloadJson, eventClass);
                         
-                        return new StoredEvent(sequence, (Class)type, eventId, timestamp, (dev.ted.jittertravel.domain.Event)payload, commandId);
+                        return new StoredEvent(sequence, eventClass, eventId, timestamp, payload, commandId);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }

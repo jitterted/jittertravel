@@ -9,6 +9,7 @@ public record StoredEvent(
         Class<? extends Event> type,
         UUID eventId,
         Instant timestamp,
-        Event payload
+        Event payload,
+        UUID commandId
 ) {
 }

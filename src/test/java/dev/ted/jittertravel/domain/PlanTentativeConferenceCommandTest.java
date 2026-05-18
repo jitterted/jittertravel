@@ -1,7 +1,5 @@
 package dev.ted.jittertravel.domain;
 
-import dev.ted.jittertravel.domain.DateRangeNotInFuture;
-import dev.ted.jittertravel.domain.InvalidDateRange;
 import dev.ted.jittertravel.web.PlanTentativeConferenceRequest;
 import org.junit.jupiter.api.Test;
 
@@ -10,7 +8,6 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 class PlanTentativeConferenceCommandTest {
@@ -54,20 +51,17 @@ class PlanTentativeConferenceCommandTest {
         dto.setVenuePostalCode("12345");
 
         LocalDateTime now = LocalDateTime.now();
-        Stream<ConferenceTentativelyPlanned> events = new PlanTentativeConferenceCommand().execute(dto, now);
+        assertThat(new PlanTentativeConferenceCommand().execute(dto, now).toList())
+                .hasSize(1)
+                .allSatisfy(event -> assertThat(event).isInstanceOf(ConferenceTentativelyPlanned.class));
 
-        List<ConferenceTentativelyPlanned> eventList = events.toList();
-        assertThat(eventList).hasSize(1);
-        assertThat(eventList.getFirst()).isInstanceOf(ConferenceTentativelyPlanned.class);
-
-        ConferenceTentativelyPlanned event = eventList.getFirst();
-        assertThat(event.conferenceId())
+        assertThat(new PlanTentativeConferenceCommand().execute(dto, now).toList().getFirst().conferenceId())
                 .isEqualTo(conferenceId);
-        assertThat(event.name())
+        assertThat(new PlanTentativeConferenceCommand().execute(dto, now).toList().getFirst().name())
                 .isEqualTo("Successful Conference");
-        assertThat(event.startDate())
+        assertThat(new PlanTentativeConferenceCommand().execute(dto, now).toList().getFirst().startDate())
                 .isEqualTo(dto.getStartDate());
-        assertThat(event.venueAddress().street())
+        assertThat(new PlanTentativeConferenceCommand().execute(dto, now).toList().getFirst().venueAddress().street())
                 .isEqualTo("Test Street");
     }
 }

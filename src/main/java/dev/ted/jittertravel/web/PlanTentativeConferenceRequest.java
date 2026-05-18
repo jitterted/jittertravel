@@ -1,10 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.domain.Address;
-import dev.ted.jittertravel.domain.ConferenceId;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 public class PlanTentativeConferenceRequest {
     private String conferenceId;

@@ -31,19 +31,17 @@ class TentativeConferenceProjectorTest {
                 "Venue",
                 address
         );
-        StoredEvent storedEvent = new StoredEvent(1, event.getClass(), UUID.randomUUID(), Instant.now(), event);
+        StoredEvent storedEvent = new StoredEvent(1, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID());
 
         projector.handle(Stream.of(storedEvent));
 
-        List<TentativeConferenceView> views = projector.views();
-        assertThat(views)
+        assertThat(projector.views())
                 .hasSize(1);
-        TentativeConferenceView view = views.getFirst();
-        assertThat(view.conferenceId())
+        assertThat(projector.views().getFirst().conferenceId())
                 .isEqualTo(conferenceId);
-        assertThat(view.name())
+        assertThat(projector.views().getFirst().name())
                 .isEqualTo("Conference Name");
-        assertThat(view.city())
+        assertThat(projector.views().getFirst().city())
                 .isEqualTo("Venue City");
     }
 
@@ -70,8 +68,8 @@ class TentativeConferenceProjectorTest {
         );
 
         projector.handle(Stream.of(
-                new StoredEvent(1, laterEvent.getClass(), UUID.randomUUID(), Instant.now(), laterEvent),
-                new StoredEvent(2, earlierEvent.getClass(), UUID.randomUUID(), Instant.now(), earlierEvent)
+                new StoredEvent(1, laterEvent.getClass(), UUID.randomUUID(), Instant.now(), laterEvent, UUID.randomUUID()),
+                new StoredEvent(2, earlierEvent.getClass(), UUID.randomUUID(), Instant.now(), earlierEvent, UUID.randomUUID())
         ));
 
         assertThat(projector.views())

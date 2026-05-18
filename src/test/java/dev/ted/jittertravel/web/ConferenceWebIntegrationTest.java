@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.TentativeConferenceProjector;
+import dev.ted.jittertravel.infrastructure.AbstractTestcontainerIntegrationTest;
 import dev.ted.jittertravel.infrastructure.InMemoryEventStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class ConferenceWebIntegrationTest {
+class ConferenceWebIntegrationTest extends AbstractTestcontainerIntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;
@@ -27,7 +28,7 @@ class ConferenceWebIntegrationTest {
     private TentativeConferenceProjector projector;
 
     @Test
-    void planConferenceFlowSavesEventAndRedirectsToList() throws Exception {
+    void planConferenceFlowSavesEventAndRedirectsToList() {
         LocalDateTime futureStart = LocalDateTime.now().plusDays(2);
         LocalDateTime futureEnd = futureStart.plusDays(2);
 
@@ -53,6 +54,7 @@ class ConferenceWebIntegrationTest {
 
         assertThat(mockMvc.get().uri("/tentative-conferences"))
                 .hasStatusOk()
-                .bodyText().contains("Event Sourcing Conference", "ES City");
+                .bodyText()
+                .contains("Event Sourcing Conference", "ES City");
     }
 }

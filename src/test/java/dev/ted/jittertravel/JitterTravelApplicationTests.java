@@ -1,11 +1,11 @@
 package dev.ted.jittertravel;
 
+import dev.ted.jittertravel.infrastructure.AbstractTestcontainerIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 
 @SpringBootTest
-class JitterTravelApplicationTests {
+class JitterTravelApplicationTests extends AbstractTestcontainerIntegrationTest {
 
     @Test
     void contextLoads() {

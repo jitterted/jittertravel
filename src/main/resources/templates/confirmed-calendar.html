@@ -3,12 +3,40 @@
 <head>
     <title>Confirmed Calendar</title>
     <style>
+        :root {
+            /* Neutral palette */
+            --calendar-border: #dee2e6;
+            --calendar-border-strong: darkgray;
+            --calendar-surface: #ffffff;
+            --calendar-header-bg: #f8f9fa;
+            --calendar-text-secondary: #495057;
+
+            /* Alternating month tints */
+            --calendar-tint-even-day-label: #faf7f7;
+            --calendar-tint-even-lane: #faf7f0;
+            --calendar-tint-odd: #ffffff;
+
+            /* Month-start accent */
+            --calendar-month-start-color: #b45309;
+            --calendar-month-start-border-width: 3px;
+
+            /* Per-kind palettes (background + foreground text) */
+            --entry-conference-bg: #e0e7ff;
+            --entry-conference-fg: #4f46e5;
+            --entry-meetup-bg: #fef3c7;
+            --entry-meetup-fg: #92400e;
+            --entry-flight-bg: #cfeafd;
+            --entry-flight-fg: #075985;
+            --entry-lodging-bg: #dcfce7;
+            --entry-lodging-fg: #166534;
+        }
+
         .calendar-container {
             max-width: 1200px;
             margin: 2rem auto;
             font-family: system-ui, -apple-system, sans-serif;
-            border-left: 1px solid #dee2e6;
-            border-top: 1px solid #dee2e6;
+            border-left: 1px solid var(--calendar-border-strong);
+            border-top: 1px solid var(--calendar-border-strong);
         }
 
         .calendar-header {
@@ -19,12 +47,12 @@
         .calendar-header div {
             text-align: center;
             font-weight: 600;
-            background-color: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-            border-right: 1px solid #dee2e6;
+            background-color: var(--calendar-header-bg);
+            border-bottom: 1px solid var(--calendar-border);
+            border-right: 1px solid var(--calendar-border);
             padding: 12px 0;
             font-size: 0.9rem;
-            color: #495057;
+            color: var(--calendar-text-secondary);
         }
 
         /* Each week is its own CSS grid with day-label row on top and lane sub-rows below. */
@@ -32,41 +60,41 @@
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             /* grid-template-rows is set inline per week based on the number of populated lane sub-rows */
-            background-color: #ffffff;
+            background-color: var(--calendar-surface);
         }
 
         /* Day-label row (top row of every week) */
         .day-label-cell {
             grid-row: 1;
-            border-top: 1px solid darkgray;
-            border-bottom: 1px solid #dee2e6;
-            border-right: 1px solid #dee2e6;
+            border-top: 1px solid var(--calendar-border-strong);
+            border-bottom: 1px solid var(--calendar-border);
+            border-right: 1px solid var(--calendar-border);
             min-height: 40px;
             padding: 6px 8px;
-            background-color: #ffffff;
+            background-color: var(--calendar-surface);
             box-sizing: border-box;
         }
 
-        .day-label-cell.month-tint-even { background-color: #faf7f7; }
-        .day-label-cell.month-tint-odd  { background-color: #ffffff; }
+        .day-label-cell.month-tint-even { background-color: var(--calendar-tint-even-day-label); }
+        .day-label-cell.month-tint-odd  { background-color: var(--calendar-tint-odd); }
 
         /* Month-start L-border on day-label cells only */
         .day-label-cell.is-month-start {
-            border-top: 3px solid #b45309;
-            border-left: 3px solid #b45309;
+            border-top: var(--calendar-month-start-border-width) solid var(--calendar-month-start-color);
+            border-left: var(--calendar-month-start-border-width) solid var(--calendar-month-start-color);
         }
 
         .day-number {
             font-size: 0.9rem;
             font-weight: 500;
-            color: #495057;
+            color: var(--calendar-text-secondary);
             text-align: left;
         }
 
         .day-number.is-month-start {
             font-size: 1.25rem;
             font-weight: 700;
-            color: #b45309;
+            color: var(--calendar-month-start-color);
             letter-spacing: 0.02em;
         }
 
@@ -74,7 +102,7 @@
            tint down through the week. Only vertical day separators here — no
            horizontal borders between swimlanes. */
         .lane-cell {
-            border-right: 1px solid #dee2e6;
+            border-right: 1px solid var(--calendar-border);
             min-height: 64px;
             box-sizing: border-box;
         }
@@ -82,8 +110,8 @@
         /* The last lane sub-row of the week closes the bottom border. Easiest to
            just apply border-bottom to ALL day-label-cells and a CSS rule that the
            bottom-most lane-cells get it too — handled via the week's outer border. */
-        .lane-cell.month-tint-even { background-color: #faf7f0; }
-        .lane-cell.month-tint-odd  { background-color: #ffffff; }
+        .lane-cell.month-tint-even { background-color: var(--calendar-tint-even-lane); }
+        .lane-cell.month-tint-odd  { background-color: var(--calendar-tint-odd); }
 
         /* Lane entry segment: rounded colored block with a small margin so the
            background day-tint shows around it. */
@@ -115,20 +143,20 @@
 
         /* Per-kind colors */
         .entry--conference {
-            background-color: #e0e7ff;
-            color: #4f46e5;
+            background-color: var(--entry-conference-bg);
+            color: var(--entry-conference-fg);
         }
         .entry--meetup {
-            background-color: #fef3c7;
-            color: #92400e;
+            background-color: var(--entry-meetup-bg);
+            color: var(--entry-meetup-fg);
         }
         .entry--flight {
-            background-color: #cfeafd;
-            color: #075985;
+            background-color: var(--entry-flight-bg);
+            color: var(--entry-flight-fg);
         }
         .entry--lodging {
-            background-color: #dcfce7;
-            color: #166534;
+            background-color: var(--entry-lodging-bg);
+            color: var(--entry-lodging-fg);
         }
 
         /* Continuation segments: slight transparency hint that more came before */

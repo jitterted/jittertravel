@@ -10,12 +10,12 @@ import org.springframework.context.annotation.Configuration;
 public class EventSourcingConfig {
 
     @Bean
-    public InMemoryEventStore eventStore(MeterRegistry meterRegistry, PostgresPersister persister) {
-        return new InMemoryEventStore(meterRegistry, persister);
+    public EventStore eventStore(MeterRegistry meterRegistry, PostgresPersister persister) {
+        return new EventStore(meterRegistry, persister);
     }
 
     @Bean
-    public TentativeConferenceProjector tentativeConferenceProjector(InMemoryEventStore eventStore) {
+    public TentativeConferenceProjector tentativeConferenceProjector(EventStore eventStore) {
         TentativeConferenceProjector projector = new TentativeConferenceProjector();
         eventStore.subscribe(projector);
         projector.handle(eventStore.findAll());
@@ -23,7 +23,7 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public ConferencePlanning conferenceApplicationService(InMemoryEventStore eventStore, PostgresPersister persister) {
+    public ConferencePlanning conferenceApplicationService(EventStore eventStore, PostgresPersister persister) {
         return new ConferencePlanning(eventStore, persister);
     }
 }

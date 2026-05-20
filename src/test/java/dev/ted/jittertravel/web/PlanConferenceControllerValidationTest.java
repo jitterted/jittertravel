@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ConferenceControllerValidationTest {
+class PlanConferenceControllerValidationTest {
 
     @Test
     void startDateInThePastIsInvalid() {

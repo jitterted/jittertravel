@@ -109,6 +109,16 @@
       <version>0.1.0</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-devtools</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.j2html</groupId>
+      <artifactId>j2html</artifactId>
+      <version>1.6.0</version>
+    </dependency>
   </dependencies>
   <dependencyManagement>
     <dependencies>

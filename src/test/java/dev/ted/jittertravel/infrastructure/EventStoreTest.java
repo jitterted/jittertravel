@@ -11,11 +11,11 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class InMemoryEventStoreTest {
+class EventStoreTest {
 
     @Test
     void appendingEventsAssignsSequencesAndNotifiesSubscribers() {
-        InMemoryEventStore eventStore = new InMemoryEventStore(new SimpleMeterRegistry(), mockPersister());
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), mockPersister());
         List<StoredEvent> receivedEvents = new ArrayList<>();
         eventStore.subscribe(eventStream -> receivedEvents.addAll(eventStream.toList()));
 
@@ -55,7 +55,6 @@ class InMemoryEventStoreTest {
             @Override public long getMaxSequence() { return 0; }
             @Override public List<StoredEvent> loadAllEvents() { return List.of(); }
             @Override public void appendEvents(List<StoredEvent> events, UUID commandId) {}
-            @Override public void linkCommandToEvents(UUID commandId, List<UUID> eventIds) {}
         };
     }
 

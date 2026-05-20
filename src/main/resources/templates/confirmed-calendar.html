@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Confirmed Calendar</title>
+    <style>
+        .calendar-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            font-family: system-ui, -apple-system, sans-serif;
+            border-left: 1px solid #dee2e6;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .calendar-header, .calendar-week {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+
+        .calendar-header div {
+            text-align: center;
+            font-weight: 600;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            border-right: 1px solid #dee2e6;
+            padding: 12px 0;
+            font-size: 0.9rem;
+            color: #495057;
+        }
+
+        .calendar-cell {
+            border-bottom: 1px solid #dee2e6;
+            border-right: 1px solid #dee2e6;
+            min-height: 120px;
+            padding: 8px;
+            background-color: #ffffff;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Event Cell Styles */
+        .calendar-cell.has-event {
+            background-color: #e0e7ff;
+            color: #4f46e5;
+            padding: 0; /* inner .event-grid handles spacing so month-edge border sits flush */
+            /* Subtle inner halo so the indigo block reads as distinct from the grid borders */
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.65);
+            display: block;
+        }
+
+        .calendar-cell.is-continuation { border-left-color: transparent; }
+        .calendar-cell.not-native-end  { border-right-color: transparent; }
+
+        .calendar-cell .event-details {
+            text-align: center;
+            padding: 4px 12px 12px;
+        }
+
+        /* Typography Elements */
+        .day-number { font-size: 0.85rem; color: #495057; width: 100%; text-align: left; }
+        .event-title { font-weight: 700; font-size: 0.95rem; letter-spacing: 0.01em; }
+        .event-location { font-size: 0.8rem; font-weight: 500; opacity: 0.95; margin-top: 3px; }
+
+        /* Event cells: a per-day sub-grid (one column per day) plus a row that spans all
+           columns for the centered event title/location. */
+        .event-grid {
+            display: grid;
+            width: 100%;
+            height: 100%;
+            grid-template-rows: auto 1fr;
+        }
+
+        .event-grid .event-day {
+            padding: 8px 6px 4px;
+        }
+
+        .event-grid .event-details {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .event-grid .day-number {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #4f46e5;
+            text-align: left;
+        }
+
+        /* Alternating month tint — applied only to empty cells; event cells keep their event color. */
+        .calendar-cell.month-tint-even { background-color: #faf7f0; }
+        .calendar-cell.month-tint-odd  { background-color: #ffffff; }
+        .calendar-cell.has-event.month-tint-even,
+        .calendar-cell.has-event.month-tint-odd { background-color: #e0e7ff; }
+
+        /* Month break: first day of a new month (or first visible cell). Overrides border properties last. */
+        .calendar-cell.is-month-start {
+            border-top: 3px solid #b45309;
+            border-left: 3px solid #b45309;
+        }
+
+        /* Same L-shaped amber treatment for an event sub-cell that represents the first day
+           of a new month — the border sits at the column boundary of the new-month day,
+           inside the spanning event cell. */
+        .event-day.is-month-start {
+            border-top: 3px solid #b45309;
+            border-left: 3px solid #b45309;
+        }
+
+        /* Big amber type for any day-number representing the start of a new month
+           (works for both empty cells and the per-day labels inside event cells). */
+        .day-number.is-month-start {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #b45309;
+            letter-spacing: 0.02em;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+<div th:utext="${calendarMarkup}"></div>
+</body>
+</html>

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Command / Event Timeline</title>
+    <link rel="stylesheet" href="/site.css"/>
+    <style>
+        .timeline-container {
+            max-width: 110ch;
+            margin: 1.5rem auto;
+            padding: 0 1rem;
+        }
+
+        .timeline-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .timeline-toolbar .meta {
+            color: var(--muted-text);
+            font-size: 0.9rem;
+        }
+
+        .timeline-toolbar a,
+        .timeline-toolbar .disabled {
+            text-decoration: none;
+            padding: 4px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--accent-color);
+            background: var(--header-bg);
+            font-size: 0.9rem;
+        }
+
+        .timeline-toolbar .disabled {
+            color: var(--muted-text);
+            background: transparent;
+            cursor: not-allowed;
+        }
+
+        .timeline-entry {
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--accent-color);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            background: var(--bg-color);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+        }
+
+        .timeline-entry.failed {
+            border-left-color: #c0392b;
+            opacity: 0.85;
+        }
+
+        .timeline-entry.out-of-order {
+            border-left-color: #d97706;
+        }
+
+        .command-header {
+            padding: 0.75rem 1rem;
+            background: var(--header-bg);
+            display: flex;
+            align-items: baseline;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .command-header .badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .badge.command {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .badge.failed {
+            background: #c0392b;
+            color: white;
+        }
+
+        .badge.out-of-order {
+            background: #d97706;
+            color: white;
+        }
+
+        .command-type {
+            font-weight: 600;
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 0.95rem;
+        }
+
+        .command-timestamp {
+            color: var(--muted-text);
+            font-size: 0.85rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .command-id {
+            color: var(--muted-text);
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 0.75rem;
+            margin-left: auto;
+        }
+
+        details {
+            margin: 0;
+            border-top: 1px solid var(--border-color);
+        }
+
+        details > summary {
+            cursor: pointer;
+            padding: 0.4rem 1rem;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+            user-select: none;
+        }
+
+        details > summary:hover {
+            background: var(--hover-bg);
+        }
+
+        details pre {
+            margin: 0;
+            padding: 0.75rem 1rem;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-size: 0.8rem;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        .events {
+            list-style: none;
+            margin: 0;
+            padding: 0.5rem 1rem 0.75rem 2.25rem;
+            background: var(--event-bg);
+        }
+
+        .events.empty {
+            color: var(--muted-text);
+            font-style: italic;
+            padding: 0.5rem 1rem 0.75rem 2.25rem;
+        }
+
+        .event-item {
+            position: relative;
+            margin: 0.35rem 0;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 6px;
+            background: var(--bg-color);
+        }
+
+        .event-item::before {
+            content: "";
+            position: absolute;
+            top: 1.05rem;
+            left: -1rem;
+            width: 0.85rem;
+            border-top: 2px solid var(--accent-color);
+        }
+
+        .event-header {
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            align-items: baseline;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        .event-seq {
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 0.75rem;
+            color: var(--accent-color);
+            background: var(--header-bg);
+            padding: 1px 6px;
+            border-radius: 3px;
+        }
+
+        .event-type {
+            font-weight: 600;
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 0.85rem;
+        }
+
+        .event-timestamp {
+            color: var(--muted-text);
+            font-size: 0.78rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .event-id {
+            color: var(--muted-text);
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 0.7rem;
+            margin-left: auto;
+        }
+
+        h1 {
+            margin-top: 1rem;
+            font-size: 1.6rem;
+        }
+    </style>
+</head>
+<body>
+<nav><h3><a href="/">JitterTravel</a></h3></nav>
+<div class="timeline-container">
+    <h1>Command / Event Timeline</h1>
+
+    <div class="timeline-toolbar">
+        <span class="meta">
+            <span th:text="${totalCommands}">0</span> commands total —
+            page <span th:text="${page + 1}">1</span> of <span th:text="${totalPages}">1</span>
+            (<span th:text="${pageSize}">50</span> per page)
+        </span>
+        <span>
+            <a th:if="${reverse}"
+               th:href="@{/timeline/commands(page=${page}, reverse=false)}">Oldest first ↑</a>
+            <a th:unless="${reverse}"
+               th:href="@{/timeline/commands(page=${page}, reverse=true)}">Newest first ↓</a>
+        </span>
+        <span>
+            <a th:if="${hasPrev}"
+               th:href="@{/timeline/commands(page=${page - 1}, reverse=${reverse})}">‹ Previous</a>
+            <span th:unless="${hasPrev}" class="disabled">‹ Previous</span>
+            <a th:if="${hasNext}"
+               th:href="@{/timeline/commands(page=${page + 1}, reverse=${reverse})}">Next ›</a>
+            <span th:unless="${hasNext}" class="disabled">Next ›</span>
+        </span>
+    </div>
+
+    <p th:if="${entries.isEmpty()}" style="color: var(--muted-text); font-style: italic;">
+        No commands recorded yet.
+    </p>
+
+    <article th:each="entry : ${entries}"
+             class="timeline-entry"
+             th:classappend="${entry.failed()} ? ' failed' : (${entry.outOfOrder()} ? ' out-of-order' : '')">
+
+        <header class="command-header">
+            <span class="badge command">Command</span>
+            <span th:if="${entry.failed()}" class="badge failed" title="No events produced — likely validation failure">Failed</span>
+            <span th:if="${entry.outOfOrder()}" class="badge out-of-order"
+                  title="This command's event sequence numbers are interleaved with an earlier command's events">Out of order</span>
+            <span class="command-type" th:text="${entry.command().simpleType()}">CommandType</span>
+            <span class="command-timestamp" th:text="${#temporals.format(entry.command().timestamp(), 'yyyy-MM-dd HH:mm:ss.SSS z')}">ts</span>
+            <span class="command-id" th:text="${entry.command().commandId()}">command-uuid</span>
+        </header>
+
+        <details>
+            <summary>Command payload (JSON)</summary>
+            <pre th:text="${entry.command().payloadJson()}">{}</pre>
+        </details>
+
+        <ul class="events" th:if="${!entry.events().isEmpty()}">
+            <li th:each="event : ${entry.events()}" class="event-item">
+                <div class="event-header">
+                    <span class="event-seq" th:text="'seq ' + ${event.sequence()}">seq 1</span>
+                    <span class="event-type" th:text="${event.simpleType()}">EventType</span>
+                    <span class="event-timestamp" th:text="${#temporals.format(event.timestamp(), 'yyyy-MM-dd HH:mm:ss.SSS z')}">ts</span>
+                    <span class="event-id" th:text="${event.eventId()}">event-uuid</span>
+                </div>
+                <details>
+                    <summary>Event payload (JSON)</summary>
+                    <pre th:text="${event.payloadJson()}">{}</pre>
+                </details>
+            </li>
+        </ul>
+        <div class="events empty" th:if="${entry.events().isEmpty()}">
+            No events produced by this command.
+        </div>
+    </article>
+
+    <div class="timeline-toolbar" th:if="${totalPages > 1}">
+        <span></span>
+        <span>
+            <a th:if="${hasPrev}"
+               th:href="@{/timeline/commands(page=${page - 1}, reverse=${reverse})}">‹ Previous</a>
+            <span th:unless="${hasPrev}" class="disabled">‹ Previous</span>
+            <a th:if="${hasNext}"
+               th:href="@{/timeline/commands(page=${page + 1}, reverse=${reverse})}">Next ›</a>
+            <span th:unless="${hasNext}" class="disabled">Next ›</span>
+        </span>
+    </div>
+</div>
+</body>
+</html>

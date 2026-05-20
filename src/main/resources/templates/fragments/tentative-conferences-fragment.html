@@ -1,27 +1,30 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <body>
-<div th:fragment="list">
-    <table>
-        <thead>
-        <tr>
-            <th>Name</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>City</th>
-            <th>Country</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="conference : ${conferences}">
-            <td th:text="${conference.name}">Conference Name</td>
-            <td th:text="${#temporals.format(conference.startDate, 'yyyy-MM-dd HH:mm')}">2026-01-01 09:00</td>
-            <td th:text="${#temporals.format(conference.endDate, 'yyyy-MM-dd HH:mm')}">2026-01-03 17:00</td>
-            <td th:text="${conference.city}">City</td>
-            <td th:text="${conference.country}">Country</td>
-        </tr>
-        </tbody>
-    </table>
+<div th:fragment="list" class="conference-container">
+
+    <div class="table-responsive">
+        <table class="conference-table">
+            <thead>
+            <tr>
+                <th>Name</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>City</th>
+                <th>Country</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="conference : ${conferences}">
+                <td class="conf-name" th:text="${conference.name}">Conference Name</td>
+                <td th:text="${#temporals.format(conference.startDate, 'yyyy-MM-dd HH:mm')}">2026-01-01 09:00</td>
+                <td th:text="${#temporals.format(conference.endDate, 'yyyy-MM-dd HH:mm')}">2026-01-03 17:00</td>
+                <td th:text="${conference.city}">City</td>
+                <td th:text="${conference.country}">Country</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 </body>
 </html>

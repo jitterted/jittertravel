@@ -2,7 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.TentativeConferenceProjector;
 import dev.ted.jittertravel.infrastructure.AbstractTestcontainerIntegrationTest;
-import dev.ted.jittertravel.infrastructure.InMemoryEventStore;
+import dev.ted.jittertravel.infrastructure.EventStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,7 +22,7 @@ class ConferenceWebIntegrationTest extends AbstractTestcontainerIntegrationTest 
     private MockMvcTester mockMvc;
 
     @Autowired
-    private InMemoryEventStore eventStore;
+    private EventStore eventStore;
 
     @Autowired
     private TentativeConferenceProjector projector;

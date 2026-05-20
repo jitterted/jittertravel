@@ -2,8 +2,8 @@ services:
   postgres:
     image: postgres:18-alpine
     environment:
+      POSTGRES_DB: jittertravel
       POSTGRES_USER: jitter
       POSTGRES_PASSWORD: travel
-      POSTGRES_DB: jittertravel
     ports:
       - "5432:5432"

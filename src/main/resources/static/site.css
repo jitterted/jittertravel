@@ -1,0 +1,20 @@
+:root {
+    --bg-color: #ffffff;
+    --text-color: #212529;
+    --border-color: #dee2e6;
+    --header-bg: #f8f9fa;
+    --accent-color: #4f46e5;
+    --muted-text: #495057;
+    --hover-bg: #fdfdfd;
+    --event-bg: #e0e7ff;
+    --font-main: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+body {
+    font-family: var(--font-main);
+    color: var(--text-color);
+    background-color: var(--bg-color);
+    line-height: 1.5;
+    margin: 1rem;
+    padding: 0;
+}

@@ -8,8 +8,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Repository
 public class PostgresPersister {
@@ -39,8 +38,8 @@ public class PostgresPersister {
     }
 
     public void appendEvents(List<StoredEvent> events, UUID commandId) {
-        for (StoredEvent event : events) {
-            try {
+        try {
+            for (StoredEvent event : events) {
                 StoredEventRow row = StoredEventRow.fromStoredEvent(event, jsonMapper);
 
                 jdbcClient.sql("""
@@ -54,13 +53,14 @@ public class PostgresPersister {
                         .param("type", row.type())
                         .param("payloadJson", row.payloadJson())
                         .update();
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to persist event", e);
             }
+            linkCommandToEvents(commandId, events.stream().map(StoredEvent::eventId).toList());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to persist event and link to command", e);
         }
     }
 
-    public void linkCommandToEvents(UUID commandId, List<UUID> eventIds) {
+    private void linkCommandToEvents(UUID commandId, List<UUID> eventIds) {
         jdbcClient.sql("""
                         UPDATE command_log
                         SET event_ids = :eventIds
@@ -69,6 +69,102 @@ public class PostgresPersister {
                 .param("eventIds", eventIds.toArray(new UUID[0]))
                 .param("commandId", commandId)
                 .update();
+    }
+
+    public int countCommands() {
+        Long count = jdbcClient.sql("SELECT COUNT(*) FROM command_log")
+                .query(Long.class)
+                .single();
+        return count.intValue();
+    }
+
+    /**
+     * Loads a page of commands (oldest first) along with their resulting events.
+     * Within the returned page, an entry is marked {@code outOfOrder} if its events'
+     * sequence numbers start before the running max sequence of previously-listed
+     * commands (i.e. its events are interleaved with an earlier command's events).
+     */
+    public List<TimelineEntry> loadTimelinePage(int offset, int limit) {
+        List<TimelineCommand> commands = jdbcClient.sql("""
+                        SELECT command_id   AS commandId,
+                               timestamp,
+                               type,
+                               payload::text AS payloadJson
+                        FROM command_log
+                        ORDER BY timestamp ASC, command_id ASC
+                        LIMIT :limit OFFSET :offset
+                        """)
+                .param("limit", limit)
+                .param("offset", offset)
+                .query(TimelineCommand.class)
+                .list()
+                .stream()
+                .map(c -> new TimelineCommand(c.commandId(), c.timestamp(), c.type(), prettyJson(c.payloadJson())))
+                .toList();
+
+        if (commands.isEmpty()) {
+            return List.of();
+        }
+
+        UUID[] commandIds = commands.stream().map(TimelineCommand::commandId).toArray(UUID[]::new);
+
+        Map<UUID, List<TimelineEvent>> eventsByCommand = new HashMap<>();
+        jdbcClient.sql("""
+                        SELECT command_id   AS commandId,
+                               sequence,
+                               event_id     AS eventId,
+                               timestamp,
+                               type,
+                               payload::text AS payloadJson
+                        FROM event_log
+                        WHERE command_id = ANY(:commandIds)
+                        ORDER BY sequence
+                        """)
+                .param("commandIds", commandIds)
+                .query((rs, rowNum) -> {
+                    UUID cmdId = (UUID) rs.getObject("commandId");
+                    TimelineEvent event = new TimelineEvent(
+                            rs.getLong("sequence"),
+                            (UUID) rs.getObject("eventId"),
+                            rs.getObject("timestamp", OffsetDateTime.class),
+                            rs.getString("type"),
+                            prettyJson(rs.getString("payloadJson"))
+                    );
+                    eventsByCommand.computeIfAbsent(cmdId, k -> new ArrayList<>()).add(event);
+                    return event;
+                })
+                .list();
+
+        List<TimelineEntry> entries = new ArrayList<>(commands.size());
+        long runningMaxSeq = Long.MIN_VALUE;
+        for (TimelineCommand command : commands) {
+            List<TimelineEvent> events = eventsByCommand.getOrDefault(command.commandId(), List.of());
+            boolean failed = events.isEmpty();
+            boolean outOfOrder = false;
+            if (!events.isEmpty()) {
+                long minSeq = events.getFirst().sequence();
+                long maxSeq = events.getLast().sequence();
+                if (runningMaxSeq != Long.MIN_VALUE && minSeq < runningMaxSeq) {
+                    outOfOrder = true;
+                }
+                if (maxSeq > runningMaxSeq) {
+                    runningMaxSeq = maxSeq;
+                }
+            }
+            entries.add(new TimelineEntry(command, events, failed, outOfOrder));
+        }
+        return entries;
+    }
+
+    private String prettyJson(String rawJson) {
+        if (rawJson == null) {
+            return "";
+        }
+        try {
+            return jsonMapper.readTree(rawJson).toPrettyString();
+        } catch (Exception e) {
+            return rawJson;
+        }
     }
 
     public long getMaxSequence() {

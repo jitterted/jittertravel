@@ -117,6 +117,7 @@ A detail/edit screen opened from the list selection. It is populated from
 - flight number
 - departure airport and date/time
 - arrival airport and date/time
+- (new information) reason for change (string, optional)
 
 Submitting the form issues a `ChangeFlightCommand`.
 
@@ -157,7 +158,7 @@ The same rules that apply when booking a flight apply here.
 > **And** all submitted field values satisfy the rules above
 > **When** a `ChangeFlightCommand` is received
 > **Then** a `FlightChanged` event is emitted carrying the full new snapshot of
-> the flight's details.
+> the flight's details including the reason for the change (if any).
 
 ---
 

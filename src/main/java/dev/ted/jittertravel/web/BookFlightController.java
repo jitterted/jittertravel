@@ -74,7 +74,7 @@ public class BookFlightController {
             return "book-flight";
         }
 
-        return "redirect:/";
+        return "redirect:/booked-flights";
     }
 
     @PostMapping("/book-flight/lookup")

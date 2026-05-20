@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.infrastructure.AbstractTestcontainerIntegrationTest;
 import dev.ted.jittertravel.infrastructure.EventStore;
+import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,7 +26,7 @@ class BookFlightWebIntegrationTest extends AbstractTestcontainerIntegrationTest 
     private EventStore eventStore;
 
     @Test
-    void bookFlightFlowSavesEventAndRedirectsHome() {
+    void bookFlightFlowSavesEventAndRedirectsToBookedFlights() {
         LocalDateTime departure = LocalDateTime.now().plusDays(2);
         LocalDateTime arrival = departure.plusHours(5);
 
@@ -38,12 +39,12 @@ class BookFlightWebIntegrationTest extends AbstractTestcontainerIntegrationTest 
                 .param("arrivalAirport", "JFK")
                 .param("arrivalDateTime", arrival.toString()))
                 .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/");
+                .hasRedirectedUrl("/booked-flights");
 
         // Filter by this test's specific flight number so the assertion is
         // robust against other integration tests sharing the in-memory EventStore.
         FlightBooked booked = eventStore.findAll()
-                .map(se -> se.payload())
+                .map(StoredEvent::payload)
                 .filter(p -> p instanceof FlightBooked)
                 .map(p -> (FlightBooked) p)
                 .filter(fb -> "UA100".equals(fb.flightNumber()))

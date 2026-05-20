@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.application.BookedFlightsProjector;
 import dev.ted.jittertravel.application.ConferenceCalendarProjector;
 import dev.ted.jittertravel.application.ConferencePlanning;
 import dev.ted.jittertravel.application.FlightBooking;
@@ -52,6 +53,14 @@ public class EventSourcingConfig {
     @Bean
     public FlightCalendarProjector flightCalendarProjector(EventStore eventStore) {
         FlightCalendarProjector projector = new FlightCalendarProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
+
+    @Bean
+    public BookedFlightsProjector bookedFlightsProjector(EventStore eventStore) {
+        BookedFlightsProjector projector = new BookedFlightsProjector();
         eventStore.subscribe(projector);
         projector.handle(eventStore.findAll());
         return projector;

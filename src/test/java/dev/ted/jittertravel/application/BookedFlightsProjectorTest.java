@@ -1,0 +1,84 @@
+package dev.ted.jittertravel.application;
+
+import dev.ted.jittertravel.domain.AirportCode;
+import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.infrastructure.StoredEvent;
+import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class BookedFlightsProjectorTest {
+
+    @Test
+    void flightBookedProducesViewWithRouteAndFormattedDeparture() {
+        BookedFlightsProjector projector = new BookedFlightsProjector();
+        FlightId flightId = FlightId.random();
+        FlightBooked event = new FlightBooked(
+                flightId,
+                "United Airlines",
+                "UA59",
+                AirportCode.of("SFO"),
+                LocalDateTime.of(2026, 6, 6, 13, 55),
+                AirportCode.of("FRA"),
+                LocalDateTime.of(2026, 6, 7, 9, 45)
+        );
+
+        projector.handle(Stream.of(stored(event)));
+
+        List<BookedFlightView> views = projector.views();
+        assertThat(views).hasSize(1);
+        BookedFlightView view = views.getFirst();
+        assertThat(view.flightId()).isEqualTo(flightId);
+        assertThat(view.airline()).isEqualTo("United Airlines");
+        assertThat(view.flightNumber()).isEqualTo("UA59");
+        assertThat(view.route()).isEqualTo("SFO\u2192FRA");
+        assertThat(view.departureDateTimeDisplay()).isEqualTo("6-06-2026 1:55PM");
+    }
+
+    @Test
+    void viewsAreSortedByDepartureDateTimeAscending() {
+        BookedFlightsProjector projector = new BookedFlightsProjector();
+        FlightBooked later = sampleFlight("UA2", LocalDateTime.of(2026, 7, 1, 9, 0));
+        FlightBooked earlier = sampleFlight("UA1", LocalDateTime.of(2026, 6, 1, 9, 0));
+
+        projector.handle(Stream.of(stored(later), stored(earlier)));
+
+        assertThat(projector.views())
+                .extracting(BookedFlightView::flightNumber)
+                .containsExactly("UA1", "UA2");
+    }
+
+    @Test
+    void replayingTheSameEventIsIdempotent() {
+        BookedFlightsProjector projector = new BookedFlightsProjector();
+        FlightBooked event = sampleFlight("UA1", LocalDateTime.of(2026, 6, 6, 13, 55));
+
+        projector.handle(Stream.of(stored(event)));
+        projector.handle(Stream.of(stored(event)));
+
+        assertThat(projector.views()).hasSize(1);
+    }
+
+    private static FlightBooked sampleFlight(String number, LocalDateTime departure) {
+        return new FlightBooked(
+                FlightId.random(),
+                "United",
+                number,
+                AirportCode.of("SFO"),
+                departure,
+                AirportCode.of("LAX"),
+                departure.plusHours(2)
+        );
+    }
+
+    private static StoredEvent stored(FlightBooked event) {
+        return new StoredEvent(1, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID());
+    }
+}

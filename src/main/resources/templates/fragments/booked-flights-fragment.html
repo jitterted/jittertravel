@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+<div th:fragment="list" class="conference-container">
+
+    <div th:if="${flights.isEmpty()}" class="empty-state">
+        <p>No flights booked yet.</p>
+        <p><a th:href="@{/book-flight}">Book a flight</a></p>
+    </div>
+
+    <div th:unless="${flights.isEmpty()}" class="table-responsive">
+        <table class="conference-table">
+            <thead>
+            <tr>
+                <th>Departure</th>
+                <th>Route</th>
+                <th>Airline</th>
+                <th>Flight Number</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="flight : ${flights}">
+                <td class="conf-name" th:text="${flight.departureDateTimeDisplay}">6-06-2026 1:55PM</td>
+                <td th:text="${flight.route}">SFO&#8594;FRA</td>
+                <td th:text="${flight.airline}">United</td>
+                <td th:text="${flight.flightNumber}">UA100</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>

@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.AirportCode;
+import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -30,7 +32,7 @@ class BookedFlightsProjectorTest {
                 LocalDateTime.of(2026, 6, 7, 9, 45)
         );
 
-        projector.handle(Stream.of(stored(event)));
+        projector.handle(Stream.of(stored(event, instant(2026, 5, 20, 12, 22))));
 
         List<BookedFlightView> views = projector.views();
         assertThat(views).hasSize(1);
@@ -40,6 +42,10 @@ class BookedFlightsProjectorTest {
         assertThat(view.flightNumber()).isEqualTo("UA59");
         assertThat(view.route()).isEqualTo("SFO\u2192FRA");
         assertThat(view.departureDateTimeDisplay()).isEqualTo("6-06-2026 1:55PM");
+        assertThat(view.hasChanges()).isFalse();
+        assertThat(view.history())
+                .extracting(ChangeEntry::displayText)
+                .containsExactly("Booked on 2026-05-20 12:22PM");
     }
 
     @Test
@@ -48,7 +54,7 @@ class BookedFlightsProjectorTest {
         FlightBooked later = sampleFlight("UA2", LocalDateTime.of(2026, 7, 1, 9, 0));
         FlightBooked earlier = sampleFlight("UA1", LocalDateTime.of(2026, 6, 1, 9, 0));
 
-        projector.handle(Stream.of(stored(later), stored(earlier)));
+        projector.handle(Stream.of(stored(later, Instant.now()), stored(earlier, Instant.now())));
 
         assertThat(projector.views())
                 .extracting(BookedFlightView::flightNumber)
@@ -56,14 +62,18 @@ class BookedFlightsProjectorTest {
     }
 
     @Test
-    void replayingTheSameEventIsIdempotent() {
+    void replayingTheSameEventTwiceProducesTwoHistoryEntriesForOneFlight() {
+        // Replay through the projector is a one-way "events happened" stream;
+        // it does not de-duplicate. The list still has one row per flight,
+        // but its history reflects what was actually observed.
         BookedFlightsProjector projector = new BookedFlightsProjector();
         FlightBooked event = sampleFlight("UA1", LocalDateTime.of(2026, 6, 6, 13, 55));
 
-        projector.handle(Stream.of(stored(event)));
-        projector.handle(Stream.of(stored(event)));
+        projector.handle(Stream.of(stored(event, Instant.now())));
+        projector.handle(Stream.of(stored(event, Instant.now())));
 
         assertThat(projector.views()).hasSize(1);
+        assertThat(projector.views().getFirst().history()).hasSize(2);
     }
 
     private static FlightBooked sampleFlight(String number, LocalDateTime departure) {
@@ -78,7 +88,13 @@ class BookedFlightsProjectorTest {
         );
     }
 
-    private static StoredEvent stored(FlightBooked event) {
-        return new StoredEvent(1, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID());
+    private static StoredEvent stored(Event event, Instant timestamp) {
+        return new StoredEvent(1, event.getClass(), UUID.randomUUID(), timestamp, event, UUID.randomUUID());
+    }
+
+    private static Instant instant(int year, int month, int day, int hour, int minute) {
+        return LocalDateTime.of(year, month, day, hour, minute)
+                .atZone(ZoneId.systemDefault())
+                .toInstant();
     }
 }

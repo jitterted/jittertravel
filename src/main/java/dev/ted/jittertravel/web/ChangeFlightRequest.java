@@ -1,0 +1,99 @@
+package dev.ted.jittertravel.web;
+
+import org.springframework.format.annotation.DateTimeFormat;
+
+import java.time.LocalDateTime;
+
+public class ChangeFlightRequest {
+    private String flightId;
+    private String airline;
+    private String flightNumber;
+    private String departureAirport;
+    @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
+    private LocalDateTime departureDateTime;
+    private String arrivalAirport;
+    @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
+    private LocalDateTime arrivalDateTime;
+    private String reason;
+
+    public ChangeFlightRequest() {
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
+    }
+
+    public String getFlightId() {
+        return flightId;
+    }
+
+    public void setFlightId(String flightId) {
+        this.flightId = flightId;
+    }
+
+    public String getAirline() {
+        return airline;
+    }
+
+    public void setAirline(String airline) {
+        this.airline = airline;
+    }
+
+    public String getFlightNumber() {
+        return flightNumber;
+    }
+
+    public void setFlightNumber(String flightNumber) {
+        this.flightNumber = flightNumber;
+    }
+
+    public String getDepartureAirport() {
+        return departureAirport;
+    }
+
+    public void setDepartureAirport(String departureAirport) {
+        this.departureAirport = departureAirport;
+    }
+
+    public LocalDateTime getDepartureDateTime() {
+        return departureDateTime;
+    }
+
+    public void setDepartureDateTime(LocalDateTime departureDateTime) {
+        this.departureDateTime = departureDateTime;
+    }
+
+    public String getArrivalAirport() {
+        return arrivalAirport;
+    }
+
+    public void setArrivalAirport(String arrivalAirport) {
+        this.arrivalAirport = arrivalAirport;
+    }
+
+    public LocalDateTime getArrivalDateTime() {
+        return arrivalDateTime;
+    }
+
+    public void setArrivalDateTime(LocalDateTime arrivalDateTime) {
+        this.arrivalDateTime = arrivalDateTime;
+    }
+
+    @Override
+    public String toString() {
+        return "ChangeFlightRequest {" +
+                "flightId='" + flightId + '\'' +
+                ", airline='" + airline + '\'' +
+                ", flightNumber='" + flightNumber + '\'' +
+                ", departureAirport='" + departureAirport + '\'' +
+                ", departureDateTime=" + departureDateTime +
+                ", arrivalAirport='" + arrivalAirport + '\'' +
+                ", arrivalDateTime=" + arrivalDateTime +
+                ", reason='" + reason + '\'' +
+                '}';
+    }
+}

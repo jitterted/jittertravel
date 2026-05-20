@@ -1,11 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
-import dev.ted.jittertravel.application.BookedFlightsProjector;
-import dev.ted.jittertravel.application.ConferenceCalendarProjector;
-import dev.ted.jittertravel.application.ConferencePlanning;
-import dev.ted.jittertravel.application.FlightBooking;
-import dev.ted.jittertravel.application.FlightCalendarProjector;
-import dev.ted.jittertravel.application.TentativeConferenceProjector;
+import dev.ted.jittertravel.application.*;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -64,5 +59,18 @@ public class EventSourcingConfig {
         eventStore.subscribe(projector);
         projector.handle(eventStore.findAll());
         return projector;
+    }
+
+    @Bean
+    public FlightDetailsViewProjector flightDetailsViewProjector(EventStore eventStore) {
+        FlightDetailsViewProjector projector = new FlightDetailsViewProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
+
+    @Bean
+    public ChangeFlight changeFlightApplicationService(EventStore eventStore, PostgresPersister persister) {
+        return new ChangeFlight(eventStore, persister);
     }
 }

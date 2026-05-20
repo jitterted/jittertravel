@@ -10,37 +10,83 @@
             padding: 0 1rem;
         }
 
-        .conference-table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
+        .flight-cards {
+            display: flex;
+            flex-direction: column;
             margin-top: 1rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            background-color: var(--surface, #fff);
             border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             overflow: hidden;
         }
 
-        .conference-table th,
-        .conference-table td {
+        .flight-card-header,
+        .flight-card-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 2fr 1fr 28px;
+            align-items: center;
+            gap: 0.75rem;
             padding: 10px 16px;
-            border-bottom: 1px solid var(--border-color);
         }
 
-        .conference-table th {
+        .flight-card-header {
             background-color: var(--header-bg);
             color: var(--muted-text);
             font-weight: 600;
             text-transform: uppercase;
             font-size: 0.75rem;
             letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border-color);
         }
 
-        .conference-table tbody tr:last-child td {
+        .flight-card {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .flight-card:last-child {
             border-bottom: none;
         }
 
-        .conference-table tbody tr:hover {
+        /* Subtle tint so changed flights stand apart from booking-only rows */
+        .flight-card-has-history {
+            background-color: rgb(255 200 200 / 0.05);
+        }
+
+        /* Plain (non-expandable) row hover */
+        div.flight-card-row:hover {
             background-color: var(--hover-bg);
+        }
+
+        /* <details>-wrapped row */
+        .flight-card-has-history > summary {
+            cursor: pointer;
+            list-style: none;          /* hide default marker (most browsers) */
+        }
+
+        .flight-card-has-history > summary::-webkit-details-marker {
+            display: none;             /* hide default marker (WebKit) */
+        }
+
+        .flight-card-has-history > summary:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .flight-card-chevron::before {
+            content: "⚡️"; /*\25B8*/         /* ▸ */
+            color: var(--muted-text);
+            transition: transform 0.15s ease;
+            display: inline-block;
+        }
+
+        .flight-card-has-history[open] > summary .flight-card-chevron::before {
+            transform: rotate(90deg);  /* points down when open */
+        }
+
+        /* Empty cell in the plain (no history) row and in the header.
+           Qualified to `div` so it doesn't also match <summary class="flight-card-row">. */
+        div.flight-card-row > .flight-card-chevron::before,
+        .flight-card-header > .flight-card-chevron::before {
+            content: "";
         }
 
         .conf-name {
@@ -48,9 +94,16 @@
             color: var(--accent-color);
         }
 
-        .table-responsive {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
+        .flight-history-list {
+            margin: 0;
+            padding: 0 16px 12px 3rem;
+            list-style: disc;
+            color: var(--muted-text);
+            font-size: 0.9rem;
+        }
+
+        .flight-history-list li {
+            margin: 0.15rem 0;
         }
 
         .empty-state {
@@ -66,6 +119,7 @@
 <body>
 <nav><h3><a href="/">JitterTravel</a></h3></nav>
 <h1>Booked Flights</h1>
+<p th:if="${notFoundMessage}" th:text="${notFoundMessage}" style="color:#b00;"></p>
 <div th:replace="~{fragments/booked-flights-fragment :: list}"></div>
 <br/>
 <a th:href="@{/book-flight}">Book another flight</a>

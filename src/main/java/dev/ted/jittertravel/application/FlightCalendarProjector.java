@@ -1,10 +1,13 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
@@ -36,29 +39,35 @@ public class FlightCalendarProjector implements EventStreamConsumer {
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(storedEvent -> {
-            if (storedEvent.payload() instanceof FlightBooked event) {
-                entriesByFlight.put(event.flightId(), buildEntries(event));
+            switch (storedEvent.payload()) {
+                case FlightBooked event -> entriesByFlight.put(event.flightId(), buildEntries(
+                        event.departureAirport(), event.arrivalAirport(),
+                        event.departureDateTime(), event.arrivalDateTime()));
+                case FlightChanged event -> entriesByFlight.put(event.flightId(), buildEntries(
+                        event.departureAirport(), event.arrivalAirport(),
+                        event.departureDateTime(), event.arrivalDateTime()));
+                default -> { /* not a flight event */ }
             }
         });
     }
 
-    private static List<CalendarEntry> buildEntries(FlightBooked event) {
-        String route = "Flight "
-                + event.departureAirport().code()
-                + "\u2192"
-                + event.arrivalAirport().code();
-        String departs = "Departs " + event.departureDateTime().format(TIME_OF_DAY);
-        String arrives = "Arrives " + event.arrivalDateTime().format(TIME_OF_DAY);
+    private static List<CalendarEntry> buildEntries(AirportCode departureAirport,
+                                                    AirportCode arrivalAirport,
+                                                    LocalDateTime departureDateTime,
+                                                    LocalDateTime arrivalDateTime) {
+        String route = "Flight " + departureAirport.code() + "\u2192" + arrivalAirport.code();
+        String departs = "Departs " + departureDateTime.format(TIME_OF_DAY);
+        String arrives = "Arrives " + arrivalDateTime.format(TIME_OF_DAY);
 
-        boolean sameDay = event.departureDateTime().toLocalDate()
-                .equals(event.arrivalDateTime().toLocalDate());
+        boolean sameDay = departureDateTime.toLocalDate()
+                .equals(arrivalDateTime.toLocalDate());
 
         if (sameDay) {
             // Single entry showing both times on the one day.
             return List.of(new CalendarEntry(
                     EntryKind.FLIGHT,
-                    event.departureDateTime(),
-                    event.arrivalDateTime(),
+                    departureDateTime,
+                    arrivalDateTime,
                     route,
                     departs + "\n" + arrives,
                     null,
@@ -70,8 +79,8 @@ public class FlightCalendarProjector implements EventStreamConsumer {
         // on the arrival day. Each is a self-contained single-day entry.
         CalendarEntry departureEntry = new CalendarEntry(
                 EntryKind.FLIGHT,
-                event.departureDateTime(),
-                event.departureDateTime(),
+                departureDateTime,
+                departureDateTime,
                 route,
                 departs,
                 null,
@@ -79,8 +88,8 @@ public class FlightCalendarProjector implements EventStreamConsumer {
         );
         CalendarEntry arrivalEntry = new CalendarEntry(
                 EntryKind.FLIGHT,
-                event.arrivalDateTime(),
-                event.arrivalDateTime(),
+                arrivalDateTime,
+                arrivalDateTime,
                 route,
                 arrives,
                 null,

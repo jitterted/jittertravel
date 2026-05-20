@@ -1,8 +1,6 @@
 package dev.ted.jittertravel.application;
 
-import dev.ted.jittertravel.domain.AirportCode;
-import dev.ted.jittertravel.domain.FlightBooked;
-import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.*;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
 
@@ -113,7 +111,38 @@ class FlightCalendarProjectorTest {
         );
     }
 
-    private static StoredEvent stored(FlightBooked event) {
+    @Test
+    void flightChangedOverwritesPreviousCalendarEntries() {
+        FlightCalendarProjector projector = new FlightCalendarProjector();
+        FlightId flightId = FlightId.random();
+        FlightBooked booked = new FlightBooked(
+                flightId, "United", "UA59",
+                AirportCode.of("SFO"), LocalDateTime.of(2026, 6, 6, 13, 55),
+                AirportCode.of("FRA"), LocalDateTime.of(2026, 6, 7, 9, 45)
+        );
+        FlightChanged changed = new FlightChanged(
+                flightId, "Lufthansa", "LH441",
+                AirportCode.of("SFO"), LocalDateTime.of(2026, 7, 10, 16, 0),
+                AirportCode.of("MUC"), LocalDateTime.of(2026, 7, 11, 11, 30),
+                null
+        );
+
+        projector.handle(Stream.of(stored(booked), stored(changed)));
+
+        // After the change, the calendar should reflect the new route, dates,
+        // and times — not the original booked details.
+        assertThat(projector.entries())
+                .extracting(CalendarEntry::mainTitle)
+                .containsOnly("Flight SFO\u2192MUC");
+        assertThat(projector.entries())
+                .extracting(CalendarEntry::start)
+                .containsExactly(
+                        LocalDateTime.of(2026, 7, 10, 16, 0),
+                        LocalDateTime.of(2026, 7, 11, 11, 30)
+                );
+    }
+
+    private static StoredEvent stored(Event event) {
         return new StoredEvent(1, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID());
     }
 }

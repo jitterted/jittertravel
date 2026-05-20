@@ -8,25 +8,43 @@
         <p><a th:href="@{/book-flight}">Book a flight</a></p>
     </div>
 
-    <div th:unless="${flights.isEmpty()}" class="table-responsive">
-        <table class="conference-table">
-            <thead>
-            <tr>
-                <th>Departure</th>
-                <th>Route</th>
-                <th>Airline</th>
-                <th>Flight Number</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="flight : ${flights}">
-                <td class="conf-name" th:text="${flight.departureDateTimeDisplay}">6-06-2026 1:55PM</td>
-                <td th:text="${flight.route}">SFO&#8594;FRA</td>
-                <td th:text="${flight.airline}">United</td>
-                <td th:text="${flight.flightNumber}">UA100</td>
-            </tr>
-            </tbody>
-        </table>
+    <div th:unless="${flights.isEmpty()}" class="flight-cards">
+        <header class="flight-card-header">
+            <div>Departure</div>
+            <div>Route</div>
+            <div>Airline</div>
+            <div>Flight Number</div>
+            <div class="flight-card-chevron" aria-hidden="true"></div>
+        </header>
+
+        <th:block th:each="flight : ${flights}">
+            <details th:if="${flight.hasChanges()}" class="flight-card flight-card-has-history">
+                <summary class="flight-card-row">
+                    <div class="flight-card-cell conf-name">
+                        <a th:href="@{|/booked-flights/${flight.flightId.id()}|}"
+                           th:text="${flight.departureDateTimeDisplay}">6-06-2026 1:55PM</a>
+                    </div>
+                    <div class="flight-card-cell" th:text="${flight.route}">SFO&#8594;FRA</div>
+                    <div class="flight-card-cell" th:text="${flight.airline}">United</div>
+                    <div class="flight-card-cell" th:text="${flight.flightNumber}">UA100</div>
+                    <div class="flight-card-cell flight-card-chevron" aria-hidden="true"></div>
+                </summary>
+                <ul class="flight-history-list">
+                    <li th:each="entry : ${flight.history}"
+                        th:text="${entry.displayText}">Booked on 2026-05-20 12:22PM</li>
+                </ul>
+            </details>
+            <div th:unless="${flight.hasChanges()}" class="flight-card flight-card-row">
+                <div class="flight-card-cell conf-name">
+                    <a th:href="@{|/booked-flights/${flight.flightId.id()}|}"
+                       th:text="${flight.departureDateTimeDisplay}">6-06-2026 1:55PM</a>
+                </div>
+                <div class="flight-card-cell" th:text="${flight.route}">SFO&#8594;FRA</div>
+                <div class="flight-card-cell" th:text="${flight.airline}">United</div>
+                <div class="flight-card-cell" th:text="${flight.flightNumber}">UA100</div>
+                <div class="flight-card-cell flight-card-chevron" aria-hidden="true"></div>
+            </div>
+        </th:block>
     </div>
 </div>
 </body>

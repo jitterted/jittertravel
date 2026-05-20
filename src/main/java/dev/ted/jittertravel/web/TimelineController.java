@@ -24,7 +24,7 @@ class TimelineController {
 
     @GetMapping("/timeline/commands")
     public String commandTimeline(@RequestParam(defaultValue = "0") int page,
-                                  @RequestParam(defaultValue = "false") boolean reverse,
+                                  @RequestParam(defaultValue = "true") boolean reverse,
                                   Model model) {
         int safePage = Math.max(page, 0);
         int totalCommands = persister.countCommands();

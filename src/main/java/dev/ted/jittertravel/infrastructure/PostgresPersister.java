@@ -10,6 +10,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
 
+@SuppressWarnings("DataFlowIssue")
 @Repository
 public class PostgresPersister {
     private final JdbcClient jdbcClient;
@@ -121,7 +122,7 @@ public class PostgresPersister {
                         ORDER BY sequence
                         """)
                 .param("commandIds", commandIds)
-                .query((rs, rowNum) -> {
+                .query((rs, _) -> {
                     UUID cmdId = (UUID) rs.getObject("commandId");
                     TimelineEvent event = new TimelineEvent(
                             rs.getLong("sequence"),
@@ -130,7 +131,7 @@ public class PostgresPersister {
                             rs.getString("type"),
                             prettyJson(rs.getString("payloadJson"))
                     );
-                    eventsByCommand.computeIfAbsent(cmdId, k -> new ArrayList<>()).add(event);
+                    eventsByCommand.computeIfAbsent(cmdId, _ -> new ArrayList<>()).add(event);
                     return event;
                 })
                 .list();
@@ -144,7 +145,7 @@ public class PostgresPersister {
             if (!events.isEmpty()) {
                 long minSeq = events.getFirst().sequence();
                 long maxSeq = events.getLast().sequence();
-                if (runningMaxSeq != Long.MIN_VALUE && minSeq < runningMaxSeq) {
+                if (minSeq < runningMaxSeq) {
                     outOfOrder = true;
                 }
                 if (maxSeq > runningMaxSeq) {

@@ -67,12 +67,8 @@ class EventStorePerfTest extends AbstractTestcontainerIntegrationTest {
                 Stream<Event> stream = Stream.of(createSampleEvent());
 
                 long start = System.nanoTime();
-                transactionTemplate.executeWithoutResult(_ -> {
-                    realPersister.saveCommand(commandId, request);
-                });
-                transactionTemplate.executeWithoutResult(_ -> {
-                    eventStore.append(stream, commandId);
-                });
+                transactionTemplate.executeWithoutResult(_ -> realPersister.saveCommand(commandId, request));
+                transactionTemplate.executeWithoutResult(_ -> eventStore.append(stream, commandId));
                 long duration = System.nanoTime() - start;
 
                 latenciesNanos.add(duration);

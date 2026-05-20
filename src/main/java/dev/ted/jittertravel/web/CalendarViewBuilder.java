@@ -50,14 +50,7 @@ public class CalendarViewBuilder {
                     int span = (int) ChronoUnit.DAYS.between(segmentStart, segmentEnd) + 1;
                     boolean isContinuation = activeConf.startDate().toLocalDate().isBefore(currentSunday);
                     boolean isNativeEnd = !activeConf.endDate().toLocalDate().isAfter(saturday);
-                    String monthTintClass = (segmentStart.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
-
-                    // The whole event renders as ONE cell that spans all its days. The amber
-                    // month-break border is applied to an inner per-day sub-cell so the L-shape
-                    // appears at the column boundary of the new-month day, not at the parent's edge.
-                    String classList = "calendar-cell has-event " + monthTintClass
-                        + (isContinuation ? " is-continuation" : "")
-                        + (!isNativeEnd ? " not-native-end" : "");
+                    String classList = monthTintCssFrom(segmentStart, isContinuation, isNativeEnd);
 
                     DivTag eventGrid = div().withClass("event-grid")
                             .withStyle("grid-template-columns: repeat(" + span + ", 1fr)");
@@ -119,6 +112,17 @@ public class CalendarViewBuilder {
             ),
             each(weekRows.stream())
         ).render();
+    }
+
+    private static String monthTintCssFrom(LocalDate segmentStart, boolean isContinuation, boolean isNativeEnd) {
+        String monthTintClass = (segmentStart.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
+
+        // The whole event renders as ONE cell that spans all its days. The amber
+        // month-break border is applied to an inner per-day sub-cell so the L-shape
+        // appears at the column boundary of the new-month day, not at the parent's edge.
+        return "calendar-cell has-event " + monthTintClass
+            + (isContinuation ? " is-continuation" : "")
+            + (!isNativeEnd ? " not-native-end" : "");
     }
 
     private static String formatDayLabel(LocalDate date, boolean isMonthStart, boolean isFirstCellOfGrid) {

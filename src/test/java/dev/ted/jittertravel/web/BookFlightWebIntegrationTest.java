@@ -40,16 +40,15 @@ class BookFlightWebIntegrationTest extends AbstractTestcontainerIntegrationTest 
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/");
 
-        long count = eventStore.findAll()
-                .filter(se -> se.payload() instanceof FlightBooked)
-                .count();
-        assertThat(count).isEqualTo(1L);
-
-        FlightBooked booked = (FlightBooked) eventStore.findAll()
-                .filter(se -> se.payload() instanceof FlightBooked)
-                .findFirst()
-                .orElseThrow()
-                .payload();
+        // Filter by this test's specific flight number so the assertion is
+        // robust against other integration tests sharing the in-memory EventStore.
+        FlightBooked booked = eventStore.findAll()
+                .map(se -> se.payload())
+                .filter(p -> p instanceof FlightBooked)
+                .map(p -> (FlightBooked) p)
+                .filter(fb -> "UA100".equals(fb.flightNumber()))
+                .reduce((first, second) -> second) // last-write-wins if duplicates
+                .orElseThrow();
         assertThat(booked.airline()).isEqualTo("United");
         assertThat(booked.flightNumber()).isEqualTo("UA100");
         assertThat(booked.departureAirport().code()).isEqualTo("SFO");

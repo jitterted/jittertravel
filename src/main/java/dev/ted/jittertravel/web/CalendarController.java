@@ -1,35 +1,56 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.TentativeConferenceProjector;
-import dev.ted.jittertravel.application.TentativeConferenceView;
-import org.springframework.beans.factory.annotation.Autowired;
+import dev.ted.jittertravel.application.CalendarEntry;
+import dev.ted.jittertravel.application.ConferenceCalendarProjector;
+import dev.ted.jittertravel.application.FlightCalendarProjector;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Controller
 public class CalendarController {
 
-    private final TentativeConferenceProjector tentativeConferenceProjector;
+    private final ConferenceCalendarProjector conferenceCalendarProjector;
+    private final FlightCalendarProjector flightCalendarProjector;
 
-    @Autowired
-    public CalendarController(TentativeConferenceProjector tentativeConferenceProjector) {
-        this.tentativeConferenceProjector = tentativeConferenceProjector;
+    public CalendarController(ConferenceCalendarProjector conferenceCalendarProjector,
+                              FlightCalendarProjector flightCalendarProjector) {
+        this.conferenceCalendarProjector = conferenceCalendarProjector;
+        this.flightCalendarProjector = flightCalendarProjector;
     }
 
     @GetMapping("/calendar")
     public String getTemplatedCalendar(Model model) {
-        List<TentativeConferenceView> conferences = tentativeConferenceProjector.views();
-        LocalDate rangeStart = conferences.getFirst().startDate().toLocalDate().minusDays(5);
-        LocalDate rangeEnd = conferences.getLast().endDate().toLocalDate().plusDays(5);
+        List<CalendarEntry> combined = new ArrayList<>();
+        combined.addAll(conferenceCalendarProjector.entries());
+        combined.addAll(flightCalendarProjector.entries());
+        combined.sort(Comparator.comparing(CalendarEntry::start));
 
-        String calendarHtml = CalendarViewBuilder.render(conferences, rangeStart, rangeEnd);
-        model.addAttribute("calendarMarkup", calendarHtml);
+        LocalDate rangeStart;
+        LocalDate rangeEnd;
+        if (combined.isEmpty()) {
+            LocalDate today = LocalDate.now();
+            rangeStart = today.minusWeeks(2);
+            rangeEnd = today.plusWeeks(2);
+        } else {
+            rangeStart = combined.stream()
+                    .map(e -> e.start().toLocalDate())
+                    .min(LocalDate::compareTo)
+                    .orElseThrow()
+                    .minusDays(5);
+            rangeEnd = combined.stream()
+                    .map(e -> e.end().toLocalDate())
+                    .max(LocalDate::compareTo)
+                    .orElseThrow()
+                    .plusDays(5);
+        }
 
+        model.addAttribute("calendarMarkup", CalendarViewBuilder.render(combined, rangeStart, rangeEnd));
         return "confirmed-calendar";
     }
-
 }

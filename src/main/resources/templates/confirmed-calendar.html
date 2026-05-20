@@ -11,7 +11,7 @@
             border-top: 1px solid #dee2e6;
         }
 
-        .calendar-header, .calendar-week {
+        .calendar-header {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
         }
@@ -27,95 +27,113 @@
             color: #495057;
         }
 
-        .calendar-cell {
+        /* Each week is its own CSS grid with day-label row on top and lane sub-rows below. */
+        .calendar-week {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            /* grid-template-rows is set inline per week based on the number of populated lane sub-rows */
+            background-color: #ffffff;
+        }
+
+        /* Day-label row (top row of every week) */
+        .day-label-cell {
+            grid-row: 1;
+            border-top: 1px solid darkgray;
             border-bottom: 1px solid #dee2e6;
             border-right: 1px solid #dee2e6;
-            min-height: 120px;
-            padding: 8px;
+            min-height: 40px;
+            padding: 6px 8px;
             background-color: #ffffff;
             box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
         }
 
-        /* Event Cell Styles */
-        .calendar-cell.has-event {
-            background-color: #e0e7ff;
-            color: #4f46e5;
-            padding: 0; /* inner .event-grid handles spacing so month-edge border sits flush */
-            /* Subtle inner halo so the indigo block reads as distinct from the grid borders */
-            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.65);
-            display: block;
+        .day-label-cell.month-tint-even { background-color: #faf7f7; }
+        .day-label-cell.month-tint-odd  { background-color: #ffffff; }
+
+        /* Month-start L-border on day-label cells only */
+        .day-label-cell.is-month-start {
+            border-top: 3px solid #b45309;
+            border-left: 3px solid #b45309;
         }
 
-        .calendar-cell.is-continuation { border-left-color: transparent; }
-        .calendar-cell.not-native-end  { border-right-color: transparent; }
-
-        .calendar-cell .event-details {
-            text-align: center;
-            padding: 4px 12px 12px;
-        }
-
-        /* Typography Elements */
-        .day-number { font-size: 0.85rem; color: #495057; width: 100%; text-align: left; }
-        .event-title { font-weight: 700; font-size: 0.95rem; letter-spacing: 0.01em; }
-        .event-location { font-size: 0.8rem; font-weight: 500; opacity: 0.95; margin-top: 3px; }
-
-        /* Event cells: a per-day sub-grid (one column per day) plus a row that spans all
-           columns for the centered event title/location. */
-        .event-grid {
-            display: grid;
-            width: 100%;
-            height: 100%;
-            grid-template-rows: auto 1fr;
-        }
-
-        .event-grid .event-day {
-            padding: 8px 6px 4px;
-        }
-
-        .event-grid .event-details {
-            grid-column: 1 / -1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .event-grid .day-number {
-            font-size: 1rem;
-            font-weight: 700;
-            color: #4f46e5;
+        .day-number {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #495057;
             text-align: left;
         }
 
-        /* Alternating month tint — applied only to empty cells; event cells keep their event color. */
-        .calendar-cell.month-tint-even { background-color: #faf7f0; }
-        .calendar-cell.month-tint-odd  { background-color: #ffffff; }
-        .calendar-cell.has-event.month-tint-even,
-        .calendar-cell.has-event.month-tint-odd { background-color: #e0e7ff; }
-
-        /* Month break: first day of a new month (or first visible cell). Overrides border properties last. */
-        .calendar-cell.is-month-start {
-            border-top: 3px solid #b45309;
-            border-left: 3px solid #b45309;
-        }
-
-        /* Same L-shaped amber treatment for an event sub-cell that represents the first day
-           of a new month — the border sits at the column boundary of the new-month day,
-           inside the spanning event cell. */
-        .event-day.is-month-start {
-            border-top: 3px solid #b45309;
-            border-left: 3px solid #b45309;
-        }
-
-        /* Big amber type for any day-number representing the start of a new month
-           (works for both empty cells and the per-day labels inside event cells). */
         .day-number.is-month-start {
             font-size: 1.25rem;
             font-weight: 700;
             color: #b45309;
             letter-spacing: 0.02em;
-            margin-bottom: 4px;
+        }
+
+        /* Filler cell behind a lane sub-row: extends day-column borders and month
+           tint down through the week. Only vertical day separators here — no
+           horizontal borders between swimlanes. */
+        .lane-cell {
+            border-right: 1px solid #dee2e6;
+            min-height: 64px;
+            box-sizing: border-box;
+        }
+
+        /* The last lane sub-row of the week closes the bottom border. Easiest to
+           just apply border-bottom to ALL day-label-cells and a CSS rule that the
+           bottom-most lane-cells get it too — handled via the week's outer border. */
+        .lane-cell.month-tint-even { background-color: #faf7f0; }
+        .lane-cell.month-tint-odd  { background-color: #ffffff; }
+
+        /* Lane entry segment: rounded colored block with a small margin so the
+           background day-tint shows around it. */
+        .entry {
+            margin: 4px 6px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 0.9rem;
+            line-height: 1.3;
+            min-height: 52px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .entry-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            letter-spacing: 0.01em;
+        }
+
+        .entry-subtitle {
+            font-size: 0.8rem;
+            font-weight: 500;
+            opacity: 0.95;
+            margin-top: 2px;
+        }
+
+        /* Per-kind colors */
+        .entry--conference {
+            background-color: #e0e7ff;
+            color: #4f46e5;
+        }
+        .entry--meetup {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        .entry--flight {
+            background-color: #cfeafd;
+            color: #075985;
+        }
+        .entry--lodging {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        /* Continuation segments: slight transparency hint that more came before */
+        .entry--continuation {
+            opacity: 0.9;
         }
     </style>
 </head>

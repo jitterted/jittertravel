@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.TentativeConferenceView;
+import dev.ted.jittertravel.application.CalendarEntry;
+import dev.ted.jittertravel.application.EntryKind;
 import j2html.tags.DomContent;
 import j2html.tags.specialized.DivTag;
 
@@ -11,129 +12,206 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static j2html.TagCreator.div;
 import static j2html.TagCreator.each;
 
+/**
+ * Renders the calendar as Sunday→Saturday weeks. Each week is a CSS grid with
+ * a day-label row on top and 0..N "swimlane" sub-rows below, one set of sub-rows
+ * per {@link EntryKind} (in fixed {@code EnumKind.values()} order). Entries that
+ * overlap within the same lane stack vertically into additional sub-rows.
+ * <p>
+ * Weeks containing no entries collapse to just the day-label row.
+ */
 public class CalendarViewBuilder {
 
     private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MMM d");
     private static final DateTimeFormatter MONTH_DAY_YEAR = DateTimeFormatter.ofPattern("MMM d, yyyy");
 
-    public static String render(List<TentativeConferenceView> conferences, LocalDate rangeStart, LocalDate rangeEnd) {
-        // Align boundaries to Sunday and Saturday grid edges
+    public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd) {
         LocalDate gridStart = rangeStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
         LocalDate gridEnd = rangeEnd.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
 
         List<DomContent> weekRows = new ArrayList<>();
-        LocalDate currentSunday = gridStart;
-
-        while (!currentSunday.isAfter(gridEnd)) {
-            LocalDate saturday = currentSunday.plusDays(6);
-            List<DomContent> weekCells = new ArrayList<>();
-            LocalDate dayRunner = currentSunday;
-
-            while (!dayRunner.isAfter(saturday)) {
-                final LocalDate currentDate = dayRunner;
-
-                // Find intersecting conference
-                TentativeConferenceView activeConf = conferences.stream()
-                    .filter(c -> !currentDate.isBefore(c.startDate().toLocalDate()) && !currentDate.isAfter(c.endDate().toLocalDate()))
-                    .findFirst()
-                    .orElse(null);
-
-                if (activeConf != null) {
-                    LocalDate segmentStart = activeConf.startDate().toLocalDate().isBefore(currentSunday) ? currentSunday : activeConf.startDate().toLocalDate();
-                    LocalDate segmentEnd = activeConf.endDate().toLocalDate().isAfter(saturday) ? saturday : activeConf.endDate().toLocalDate();
-
-                    int span = (int) ChronoUnit.DAYS.between(segmentStart, segmentEnd) + 1;
-                    boolean isContinuation = activeConf.startDate().toLocalDate().isBefore(currentSunday);
-                    boolean isNativeEnd = !activeConf.endDate().toLocalDate().isAfter(saturday);
-                    String classList = monthTintCssFrom(segmentStart, isContinuation, isNativeEnd);
-
-                    DivTag eventGrid = div().withClass("event-grid")
-                            .withStyle("grid-template-columns: repeat(" + span + ", 1fr)");
-
-                    LocalDate d = segmentStart;
-                    while (!d.isAfter(segmentEnd)) {
-                        boolean dIsFirstCellOfGrid = d.equals(gridStart);
-                        boolean dIsMonthStart = d.getDayOfMonth() == 1 || dIsFirstCellOfGrid;
-                        String dLabel = formatDayLabel(d, dIsMonthStart, dIsFirstCellOfGrid);
-                        String subCellClass = "event-day" + (dIsMonthStart ? " is-month-start" : "");
-                        String dnClass = "day-number" + (dIsMonthStart ? " is-month-start" : "");
-                        eventGrid.with(
-                                div().withClass(subCellClass).with(
-                                        div(dLabel).withClass(dnClass)
-                                )
-                        );
-                        d = d.plusDays(1);
-                    }
-
-                    eventGrid.with(
-                            div().withClass("event-details").with(
-                                    div(activeConf.name() + (isContinuation ? " cont'd" : "")).withClass("event-title"),
-                                    div("(" + activeConf.city() + ", " + activeConf.country() + ")").withClass("event-location")
-                            )
-                    );
-
-                    weekCells.add(
-                            div().withClass(classList).withStyle("grid-column-end: span " + span).with(eventGrid)
-                    );
-
-                    dayRunner = segmentEnd.plusDays(1);
-                } else {
-                    boolean isFirstCellOfGrid = currentDate.equals(gridStart);
-                    boolean isMonthStart = currentDate.getDayOfMonth() == 1 || isFirstCellOfGrid;
-                    String monthTintClass = (currentDate.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
-                    String monthStartClass = isMonthStart ? " is-month-start" : "";
-                    String dayLabel = formatDayLabel(currentDate, isMonthStart, isFirstCellOfGrid);
-                    String dayNumberClass = "day-number" + (isMonthStart ? " is-month-start" : "");
-
-                    // Empty standard cell
-                    weekCells.add(
-                        div().withClass("calendar-cell " + monthTintClass + monthStartClass).with(
-                            div(dayLabel).withClass(dayNumberClass)
-                        )
-                    );
-                    dayRunner = dayRunner.plusDays(1);
-                }
-            }
-
-            weekRows.add(div().withClass("calendar-week").with(weekCells));
-            currentSunday = currentSunday.plusDays(7);
+        LocalDate sunday = gridStart;
+        while (!sunday.isAfter(gridEnd)) {
+            weekRows.add(renderWeek(sunday, sunday.plusDays(6), gridStart, entries));
+            sunday = sunday.plusDays(7);
         }
 
-        // Wrap everything into the final page body container
         return div().withClass("calendar-container").with(
-            div().withClass("calendar-header").with(
-                div("Sunday"), div("Monday"), div("Tuesday"), div("Wednesday"),
-                div("Thursday"), div("Friday"), div("Saturday")
-            ),
-            each(weekRows.stream())
+                div().withClass("calendar-header").with(
+                        div("Sunday"), div("Monday"), div("Tuesday"), div("Wednesday"),
+                        div("Thursday"), div("Friday"), div("Saturday")
+                ),
+                each(weekRows.stream())
         ).render();
     }
 
-    private static String monthTintCssFrom(LocalDate segmentStart, boolean isContinuation, boolean isNativeEnd) {
-        String monthTintClass = (segmentStart.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
+    private static DivTag renderWeek(LocalDate sunday,
+                                     LocalDate saturday,
+                                     LocalDate gridStart,
+                                     List<CalendarEntry> allEntries) {
+        List<CalendarEntry> intersecting = allEntries.stream()
+                .filter(e -> intersectsWeek(e, sunday, saturday))
+                .sorted(Comparator.comparing(CalendarEntry::start))
+                .toList();
 
-        // The whole event renders as ONE cell that spans all its days. The amber
-        // month-break border is applied to an inner per-day sub-cell so the L-shape
-        // appears at the column boundary of the new-month day, not at the parent's edge.
-        return "calendar-cell has-event " + monthTintClass
-            + (isContinuation ? " is-continuation" : "")
-            + (!isNativeEnd ? " not-native-end" : "");
+        // Group by kind into fixed enum order; allocate sub-rows per lane.
+        Map<EntryKind, List<CalendarEntry>> byKind = new EnumMap<>(EntryKind.class);
+        for (EntryKind kind : EntryKind.values()) {
+            byKind.put(kind, new ArrayList<>());
+        }
+        for (CalendarEntry entry : intersecting) {
+            byKind.get(entry.kind()).add(entry);
+        }
+
+        Map<CalendarEntry, Integer> subRowOf = new HashMap<>();
+        Map<EntryKind, Integer> subRowCount = new EnumMap<>(EntryKind.class);
+        for (EntryKind kind : EntryKind.values()) {
+            List<int[]> ranges = new ArrayList<>();  // index = sub-row; value = list of occupied [startCol,endCol]
+            List<List<int[]>> perRow = new ArrayList<>();
+            for (CalendarEntry entry : byKind.get(kind)) {
+                int[] segment = segmentColumns(entry, sunday);
+                int chosen = -1;
+                for (int i = 0; i < perRow.size(); i++) {
+                    boolean clash = false;
+                    for (int[] occupied : perRow.get(i)) {
+                        if (overlaps(occupied, segment)) {
+                            clash = true;
+                            break;
+                        }
+                    }
+                    if (!clash) {
+                        chosen = i;
+                        break;
+                    }
+                }
+                if (chosen == -1) {
+                    chosen = perRow.size();
+                    perRow.add(new ArrayList<>());
+                }
+                perRow.get(chosen).add(segment);
+                subRowOf.put(entry, chosen);
+            }
+            subRowCount.put(kind, perRow.size());
+        }
+
+        // kindOffset[k] = total sub-rows occupied by lanes appearing before k
+        Map<EntryKind, Integer> kindOffset = new EnumMap<>(EntryKind.class);
+        int offset = 0;
+        for (EntryKind kind : EntryKind.values()) {
+            kindOffset.put(kind, offset);
+            offset += subRowCount.get(kind);
+        }
+        int totalSubRows = offset;
+
+        List<DomContent> cells = new ArrayList<>();
+
+        // Day-label row (grid-row: 1, columns 1..7)
+        for (int i = 0; i < 7; i++) {
+            cells.add(renderDayLabelCell(sunday.plusDays(i), gridStart));
+        }
+
+        // Per-day lane filler cells, one per (column × lane sub-row), so that the
+        // calendar day-borders and month-tint background extend down through the
+        // entire week. Entries are rendered after, so they stack on top and cover
+        // any cells they occupy.
+        for (int subRow = 0; subRow < totalSubRows; subRow++) {
+            int gridRow = 2 + subRow;
+            for (int col = 1; col <= 7; col++) {
+                LocalDate d = sunday.plusDays(col - 1);
+                String tint = (d.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
+                cells.add(div().withClass("lane-cell " + tint)
+                        .withStyle("grid-column: " + col + "; grid-row: " + gridRow + ";"));
+            }
+        }
+
+        // Entry segments
+        for (CalendarEntry entry : intersecting) {
+            int[] seg = segmentColumns(entry, sunday);
+            int startCol = seg[0];
+            int span = seg[1] - seg[0] + 1;
+            int gridRow = 2 + kindOffset.get(entry.kind()) + subRowOf.get(entry);
+            boolean isContinuation = entry.start().toLocalDate().isBefore(sunday);
+            cells.add(renderEntrySegment(entry, startCol, span, gridRow, isContinuation));
+        }
+
+        String rowsStyle = totalSubRows == 0
+                ? "grid-template-rows: auto;"
+                : "grid-template-rows: auto repeat(" + totalSubRows + ", auto);";
+
+        return div().withClass("calendar-week").withStyle(rowsStyle).with(cells);
+    }
+
+    private static DomContent renderDayLabelCell(LocalDate date, LocalDate gridStart) {
+        boolean isFirstCellOfGrid = date.equals(gridStart);
+        boolean isMonthStart = date.getDayOfMonth() == 1 || isFirstCellOfGrid;
+        String monthTint = (date.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
+        String labelClass = "day-label-cell " + monthTint + (isMonthStart ? " is-month-start" : "");
+        String dayNumberClass = "day-number" + (isMonthStart ? " is-month-start" : "");
+        return div().withClass(labelClass).with(
+                div(formatDayLabel(date, isMonthStart, isFirstCellOfGrid)).withClass(dayNumberClass)
+        );
+    }
+
+    private static DomContent renderEntrySegment(CalendarEntry entry,
+                                                 int startCol,
+                                                 int span,
+                                                 int gridRow,
+                                                 boolean isContinuation) {
+        String kindClass = "entry--" + entry.kind().name().toLowerCase();
+        String classes = "entry " + kindClass + (isContinuation ? " entry--continuation" : "");
+        String style = "grid-column: " + startCol + " / span " + span
+                + "; grid-row: " + gridRow + ";";
+
+        String title = isContinuation ? entry.continuationTitle() : entry.mainTitle();
+        String subtitle = isContinuation ? entry.continuationSubTitle() : entry.subTitle();
+
+        DivTag div = div().withClass(classes).withStyle(style);
+        if (title != null) {
+            div.with(div(title).withClass("entry-title"));
+        }
+        if (subtitle != null) {
+            for (String line : subtitle.split("\n")) {
+                div.with(div(line).withClass("entry-subtitle"));
+            }
+        }
+        return div;
+    }
+
+    private static int[] segmentColumns(CalendarEntry entry, LocalDate sunday) {
+        LocalDate segStart = entry.start().toLocalDate().isBefore(sunday) ? sunday : entry.start().toLocalDate();
+        LocalDate weekEnd = sunday.plusDays(6);
+        LocalDate segEnd = entry.end().toLocalDate().isAfter(weekEnd) ? weekEnd : entry.end().toLocalDate();
+        int startCol = (int) ChronoUnit.DAYS.between(sunday, segStart) + 1;
+        int endCol = (int) ChronoUnit.DAYS.between(sunday, segEnd) + 1;
+        return new int[]{startCol, endCol};
+    }
+
+    private static boolean intersectsWeek(CalendarEntry entry, LocalDate sunday, LocalDate saturday) {
+        LocalDate entryStart = entry.start().toLocalDate();
+        LocalDate entryEnd = entry.end().toLocalDate();
+        return !entryEnd.isBefore(sunday) && !entryStart.isAfter(saturday);
+    }
+
+    private static boolean overlaps(int[] a, int[] b) {
+        return a[0] <= b[1] && b[0] <= a[1];
     }
 
     private static String formatDayLabel(LocalDate date, boolean isMonthStart, boolean isFirstCellOfGrid) {
         if (!isMonthStart) {
             return String.valueOf(date.getDayOfMonth());
         }
-        // Include year for January (year transition) or for the very first visible cell.
         DateTimeFormatter formatter = (date.getMonth() == Month.JANUARY || isFirstCellOfGrid)
                 ? MONTH_DAY_YEAR
                 : MONTH_DAY;
         return date.format(formatter);
     }
-
 }

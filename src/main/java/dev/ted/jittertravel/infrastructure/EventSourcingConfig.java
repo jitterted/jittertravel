@@ -1,7 +1,9 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.application.ConferenceCalendarProjector;
 import dev.ted.jittertravel.application.ConferencePlanning;
 import dev.ted.jittertravel.application.FlightBooking;
+import dev.ted.jittertravel.application.FlightCalendarProjector;
 import dev.ted.jittertravel.application.TentativeConferenceProjector;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.context.annotation.Bean;
@@ -37,5 +39,21 @@ public class EventSourcingConfig {
     @Bean
     public RestClient.Builder restClientBuilder() {
         return RestClient.builder();
+    }
+
+    @Bean
+    public ConferenceCalendarProjector conferenceCalendarProjector(EventStore eventStore) {
+        ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
+
+    @Bean
+    public FlightCalendarProjector flightCalendarProjector(EventStore eventStore) {
+        FlightCalendarProjector projector = new FlightCalendarProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
     }
 }

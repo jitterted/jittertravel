@@ -1,117 +1,68 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.TentativeConferenceView;
-import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.application.CalendarEntry;
+import dev.ted.jittertravel.application.EntryKind;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class CalendarViewBuilderTest {
 
     @Test
-    void monthStartCellsGetIsMonthStartClassAndMonthDayLabel() {
-        // Range that crosses a month boundary: May 28 - June 5, 2026
-        List<TentativeConferenceView> conferences = List.of();
-        String html = CalendarViewBuilder.render(
-                conferences,
-                LocalDate.of(2026, 5, 28),
-                LocalDate.of(2026, 6, 5)
-        );
-
-        // The first visible cell (Sunday May 24, 2026) should be a month-start with full label
-        assertThat(html).contains(">May 24, 2026<");
-        // June 1 (Monday) must be flagged as a new-month start with "Jun 1" label
-        assertThat(html).contains(">Jun 1<");
-        // Regular days in May render as bare day numbers (sanity)
-        assertThat(html).contains(">29<");
-        assertThat(html).contains(">30<");
-        // is-month-start class appears on the relevant cells
-        long monthStartCount = html.split("is-month-start", -1).length - 1;
-        assertThat(monthStartCount).isGreaterThanOrEqualTo(2); // first visible cell + June 1
-    }
-
-    @Test
-    void cellsAreTaggedWithAlternatingMonthTintClasses() {
+    void emptyRangeRendersDayLabelsAndNoLaneRows() {
         String html = CalendarViewBuilder.render(
                 List.of(),
                 LocalDate.of(2026, 5, 28),
                 LocalDate.of(2026, 6, 5)
         );
 
-        // May (month 5, odd) -> month-tint-odd; June (month 6, even) -> month-tint-even
-        assertThat(html).contains("month-tint-odd");
-        assertThat(html).contains("month-tint-even");
+        // No entries means every week collapses to its day-label row only.
+        assertThat(html).contains("day-label-cell");
+        assertThat(html).doesNotContain("class=\"entry");
+        // Collapsed weeks use only the auto header row.
+        assertThat(html).contains("grid-template-rows: auto;");
     }
 
     @Test
-    void januaryMonthStartIncludesYear() {
+    void monthStartCellsGetIsMonthStartClassOnDayLabelCell() {
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 5, 28),
+                LocalDate.of(2026, 6, 5)
+        );
+
+        // First visible cell (Sunday May 24, 2026) and June 1 are month-starts.
+        assertThat(html).contains(">May 24, 2026<");
+        assertThat(html).contains(">Jun 1<");
+        // The is-month-start L-border applies to day-label cells now.
+        assertThat(html).contains("day-label-cell month-tint-odd is-month-start");
+    }
+
+    @Test
+    void januaryMonthStartIncludesYearOnDayLabelCell() {
         String html = CalendarViewBuilder.render(
                 List.of(),
                 LocalDate.of(2026, 12, 28),
                 LocalDate.of(2027, 1, 5)
         );
 
-        // January 1, 2027 should render with year
         assertThat(html).contains(">Jan 1, 2027<");
     }
 
     @Test
-    void eventSpanningMonthBoundaryIsOneCellWithInnerMonthEdgeBorder() {
-        // Event runs Jun 29 - Jul 2, 2026 (the example from the user's request).
-        // Both weeks involved (Jun 28-Jul 4) hold the full event in a single week,
-        // so we expect ONE has-event cell containing the full event title once,
-        // with an inner .event-day for Jul 1 carrying the .is-month-start class.
-        TentativeConferenceView conf = new TentativeConferenceView(
-                ConferenceId.of(UUID.randomUUID()),
-                "MonthCrosser",
-                LocalDateTime.of(2026, 6, 29, 9, 0),
-                LocalDateTime.of(2026, 7, 2, 17, 0),
-                "Portland",
-                "USA"
-        );
-
-        String html = CalendarViewBuilder.render(
-                List.of(conf),
-                LocalDate.of(2026, 6, 27),
-                LocalDate.of(2026, 7, 3)
-        );
-
-        // Title appears exactly once (no duplication across the month split)
-        long titleOccurrences = html.split(">MonthCrosser<", -1).length - 1;
-        assertThat(titleOccurrences).isEqualTo(1);
-
-        // Exactly one has-event cell for the spanning event
-        long eventCellCount = html.split("\"calendar-cell has-event", -1).length - 1;
-        assertThat(eventCellCount).isEqualTo(1);
-
-        // Every event day shows its own date label
-        assertThat(html).contains(">29<");
-        assertThat(html).contains(">30<");
-        assertThat(html).contains(">Jul 1<");
-        assertThat(html).contains(">2<");
-
-        // The Jul 1 sub-cell gets the L-shaped amber border via .event-day.is-month-start
-        assertThat(html).contains("class=\"event-day is-month-start\"");
-
-        // Old split/inline-marker artifacts are gone
-        assertThat(html).doesNotContain("month-break-inline");
-        assertThat(html).doesNotContain("crosses-month");
-    }
-
-    @Test
-    void existingEventRenderingStillWorks() {
-        TentativeConferenceView conf = new TentativeConferenceView(
-                ConferenceId.of(UUID.randomUUID()),
-                "DevConf",
+    void conferenceEntryRendersWithTitleAndLocation() {
+        CalendarEntry conf = new CalendarEntry(
+                EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 2, 9, 0),
                 LocalDateTime.of(2026, 6, 4, 17, 0),
-                "Portland",
-                "USA"
+                "DevConf",
+                "(Portland, USA)",
+                "DevConf cont'd",
+                "(Portland, USA)"
         );
 
         String html = CalendarViewBuilder.render(
@@ -120,8 +71,122 @@ class CalendarViewBuilderTest {
                 LocalDate.of(2026, 6, 5)
         );
 
-        assertThat(html).contains("has-event");
-        assertThat(html).contains("DevConf");
-        assertThat(html).contains("Portland");
+        assertThat(html).contains("entry entry--conference");
+        assertThat(html).contains(">DevConf<");
+        assertThat(html).contains(">(Portland, USA)<");
+        // The conference week now has 1 lane sub-row.
+        assertThat(html).contains("grid-template-rows: auto repeat(1, auto);");
+    }
+
+    @Test
+    void flightAndConferenceAcrossWeekBoundaryRenderInSeparateLanes() {
+        // Flight UA59: SFO->FRA, departs Sat 2026-06-06 13:55, arrives Sun 2026-06-07 09:45.
+        CalendarEntry flight = new CalendarEntry(
+                EntryKind.FLIGHT,
+                LocalDateTime.of(2026, 6, 6, 13, 55),
+                LocalDateTime.of(2026, 6, 7, 9, 45),
+                "Flight SFO\u2192FRA",
+                "Departs 01:55 PM",
+                null,
+                "Arr 09:45 AM"
+        );
+        // Conference DDD Europe 2026: Sun 2026-06-07 11:00 -> Wed 2026-06-10 17:00.
+        CalendarEntry conf = new CalendarEntry(
+                EntryKind.CONFERENCE,
+                LocalDateTime.of(2026, 6, 7, 11, 0),
+                LocalDateTime.of(2026, 6, 10, 17, 0),
+                "DDD Europe 2026",
+                "(Frankfurt, Germany)",
+                "DDD Europe 2026 cont'd",
+                "(Frankfurt, Germany)"
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(conf, flight),
+                LocalDate.of(2026, 6, 6),
+                LocalDate.of(2026, 6, 10)
+        );
+
+        // Both entry titles appear (flight title only on departure segment).
+        assertThat(html).contains(">Flight SFO\u2192FRA<");
+        assertThat(html).contains(">Departs 01:55 PM<");
+        assertThat(html).contains(">DDD Europe 2026<");
+        assertThat(html).contains(">(Frankfurt, Germany)<");
+        // The continuation flight segment shows ONLY the arrival subtitle, no title.
+        assertThat(html).contains(">Arr 09:45 AM<");
+        long titleCount = html.split(">Flight SFO\u2192FRA<", -1).length - 1;
+        assertThat(titleCount).isEqualTo(1);
+
+        // Both kinds of entry cells are present.
+        assertThat(html).contains("entry entry--flight");
+        assertThat(html).contains("entry entry--conference");
+        // The continuation segment is marked as such.
+        assertThat(html).contains("entry--continuation");
+    }
+
+    @Test
+    void overlappingEntriesInSameLaneStackIntoSubRows() {
+        CalendarEntry a = new CalendarEntry(
+                EntryKind.CONFERENCE,
+                LocalDateTime.of(2026, 6, 2, 9, 0),
+                LocalDateTime.of(2026, 6, 4, 17, 0),
+                "ConfA", "(City, Country)",
+                "ConfA cont'd", "(City, Country)"
+        );
+        CalendarEntry b = new CalendarEntry(
+                EntryKind.CONFERENCE,
+                LocalDateTime.of(2026, 6, 3, 9, 0),
+                LocalDateTime.of(2026, 6, 5, 17, 0),
+                "ConfB", "(City, Country)",
+                "ConfB cont'd", "(City, Country)"
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(a, b),
+                LocalDate.of(2026, 5, 31),
+                LocalDate.of(2026, 6, 6)
+        );
+
+        // Two overlapping conferences -> 2 sub-rows in the conference lane.
+        assertThat(html).contains("grid-template-rows: auto repeat(2, auto);");
+        assertThat(html).contains(">ConfA<");
+        assertThat(html).contains(">ConfB<");
+    }
+
+    @Test
+    void fixedLaneOrderingPlacesConferencesAboveFlights() {
+        // Both occupy the same week so we have two lanes stacked.
+        CalendarEntry conf = new CalendarEntry(
+                EntryKind.CONFERENCE,
+                LocalDateTime.of(2026, 6, 8, 9, 0),
+                LocalDateTime.of(2026, 6, 8, 17, 0),
+                "Conf", "(City, Country)",
+                "Conf cont'd", "(City, Country)"
+        );
+        CalendarEntry flight = new CalendarEntry(
+                EntryKind.FLIGHT,
+                LocalDateTime.of(2026, 6, 9, 9, 0),
+                LocalDateTime.of(2026, 6, 9, 13, 0),
+                "Flight A\u2192B", "Departs 09:00 AM",
+                null, "Arr 01:00 PM"
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(flight, conf),  // intentionally out of lane order
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 13)
+        );
+
+        // Two lane sub-rows.
+        assertThat(html).contains("grid-template-rows: auto repeat(2, auto);");
+        // Conference must be on grid-row 2 (first lane), flight on grid-row 3 (second lane).
+        int confIndex = html.indexOf("grid-row: 2;");
+        int flightIndex = html.indexOf("grid-row: 3;");
+        assertThat(confIndex).isPositive();
+        assertThat(flightIndex).isPositive();
+        // And the conference entry actually sits on row 2.
+        int confTitle = html.indexOf(">Conf<");
+        int row2 = html.lastIndexOf("grid-row: 2;", confTitle);
+        assertThat(row2).isPositive();
     }
 }

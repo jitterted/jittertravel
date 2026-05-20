@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Book Flight</title>
+</head>
+<body>
+<h1>Book Flight</h1>
+
+<section style="border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem;">
+    <h2>Lookup flight</h2>
+    <p>Enter a flight number and departure date to auto-fill the form using AeroDataBox.</p>
+    <form th:action="@{/book-flight/lookup}" method="post">
+        <div>
+            <label>
+                Flight Number (e.g., UA195):
+                <input type="text" name="lookupFlightNumber" th:value="${lookupFlightNumber}"/>
+            </label>
+        </div>
+        <div>
+            <label>
+                Departure Date:
+                <input type="date" name="lookupDepartureDate" th:value="${lookupDepartureDate}"/>
+            </label>
+        </div>
+        <button type="submit">Lookup</button>
+    </form>
+    <p th:if="${lookupError}" th:text="${lookupError}" style="color: #b00;"></p>
+</section>
+
+<form th:action="@{/book-flight}" th:object="${bookFlight}" method="post">
+    <input type="hidden" th:field="*{flightId}"/>
+
+    <div>
+        <label>
+            Airline:
+            <input type="text" th:field="*{airline}"/>
+        </label>
+        <span th:if="${#fields.hasErrors('airline')}" th:errors="*{airline}"></span>
+    </div>
+
+    <div>
+        <label>
+            Flight Number:
+            <input type="text" th:field="*{flightNumber}"/>
+        </label>
+        <span th:if="${#fields.hasErrors('flightNumber')}" th:errors="*{flightNumber}"></span>
+    </div>
+
+    <div>
+        <label>
+            Departure Airport (3-letter code):
+            <input type="text" th:field="*{departureAirport}" maxlength="3" minlength="3"/>
+        </label>
+        <span th:if="${#fields.hasErrors('departureAirport')}" th:errors="*{departureAirport}"></span>
+    </div>
+
+    <div>
+        <label>Departure Date/Time:</label>
+        <input type="datetime-local" th:field="*{departureDateTime}"/>
+        <span th:if="${#fields.hasErrors('departureDateTime')}" th:errors="*{departureDateTime}"></span>
+    </div>
+
+    <div>
+        <label>
+            Arrival Airport (3-letter code):
+            <input type="text" th:field="*{arrivalAirport}" maxlength="3" minlength="3"/>
+        </label>
+        <span th:if="${#fields.hasErrors('arrivalAirport')}" th:errors="*{arrivalAirport}"></span>
+    </div>
+
+    <div>
+        <label>Arrival Date/Time:</label>
+        <input type="datetime-local" th:field="*{arrivalDateTime}"/>
+        <span th:if="${#fields.hasErrors('arrivalDateTime')}" th:errors="*{arrivalDateTime}"></span>
+    </div>
+
+    <div th:if="${#fields.hasGlobalErrors()}">
+        <ul>
+            <li th:each="err : ${#fields.globalErrors()}" th:text="${err}"></li>
+        </ul>
+    </div>
+
+    <button type="submit">Book Flight</button>
+</form>
+</body>
+</html>

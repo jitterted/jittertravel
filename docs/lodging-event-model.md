@@ -25,23 +25,27 @@ Address is a value object with fields:
 - postalCode
 - country
 
+## Overlap Checking
+
+When recomputing overlap, only recompute those that would be affected by the change. For example, if a traveler changes the check-in date, remove overlap for all bookings that were overlapping with the previous check-in date and then recompute overlap for the new check-in date.
+
 ---
 
 ## Slices
 
-### Slice 1 — Add Hotel Booking (Read)
+### Slice 1 — Initialize Hotel Booking Form (Read)
 
-**Purpose:** Generate a new empty hotel booking record with a generated identifier (UUID.randomUUID() is sufficient) before the traveler fills in the form. Check-in should be pre-populated with 2 weeks from the current date and 3pm for the time, and Check-out date should be one day after Check-in Date, with the time at 11am. Example: if now is 2026-05-10 17:00, then the Check-in date is 2026-05-24 and time is 15:00 and the Check-out date is 2026-05-25 and time is 11:00.
+**Purpose:** Generate a new empty hotel booking UI form object with a generated identifier (UUID.randomUUID() is sufficient) before the traveler is presented with the form in the UI. Check-in should be pre-populated with 2 weeks from the current date and 3pm for the time, and Check-out date should be one day after Check-in Date, with the time at 11am. Example: if now is 2026-05-10 17:00, then the Check-in date is 2026-05-24 and time is 15:00 and the Check-out date is 2026-05-25 and time is 11:00.
 
 #### Information Flow Lane
 
 **`New Hotel Booking`** _(information)_
 
-| Field | Type | Notes |
-|-------|------|-------|
-| hotelBookingId | UUID | Generated server-side; pre-assigned before form entry |
-| checkIn | LocalDateTime | Pre-populated with 2 weeks from now |
-| checkOut | LocalDateTime | Pre-populated with 1 day after Check-in |
+| Field          | Type          | Notes                                                 |
+|----------------|---------------|-------------------------------------------------------|
+| hotelBookingId | UUID          | Generated server-side; pre-assigned before form entry |
+| checkIn        | LocalDateTime | Pre-populated with 2 weeks from now                   |
+| checkOut       | LocalDateTime | Pre-populated with 1 day after Check-in               |
 
 ---
 
@@ -55,61 +59,67 @@ Address is a value object with fields:
 
 Form fields presented to the traveler:
 
-| Field          | Type | Required | Notes                             |
-|----------------|------|----------|-----------------------------------|
-| hotelName      | string | yes |                                   |
-| street         | string | yes |                                   |
-| city           | string | yes |                                   |
-| state          | string | no | Optional                          |
-| country        | string | yes |                                   |
-| postalCode     | string | yes |                                   |
-| checkIn        | LocalDateTime | yes | Local date-time at hotel location |
-| checkOut       | LocalDateTime | yes | Local date-time at hotel location |
-| finalAtBooking | boolean | yes | Checkbox: "Already final?"        |
+| Field         | Type          | Required | Notes                                |
+|---------------|---------------|----------|--------------------------------------|
+| hotelName     | string        | yes      |                                      |
+| street        | string        | yes      |                                      |
+| city          | string        | yes      |                                      |
+| state         | string        | no       | Optional                             |
+| country       | string        | yes      |                                      |
+| postalCode    | string        | yes      |                                      |
+| checkIn       | LocalDateTime | yes      | Local date-time at hotel location    |
+| checkOut      | LocalDateTime | yes      | Local date-time at hotel location    |
+| bookingIntent | boolean       | yes      | Checkbox: "Already booked as final?" |
 
 #### Information Flow Lane
 
 **`Book Hotel`** _(command)_
 
-| Field           | Type | Notes |
-|-----------------|------|-------|
-| hotelBookingId  | UUID | From New Hotel Booking (pre-generated) |
-| hotelName       | string | |
-| address.street  | string | |
-| address.city    | string | |
-| address.state   | string | Optional |
-| address.country | string | |
-| address.postalCode | string | |
-| checkIn         | LocalDateTime | |
-| checkOut        | LocalDateTime | |
-| finalAtBooking  | boolean | |
+| Field              | Type          | Notes                                  |
+|--------------------|---------------|----------------------------------------|
+| hotelBookingId     | UUID          | From New Hotel Booking (pre-generated) |
+| hotelName          | string        |                                        |
+| address.street     | string        |                                        |
+| address.city       | string        |                                        |
+| address.state      | string        | Optional                               |
+| address.country    | string        |                                        |
+| address.postalCode | string        |                                        |
+| checkIn            | LocalDateTime |                                        |
+| checkOut           | LocalDateTime |                                        |
+| bookingIntent      | enum          | `tentative` or `final`                 |
 
 **Invariants:**
 - `checkIn` must be a future datetime (strictly after time of submission)
-- `checkOut` must be at least 1 day after `checkIn` (might be the next morning, which is less than 24 hours, but 1 day later and this is fine)
+- `checkOut` must be at least 1 day after `checkIn`: checkOut.toLocalDate() >=
+  checkIn.toLocalDate().plusDays(1)
+- If `bookingIntent` = `final`: apply overlap invariant immediately so auto-finalization cannot fail.
+
+**UI behavior on violation of invariants**:
+- checkIn in past: display validation error
+- checkOut earlier than minimum stay: display validation error
+- overlap with finalized booking: display conflicting booking details
 
 #### Lodging Lane
 
 **`HotelBooked`** _(event)_
 
-| Field           | Type | Notes |
-|-----------------|------|-------|
-| hotelBookingId  | UUID | |
-| hotelName       | string | |
-| address.street  | string | |
-| address.city    | string | |
-| address.state   | string | Optional |
-| address.country | string | |
-| address.postalCode | string | |
-| checkIn         | LocalDateTime | |
-| checkOut        | LocalDateTime | |
-| finalAtBooking  | boolean | |
+| Field              | Type          | Notes                  |
+|--------------------|---------------|------------------------|
+| hotelBookingId     | UUID          |                        |
+| hotelName          | string        |                        |
+| address.street     | string        |                        |
+| address.city       | string        |                        |
+| address.state      | string        | Optional               |
+| address.country    | string        |                        |
+| address.postalCode | string        |                        |
+| checkIn            | LocalDateTime |                        |
+| checkOut           | LocalDateTime |                        |
+| bookingIntent      | enum          | `tentative` or `final` |
 
 **Projectors updated:**
 - `Booked Hotels` — adds entry with status "tentative"
 - `Calendar View` — adds entry with hotelName, checkIn, checkOut, city, country
 - `Tentative Hotel Bookings` — adds entry (always; finalization event removes it)
-- `Finalized Hotel Bookings` — stores booking details (pending finalization)
 - `Tentative Hotel Booking` (singular) — creates entry
 
 ---
@@ -130,15 +140,15 @@ Displays all hotel stays. Each row shows hotel name, city/country, check-in, che
 
 Read model projecting all hotel bookings regardless of status.
 
-| Field | Type | Notes                  |
-|-------|------|------------------------|
-| hotelBookingId | UUID |                        |
-| hotelName | string |                        |
-| address.city | string |                        |
-| address.country | string |                        |
-| checkIn | LocalDateTime |                        |
-| checkOut | LocalDateTime |                        |
-| status | enum | `tentative` or `final` |
+| Field           | Type          | Notes                  |
+|-----------------|---------------|------------------------|
+| hotelBookingId  | UUID          |                        |
+| hotelName       | string        |                        |
+| address.city    | string        |                        |
+| address.country | string        |                        |
+| checkIn         | LocalDateTime |                        |
+| checkOut        | LocalDateTime |                        |
+| status          | enum          | `tentative` or `final` |
 
 **Projector sources:**
 - `HotelBooked` → adds entry (status: tentative)
@@ -166,16 +176,16 @@ Shared read model owned by the top-level JitterTravel context. Aggregates from F
 
 Hotel booking fields projected from events:
 
-| Field | Type | Source Event(s)                                                |
-|-------|------|----------------------------------------------------------------|
-| hotelBookingId | UUID | HotelBooked                                                   |
-| hotelName | string | HotelBooked                                                   |
-| city | string | HotelBooked                                                   |
-| country | string | HotelBooked                                                   |
-| checkIn | LocalDateTime | HotelBooked, TentativeHotelBookingDatesChanged            |
-| checkOut | LocalDateTime | HotelBooked, TentativeHotelBookingDatesChanged            |
-| status | enum | HotelBooked (tentative), HotelBookingFinalized (finalized)  |
-| hasOverlap | boolean | Computed: true if this hotel entry's date range overlaps any other hotel booking (finalized or tentative). Only applied to tentative entries; not displayed for finalized entries. |
+| Field            | Type          | Source Event(s)                                                                                                                                                                    |
+|------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| hotelBookingId   | UUID          | HotelBooked                                                                                                                                                                        |
+| hotelName        | string        | HotelBooked                                                                                                                                                                        |
+| city             | string        | HotelBooked                                                                                                                                                                        |
+| country          | string        | HotelBooked                                                                                                                                                                        |
+| checkIn          | LocalDateTime | HotelBooked, TentativeHotelBookingDatesChanged                                                                                                                                     |
+| checkOut         | LocalDateTime | HotelBooked, TentativeHotelBookingDatesChanged                                                                                                                                     |
+| status           | enum          | HotelBooked (tentative), HotelBookingFinalized (finalized)                                                                                                                         |
+| hasOverlap       | boolean       | Computed: true if this hotel entry's date range overlaps any other hotel booking (finalized or tentative). Only applied to tentative entries; not displayed for finalized entries. |
 
 **Projector events:**
 - `HotelBooked` → adds hotel entry (status: tentative); recomputes hasOverlap for all existing tentative hotel entries
@@ -201,9 +211,10 @@ Triggers the Booking Finalization Policy whenever a new hotel booking is recorde
 
 **`Booking Finalization Policy`** _(automation)_
 
-Inspects the `finalAtBooking` field of the `HotelBooked` event.
-- If `true`: issues `Finalize Hotel Booking` command for this booking. If finalization fails, notify user in the same explicit way as if the command had been rejected via manually finalizing the booking.
-- If `false`: no action; booking remains tentative
+Inspects the `bookingIntent` field of the `HotelBooked` event.
+
+- If bookingIntent = final: issues `Finalize Hotel Booking` command for this booking.
+- If bookingIntent = tentative: no action; booking remains tentative
 
 ---
 
@@ -215,9 +226,9 @@ Inspects the `finalAtBooking` field of the `HotelBooked` event.
 
 **`Finalize Hotel Booking`** _(command)_
 
-| Field | Type | Notes |
-|-------|------|-------|
-| hotelBookingId | UUID | |
+| Field          | Type  | Notes |
+|----------------|-------|-------|
+| hotelBookingId | UUID  |       |
 
 **Invariant (overlap):** The booking's date range must not overlap any already-finalized hotel booking.
 Overlap condition: `booking.checkOut > finalized.checkIn AND booking.checkIn < finalized.checkOut`
@@ -227,14 +238,14 @@ Overlap condition: `booking.checkOut > finalized.checkIn AND booking.checkIn < f
 
 **`HotelBookingFinalized`** _(event)_
 
-| Field | Type | Notes |
-|-------|------|-------|
-| hotelBookingId | UUID | |
+| Field          | Type | Notes |
+|----------------|------|-------|
+| hotelBookingId | UUID |       |
 
 **Projectors updated:**
 - `Booked Hotels` → updates status to finalized
 - `Tentative Hotel Bookings` → removes entry
-- `Finalized Hotel Bookings` → adds entry (promotes pending entry to visible)
+- `Finalized Hotel Bookings` → adds entry
 - `Calendar View` → updates status to finalized
 - `Tentative Hotel Booking` (singular) → removes entry (booking is no longer tentative)
 
@@ -248,20 +259,17 @@ Overlap condition: `booking.checkOut > finalized.checkIn AND booking.checkIn < f
 
 **`Finalized Hotel Bookings`** _(information — internal)_
 
-| Field | Type | Notes |
-|-------|------|-------|
-| hotelBookingId | UUID | |
-| hotelName | string | For conflict display |
-| address.city | string | For conflict display |
-| address.country | string | For conflict display |
-| checkIn | LocalDateTime | For overlap checking and conflict display |
-| checkOut | LocalDateTime | For overlap checking and conflict display |
+| Field           | Type          | Notes                                     |
+|-----------------|---------------|-------------------------------------------|
+| hotelBookingId  | UUID          |                                           |
+| hotelName       | string        | For conflict display                      |
+| address.city    | string        | For conflict display                      |
+| address.country | string        | For conflict display                      |
+| checkIn         | LocalDateTime | For overlap checking and conflict display |
+| checkOut        | LocalDateTime | For overlap checking and conflict display |
 
 **Projector sources:**
-- `HotelBooked` → stores booking details (pending finalization)
-- `TentativeHotelBookingDatesChanged` → updates checkIn and checkOut for pending entry
-- `HotelBookingFinalized` → promotes entry into this read model (entry becomes visible)
-- `HotelBookingCancelled` → removes entry
+- `HotelBookingFinalized` → adds entry to this read model
 
 ---
 
@@ -284,15 +292,15 @@ From this page the traveler can:
 
 **`Tentative Hotel Bookings`** _(information)_
 
-| Field | Type | Notes                                                                                                 |
-|-------|------|-------------------------------------------------------------------------------------------------------|
-| hotelBookingId | UUID |                                                                                                       |
-| hotelName | string |                                                                                                       |
-| address.city | string |                                                                                                       |
-| address.country | string |                                                                                                       |
-| checkIn | LocalDateTime |                                                                                                       |
-| checkOut | LocalDateTime |                                                                                                       |
-| hasOverlap | boolean | Computed: true if this booking's date range overlaps any other hotel booking (finalized or tentative) |
+| Field           | Type          | Notes                                                                                                 |
+|-----------------|---------------|-------------------------------------------------------------------------------------------------------|
+| hotelBookingId  | UUID          |                                                                                                       |
+| hotelName       | string        |                                                                                                       |
+| address.city    | string        |                                                                                                       |
+| address.country | string        |                                                                                                       |
+| checkIn         | LocalDateTime |                                                                                                       |
+| checkOut        | LocalDateTime |                                                                                                       |
+| hasOverlap      | boolean       | Computed: true if this booking's date range overlaps any other hotel booking (finalized or tentative) |
 
 **Projector sources:**
 - `HotelBooked` → adds entry, recomputes hasOverlap for other bookings
@@ -312,9 +320,9 @@ _UI trigger chains from `Tentative Bookings Page` (Slice 7)._
 
 **`Finalize Hotel Booking`** _(command)_
 
-| Field | Type | Notes |
-|-------|------|-------|
-| hotelBookingId | UUID | |
+| Field          | Type | Notes |
+|----------------|------|-------|
+| hotelBookingId | UUID |       |
 
 **Invariant (overlap):** `booking.checkOut > finalized.checkIn AND booking.checkIn < finalized.checkOut` for any existing finalized booking (requires the `Finalized Hotel Bookings` projection to be sent in with the command as input.)
 
@@ -324,9 +332,9 @@ _UI trigger chains from `Tentative Bookings Page` (Slice 7)._
 
 **`HotelBookingFinalized`** _(event)_
 
-| Field | Type | Notes |
-|-------|------|-------|
-| hotelBookingId | UUID | |
+| Field          | Type | Notes |
+|----------------|------|-------|
+| hotelBookingId | UUID |       |
 
 **Projectors updated:** same as Slice 6.
 
@@ -342,34 +350,37 @@ _UI trigger chains from `Tentative Bookings Page` (Slice 7)._
 
 **`Cancel Hotel Booking`** _(command)_
 
-| Field | Type | Notes |
-|-------|------|-------|
-| hotelBookingId | UUID | |
+| Field          | Type | Notes |
+|----------------|------|-------|
+| hotelBookingId | UUID |       |
+
+* Invariant: booking must not be finalized
+* Requires the `Tentative Hotel Bookings` projection to be sent in with the command as input.
+* UI behavior on violation: Warning — displays a warning that the booking cannot be cancelled as it has been finalized.
 
 #### Lodging Lane
 
 **`HotelBookingCancelled`** _(event)_
 
-| Field | Type | Notes |
-|-------|------|-------|
-| hotelBookingId | UUID | |
+| Field          | Type | Notes |
+|----------------|------|-------|
+| hotelBookingId | UUID |       |
 
 **Projectors updated:**
 - `Booked Hotels` → removes entry
 - `Tentative Hotel Bookings` → removes entry
-- `Finalized Hotel Bookings` → removes entry
 - `Tentative Hotel Booking` (singular) → removes entry
 - `Calendar View` → removes entry
 
 ---
 
-### Slice 10 — Edit Hotel Booking (Read)
+### Slice 10 — Edit Hotel Booking Dates (Read)
 
 **Purpose:** Load the current dates of a selected tentative booking into an edit form.
 
 #### Traveler Lane
 
-**`Edit Hotel Booking Page`** _(UI)_
+**`Edit Hotel Booking Dates Page`** _(UI)_
 
 Form pre-populated with the booking's current check-in and check-out datetimes. Only dates are editable; hotel name and address are displayed read-only for reference.
 
@@ -379,19 +390,18 @@ Form pre-populated with the booking's current check-in and check-out datetimes. 
 
 Read model for a single selected tentative booking.
 
-| Field | Type | Notes |
-|-------|------|-------|
-| hotelBookingId | UUID | |
-| hotelName | string | Display only |
-| address.city | string | Display only |
-| address.country | string | Display only |
-| checkIn | LocalDateTime | Editable |
-| checkOut | LocalDateTime | Editable |
+| Field           | Type          | Notes        |
+|-----------------|---------------|--------------|
+| hotelBookingId  | UUID          |              |
+| hotelName       | string        | Display only |
+| address.city    | string        | Display only |
+| address.country | string        | Display only |
+| checkIn         | LocalDateTime | Editable     |
+| checkOut        | LocalDateTime | Editable     |
 
 **Projector sources:**
 - `HotelBooked` → creates entry
 - `TentativeHotelBookingDatesChanged` → updates checkIn and checkOut
-- `HotelBookingFinalized` → removes entry (booking is no longer tentative)
 - `HotelBookingCancelled` → removes entry
 
 ---
@@ -400,40 +410,44 @@ Read model for a single selected tentative booking.
 
 **Purpose:** Update the check-in and check-out datetimes of a tentative hotel bookings only (does not allow changing finalized hotel bookings).
 
-_UI trigger chains from `Edit Hotel Booking Page` (Slice 10)._
+_UI trigger chains from `Edit Hotel Booking Dates Page` (Slice 10)._
 
 #### Information Flow Lane
 
 **`Change Tentative Hotel Booking Dates`** _(command)_
 
-| Field | Type | Notes |
-|-------|------|-------|
-| hotelBookingId | UUID | |
-| checkIn | LocalDateTime | New check-in datetime |
-| checkOut | LocalDateTime | New check-out datetime |
+| Field          | Type          | Notes                  |
+|----------------|---------------|------------------------|
+| hotelBookingId | UUID          |                        |
+| checkIn        | LocalDateTime | New check-in datetime  |
+| checkOut       | LocalDateTime | New check-out datetime |
 
 **Invariants:**
 - `checkIn` must be a future datetime (strictly after time of submission)
-- `checkOut` must be at least 1 day after `checkIn` (might be the next morning, which is less than 24 hours, but 1 day later and this is fine)
+- `checkOut` must be at least 1 day after `checkIn`: checkOut.toLocalDate() >=
+  checkIn.toLocalDate().plusDays(1)
+- booking must still be tentative (not finalized)
 
+**UI behavior on violation:**
+- checkIn in past: display validation error
+- invalid date range: display validation error
+- booking already finalized: display warning that finalized bookings cannot be edited
 
 #### Lodging Lane
 
 **`TentativeHotelBookingDatesChanged`** _(event)_
 
-| Field | Type | Notes |
-|-------|------|-------|
-| hotelBookingId | UUID | |
-| checkIn | LocalDateTime | Updated check-in |
-| checkOut | LocalDateTime | Updated check-out |
+| Field          | Type          | Notes             |
+|----------------|---------------|-------------------|
+| hotelBookingId | UUID          |                   |
+| checkIn        | LocalDateTime | Updated check-in  |
+| checkOut       | LocalDateTime | Updated check-out |
 
 **Projectors updated:**
 - `Booked Hotels` → updates checkIn and checkOut
 - `Tentative Hotel Bookings` → updates checkIn, checkOut, recomputes hasOverlap
-- `Finalized Hotel Bookings` → updates checkIn and checkOut for pending entry
 - `Tentative Hotel Booking` (singular) → updates checkIn and checkOut
 - `Calendar View` → updates checkIn and checkOut for this entry
-
 
 ---
 
@@ -460,8 +474,7 @@ booking.checkIn < finalized.checkOut
 This check must be applied against all finalized bookings in the system.
 
 **On violation:**
-- Auto-finalize path (Booking Finalization Policy): command is rejected; booking remains tentative
-- Manual finalize path (traveler): soft warning shown on Tentative Bookings Page; traveler may proceed and finalize anyway
+- Command is rejected; booking remains tentative
 
 ---
 
@@ -477,8 +490,8 @@ This check must be applied against all finalized bookings in the system.
 
 **Status colors** (distinct, non-warning):
 
-| Booking Type | Display                                     |
-|-------------|---------------------------------------------|
+| Booking Type            | Display                                     |
+|-------------------------|---------------------------------------------|
 | Finalized hotel booking | Standard color (design TBD)                 |
 | Tentative hotel booking | Different color from finalized (design TBD) |
 
@@ -490,12 +503,6 @@ Overlap condition: same bidirectional check as above.
 
 The warning tint is applied in addition to the tentative color, making conflicting tentative bookings visually distinct from both finalized bookings and non-conflicting tentative bookings.
 
-### Finalize Booking — Soft Warning
-
-When the traveler attempts to finalize a tentative booking that violates the overlap invariant:
-- The Tentative Bookings Page displays a warning identifying the conflicting finalized booking(s)
-- The traveler may proceed and finalize despite the warning
-- The `HotelBookingFinalized` event is emitted normally if the traveler proceeds
 
 ---
 
@@ -504,3 +511,42 @@ When the traveler attempts to finalize a tentative booking that violates the ove
 - Specific colors for tentative, finalized, and warning states in the Calendar View are not yet defined — left to visual design
 - The `Calendar View` read model is owned by the top-level JitterTravel context and subscribes to the EventStore; schema coupling to Lodging event payloads should be managed defensively (tolerant reader pattern recommended)
 - Only tentative bookings can be edited or cancelled; editing or cancelling finalized bookings is out of scope for this chapter
+
+---
+
+## Event-Projector Matrix
+
+Single source of truth for which projectors react to each event, and what action each takes. Scan a row to see everything an event touches; scan a column to see everything that feeds a projector.
+
+¹ `Tentative Hotel Booking` — singular read model (Slice 10), scoped to one `hotelBookingId`
+
+| Event                               | `Booked Hotels` | `Tentative Hotel Bookings`                   | `Finalized Hotel Bookings` | `Tentative Hotel Booking` ¹ | `Calendar View`                                           |
+|-------------------------------------|-----------------|----------------------------------------------|----------------------------|-----------------------------|-----------------------------------------------------------|
+| `HotelBooked`                       | add (tentative) | add; recompute overlap for affected          | ignored                    | create                      | add (tentative); recompute overlap for affected tentative |
+| `HotelBookingFinalized`             | → finalized     | remove                                       | add                        | remove                      | → finalized                                               |
+| `HotelBookingCancelled`             | remove          | remove; recompute overlap for affected       | ignored (not allowed)      | remove                      | remove; recompute overlap for affected tentative          |
+| `TentativeHotelBookingDatesChanged` | update dates    | update dates; recompute overlap for affected | ignored                    | update dates                | update dates; recompute overlap for affected tentative    |
+
+---
+```mermaid
+stateDiagram-v2
+    [*] --> Tentative : HotelBooked
+
+    Tentative --> Tentative : TentativeHotelBookingDatesChanged
+    Tentative --> Finalized : HotelBookingFinalized
+    Tentative --> Cancelled : HotelBookingCancelled
+
+    Finalized --> [*]
+    Cancelled --> [*]
+
+    note right of Tentative
+        Allowed:
+        - Edit dates
+        - Finalize
+        - Cancel
+    end note
+
+    note right of Finalized
+        Immutable
+    end note
+```

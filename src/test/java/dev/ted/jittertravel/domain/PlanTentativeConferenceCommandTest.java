@@ -4,6 +4,7 @@ import dev.ted.jittertravel.web.PlanTentativeConferenceRequest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -26,7 +27,7 @@ class PlanTentativeConferenceCommandTest {
     void endDateBeforeStartDateFails() {
         PlanTentativeConferenceCommand command = new PlanTentativeConferenceCommand();
         PlanTentativeConferenceRequest dto = new PlanTentativeConferenceRequest();
-        LocalDateTime now = LocalDateTime.of(2026, 5, 16, 10, 0);
+        LocalDateTime now = LocalDateTime.now().plusDays(2).withHour(10).truncatedTo(ChronoUnit.HOURS);
         dto.setStartDate(now.plusDays(1));
         dto.setEndDate(now.plusDays(1).minusHours(1));
 
@@ -36,12 +37,14 @@ class PlanTentativeConferenceCommandTest {
 
     @Test
     void successReturnsConferenceTentativelyPlannedEvent() {
+        LocalDateTime startDate = LocalDateTime.now().plusDays(2).withHour(10).truncatedTo(ChronoUnit.HOURS);
+        LocalDateTime endDate = startDate.plusDays(2).withHour(17).truncatedTo(ChronoUnit.HOURS);
         PlanTentativeConferenceRequest dto = new PlanTentativeConferenceRequest();
         ConferenceId conferenceId = ConferenceId.random();
         dto.setConferenceId(conferenceId.id().toString());
         dto.setName("Successful Conference");
-        dto.setStartDate(LocalDateTime.of(2026, 6, 1, 10, 0));
-        dto.setEndDate(LocalDateTime.of(2026, 6, 3, 17, 0));
+        dto.setStartDate(startDate);
+        dto.setEndDate(endDate);
         dto.setVenueName("Test Venue");
         dto.setVenueStreet("Test Street");
         dto.setVenueCity("Test City");

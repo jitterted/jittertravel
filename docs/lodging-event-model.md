@@ -21,7 +21,7 @@
 Address is a value object with fields:
 - street
 - city
-- state (this is optional for non-North American addresses)
+- state (this is optional--stored as an empty string--for non-North American addresses)
 - postalCode
 - country
 
@@ -59,17 +59,18 @@ When recomputing overlap, only recompute those that would be affected by the cha
 
 Form fields presented to the traveler:
 
-| Field         | Type          | Required | Notes                                |
-|---------------|---------------|----------|--------------------------------------|
-| hotelName     | string        | yes      |                                      |
-| street        | string        | yes      |                                      |
-| city          | string        | yes      |                                      |
-| state         | string        | no       | Optional                             |
-| country       | string        | yes      |                                      |
-| postalCode    | string        | yes      |                                      |
-| checkIn       | LocalDateTime | yes      | Local date-time at hotel location    |
-| checkOut      | LocalDateTime | yes      | Local date-time at hotel location    |
-| bookingIntent | boolean       | yes      | Checkbox: "Already booked as final?" |
+| Field         | Type          | Required | Notes                                      |
+|---------------|---------------|----------|--------------------------------------------|
+| hotelName     | string        | yes      |                                            |
+| street        | string        | yes      |                                            |
+| city          | string        | yes      |                                            |
+| state         | string        | no       | Optional                                   |
+| country       | string        | yes      |                                            |
+| postalCode    | string        | yes      |                                            |
+| checkIn       | LocalDateTime | yes      | Local date-time at hotel location          |
+| checkOut      | LocalDateTime | yes      | Local date-time at hotel location          |
+| bookingIntent | enum          | yes      | Radio buttons: "Tentative" and "Final" |
+|               |               |          | radio button matches enums in command      |
 
 #### Information Flow Lane
 

@@ -103,7 +103,7 @@ class EventStorePerfTest extends AbstractTestcontainerIntegrationTest {
                 LocalDateTime.of(2026, 6, 1, 9, 0),
                 LocalDateTime.of(2026, 6, 3, 17, 0),
                 "Test Venue",
-                new Address("Street", "City", null, "Country", "12345")
+                new Address("Street", "City", null, "12345", "Country")
         );
     }
 

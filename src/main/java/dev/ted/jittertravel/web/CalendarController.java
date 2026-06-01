@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.ConferenceCalendarProjector;
 import dev.ted.jittertravel.application.FlightCalendarProjector;
+import dev.ted.jittertravel.application.HotelCalendarProjector;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,11 +18,14 @@ public class CalendarController {
 
     private final ConferenceCalendarProjector conferenceCalendarProjector;
     private final FlightCalendarProjector flightCalendarProjector;
+    private final HotelCalendarProjector hotelCalendarProjector;
 
     public CalendarController(ConferenceCalendarProjector conferenceCalendarProjector,
-                              FlightCalendarProjector flightCalendarProjector) {
+                              FlightCalendarProjector flightCalendarProjector,
+                              HotelCalendarProjector hotelCalendarProjector) {
         this.conferenceCalendarProjector = conferenceCalendarProjector;
         this.flightCalendarProjector = flightCalendarProjector;
+        this.hotelCalendarProjector = hotelCalendarProjector;
     }
 
     @GetMapping("/calendar")
@@ -29,6 +33,7 @@ public class CalendarController {
         List<CalendarEntry> combined = new ArrayList<>();
         combined.addAll(conferenceCalendarProjector.entries());
         combined.addAll(flightCalendarProjector.entries());
+        combined.addAll(hotelCalendarProjector.entries());
         combined.sort(Comparator.comparing(CalendarEntry::start));
 
         LocalDate rangeStart;

@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
+import java.time.Clock;
+
 @Configuration
 public class EventSourcingConfig {
 
@@ -72,5 +74,47 @@ public class EventSourcingConfig {
     @Bean
     public ChangeFlight changeFlightApplicationService(EventStore eventStore, PostgresPersister persister) {
         return new ChangeFlight(eventStore, persister);
+    }
+
+    @Bean
+    public Clock clock() {
+        return Clock.systemDefaultZone();
+    }
+
+    @Bean
+    public HotelBooking hotelBookingApplicationService(EventStore eventStore, PostgresPersister persister) {
+        return new HotelBooking(eventStore, persister);
+    }
+
+    @Bean
+    public BookedHotelsProjector bookedHotelsProjector(EventStore eventStore) {
+        BookedHotelsProjector projector = new BookedHotelsProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
+
+    @Bean
+    public TentativeHotelBookingsProjector tentativeHotelBookingsProjector(EventStore eventStore) {
+        TentativeHotelBookingsProjector projector = new TentativeHotelBookingsProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
+
+    @Bean
+    public TentativeHotelBookingProjector tentativeHotelBookingProjector(EventStore eventStore) {
+        TentativeHotelBookingProjector projector = new TentativeHotelBookingProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
+
+    @Bean
+    public HotelCalendarProjector hotelCalendarProjector(EventStore eventStore) {
+        HotelCalendarProjector projector = new HotelCalendarProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
     }
 }

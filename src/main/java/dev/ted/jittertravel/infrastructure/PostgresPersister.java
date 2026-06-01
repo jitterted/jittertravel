@@ -39,8 +39,10 @@ public class PostgresPersister {
     }
 
     public void appendEvents(List<StoredEvent> events, UUID commandId) {
+        StoredEvent currentEvent = null;
         try {
             for (StoredEvent event : events) {
+                currentEvent = event;
                 StoredEventRow row = StoredEventRow.fromStoredEvent(event, jsonMapper);
 
                 jdbcClient.sql("""
@@ -55,9 +57,15 @@ public class PostgresPersister {
                         .param("payloadJson", row.payloadJson())
                         .update();
             }
+            currentEvent = null;
             linkCommandToEvents(commandId, events.stream().map(StoredEvent::eventId).toList());
         } catch (Exception e) {
-            throw new RuntimeException("Failed to persist event and link to command", e);
+            String context = currentEvent != null
+                    ? "event type=%s, eventId=%s".formatted(currentEvent.type().getSimpleName(), currentEvent.eventId())
+                    : "linking events to command";
+            throw new RuntimeException(
+                    "Failed to persist event and link to command; commandId=%s, failing step: %s"
+                            .formatted(commandId, context), e);
         }
     }
 

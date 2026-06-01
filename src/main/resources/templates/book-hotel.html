@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Book Hotel</title>
+</head>
+<body>
+<h1>Book Hotel</h1>
+
+<form th:action="@{/book-hotel}" th:object="${bookHotel}" method="post">
+    <input type="hidden" th:field="*{hotelBookingId}"/>
+
+    <div>
+        <label>Hotel Name: <input type="text" th:field="*{hotelName}"/></label>
+    </div>
+    <div>
+        <label>Street: <input type="text" th:field="*{street}"/></label>
+    </div>
+    <div>
+        <label>City: <input type="text" th:field="*{city}"/></label>
+    </div>
+    <div>
+        <label>State: <input type="text" th:field="*{state}"/></label>
+    </div>
+    <div>
+        <label>Country: <input type="text" th:field="*{country}"/></label>
+    </div>
+    <div>
+        <label>Postal Code: <input type="text" th:field="*{postalCode}"/></label>
+    </div>
+    <div>
+        <label>Check-in: <input type="datetime-local" th:field="*{checkIn}"/></label>
+    </div>
+    <div>
+        <label>Check-out: <input type="datetime-local" th:field="*{checkOut}"/></label>
+    </div>
+    <div>
+        <label><input type="radio" th:field="*{bookingIntent}" value="TENTATIVE"/> Tentative</label>
+        <label><input type="radio" th:field="*{bookingIntent}" value="FINAL"/> Already booked as final</label>
+    </div>
+
+    <button type="submit">Book Hotel</button>
+</form>
+</body>
+</html>

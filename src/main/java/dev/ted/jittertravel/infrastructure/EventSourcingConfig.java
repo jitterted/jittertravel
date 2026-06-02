@@ -77,13 +77,24 @@ public class EventSourcingConfig {
     }
 
     @Bean
+    public CommandImporter commandImporter(PostgresPersister persister, EventStore eventStore,
+                                          tools.jackson.databind.json.JsonMapper jsonMapper) {
+        return new CommandImporter(persister, eventStore, jsonMapper);
+    }
+
+    @Bean
     public Clock clock() {
         return Clock.systemDefaultZone();
     }
 
     @Bean
-    public HotelBooking hotelBookingApplicationService(EventStore eventStore, PostgresPersister persister) {
-        return new HotelBooking(eventStore, persister);
+    public CommandExecutor commandExecutor(PostgresPersister persister, EventStore eventStore) {
+        return new CommandExecutor(persister, eventStore);
+    }
+
+    @Bean
+    public HotelBooking hotelBookingApplicationService(CommandExecutor commandExecutor, Clock clock) {
+        return new HotelBooking(commandExecutor, clock);
     }
 
     @Bean

@@ -29,15 +29,24 @@ class TentativeHotelBookingsProjectorTest {
         projector.handle(Stream.of(stored(event)));
 
         List<TentativeHotelBookingView> views = projector.views();
-        assertThat(views).hasSize(1);
+        assertThat(views)
+                .hasSize(1);
         TentativeHotelBookingView view = views.getFirst();
-        assertThat(view.hotelBookingId()).isEqualTo(event.hotelBookingId());
-        assertThat(view.hotelName()).isEqualTo("Grand Hotel");
-        assertThat(view.city()).isEqualTo("Springfield");
-        assertThat(view.country()).isEqualTo("US");
-        assertThat(view.checkIn()).isEqualTo(CHECK_IN);
-        assertThat(view.checkOut()).isEqualTo(CHECK_OUT);
-        assertThat(view.hasOverlap()).isFalse();
+        assertThat(view.hotelBookingId())
+                .isEqualTo(event.hotelBookingId());
+        assertThat(view.hotelName())
+                .isEqualTo("Grand Hotel");
+        assertThat(view.city())
+                .isEqualTo("Springfield");
+        assertThat(view.country())
+                .isEqualTo("US");
+        assertThat(view.checkIn())
+                .isEqualTo(CHECK_IN);
+        assertThat(view.checkOut())
+                .isEqualTo(CHECK_OUT);
+        assertThat(view.hasOverlap())
+                .as("Newly booked hotel must not show an overlap")
+                .isFalse();
     }
 
     private static HotelBooked sampleHotelBooked() {

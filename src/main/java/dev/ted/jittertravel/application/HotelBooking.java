@@ -1,26 +1,24 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.BookHotelCommand;
-import dev.ted.jittertravel.infrastructure.EventStore;
-import dev.ted.jittertravel.infrastructure.PostgresPersister;
+import dev.ted.jittertravel.domain.BookHotelContext;
 import dev.ted.jittertravel.web.BookHotelRequest;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 public class HotelBooking {
-    private final EventStore eventStore;
-    private final PostgresPersister persister;
+    private final CommandExecutor commandExecutor;
+    private final Clock clock;
 
-    public HotelBooking(EventStore eventStore, PostgresPersister persister) {
-        this.eventStore = eventStore;
-        this.persister = persister;
+    public HotelBooking(CommandExecutor commandExecutor, Clock clock) {
+        this.commandExecutor = commandExecutor;
+        this.clock = clock;
     }
 
     public void bookHotel(BookHotelRequest request) {
-        UUID commandId = UUID.fromString(request.getHotelBookingId());
-        persister.saveCommand(commandId, request);
-        var events = new BookHotelCommand().execute(request, LocalDateTime.now());
-        eventStore.append(events, commandId);
+        BookHotelCommand command = new BookHotelHandler().handle(request);
+        BookHotelContext context = new BookHotelContext(LocalDateTime.now(clock));
+        commandExecutor.execute(command.hotelBookingId().id(), request, context, command);
     }
 }

@@ -1,11 +1,9 @@
 package dev.ted.jittertravel.domain;
 
-import dev.ted.jittertravel.web.BookHotelRequest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -13,86 +11,88 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class BookHotelCommandTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 5, 31, 10, 0);
+    private static final LocalDateTime CHECK_IN = NOW.toLocalDate().plusWeeks(2).atTime(15, 0);
+    private static final LocalDateTime CHECK_OUT = CHECK_IN.toLocalDate().plusDays(1).atTime(11, 0);
+    private static final Address ADDRESS = new Address("123 Main St", "Springfield", "IL", "62701", "US");
 
     @Test
-    void validTentativeRequestProducesHotelBookedEventWithAllFields() {
-        BookHotelRequest request = validRequest();
-        request.setBookingIntent(BookingIntent.TENTATIVE);
+    void validTentativeCommandProducesHotelBookedEventWithAllFields() {
+        BookHotelCommand command = validCommand();
 
-        List<HotelBooked> events = new BookHotelCommand().execute(request, NOW).toList();
+        List<HotelBooked> events = command.execute(new BookHotelContext(NOW)).toList();
 
-        assertThat(events).hasSize(1);
+        assertThat(events)
+                .hasSize(1);
         HotelBooked event = events.getFirst();
-        assertThat(event.hotelBookingId()).isEqualTo(HotelBookingId.of(UUID.fromString(request.getHotelBookingId())));
-        assertThat(event.hotelName()).isEqualTo("Grand Hotel");
-        assertThat(event.address()).isEqualTo(new Address("123 Main St", "Springfield", "IL", "62701", "US"));
-        assertThat(event.checkIn()).isEqualTo(NOW.plusWeeks(2).withHour(15).withMinute(0));
-        assertThat(event.checkOut()).isEqualTo(NOW.plusWeeks(2).plusDays(1).withHour(11).withMinute(0));
-        assertThat(event.bookingIntent()).isEqualTo(BookingIntent.TENTATIVE);
+        assertThat(event.hotelBookingId())
+                .isEqualTo(command.hotelBookingId());
+        assertThat(event.hotelName())
+                .isEqualTo("Grand Hotel");
+        assertThat(event.address())
+                .isEqualTo(ADDRESS);
+        assertThat(event.checkIn())
+                .isEqualTo(CHECK_IN);
+        assertThat(event.checkOut())
+                .isEqualTo(CHECK_OUT);
+        assertThat(event.bookingIntent())
+                .isEqualTo(BookingIntent.TENTATIVE);
     }
 
     @Test
-    void validFinalRequestProducesHotelBookedEventWithFinalIntent() {
-        BookHotelRequest request = validRequest();
-        request.setBookingIntent(BookingIntent.FINAL);
+    void validFinalCommandProducesHotelBookedEventWithFinalIntent() {
+        BookHotelCommand command = new BookHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", ADDRESS,
+                CHECK_IN, CHECK_OUT, BookingIntent.FINAL);
 
-        List<HotelBooked> events = new BookHotelCommand().execute(request, NOW).toList();
-
-        assertThat(events.getFirst().bookingIntent()).isEqualTo(BookingIntent.FINAL);
+        assertThat(command.execute(new BookHotelContext(NOW)).toList().getFirst().bookingIntent())
+                .isEqualTo(BookingIntent.FINAL);
     }
 
     @Test
     void checkInInPastThrowsCheckInNotInFuture() {
-        BookHotelRequest request = validRequest();
-        request.setCheckIn(NOW.minusHours(1));
+        BookHotelCommand command = new BookHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", ADDRESS,
+                NOW.minusHours(1), CHECK_OUT, BookingIntent.TENTATIVE);
 
-        assertThatThrownBy(() -> new BookHotelCommand().execute(request, NOW))
+        assertThatThrownBy(() -> command.execute(new BookHotelContext(NOW)))
                 .isInstanceOf(CheckInNotInFuture.class);
     }
 
     @Test
     void checkInExactlyNowIsNotAcceptedMustBeStrictlyAfter() {
-        BookHotelRequest request = validRequest();
-        request.setCheckIn(NOW);
+        BookHotelCommand command = new BookHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", ADDRESS,
+                NOW, CHECK_OUT, BookingIntent.TENTATIVE);
 
-        assertThatThrownBy(() -> new BookHotelCommand().execute(request, NOW))
+        assertThatThrownBy(() -> command.execute(new BookHotelContext(NOW)))
                 .isInstanceOf(CheckInNotInFuture.class);
     }
 
     @Test
     void checkOutOnSameDayAsCheckInThrowsInvalidHotelDateRange() {
-        BookHotelRequest request = validRequest();
-        request.setCheckIn(NOW.plusWeeks(2).withHour(15).withMinute(0));
-        request.setCheckOut(NOW.plusWeeks(2).withHour(23).withMinute(59));
+        BookHotelCommand command = new BookHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", ADDRESS,
+                CHECK_IN, CHECK_IN.withHour(23).withMinute(59), BookingIntent.TENTATIVE);
 
-        assertThatThrownBy(() -> new BookHotelCommand().execute(request, NOW))
+        assertThatThrownBy(() -> command.execute(new BookHotelContext(NOW)))
                 .isInstanceOf(InvalidHotelDateRange.class);
     }
 
     @Test
     void checkOutExactlyOneDayAfterCheckInIsValid() {
-        BookHotelRequest request = validRequest();
         LocalDateTime checkIn = LocalDateTime.of(2026, 6, 14, 15, 0);
-        request.setCheckIn(checkIn);
-        request.setCheckOut(LocalDateTime.of(2026, 6, 15, 11, 0)); // next day, fewer than 24 hours later
+        LocalDateTime checkOut = LocalDateTime.of(2026, 6, 15, 11, 0);
+        BookHotelCommand command = new BookHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", ADDRESS,
+                checkIn, checkOut, BookingIntent.TENTATIVE);
 
-        List<HotelBooked> events = new BookHotelCommand().execute(request, NOW).toList();
-
-        assertThat(events).hasSize(1);
+        assertThat(command.execute(new BookHotelContext(NOW)).toList())
+                .hasSize(1);
     }
 
-    private BookHotelRequest validRequest() {
-        BookHotelRequest request = new BookHotelRequest();
-        request.setHotelBookingId(UUID.randomUUID().toString());
-        request.setHotelName("Grand Hotel");
-        request.setStreet("123 Main St");
-        request.setCity("Springfield");
-        request.setState("IL");
-        request.setCountry("US");
-        request.setPostalCode("62701");
-        request.setCheckIn(NOW.plusWeeks(2).withHour(15).withMinute(0));
-        request.setCheckOut(NOW.plusWeeks(2).plusDays(1).withHour(11).withMinute(0));
-        request.setBookingIntent(BookingIntent.TENTATIVE);
-        return request;
+    private static BookHotelCommand validCommand() {
+        return new BookHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", ADDRESS,
+                CHECK_IN, CHECK_OUT, BookingIntent.TENTATIVE);
     }
 }

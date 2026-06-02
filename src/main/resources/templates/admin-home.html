@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Admin — JitterTravel</title>
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #faf9f7;
+            --surface: #ffffff;
+            --text-primary: #1a1916;
+            --text-secondary: #6b6860;
+            --text-muted: #b0aea8;
+            --border: rgba(0, 0, 0, 0.10);
+            --border-hover: rgba(0, 0, 0, 0.22);
+            --radius: 14px;
+            --font: 'League Spartan', ui-sans-serif, system-ui, sans-serif;
+        }
+
+        body {
+            font-family: var(--font), serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hero {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 5rem 1.5rem 4rem;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 1rem;
+        }
+
+        .tagline {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin: 0 auto 3rem;
+            font-weight: 400;
+        }
+
+        .nav-cards {
+            display: flex;
+            gap: 18px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .nav-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.1rem 1.7rem;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 230px;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .nav-card:hover {
+            border-color: var(--border-hover);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        }
+
+        .nav-card svg {
+            width: 24px;
+            height: 24px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .nav-card-title {
+            display: block;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .nav-card-sub {
+            display: block;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            font-weight: 400;
+        }
+
+        footer {
+            padding: 1.5rem;
+            text-align: center;
+            font-size: 16px;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+
+        footer a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<main class="hero">
+    <h1>Admin</h1>
+    <p class="tagline">Data management tools</p>
+
+    <nav class="nav-cards" aria-label="Admin navigation">
+
+        <a class="nav-card" href="/admin/export">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3v13M6 11l6 6 6-6"/>
+                <path d="M3 21h18"/>
+            </svg>
+            <div>
+                <span class="nav-card-title">Export</span>
+                <span class="nav-card-sub">Download all commands as JSON</span>
+            </div>
+        </a>
+
+        <a class="nav-card" href="/admin/import">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 21V8M6 13l6-6 6 6"/>
+                <path d="M3 21h18"/>
+            </svg>
+            <div>
+                <span class="nav-card-title">Import</span>
+                <span class="nav-card-sub">Restore commands from JSON</span>
+            </div>
+        </a>
+
+        <a class="nav-card" href="/admin/database">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
+                <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
+            </svg>
+            <div>
+                <span class="nav-card-title">Database</span>
+                <span class="nav-card-sub">Table stats &amp; truncate</span>
+            </div>
+        </a>
+
+        <a class="nav-card" href="/admin/commandlog">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M12 7v5l3 2"/>
+            </svg>
+            <div>
+                <span class="nav-card-title">Command log</span>
+                <span class="nav-card-sub">Browse commands &amp; resulting events</span>
+            </div>
+        </a>
+
+    </nav>
+</main>
+
+<footer>
+    <a href="/">← JitterTravel</a>
+</footer>
+
+</body>
+</html>

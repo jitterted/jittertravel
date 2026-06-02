@@ -176,6 +176,35 @@ public class PostgresPersister {
         }
     }
 
+    public List<TableStat> tableStats() {
+        List<TableStat> stats = new ArrayList<>();
+        for (String table : List.of("command_log", "event_log")) {
+            long count = jdbcClient.sql("SELECT COUNT(*) FROM " + table)
+                    .query(Long.class)
+                    .single();
+            stats.add(new TableStat(table, count));
+        }
+        return stats;
+    }
+
+    public record TableStat(String tableName, long rowCount) {}
+
+    public void truncateAllTables() {
+        jdbcClient.sql("TRUNCATE TABLE event_log, command_log").update();
+    }
+
+    public List<CommandPayloadRow> findAllCommandsForExport() {
+        return jdbcClient.sql("""
+                        SELECT type, payload::text AS payloadJson
+                        FROM command_log
+                        ORDER BY timestamp ASC, command_id ASC
+                        """)
+                .query(CommandPayloadRow.class)
+                .list();
+    }
+
+    public record CommandPayloadRow(String type, String payloadJson) {}
+
     public long getMaxSequence() {
         // Returns max event sequence number, but if there are no events yet, returns 0.
         return jdbcClient.sql("SELECT COALESCE(MAX(sequence), 0) FROM event_log")

@@ -1,7 +1,8 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.BookHotelHandler;
 import dev.ted.jittertravel.application.HotelBooking;
-import dev.ted.jittertravel.domain.BookHotelCommand;
+import dev.ted.jittertravel.domain.BookHotelContext;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.CheckInNotInFuture;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
@@ -27,7 +28,9 @@ class BookHotelControllerValidationTest {
 
         invokeService(service, request, bindingResult);
 
-        assertThat(bindingResult.hasFieldErrors("checkIn")).isTrue();
+        assertThat(bindingResult.hasFieldErrors("checkIn"))
+                .as("Binding result must have a field error for checkIn")
+                .isTrue();
     }
 
     @Test
@@ -40,7 +43,9 @@ class BookHotelControllerValidationTest {
 
         invokeService(service, request, bindingResult);
 
-        assertThat(bindingResult.hasFieldErrors("checkOut")).isTrue();
+        assertThat(bindingResult.hasFieldErrors("checkOut"))
+                .as("Binding result must have a field error for checkOut")
+                .isTrue();
     }
 
     @Test
@@ -51,7 +56,9 @@ class BookHotelControllerValidationTest {
 
         invokeService(service, request, bindingResult);
 
-        assertThat(bindingResult.hasErrors()).isFalse();
+        assertThat(bindingResult.hasErrors())
+                .as("Valid request must produce no binding errors")
+                .isFalse();
     }
 
     private void invokeService(HotelBooking service, BookHotelRequest request, BindingResult bindingResult) {
@@ -83,7 +90,7 @@ class BookHotelControllerValidationTest {
         return new HotelBooking(null, null) {
             @Override
             public void bookHotel(BookHotelRequest request) {
-                new BookHotelCommand().execute(request, NOW);
+                new BookHotelHandler().handle(request).execute(new BookHotelContext(NOW));
             }
         };
     }

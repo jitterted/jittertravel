@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Import / Export Commands</title>
+    <link rel="stylesheet" href="/site.css"/>
+    <style>
+        .import-container {
+            max-width: 90ch;
+            margin: 1.5rem auto;
+            padding: 0 1rem;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        textarea {
+            width: 100%;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--header-bg);
+            color: var(--text-color);
+            resize: vertical;
+            box-sizing: border-box;
+        }
+
+        .error-list {
+            background: #fff3f3;
+            border: 1px solid #f88;
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .error-list li {
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #c00;
+        }
+    </style>
+</head>
+<body>
+<div class="import-container">
+    <h1>Import / Export Commands</h1>
+
+    <div th:if="${errors != null and not #lists.isEmpty(errors)}">
+        <ul class="error-list">
+            <li th:each="error : ${errors}" th:text="${error}"></li>
+        </ul>
+    </div>
+
+    <form method="post" th:action="@{/admin/import}">
+        <div class="toolbar">
+            <label for="fileInput">Load from file:</label>
+            <input type="file" id="fileInput" accept=".json"/>
+            <button type="submit">Import</button>
+            <a href="/admin/export">Export (download)</a>
+            <a href="/admin">Admin</a>
+        </div>
+        <textarea id="content" name="content" rows="35"
+                  placeholder="Paste exported JSON here, or load a file above..."
+                  th:text="${content}"></textarea>
+    </form>
+</div>
+<script>
+    document.getElementById('fileInput').addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            document.getElementById('content').value = e.target.result;
+        };
+        reader.readAsText(file);
+    });
+</script>
+</body>
+</html>

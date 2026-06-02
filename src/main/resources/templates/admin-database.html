@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Database — Admin — JitterTravel</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #faf9f7;
+            --surface: #ffffff;
+            --text-primary: #1a1916;
+            --text-secondary: #6b6860;
+            --text-muted: #b0aea8;
+            --border: rgba(0, 0, 0, 0.10);
+            --border-hover: rgba(0, 0, 0, 0.22);
+            --danger: #c0392b;
+            --danger-bg: #fdf2f2;
+            --danger-border: #f5c6c6;
+            --success: #1a7a3f;
+            --success-bg: #f0faf4;
+            --success-border: #b2dfc4;
+            --radius: 10px;
+        }
+
+        body {
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 56ch;
+            margin: 3rem auto;
+            padding: 0 1.5rem;
+        }
+
+        nav { margin-bottom: 2rem; font-size: 0.9rem; color: var(--text-muted); }
+        nav a { color: var(--text-secondary); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+
+        h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 1.5rem; }
+
+        .banner {
+            border-radius: var(--radius);
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+
+        .banner.success {
+            background: var(--success-bg);
+            border: 1px solid var(--success-border);
+            color: var(--success);
+        }
+
+        .banner.success strong {
+            display: block;
+            font-size: 1rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .banner.success .restart-warning {
+            font-size: 0.9rem;
+            font-weight: 700;
+            background: var(--success);
+            color: #fff;
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            margin-top: 0.4rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            margin-bottom: 2.5rem;
+        }
+
+        th, td {
+            padding: 0.65rem 1rem;
+            text-align: left;
+        }
+
+        th {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+        td.empty { color: var(--text-muted); font-style: italic; }
+
+        tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+
+        .danger-zone {
+            background: var(--danger-bg);
+            border: 1px solid var(--danger-border);
+            border-radius: var(--radius);
+            padding: 1.25rem 1.5rem;
+        }
+
+        .danger-zone h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--danger);
+            margin-bottom: 0.5rem;
+        }
+
+        .danger-zone p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .truncate-form {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .truncate-form input[type="text"] {
+            border: 1px solid var(--danger-border);
+            border-radius: 6px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.9rem;
+            font-family: monospace;
+            width: 10ch;
+            background: var(--surface);
+        }
+
+        .truncate-form input[type="text"]:disabled,
+        .truncate-form button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .truncate-form input[type="text"]:not(:disabled):focus {
+            outline: 2px solid var(--danger);
+            outline-offset: 1px;
+        }
+
+        .truncate-form button {
+            padding: 0.4rem 1rem;
+            background: var(--danger);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .truncate-form button:not(:disabled):hover { opacity: 0.88; }
+
+        .error {
+            margin-top: 0.75rem;
+            font-size: 0.875rem;
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .hint {
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <nav><a href="/admin">← Admin</a></nav>
+
+    <h1>Database</h1>
+
+    <div class="banner success" th:if="${truncated}">
+        <strong>✓ Database truncated successfully.</strong>
+        <span class="restart-warning">⚠ Restart the application before importing to reset in-memory projectors.</span>
+    </div>
+
+    <table>
+        <thead>
+            <tr><th>Table</th><th>Rows</th></tr>
+        </thead>
+        <tbody>
+            <tr th:each="stat : ${stats}">
+                <td th:text="${stat.tableName()}"></td>
+                <td th:if="${stat.rowCount() == 0}" class="empty">[empty]</td>
+                <td th:unless="${stat.rowCount() == 0}" th:text="${stat.rowCount()}"></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="danger-zone">
+        <h2>Danger Zone</h2>
+        <p th:unless="${allEmpty}">Truncating deletes all rows from every table. Restart the application after truncating to reset in-memory projectors before importing.</p>
+        <form class="truncate-form" method="post" th:action="@{/admin/database/truncate}">
+            <input type="text" name="confirm" placeholder="Type DELETE"
+                   autocomplete="off" th:disabled="${allEmpty}"/>
+            <button type="submit" th:disabled="${allEmpty}">Truncate Database</button>
+        </form>
+        <p class="error"  th:if="${error}"    th:text="${error}"></p>
+        <p class="hint"   th:unless="${allEmpty}">Type DELETE (all caps) in the box, then click the button.</p>
+        <p class="hint"   th:if="${allEmpty}">Database is already empty.</p>
+    </div>
+
+</div>
+</body>
+</html>

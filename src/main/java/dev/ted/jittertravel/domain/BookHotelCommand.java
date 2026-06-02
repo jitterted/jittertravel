@@ -1,32 +1,26 @@
 package dev.ted.jittertravel.domain;
 
-import dev.ted.jittertravel.web.BookHotelRequest;
-
 import java.time.LocalDateTime;
-import java.util.UUID;
 import java.util.stream.Stream;
 
-public class BookHotelCommand {
+public record BookHotelCommand(
+        HotelBookingId hotelBookingId,
+        String hotelName,
+        Address address,
+        LocalDateTime checkIn,
+        LocalDateTime checkOut,
+        BookingIntent bookingIntent
+) implements DomainCommand<BookHotelContext> {
 
-    public Stream<HotelBooked> execute(BookHotelRequest request, LocalDateTime now) {
-        if (request.getCheckIn() == null || !request.getCheckIn().isAfter(now)) {
+    @Override
+    public Stream<HotelBooked> execute(BookHotelContext context) {
+        if (checkIn == null || !checkIn.isAfter(context.now())) {
             throw new CheckInNotInFuture("Check-in date/time must be in the future");
         }
-        if (request.getCheckOut() == null ||
-                !request.getCheckOut().toLocalDate()
-                        .isAfter(request.getCheckIn().toLocalDate())) {
+        if (checkOut == null || !checkOut.toLocalDate().isAfter(checkIn.toLocalDate())) {
             throw new InvalidHotelDateRange(
                     "Check-out must be at least one calendar day after check-in");
         }
-
-        return Stream.of(new HotelBooked(
-                HotelBookingId.of(UUID.fromString(request.getHotelBookingId())),
-                request.getHotelName(),
-                new Address(request.getStreet(), request.getCity(), request.getState(),
-                        request.getPostalCode(), request.getCountry()),
-                request.getCheckIn(),
-                request.getCheckOut(),
-                request.getBookingIntent()
-        ));
+        return Stream.of(new HotelBooked(hotelBookingId, hotelName, address, checkIn, checkOut, bookingIntent));
     }
 }

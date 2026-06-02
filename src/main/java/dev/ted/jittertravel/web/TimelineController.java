@@ -22,7 +22,7 @@ class TimelineController {
         this.persister = persister;
     }
 
-    @GetMapping("/timeline/commands")
+    @GetMapping("/admin/commandlog")
     public String commandTimeline(@RequestParam(defaultValue = "0") int page,
                                   @RequestParam(defaultValue = "true") boolean reverse,
                                   Model model) {

@@ -1,0 +1,5 @@
+[mcp_servers.proophboard]
+url = "https://flow.prooph-board.com/mcp"
+
+[mcp_servers.proophboard.http_headers]
+Authorization = "Bearer pb_e18184846efb4a9b92b642d080f3d7a4"

@@ -214,7 +214,7 @@
     </style>
 </head>
 <body>
-<nav><h3><a href="/">JitterTravel</a></h3></nav>
+<nav><h3><a href="/admin">Admin</a> &middot; <a href="/">JitterTravel</a></h3></nav>
 <div class="timeline-container">
     <h1>Command / Event Timeline</h1>
 
@@ -226,16 +226,16 @@
         </span>
         <span>
             <a th:if="${reverse}"
-               th:href="@{/timeline/commands(page=${page}, reverse=false)}">Oldest first ↑</a>
+               th:href="@{/admin/commandlog(page=${page}, reverse=false)}">Oldest first ↑</a>
             <a th:unless="${reverse}"
-               th:href="@{/timeline/commands(page=${page}, reverse=true)}">Newest first ↓</a>
+               th:href="@{/admin/commandlog(page=${page}, reverse=true)}">Newest first ↓</a>
         </span>
         <span>
             <a th:if="${hasPrev}"
-               th:href="@{/timeline/commands(page=${page - 1}, reverse=${reverse})}">‹ Previous</a>
+               th:href="@{/admin/commandlog(page=${page - 1}, reverse=${reverse})}">‹ Previous</a>
             <span th:unless="${hasPrev}" class="disabled">‹ Previous</span>
             <a th:if="${hasNext}"
-               th:href="@{/timeline/commands(page=${page + 1}, reverse=${reverse})}">Next ›</a>
+               th:href="@{/admin/commandlog(page=${page + 1}, reverse=${reverse})}">Next ›</a>
             <span th:unless="${hasNext}" class="disabled">Next ›</span>
         </span>
     </div>
@@ -286,10 +286,10 @@
         <span></span>
         <span>
             <a th:if="${hasPrev}"
-               th:href="@{/timeline/commands(page=${page - 1}, reverse=${reverse})}">‹ Previous</a>
+               th:href="@{/admin/commandlog(page=${page - 1}, reverse=${reverse})}">‹ Previous</a>
             <span th:unless="${hasPrev}" class="disabled">‹ Previous</span>
             <a th:if="${hasNext}"
-               th:href="@{/timeline/commands(page=${page + 1}, reverse=${reverse})}">Next ›</a>
+               th:href="@{/admin/commandlog(page=${page + 1}, reverse=${reverse})}">Next ›</a>
             <span th:unless="${hasNext}" class="disabled">Next ›</span>
         </span>
     </div>

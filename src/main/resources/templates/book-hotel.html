@@ -2,43 +2,206 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <title>Book Hotel</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        fieldset {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        legend {
+            font-weight: 600;
+            padding: 0 0.4em;
+            color: var(--muted-text);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .field { margin-bottom: 0.5rem; }
+        .field:last-child { margin-bottom: 0; }
+
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+
+        .field input[type=text],
+        .field input[type=datetime-local] {
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+
+        .field-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .field-row .field { flex: 2; margin-bottom: 0; }
+        .field-row .field.narrow { flex: 1; }
+
+        .error {
+            display: block;
+            margin-top: 2px;
+            font-size: 0.8rem;
+            color: #b00;
+        }
+
+        .intent-group {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            align-items: center;
+        }
+
+        .intent-group label {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+
+        button[type=submit] {
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        button[type=submit]:hover { opacity: 0.88; }
+    </style>
 </head>
 <body>
-<h1>Book Hotel</h1>
+<div class="page">
 
-<form th:action="@{/book-hotel}" th:object="${bookHotel}" method="post">
-    <input type="hidden" th:field="*{hotelBookingId}"/>
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/calendar">Calendar</a>
+    </nav>
 
-    <div>
-        <label>Hotel Name: <input type="text" th:field="*{hotelName}"/></label>
-    </div>
-    <div>
-        <label>Street: <input type="text" th:field="*{street}"/></label>
-    </div>
-    <div>
-        <label>City: <input type="text" th:field="*{city}"/></label>
-    </div>
-    <div>
-        <label>State: <input type="text" th:field="*{state}"/></label>
-    </div>
-    <div>
-        <label>Country: <input type="text" th:field="*{country}"/></label>
-    </div>
-    <div>
-        <label>Postal Code: <input type="text" th:field="*{postalCode}"/></label>
-    </div>
-    <div>
-        <label>Check-in: <input type="datetime-local" th:field="*{checkIn}"/></label>
-    </div>
-    <div>
-        <label>Check-out: <input type="datetime-local" th:field="*{checkOut}"/></label>
-    </div>
-    <div>
-        <label><input type="radio" th:field="*{bookingIntent}" value="TENTATIVE"/> Tentative</label>
-        <label><input type="radio" th:field="*{bookingIntent}" value="FINAL"/> Already booked as final</label>
-    </div>
+    <h1>Book Hotel</h1>
 
-    <button type="submit">Book Hotel</button>
-</form>
+    <form th:action="@{/book-hotel}" th:object="${bookHotel}" method="post">
+        <input type="hidden" th:field="*{hotelBookingId}"/>
+
+        <div class="field" style="margin-bottom: 0.75rem;">
+            <label>
+                Hotel Name
+                <input type="text" th:field="*{hotelName}"/>
+            </label>
+        </div>
+
+        <fieldset>
+            <legend>Address</legend>
+
+            <div class="field">
+                <label>
+                    Street
+                    <input type="text" th:field="*{street}"/>
+                </label>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>
+                        City
+                        <input type="text" th:field="*{city}"/>
+                    </label>
+                </div>
+                <div class="field narrow">
+                    <label>
+                        State
+                        <input type="text" th:field="*{state}"/>
+                    </label>
+                </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>
+                        Country
+                        <input type="text" th:field="*{country}"/>
+                    </label>
+                </div>
+                <div class="field narrow">
+                    <label>
+                        Postal Code
+                        <input type="text" th:field="*{postalCode}"/>
+                    </label>
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="field-row" style="margin-bottom: 0.75rem;">
+            <div class="field">
+                <label>
+                    Check-in
+                    <input type="datetime-local" th:field="*{checkIn}"/>
+                </label>
+                <span class="error"
+                      th:if="${#fields.hasErrors('checkIn')}"
+                      th:errors="*{checkIn}"></span>
+            </div>
+            <div class="field">
+                <label>
+                    Check-out
+                    <input type="datetime-local" th:field="*{checkOut}"/>
+                </label>
+                <span class="error"
+                      th:if="${#fields.hasErrors('checkOut')}"
+                      th:errors="*{checkOut}"></span>
+            </div>
+        </div>
+
+        <div class="intent-group">
+            <label>
+                <input type="radio" th:field="*{bookingIntent}" value="TENTATIVE"/>
+                Tentative
+            </label>
+            <label>
+                <input type="radio" th:field="*{bookingIntent}" value="FINAL"/>
+                Already booked as final
+            </label>
+        </div>
+
+        <button type="submit">Book Hotel</button>
+    </form>
+
+</div>
 </body>
 </html>

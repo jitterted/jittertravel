@@ -32,7 +32,7 @@ import java.util.stream.Stream;
 public class FlightCalendarProjector implements EventStreamConsumer {
 
     private static final DateTimeFormatter TIME_OF_DAY =
-            DateTimeFormatter.ofPattern("hh:mm a", Locale.ENGLISH);
+            DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
 
     private final Map<FlightId, List<CalendarEntry>> entriesByFlight = new ConcurrentHashMap<>();
 
@@ -55,7 +55,7 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                                                     AirportCode arrivalAirport,
                                                     LocalDateTime departureDateTime,
                                                     LocalDateTime arrivalDateTime) {
-        String route = "Flight " + departureAirport.code() + "\u2192" + arrivalAirport.code();
+        String route = "✈️ " + departureAirport.code() + "\u2192" + arrivalAirport.code();
         String departs = "Departs " + departureDateTime.format(TIME_OF_DAY);
         String arrives = "Arrives " + arrivalDateTime.format(TIME_OF_DAY);
 
@@ -63,13 +63,13 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                 .equals(arrivalDateTime.toLocalDate());
 
         if (sameDay) {
-            // Single entry showing both times on the one day.
+            String timeRange = departureDateTime.format(TIME_OF_DAY) + " → " + arrivalDateTime.format(TIME_OF_DAY);
             return List.of(new CalendarEntry(
                     EntryKind.FLIGHT,
                     departureDateTime,
                     arrivalDateTime,
                     route,
-                    departs + "\n" + arrives,
+                    timeRange,
                     null,
                     null
             ));

@@ -61,8 +61,8 @@ class CalendarWebIntegrationTest extends AbstractTestcontainerIntegrationTest {
                 .contains(
                         "Calendar Conference",
                         "(Calendar City, Calendar Country)",
-                        "Flight SFO\u2192FRA",
-                        "Departs 01:55 PM"
+                        "✈️ SFO\u2192FRA",
+                        "Departs 1:55 PM"
                 );
     }
 }

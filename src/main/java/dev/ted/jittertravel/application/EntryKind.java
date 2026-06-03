@@ -8,5 +8,6 @@ public enum EntryKind {
     CONFERENCE,
     MEETUP,
     FLIGHT,
+    TRAIN,
     LODGING
 }

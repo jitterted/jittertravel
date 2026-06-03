@@ -27,6 +27,8 @@
             --entry-meetup-fg: #92400e;
             --entry-flight-bg: #cfeafd;
             --entry-flight-fg: #075985;
+            --entry-train-bg: #ffedd5;
+            --entry-train-fg: #9a3412;
             --entry-lodging-bg: #dcfce7;
             --entry-lodging-fg: #166534;
         }
@@ -89,7 +91,11 @@
             font-weight: 500;
             color: var(--calendar-text-secondary);
             text-align: left;
+            text-decoration: none;
+            display: block;
         }
+
+        .day-number:hover { text-decoration: underline; }
 
         .day-number.is-month-start {
             font-size: 1.25rem;
@@ -153,6 +159,10 @@
         .entry--flight {
             background-color: var(--entry-flight-bg);
             color: var(--entry-flight-fg);
+        }
+        .entry--train {
+            background-color: var(--entry-train-bg);
+            color: var(--entry-train-fg);
         }
         .entry--lodging {
             background-color: var(--entry-lodging-bg);

@@ -17,8 +17,8 @@
             <tbody>
             <tr th:each="conference : ${conferences}">
                 <td class="conf-name" th:text="${conference.name}">Conference Name</td>
-                <td th:text="${#temporals.format(conference.startDate, 'yyyy-MM-dd HH:mm')}">2026-01-01 09:00</td>
-                <td th:text="${#temporals.format(conference.endDate, 'yyyy-MM-dd HH:mm')}">2026-01-03 17:00</td>
+                <td th:text="${#temporals.format(conference.startDate, 'yyyy-MM-dd H:mm')}">2026-01-01 9:00</td>
+                <td th:text="${#temporals.format(conference.endDate, 'yyyy-MM-dd H:mm')}">2026-01-03 17:00</td>
                 <td th:text="${conference.city}">City</td>
                 <td th:text="${conference.country}">Country</td>
             </tr>

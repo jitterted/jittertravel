@@ -13,6 +13,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
+import static j2html.TagCreator.a;
 import static j2html.TagCreator.div;
 import static j2html.TagCreator.each;
 
@@ -152,7 +153,9 @@ public class CalendarViewBuilder {
         String labelClass = "day-label-cell " + monthTint + (isMonthStart ? " is-month-start" : "");
         String dayNumberClass = "day-number" + (isMonthStart ? " is-month-start" : "");
         return div().withClass(labelClass).with(
-                div(formatDayLabel(date, isMonthStart, isFirstCellOfGrid)).withClass(dayNumberClass)
+                a(formatDayLabel(date, isMonthStart, isFirstCellOfGrid))
+                        .withHref("/itinerary?date=" + date)
+                        .withClass(dayNumberClass)
         );
     }
 

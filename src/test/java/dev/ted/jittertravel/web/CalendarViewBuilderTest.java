@@ -85,10 +85,10 @@ class CalendarViewBuilderTest {
                 EntryKind.FLIGHT,
                 LocalDateTime.of(2026, 6, 6, 13, 55),
                 LocalDateTime.of(2026, 6, 7, 9, 45),
-                "Flight SFO\u2192FRA",
-                "Departs 01:55 PM",
+                "✈️ SFO\u2192FRA",
+                "Departs 1:55 PM",
                 null,
-                "Arr 09:45 AM"
+                "Arr 9:45 AM"
         );
         // Conference DDD Europe 2026: Sun 2026-06-07 11:00 -> Wed 2026-06-10 17:00.
         CalendarEntry conf = new CalendarEntry(
@@ -108,13 +108,13 @@ class CalendarViewBuilderTest {
         );
 
         // Both entry titles appear (flight title only on departure segment).
-        assertThat(html).contains(">Flight SFO\u2192FRA<");
-        assertThat(html).contains(">Departs 01:55 PM<");
+        assertThat(html).contains(">✈\uFE0F SFO\u2192FRA<");
+        assertThat(html).contains(">Departs 1:55 PM<");
         assertThat(html).contains(">DDD Europe 2026<");
         assertThat(html).contains(">(Frankfurt, Germany)<");
         // The continuation flight segment shows ONLY the arrival subtitle, no title.
-        assertThat(html).contains(">Arr 09:45 AM<");
-        long titleCount = html.split(">Flight SFO\u2192FRA<", -1).length - 1;
+        assertThat(html).contains(">Arr 9:45 AM<");
+        long titleCount = html.split(">✈\uFE0F SFO\u2192FRA<", -1).length - 1;
         assertThat(titleCount).isEqualTo(1);
 
         // Both kinds of entry cells are present.
@@ -167,8 +167,8 @@ class CalendarViewBuilderTest {
                 EntryKind.FLIGHT,
                 LocalDateTime.of(2026, 6, 9, 9, 0),
                 LocalDateTime.of(2026, 6, 9, 13, 0),
-                "Flight A\u2192B", "Departs 09:00 AM",
-                null, "Arr 01:00 PM"
+                "✈️ A\u2192B", "Departs 9:00 AM",
+                null, "Arr 1:00 PM"
         );
 
         String html = CalendarViewBuilder.render(

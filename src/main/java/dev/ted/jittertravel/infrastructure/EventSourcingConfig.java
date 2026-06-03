@@ -128,4 +128,33 @@ public class EventSourcingConfig {
         projector.handle(eventStore.findAll());
         return projector;
     }
+
+    @Bean
+    public BookedTrainsProjector bookedTrainsProjector(EventStore eventStore) {
+        BookedTrainsProjector projector = new BookedTrainsProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
+
+    @Bean
+    public TrainCalendarProjector trainCalendarProjector(EventStore eventStore) {
+        TrainCalendarProjector projector = new TrainCalendarProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
+
+    @Bean
+    public TrainBooking trainBookingApplicationService(CommandExecutor commandExecutor, Clock clock) {
+        return new TrainBooking(commandExecutor, clock);
+    }
+
+    @Bean
+    public ItineraryProjector itineraryProjector(EventStore eventStore) {
+        ItineraryProjector projector = new ItineraryProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
 }

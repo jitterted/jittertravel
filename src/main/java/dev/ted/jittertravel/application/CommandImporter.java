@@ -4,13 +4,14 @@ import dev.ted.jittertravel.domain.*;
 import dev.ted.jittertravel.infrastructure.EventStore;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.web.*;
+
+import java.util.UUID;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class CommandImporter {
     private static final LocalDateTime BYPASS_NOW = LocalDateTime.MIN;
@@ -86,6 +87,13 @@ public class CommandImporter {
             ChangeFlightRequest request = jsonMapper.readValue(payloadJson, ChangeFlightRequest.class);
             UUID commandId = UUID.randomUUID();
             var events = new ChangeFlightCommand().execute(request, true, BYPASS_NOW);
+            persister.saveCommand(commandId, request);
+            eventStore.append(events, commandId);
+        } else if (type.equals(BookTrainRequest.class.getName())) {
+            BookTrainRequest request = jsonMapper.readValue(payloadJson, BookTrainRequest.class);
+            UUID commandId = UUID.fromString(request.getTrainTripId());
+            BookTrainCommand command = new BookTrainHandler().handle(request);
+            var events = command.execute(new BookTrainContext(BYPASS_NOW));
             persister.saveCommand(commandId, request);
             eventStore.append(events, commandId);
         } else {

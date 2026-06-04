@@ -167,7 +167,11 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                             .anyMatch(occ -> !occ.city().equalsIgnoreCase(city)
                                     && !finalNight.isBefore(occ.startDate())
                                     && finalNight.isBefore(occ.endDate()));
-                    if (!conferenceElsewhere) {
+                    boolean hotelInConferenceCity = hotelStays.values().stream()
+                            .anyMatch(stay -> !stay.city().equalsIgnoreCase(city)
+                                    && stay.coversNight(finalNight)
+                                    && isConferenceCity(stay.city()));
+                    if (!conferenceElsewhere && !hotelInConferenceCity) {
                         neededNights.add(new CityNight(city, finalNight));
                     }
                 }
@@ -214,6 +218,11 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 .map(CityOccupancy::name)
                 .findFirst()
                 .orElse("");
+    }
+
+    private boolean isConferenceCity(String city) {
+        return conferenceOccupancies.values().stream()
+                .anyMatch(occ -> occ.city().equalsIgnoreCase(city));
     }
 
     private Optional<LocalDate> nextDepartureFromCity(List<TravelLeg> legs, String city, LocalDateTime afterTime) {

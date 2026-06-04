@@ -366,6 +366,23 @@ class ScheduleGapProjectorTest {
         }
 
         @Test
+        void hotelInConferenceCityOnPreConferenceNightDoesNotRequireHotelInArrivalCity() {
+            // Arrive LON Sep 15; hotel in Steventon Sep 15-19; conference in Steventon Sep 16-19.
+            // Sep 15 is pre-conference but in the conference city — traveler is in Steventon.
+            // London Sep 15 should not be flagged; Steventon nights Sep 16-18 covered by hotel.
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(train("BRU", SEP_15.atTime(10, 0), LON, SEP_15.atTime(12, 0))),
+                    stored(hotel("Steventon", SEP_15, SEP_19)),
+                    stored(conference("Steventon", SEP_16, SEP_19)),
+                    stored(flight(LON, SEP_19.atTime(14, 0), AMS, SEP_19.atTime(16, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                    .isEmpty();
+        }
+
+        @Test
         void arrivalCityNightsSurroundingConferenceSplitIntoTwoSeparateEntries() {
             // Arrive LON Sep 15, conference in Steventon Sep 16-18, depart LON Sep 19
             // → LON needs Sep 15 (pre-conference) and Sep 18 (post-conference) as two entries

@@ -43,7 +43,21 @@ If the durable event store cannot be loaded at startup, or cannot accept an
 append at runtime, the application enters a read-only mode and rejects new
 commands. Failures are surfaced, never silently swallowed.
 
-### R6. Do not change an existing event's structure without a migration plan.
+### R6. The event log is append-only; stored events may never be modified or deleted.
+
+`UPDATE` and `DELETE` against the event store are prohibited. An event, once
+appended, is permanent. Corrections to domain state happen by appending new
+compensating or superseding events — never by mutating or removing existing
+rows.
+
+This rules out SQL-level rewrites as a migration strategy for field renames
+(see R7). The permitted migration paths are deserialization-time transforms
+(`@JsonAlias`, custom `JsonDeserializer`, or upcaster chains) and adding new
+optional fields.
+
+---
+
+### R7. Do not change an existing event's structure without a migration plan.
 
 Once an event type has been persisted, its shape is contract. Removing,
 renaming, or retyping a field — or changing the meaning of an existing
@@ -63,7 +77,7 @@ into several. Migration may take the form of in-place upcasting at
 deserialization, a one-off conversion that rewrites stored rows, or
 introducing a new event type and leaving the old one in place.
 
-### Enforcement of R6
+### Enforcement of R7
 
 We pair the rule with mechanical checks. Adopted now (cheapest), with
 heavier options recorded for later.

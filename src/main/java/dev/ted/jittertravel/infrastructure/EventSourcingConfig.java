@@ -157,4 +157,12 @@ public class EventSourcingConfig {
         projector.handle(eventStore.findAll());
         return projector;
     }
+
+    @Bean
+    public ScheduleGapProjector scheduleGapProjector(EventStore eventStore) {
+        ScheduleGapProjector projector = new ScheduleGapProjector(new StaticAirportCityResolver());
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
 }

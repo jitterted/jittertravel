@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd * && ./mvnw test *)",
+      "Bash(cd * && ./mvnw -pl * test *)",
+      "mcp__proophboard__get_chapter",
+      "mcp__proophboard__list_workspaces",
+      "mcp__proophboard__list_chapters",
+      "mcp__proophboard__guidelines"
+    ]
+  }
+}

@@ -136,7 +136,8 @@ public class CalendarViewBuilder {
             int span = seg[1] - seg[0] + 1;
             int gridRow = 2 + kindOffset.get(entry.kind()) + subRowOf.get(entry);
             boolean isContinuation = entry.start().toLocalDate().isBefore(sunday);
-            cells.add(renderEntrySegment(entry, startCol, span, gridRow, isContinuation));
+            boolean isFinalSegment = !entry.end().toLocalDate().isAfter(sunday.plusDays(6));
+            cells.add(renderEntrySegment(entry, startCol, span, gridRow, isContinuation, isFinalSegment));
         }
 
         String rowsStyle = totalSubRows == 0
@@ -163,11 +164,18 @@ public class CalendarViewBuilder {
                                                  int startCol,
                                                  int span,
                                                  int gridRow,
-                                                 boolean isContinuation) {
+                                                 boolean isContinuation,
+                                                 boolean isFinalSegment) {
         String kindClass = "entry--" + entry.kind().name().toLowerCase();
         String classes = "entry " + kindClass + (isContinuation ? " entry--continuation" : "");
         String style = "grid-column: " + startCol + " / span " + span
                 + "; grid-row: " + gridRow + ";";
+        if (entry.kind() == EntryKind.LODGING && isFinalSegment) {
+            double pct = (span - 1.0) / span * 100.0;
+            style += String.format(
+                    " background: linear-gradient(to right, var(--entry-lodging-bg) %.4f%%, #bbf7d0 %.4f%%);",
+                    pct, pct);
+        }
 
         String title = isContinuation ? entry.continuationTitle() : entry.mainTitle();
         String subtitle = isContinuation ? entry.continuationSubTitle() : entry.subTitle();

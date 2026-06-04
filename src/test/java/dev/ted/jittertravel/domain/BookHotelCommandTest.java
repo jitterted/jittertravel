@@ -13,7 +13,7 @@ class BookHotelCommandTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 5, 31, 10, 0);
     private static final LocalDateTime CHECK_IN = NOW.toLocalDate().plusWeeks(2).atTime(15, 0);
     private static final LocalDateTime CHECK_OUT = CHECK_IN.toLocalDate().plusDays(1).atTime(11, 0);
-    private static final Address ADDRESS = new Address("123 Main St", "Springfield", "IL", "62701", "US");
+    private static final Address ADDRESS = new Address("123 Main St", "Springfield", "IL", "62701", "US", null);
 
     @Test
     void validTentativeCommandProducesHotelBookedEventWithAllFields() {

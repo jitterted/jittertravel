@@ -44,6 +44,51 @@
             color: var(--muted-text);
         }
 
+        .paste-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            align-items: flex-end;
+        }
+
+        .paste-row textarea {
+            flex: 1;
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.85rem;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 3.5rem;
+            box-sizing: border-box;
+        }
+
+        .paste-row textarea:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+
+        .parse-btn {
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.35rem 0.9rem;
+            font-size: 0.85rem;
+            font-family: inherit;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .parse-btn:hover { opacity: 0.88; }
+
+        .hint {
+            font-size: 0.75rem;
+            color: var(--muted-text);
+            margin-top: 2px;
+        }
+
         .field input[type=text],
         .field input[type=datetime-local] {
             padding: 0.3rem 0.5rem;
@@ -131,6 +176,11 @@
         <fieldset>
             <legend>Address</legend>
 
+            <div class="paste-row">
+                <textarea id="rawAddress" placeholder="Paste full address here to auto-fill fields below…"></textarea>
+                <button type="button" class="parse-btn" id="parseBtn">Parse ▶</button>
+            </div>
+
             <div class="field">
                 <label>
                     Street
@@ -146,8 +196,8 @@
                 </div>
                 <div class="field narrow">
                     <label>
-                        State
-                        <input type="text" th:field="*{state}"/>
+                        Region
+                        <input type="text" th:field="*{region}"/>
                     </label>
                 </div>
             </div>
@@ -164,6 +214,13 @@
                         <input type="text" th:field="*{postalCode}"/>
                     </label>
                 </div>
+            </div>
+            <div class="field">
+                <label>
+                    Location for matching
+                    <input type="text" th:field="*{locationForMatching}"/>
+                </label>
+                <span class="hint">City name used to match with conferences and travel — edit if auto-fill picks the wrong level</span>
             </div>
         </fieldset>
 
@@ -203,5 +260,34 @@
     </form>
 
 </div>
+<script>
+    document.getElementById('parseBtn').addEventListener('click', async () => {
+        const raw = document.getElementById('rawAddress').value.trim();
+        if (!raw) return;
+        const btn = document.getElementById('parseBtn');
+        btn.textContent = '…';
+        btn.disabled = true;
+        try {
+            const resp = await fetch('/api/parse-address', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({rawAddress: raw})
+            });
+            if (!resp.ok) { btn.textContent = 'Not found'; return; }
+            const d = await resp.json();
+            const set = (name, val) => { if (val) { const el = document.querySelector('[name="' + name + '"]'); if (el) el.value = val; } };
+            set('street', d.street);
+            set('city', d.city);
+            set('region', d.region);
+            set('country', d.country);
+            set('postalCode', d.postalCode);
+            set('locationForMatching', d.locationForMatching || d.city);
+        } catch (e) {
+            btn.textContent = 'Error';
+        } finally {
+            setTimeout(() => { btn.textContent = 'Parse ▶'; btn.disabled = false; }, 1500);
+        }
+    });
+</script>
 </body>
 </html>

@@ -77,7 +77,7 @@ class BookHotelControllerValidationTest {
         request.setHotelName("Grand Hotel");
         request.setStreet("123 Main St");
         request.setCity("Springfield");
-        request.setState("IL");
+        request.setRegion("IL");
         request.setCountry("US");
         request.setPostalCode("62701");
         request.setCheckIn(NOW.plusWeeks(2).withHour(15).withMinute(0));

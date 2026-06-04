@@ -114,7 +114,7 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
                         req.getStartDate(),
                         req.getEndDate(),
                         "Venue",
-                        new Address("Street", "City", null, "12345", "Country")
+                        new Address("Street", "City", null, "12345", "Country", null)
                 ),
                 commandId
         );
@@ -147,7 +147,7 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
                         request.getStartDate(),
                         request.getEndDate(),
                         "Test Venue",
-                        new Address("Street", "City", null, "12345", "Country")
+                        new Address("Street", "City", null, "12345", "Country", null)
                 ),
                 commandId
         );

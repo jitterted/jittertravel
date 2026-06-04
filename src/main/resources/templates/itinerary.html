@@ -186,10 +186,10 @@
                     <div class="entry-detail" th:text="${entry.address().street()}"></div>
                     <div class="entry-detail entry-location"
                          th:text="${entry.address().city()
-                             + (!entry.address().state().isEmpty() ? ', ' + entry.address().state() : '')
+                             + (!entry.address().region().isEmpty() ? ', ' + entry.address().region() : '')
                              + ' ' + entry.address().postalCode()}"></div>
                     <div class="entry-detail entry-location" th:text="${entry.address().country()}"></div>
-                    <div th:if="${entry.dayRole().name() == 'CHECK_OUT'}" class="entry-detail"
+                    <div class="entry-detail"
                          th:text="${#temporals.format(entry.anchorDateTime(), 'h:mm a')}"></div>
                 </div>
 

@@ -684,20 +684,20 @@ class ScheduleGapProjectorTest {
 
     private static HotelBooked hotel(String city, LocalDate checkIn, LocalDate checkOut) {
         return new HotelBooked(HotelBookingId.random(), "Hotel",
-                new Address("1 Street", city, "", "00000", "XX"),
+                new Address("1 Street", city, "", "00000", "XX", null),
                 checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL);
     }
 
     private static ConferenceTentativelyPlanned conference(String city, LocalDate start, LocalDate end) {
         return new ConferenceTentativelyPlanned(ConferenceId.random(), "Conf",
                 start.atStartOfDay(), end.atStartOfDay(), "Venue",
-                new Address("1 Street", city, "", "00000", "XX"));
+                new Address("1 Street", city, "", "00000", "XX", null));
     }
 
     private static ConferenceTentativelyPlanned conferenceAt(String city, LocalDateTime start, LocalDateTime end) {
         return new ConferenceTentativelyPlanned(ConferenceId.random(), "Conf",
                 start, end, "Venue",
-                new Address("1 Street", city, "", "00000", "XX"));
+                new Address("1 Street", city, "", "00000", "XX", null));
     }
 
     private static StoredEvent stored(Event event) {

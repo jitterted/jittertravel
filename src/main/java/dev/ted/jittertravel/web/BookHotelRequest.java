@@ -10,9 +10,10 @@ public class BookHotelRequest {
     private String hotelName;
     private String street;
     private String city;
-    private String state;
+    private String region;
     private String country;
     private String postalCode;
+    private String locationForMatching;
     // @DateTimeFormat required to match browser's <input type="datetime-local" /> format
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime checkIn;
@@ -32,14 +33,17 @@ public class BookHotelRequest {
     public String getCity() { return city; }
     public void setCity(String city) { this.city = city; }
 
-    public String getState() { return state; }
-    public void setState(String state) { this.state = state; }
+    public String getRegion() { return region; }
+    public void setRegion(String region) { this.region = region; }
 
     public String getCountry() { return country; }
     public void setCountry(String country) { this.country = country; }
 
     public String getPostalCode() { return postalCode; }
     public void setPostalCode(String postalCode) { this.postalCode = postalCode; }
+
+    public String getLocationForMatching() { return locationForMatching; }
+    public void setLocationForMatching(String locationForMatching) { this.locationForMatching = locationForMatching; }
 
     public LocalDateTime getCheckIn() { return checkIn; }
     public void setCheckIn(LocalDateTime checkIn) { this.checkIn = checkIn; }

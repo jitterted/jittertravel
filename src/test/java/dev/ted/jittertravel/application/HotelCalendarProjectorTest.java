@@ -27,7 +27,7 @@ class HotelCalendarProjectorTest {
         HotelBooked event = new HotelBooked(
                 HotelBookingId.random(),
                 "Grand Hotel",
-                new Address("123 Main St", "Springfield", "IL", "62701", "US"),
+                new Address("123 Main St", "Springfield", "IL", "62701", "US", null),
                 CHECK_IN,
                 CHECK_OUT,
                 BookingIntent.TENTATIVE

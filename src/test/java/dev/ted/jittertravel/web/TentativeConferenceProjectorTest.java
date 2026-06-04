@@ -21,7 +21,7 @@ class TentativeConferenceProjectorTest {
     void projectorCreatesViewFromEvents() {
         TentativeConferenceProjector projector = new TentativeConferenceProjector();
         ConferenceId conferenceId = ConferenceId.random();
-        Address address = new Address("123 Venue Street", "Venue City", "Venue State", "Venue Postal Code", "Venue Country");
+        Address address = new Address("123 Venue Street", "Venue City", "Venue State", "Venue Postal Code", "Venue Country", null);
         ConferenceTentativelyPlanned event = new ConferenceTentativelyPlanned(
                 conferenceId,
                 "Conference Name",
@@ -47,7 +47,7 @@ class TentativeConferenceProjectorTest {
     @Test
     void projectedViewsAreSortedAscendingByStartDate() {
         TentativeConferenceProjector projector = new TentativeConferenceProjector();
-        Address address = new Address("Street", "City", "State", "Postal Code", "Country");
+        Address address = new Address("Street", "City", "State", "Postal Code", "Country", null);
 
         ConferenceTentativelyPlanned laterEvent = new ConferenceTentativelyPlanned(
                 ConferenceId.random(),

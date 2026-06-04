@@ -25,7 +25,7 @@ class ConferenceCalendarProjectorTest {
                 LocalDateTime.of(2026, 6, 7, 11, 0),
                 LocalDateTime.of(2026, 6, 10, 17, 0),
                 "Forum",
-                new Address("Street", "Frankfurt", "Hesse", "60311", "Germany")
+                new Address("Street", "Frankfurt", "Hesse", "60311", "Germany", null)
         );
 
         projector.handle(Stream.of(stored(event)));
@@ -72,7 +72,7 @@ class ConferenceCalendarProjectorTest {
                 start,
                 start.plusDays(2),
                 "Venue",
-                new Address("Street", "City", "State", "00000", "Country")
+                new Address("Street", "City", "State", "00000", "Country", null)
         );
     }
 

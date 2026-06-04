@@ -104,7 +104,7 @@ public class PlanTentativeConferenceRequest {
     }
 
     public Address getVenueAddress() {
-        return new Address(venueStreet, venueCity, venueState, venuePostalCode, venueCountry);
+        return new Address(venueStreet, venueCity, venueState, venuePostalCode, venueCountry, null);
     }
 
     @Override

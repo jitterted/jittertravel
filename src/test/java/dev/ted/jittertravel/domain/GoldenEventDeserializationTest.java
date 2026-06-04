@@ -84,7 +84,9 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
-    void conferenceTentativelyPlannedSampleDeserializes() {
+    void conferenceTentativelyPlannedLegacyPayloadWithStateFieldDeserializes() {
+        // Legacy events use "state" — @JsonAlias("state") on Address.region reads both old and new shape.
+        // Missing locationForMatching defaults to city via compact constructor.
         String json = """
                 {
                   "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
@@ -108,6 +110,71 @@ class GoldenEventDeserializationTest {
                 .isEqualTo("JitterConf");
         assertThat(event.venueAddress().city())
                 .isEqualTo("San Francisco");
+        assertThat(event.venueAddress().region())
+                .isEqualTo("CA");
+        assertThat(event.venueAddress().locationForMatching())
+                .as("locationForMatching absent in legacy JSON defaults to city")
+                .isEqualTo("San Francisco");
+    }
+
+    @Test
+    void hotelBookedCurrentPayloadDeserializes() {
+        String json = """
+                {
+                  "hotelBookingId": {"id": "33333333-3333-3333-3333-333333333333"},
+                  "hotelName": "Milton Mill House",
+                  "address": {
+                    "street": "Milton Hill",
+                    "city": "Steventon",
+                    "region": "Oxfordshire",
+                    "postalCode": "OX13 6AF",
+                    "country": "GB",
+                    "locationForMatching": "Steventon"
+                  },
+                  "checkIn": "2026-06-17T15:00:00",
+                  "checkOut": "2026-06-21T11:00:00",
+                  "bookingIntent": "FINAL"
+                }
+                """;
+
+        HotelBooked event = deserialize(json, HotelBooked.class);
+
+        assertThat(event.hotelName())
+                .isEqualTo("Milton Mill House");
+        assertThat(event.address().city())
+                .isEqualTo("Steventon");
+        assertThat(event.address().locationForMatching())
+                .isEqualTo("Steventon");
+    }
+
+    @Test
+    void hotelBookedLegacyPayloadWithStateFieldAndNoLocationForMatchingDeserializes() {
+        // Legacy events use "state" not "region"; locationForMatching absent → defaults to city.
+        String json = """
+                {
+                  "hotelBookingId": {"id": "33333333-3333-3333-3333-333333333333"},
+                  "hotelName": "Grand Hotel",
+                  "address": {
+                    "street": "123 Main St",
+                    "city": "Springfield",
+                    "state": "IL",
+                    "postalCode": "62701",
+                    "country": "US"
+                  },
+                  "checkIn": "2026-09-15T15:00:00",
+                  "checkOut": "2026-09-18T11:00:00",
+                  "bookingIntent": "TENTATIVE"
+                }
+                """;
+
+        HotelBooked event = deserialize(json, HotelBooked.class);
+
+        assertThat(event.address().region())
+                .as("@JsonAlias maps legacy 'state' field to region")
+                .isEqualTo("IL");
+        assertThat(event.address().locationForMatching())
+                .as("locationForMatching absent in legacy JSON defaults to city")
+                .isEqualTo("Springfield");
     }
 
     @Test

@@ -98,7 +98,7 @@ class ItineraryProjectorTest {
         LocalDate checkOut = DATE.plusDays(3);
         HotelBooked event = new HotelBooked(
                 HotelBookingId.random(), "Marriott Downtown",
-                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA"),
+                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
                 checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL);
 
         projector.handle(Stream.of(stored(event)));
@@ -127,7 +127,7 @@ class ItineraryProjectorTest {
         LocalDate checkOut = DATE.plusDays(3);
         HotelBooked event = new HotelBooked(
                 HotelBookingId.random(), "Marriott Downtown",
-                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA"),
+                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
                 checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL);
 
         projector.handle(Stream.of(stored(event)));
@@ -147,7 +147,7 @@ class ItineraryProjectorTest {
                 ConferenceId.random(), "JitterConf 2026",
                 DATE.atStartOfDay(), DATE.plusDays(2).atStartOfDay(),
                 "Moscone Center",
-                new Address("747 Howard St", "San Francisco", "CA", "94103", "USA"));
+                new Address("747 Howard St", "San Francisco", "CA", "94103", "USA", null));
 
         projector.handle(Stream.of(stored(event)));
 
@@ -192,7 +192,7 @@ class ItineraryProjectorTest {
         // Hotel check-out 7:00 AM
         HotelBooked hotel = new HotelBooked(
                 HotelBookingId.random(), "Grand Hotel",
-                new Address("1 Main St", "Amsterdam", "", "1000", "NL"),
+                new Address("1 Main St", "Amsterdam", "", "1000", "NL", null),
                 date.minusDays(3).atTime(15, 0), date.atTime(7, 0), BookingIntent.FINAL);
 
         // Train departs 7:51 AM
@@ -206,7 +206,7 @@ class ItineraryProjectorTest {
                 ConferenceId.random(), "DevConf 2026",
                 date.atTime(9, 0), date.atTime(17, 0),
                 "Conference Center",
-                new Address("10 Expo Blvd", "Brussels", "", "1000", "BE"));
+                new Address("10 Expo Blvd", "Brussels", "", "1000", "BE", null));
 
         projector.handle(Stream.of(stored(hotel), stored(train), stored(conference)));
 

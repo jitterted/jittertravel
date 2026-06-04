@@ -13,8 +13,9 @@ public class BookHotelHandler {
         return new BookHotelCommand(
                 HotelBookingId.of(UUID.fromString(request.getHotelBookingId())),
                 request.getHotelName(),
-                new Address(request.getStreet(), request.getCity(), request.getState(),
-                        request.getPostalCode(), request.getCountry()),
+                new Address(request.getStreet(), request.getCity(), request.getRegion(),
+                        request.getPostalCode(), request.getCountry(),
+                        request.getLocationForMatching()),
                 request.getCheckIn(),
                 request.getCheckOut(),
                 request.getBookingIntent()

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Booked Hotels</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .hotel-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface, #fff);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .hotel-table th {
+            background: var(--header-bg);
+            color: var(--muted-text);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            padding: 10px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .hotel-table td {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.9rem;
+        }
+
+        .hotel-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .hotel-table tr:hover td {
+            background: var(--hover-bg);
+        }
+
+        .status-badge {
+            display: inline-block;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 2px 8px;
+            border-radius: 999px;
+        }
+
+        .status-tentative {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-final {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .empty-state {
+            margin-top: 1rem;
+            color: var(--muted-text);
+        }
+
+        .action-row {
+            margin-top: 1rem;
+        }
+
+        .action-row a {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .action-row a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/calendar">Calendar</a>
+    </nav>
+
+    <h1>Booked Hotels</h1>
+
+    <div th:if="${hotels.isEmpty()}" class="empty-state">
+        <p>No hotel bookings yet.</p>
+    </div>
+
+    <table th:unless="${hotels.isEmpty()}" class="hotel-table">
+        <thead>
+            <tr>
+                <th>Hotel</th>
+                <th>Location</th>
+                <th>Check-In</th>
+                <th>Check-Out</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="hotel : ${hotels}">
+                <td th:text="${hotel.hotelName()}"></td>
+                <td th:text="${hotel.city() + ', ' + hotel.country()}"></td>
+                <td th:text="${#temporals.format(hotel.checkIn(), 'MMM d, yyyy h:mm a')}"></td>
+                <td th:text="${#temporals.format(hotel.checkOut(), 'MMM d, yyyy h:mm a')}"></td>
+                <td>
+                    <span th:if="${hotel.status().name() == 'TENTATIVE'}"
+                          class="status-badge status-tentative">Tentative</span>
+                    <span th:unless="${hotel.status().name() == 'TENTATIVE'}"
+                          class="status-badge status-final">Final</span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="action-row">
+        <a th:href="@{/book-hotel}">Book another hotel</a>
+    </div>
+
+</div>
+</body>
+</html>

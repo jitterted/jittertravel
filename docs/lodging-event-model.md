@@ -21,7 +21,7 @@
 Address is a value object with fields:
 - street
 - city
-- state (this is optional--stored as an empty string--for non-North American addresses)
+- region (this is optional--stored as an empty string--for non-North American addresses)
 - postalCode
 - country
 
@@ -64,7 +64,7 @@ Form fields presented to the traveler:
 | hotelName     | string        | yes      |                                            |
 | street        | string        | yes      |                                            |
 | city          | string        | yes      |                                            |
-| state         | string        | no       | Optional                                   |
+| region        | string        | no       | Optional                                   |
 | country       | string        | yes      |                                            |
 | postalCode    | string        | yes      |                                            |
 | checkIn       | LocalDateTime | yes      | Local date-time at hotel location          |
@@ -82,7 +82,7 @@ Form fields presented to the traveler:
 | hotelName          | string        |                                        |
 | address.street     | string        |                                        |
 | address.city       | string        |                                        |
-| address.state      | string        | Optional                               |
+| address.region     | string        | Optional                               |
 | address.country    | string        |                                        |
 | address.postalCode | string        |                                        |
 | checkIn            | LocalDateTime |                                        |
@@ -110,7 +110,7 @@ Form fields presented to the traveler:
 | hotelName          | string        |                        |
 | address.street     | string        |                        |
 | address.city       | string        |                        |
-| address.state      | string        | Optional               |
+| address.region     | string        | Optional               |
 | address.country    | string        |                        |
 | address.postalCode | string        |                        |
 | checkIn            | LocalDateTime |                        |

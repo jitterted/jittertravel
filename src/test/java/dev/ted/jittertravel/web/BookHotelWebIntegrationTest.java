@@ -90,6 +90,30 @@ class BookHotelWebIntegrationTest extends AbstractTestcontainerIntegrationTest {
     }
 
     @Test
+    void bookedHotelsPageShowsBookedHotelWithStatusAndDates() {
+        LocalDateTime checkIn = LocalDate.now().plusWeeks(4).atTime(15, 0);
+        LocalDateTime checkOut = checkIn.toLocalDate().plusDays(3).atTime(11, 0);
+
+        assertThat(mockMvc.post().uri("/book-hotel")
+                .param("hotelBookingId", UUID.randomUUID().toString())
+                .param("hotelName", "Savoy London")
+                .param("street", "Strand")
+                .param("city", "London")
+                .param("region", "")
+                .param("country", "GB")
+                .param("postalCode", "WC2R 0EZ")
+                .param("checkIn", checkIn.format(DATETIME_LOCAL))
+                .param("checkOut", checkOut.format(DATETIME_LOCAL))
+                .param("bookingIntent", "TENTATIVE"))
+                .hasStatus3xxRedirection();
+
+        assertThat(mockMvc.get().uri("/booked-hotels"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("Savoy London", "London", "Tentative");
+    }
+
+    @Test
     void postBookHotelWithCheckInInPastRendersFormWithFieldError() {
         LocalDateTime pastCheckIn = LocalDate.now().minusDays(1).atTime(15, 0);
         LocalDateTime checkOut = LocalDate.now().plusDays(1).atTime(11, 0);

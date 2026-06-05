@@ -18,6 +18,7 @@ public class ItineraryProjector implements EventStreamConsumer {
     private final Map<TrainTripId, List<TrainItineraryEntry>> trainEntries = new ConcurrentHashMap<>();
     private final Map<HotelBookingId, List<HotelItineraryEntry>> hotelEntries = new ConcurrentHashMap<>();
     private final Map<ConferenceId, List<ConferenceItineraryEntry>> conferenceEntries = new ConcurrentHashMap<>();
+    private final Map<GatheringId, GatheringItineraryEntry> gatheringEntries = new ConcurrentHashMap<>();
 
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
@@ -28,6 +29,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                 case TrainBooked e -> trainEntries.put(e.tripId(), toTrainEntries(e));
                 case HotelBooked e -> hotelEntries.put(e.hotelBookingId(), toHotelEntries(e));
                 case ConferenceTentativelyPlanned e -> conferenceEntries.put(e.conferenceId(), toConferenceEntries(e));
+                case GatheringPlanned e -> gatheringEntries.put(e.gatheringId(), toGatheringEntry(e));
                 default -> {}
             }
         });
@@ -38,7 +40,8 @@ public class ItineraryProjector implements EventStreamConsumer {
                         flightEntries.values().stream().flatMap(List::stream),
                         trainEntries.values().stream().flatMap(List::stream),
                         hotelEntries.values().stream().flatMap(List::stream),
-                        conferenceEntries.values().stream().flatMap(List::stream)
+                        conferenceEntries.values().stream().flatMap(List::stream),
+                        gatheringEntries.values().stream()
                 )
                 .flatMap(s -> s)
                 .map(e -> e.anchorTime().toLocalDate())
@@ -63,6 +66,9 @@ public class ItineraryProjector implements EventStreamConsumer {
                 .forEach(result::add);
         conferenceEntries.values().stream()
                 .flatMap(List::stream)
+                .filter(e -> e.anchorDateTime().toLocalDate().equals(date))
+                .forEach(result::add);
+        gatheringEntries.values().stream()
                 .filter(e -> e.anchorDateTime().toLocalDate().equals(date))
                 .forEach(result::add);
         result.sort(Comparator.comparing(ItineraryEntry::anchorTime));
@@ -121,6 +127,14 @@ public class ItineraryProjector implements EventStreamConsumer {
                         HotelDayRole.CHECK_IN, e.checkIn(), mapsUrl),
                 new HotelItineraryEntry(e.hotelName(), e.address(), e.bookingIntent(),
                         HotelDayRole.CHECK_OUT, e.checkOut(), mapsUrl));
+    }
+
+    private static GatheringItineraryEntry toGatheringEntry(GatheringPlanned e) {
+        return new GatheringItineraryEntry(
+                e.title(), e.venueName(),
+                e.location().city(), e.location().country(),
+                e.speaking(), e.infoUrl(),
+                e.date().atTime(e.startTime()));
     }
 
     private static List<ConferenceItineraryEntry> toConferenceEntries(ConferenceTentativelyPlanned e) {

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -327,6 +328,47 @@ class ItineraryProjectorTest {
                 .as("hotel check-out (7:00) → train (7:51) → conference (9:00)")
                 .extracting(ItineraryEntry::kind)
                 .containsExactly(EntryKind.LODGING, EntryKind.TRAIN, EntryKind.CONFERENCE);
+    }
+
+    @Test
+    void gatheringPlannedAppearsOnItsDate() {
+        ItineraryProjector projector = new ItineraryProjector();
+        GatheringPlanned event = new GatheringPlanned(
+                GatheringId.random(), "London Java Community", "Skills Matter",
+                new Address("1 Example St", "London", "", "EC1A 1BB", "GB", null),
+                DATE, LocalTime.of(18, 0), LocalTime.of(21, 0), true,
+                "https://meetup.com/ljc/events/123");
+
+        projector.handle(Stream.of(stored(event)));
+
+        List<ItineraryEntry> entries = projector.entriesForDate(DATE);
+        assertThat(entries).hasSize(1);
+        GatheringItineraryEntry entry = (GatheringItineraryEntry) entries.getFirst();
+        assertThat(entry.title()).isEqualTo("London Java Community");
+        assertThat(entry.venueName()).isEqualTo("Skills Matter");
+        assertThat(entry.city()).isEqualTo("London");
+        assertThat(entry.country()).isEqualTo("GB");
+        assertThat(entry.speaking()).as("speaking flag must be true").isTrue();
+        assertThat(entry.infoUrl()).isEqualTo("https://meetup.com/ljc/events/123");
+        assertThat(entry.anchorTime()).isEqualTo(DATE.atTime(18, 0));
+    }
+
+    @Test
+    void gatheringDoesNotAppearOnOtherDates() {
+        ItineraryProjector projector = new ItineraryProjector();
+        GatheringPlanned event = new GatheringPlanned(
+                GatheringId.random(), "Some Meetup", "",
+                new Address("1 St", "London", "", "EC1A 1BB", "GB", null),
+                DATE, LocalTime.of(18, 0), LocalTime.of(21, 0), false, "");
+
+        projector.handle(Stream.of(stored(event)));
+
+        assertThat(projector.entriesForDate(DATE.minusDays(1)))
+                .as("gathering must not appear before its date")
+                .isEmpty();
+        assertThat(projector.entriesForDate(DATE.plusDays(1)))
+                .as("gathering must not appear after its date")
+                .isEmpty();
     }
 
     private static StoredEvent stored(Event event) {

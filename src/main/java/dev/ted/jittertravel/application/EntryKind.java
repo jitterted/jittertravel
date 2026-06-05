@@ -6,7 +6,7 @@ package dev.ted.jittertravel.application;
  */
 public enum EntryKind {
     CONFERENCE,
-    MEETUP,
+    GATHERING,
     FLIGHT,
     TRAIN,
     LODGING

@@ -5,3 +5,5 @@
 - [AssertJ assertion style](feedback_assertj_style.md) — Chained calls on new lines; boolean assertions (.isTrue()/.isFalse()) must have .as("readable description") before the terminal assertion
 - [No LLM in app code](feedback_no_llm.md) — Never suggest using any LLM/AI API for application logic, parsing, or processing — explicit non-negotiable constraint
 - [New page navigation check](feedback_new_page_navigation.md) — When adding a new page/route, always ask whether it needs a link from index.html or other nav before completing the task
+- [Renderer testing](feedback_renderer_testing.md) — Test renderers directly as unit tests; web integration tests use @WebMvcTest slice, only for URL mapping/status/type conversion
+- [j2html encoding](feedback_j2html_encoding.md) — Set charset=UTF-8 in Content-Type; use rawHtml("&middot;") etc. for non-ASCII; add <meta charset="UTF-8"> to head

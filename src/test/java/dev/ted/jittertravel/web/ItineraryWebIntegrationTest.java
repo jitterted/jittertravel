@@ -24,6 +24,12 @@ class ItineraryWebIntegrationTest extends AbstractTestcontainerIntegrationTest {
     private MockMvcTester mockMvc;
 
     @Test
+    void itineraryPageWithNoDateParamRendersSuccessfully() {
+        assertThat(mockMvc.get().uri("/itinerary"))
+                .hasStatusOk();
+    }
+
+    @Test
     void itineraryPageRendersHotelCheckInTimeAndAddress() {
         LocalDate checkInDate = LocalDate.now().plusWeeks(2);
         LocalDateTime checkIn = checkInDate.atTime(15, 0);
@@ -45,7 +51,7 @@ class ItineraryWebIntegrationTest extends AbstractTestcontainerIntegrationTest {
         assertThat(mockMvc.get().uri("/itinerary?date=" + checkInDate))
                 .hasStatusOk()
                 .bodyText()
-                .contains("Milton Mill House", "Steventon", "3:00 PM");
+                .contains("Milton Mill House", "Steventon", "3:00 PM", "google.com/maps");
     }
 
     @Test

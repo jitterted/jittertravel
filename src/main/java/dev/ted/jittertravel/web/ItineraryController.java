@@ -8,6 +8,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -15,15 +16,20 @@ import java.util.List;
 public class ItineraryController {
 
     private final ItineraryProjector itineraryProjector;
+    private final Clock clock;
 
-    public ItineraryController(ItineraryProjector itineraryProjector) {
+    public ItineraryController(ItineraryProjector itineraryProjector, Clock clock) {
         this.itineraryProjector = itineraryProjector;
+        this.clock = clock;
     }
 
     @GetMapping("/itinerary")
     public String itinerary(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             Model model) {
+        if (date == null) {
+            date = itineraryProjector.firstDateOnOrAfter(LocalDate.now(clock));
+        }
         model.addAttribute("days", List.of(
                 new ItineraryDay(date, itineraryProjector.entriesForDate(date)),
                 new ItineraryDay(date.plusDays(1), itineraryProjector.entriesForDate(date.plusDays(1))),

@@ -165,4 +165,9 @@ public class EventSourcingConfig {
         projector.handle(eventStore.findAll());
         return projector;
     }
+
+    @Bean
+    public GatheringPlanning gatheringPlanningApplicationService(CommandExecutor commandExecutor, Clock clock) {
+        return new GatheringPlanning(commandExecutor, clock);
+    }
 }

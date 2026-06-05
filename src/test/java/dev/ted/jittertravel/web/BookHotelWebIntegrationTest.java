@@ -110,7 +110,7 @@ class BookHotelWebIntegrationTest extends AbstractTestcontainerIntegrationTest {
         assertThat(mockMvc.get().uri("/booked-hotels"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("Savoy London", "London", "Tentative");
+                .contains("Savoy London", "London", "Tentative", "google.com/maps");
     }
 
     @Test

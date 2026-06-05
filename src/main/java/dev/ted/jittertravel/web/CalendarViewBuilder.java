@@ -13,9 +13,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
-import static j2html.TagCreator.a;
-import static j2html.TagCreator.div;
-import static j2html.TagCreator.each;
+import static j2html.TagCreator.*;
 
 /**
  * Renders the calendar as Sunday→Saturday weeks. Each week is a CSS grid with
@@ -182,7 +180,10 @@ public class CalendarViewBuilder {
 
         DivTag div = div().withClass(classes).withStyle(style);
         if (title != null) {
-            div.with(div(title).withClass("entry-title"));
+            DomContent titleContent = (entry.mapsUrl() != null && !isContinuation)
+                    ? a(title).withHref(entry.mapsUrl()).withTarget("_blank").withRel("noopener").withClass("entry-title")
+                    : div(title).withClass("entry-title");
+            div.with(titleContent);
         }
         if (subtitle != null) {
             for (String line : subtitle.split("\n")) {

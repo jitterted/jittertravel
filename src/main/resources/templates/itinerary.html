@@ -122,7 +122,8 @@
                              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M2 16l20-7-9 13-2-6-9 0z"/>
                         </svg>
-                        <span class="entry-kind entry-kind--flight">Flight</span>
+                        <span class="entry-kind entry-kind--flight"
+                              th:text="${entry.role().name() == 'ARRIVAL' ? 'Arriving' : 'Flight'}"></span>
                     </div>
                     <div class="entry-title"
                          th:text="${entry.airline() + ' ' + entry.flightNumber()}"></div>
@@ -145,7 +146,8 @@
                             <circle cx="8.5" cy="14.5" r="1" fill="#9a3412" stroke="none"/>
                             <circle cx="15.5" cy="14.5" r="1" fill="#9a3412" stroke="none"/>
                         </svg>
-                        <span class="entry-kind entry-kind--train">Train</span>
+                        <span class="entry-kind entry-kind--train"
+                              th:text="${entry.role().name() == 'ARRIVAL' ? 'Arriving' : 'Train'}"></span>
                     </div>
                     <div th:if="${!entry.serviceId().isEmpty()}"
                          class="entry-detail" th:text="${entry.serviceId()}"></div>
@@ -182,7 +184,8 @@
                         <span class="entry-kind entry-kind--lodging"
                               th:text="${entry.dayRole().name() == 'CHECK_IN' ? 'Check-In' : 'Check-Out'}"></span>
                     </div>
-                    <div class="entry-title" th:text="${entry.hotelName()}"></div>
+                    <a class="entry-title" th:href="${entry.mapsUrl()}" target="_blank" rel="noopener"
+                       th:text="${entry.hotelName()}"></a>
                     <div class="entry-detail" th:text="${entry.address().street()}"></div>
                     <div class="entry-detail entry-location"
                          th:text="${entry.address().city()

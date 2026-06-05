@@ -71,6 +71,7 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                     route,
                     timeRange,
                     null,
+                    null,
                     null
             ));
         }
@@ -84,6 +85,7 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                 route,
                 departs,
                 null,
+                null,
                 null
         );
         CalendarEntry arrivalEntry = new CalendarEntry(
@@ -92,6 +94,7 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                 arrivalDateTime,
                 route,
                 arrives,
+                null,
                 null,
                 null
         );

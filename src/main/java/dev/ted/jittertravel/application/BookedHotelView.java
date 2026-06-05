@@ -12,6 +12,7 @@ public record BookedHotelView(
         String country,
         LocalDateTime checkIn,
         LocalDateTime checkOut,
-        BookingIntent status
+        BookingIntent status,
+        String mapsUrl
 ) {
 }

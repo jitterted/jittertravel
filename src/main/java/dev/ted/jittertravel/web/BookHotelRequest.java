@@ -14,6 +14,7 @@ public class BookHotelRequest {
     private String country;
     private String postalCode;
     private String locationForMatching;
+    private String mapsUrl;
     // @DateTimeFormat required to match browser's <input type="datetime-local" /> format
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime checkIn;
@@ -44,6 +45,9 @@ public class BookHotelRequest {
 
     public String getLocationForMatching() { return locationForMatching; }
     public void setLocationForMatching(String locationForMatching) { this.locationForMatching = locationForMatching; }
+
+    public String getMapsUrl() { return mapsUrl; }
+    public void setMapsUrl(String mapsUrl) { this.mapsUrl = mapsUrl; }
 
     public LocalDateTime getCheckIn() { return checkIn; }
     public void setCheckIn(LocalDateTime checkIn) { this.checkIn = checkIn; }

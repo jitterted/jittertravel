@@ -8,6 +8,12 @@ public record HotelBooked(
         Address address,
         LocalDateTime checkIn,
         LocalDateTime checkOut,
-        BookingIntent bookingIntent
+        BookingIntent bookingIntent,
+        String mapsUrl
 ) implements Event {
+    public HotelBooked {
+        if (mapsUrl == null) {
+            mapsUrl = "";
+        }
+    }
 }

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -403,6 +404,82 @@ class ScheduleGapProjectorTest {
     }
 
     // -------------------------------------------------------------------------
+    // Gathering scheduling conflicts
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class GatheringConflictDetection {
+
+        @Test
+        void noConflictWhenOnlyOneGathering() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(stored(gathering("LJC", SEP_15, LocalTime.of(18, 0), LocalTime.of(21, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.SchedulingConflict)
+                    .isEmpty();
+        }
+
+        @Test
+        void noConflictWhenGatheringsAreOnDifferentDates() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(gathering("LJC", SEP_15, LocalTime.of(18, 0), LocalTime.of(21, 0))),
+                    stored(gathering("MJUG", SEP_16, LocalTime.of(18, 30), LocalTime.of(21, 30)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.SchedulingConflict)
+                    .isEmpty();
+        }
+
+        @Test
+        void noConflictWhenGatheringsOnSameDayDoNotOverlap() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(gathering("LJC", SEP_15, LocalTime.of(18, 0), LocalTime.of(20, 0))),
+                    stored(gathering("MJUG", SEP_15, LocalTime.of(20, 0), LocalTime.of(22, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.SchedulingConflict)
+                    .isEmpty();
+        }
+
+        @Test
+        void conflictReportedWhenGatheringsOnSameDayOverlap() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            LocalTime start1 = LocalTime.of(18, 0);
+            LocalTime end1 = LocalTime.of(21, 0);
+            LocalTime start2 = LocalTime.of(19, 30);
+            LocalTime end2 = LocalTime.of(22, 0);
+            projector.handle(Stream.of(
+                    stored(gathering("LJC", SEP_15, start1, end1)),
+                    stored(gathering("MJUG", SEP_15, start2, end2))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.SchedulingConflict)
+                    .hasSize(1);
+            ScheduleProblem.SchedulingConflict conflict = projector.problems().stream()
+                    .filter(p -> p instanceof ScheduleProblem.SchedulingConflict)
+                    .map(p -> (ScheduleProblem.SchedulingConflict) p)
+                    .findFirst().orElseThrow();
+            assertThat(conflict.date())
+                    .isEqualTo(SEP_15);
+        }
+
+        @Test
+        void conflictReportedWhenOneGatheringContainsAnother() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(gathering("Long event", SEP_15, LocalTime.of(17, 0), LocalTime.of(23, 0))),
+                    stored(gathering("Short event", SEP_15, LocalTime.of(19, 0), LocalTime.of(21, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.SchedulingConflict)
+                    .hasSize(1);
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Ordering
     // -------------------------------------------------------------------------
 
@@ -685,7 +762,7 @@ class ScheduleGapProjectorTest {
     private static HotelBooked hotel(String city, LocalDate checkIn, LocalDate checkOut) {
         return new HotelBooked(HotelBookingId.random(), "Hotel",
                 new Address("1 Street", city, "", "00000", "XX", null),
-                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL);
+                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL, null);
     }
 
     private static ConferenceTentativelyPlanned conference(String city, LocalDate start, LocalDate end) {
@@ -698,6 +775,12 @@ class ScheduleGapProjectorTest {
         return new ConferenceTentativelyPlanned(ConferenceId.random(), "Conf",
                 start, end, "Venue",
                 new Address("1 Street", city, "", "00000", "XX", null));
+    }
+
+    private static GatheringPlanned gathering(String title, LocalDate date, LocalTime start, LocalTime end) {
+        return new GatheringPlanned(GatheringId.random(), title, "Venue",
+                new Address("1 Street", "London", "", "EC1A", "GB", null),
+                date, start, end, false, "");
     }
 
     private static StoredEvent stored(Event event) {

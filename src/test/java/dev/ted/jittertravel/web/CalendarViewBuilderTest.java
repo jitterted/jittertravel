@@ -62,7 +62,8 @@ class CalendarViewBuilderTest {
                 "DevConf",
                 "(Portland, USA)",
                 "DevConf cont'd",
-                "(Portland, USA)"
+                "(Portland, USA)",
+                null
         );
 
         String html = CalendarViewBuilder.render(
@@ -88,7 +89,8 @@ class CalendarViewBuilderTest {
                 "✈️ SFO\u2192FRA",
                 "Departs 1:55 PM",
                 null,
-                "Arr 9:45 AM"
+                "Arr 9:45 AM",
+                null
         );
         // Conference DDD Europe 2026: Sun 2026-06-07 11:00 -> Wed 2026-06-10 17:00.
         CalendarEntry conf = new CalendarEntry(
@@ -98,7 +100,8 @@ class CalendarViewBuilderTest {
                 "DDD Europe 2026",
                 "(Frankfurt, Germany)",
                 "DDD Europe 2026 cont'd",
-                "(Frankfurt, Germany)"
+                "(Frankfurt, Germany)",
+                null
         );
 
         String html = CalendarViewBuilder.render(
@@ -131,14 +134,16 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 6, 2, 9, 0),
                 LocalDateTime.of(2026, 6, 4, 17, 0),
                 "ConfA", "(City, Country)",
-                "ConfA cont'd", "(City, Country)"
+                "ConfA cont'd", "(City, Country)",
+                null
         );
         CalendarEntry b = new CalendarEntry(
                 EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 3, 9, 0),
                 LocalDateTime.of(2026, 6, 5, 17, 0),
                 "ConfB", "(City, Country)",
-                "ConfB cont'd", "(City, Country)"
+                "ConfB cont'd", "(City, Country)",
+                null
         );
 
         String html = CalendarViewBuilder.render(
@@ -154,6 +159,30 @@ class CalendarViewBuilderTest {
     }
 
     @Test
+    void lodgingEntryWithMapsUrlRendersTitleAsLink() {
+        CalendarEntry hotel = new CalendarEntry(
+                EntryKind.LODGING,
+                LocalDateTime.of(2026, 6, 10, 15, 0),
+                LocalDateTime.of(2026, 6, 12, 11, 0),
+                "Grand Hotel Berlin",
+                "Berlin, DE",
+                "Grand Hotel Berlin cont'd",
+                "Berlin, DE",
+                "https://maps.google.com/?q=Grand+Hotel+Berlin"
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(hotel),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14)
+        );
+
+        assertThat(html)
+                .contains("href=\"https://maps.google.com/?q=Grand+Hotel+Berlin\"")
+                .contains(">Grand Hotel Berlin<");
+    }
+
+    @Test
     void fixedLaneOrderingPlacesConferencesAboveFlights() {
         // Both occupy the same week so we have two lanes stacked.
         CalendarEntry conf = new CalendarEntry(
@@ -161,14 +190,16 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 6, 8, 9, 0),
                 LocalDateTime.of(2026, 6, 8, 17, 0),
                 "Conf", "(City, Country)",
-                "Conf cont'd", "(City, Country)"
+                "Conf cont'd", "(City, Country)",
+                null
         );
         CalendarEntry flight = new CalendarEntry(
                 EntryKind.FLIGHT,
                 LocalDateTime.of(2026, 6, 9, 9, 0),
                 LocalDateTime.of(2026, 6, 9, 13, 0),
                 "✈️ A\u2192B", "Departs 9:00 AM",
-                null, "Arr 1:00 PM"
+                null, "Arr 1:00 PM",
+                null
         );
 
         String html = CalendarViewBuilder.render(

@@ -6,6 +6,7 @@ import dev.ted.jittertravel.infrastructure.StoredEvent;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
@@ -17,6 +18,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     private final Map<TrainTripId, TravelLeg> trainLegs = new ConcurrentHashMap<>();
     private final Map<HotelBookingId, HotelStay> hotelStays = new ConcurrentHashMap<>();
     private final Map<ConferenceId, CityOccupancy> conferenceOccupancies = new ConcurrentHashMap<>();
+    private final Map<GatheringId, GatheringOccupancy> gatheringOccupancies = new ConcurrentHashMap<>();
 
     public ScheduleGapProjector(AirportCityResolver cityResolver) {
         this.cityResolver = cityResolver;
@@ -40,6 +42,8 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 case ConferenceTentativelyPlanned e -> conferenceOccupancies.put(e.conferenceId(),
                         new CityOccupancy(e.venueAddress().locationForMatching(),
                                 e.startDate(), e.endDate(), e.name()));
+                case GatheringPlanned e -> gatheringOccupancies.put(e.gatheringId(),
+                        new GatheringOccupancy(e.title(), e.date(), e.startTime(), e.endTime()));
                 default -> {}
             }
         });
@@ -51,10 +55,14 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         detectMissingTravel(legs, rawProblems);
         detectMissingTravelToFromConferences(legs, rawProblems);
         detectMissingHotel(legs, rawProblems);
+        detectGatheringConflicts(rawProblems);
 
         List<ScheduleProblem> result = new ArrayList<>(deduplicateMissingTravel(rawProblems));
         rawProblems.stream()
                 .filter(p -> p instanceof ScheduleProblem.MissingHotel)
+                .forEach(result::add);
+        rawProblems.stream()
+                .filter(p -> p instanceof ScheduleProblem.SchedulingConflict)
                 .forEach(result::add);
 
         return result.stream()
@@ -99,6 +107,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         return switch (p) {
             case ScheduleProblem.MissingTravel mt -> mt.arrivedAt().toLocalDate();
             case ScheduleProblem.MissingHotel mh -> mh.checkIn();
+            case ScheduleProblem.SchedulingConflict sc -> sc.date();
         };
     }
 
@@ -243,6 +252,22 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 cityResolver.cityFor(arr.code()), arrDt);
     }
 
+    private void detectGatheringConflicts(Set<ScheduleProblem> problems) {
+        List<GatheringOccupancy> gatherings = new ArrayList<>(gatheringOccupancies.values());
+        for (int i = 0; i < gatherings.size(); i++) {
+            for (int j = i + 1; j < gatherings.size(); j++) {
+                GatheringOccupancy a = gatherings.get(i);
+                GatheringOccupancy b = gatherings.get(j);
+                if (a.overlapsWith(b)) {
+                    problems.add(new ScheduleProblem.SchedulingConflict(
+                            a.name(), a.startTime(), a.endTime(),
+                            b.name(), b.startTime(), b.endTime(),
+                            a.date()));
+                }
+            }
+        }
+    }
+
     private record TravelLeg(String fromCity, LocalDateTime departure, String toCity, LocalDateTime arrival) {}
 
     private record HotelStay(String city, LocalDate checkIn, LocalDate checkOut) {
@@ -257,4 +282,12 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     }
 
     private record CityNight(String city, LocalDate night) {}
+
+    private record GatheringOccupancy(String name, LocalDate date, LocalTime startTime, LocalTime endTime) {
+        boolean overlapsWith(GatheringOccupancy other) {
+            return this.date.equals(other.date)
+                    && this.startTime.isBefore(other.endTime)
+                    && other.startTime.isBefore(this.endTime);
+        }
+    }
 }

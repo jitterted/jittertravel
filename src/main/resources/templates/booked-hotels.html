@@ -117,7 +117,10 @@
         </thead>
         <tbody>
             <tr th:each="hotel : ${hotels}">
-                <td th:text="${hotel.hotelName()}"></td>
+                <td>
+                    <a th:href="${hotel.mapsUrl()}" target="_blank" rel="noopener"
+                       th:text="${hotel.hotelName()}"></a>
+                </td>
                 <td th:text="${hotel.city() + ', ' + hotel.country()}"></td>
                 <td th:text="${#temporals.format(hotel.checkIn(), 'MMM d, yyyy h:mm a')}"></td>
                 <td th:text="${#temporals.format(hotel.checkOut(), 'MMM d, yyyy h:mm a')}"></td>

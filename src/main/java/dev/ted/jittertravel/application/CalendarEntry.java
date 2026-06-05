@@ -18,6 +18,7 @@ public record CalendarEntry(
         String mainTitle,
         String subTitle,
         String continuationTitle,
-        String continuationSubTitle
+        String continuationSubTitle,
+        String mapsUrl
 ) {
 }

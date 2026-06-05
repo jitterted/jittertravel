@@ -1,7 +1,7 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.ScheduleProblem;
 import dev.ted.jittertravel.application.ScheduleGapProjector;
+import dev.ted.jittertravel.application.ScheduleProblem;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,6 +24,8 @@ public class ScheduleProblemsController {
                 .filter(p -> p instanceof ScheduleProblem.MissingTravel).toList());
         model.addAttribute("hotelProblems", problems.stream()
                 .filter(p -> p instanceof ScheduleProblem.MissingHotel).toList());
+        model.addAttribute("schedulingProblems", problems.stream()
+                .filter(p -> p instanceof ScheduleProblem.SchedulingConflict).toList());
         return "schedule-problems";
     }
 }

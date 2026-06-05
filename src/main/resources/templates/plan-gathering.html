@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
-    <title>Book Hotel</title>
+    <title>Plan Gathering</title>
     <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
     <style>
         .page {
@@ -90,7 +90,8 @@
         }
 
         .field input[type=text],
-        .field input[type=datetime-local] {
+        .field input[type=date],
+        .field input[type=time] {
             padding: 0.3rem 0.5rem;
             border: 1px solid var(--border-color);
             border-radius: 5px;
@@ -112,8 +113,7 @@
             margin-bottom: 0.5rem;
         }
 
-        .field-row .field { flex: 2; margin-bottom: 0; }
-        .field-row .field.narrow { flex: 1; }
+        .field-row .field { flex: 1; margin-bottom: 0; }
 
         .error {
             display: block;
@@ -122,15 +122,15 @@
             color: #b00;
         }
 
-        .intent-group {
+        .speaking-group {
             display: flex;
-            gap: 1.5rem;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
             align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
         }
 
-        .intent-group label {
+        .speaking-group label {
             display: flex;
             align-items: center;
             gap: 0.35rem;
@@ -161,20 +161,27 @@
         <a href="/calendar">Calendar</a>
     </nav>
 
-    <h1>Book Hotel</h1>
+    <h1>Plan Gathering</h1>
 
-    <form th:action="@{/book-hotel}" th:object="${bookHotel}" method="post">
-        <input type="hidden" th:field="*{hotelBookingId}"/>
+    <form th:action="@{/plan-gathering}" th:object="${planGathering}" method="post">
+        <input type="hidden" th:field="*{gatheringId}"/>
+
+        <div class="field" style="margin-bottom: 0.5rem;">
+            <label>
+                Title
+                <input type="text" th:field="*{title}"/>
+            </label>
+        </div>
 
         <div class="field" style="margin-bottom: 0.75rem;">
             <label>
-                Hotel Name
-                <input type="text" th:field="*{hotelName}"/>
+                Venue Name
+                <input type="text" th:field="*{venueName}"/>
             </label>
         </div>
 
         <fieldset>
-            <legend>Address</legend>
+            <legend>Venue</legend>
 
             <div class="paste-row">
                 <textarea id="rawAddress" placeholder="Paste full address here to auto-fill fields below…"></textarea>
@@ -194,7 +201,7 @@
                         <input type="text" th:field="*{city}"/>
                     </label>
                 </div>
-                <div class="field narrow">
+                <div class="field">
                     <label>
                         Region
                         <input type="text" th:field="*{region}"/>
@@ -208,7 +215,7 @@
                         <input type="text" th:field="*{country}"/>
                     </label>
                 </div>
-                <div class="field narrow">
+                <div class="field">
                     <label>
                         Postal Code
                         <input type="text" th:field="*{postalCode}"/>
@@ -222,48 +229,51 @@
                 </label>
                 <span class="hint">City name used to match with conferences and travel — edit if auto-fill picks the wrong level</span>
             </div>
-            <div class="field">
-                <label>
-                    Google Maps link (optional)
-                    <input type="text" th:field="*{mapsUrl}" placeholder="https://maps.google.com/…"/>
-                </label>
-                <span class="hint">Paste the hotel's Google Maps link — leave blank to auto-generate from address</span>
-            </div>
         </fieldset>
 
         <div class="field-row" style="margin-bottom: 0.75rem;">
             <div class="field">
                 <label>
-                    Check-in
-                    <input type="datetime-local" th:field="*{checkIn}"/>
+                    Date
+                    <input type="date" th:field="*{date}"/>
                 </label>
                 <span class="error"
-                      th:if="${#fields.hasErrors('checkIn')}"
-                      th:errors="*{checkIn}"></span>
+                      th:if="${#fields.hasErrors('date')}"
+                      th:errors="*{date}"></span>
             </div>
             <div class="field">
                 <label>
-                    Check-out
-                    <input type="datetime-local" th:field="*{checkOut}"/>
+                    Start time
+                    <input type="time" th:field="*{startTime}"/>
+                </label>
+            </div>
+            <div class="field">
+                <label>
+                    End time
+                    <input type="time" th:field="*{endTime}"/>
                 </label>
                 <span class="error"
-                      th:if="${#fields.hasErrors('checkOut')}"
-                      th:errors="*{checkOut}"></span>
+                      th:if="${#fields.hasErrors('endTime')}"
+                      th:errors="*{endTime}"></span>
             </div>
         </div>
 
-        <div class="intent-group">
+        <div class="speaking-group">
             <label>
-                <input type="radio" th:field="*{bookingIntent}" value="TENTATIVE"/>
-                Tentative
-            </label>
-            <label>
-                <input type="radio" th:field="*{bookingIntent}" value="FINAL"/>
-                Already booked as final
+                <input type="checkbox" th:field="*{speaking}"/>
+                I'm speaking at this gathering
             </label>
         </div>
 
-        <button type="submit">Book Hotel</button>
+        <div class="field" style="margin-bottom: 0.75rem;">
+            <label>
+                Event page URL (optional)
+                <input type="text" th:field="*{infoUrl}" placeholder="https://…"/>
+            </label>
+            <span class="hint">Link to the specific event page for this gathering</span>
+        </div>
+
+        <button type="submit">Plan Gathering</button>
     </form>
 
 </div>

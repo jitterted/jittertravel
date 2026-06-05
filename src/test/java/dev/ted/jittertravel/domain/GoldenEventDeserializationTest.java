@@ -145,6 +145,37 @@ class GoldenEventDeserializationTest {
                 .isEqualTo("Steventon");
         assertThat(event.address().locationForMatching())
                 .isEqualTo("Steventon");
+        assertThat(event.mapsUrl())
+                .as("mapsUrl absent in JSON must be empty — render-time generation applies")
+                .isEmpty();
+    }
+
+    @Test
+    void hotelBookedWithMapsUrlInPayloadPreservesIt() {
+        String json = """
+                {
+                  "hotelBookingId": {"id": "33333333-3333-3333-3333-333333333333"},
+                  "hotelName": "Savoy",
+                  "address": {
+                    "street": "Strand",
+                    "city": "London",
+                    "region": "",
+                    "postalCode": "WC2R 0EZ",
+                    "country": "GB",
+                    "locationForMatching": "London"
+                  },
+                  "checkIn": "2026-07-10T15:00:00",
+                  "checkOut": "2026-07-12T11:00:00",
+                  "bookingIntent": "FINAL",
+                  "mapsUrl": "https://maps.google.com/?q=place_id:ChIJB9OTMDIbdkgRp0JWR_EVkZM"
+                }
+                """;
+
+        HotelBooked event = deserialize(json, HotelBooked.class);
+
+        assertThat(event.mapsUrl())
+                .as("mapsUrl present in JSON must be preserved, not overwritten by fallback")
+                .isEqualTo("https://maps.google.com/?q=place_id:ChIJB9OTMDIbdkgRp0JWR_EVkZM");
     }
 
     @Test
@@ -175,6 +206,9 @@ class GoldenEventDeserializationTest {
         assertThat(event.address().locationForMatching())
                 .as("locationForMatching absent in legacy JSON defaults to city")
                 .isEqualTo("Springfield");
+        assertThat(event.mapsUrl())
+                .as("mapsUrl absent in legacy JSON must be empty — render-time generation applies")
+                .isEmpty();
     }
 
     @Test
@@ -236,6 +270,50 @@ class GoldenEventDeserializationTest {
 
         assertThat(event.serviceId())
                 .isEqualTo("DB - ICE 610");
+    }
+
+    @Test
+    void gatheringPlannedSampleDeserializes() {
+        String json = """
+                {
+                  "gatheringId": {"id": "44444444-4444-4444-4444-444444444444"},
+                  "title": "London Java Community — November Meetup",
+                  "venueName": "Skills Matter",
+                  "location": {
+                    "street": "1 Example Street",
+                    "city": "London",
+                    "region": "",
+                    "postalCode": "EC1A 1BB",
+                    "country": "GB",
+                    "locationForMatching": "London"
+                  },
+                  "date": "2026-09-15",
+                  "startTime": "18:30",
+                  "endTime": "21:00",
+                  "speaking": true,
+                  "infoUrl": "https://www.meetup.com/londonjavacommunity/events/123456/"
+                }
+                """;
+
+        GatheringPlanned event = deserialize(json, GatheringPlanned.class);
+
+        assertThat(event.gatheringId().id())
+                .isEqualTo(UUID.fromString("44444444-4444-4444-4444-444444444444"));
+        assertThat(event.title())
+                .isEqualTo("London Java Community — November Meetup");
+        assertThat(event.venueName())
+                .isEqualTo("Skills Matter");
+        assertThat(event.location().city())
+                .isEqualTo("London");
+        assertThat(event.date().toString())
+                .isEqualTo("2026-09-15");
+        assertThat(event.startTime().toString())
+                .isEqualTo("18:30");
+        assertThat(event.speaking())
+                .as("speaking flag must be preserved from JSON")
+                .isTrue();
+        assertThat(event.infoUrl())
+                .isEqualTo("https://www.meetup.com/londonjavacommunity/events/123456/");
     }
 
     private static <T> T deserialize(String json, Class<T> type) {

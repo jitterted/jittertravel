@@ -35,8 +35,9 @@
             margin: 0 0 0.6rem;
         }
 
-        .column-heading--travel { color: #92400e; }
-        .column-heading--hotel  { color: #1e40af; }
+        .column-heading--travel    { color: #92400e; }
+        .column-heading--hotel     { color: #1e40af; }
+        .column-heading--scheduling { color: #991b1b; }
 
         .problem-list {
             display: flex;
@@ -58,6 +59,11 @@
         .problem-card--missing-hotel {
             border-left-color: #1d4ed8;
             background: #dbeafe;
+        }
+
+        .problem-card--scheduling-conflict {
+            border-left-color: #dc2626;
+            background: #fee2e2;
         }
 
         .problem-title {
@@ -90,11 +96,11 @@
 
     <h1>Schedule Problems</h1>
 
-    <div th:if="${travelProblems.isEmpty() and hotelProblems.isEmpty()}" class="no-problems">
+    <div th:if="${travelProblems.isEmpty() and hotelProblems.isEmpty() and schedulingProblems.isEmpty()}" class="no-problems">
         No problems found — your schedule looks complete.
     </div>
 
-    <div th:unless="${travelProblems.isEmpty() and hotelProblems.isEmpty()}" class="problem-columns">
+    <div th:unless="${travelProblems.isEmpty() and hotelProblems.isEmpty() and schedulingProblems.isEmpty()}" class="problem-columns">
 
         <!-- Left column: Missing Travel -->
         <div>
@@ -131,6 +137,27 @@
             <p th:if="${hotelProblems.isEmpty()}" class="empty-column">None</p>
         </div>
 
+    </div>
+
+    <!-- Scheduling Conflicts: full-width section -->
+    <div th:unless="${schedulingProblems.isEmpty()}" style="margin-top: 2rem;">
+        <p class="column-heading column-heading--scheduling">Scheduling Conflicts</p>
+        <div class="problem-list">
+            <div th:each="p : ${schedulingProblems}" class="problem-card problem-card--scheduling-conflict">
+                <div class="problem-title"
+                     th:text="${p.gathering1Name() + ' conflicts with ' + p.gathering2Name()}"></div>
+                <div class="problem-detail"
+                     th:text="${#temporals.format(p.date(), 'EEE, MMM d')
+                               + ' — '
+                               + #temporals.format(p.gathering1Start(), 'h:mm a')
+                               + '–'
+                               + #temporals.format(p.gathering1End(), 'h:mm a')
+                               + ' overlaps '
+                               + #temporals.format(p.gathering2Start(), 'h:mm a')
+                               + '–'
+                               + #temporals.format(p.gathering2End(), 'h:mm a')}"></div>
+            </div>
+        </div>
     </div>
 
 </div>

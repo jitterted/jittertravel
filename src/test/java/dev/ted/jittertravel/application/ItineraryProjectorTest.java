@@ -20,6 +20,119 @@ class ItineraryProjectorTest {
     private static final LocalDateTime ARRIVAL = DATE.atTime(11, 15);
 
     @Test
+    void firstDateOnOrAfterReturnsTodayWhenNoEntries() {
+        ItineraryProjector projector = new ItineraryProjector();
+
+        assertThat(projector.firstDateOnOrAfter(DATE))
+                .isEqualTo(DATE);
+    }
+
+    @Test
+    void firstDateOnOrAfterReturnsTodayWhenAllEntriesAreInPast() {
+        ItineraryProjector projector = new ItineraryProjector();
+        projector.handle(Stream.of(stored(new FlightBooked(
+                FlightId.random(), "BA", "BA1",
+                AirportCode.of("SFO"), DATE.minusDays(5).atTime(9, 0),
+                AirportCode.of("LHR"), DATE.minusDays(4).atTime(17, 0)))));
+
+        assertThat(projector.firstDateOnOrAfter(DATE))
+                .isEqualTo(DATE);
+    }
+
+    @Test
+    void firstDateOnOrAfterReturnsEarliestFutureEntryDate() {
+        ItineraryProjector projector = new ItineraryProjector();
+        LocalDate nextWeek = DATE.plusWeeks(1);
+        LocalDate twoWeeks = DATE.plusWeeks(2);
+        projector.handle(Stream.of(
+                stored(new FlightBooked(FlightId.random(), "BA", "BA1",
+                        AirportCode.of("SFO"), twoWeeks.atTime(9, 0),
+                        AirportCode.of("LHR"), twoWeeks.atTime(17, 0))),
+                stored(new FlightBooked(FlightId.random(), "UA", "UA2",
+                        AirportCode.of("LHR"), nextWeek.atTime(10, 0),
+                        AirportCode.of("SFO"), nextWeek.atTime(14, 0)))));
+
+        assertThat(projector.firstDateOnOrAfter(DATE))
+                .isEqualTo(nextWeek);
+    }
+
+    @Test
+    void multiDayFlightAppearsOnBothDepartureDateAndArrivalDate() {
+        ItineraryProjector projector = new ItineraryProjector();
+        LocalDate arrivalDate = DATE.plusDays(1);
+        FlightBooked event = new FlightBooked(
+                FlightId.random(), "United", "UA58",
+                AirportCode.of("SFO"), DATE.atTime(13, 55),
+                AirportCode.of("FRA"), arrivalDate.atTime(9, 45));
+
+        projector.handle(Stream.of(stored(event)));
+
+        assertThat(projector.entriesForDate(DATE))
+                .as("multi-day flight must appear on departure date")
+                .hasSize(1);
+        assertThat(projector.entriesForDate(arrivalDate))
+                .as("multi-day flight must appear on arrival date")
+                .hasSize(1);
+    }
+
+    @Test
+    void sameDayFlightAppearsOnlyOnDepartureDate() {
+        ItineraryProjector projector = new ItineraryProjector();
+        FlightBooked event = new FlightBooked(
+                FlightId.random(), "Ryanair", "FR123",
+                AirportCode.of("LHR"), DATE.atTime(7, 0),
+                AirportCode.of("AMS"), DATE.atTime(9, 15));
+
+        projector.handle(Stream.of(stored(event)));
+
+        assertThat(projector.entriesForDate(DATE))
+                .as("same-day flight must appear on departure date")
+                .hasSize(1);
+        assertThat(projector.entriesForDate(DATE.plusDays(1)))
+                .as("same-day flight must not appear on any other date")
+                .isEmpty();
+    }
+
+    @Test
+    void multiDayTrainAppearsOnBothDepartureDateAndArrivalDate() {
+        ItineraryProjector projector = new ItineraryProjector();
+        LocalDate arrivalDate = DATE.plusDays(1);
+        TrainStationAddress london = new TrainStationAddress("London Euston", "London", "UK", "");
+        TrainStationAddress edinburgh = new TrainStationAddress("Edinburgh Waverley", "Edinburgh", "UK", "");
+        TrainBooked event = new TrainBooked(
+                TrainTripId.random(), london, DATE.atTime(23, 45),
+                edinburgh, arrivalDate.atTime(7, 30), "Caledonian Sleeper");
+
+        projector.handle(Stream.of(stored(event)));
+
+        assertThat(projector.entriesForDate(DATE))
+                .as("overnight train must appear on departure date")
+                .hasSize(1);
+        assertThat(projector.entriesForDate(arrivalDate))
+                .as("overnight train must appear on arrival date")
+                .hasSize(1);
+    }
+
+    @Test
+    void sameDayTrainAppearsOnlyOnDepartureDate() {
+        ItineraryProjector projector = new ItineraryProjector();
+        TrainStationAddress london = new TrainStationAddress("London Euston", "London", "UK", "");
+        TrainStationAddress manchester = new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", "");
+        TrainBooked event = new TrainBooked(
+                TrainTripId.random(), london, DATE.atTime(9, 0),
+                manchester, DATE.atTime(11, 15), "");
+
+        projector.handle(Stream.of(stored(event)));
+
+        assertThat(projector.entriesForDate(DATE))
+                .as("same-day train must appear on departure date")
+                .hasSize(1);
+        assertThat(projector.entriesForDate(DATE.plusDays(1)))
+                .as("same-day train must not appear on any other date")
+                .isEmpty();
+    }
+
+    @Test
     void flightBookedAppearsOnDepartureDate() {
         ItineraryProjector projector = new ItineraryProjector();
         FlightBooked event = new FlightBooked(
@@ -99,7 +212,7 @@ class ItineraryProjectorTest {
         HotelBooked event = new HotelBooked(
                 HotelBookingId.random(), "Marriott Downtown",
                 new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
-                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL);
+                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL, null);
 
         projector.handle(Stream.of(stored(event)));
 
@@ -128,7 +241,7 @@ class ItineraryProjectorTest {
         HotelBooked event = new HotelBooked(
                 HotelBookingId.random(), "Marriott Downtown",
                 new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
-                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL);
+                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL, null);
 
         projector.handle(Stream.of(stored(event)));
 
@@ -193,7 +306,7 @@ class ItineraryProjectorTest {
         HotelBooked hotel = new HotelBooked(
                 HotelBookingId.random(), "Grand Hotel",
                 new Address("1 Main St", "Amsterdam", "", "1000", "NL", null),
-                date.minusDays(3).atTime(15, 0), date.atTime(7, 0), BookingIntent.FINAL);
+                date.minusDays(3).atTime(15, 0), date.atTime(7, 0), BookingIntent.FINAL, null);
 
         // Train departs 7:51 AM
         TrainStationAddress amsterdam = new TrainStationAddress("Amsterdam Centraal", "Amsterdam", "NL", "");

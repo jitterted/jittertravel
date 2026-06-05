@@ -5,6 +5,7 @@ import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
+import dev.ted.jittertravel.web.CalendarViewBuilder;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -58,12 +59,12 @@ public class TrainCalendarProjector implements EventStreamConsumer {
             return List.of(new CalendarEntry(
                     EntryKind.TRAIN, depDt, arrDt,
                     route, servicePrefix + timeRange,
-                    null, null));
+                    null, null, null));
         }
 
         return List.of(
-                new CalendarEntry(EntryKind.TRAIN, depDt, depDt, route, servicePrefix + departs, null, null),
-                new CalendarEntry(EntryKind.TRAIN, arrDt, arrDt, route, arrives, null, null)
+                new CalendarEntry(EntryKind.TRAIN, depDt, depDt, route, servicePrefix + departs, null, null, null),
+                new CalendarEntry(EntryKind.TRAIN, arrDt, arrDt, route, arrives, null, null, null)
         );
     }
 

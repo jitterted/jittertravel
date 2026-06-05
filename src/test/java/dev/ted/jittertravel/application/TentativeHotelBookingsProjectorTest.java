@@ -1,10 +1,6 @@
 package dev.ted.jittertravel.application;
 
-import dev.ted.jittertravel.domain.Address;
-import dev.ted.jittertravel.domain.BookingIntent;
-import dev.ted.jittertravel.domain.Event;
-import dev.ted.jittertravel.domain.HotelBooked;
-import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.*;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
 
@@ -56,7 +52,8 @@ class TentativeHotelBookingsProjectorTest {
                 new Address("123 Main St", "Springfield", "IL", "62701", "US", null),
                 CHECK_IN,
                 CHECK_OUT,
-                BookingIntent.TENTATIVE
+                BookingIntent.TENTATIVE,
+                null
         );
     }
 

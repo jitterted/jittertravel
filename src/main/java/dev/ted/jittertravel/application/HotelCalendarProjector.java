@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.infrastructure.AddressRenderer;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
@@ -20,6 +21,9 @@ public class HotelCalendarProjector implements EventStreamConsumer {
         eventStream.forEach(storedEvent -> {
             if (storedEvent.payload() instanceof HotelBooked event) {
                 String location = event.address().city() + ", " + event.address().country();
+                String mapsUrl = event.mapsUrl().isBlank()
+                        ? AddressRenderer.mapsUrl(event.hotelName(), event.address())
+                        : event.mapsUrl();
                 entriesById.put(event.hotelBookingId(), new CalendarEntry(
                         EntryKind.LODGING,
                         event.checkIn(),
@@ -27,7 +31,8 @@ public class HotelCalendarProjector implements EventStreamConsumer {
                         event.hotelName(),
                         location,
                         event.hotelName() + " cont'd",
-                        location
+                        location,
+                        mapsUrl
                 ));
             }
         });

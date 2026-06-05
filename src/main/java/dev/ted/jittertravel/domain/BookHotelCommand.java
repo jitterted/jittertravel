@@ -9,7 +9,8 @@ public record BookHotelCommand(
         Address address,
         LocalDateTime checkIn,
         LocalDateTime checkOut,
-        BookingIntent bookingIntent
+        BookingIntent bookingIntent,
+        String mapsUrl
 ) implements DomainCommand<BookHotelContext> {
 
     @Override
@@ -21,6 +22,6 @@ public record BookHotelCommand(
             throw new InvalidHotelDateRange(
                     "Check-out must be at least one calendar day after check-in");
         }
-        return Stream.of(new HotelBooked(hotelBookingId, hotelName, address, checkIn, checkOut, bookingIntent));
+        return Stream.of(new HotelBooked(hotelBookingId, hotelName, address, checkIn, checkOut, bookingIntent, mapsUrl));
     }
 }

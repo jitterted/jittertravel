@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.infrastructure.AddressRenderer;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
@@ -20,6 +21,9 @@ public class BookedHotelsProjector implements EventStreamConsumer {
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(storedEvent -> {
             if (storedEvent.payload() instanceof HotelBooked event) {
+                String mapsUrl = event.mapsUrl().isBlank()
+                        ? AddressRenderer.mapsUrl(event.hotelName(), event.address())
+                        : event.mapsUrl();
                 viewsById.put(event.hotelBookingId(), new BookedHotelView(
                         event.hotelBookingId(),
                         event.hotelName(),
@@ -27,7 +31,8 @@ public class BookedHotelsProjector implements EventStreamConsumer {
                         event.address().country(),
                         event.checkIn(),
                         event.checkOut(),
-                        BookingIntent.TENTATIVE
+                        BookingIntent.TENTATIVE,
+                        mapsUrl
                 ));
             }
         });

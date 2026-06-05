@@ -42,7 +42,7 @@ class BookHotelCommandTest {
     void validFinalCommandProducesHotelBookedEventWithFinalIntent() {
         BookHotelCommand command = new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                CHECK_IN, CHECK_OUT, BookingIntent.FINAL);
+                CHECK_IN, CHECK_OUT, BookingIntent.FINAL, null);
 
         assertThat(command.execute(new BookHotelContext(NOW)).toList().getFirst().bookingIntent())
                 .isEqualTo(BookingIntent.FINAL);
@@ -52,7 +52,7 @@ class BookHotelCommandTest {
     void checkInInPastThrowsCheckInNotInFuture() {
         BookHotelCommand command = new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                NOW.minusHours(1), CHECK_OUT, BookingIntent.TENTATIVE);
+                NOW.minusHours(1), CHECK_OUT, BookingIntent.TENTATIVE, null);
 
         assertThatThrownBy(() -> command.execute(new BookHotelContext(NOW)))
                 .isInstanceOf(CheckInNotInFuture.class);
@@ -62,7 +62,7 @@ class BookHotelCommandTest {
     void checkInExactlyNowIsNotAcceptedMustBeStrictlyAfter() {
         BookHotelCommand command = new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                NOW, CHECK_OUT, BookingIntent.TENTATIVE);
+                NOW, CHECK_OUT, BookingIntent.TENTATIVE, null);
 
         assertThatThrownBy(() -> command.execute(new BookHotelContext(NOW)))
                 .isInstanceOf(CheckInNotInFuture.class);
@@ -72,7 +72,7 @@ class BookHotelCommandTest {
     void checkOutOnSameDayAsCheckInThrowsInvalidHotelDateRange() {
         BookHotelCommand command = new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                CHECK_IN, CHECK_IN.withHour(23).withMinute(59), BookingIntent.TENTATIVE);
+                CHECK_IN, CHECK_IN.withHour(23).withMinute(59), BookingIntent.TENTATIVE, null);
 
         assertThatThrownBy(() -> command.execute(new BookHotelContext(NOW)))
                 .isInstanceOf(InvalidHotelDateRange.class);
@@ -84,7 +84,7 @@ class BookHotelCommandTest {
         LocalDateTime checkOut = LocalDateTime.of(2026, 6, 15, 11, 0);
         BookHotelCommand command = new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                checkIn, checkOut, BookingIntent.TENTATIVE);
+                checkIn, checkOut, BookingIntent.TENTATIVE, null);
 
         assertThat(command.execute(new BookHotelContext(NOW)).toList())
                 .hasSize(1);
@@ -93,6 +93,6 @@ class BookHotelCommandTest {
     private static BookHotelCommand validCommand() {
         return new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                CHECK_IN, CHECK_OUT, BookingIntent.TENTATIVE);
+                CHECK_IN, CHECK_OUT, BookingIntent.TENTATIVE, null);
     }
 }

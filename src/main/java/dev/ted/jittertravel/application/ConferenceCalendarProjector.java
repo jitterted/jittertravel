@@ -34,7 +34,8 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                         event.name(),
                         location,
                         event.name() + " cont'd",
-                        location
+                        location,
+                        null
                 ));
             }
         });

@@ -18,7 +18,8 @@ public class BookHotelHandler {
                         request.getLocationForMatching()),
                 request.getCheckIn(),
                 request.getCheckOut(),
-                request.getBookingIntent()
+                request.getBookingIntent(),
+                request.getMapsUrl()
         );
     }
 }

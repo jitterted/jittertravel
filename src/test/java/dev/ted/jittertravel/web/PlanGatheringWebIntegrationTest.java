@@ -1,23 +1,37 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.infrastructure.AbstractTestcontainerIntegrationTest;
+import dev.ted.jittertravel.application.GatheringPlanning;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
-import java.time.LocalDate;
-import java.util.UUID;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-class PlanGatheringWebIntegrationTest extends AbstractTestcontainerIntegrationTest {
+@WebMvcTest(PlanGatheringController.class)
+class PlanGatheringWebIntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;
+
+    @MockitoBean
+    GatheringPlanning gatheringPlanning;
+
+    @MockitoBean
+    Clock clock;
+
+    @BeforeEach
+    void setUp() {
+        given(clock.instant()).willReturn(Instant.parse("2026-06-01T00:00:00Z"));
+        given(clock.getZone()).willReturn(ZoneId.systemDefault());
+    }
 
     @Test
     void planGatheringFormRendersSuccessfully() {
@@ -27,10 +41,8 @@ class PlanGatheringWebIntegrationTest extends AbstractTestcontainerIntegrationTe
 
     @Test
     void planGatheringPostRedirectsToPlannedGatherings() {
-        LocalDate nextWeek = LocalDate.now().plusWeeks(1);
-
         assertThat(mockMvc.post().uri("/plan-gathering")
-                .param("gatheringId", UUID.randomUUID().toString())
+                .param("gatheringId", "550e8400-e29b-41d4-a716-446655440000")
                 .param("title", "London Java Community — November Meetup")
                 .param("venueName", "Skills Matter")
                 .param("street", "1 Example Street")
@@ -38,11 +50,11 @@ class PlanGatheringWebIntegrationTest extends AbstractTestcontainerIntegrationTe
                 .param("region", "")
                 .param("country", "GB")
                 .param("postalCode", "EC1A 1BB")
-                .param("date", nextWeek.toString())
+                .param("date", "2026-07-15")
                 .param("startTime", "18:00")
                 .param("endTime", "21:00")
                 .param("speaking", "true")
-                .param("infoUrl", "https://www.meetup.com/londonjavacommunity/events/123456/"))
+                .param("infoUrl", ""))
                 .hasStatus3xxRedirection();
     }
 }

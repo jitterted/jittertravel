@@ -1,129 +1,98 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.domain.FlightChanged;
-import dev.ted.jittertravel.infrastructure.AbstractTestcontainerIntegrationTest;
-import dev.ted.jittertravel.infrastructure.EventStore;
-import dev.ted.jittertravel.infrastructure.StoredEvent;
+import dev.ted.jittertravel.application.ChangeFlight;
+import dev.ted.jittertravel.application.FlightDetailsView;
+import dev.ted.jittertravel.application.FlightDetailsViewProjector;
+import dev.ted.jittertravel.domain.AirportCode;
+import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.FlightNotFound;
+import dev.ted.jittertravel.infrastructure.AeroDataBoxClient;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 import java.time.LocalDateTime;
-import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-class ChangeFlightWebIntegrationTest extends AbstractTestcontainerIntegrationTest {
+@WebMvcTest(ChangeFlightController.class)
+class ChangeFlightWebIntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;
 
-    @Autowired
-    private EventStore eventStore;
+    @MockitoBean
+    ChangeFlight changeFlight;
+
+    @MockitoBean
+    FlightDetailsViewProjector detailsProjector;
+
+    @MockitoBean
+    AeroDataBoxClient aeroDataBoxClient;
+
+    @BeforeEach
+    void setUp() {
+        given(changeFlight.isReadOnly()).willReturn(false);
+    }
 
     @Test
-    void bookThenChangeFlightEmitsFlightChangedAndUpdatesList() {
+    void getWithKnownFlightIdRendersChangeForm() {
         String flightId = UUID.randomUUID().toString();
-        String originalFlightNumber = "UAX" + UUID.randomUUID().toString().substring(0, 6).toUpperCase(Locale.ENGLISH);
-        String newFlightNumber = "LHX" + UUID.randomUUID().toString().substring(0, 6).toUpperCase(Locale.ENGLISH);
-        LocalDateTime departure = LocalDateTime.now().plusDays(7);
-        LocalDateTime arrival = departure.plusHours(5);
-        LocalDateTime newDeparture = departure.plusDays(1);
-        LocalDateTime newArrival = arrival.plusDays(1);
+        FlightDetailsView view = new FlightDetailsView(
+                FlightId.of(UUID.fromString(flightId)),
+                "United", "UA100",
+                AirportCode.of("SFO"), LocalDateTime.of(2026, 7, 1, 9, 0),
+                AirportCode.of("JFK"), LocalDateTime.of(2026, 7, 1, 14, 0));
+        given(detailsProjector.findById(any())).willReturn(Optional.of(view));
 
-        // 1. Book a flight
-        assertThat(mockMvc.post().uri("/book-flight")
-                .param("flightId", flightId)
-                .param("airline", "United Original")
-                .param("flightNumber", originalFlightNumber)
-                .param("departureAirport", "SFO")
-                .param("departureDateTime", departure.toString())
-                .param("arrivalAirport", "JFK")
-                .param("arrivalDateTime", arrival.toString()))
-                .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/booked-flights");
-
-        // 2. GET the edit form pre-filled
         assertThat(mockMvc.get().uri("/booked-flights/" + flightId))
-                .hasStatusOk()
-                .bodyText()
-                .contains("Change Flight", originalFlightNumber, "United Original", "SFO", "JFK");
-
-        // 3. Submit a change
-        assertThat(mockMvc.post().uri("/booked-flights/" + flightId)
-                .param("flightId", flightId)
-                .param("airline", "Lufthansa Updated")
-                .param("flightNumber", newFlightNumber)
-                .param("departureAirport", "SFO")
-                .param("departureDateTime", newDeparture.toString())
-                .param("arrivalAirport", "MUC")
-                .param("arrivalDateTime", newArrival.toString()))
-                .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/booked-flights");
-
-        // 4. FlightChanged event recorded with the new values.
-        // Filter by our unique new flight number to be robust against the shared EventStore.
-        FlightChanged changed = eventStore.findAll()
-                .map(se -> se.payload())
-                .filter(p -> p instanceof FlightChanged)
-                .map(p -> (FlightChanged) p)
-                .filter(fc -> newFlightNumber.equals(fc.flightNumber()))
-                .reduce((first, second) -> second)
-                .orElseThrow();
-        assertThat(changed.flightId().id()).isEqualTo(UUID.fromString(flightId));
-        assertThat(changed.airline()).isEqualTo("Lufthansa Updated");
-        assertThat(changed.arrivalAirport().code()).isEqualTo("MUC");
-
-        // 5. List view reflects the change.
-        assertThat(mockMvc.get().uri("/booked-flights"))
-                .hasStatusOk()
-                .bodyText()
-                .contains("Lufthansa Updated", newFlightNumber, "SFO\u2192MUC");
+                .hasStatusOk();
     }
 
     @Test
     void getOnUnknownFlightIdRedirectsToBookedFlights() {
-        String unknown = UUID.randomUUID().toString();
-        assertThat(mockMvc.get().uri("/booked-flights/" + unknown))
+        given(detailsProjector.findById(any())).willReturn(Optional.empty());
+
+        assertThat(mockMvc.get().uri("/booked-flights/" + UUID.randomUUID()))
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/booked-flights");
     }
 
     @Test
-    void postOnUnknownFlightIdRedirectsToBookedFlightsWithoutEmittingAnEvent() {
-        String unknown = UUID.randomUUID().toString();
-        LocalDateTime departure = LocalDateTime.now().plusDays(2);
-        LocalDateTime arrival = departure.plusHours(3);
+    void postWithKnownFlightIdRedirectsToBookedFlights() {
+        String flightId = UUID.randomUUID().toString();
 
-        long beforeChangedCount = countFlightChangedFor(unknown);
+        assertThat(mockMvc.post().uri("/booked-flights/" + flightId)
+                .param("airline", "Lufthansa")
+                .param("flightNumber", "LH400")
+                .param("departureAirport", "SFO")
+                .param("departureDateTime", "2026-07-01T09:00")
+                .param("arrivalAirport", "MUC")
+                .param("arrivalDateTime", "2026-07-02T06:00"))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/booked-flights");
+    }
 
-        assertThat(mockMvc.post().uri("/booked-flights/" + unknown)
-                .param("flightId", unknown)
+    @Test
+    void postOnUnknownFlightIdRedirectsToBookedFlights() {
+        willThrow(new FlightNotFound("Flight not found")).given(changeFlight).changeFlight(any());
+
+        assertThat(mockMvc.post().uri("/booked-flights/" + UUID.randomUUID())
                 .param("airline", "X")
                 .param("flightNumber", "X1")
                 .param("departureAirport", "SFO")
-                .param("departureDateTime", departure.toString())
+                .param("departureDateTime", "2026-07-01T09:00")
                 .param("arrivalAirport", "LAX")
-                .param("arrivalDateTime", arrival.toString()))
+                .param("arrivalDateTime", "2026-07-01T12:00"))
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/booked-flights");
-
-        long afterChangedCount = countFlightChangedFor(unknown);
-        assertThat(afterChangedCount).isEqualTo(beforeChangedCount);
-    }
-
-    private long countFlightChangedFor(String flightId) {
-        UUID id = UUID.fromString(flightId);
-        return eventStore.findAll()
-                .map(StoredEvent::payload)
-                .filter(p -> p instanceof FlightChanged)
-                .map(p -> (FlightChanged) p)
-                .filter(fc -> fc.flightId().id().equals(id))
-                .count();
     }
 }

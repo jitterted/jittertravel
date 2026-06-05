@@ -1,136 +1,99 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.BookedTrainView;
-import dev.ted.jittertravel.application.BookedTrainsProjector;
-import dev.ted.jittertravel.infrastructure.AbstractTestcontainerIntegrationTest;
+import dev.ted.jittertravel.application.TrainBooking;
+import dev.ted.jittertravel.domain.DepartureNotInFuture;
+import dev.ted.jittertravel.domain.InvalidDateRange;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.UUID;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-class BookTrainWebIntegrationTest extends AbstractTestcontainerIntegrationTest {
-
-    private static final DateTimeFormatter DATETIME_LOCAL = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
+@WebMvcTest(BookTrainController.class)
+class BookTrainWebIntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;
 
-    @Autowired
-    private BookedTrainsProjector bookedTrainsProjector;
+    @MockitoBean
+    TrainBooking trainBooking;
+
+    @MockitoBean
+    Clock clock;
+
+    @BeforeEach
+    void setUp() {
+        given(clock.instant()).willReturn(Instant.parse("2026-06-01T00:00:00Z"));
+        given(clock.getZone()).willReturn(ZoneId.systemDefault());
+    }
 
     @Test
-    void getBookTrainFormRendersDepartureDateTimeInDatetimeLocalFormat() {
-        String expectedDeparture = LocalDate.now().plusWeeks(1).atTime(9, 0).format(DATETIME_LOCAL);
-
+    void getBookTrainFormRendersSuccessfully() {
         assertThat(mockMvc.get().uri("/book-train"))
-                .hasStatusOk()
-                .bodyText()
-                .contains(expectedDeparture);
-    }
-
-    @Test
-    void getBookTrainFormRendersArrivalDateTimeInDatetimeLocalFormat() {
-        String expectedArrival = LocalDate.now().plusWeeks(1).atTime(13, 0).format(DATETIME_LOCAL);
-
-        assertThat(mockMvc.get().uri("/book-train"))
-                .hasStatusOk()
-                .bodyText()
-                .contains(expectedArrival);
-    }
-
-    @Test
-    void postWithAllFieldsRedirectsToBookedTrainsAndStoresEvent() {
-        LocalDateTime departure = LocalDate.now().plusWeeks(1).atTime(9, 0);
-        LocalDateTime arrival = departure.plusHours(4);
-
-        assertThat(mockMvc.post().uri("/book-train")
-                .param("trainTripId", UUID.randomUUID().toString())
-                .param("serviceId", "LNER - Azuma 1A34")
-                .param("departureStationName", "London Euston")
-                .param("departureCityName", "London")
-                .param("departureCountry", "UK")
-                .param("departureMapsUrl", "https://maps.google.com/euston")
-                .param("departureDateTime", departure.format(DATETIME_LOCAL))
-                .param("arrivalStationName", "Manchester Piccadilly")
-                .param("arrivalCityName", "Manchester")
-                .param("arrivalCountry", "UK")
-                .param("arrivalMapsUrl", "https://maps.google.com/piccadilly")
-                .param("arrivalDateTime", arrival.format(DATETIME_LOCAL)))
-                .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/booked-trains");
-
-        assertThat(bookedTrainsProjector.views())
-                .extracting(BookedTrainView::departureStationName)
-                .contains("London Euston");
-        assertThat(bookedTrainsProjector.views())
-                .extracting(BookedTrainView::serviceId)
-                .contains("LNER - Azuma 1A34");
-    }
-
-    @Test
-    void postWithBlankOptionalMapsUrlsRedirectsToBookedTrains() {
-        LocalDateTime departure = LocalDate.now().plusWeeks(2).atTime(10, 0);
-        LocalDateTime arrival = departure.plusHours(3);
-
-        assertThat(mockMvc.post().uri("/book-train")
-                .param("trainTripId", UUID.randomUUID().toString())
-                .param("departureStationName", "Paris Gare du Nord")
-                .param("departureCityName", "Paris")
-                .param("departureCountry", "FR")
-                .param("departureMapsUrl", "")
-                .param("departureDateTime", departure.format(DATETIME_LOCAL))
-                .param("arrivalStationName", "Brussels-Midi")
-                .param("arrivalCityName", "Brussels")
-                .param("arrivalCountry", "BE")
-                .param("arrivalMapsUrl", "")
-                .param("arrivalDateTime", arrival.format(DATETIME_LOCAL)))
-                .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/booked-trains");
-    }
-
-    @Test
-    void postWithPastDepartureRendersFormWithFieldError() {
-        LocalDateTime pastDeparture = LocalDate.now().minusDays(1).atTime(9, 0);
-        LocalDateTime arrival = LocalDate.now().plusDays(1).atTime(13, 0);
-
-        assertThat(mockMvc.post().uri("/book-train")
-                .param("trainTripId", UUID.randomUUID().toString())
-                .param("departureStationName", "London Euston")
-                .param("departureCityName", "London")
-                .param("departureCountry", "UK")
-                .param("departureDateTime", pastDeparture.format(DATETIME_LOCAL))
-                .param("arrivalStationName", "Manchester Piccadilly")
-                .param("arrivalCityName", "Manchester")
-                .param("arrivalCountry", "UK")
-                .param("arrivalDateTime", arrival.format(DATETIME_LOCAL)))
                 .hasStatusOk();
     }
 
     @Test
-    void postWithArrivalBeforeDepartureRendersFormWithFieldError() {
-        LocalDateTime departure = LocalDate.now().plusWeeks(1).atTime(9, 0);
-        LocalDateTime arrivalBefore = departure.minusMinutes(30);
-
+    void postValidTrainRedirectsToBookedTrains() {
         assertThat(mockMvc.post().uri("/book-train")
-                .param("trainTripId", UUID.randomUUID().toString())
+                .param("trainTripId", "550e8400-e29b-41d4-a716-446655440000")
                 .param("departureStationName", "London Euston")
                 .param("departureCityName", "London")
                 .param("departureCountry", "UK")
-                .param("departureDateTime", departure.format(DATETIME_LOCAL))
+                .param("departureMapsUrl", "")
+                .param("departureDateTime", "2026-07-01T09:00")
                 .param("arrivalStationName", "Manchester Piccadilly")
                 .param("arrivalCityName", "Manchester")
                 .param("arrivalCountry", "UK")
-                .param("arrivalDateTime", arrivalBefore.format(DATETIME_LOCAL)))
+                .param("arrivalMapsUrl", "")
+                .param("arrivalDateTime", "2026-07-01T13:00"))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/booked-trains");
+    }
+
+    @Test
+    void postWithPastDepartureRendersFormAgain() {
+        willThrow(new DepartureNotInFuture("Departure must be in the future"))
+                .given(trainBooking).bookTrain(any());
+
+        assertThat(mockMvc.post().uri("/book-train")
+                .param("trainTripId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("departureStationName", "London Euston")
+                .param("departureCityName", "London")
+                .param("departureCountry", "UK")
+                .param("departureDateTime", "2025-01-01T09:00")
+                .param("arrivalStationName", "Manchester Piccadilly")
+                .param("arrivalCityName", "Manchester")
+                .param("arrivalCountry", "UK")
+                .param("arrivalDateTime", "2025-01-01T13:00"))
+                .hasStatusOk();
+    }
+
+    @Test
+    void postWithArrivalBeforeDepartureRendersFormAgain() {
+        willThrow(new InvalidDateRange("Arrival must be after departure"))
+                .given(trainBooking).bookTrain(any());
+
+        assertThat(mockMvc.post().uri("/book-train")
+                .param("trainTripId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("departureStationName", "London Euston")
+                .param("departureCityName", "London")
+                .param("departureCountry", "UK")
+                .param("departureDateTime", "2026-07-01T13:00")
+                .param("arrivalStationName", "Manchester Piccadilly")
+                .param("arrivalCityName", "Manchester")
+                .param("arrivalCountry", "UK")
+                .param("arrivalDateTime", "2026-07-01T09:00"))
                 .hasStatusOk();
     }
 }

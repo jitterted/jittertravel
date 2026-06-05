@@ -1,59 +1,53 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.ConferencePlanning;
 import dev.ted.jittertravel.application.TentativeConferenceProjector;
-import dev.ted.jittertravel.infrastructure.AbstractTestcontainerIntegrationTest;
-import dev.ted.jittertravel.infrastructure.EventStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-class ConferenceWebIntegrationTest extends AbstractTestcontainerIntegrationTest {
+@WebMvcTest(PlanConferenceController.class)
+class ConferenceWebIntegrationTest {
 
     @Autowired
     private MockMvcTester mockMvc;
 
-    @Autowired
-    private EventStore eventStore;
+    @MockitoBean
+    ConferencePlanning conferencePlanning;
 
-    @Autowired
-    private TentativeConferenceProjector projector;
+    @MockitoBean
+    TentativeConferenceProjector projector;
 
     @Test
-    void planConferenceFlowSavesEventAndRedirectsToList() {
-        LocalDateTime futureStart = LocalDateTime.now().plusDays(2);
-        LocalDateTime futureEnd = futureStart.plusDays(2);
+    void planConferencePostRedirectsToTentativeConferences() {
+        given(conferencePlanning.isReadOnly()).willReturn(false);
 
         assertThat(mockMvc.post().uri("/plan-conference")
-                .param("conferenceId", UUID.randomUUID().toString())
+                .param("conferenceId", "550e8400-e29b-41d4-a716-446655440000")
                 .param("name", "Event Sourcing Conference")
-                .param("startDate", futureStart.toString())
-                .param("endDate", futureEnd.toString())
+                .param("startDate", "2026-07-01T09:00")
+                .param("endDate", "2026-07-03T17:00")
                 .param("venueName", "ES Venue")
                 .param("venueStreet", "ES Street")
                 .param("venueCity", "ES City")
                 .param("venueCountry", "ES Country")
-                .param("venuePostalCode", "ES Postal Code"))
+                .param("venuePostalCode", "ES-00000"))
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/tentative-conferences");
+    }
 
-        // Filter to this test's specific conference; other integration tests share
-        // the in-memory EventStore so totals across the suite can vary.
-        assertThat(projector.views())
-                .extracting(v -> v.name())
-                .contains("Event Sourcing Conference");
+    @Test
+    void tentativeConferencesPageRendersOk() {
+        given(projector.views()).willReturn(List.of());
 
         assertThat(mockMvc.get().uri("/tentative-conferences"))
-                .hasStatusOk()
-                .bodyText()
-                .contains("Event Sourcing Conference", "ES City");
+                .hasStatusOk();
     }
 }

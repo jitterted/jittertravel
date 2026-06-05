@@ -39,7 +39,7 @@ class HotelCalendarProjectorTest {
         assertThat(entry.start()).isEqualTo(CHECK_IN);
         assertThat(entry.end()).isEqualTo(CHECK_OUT);
         assertThat(entry.mainTitle()).isEqualTo("Grand Hotel");
-        assertThat(entry.subTitle()).isEqualTo("Springfield, US");
+        assertThat(entry.subTitle()).isEqualTo(List.of("Springfield, US"));
     }
 
     private static StoredEvent stored(Event event) {

@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * A calendar entry view, pre-formatted by a projector for rendering by
@@ -16,9 +17,9 @@ public record CalendarEntry(
         LocalDateTime start,
         LocalDateTime end,
         String mainTitle,
-        String subTitle,
+        List<String> subTitle,
         String continuationTitle,
-        String continuationSubTitle,
+        List<String> continuationSubTitle,
         String mapsUrl
 ) {
 }

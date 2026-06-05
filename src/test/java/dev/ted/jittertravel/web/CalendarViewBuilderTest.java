@@ -60,9 +60,9 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 6, 2, 9, 0),
                 LocalDateTime.of(2026, 6, 4, 17, 0),
                 "DevConf",
-                "(Portland, USA)",
+                List.of("(Portland, USA)"),
                 "DevConf cont'd",
-                "(Portland, USA)",
+                List.of("(Portland, USA)"),
                 null
         );
 
@@ -87,9 +87,9 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 6, 6, 13, 55),
                 LocalDateTime.of(2026, 6, 7, 9, 45),
                 "✈️ SFO\u2192FRA",
-                "Departs 1:55 PM",
+                List.of("Departs 1:55 PM"),
                 null,
-                "Arr 9:45 AM",
+                List.of("Arr 9:45 AM"),
                 null
         );
         // Conference DDD Europe 2026: Sun 2026-06-07 11:00 -> Wed 2026-06-10 17:00.
@@ -98,9 +98,9 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 6, 7, 11, 0),
                 LocalDateTime.of(2026, 6, 10, 17, 0),
                 "DDD Europe 2026",
-                "(Frankfurt, Germany)",
+                List.of("(Frankfurt, Germany)"),
                 "DDD Europe 2026 cont'd",
-                "(Frankfurt, Germany)",
+                List.of("(Frankfurt, Germany)"),
                 null
         );
 
@@ -133,16 +133,16 @@ class CalendarViewBuilderTest {
                 EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 2, 9, 0),
                 LocalDateTime.of(2026, 6, 4, 17, 0),
-                "ConfA", "(City, Country)",
-                "ConfA cont'd", "(City, Country)",
+                "ConfA", List.of("(City, Country)"),
+                "ConfA cont'd", List.of("(City, Country)"),
                 null
         );
         CalendarEntry b = new CalendarEntry(
                 EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 3, 9, 0),
                 LocalDateTime.of(2026, 6, 5, 17, 0),
-                "ConfB", "(City, Country)",
-                "ConfB cont'd", "(City, Country)",
+                "ConfB", List.of("(City, Country)"),
+                "ConfB cont'd", List.of("(City, Country)"),
                 null
         );
 
@@ -165,9 +165,9 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 6, 10, 15, 0),
                 LocalDateTime.of(2026, 6, 12, 11, 0),
                 "Grand Hotel Berlin",
-                "Berlin, DE",
+                List.of("Berlin, DE"),
                 "Grand Hotel Berlin cont'd",
-                "Berlin, DE",
+                List.of("Berlin, DE"),
                 "https://maps.google.com/?q=Grand+Hotel+Berlin"
         );
 
@@ -189,16 +189,16 @@ class CalendarViewBuilderTest {
                 EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 8, 9, 0),
                 LocalDateTime.of(2026, 6, 8, 17, 0),
-                "Conf", "(City, Country)",
-                "Conf cont'd", "(City, Country)",
+                "Conf", List.of("(City, Country)"),
+                "Conf cont'd", List.of("(City, Country)"),
                 null
         );
         CalendarEntry flight = new CalendarEntry(
                 EntryKind.FLIGHT,
                 LocalDateTime.of(2026, 6, 9, 9, 0),
                 LocalDateTime.of(2026, 6, 9, 13, 0),
-                "✈️ A\u2192B", "Departs 9:00 AM",
-                null, "Arr 1:00 PM",
+                "✈️ A→B", List.of("Departs 9:00 AM"),
+                null, List.of("Arr 1:00 PM"),
                 null
         );
 
@@ -219,5 +219,31 @@ class CalendarViewBuilderTest {
         int confTitle = html.indexOf(">Conf<");
         int row2 = html.lastIndexOf("grid-row: 2;", confTitle);
         assertThat(row2).isPositive();
+    }
+
+    @Test
+    void gatheringEntryRendersWithGatheringCssClass() {
+        CalendarEntry gathering = new CalendarEntry(
+                EntryKind.GATHERING,
+                LocalDateTime.of(2026, 6, 10, 18, 0),
+                LocalDateTime.of(2026, 6, 10, 21, 0),
+                "London Java Community",
+                List.of("Skills Matter", "London, GB"),
+                null,
+                null,
+                "https://meetup.com/ljc/events/123"
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(gathering),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14)
+        );
+
+        assertThat(html).contains("entry entry--gathering");
+        assertThat(html).contains(">London Java Community<");
+        assertThat(html).contains(">Skills Matter<");
+        assertThat(html).contains(">London, GB<");
+        assertThat(html).contains("href=\"https://meetup.com/ljc/events/123\"");
     }
 }

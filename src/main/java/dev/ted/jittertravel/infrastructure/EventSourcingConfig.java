@@ -178,4 +178,12 @@ public class EventSourcingConfig {
         projector.handle(eventStore.findAll());
         return projector;
     }
+
+    @Bean
+    public GatheringCalendarProjector gatheringCalendarProjector(EventStore eventStore) {
+        GatheringCalendarProjector projector = new GatheringCalendarProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
 }

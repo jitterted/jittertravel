@@ -1,9 +1,6 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.ConferenceCalendarProjector;
-import dev.ted.jittertravel.application.FlightCalendarProjector;
-import dev.ted.jittertravel.application.HotelCalendarProjector;
-import dev.ted.jittertravel.application.TrainCalendarProjector;
+import dev.ted.jittertravel.application.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -33,12 +30,16 @@ class CalendarWebIntegrationTest {
     @MockitoBean
     HotelCalendarProjector hotelCalendarProjector;
 
+    @MockitoBean
+    GatheringCalendarProjector gatheringCalendarProjector;
+
     @Test
     void calendarPageRendersOk() {
         given(conferenceCalendarProjector.entries()).willReturn(List.of());
         given(flightCalendarProjector.entries()).willReturn(List.of());
         given(trainCalendarProjector.entries()).willReturn(List.of());
         given(hotelCalendarProjector.entries()).willReturn(List.of());
+        given(gatheringCalendarProjector.entries()).willReturn(List.of());
 
         assertThat(mockMvc.get().uri("/calendar"))
                 .hasStatusOk();

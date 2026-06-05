@@ -7,3 +7,4 @@
 - [New page navigation check](feedback_new_page_navigation.md) — When adding a new page/route, always ask whether it needs a link from index.html or other nav before completing the task
 - [Renderer testing](feedback_renderer_testing.md) — Test renderers directly as unit tests; web integration tests use @WebMvcTest slice, only for URL mapping/status/type conversion
 - [j2html encoding](feedback_j2html_encoding.md) — Set charset=UTF-8 in Content-Type; use rawHtml("&middot;") etc. for non-ASCII; add <meta charset="UTF-8"> to head
+- [j2html only — no Thymeleaf](feedback_j2html_only.md) — All views use j2html; never suggest Thymeleaf templates or attributes for any view work

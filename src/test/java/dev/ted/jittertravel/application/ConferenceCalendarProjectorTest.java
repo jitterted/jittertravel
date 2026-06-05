@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -34,9 +35,9 @@ class ConferenceCalendarProjectorTest {
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.kind()).isEqualTo(EntryKind.CONFERENCE);
         assertThat(entry.mainTitle()).isEqualTo("DDD Europe 2026");
-        assertThat(entry.subTitle()).isEqualTo("(Frankfurt, Germany)");
+        assertThat(entry.subTitle()).isEqualTo(List.of("Frankfurt, Germany"));
         assertThat(entry.continuationTitle()).isEqualTo("DDD Europe 2026 cont'd");
-        assertThat(entry.continuationSubTitle()).isEqualTo("(Frankfurt, Germany)");
+        assertThat(entry.continuationSubTitle()).isEqualTo(List.of("Frankfurt, Germany"));
         assertThat(entry.start()).isEqualTo(LocalDateTime.of(2026, 6, 7, 11, 0));
         assertThat(entry.end()).isEqualTo(LocalDateTime.of(2026, 6, 10, 17, 0));
     }

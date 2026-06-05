@@ -46,7 +46,7 @@ class TrainCalendarProjectorTest {
         assertThat(entry.mainTitle())
                 .isEqualTo("🚄 London → Manchester");
         assertThat(entry.subTitle())
-                .isEqualTo("9:00 AM → 11:15 AM");
+                .isEqualTo(List.of("9:00 AM → 11:15 AM"));
         assertThat(entry.start())
                 .isEqualTo(LocalDateTime.of(2026, 6, 9, 9, 0));
         assertThat(entry.end())
@@ -67,7 +67,7 @@ class TrainCalendarProjectorTest {
         projector.handle(Stream.of(stored(event)));
 
         assertThat(projector.entries().getFirst().subTitle())
-                .isEqualTo("LNER - Azuma 1A34\n9:00 AM → 11:15 AM");
+                .isEqualTo(List.of("LNER - Azuma 1A34", "9:00 AM → 11:15 AM"));
     }
 
     @Test
@@ -91,7 +91,7 @@ class TrainCalendarProjectorTest {
         assertThat(departureEntry.mainTitle())
                 .isEqualTo("🚄 London → Paris");
         assertThat(departureEntry.subTitle())
-                .isEqualTo("Departs 10:00 PM");
+                .isEqualTo(List.of("Departs 10:00 PM"));
         assertThat(departureEntry.start())
                 .isEqualTo(LocalDateTime.of(2026, 6, 9, 22, 0));
 
@@ -99,7 +99,7 @@ class TrainCalendarProjectorTest {
         assertThat(arrivalEntry.mainTitle())
                 .isEqualTo("🚄 London → Paris");
         assertThat(arrivalEntry.subTitle())
-                .isEqualTo("Arrives 6:30 AM");
+                .isEqualTo(List.of("Arrives 6:30 AM"));
         assertThat(arrivalEntry.start())
                 .isEqualTo(LocalDateTime.of(2026, 6, 10, 6, 30));
     }

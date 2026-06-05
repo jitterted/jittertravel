@@ -26,15 +26,16 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(storedEvent -> {
             if (storedEvent.payload() instanceof ConferenceTentativelyPlanned event) {
-                String location = "(" + event.venueAddress().city() + ", " + event.venueAddress().country() + ")";
+                String location = event.venueAddress().city() + ", " + event.venueAddress().country();
+                List<String> locationLines = List.of(location);
                 entries.put(event.conferenceId(), new CalendarEntry(
                         EntryKind.CONFERENCE,
                         event.startDate(),
                         event.endDate(),
                         event.name(),
-                        location,
+                        locationLines,
                         event.name() + " cont'd",
-                        location,
+                        locationLines,
                         null
                 ));
             }

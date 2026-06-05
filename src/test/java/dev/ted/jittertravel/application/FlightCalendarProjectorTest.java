@@ -35,7 +35,7 @@ class FlightCalendarProjectorTest {
         CalendarEntry departureEntry = entries.get(0);
         assertThat(departureEntry.kind()).isEqualTo(EntryKind.FLIGHT);
         assertThat(departureEntry.mainTitle()).isEqualTo("✈️ SFO\u2192FRA");
-        assertThat(departureEntry.subTitle()).isEqualTo("Departs 1:55 PM");
+        assertThat(departureEntry.subTitle()).isEqualTo(List.of("Departs 1:55 PM"));
         assertThat(departureEntry.start()).isEqualTo(LocalDateTime.of(2026, 6, 6, 13, 55));
         assertThat(departureEntry.end()).isEqualTo(LocalDateTime.of(2026, 6, 6, 13, 55));
         assertThat(departureEntry.continuationTitle()).isNull();
@@ -44,7 +44,7 @@ class FlightCalendarProjectorTest {
         CalendarEntry arrivalEntry = entries.get(1);
         assertThat(arrivalEntry.kind()).isEqualTo(EntryKind.FLIGHT);
         assertThat(arrivalEntry.mainTitle()).isEqualTo("✈️ SFO\u2192FRA");
-        assertThat(arrivalEntry.subTitle()).isEqualTo("Arrives 9:45 AM");
+        assertThat(arrivalEntry.subTitle()).isEqualTo(List.of("Arrives 9:45 AM"));
         assertThat(arrivalEntry.start()).isEqualTo(LocalDateTime.of(2026, 6, 7, 9, 45));
         assertThat(arrivalEntry.end()).isEqualTo(LocalDateTime.of(2026, 6, 7, 9, 45));
         assertThat(arrivalEntry.continuationTitle()).isNull();
@@ -69,7 +69,7 @@ class FlightCalendarProjectorTest {
         assertThat(projector.entries()).hasSize(1);
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.mainTitle()).isEqualTo("✈️ SFO\u2192LAX");
-        assertThat(entry.subTitle()).isEqualTo("9:00 AM → 10:30 AM");
+        assertThat(entry.subTitle()).isEqualTo(List.of("9:00 AM → 10:30 AM"));
         assertThat(entry.start()).isEqualTo(LocalDateTime.of(2026, 6, 6, 9, 0));
         assertThat(entry.end()).isEqualTo(LocalDateTime.of(2026, 6, 6, 10, 30));
     }

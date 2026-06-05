@@ -1,10 +1,6 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.CalendarEntry;
-import dev.ted.jittertravel.application.ConferenceCalendarProjector;
-import dev.ted.jittertravel.application.FlightCalendarProjector;
-import dev.ted.jittertravel.application.HotelCalendarProjector;
-import dev.ted.jittertravel.application.TrainCalendarProjector;
+import dev.ted.jittertravel.application.*;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,15 +17,18 @@ public class CalendarController {
     private final FlightCalendarProjector flightCalendarProjector;
     private final TrainCalendarProjector trainCalendarProjector;
     private final HotelCalendarProjector hotelCalendarProjector;
+    private final GatheringCalendarProjector gatheringCalendarProjector;
 
     public CalendarController(ConferenceCalendarProjector conferenceCalendarProjector,
                               FlightCalendarProjector flightCalendarProjector,
                               TrainCalendarProjector trainCalendarProjector,
-                              HotelCalendarProjector hotelCalendarProjector) {
+                              HotelCalendarProjector hotelCalendarProjector,
+                              GatheringCalendarProjector gatheringCalendarProjector) {
         this.conferenceCalendarProjector = conferenceCalendarProjector;
         this.flightCalendarProjector = flightCalendarProjector;
         this.trainCalendarProjector = trainCalendarProjector;
         this.hotelCalendarProjector = hotelCalendarProjector;
+        this.gatheringCalendarProjector = gatheringCalendarProjector;
     }
 
     @GetMapping("/calendar")
@@ -39,6 +38,7 @@ public class CalendarController {
         combined.addAll(flightCalendarProjector.entries());
         combined.addAll(trainCalendarProjector.entries());
         combined.addAll(hotelCalendarProjector.entries());
+        combined.addAll(gatheringCalendarProjector.entries());
         combined.sort(Comparator.comparing(CalendarEntry::start));
 
         LocalDate rangeStart;

@@ -69,7 +69,7 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                     departureDateTime,
                     arrivalDateTime,
                     route,
-                    timeRange,
+                    List.of(timeRange),
                     null,
                     null,
                     null
@@ -83,7 +83,7 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                 departureDateTime,
                 departureDateTime,
                 route,
-                departs,
+                List.of(departs),
                 null,
                 null,
                 null
@@ -93,7 +93,7 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                 arrivalDateTime,
                 arrivalDateTime,
                 route,
-                arrives,
+                List.of(arrives),
                 null,
                 null,
                 null

@@ -24,14 +24,15 @@ public class HotelCalendarProjector implements EventStreamConsumer {
                 String mapsUrl = event.mapsUrl().isBlank()
                         ? AddressRenderer.mapsUrl(event.hotelName(), event.address())
                         : event.mapsUrl();
+                List<String> locationLines = List.of(location);
                 entriesById.put(event.hotelBookingId(), new CalendarEntry(
                         EntryKind.LODGING,
                         event.checkIn(),
                         event.checkOut(),
                         event.hotelName(),
-                        location,
+                        locationLines,
                         event.hotelName() + " cont'd",
-                        location,
+                        locationLines,
                         mapsUrl
                 ));
             }

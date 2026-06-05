@@ -49,22 +49,27 @@ public class TrainCalendarProjector implements EventStreamConsumer {
                                                     LocalDateTime arrDt,
                                                     String serviceId) {
         String route = "🚄 " + dep.city() + " → " + arr.city();
-        String servicePrefix = serviceId.isEmpty() ? "" : serviceId + "\n";
         String departs = "Departs " + depDt.format(TIME_OF_DAY);
         String arrives = "Arrives " + arrDt.format(TIME_OF_DAY);
 
         boolean sameDay = depDt.toLocalDate().equals(arrDt.toLocalDate());
         if (sameDay) {
             String timeRange = depDt.format(TIME_OF_DAY) + " → " + arrDt.format(TIME_OF_DAY);
+            List<String> subtitle = serviceId.isEmpty()
+                    ? List.of(timeRange)
+                    : List.of(serviceId, timeRange);
             return List.of(new CalendarEntry(
                     EntryKind.TRAIN, depDt, arrDt,
-                    route, servicePrefix + timeRange,
+                    route, subtitle,
                     null, null, null));
         }
 
+        List<String> depSubtitle = serviceId.isEmpty()
+                ? List.of(departs)
+                : List.of(serviceId, departs);
         return List.of(
-                new CalendarEntry(EntryKind.TRAIN, depDt, depDt, route, servicePrefix + departs, null, null, null),
-                new CalendarEntry(EntryKind.TRAIN, arrDt, arrDt, route, arrives, null, null, null)
+                new CalendarEntry(EntryKind.TRAIN, depDt, depDt, route, depSubtitle, null, null, null),
+                new CalendarEntry(EntryKind.TRAIN, arrDt, arrDt, route, List.of(arrives), null, null, null)
         );
     }
 

@@ -176,7 +176,7 @@ public class CalendarViewBuilder {
         }
 
         String title = isContinuation ? entry.continuationTitle() : entry.mainTitle();
-        String subtitle = isContinuation ? entry.continuationSubTitle() : entry.subTitle();
+        List<String> subtitle = isContinuation ? entry.continuationSubTitle() : entry.subTitle();
 
         DivTag div = div().withClass(classes).withStyle(style);
         if (title != null) {
@@ -186,7 +186,7 @@ public class CalendarViewBuilder {
             div.with(titleContent);
         }
         if (subtitle != null) {
-            for (String line : subtitle.split("\n")) {
+            for (String line : subtitle) {
                 div.with(div(line).withClass("entry-subtitle"));
             }
         }

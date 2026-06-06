@@ -3,6 +3,8 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.ScheduleProblem;
 import j2html.tags.DomContent;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -39,9 +41,12 @@ public class ScheduleProblemsRenderer {
             .problem-card--missing-travel   { border-left-color: #b45309; background: #fef3c7; }
             .problem-card--missing-hotel    { border-left-color: #1d4ed8; background: #dbeafe; }
             .problem-card--scheduling-conflict { border-left-color: #dc2626; background: #fee2e2; }
+            .problem-card--city-conflict { border-left-color: #7c3aed; background: #ede9fe; }
             .problem-title  { font-weight: 600; font-size: 0.9rem; color: #1f2937; }
             .problem-detail { font-size: 0.82rem; color: #374151; margin-top: 0.15rem; }
             .empty-column   { color: var(--muted-text); font-style: italic; font-size: 0.85rem; }
+            .clear-link { font-size: 0.78rem; color: #7c3aed; text-decoration: none; margin-top: 0.3rem; display: inline-block; }
+            .clear-link:hover { text-decoration: underline; }
             """;
 
     public static String render(List<ScheduleProblem> problems) {
@@ -56,6 +61,10 @@ public class ScheduleProblemsRenderer {
         List<ScheduleProblem.SchedulingConflict> scheduling = problems.stream()
                 .filter(p -> p instanceof ScheduleProblem.SchedulingConflict)
                 .map(p -> (ScheduleProblem.SchedulingConflict) p)
+                .toList();
+        List<ScheduleProblem.DifferentCityConflict> cityConflicts = problems.stream()
+                .filter(p -> p instanceof ScheduleProblem.DifferentCityConflict)
+                .map(p -> (ScheduleProblem.DifferentCityConflict) p)
                 .toList();
 
         return "<!DOCTYPE html>\n" + html(
@@ -73,9 +82,9 @@ public class ScheduleProblemsRenderer {
                                         a("Calendar").withHref("/calendar")
                                 ),
                                 h1("Schedule Problems"),
-                                travel.isEmpty() && hotel.isEmpty() && scheduling.isEmpty()
+                                travel.isEmpty() && hotel.isEmpty() && scheduling.isEmpty() && cityConflicts.isEmpty()
                                         ? renderNoProblems()
-                                        : renderProblems(travel, hotel, scheduling)
+                                        : renderProblems(travel, hotel, scheduling, cityConflicts)
                         )
                 )
         ).withLang("en").render();
@@ -88,7 +97,8 @@ public class ScheduleProblemsRenderer {
     private static DomContent renderProblems(
             List<ScheduleProblem.MissingTravel> travel,
             List<ScheduleProblem.MissingHotel> hotel,
-            List<ScheduleProblem.SchedulingConflict> scheduling) {
+            List<ScheduleProblem.SchedulingConflict> scheduling,
+            List<ScheduleProblem.DifferentCityConflict> cityConflicts) {
         return div().with(
                 div().withClass("problem-columns").with(
                         renderTravelColumn(travel),
@@ -96,7 +106,10 @@ public class ScheduleProblemsRenderer {
                 ),
                 scheduling.isEmpty()
                         ? span()
-                        : renderSchedulingSection(scheduling)
+                        : renderSchedulingSection(scheduling),
+                cityConflicts.isEmpty()
+                        ? span()
+                        : renderCityConflictsSection(cityConflicts)
         );
     }
 
@@ -159,5 +172,38 @@ public class ScheduleProblemsRenderer {
                         ))
                 )
         );
+    }
+
+    private static DomContent renderCityConflictsSection(List<ScheduleProblem.DifferentCityConflict> cityConflicts) {
+        return div().withStyle("margin-top: 2rem;").with(
+                p("City Conflicts").withClass("column-heading").withStyle("color: #7c3aed;"),
+                div().withClass("problem-list").with(
+                        each(cityConflicts, p -> div().withClass("problem-card problem-card--city-conflict").with(
+                                div(p.gatheringName() + " (" + p.gatheringCity() + ")"
+                                    + " — during "
+                                    + p.conferenceName() + " (" + p.conferenceCity() + ")")
+                                        .withClass("problem-title"),
+                                div(p.date().format(DATE)).withClass("problem-detail"),
+                                a("Clear this conflict")
+                                        .withHref(clearConflictUrl(p))
+                                        .withClass("clear-link")
+                        ))
+                )
+        );
+    }
+
+    private static String clearConflictUrl(ScheduleProblem.DifferentCityConflict p) {
+        return "/clear-conflict"
+               + "?gatheringId=" + p.gatheringId().id()
+               + "&conferenceId=" + p.conferenceId().id()
+               + "&gatheringName=" + encode(p.gatheringName())
+               + "&gatheringCity=" + encode(p.gatheringCity())
+               + "&conferenceName=" + encode(p.conferenceName())
+               + "&conferenceCity=" + encode(p.conferenceCity())
+               + "&date=" + p.date();
+    }
+
+    private static String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }

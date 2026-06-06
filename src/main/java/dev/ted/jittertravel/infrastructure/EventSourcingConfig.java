@@ -167,8 +167,9 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public GatheringPlanning gatheringPlanningApplicationService(CommandExecutor commandExecutor, Clock clock) {
-        return new GatheringPlanning(commandExecutor, clock);
+    public GatheringPlanning gatheringPlanningApplicationService(CommandExecutor commandExecutor,
+                                                                  EventStore eventStore, Clock clock) {
+        return new GatheringPlanning(commandExecutor, eventStore, clock);
     }
 
     @Bean

@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleProblem;
+import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.GatheringId;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -91,6 +93,30 @@ class ScheduleProblemsRendererTest {
                 .contains("overlaps")
                 .contains("11:30 AM")
                 .contains("1:00 PM");
+    }
+
+    @Test
+    void differentCityConflictShowsNamesAndClearLink() {
+        GatheringId gatheringId = GatheringId.random();
+        ConferenceId conferenceId = ConferenceId.random();
+        ScheduleProblem problem = new ScheduleProblem.DifferentCityConflict(
+                "BRU JUG", "Brussels",
+                "JavaOne", "Amsterdam",
+                LocalDate.of(2026, 9, 16),
+                gatheringId, conferenceId
+        );
+
+        String html = ScheduleProblemsRenderer.render(List.of(problem));
+
+        assertThat(html)
+                .contains("BRU JUG")
+                .contains("Brussels")
+                .contains("JavaOne")
+                .contains("Amsterdam")
+                .contains("Sep 16")
+                .contains("/clear-conflict")
+                .contains(gatheringId.id().toString())
+                .contains(conferenceId.id().toString());
     }
 
     @Test

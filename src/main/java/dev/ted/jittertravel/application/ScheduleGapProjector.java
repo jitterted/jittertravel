@@ -19,6 +19,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     private final Map<HotelBookingId, HotelStay> hotelStays = new ConcurrentHashMap<>();
     private final Map<ConferenceId, CityOccupancy> conferenceOccupancies = new ConcurrentHashMap<>();
     private final Map<GatheringId, GatheringOccupancy> gatheringOccupancies = new ConcurrentHashMap<>();
+    private final Set<ClearedConflict> clearedConflicts = new HashSet<>();
 
     public ScheduleGapProjector(AirportCityResolver cityResolver) {
         this.cityResolver = cityResolver;
@@ -43,7 +44,10 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                         new CityOccupancy(e.venueAddress().locationForMatching(),
                                 e.startDate(), e.endDate(), e.name()));
                 case GatheringPlanned e -> gatheringOccupancies.put(e.gatheringId(),
-                        new GatheringOccupancy(e.title(), e.date(), e.startTime(), e.endTime()));
+                        new GatheringOccupancy(e.title(), e.location().locationForMatching(),
+                                e.date(), e.startTime(), e.endTime()));
+                case DifferentCityConflictCleared e ->
+                        clearedConflicts.add(new ClearedConflict(e.gatheringId(), e.conferenceId()));
                 default -> {}
             }
         });
@@ -56,6 +60,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         detectMissingTravelToFromConferences(legs, rawProblems);
         detectMissingHotel(legs, rawProblems);
         detectGatheringConflicts(rawProblems);
+        detectDifferentCityConflicts(rawProblems);
 
         List<ScheduleProblem> result = new ArrayList<>(deduplicateMissingTravel(rawProblems));
         rawProblems.stream()
@@ -63,6 +68,9 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 .forEach(result::add);
         rawProblems.stream()
                 .filter(p -> p instanceof ScheduleProblem.SchedulingConflict)
+                .forEach(result::add);
+        rawProblems.stream()
+                .filter(p -> p instanceof ScheduleProblem.DifferentCityConflict)
                 .forEach(result::add);
 
         return result.stream()
@@ -108,6 +116,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
             case ScheduleProblem.MissingTravel mt -> mt.arrivedAt().toLocalDate();
             case ScheduleProblem.MissingHotel mh -> mh.checkIn();
             case ScheduleProblem.SchedulingConflict sc -> sc.date();
+            case ScheduleProblem.DifferentCityConflict dc -> dc.date();
         };
     }
 
@@ -252,6 +261,29 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 cityResolver.cityFor(arr.code()), arrDt);
     }
 
+    private void detectDifferentCityConflicts(Set<ScheduleProblem> problems) {
+        for (Map.Entry<GatheringId, GatheringOccupancy> ge : gatheringOccupancies.entrySet()) {
+            GatheringId gatheringId = ge.getKey();
+            GatheringOccupancy gathering = ge.getValue();
+            for (Map.Entry<ConferenceId, CityOccupancy> ce : conferenceOccupancies.entrySet()) {
+                ConferenceId conferenceId = ce.getKey();
+                CityOccupancy conf = ce.getValue();
+                boolean gatheringDuringConference =
+                        !gathering.date().isBefore(conf.startDate())
+                        && gathering.date().isBefore(conf.endDate());
+                boolean differentCity = !gathering.city().equalsIgnoreCase(conf.city());
+                boolean alreadyCleared = clearedConflicts.contains(new ClearedConflict(gatheringId, conferenceId));
+                if (gatheringDuringConference && differentCity && !alreadyCleared) {
+                    problems.add(new ScheduleProblem.DifferentCityConflict(
+                            gathering.name(), gathering.city(),
+                            conf.name(), conf.city(),
+                            gathering.date(),
+                            gatheringId, conferenceId));
+                }
+            }
+        }
+    }
+
     private void detectGatheringConflicts(Set<ScheduleProblem> problems) {
         List<GatheringOccupancy> gatherings = new ArrayList<>(gatheringOccupancies.values());
         for (int i = 0; i < gatherings.size(); i++) {
@@ -283,7 +315,9 @@ public class ScheduleGapProjector implements EventStreamConsumer {
 
     private record CityNight(String city, LocalDate night) {}
 
-    private record GatheringOccupancy(String name, LocalDate date, LocalTime startTime, LocalTime endTime) {
+    private record ClearedConflict(GatheringId gatheringId, ConferenceId conferenceId) {}
+
+    private record GatheringOccupancy(String name, String city, LocalDate date, LocalTime startTime, LocalTime endTime) {
         boolean overlapsWith(GatheringOccupancy other) {
             return this.date.equals(other.date)
                     && this.startTime.isBefore(other.endTime)

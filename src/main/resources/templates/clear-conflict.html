@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Clear City Conflict</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page { max-width: 560px; margin: 0 auto; padding: 1rem; }
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .conflict-summary {
+            background: #fef3c7;
+            border-left: 4px solid #b45309;
+            border-radius: 0 6px 6px 0;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1.25rem;
+            font-size: 0.9rem;
+        }
+        .conflict-summary .label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #92400e;
+            margin-bottom: 0.4rem;
+        }
+        .conflict-row { display: flex; gap: 1rem; margin-bottom: 0.2rem; }
+        .conflict-row .item { flex: 1; }
+        .conflict-row .item strong { display: block; }
+        .conflict-row .item span { font-size: 0.82rem; color: #374151; }
+
+        .field { margin-bottom: 0.75rem; }
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+        .field input[type=text] {
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+        .hint { font-size: 0.75rem; color: var(--muted-text); margin-top: 2px; }
+
+        button[type=submit] {
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        button[type=submit]:hover { opacity: 0.88; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/schedule-problems">Schedule Problems</a>
+    </nav>
+
+    <h1>Clear City Conflict</h1>
+
+    <div class="conflict-summary">
+        <div class="label">Conflict on <span th:text="${#temporals.format(date, 'EEE, MMM d')}"></span></div>
+        <div class="conflict-row">
+            <div class="item">
+                <strong th:text="${gatheringName}"></strong>
+                <span th:text="${gatheringCity}"></span>
+            </div>
+            <div class="item">
+                <strong th:text="${conferenceName}"></strong>
+                <span th:text="${conferenceCity}"></span>
+            </div>
+        </div>
+    </div>
+
+    <form th:action="@{/clear-conflict}" th:object="${clearConflictRequest}" method="post">
+        <input type="hidden" th:field="*{gatheringId}"/>
+        <input type="hidden" th:field="*{conferenceId}"/>
+
+        <div class="field">
+            <label>
+                Reason (optional)
+                <input type="text" th:field="*{reason}" placeholder="e.g. attending virtually, conflict already resolved…"/>
+            </label>
+            <span class="hint">Recorded with the event for future reference</span>
+        </div>
+
+        <button type="submit">Clear Conflict</button>
+    </form>
+
+</div>
+</body>
+</html>

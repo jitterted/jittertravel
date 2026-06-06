@@ -783,6 +783,139 @@ class ScheduleGapProjectorTest {
                 date, start, end, false, "");
     }
 
+    // -------------------------------------------------------------------------
+    // Gathering vs. conference different-city conflicts
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class DifferentCityConflictDetection {
+
+        @Test
+        void noConflictWhenGatheringCityMatchesConferenceCity() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(conference("Amsterdam", SEP_15, SEP_17)),
+                    stored(gatheringIn("Amsterdam", "AMS JUG", SEP_15,
+                            LocalTime.of(18, 0), LocalTime.of(21, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.DifferentCityConflict)
+                    .isEmpty();
+        }
+
+        @Test
+        void conflictReportedWhenGatheringCityDiffersFromConferenceCity() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(conference("Amsterdam", SEP_15, SEP_17)),
+                    stored(gatheringIn("Brussels", "BRU JUG", SEP_16,
+                            LocalTime.of(18, 0), LocalTime.of(21, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.DifferentCityConflict)
+                    .hasSize(1);
+            ScheduleProblem.DifferentCityConflict conflict = projector.problems().stream()
+                    .filter(p -> p instanceof ScheduleProblem.DifferentCityConflict)
+                    .map(p -> (ScheduleProblem.DifferentCityConflict) p)
+                    .findFirst().orElseThrow();
+            assertThat(conflict.gatheringName()).isEqualTo("BRU JUG");
+            assertThat(conflict.gatheringCity()).isEqualTo("Brussels");
+            assertThat(conflict.conferenceName()).isEqualTo("Conf");
+            assertThat(conflict.conferenceCity()).isEqualTo("Amsterdam");
+            assertThat(conflict.date()).isEqualTo(SEP_16);
+        }
+
+        @Test
+        void noConflictWhenGatheringIsOutsideConferenceDateRange() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(conference("Amsterdam", SEP_15, SEP_17)),
+                    stored(gatheringIn("Brussels", "BRU JUG", SEP_18,
+                            LocalTime.of(18, 0), LocalTime.of(21, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.DifferentCityConflict)
+                    .isEmpty();
+        }
+
+        @Test
+        void noConflictWhenNoConferencePlanned() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(gatheringIn("Brussels", "BRU JUG", SEP_15,
+                            LocalTime.of(18, 0), LocalTime.of(21, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.DifferentCityConflict)
+                    .isEmpty();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Clearing different-city conflicts
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class DifferentCityConflictClearedHandling {
+
+        @Test
+        void clearedConflictNoLongerAppears() {
+            GatheringId gatheringId = GatheringId.random();
+            ConferenceId conferenceId = ConferenceId.random();
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(conferenceWithId(conferenceId, "Amsterdam", SEP_15, SEP_17)),
+                    stored(gatheringWithId(gatheringId, "Brussels", "BRU JUG", SEP_16,
+                            LocalTime.of(18, 0), LocalTime.of(21, 0))),
+                    stored(new DifferentCityConflictCleared(gatheringId, conferenceId, "attending virtually"))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.DifferentCityConflict)
+                    .isEmpty();
+        }
+
+        @Test
+        void otherConflictsStillAppearAfterUnrelatedClear() {
+            GatheringId gatheringId1 = GatheringId.random();
+            GatheringId gatheringId2 = GatheringId.random();
+            ConferenceId conferenceId = ConferenceId.random();
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(conferenceWithId(conferenceId, "Amsterdam", SEP_15, SEP_17)),
+                    stored(gatheringWithId(gatheringId1, "Brussels", "BRU JUG", SEP_16,
+                            LocalTime.of(18, 0), LocalTime.of(21, 0))),
+                    stored(gatheringWithId(gatheringId2, "London", "LJC", SEP_16,
+                            LocalTime.of(18, 0), LocalTime.of(21, 0))),
+                    stored(new DifferentCityConflictCleared(gatheringId1, conferenceId, ""))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.DifferentCityConflict)
+                    .hasSize(1)
+                    .extracting(p -> ((ScheduleProblem.DifferentCityConflict) p).gatheringName())
+                    .containsExactly("LJC");
+        }
+    }
+
+    private static ConferenceTentativelyPlanned conferenceWithId(ConferenceId id, String city,
+                                                                  LocalDate start, LocalDate end) {
+        return new ConferenceTentativelyPlanned(id, "Conf",
+                start.atStartOfDay(), end.atStartOfDay(), "Venue",
+                new Address("1 Street", city, "", "00000", "XX", null));
+    }
+
+    private static GatheringPlanned gatheringWithId(GatheringId id, String city, String title,
+                                                    LocalDate date, LocalTime start, LocalTime end) {
+        return new GatheringPlanned(id, title, "Venue",
+                new Address("1 Street", city, "", "", "", null),
+                date, start, end, false, "");
+    }
+
+    private static GatheringPlanned gatheringIn(String city, String title, LocalDate date, LocalTime start, LocalTime end) {
+        return new GatheringPlanned(GatheringId.random(), title, "Venue",
+                new Address("1 Street", city, "", "", "", null),
+                date, start, end, false, "");
+    }
+
     private static StoredEvent stored(Event event) {
         return new StoredEvent(1, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID());
     }

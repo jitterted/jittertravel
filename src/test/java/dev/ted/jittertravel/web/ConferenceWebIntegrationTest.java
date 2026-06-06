@@ -5,6 +5,7 @@ import dev.ted.jittertravel.application.TentativeConferenceProjector;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
@@ -12,8 +13,10 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(PlanConferenceController.class)
+@WithMockUser
 class ConferenceWebIntegrationTest {
 
     @Autowired
@@ -30,6 +33,7 @@ class ConferenceWebIntegrationTest {
         given(conferencePlanning.isReadOnly()).willReturn(false);
 
         assertThat(mockMvc.post().uri("/plan-conference")
+                .with(csrf())
                 .param("conferenceId", "550e8400-e29b-41d4-a716-446655440000")
                 .param("name", "Event Sourcing Conference")
                 .param("startDate", "2026-07-01T09:00")

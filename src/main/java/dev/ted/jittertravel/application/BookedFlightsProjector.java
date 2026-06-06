@@ -26,7 +26,7 @@ import java.util.stream.Stream;
 public class BookedFlightsProjector implements EventStreamConsumer {
 
     private static final DateTimeFormatter DEPARTURE_DISPLAY =
-            DateTimeFormatter.ofPattern("M-dd-uuu h:mma", Locale.ENGLISH);
+            DateTimeFormatter.ofPattern("EEE, MMM d, h:mm a", Locale.ENGLISH);
     private static final DateTimeFormatter TIMESTAMP_DISPLAY =
             DateTimeFormatter.ofPattern("uuuu-MM-dd h:mma", Locale.ENGLISH);
 

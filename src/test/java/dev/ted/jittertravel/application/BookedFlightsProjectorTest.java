@@ -41,7 +41,7 @@ class BookedFlightsProjectorTest {
         assertThat(view.airline()).isEqualTo("United Airlines");
         assertThat(view.flightNumber()).isEqualTo("UA59");
         assertThat(view.route()).isEqualTo("SFO\u2192FRA");
-        assertThat(view.departureDateTimeDisplay()).isEqualTo("6-06-2026 1:55PM");
+        assertThat(view.departureDateTimeDisplay()).isEqualTo("Sat, Jun 6, 1:55 PM");
         assertThat(view.hasChanges()).isFalse();
         assertThat(view.history())
                 .extracting(ChangeEntry::displayText)

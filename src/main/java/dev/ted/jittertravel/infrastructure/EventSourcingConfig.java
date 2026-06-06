@@ -186,4 +186,14 @@ public class EventSourcingConfig {
         projector.handle(eventStore.findAll());
         return projector;
     }
+
+    @Bean
+    public CalendarAggregator calendarAggregator(ConferenceCalendarProjector conferenceCalendarProjector,
+                                                 FlightCalendarProjector flightCalendarProjector,
+                                                 TrainCalendarProjector trainCalendarProjector,
+                                                 HotelCalendarProjector hotelCalendarProjector,
+                                                 GatheringCalendarProjector gatheringCalendarProjector) {
+        return new CalendarAggregator(conferenceCalendarProjector, flightCalendarProjector,
+                trainCalendarProjector, hotelCalendarProjector, gatheringCalendarProjector);
+    }
 }

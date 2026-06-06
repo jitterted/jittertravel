@@ -1,12 +1,12 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleGapProjector;
-import dev.ted.jittertravel.application.ScheduleProblem;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
-import java.util.List;
+import java.nio.charset.StandardCharsets;
 
 @Controller
 public class ScheduleProblemsController {
@@ -18,14 +18,9 @@ public class ScheduleProblemsController {
     }
 
     @GetMapping("/schedule-problems")
-    public String scheduleProblems(Model model) {
-        List<ScheduleProblem> problems = scheduleGapProjector.problems();
-        model.addAttribute("travelProblems", problems.stream()
-                .filter(p -> p instanceof ScheduleProblem.MissingTravel).toList());
-        model.addAttribute("hotelProblems", problems.stream()
-                .filter(p -> p instanceof ScheduleProblem.MissingHotel).toList());
-        model.addAttribute("schedulingProblems", problems.stream()
-                .filter(p -> p instanceof ScheduleProblem.SchedulingConflict).toList());
-        return "schedule-problems";
+    public ResponseEntity<String> scheduleProblems() {
+        return ResponseEntity.ok()
+                .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
+                .body(ScheduleProblemsRenderer.render(scheduleGapProjector.problems()));
     }
 }

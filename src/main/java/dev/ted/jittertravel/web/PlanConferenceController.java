@@ -7,12 +7,16 @@ import dev.ted.jittertravel.domain.DateRangeNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+
+import java.nio.charset.StandardCharsets;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -72,9 +76,10 @@ public class PlanConferenceController {
     }
 
     @GetMapping("/tentative-conferences")
-    public String tentativeConferences(Model model) {
-        model.addAttribute("conferences", projector.views());
-        return "tentative-conferences";
+    public ResponseEntity<String> tentativeConferences() {
+        return ResponseEntity.ok()
+                .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
+                .body(TentativeConferencesRenderer.render(projector.views()));
     }
 
 }

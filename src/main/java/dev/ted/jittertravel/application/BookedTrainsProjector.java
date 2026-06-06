@@ -16,7 +16,7 @@ import java.util.stream.Stream;
 public class BookedTrainsProjector implements EventStreamConsumer {
 
     private static final DateTimeFormatter DISPLAY =
-            DateTimeFormatter.ofPattern("M-dd-uuuu h:mma", Locale.ENGLISH);
+            DateTimeFormatter.ofPattern("EEE, MMM d, h:mm a", Locale.ENGLISH);
 
     private final Map<TrainTripId, BookedTrainView> viewsById = new ConcurrentHashMap<>();
 

@@ -1,9 +1,12 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedTrainsProjector;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+
+import java.nio.charset.StandardCharsets;
 
 @Controller
 public class BookedTrainsController {
@@ -15,8 +18,9 @@ public class BookedTrainsController {
     }
 
     @GetMapping("/booked-trains")
-    public String bookedTrains(Model model) {
-        model.addAttribute("trains", projector.views());
-        return "booked-trains";
+    public ResponseEntity<String> bookedTrains() {
+        return ResponseEntity.ok()
+                .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
+                .body(BookedTrainsRenderer.render(projector.views()));
     }
 }

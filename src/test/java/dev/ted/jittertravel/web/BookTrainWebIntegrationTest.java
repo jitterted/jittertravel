@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
@@ -18,8 +19,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(BookTrainController.class)
+@WithMockUser
 class BookTrainWebIntegrationTest {
 
     @Autowired
@@ -46,6 +49,7 @@ class BookTrainWebIntegrationTest {
     @Test
     void postValidTrainRedirectsToBookedTrains() {
         assertThat(mockMvc.post().uri("/book-train")
+                .with(csrf())
                 .param("trainTripId", "550e8400-e29b-41d4-a716-446655440000")
                 .param("departureStationName", "London Euston")
                 .param("departureCityName", "London")
@@ -67,6 +71,7 @@ class BookTrainWebIntegrationTest {
                 .given(trainBooking).bookTrain(any());
 
         assertThat(mockMvc.post().uri("/book-train")
+                .with(csrf())
                 .param("trainTripId", "550e8400-e29b-41d4-a716-446655440000")
                 .param("departureStationName", "London Euston")
                 .param("departureCityName", "London")
@@ -85,6 +90,7 @@ class BookTrainWebIntegrationTest {
                 .given(trainBooking).bookTrain(any());
 
         assertThat(mockMvc.post().uri("/book-train")
+                .with(csrf())
                 .param("trainTripId", "550e8400-e29b-41d4-a716-446655440000")
                 .param("departureStationName", "London Euston")
                 .param("departureCityName", "London")

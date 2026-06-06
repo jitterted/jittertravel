@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="JitterTravelApplication (local)" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <module name="jittertravel" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="dev.ted.jittertravel.JitterTravelApplication" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

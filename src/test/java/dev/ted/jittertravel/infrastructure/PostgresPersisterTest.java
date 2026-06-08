@@ -66,10 +66,10 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
                 cmd4
         );
 
-        assertThat(persister.countCommands())
+        assertThat(persister.countCommands(""))
                 .isEqualTo(4);
 
-        List<TimelineEntry> page = persister.loadTimelinePage(0, 50);
+        List<TimelineEntry> page = persister.loadTimelinePage(0, 50, "");
 
         assertThat(page)
                 .hasSize(4);

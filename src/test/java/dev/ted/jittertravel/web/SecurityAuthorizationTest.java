@@ -2,8 +2,10 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithAnonymousUser;
@@ -11,8 +13,11 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
+import java.time.Instant;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 /**
@@ -30,6 +35,14 @@ class SecurityAuthorizationTest {
 
     @MockitoBean
     PostgresPersister persister;
+
+    @MockitoBean
+    BuildProperties buildProperties;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(buildProperties.getTime()).thenReturn(Instant.EPOCH);
+    }
 
     @Test
     @WithAnonymousUser

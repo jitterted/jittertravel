@@ -18,6 +18,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 
 @WebMvcTest(TimelineController.class)
@@ -32,8 +33,8 @@ class TimelineControllerTest {
 
     @Test
     void commandLogUrlMapsToOkWithHtmlContentType() {
-        given(persister.countCommands()).willReturn(0);
-        given(persister.loadTimelinePage(anyInt(), anyInt())).willReturn(List.of());
+        given(persister.countCommands(anyString())).willReturn(0);
+        given(persister.loadTimelinePage(anyInt(), anyInt(), anyString())).willReturn(List.of());
 
         assertThat(mockMvc.get().uri("/admin/commandlog"))
                 .hasStatusOk()
@@ -42,8 +43,8 @@ class TimelineControllerTest {
 
     @Test
     void rendersStatusBadgesForSucceededFailedAndPendingCommands() {
-        given(persister.countCommands()).willReturn(3);
-        given(persister.loadTimelinePage(anyInt(), anyInt())).willReturn(List.of(
+        given(persister.countCommands(anyString())).willReturn(3);
+        given(persister.loadTimelinePage(anyInt(), anyInt(), anyString())).willReturn(List.of(
                 entry("SUCCEEDED", true),
                 entry("FAILED_DOMAIN", false),
                 entry("PENDING", false)

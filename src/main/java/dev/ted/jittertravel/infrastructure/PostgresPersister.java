@@ -166,11 +166,13 @@ public class PostgresPersister {
         return dot >= 0 ? fqn.substring(dot + 1) : fqn;
     }
 
-    public int countCommands() {
-        Long count = jdbcClient.sql("SELECT COUNT(*) FROM command_log")
-                .query(Long.class)
-                .single();
-        return count.intValue();
+    public int countCommands(String status) {
+        String where = statusWhereClause(status);
+        JdbcClient.StatementSpec spec = jdbcClient.sql("SELECT COUNT(*) FROM command_log " + where);
+        if (needsStatusParam(status)) {
+            spec = spec.param("status", status);
+        }
+        return spec.query(Long.class).single().intValue();
     }
 
     public int countPendingCommands() {
@@ -207,20 +209,29 @@ public class PostgresPersister {
      * Within the returned page, an entry is marked {@code outOfOrder} if its events'
      * sequence numbers start before the running max sequence of previously-listed
      * commands (i.e. its events are interleaved with an earlier command's events).
+     * Pass null or blank {@code status} to load all commands; "FAILED" matches both
+     * FAILED_DOMAIN and FAILED_PERSIST.
      */
-    public List<TimelineEntry> loadTimelinePage(int offset, int limit) {
-        List<TimelineCommand> commands = jdbcClient.sql("""
+    public List<TimelineEntry> loadTimelinePage(int offset, int limit, String status) {
+        String where = statusWhereClause(status);
+        JdbcClient.StatementSpec spec = jdbcClient.sql("""
                         SELECT command_id   AS commandId,
                                timestamp,
                                type,
                                payload::text AS payloadJson,
                                status
                         FROM command_log
+                        """ + where + """
+
                         ORDER BY timestamp ASC, command_id ASC
                         LIMIT :limit OFFSET :offset
                         """)
                 .param("limit", limit)
-                .param("offset", offset)
+                .param("offset", offset);
+        if (needsStatusParam(status)) {
+            spec = spec.param("status", status);
+        }
+        List<TimelineCommand> commands = spec
                 .query(TimelineCommand.class)
                 .list()
                 .stream()
@@ -279,6 +290,16 @@ public class PostgresPersister {
             entries.add(new TimelineEntry(command, events, failed, outOfOrder));
         }
         return entries;
+    }
+
+    private String statusWhereClause(String status) {
+        if (status == null || status.isBlank()) return "";
+        if ("FAILED".equals(status)) return "WHERE status LIKE 'FAILED%'";
+        return "WHERE status = :status";
+    }
+
+    private boolean needsStatusParam(String status) {
+        return status != null && !status.isBlank() && !"FAILED".equals(status);
     }
 
     private String prettyJson(String rawJson) {

@@ -25,16 +25,17 @@ class TimelineController {
     @GetMapping("/admin/commandlog")
     public String commandTimeline(@RequestParam(defaultValue = "0") int page,
                                   @RequestParam(defaultValue = "true") boolean reverse,
+                                  @RequestParam(defaultValue = "") String status,
                                   Model model) {
         int safePage = Math.max(page, 0);
-        int totalCommands = persister.countCommands();
+        int totalCommands = persister.countCommands(status);
         int totalPages = Math.max(1, (int) Math.ceil(totalCommands / (double) PAGE_SIZE));
         if (safePage >= totalPages) {
             safePage = totalPages - 1;
         }
 
         int offset = safePage * PAGE_SIZE;
-        List<TimelineEntry> entries = persister.loadTimelinePage(offset, PAGE_SIZE);
+        List<TimelineEntry> entries = persister.loadTimelinePage(offset, PAGE_SIZE, status);
 
         // Divergence is computed in canonical oldest-first order; reverse only for display.
         if (reverse) {
@@ -49,6 +50,7 @@ class TimelineController {
         model.addAttribute("totalCommands", totalCommands);
         model.addAttribute("pageSize", PAGE_SIZE);
         model.addAttribute("reverse", reverse);
+        model.addAttribute("status", status);
         model.addAttribute("hasPrev", safePage > 0);
         model.addAttribute("hasNext", safePage < totalPages - 1);
         return "timeline-commands";

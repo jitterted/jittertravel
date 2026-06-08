@@ -42,6 +42,35 @@
             cursor: not-allowed;
         }
 
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin: 0.5rem 0 1rem;
+            font-size: 0.85rem;
+        }
+
+        .filter-bar .filter-label {
+            color: var(--muted-text);
+            margin-right: 0.25rem;
+        }
+
+        .filter-bar a.filter-btn {
+            text-decoration: none;
+            padding: 2px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--accent-color);
+            background: var(--header-bg);
+        }
+
+        .filter-bar a.filter-btn.active {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
         .timeline-entry {
             border: 1px solid var(--border-color);
             border-left: 4px solid var(--accent-color);
@@ -232,24 +261,44 @@
 <div class="timeline-container">
     <h1>Command / Event Timeline</h1>
 
+    <div class="filter-bar">
+        <span class="filter-label">Filter:</span>
+        <a class="filter-btn"
+           th:classappend="${status == ''} ? ' active'"
+           th:href="@{/admin/commandlog(page=0, reverse=${reverse})}">All</a>
+        <a class="filter-btn"
+           th:classappend="${status == 'SUCCEEDED'} ? ' active'"
+           th:href="@{/admin/commandlog(page=0, reverse=${reverse}, status='SUCCEEDED')}">Succeeded</a>
+        <a class="filter-btn"
+           th:classappend="${status == 'PENDING'} ? ' active'"
+           th:href="@{/admin/commandlog(page=0, reverse=${reverse}, status='PENDING')}">Pending</a>
+        <a class="filter-btn"
+           th:classappend="${status == 'FAILED'} ? ' active'"
+           th:href="@{/admin/commandlog(page=0, reverse=${reverse}, status='FAILED')}">Failed</a>
+        <a class="filter-btn"
+           th:classappend="${status == 'ABANDONED'} ? ' active'"
+           th:href="@{/admin/commandlog(page=0, reverse=${reverse}, status='ABANDONED')}">Abandoned</a>
+    </div>
+
     <div class="timeline-toolbar">
         <span class="meta">
-            <span th:text="${totalCommands}">0</span> commands total —
-            page <span th:text="${page + 1}">1</span> of <span th:text="${totalPages}">1</span>
+            <span th:text="${totalCommands}">0</span> commands
+            <th:block th:if="${!status.isEmpty()}">matching filter</th:block>
+            — page <span th:text="${page + 1}">1</span> of <span th:text="${totalPages}">1</span>
             (<span th:text="${pageSize}">50</span> per page)
         </span>
         <span>
             <a th:if="${reverse}"
-               th:href="@{/admin/commandlog(page=${page}, reverse=false)}">Oldest first ↑</a>
+               th:href="@{/admin/commandlog(page=${page}, reverse=false, status=${status})}">Oldest first ↑</a>
             <a th:unless="${reverse}"
-               th:href="@{/admin/commandlog(page=${page}, reverse=true)}">Newest first ↓</a>
+               th:href="@{/admin/commandlog(page=${page}, reverse=true, status=${status})}">Newest first ↓</a>
         </span>
         <span>
             <a th:if="${hasPrev}"
-               th:href="@{/admin/commandlog(page=${page - 1}, reverse=${reverse})}">‹ Previous</a>
+               th:href="@{/admin/commandlog(page=${page - 1}, reverse=${reverse}, status=${status})}">‹ Previous</a>
             <span th:unless="${hasPrev}" class="disabled">‹ Previous</span>
             <a th:if="${hasNext}"
-               th:href="@{/admin/commandlog(page=${page + 1}, reverse=${reverse})}">Next ›</a>
+               th:href="@{/admin/commandlog(page=${page + 1}, reverse=${reverse}, status=${status})}">Next ›</a>
             <span th:unless="${hasNext}" class="disabled">Next ›</span>
         </span>
     </div>
@@ -306,10 +355,10 @@
         <span></span>
         <span>
             <a th:if="${hasPrev}"
-               th:href="@{/admin/commandlog(page=${page - 1}, reverse=${reverse})}">‹ Previous</a>
+               th:href="@{/admin/commandlog(page=${page - 1}, reverse=${reverse}, status=${status})}">‹ Previous</a>
             <span th:unless="${hasPrev}" class="disabled">‹ Previous</span>
             <a th:if="${hasNext}"
-               th:href="@{/admin/commandlog(page=${page + 1}, reverse=${reverse})}">Next ›</a>
+               th:href="@{/admin/commandlog(page=${page + 1}, reverse=${reverse}, status=${status})}">Next ›</a>
             <span th:unless="${hasNext}" class="disabled">Next ›</span>
         </span>
     </div>

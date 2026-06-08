@@ -171,6 +171,45 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
     }
 
     @Test
+    void pendingCommandsAreCountedListedAndCanBeAbandoned() {
+        // a still-pending command (saved, no events)
+        UUID pending = UUID.randomUUID();
+        persister.saveCommand(pending, newRequest(pending, "Pending Conf"));
+
+        // a succeeded command (saved + events)
+        UUID succeeded = UUID.randomUUID();
+        PlanTentativeConferenceRequest succeededReq = newRequest(succeeded, "Done Conf");
+        persister.saveCommand(succeeded, succeededReq);
+        persister.appendEvents(List.of(storedEvent(1L, succeeded, "Done Conf", succeededReq)), succeeded);
+
+        assertThat(persister.countPendingCommands())
+                .isEqualTo(1);
+        assertThat(persister.findPendingCommands())
+                .singleElement()
+                .satisfies(c -> {
+                    assertThat(c.commandId()).isEqualTo(pending);
+                    assertThat(c.pending())
+                            .as("listed command is PENDING")
+                            .isTrue();
+                    assertThat(c.payloadJson()).contains("Pending Conf");
+                });
+
+        persister.abandonCommand(pending);
+
+        assertThat(persister.countPendingCommands())
+                .as("abandoned command is no longer pending")
+                .isZero();
+        assertThat(persister.findPendingCommands())
+                .isEmpty();
+
+        // abandon is guarded on status='PENDING': a succeeded command is untouched
+        persister.abandonCommand(succeeded);
+        assertThat(persister.findAllCommandsForExport())
+                .as("succeeded command remains exportable after a guarded abandon attempt")
+                .hasSize(1);
+    }
+
+    @Test
     void canSaveAndLoadCommandAndEvents() {
         UUID commandId = UUID.randomUUID();
         PlanTentativeConferenceRequest request = new PlanTentativeConferenceRequest();

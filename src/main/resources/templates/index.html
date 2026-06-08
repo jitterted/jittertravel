@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -47,6 +47,29 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+        }
+
+        .pending-banner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            width: 100%;
+            padding: 0.7rem 1.5rem;
+            background: #fef3c7;
+            color: #92400e;
+            border-bottom: 1px solid #f59e0b;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .pending-banner:hover {
+            background: #fde68a;
+        }
+
+        .pending-banner-cta {
+            font-weight: 700;
         }
 
         .hero {
@@ -178,6 +201,11 @@
     </style>
 </head>
 <body>
+
+<a th:if="${pendingCount > 0}" th:href="@{/admin/pending-commands}" class="pending-banner">
+    <span th:text="${pendingCount} + (${pendingCount} == 1 ? ' command is still pending' : ' commands are still pending')">N commands are still pending</span>
+    <span class="pending-banner-cta">Review &rsaquo;</span>
+</a>
 
 <main class="hero">
 

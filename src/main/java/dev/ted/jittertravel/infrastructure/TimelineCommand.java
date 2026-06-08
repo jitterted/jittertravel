@@ -27,12 +27,17 @@ public record TimelineCommand(
         return status != null && status.startsWith("FAILED");
     }
 
+    public boolean abandoned() {
+        return "ABANDONED".equals(status);
+    }
+
     public String statusLabel() {
         return switch (status) {
             case "SUCCEEDED" -> "Succeeded";
             case "PENDING" -> "Pending";
             case "FAILED_DOMAIN" -> "Failed: domain";
             case "FAILED_PERSIST" -> "Failed: persist";
+            case "ABANDONED" -> "Abandoned";
             case null -> "Unknown";
             default -> status;
         };

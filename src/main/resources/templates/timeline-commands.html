@@ -104,6 +104,11 @@
             color: white;
         }
 
+        .badge.abandoned {
+            background: #374151;
+            color: white;
+        }
+
         .command-type {
             font-weight: 600;
             font-family: ui-monospace, SFMono-Regular, monospace;
@@ -264,6 +269,8 @@
                   title="Command produced no events — the domain rejected it or event persistence failed">Failed</span>
             <span th:if="${entry.command().pending()}" class="badge pending"
                   title="Command persisted but not yet completed — in progress, or stuck if it never finished">Pending</span>
+            <span th:if="${entry.command().abandoned()}" class="badge abandoned"
+                  title="A stuck pending command that was manually abandoned (no events were written)">Abandoned</span>
             <span th:if="${entry.outOfOrder()}" class="badge out-of-order"
                   title="This command's event sequence numbers are interleaved with an earlier command's events">Out of order</span>
             <span class="command-type" th:text="${entry.command().simpleType()}">CommandType</span>

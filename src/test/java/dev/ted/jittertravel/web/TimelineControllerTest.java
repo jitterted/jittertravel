@@ -49,6 +49,7 @@ class TimelineControllerTest {
                 entry("PENDING", false)
         ));
 
+        // successful commands don't show any badge
         assertThat(mockMvc.get().uri("/admin/commandlog"))
                 .hasStatusOk()
                 .bodyText()

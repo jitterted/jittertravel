@@ -63,6 +63,20 @@ public class PostgresPersister {
         return message.length() <= 2000 ? message : message.substring(0, 2000);
     }
 
+    /**
+     * Marks a still-PENDING command as ABANDONED. Guarded on the current status so a
+     * command that has since completed (SUCCEEDED/FAILED) is never clobbered.
+     */
+    public void abandonCommand(UUID commandId) {
+        jdbcClient.sql("""
+                        UPDATE command_log
+                        SET status = 'ABANDONED'
+                        WHERE command_id = :commandId AND status = 'PENDING'
+                        """)
+                .param("commandId", commandId)
+                .update();
+    }
+
     @Transactional
     public void appendEvents(List<StoredEvent> events, UUID commandId) {
         StoredEvent currentEvent = null;
@@ -157,6 +171,35 @@ public class PostgresPersister {
                 .query(Long.class)
                 .single();
         return count.intValue();
+    }
+
+    public int countPendingCommands() {
+        Long count = jdbcClient.sql("SELECT COUNT(*) FROM command_log WHERE status = 'PENDING'")
+                .query(Long.class)
+                .single();
+        return count.intValue();
+    }
+
+    /**
+     * Loads all PENDING commands (oldest first) with their payloads pretty-printed,
+     * for the admin pending-commands review page.
+     */
+    public List<TimelineCommand> findPendingCommands() {
+        return jdbcClient.sql("""
+                        SELECT command_id   AS commandId,
+                               timestamp,
+                               type,
+                               payload::text AS payloadJson,
+                               status
+                        FROM command_log
+                        WHERE status = 'PENDING'
+                        ORDER BY timestamp ASC, command_id ASC
+                        """)
+                .query(TimelineCommand.class)
+                .list()
+                .stream()
+                .map(c -> new TimelineCommand(c.commandId(), c.timestamp(), c.type(), prettyJson(c.payloadJson()), c.status()))
+                .toList();
     }
 
     /**

@@ -154,7 +154,6 @@
             color: var(--muted-text);
             font-family: ui-monospace, SFMono-Regular, monospace;
             font-size: 0.75rem;
-            margin-left: auto;
         }
 
         details {
@@ -254,12 +253,52 @@
             margin-top: 1rem;
             font-size: 1.6rem;
         }
+
+        .banner {
+            padding: 0.65rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .banner.success {
+            background: #d1fae5;
+            border: 1px solid #6ee7b7;
+            color: #065f46;
+        }
+
+        .banner.success .restart-warning {
+            margin-left: 0.75rem;
+            color: #92400e;
+        }
+
+        .btn-delete {
+            margin-left: auto;
+            padding: 2px 8px;
+            font-size: 0.75rem;
+            border: 1px solid #c0392b;
+            border-radius: 4px;
+            background: transparent;
+            color: #c0392b;
+            cursor: pointer;
+            line-height: 1.4;
+        }
+
+        .btn-delete:hover {
+            background: #c0392b;
+            color: white;
+        }
     </style>
 </head>
 <body>
 <nav><h3><a href="/admin">Admin</a> &middot; <a href="/">JitterTravel</a></h3></nav>
 <div class="timeline-container">
     <h1>Command / Event Timeline</h1>
+
+    <div class="banner success" th:if="${commandDeleted}">
+        <strong>&#10003; Command and its events deleted.</strong>
+        <span class="restart-warning">&#9888; The in-memory cache is no longer up-to-date &mdash; restart the application to re-sync projectors.</span>
+    </div>
 
     <div class="filter-bar">
         <span class="filter-label">Filter:</span>
@@ -325,6 +364,14 @@
             <span class="command-type" th:text="${entry.command().simpleType()}">CommandType</span>
             <span class="command-timestamp" th:text="${#temporals.format(entry.command().timestamp(), 'yyyy-MM-dd HH:mm:ss.SSS z')}">ts</span>
             <span class="command-id" th:text="${entry.command().commandId()}">command-uuid</span>
+            <form method="post"
+                  th:action="@{/admin/commandlog/{id}/delete(id=${entry.command().commandId()})}"
+                  style="margin-left: auto; display: inline;">
+                <input type="hidden" name="page"    th:value="${page}"/>
+                <input type="hidden" name="reverse" th:value="${reverse}"/>
+                <input type="hidden" name="status"  th:value="${status}"/>
+                <button type="submit" class="btn-delete">Delete</button>
+            </form>
         </header>
 
         <details>

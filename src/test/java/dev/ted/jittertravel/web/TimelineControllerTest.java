@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(TimelineController.class)
 @WithMockUser
@@ -56,6 +57,20 @@ class TimelineControllerTest {
                 .bodyText()
                 .contains("Failed: domain")
                 .contains("Pending");
+    }
+
+    @Test
+    void deleteCommandRedirectsBackToSamePageAndFilter() {
+        UUID commandId = UUID.randomUUID();
+
+        assertThat(mockMvc.post()
+                           .uri("/admin/commandlog/{id}/delete", commandId)
+                           .param("page", "2")
+                           .param("reverse", "false")
+                           .param("status", "SUCCEEDED")
+                           .with(csrf()))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/admin/commandlog?page=2&reverse=false&status=SUCCEEDED");
     }
 
     private static TimelineEntry entry(String status, boolean withEvent) {

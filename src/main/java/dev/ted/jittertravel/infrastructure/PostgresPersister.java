@@ -175,6 +175,16 @@ public class PostgresPersister {
         return spec.query(Long.class).single().intValue();
     }
 
+    @Transactional
+    public void deleteCommand(UUID commandId) {
+        jdbcClient.sql("DELETE FROM event_log WHERE command_id = :commandId")
+                .param("commandId", commandId)
+                .update();
+        jdbcClient.sql("DELETE FROM command_log WHERE command_id = :commandId")
+                .param("commandId", commandId)
+                .update();
+    }
+
     public int countPendingCommands() {
         Long count = jdbcClient.sql("SELECT COUNT(*) FROM command_log WHERE status = 'PENDING'")
                 .query(Long.class)

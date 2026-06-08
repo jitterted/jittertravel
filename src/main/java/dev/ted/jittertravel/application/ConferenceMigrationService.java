@@ -1,10 +1,9 @@
 package dev.ted.jittertravel.application;
 
-import dev.ted.jittertravel.domain.*;
+import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.ConferenceSpansMultipleDays;
 
-import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Stream;
 
 public class ConferenceMigrationService {
 
@@ -26,23 +25,20 @@ public class ConferenceMigrationService {
                     "Cannot migrate \"" + conference.name() + "\": start and end dates differ");
         }
 
-        commandExecutor.appendEvents(
+        MigrateConferenceToGathering command = new MigrateConferenceToGathering(
+                conferenceId.id(),
                 UUID.randomUUID(),
-                Map.of("type", "migrateConferenceToGathering", "conferenceId", conferenceId.id()),
-                Stream.of(
-                        new ConferenceCancelled(conferenceId, "Migrated to gathering"),
-                        new GatheringPlanned(
-                                GatheringId.random(),
-                                conference.name(),
-                                conference.venueName(),
-                                conference.venueAddress(),
-                                conference.startDate().toLocalDate(),
-                                conference.startDate().toLocalTime(),
-                                conference.endDate().toLocalTime(),
-                                speaking,
-                                ""
-                        )
-                )
+                conference.name(),
+                conference.venueName(),
+                conference.venueAddress(),
+                conference.startDate().toLocalDate(),
+                conference.startDate().toLocalTime(),
+                conference.endDate().toLocalTime(),
+                speaking,
+                "",
+                "Migrated to gathering"
         );
+
+        commandExecutor.appendEvents(UUID.randomUUID(), command, command.events());
     }
 }

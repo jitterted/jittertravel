@@ -7,6 +7,7 @@ import dev.ted.jittertravel.web.*;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -95,6 +96,23 @@ public class CommandImporter {
             var events = command.execute(new BookTrainContext(BYPASS_NOW));
             persister.saveCommand(commandId, request);
             eventStore.append(events, commandId);
+        } else if (type.equals(PlanGatheringRequest.class.getName())) {
+            PlanGatheringRequest request = jsonMapper.readValue(payloadJson, PlanGatheringRequest.class);
+            UUID commandId = UUID.fromString(request.getGatheringId());
+            PlanGatheringCommand command = new PlanGatheringHandler().handle(request);
+            var events = command.execute(new GatheringPlanningContext(LocalDate.MIN));
+            persister.saveCommand(commandId, request);
+            eventStore.append(events, commandId);
+        } else if (type.equals(MigrateConferenceToGathering.class.getName())) {
+            MigrateConferenceToGathering command = jsonMapper.readValue(payloadJson, MigrateConferenceToGathering.class);
+            UUID commandId = UUID.randomUUID();
+            persister.saveCommand(commandId, command);
+            eventStore.append(command.events(), commandId);
+        } else if (type.equals(ClearDifferentCityConflict.class.getName())) {
+            ClearDifferentCityConflict command = jsonMapper.readValue(payloadJson, ClearDifferentCityConflict.class);
+            UUID commandId = UUID.randomUUID();
+            persister.saveCommand(commandId, command);
+            eventStore.append(command.events(), commandId);
         } else {
             throw new IllegalArgumentException("Unknown command type: " + type);
         }

@@ -36,6 +36,7 @@ public class BookHotelRequest {
 
     public String getRegion() { return region; }
     public void setRegion(String region) { this.region = region; }
+    public void setState(String state) { this.region = state; } // backward compat for old exports
 
     public String getCountry() { return country; }
     public void setCountry(String country) { this.country = country; }

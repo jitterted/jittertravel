@@ -64,7 +64,7 @@ class AdminControllerTest {
 
     @Test
     void migrateConferencesFormMapsToOkWithHtmlContentType() {
-        given(tentativeConferenceProjector.views()).willReturn(List.of());
+        given(tentativeConferenceProjector.migratableViews()).willReturn(List.of());
 
         assertThat(mockMvc.get().uri("/admin/migrate-conferences"))
                 .hasStatusOk()

@@ -76,4 +76,53 @@ class TentativeConferenceProjectorTest {
                 .extracting(TentativeConferenceView::name)
                 .containsExactly("Earlier Conference", "Later Conference");
     }
+
+    @Test
+    void migratableViewsExcludesMultiDayConferences() {
+        TentativeConferenceProjector projector = new TentativeConferenceProjector();
+        Address address = new Address("Street", "City", "State", "Postal", "Country", null);
+
+        handle(projector, 1, "Single-day", LocalDateTime.of(2026, 6, 1, 9, 0), LocalDateTime.of(2026, 6, 1, 17, 0), address);
+        handle(projector, 2, "Multi-day",  LocalDateTime.of(2026, 6, 2, 9, 0), LocalDateTime.of(2026, 6, 4, 17, 0), address);
+
+        assertThat(projector.migratableViews())
+                .hasSize(1)
+                .extracting(TentativeConferenceView::name)
+                .containsExactly("Single-day");
+    }
+
+    @Test
+    void migratableViewsIncludesSingleDayConferences() {
+        TentativeConferenceProjector projector = new TentativeConferenceProjector();
+        Address address = new Address("Street", "City", "State", "Postal", "Country", null);
+
+        handle(projector, 1, "All Day", LocalDateTime.of(2026, 6, 1, 0, 0), LocalDateTime.of(2026, 6, 1, 23, 59), address);
+
+        assertThat(projector.migratableViews())
+                .hasSize(1)
+                .extracting(TentativeConferenceView::name)
+                .containsExactly("All Day");
+    }
+
+    @Test
+    void migratableViewsAreSortedAscendingByStartDate() {
+        TentativeConferenceProjector projector = new TentativeConferenceProjector();
+        Address address = new Address("Street", "City", "State", "Postal", "Country", null);
+
+        handle(projector, 1, "Later Single-day",   LocalDateTime.of(2026, 7, 5, 9, 0), LocalDateTime.of(2026, 7, 5, 17, 0), address);
+        handle(projector, 2, "Multi-day (skipped)", LocalDateTime.of(2026, 6, 1, 9, 0), LocalDateTime.of(2026, 6, 3, 17, 0), address);
+        handle(projector, 3, "Earlier Single-day",  LocalDateTime.of(2026, 6, 10, 9, 0), LocalDateTime.of(2026, 6, 10, 17, 0), address);
+
+        assertThat(projector.migratableViews())
+                .extracting(TentativeConferenceView::name)
+                .containsExactly("Earlier Single-day", "Later Single-day");
+    }
+
+    private static void handle(TentativeConferenceProjector projector, long seq, String name,
+                                LocalDateTime start, LocalDateTime end, Address address) {
+        ConferenceTentativelyPlanned event = new ConferenceTentativelyPlanned(
+                ConferenceId.random(), name, start, end, "Venue", address);
+        projector.handle(Stream.of(
+                new StoredEvent(seq, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID())));
+    }
 }

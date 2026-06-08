@@ -85,7 +85,7 @@ public class AdminController {
 
     @GetMapping("/migrate-conferences")
     public String migrateConferencesForm(Model model) {
-        model.addAttribute("conferences", tentativeConferenceProjector.views());
+        model.addAttribute("conferences", tentativeConferenceProjector.migratableViews());
         return "admin-migrate-conferences";
     }
 

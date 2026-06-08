@@ -41,6 +41,13 @@ public class TentativeConferenceProjector implements EventStreamConsumer {
                 .toList();
     }
 
+    public List<TentativeConferenceView> migratableViews() {
+        return conferences.values().stream()
+                .filter(v -> v.startDate().toLocalDate().equals(v.endDate().toLocalDate()))
+                .sorted(Comparator.comparing(TentativeConferenceView::startDate))
+                .toList();
+    }
+
     public Optional<TentativeConferenceView> findById(ConferenceId conferenceId) {
         return Optional.ofNullable(conferences.get(conferenceId));
     }

@@ -11,6 +11,7 @@ public record Address(
         String locationForMatching
 ) {
     public Address {
+        if (region == null) region = "";
         locationForMatching = (locationForMatching == null || locationForMatching.isBlank())
                 ? city : locationForMatching;
     }

@@ -19,36 +19,71 @@ unless the **`local`** profile is explicitly enabled:
 
 | Profile | Auth | CSRF | Datasource | Intended use |
 |---|---|---|---|---|
-| **default** (no profile / anything but `local`) | **form login** (`ted`, `family`) | enabled | `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD` | **production / Railway** |
+| **default** (no profile / anything but `local`) | **form login** (`ted`, `family`) | enabled | `PGDATABASE`, `PGHOST`, `PGPASSWORD`, `PGPORT`, `PGUSER` | **production / Railway** |
 | `local` | none — every request permitted | disabled | `SPRING_DATASOURCE_*` (localhost defaults), docker-compose | local dev |
+| `prod-preview` | **form login** (like production) | enabled | localhost (with `SPRING_DATASOURCE_*` overrides), docker-compose | run the secured config locally |
+
+Because the secured chain is active for **any** profile that isn't `local`, `prod-preview` exercises
+the real production security path — but as an explicit, opt-in profile it is **never** active on
+Railway when no profile is set. It supplies local stand-in DB settings and dummy
+`TED_PASSWORD`/`FAMILY_PASSWORD` so the secured chain can start on your machine without the real
+Railway variables.
 
 > This is deliberately inverted from the usual "dev by default": **forgetting to set a profile
 > yields the *secure* configuration, not an open one.** You cannot accidentally deploy an
 > unauthenticated instance by omitting a variable. Local development is the thing you must opt
 > into, with `SPRING_PROFILES_ACTIVE=local`.
 
+### Access control (secured profiles)
+Data-entry and admin pages require login; read-only views stay public:
+
+- **Login required:** `/admin/**`, `/book-flight*`, `/book-hotel*`, `/book-train*`,
+  `/plan-conference*`, `/plan-gathering*`, `/clear-conflict*`, the per-flight edit
+  `/booked-flights/{id}` (+ `/lookup`), and `/api/parse-address`.
+- **Public:** home `/`, `/calendar`, `/itinerary`, the booking lists (`/booked-*`),
+  `/planned-gatherings`, `/tentative-conferences`, `/schedule-problems`, `/actuator/**`,
+  `/login`, and static assets.
+
+Visiting a protected page while logged out redirects to the login form; a **failed login
+returns to the login page with an error** (`/login?error`). The home page hides the "Book & Plan"
+and "Admin" nav groups until you log in (they always show under `local`, which has no auth), and
+intentionally exposes no "Log in" link.
+
 ### Running locally
 ```
+# Day-to-day dev (no auth):
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
-# or: SPRING_PROFILES_ACTIVE=local java -jar target/jittertravel-0.0.1-SNAPSHOT.jar
+
+# Exercise the secured production config locally (form login, CSRF, redaction):
+./mvnw spring-boot:run -Dspring-boot.run.profiles=prod-preview
+#   log in with ted / preview  (or family / preview)
 ```
-The `local` profile starts Postgres via `compose.yml` (spring-boot-docker-compose) and uses the
-permissive no-auth chain, so no passwords are required.
+`local` uses the permissive no-auth chain (no passwords needed). `prod-preview` uses the secured
+form-login chain with dummy local passwords. Both start Postgres via `compose.yml`
+(spring-boot-docker-compose). A real `TED_PASSWORD`/`FAMILY_PASSWORD` env var overrides the
+`prod-preview` defaults if you want to test specific credentials.
 
 ## Required environment variables (production)
 
-### Database (from the Railway Postgres plugin)
-Wire these in as [reference variables](https://docs.railway.com/guides/variables), e.g.
-`PGHOST=${{Postgres.PGHOST}}`.
+### Database (from the Railway Postgres service)
+These are **not** auto-injected. Railway scopes variables per service, so the database values
+live on the Postgres service and the **app service must reference them** in its own variables.
+Add these five (ascending order, exactly as Railway lists them) — the password is referenced,
+never typed by hand:
 
-| Variable | Required | Secret | Notes |
-|---|---|---|---|
-| `PGHOST` | ✅ | no | Postgres host. |
-| `PGPORT` | ✅ | no | Postgres port. |
-| `PGDATABASE` | ✅ | no | Database name. |
-| `PGUSER` | ✅ | no | Database user. |
-| `PGPASSWORD` | ✅ | **yes** | Database password. |
-| `PORT` | ✅ | no | HTTP port — **injected by Railway automatically** (`server.port=${PORT:8080}`). |
+```
+PGDATABASE="${{Postgres.PGDATABASE}}"
+PGHOST="${{Postgres.PGHOST}}"
+PGPASSWORD="${{Postgres.PGPASSWORD}}"
+PGPORT="${{Postgres.PGPORT}}"
+PGUSER="${{Postgres.PGUSER}}"
+```
+
+(Railway may have created these references automatically when the DB was provisioned alongside
+the service — check the app service's **Variables** tab first; add any that are missing.)
+
+`PORT` is also required but is **injected by Railway automatically** (`server.port=${PORT:8080}`);
+you do not set it.
 
 > Do **not** set `SPRING_PROFILES_ACTIVE` in production — the default (unset) is already the
 > secured profile. Setting it to `local` would disable authentication.
@@ -106,8 +141,9 @@ docker build -t jittertravel . && docker run --rm -p 8080:8080 \
 
 1. Create a Railway project; add the **PostgreSQL** plugin.
 2. Add this repo as a service (Railway uses the committed `Dockerfile` per `railway.json`).
-3. Set variables: the five `PG*` vars (as references to the Postgres plugin), `TED_PASSWORD`,
-   `FAMILY_PASSWORD`, and optionally `AERODATABOX_API_KEY`. **Leave `SPRING_PROFILES_ACTIVE` unset.**
+3. Set variables: the five Postgres references (`PGDATABASE`, `PGHOST`, `PGPASSWORD`, `PGPORT`,
+   `PGUSER` → `${{Postgres.*}}`), plus `TED_PASSWORD`, `FAMILY_PASSWORD`, and optionally
+   `AERODATABOX_API_KEY`. **Leave `SPRING_PROFILES_ACTIVE` unset.**
 4. Deploy; the health check (`/actuator/health`, from `railway.json`) gates the rollout.
 5. Watch logs for `Replayed N events from persistent store` (DB connect + replay succeeded) and
    confirm `/` redirects to the login form.

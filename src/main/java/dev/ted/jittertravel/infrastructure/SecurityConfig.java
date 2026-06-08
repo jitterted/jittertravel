@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -27,16 +28,40 @@ public class SecurityConfig {
     public SecurityFilterChain devFilterChain(HttpSecurity http) throws Exception {
         return http
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .anonymous(anon -> anon.disable())
-                .csrf(csrf -> csrf.disable())
+                .anonymous(AbstractHttpConfigurer::disable)
+                .csrf(AbstractHttpConfigurer::disable)
                 .build();
     }
 
+    /**
+     * Data-entry and admin pages require authentication; read-only projection views (calendar,
+     * itinerary, booking lists, etc.), the health endpoint, and the login page stay public.
+     * An anonymous request to a protected page is redirected to the login form; a failed login
+     * returns the user to the home page.
+     */
     @Bean
     @Profile("!local")
     public SecurityFilterChain securedFilterChain(HttpSecurity http) throws Exception {
         return http
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .authorizeHttpRequests(auth -> auth
+                        // Admin (includes /admin/eventlog, /admin/commandlog, /admin/pending-commands)
+                        .requestMatchers("/admin", "/admin/**").authenticated()
+                        // Booking / planning data-entry forms and their submit/lookup endpoints
+                        .requestMatchers(
+                                "/book-flight", "/book-flight/**",
+                                "/book-hotel", "/book-hotel/**",
+                                "/book-train", "/book-train/**",
+                                "/plan-conference", "/plan-conference/**",
+                                "/plan-gathering", "/plan-gathering/**",
+                                "/clear-conflict", "/clear-conflict/**",
+                                "/api/parse-address").authenticated()
+                        // Change-flight edit lives under the (public) booked-flights list:
+                        // protect the per-flight edit/lookup, not the list itself.
+                        .requestMatchers("/booked-flights/*", "/booked-flights/*/lookup").authenticated()
+                        .anyRequest().permitAll())
+                // Standard form login: a failed login goes to /login?error and the login page
+                // shows the error. Do NOT set failureUrl("/") — that makes
+                // DefaultLoginPageGeneratingFilter render the login form at "/" on every visit.
                 .formLogin(Customizer.withDefaults())
                 .build();
     }

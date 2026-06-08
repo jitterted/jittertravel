@@ -62,6 +62,27 @@ class GeneralControllerTest {
     }
 
     @Test
+    void homeShowsDataEntryNavWhenAuthenticated() {
+        given(persister.countPendingCommands()).willReturn(0);
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("/book-flight")
+                .contains(">Admin</span>");
+    }
+
+    @Test
+    void homeHasNoLocalBadgeByDefault() {
+        given(persister.countPendingCommands()).willReturn(0);
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("JitterTravel Running Locally");
+    }
+
+    @Test
     void readOnlyUrlMapsToOkWithHtmlContentType() {
         assertThat(mockMvc.get().uri("/read-only"))
                 .hasStatusOk()

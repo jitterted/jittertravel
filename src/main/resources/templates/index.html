@@ -49,6 +49,22 @@
             flex-direction: column;
         }
 
+        .local-badge {
+            position: fixed;
+            top: 0.75rem;
+            right: 0.75rem;
+            z-index: 1000;
+            background: #fde047;
+            color: #713f12;
+            border: 1px solid #ca8a04;
+            border-radius: 6px;
+            padding: 0.35rem 0.7rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+        }
+
         .pending-banner {
             display: flex;
             align-items: center;
@@ -202,6 +218,8 @@
 </head>
 <body>
 
+<div th:if="${runningLocally}" class="local-badge" role="status">JitterTravel Running Locally</div>
+
 <a th:if="${pendingCount > 0}" th:href="@{/admin/pending-commands}" class="pending-banner">
     <span th:text="${pendingCount} + (${pendingCount} == 1 ? ' command is still pending' : ' commands are still pending')">N commands are still pending</span>
     <span class="pending-banner-cta">Review &rsaquo;</span>
@@ -240,7 +258,7 @@
 
     <nav class="nav-groups" aria-label="Main navigation">
 
-        <div class="nav-group">
+        <div class="nav-group" th:if="${showDataEntryNav}">
             <span class="nav-group-label">Book &amp; Plan</span>
             <div class="nav-cards">
 
@@ -406,7 +424,7 @@
             </div>
         </div>
 
-        <div class="nav-group">
+        <div class="nav-group" th:if="${showDataEntryNav}">
             <span class="nav-group-label">Admin</span>
             <div class="nav-cards">
 

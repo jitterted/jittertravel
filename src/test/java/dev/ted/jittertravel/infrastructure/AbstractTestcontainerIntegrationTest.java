@@ -1,12 +1,17 @@
 package dev.ted.jittertravel.infrastructure;
 
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+// Full-context integration tests run under the `local` profile: the permissive dev security
+// chain (no required TED_PASSWORD/FAMILY_PASSWORD). The testcontainer @ServiceConnection still
+// supplies the datasource, overriding the local profile's localhost defaults.
+@ActiveProfiles("local")
 @SuppressWarnings("SqlWithoutWhere")
 @TestPropertySource(properties = {
         "spring.sql.init.mode=always",

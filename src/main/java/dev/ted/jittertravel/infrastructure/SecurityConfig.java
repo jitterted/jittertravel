@@ -13,11 +13,17 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
+/**
+ * Security is <strong>secured by default</strong>: the production form-login chain is active
+ * unless the {@code local} profile is explicitly enabled. This makes the safe configuration
+ * the one you get when you forget to set a profile (e.g. on deploy), and the permissive,
+ * no-auth dev chain something you must opt into with {@code local}.
+ */
 @Configuration
 public class SecurityConfig {
 
     @Bean
-    @Profile("!public")
+    @Profile("local")
     public SecurityFilterChain devFilterChain(HttpSecurity http) throws Exception {
         return http
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
@@ -27,8 +33,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Profile("public")
-    public SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
+    @Profile("!local")
+    public SecurityFilterChain securedFilterChain(HttpSecurity http) throws Exception {
         return http
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .formLogin(Customizer.withDefaults())
@@ -36,7 +42,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Profile("public")
+    @Profile("!local")
     public UserDetailsService userDetailsService(
             @Value("${TED_PASSWORD}") String tedPassword,
             @Value("${FAMILY_PASSWORD}") String familyPassword,
@@ -54,7 +60,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Profile("public")
+    @Profile("!local")
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }

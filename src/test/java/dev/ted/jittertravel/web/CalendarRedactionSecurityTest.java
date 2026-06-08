@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -28,9 +27,10 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  * tests, these assert on response body content because the behavior under test
  * is security-driven (which code path the controller takes), not rendering.
  */
+// No @ActiveProfiles: the secured chain is the default (profile "!local"), which is exactly
+// the production security path this test exercises.
 @WebMvcTest(CalendarController.class)
 @Import(SecurityConfig.class)
-@ActiveProfiles("public")
 @TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass"})
 class CalendarRedactionSecurityTest {
 

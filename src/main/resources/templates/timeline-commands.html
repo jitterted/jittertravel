@@ -61,6 +61,10 @@
             border-left-color: #d97706;
         }
 
+        .timeline-entry.pending {
+            border-left-color: #6b7280;
+        }
+
         .command-header {
             padding: 0.75rem 1rem;
             background: var(--header-bg);
@@ -92,6 +96,11 @@
 
         .badge.out-of-order {
             background: #d97706;
+            color: white;
+        }
+
+        .badge.pending {
+            background: #6b7280;
             color: white;
         }
 
@@ -246,11 +255,15 @@
 
     <article th:each="entry : ${entries}"
              class="timeline-entry"
-             th:classappend="${entry.failed()} ? ' failed' : (${entry.outOfOrder()} ? ' out-of-order' : '')">
+             th:classappend="${entry.failed()} ? ' failed' : (${entry.command().pending()} ? ' pending' : (${entry.outOfOrder()} ? ' out-of-order' : ''))">
 
         <header class="command-header">
             <span class="badge command">Command</span>
-            <span th:if="${entry.failed()}" class="badge failed" title="No events produced — likely validation failure">Failed</span>
+            <span th:if="${entry.command().failed()}" class="badge failed"
+                  th:text="${entry.command().statusLabel()}"
+                  title="Command produced no events — the domain rejected it or event persistence failed">Failed</span>
+            <span th:if="${entry.command().pending()}" class="badge pending"
+                  title="Command persisted but not yet completed — in progress, or stuck if it never finished">Pending</span>
             <span th:if="${entry.outOfOrder()}" class="badge out-of-order"
                   title="This command's event sequence numbers are interleaved with an earlier command's events">Out of order</span>
             <span class="command-type" th:text="${entry.command().simpleType()}">CommandType</span>

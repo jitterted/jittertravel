@@ -38,47 +38,69 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
     }
 
     @Test
-    void loadTimelinePageReturnsCommandsWithEventsAndFlagsFailedCommand() {
+    void loadTimelinePageReflectsCommandStatus() {
         // command #1 — succeeds, produces one event
         UUID cmd1 = UUID.randomUUID();
         PlanTentativeConferenceRequest req1 = newRequest(cmd1, "Conf One");
         persister.saveCommand(cmd1, req1);
         persister.appendEvents(List.of(storedEvent(1L, cmd1, "Conf One", req1)), cmd1);
 
-        // command #2 — "failed" (no events appended)
+        // command #2 — domain failure: saved, marked failed, no events
         UUID cmd2 = UUID.randomUUID();
         PlanTentativeConferenceRequest req2 = newRequest(cmd2, "Conf Two (failed)");
         persister.saveCommand(cmd2, req2);
+        persister.markCommandFailed(cmd2, "FAILED_DOMAIN", "rejected by domain");
 
-        // command #3 — succeeds, produces two events
+        // command #3 — still pending: saved but never completed
         UUID cmd3 = UUID.randomUUID();
-        PlanTentativeConferenceRequest req3 = newRequest(cmd3, "Conf Three");
+        PlanTentativeConferenceRequest req3 = newRequest(cmd3, "Conf Three (pending)");
         persister.saveCommand(cmd3, req3);
+
+        // command #4 — succeeds, produces two events
+        UUID cmd4 = UUID.randomUUID();
+        PlanTentativeConferenceRequest req4 = newRequest(cmd4, "Conf Four");
+        persister.saveCommand(cmd4, req4);
         persister.appendEvents(
-                List.of(storedEvent(2L, cmd3, "Conf Three", req3),
-                        storedEvent(3L, cmd3, "Conf Three", req3)),
-                cmd3
+                List.of(storedEvent(2L, cmd4, "Conf Four", req4),
+                        storedEvent(3L, cmd4, "Conf Four", req4)),
+                cmd4
         );
 
         assertThat(persister.countCommands())
-                .isEqualTo(3);
+                .isEqualTo(4);
 
         List<TimelineEntry> page = persister.loadTimelinePage(0, 50);
 
         assertThat(page)
-                .hasSize(3);
+                .hasSize(4);
+
+        // #1 succeeded
         assertThat(page.get(0).command().commandId()).isEqualTo(cmd1);
         assertThat(page.get(0).events()).hasSize(1);
         assertThat(page.get(0).failed()).isFalse();
+        assertThat(page.get(0).command().succeeded())
+                .as("command with events is SUCCEEDED")
+                .isTrue();
 
+        // #2 failed (domain)
         assertThat(page.get(1).command().commandId()).isEqualTo(cmd2);
         assertThat(page.get(1).events()).isEmpty();
         assertThat(page.get(1).failed()).isTrue();
+        assertThat(page.get(1).command().statusLabel()).isEqualTo("Failed: domain");
 
+        // #3 pending (saved, no events, not marked failed) — not flagged failed
         assertThat(page.get(2).command().commandId()).isEqualTo(cmd3);
-        assertThat(page.get(2).events()).hasSize(2);
-        assertThat(page.get(2).events().get(0).sequence()).isEqualTo(2L);
-        assertThat(page.get(2).events().get(1).sequence()).isEqualTo(3L);
+        assertThat(page.get(2).events()).isEmpty();
+        assertThat(page.get(2).failed()).isFalse();
+        assertThat(page.get(2).command().pending())
+                .as("saved-but-incomplete command is PENDING, not failed")
+                .isTrue();
+
+        // #4 succeeded with two events
+        assertThat(page.get(3).command().commandId()).isEqualTo(cmd4);
+        assertThat(page.get(3).events()).hasSize(2);
+        assertThat(page.get(3).events().get(0).sequence()).isEqualTo(2L);
+        assertThat(page.get(3).events().get(1).sequence()).isEqualTo(3L);
 
         // payloads should be pretty-printed JSON (multi-line)
         assertThat(page.get(0).command().payloadJson()).contains("\n");
@@ -118,6 +140,34 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
                 ),
                 commandId
         );
+    }
+
+    @Test
+    void exportExcludesFailedAndPendingCommands() {
+        // succeeded — appendEvents flips status to SUCCEEDED
+        UUID succeeded = UUID.randomUUID();
+        PlanTentativeConferenceRequest succeededReq = newRequest(succeeded, "Succeeded Conf");
+        persister.saveCommand(succeeded, succeededReq);
+        persister.appendEvents(List.of(storedEvent(1L, succeeded, "Succeeded Conf", succeededReq)), succeeded);
+
+        // domain failure — saved then marked FAILED_DOMAIN, no events
+        UUID failed = UUID.randomUUID();
+        persister.saveCommand(failed, newRequest(failed, "Failed Conf"));
+        persister.markCommandFailed(failed, "FAILED_DOMAIN", "rejected by domain");
+
+        // still pending — saved but never completed
+        UUID pending = UUID.randomUUID();
+        persister.saveCommand(pending, newRequest(pending, "Pending Conf"));
+
+        List<PostgresPersister.CommandPayloadRow> exported = persister.findAllCommandsForExport();
+
+        assertThat(exported)
+                .as("only SUCCEEDED commands are exported")
+                .hasSize(1);
+        assertThat(exported.getFirst().payloadJson())
+                .contains("Succeeded Conf")
+                .doesNotContain("Failed Conf")
+                .doesNotContain("Pending Conf");
     }
 
     @Test

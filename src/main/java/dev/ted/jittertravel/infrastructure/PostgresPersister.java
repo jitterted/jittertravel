@@ -3,6 +3,7 @@ package dev.ted.jittertravel.infrastructure;
 import dev.ted.jittertravel.domain.Event;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Instant;
@@ -25,8 +26,8 @@ public class PostgresPersister {
         try {
             String payload = jsonMapper.writeValueAsString(dto);
             jdbcClient.sql("""
-                            INSERT INTO command_log (command_id, timestamp, type, payload)
-                            VALUES (:commandId, :timestamp, :type, CAST(:payload AS jsonb))
+                            INSERT INTO command_log (command_id, timestamp, type, payload, status)
+                            VALUES (:commandId, :timestamp, :type, CAST(:payload AS jsonb), 'PENDING')
                             """)
                     .param("commandId", commandId)
                     .param("timestamp", Instant.now().atOffset(ZoneOffset.UTC))
@@ -38,6 +39,31 @@ public class PostgresPersister {
         }
     }
 
+    /**
+     * Records a command that did not produce events: {@code FAILED_DOMAIN} when the
+     * domain rejected it (execute threw), {@code FAILED_PERSIST} when the event write
+     * failed. The command row already exists (written PENDING by {@link #saveCommand}).
+     */
+    public void markCommandFailed(UUID commandId, String status, String errorMessage) {
+        jdbcClient.sql("""
+                        UPDATE command_log
+                        SET status = :status, error = :error
+                        WHERE command_id = :commandId
+                        """)
+                .param("status", status)
+                .param("error", clip(errorMessage))
+                .param("commandId", commandId)
+                .update();
+    }
+
+    private static String clip(String message) {
+        if (message == null) {
+            return null;
+        }
+        return message.length() <= 2000 ? message : message.substring(0, 2000);
+    }
+
+    @Transactional
     public void appendEvents(List<StoredEvent> events, UUID commandId) {
         StoredEvent currentEvent = null;
         try {
@@ -72,7 +98,7 @@ public class PostgresPersister {
     private void linkCommandToEvents(UUID commandId, List<UUID> eventIds) {
         jdbcClient.sql("""
                         UPDATE command_log
-                        SET event_ids = :eventIds
+                        SET event_ids = :eventIds, status = 'SUCCEEDED'
                         WHERE command_id = :commandId
                         """)
                 .param("eventIds", eventIds.toArray(new UUID[0]))
@@ -144,7 +170,8 @@ public class PostgresPersister {
                         SELECT command_id   AS commandId,
                                timestamp,
                                type,
-                               payload::text AS payloadJson
+                               payload::text AS payloadJson,
+                               status
                         FROM command_log
                         ORDER BY timestamp ASC, command_id ASC
                         LIMIT :limit OFFSET :offset
@@ -154,7 +181,7 @@ public class PostgresPersister {
                 .query(TimelineCommand.class)
                 .list()
                 .stream()
-                .map(c -> new TimelineCommand(c.commandId(), c.timestamp(), c.type(), prettyJson(c.payloadJson())))
+                .map(c -> new TimelineCommand(c.commandId(), c.timestamp(), c.type(), prettyJson(c.payloadJson()), c.status()))
                 .toList();
 
         if (commands.isEmpty()) {
@@ -194,7 +221,7 @@ public class PostgresPersister {
         long runningMaxSeq = Long.MIN_VALUE;
         for (TimelineCommand command : commands) {
             List<TimelineEvent> events = eventsByCommand.getOrDefault(command.commandId(), List.of());
-            boolean failed = events.isEmpty();
+            boolean failed = command.failed();
             boolean outOfOrder = false;
             if (!events.isEmpty()) {
                 long minSeq = events.getFirst().sequence();
@@ -243,6 +270,7 @@ public class PostgresPersister {
         return jdbcClient.sql("""
                         SELECT type, payload::text AS payloadJson
                         FROM command_log
+                        WHERE status = 'SUCCEEDED'
                         ORDER BY timestamp ASC, command_id ASC
                         """)
                 .query(CommandPayloadRow.class)

@@ -9,7 +9,8 @@ public record GatheringItineraryEntry(
         String country,
         boolean speaking,
         String infoUrl,
-        LocalDateTime anchorDateTime
+        LocalDateTime anchorDateTime,
+        LocalDateTime endDateTime
 ) implements ItineraryEntry {
     @Override public EntryKind kind() { return EntryKind.GATHERING; }
     @Override public LocalDateTime anchorTime() { return anchorDateTime; }

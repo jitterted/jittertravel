@@ -304,6 +304,14 @@ class ItineraryRendererTest {
                 .contains("London, GB");
     }
 
+    @Test
+    void gatheringShowsTimeRange() {
+        String html = renderWithEntry(gathering("Some Meetup", false, ""));
+
+        assertThat(html).contains("6:00 PM");
+        assertThat(html).contains("9:00 PM");
+    }
+
     // --- Helpers ---
 
     private static String renderEmpty() {
@@ -354,6 +362,8 @@ class ItineraryRendererTest {
 
     private static GatheringItineraryEntry gathering(String title, boolean speaking, String infoUrl) {
         return new GatheringItineraryEntry(title, "Skills Matter", "London", "GB",
-                speaking, infoUrl, JUN_1.atTime(LocalTime.of(18, 0)));
+                speaking, infoUrl,
+                JUN_1.atTime(LocalTime.of(18, 0)),
+                JUN_1.atTime(LocalTime.of(21, 0)));
     }
 }

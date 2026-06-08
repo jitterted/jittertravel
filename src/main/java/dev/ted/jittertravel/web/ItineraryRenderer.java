@@ -199,7 +199,12 @@ public class ItineraryRenderer {
         DivTag card = div().withClass("entry-card entry-card--gathering").with(
                 div("Gathering").withClass("entry-kind entry-kind--gathering"),
                 div().withClass("entry-title").with(titleContent),
-                div(e.venueLocation()).withClass("entry-detail")
+                div(e.venueLocation()).withClass("entry-detail"),
+                div().withClass("entry-detail").with(
+                        span(e.anchorDateTime().format(TIME_FMT)),
+                        rawHtml(" &ndash; "),
+                        span(e.endDateTime().format(TIME_FMT))
+                )
         );
         if (e.speaking()) {
             card.with(div("Speaking").withClass("speaking-badge"));

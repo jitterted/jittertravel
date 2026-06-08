@@ -134,7 +134,8 @@ public class ItineraryProjector implements EventStreamConsumer {
                 e.title(), e.venueName(),
                 e.location().city(), e.location().country(),
                 e.speaking(), e.infoUrl(),
-                e.date().atTime(e.startTime()));
+                e.date().atTime(e.startTime()),
+                e.date().atTime(e.endTime()));
     }
 
     private static List<ConferenceItineraryEntry> toConferenceEntries(ConferenceTentativelyPlanned e) {

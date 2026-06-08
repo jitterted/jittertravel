@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Event Log</title>
+    <link rel="stylesheet" href="/site.css"/>
+    <style>
+        .timeline-container {
+            max-width: 110ch;
+            margin: 1.5rem auto;
+            padding: 0 1rem;
+        }
+
+        .timeline-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .timeline-toolbar .meta { color: var(--muted-text); font-size: 0.9rem; }
+
+        .timeline-toolbar a,
+        .timeline-toolbar .disabled {
+            text-decoration: none;
+            padding: 4px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--accent-color);
+            background: var(--header-bg);
+            font-size: 0.9rem;
+        }
+
+        .timeline-toolbar .disabled {
+            color: var(--muted-text);
+            background: transparent;
+            cursor: not-allowed;
+        }
+
+        .event-row {
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--accent-color);
+            border-radius: 8px;
+            margin-bottom: 0.6rem;
+            background: var(--bg-color);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+        }
+
+        .event-header {
+            padding: 0.55rem 1rem;
+            background: var(--header-bg);
+            display: flex;
+            align-items: baseline;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .event-seq {
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 0.75rem;
+            color: var(--accent-color);
+            background: var(--bg-color);
+            padding: 1px 6px;
+            border-radius: 3px;
+            border: 1px solid var(--border-color);
+        }
+
+        .event-type {
+            font-weight: 600;
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 0.9rem;
+        }
+
+        .event-timestamp {
+            color: var(--muted-text);
+            font-size: 0.82rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .event-ids {
+            margin-left: auto;
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 0.7rem;
+            color: var(--muted-text);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 1px;
+        }
+
+        details {
+            margin: 0;
+            border-top: 1px solid var(--border-color);
+        }
+
+        details > summary {
+            cursor: pointer;
+            padding: 0.35rem 1rem;
+            font-size: 0.78rem;
+            color: var(--muted-text);
+            user-select: none;
+        }
+
+        details > summary:hover { background: var(--hover-bg); }
+
+        details pre {
+            margin: 0;
+            padding: 0.75rem 1rem;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-size: 0.8rem;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        h1 { margin-top: 1rem; font-size: 1.6rem; }
+    </style>
+</head>
+<body>
+<nav><h3><a href="/admin">Admin</a> &middot; <a href="/">JitterTravel</a></h3></nav>
+<div class="timeline-container">
+    <h1>Event Log</h1>
+
+    <div class="timeline-toolbar">
+        <span class="meta">
+            <span th:text="${totalEvents}">0</span> events total —
+            page <span th:text="${page + 1}">1</span> of <span th:text="${totalPages}">1</span>
+            (<span th:text="${pageSize}">50</span> per page, newest first)
+        </span>
+        <span>
+            <a th:if="${hasPrev}" th:href="@{/admin/eventlog(page=${page - 1})}">‹ Previous</a>
+            <span th:unless="${hasPrev}" class="disabled">‹ Previous</span>
+            <a th:if="${hasNext}" th:href="@{/admin/eventlog(page=${page + 1})}">Next ›</a>
+            <span th:unless="${hasNext}" class="disabled">Next ›</span>
+        </span>
+    </div>
+
+    <p th:if="${events.isEmpty()}" style="color: var(--muted-text); font-style: italic;">
+        No events recorded yet.
+    </p>
+
+    <article th:each="event : ${events}" class="event-row">
+        <header class="event-header">
+            <span class="event-seq" th:text="'#' + ${event.sequence()}">seq</span>
+            <span class="event-type" th:text="${event.type()}">EventType</span>
+            <span class="event-timestamp"
+                  th:text="${#temporals.format(event.timestamp(), 'yyyy-MM-dd HH:mm:ss.SSS z')}">ts</span>
+            <div class="event-ids">
+                <span th:text="'event: ' + ${event.eventId()}"></span>
+                <span th:text="'cmd: ' + ${event.commandId()}"></span>
+            </div>
+        </header>
+        <details>
+            <summary>Payload (JSON)</summary>
+            <pre th:text="${event.payloadJson()}">{}</pre>
+        </details>
+    </article>
+
+    <div class="timeline-toolbar" th:if="${totalPages > 1}">
+        <span></span>
+        <span>
+            <a th:if="${hasPrev}" th:href="@{/admin/eventlog(page=${page - 1})}">‹ Previous</a>
+            <span th:unless="${hasPrev}" class="disabled">‹ Previous</span>
+            <a th:if="${hasNext}" th:href="@{/admin/eventlog(page=${page + 1})}">Next ›</a>
+            <span th:unless="${hasNext}" class="disabled">Next ›</span>
+        </span>
+    </div>
+</div>
+</body>
+</html>

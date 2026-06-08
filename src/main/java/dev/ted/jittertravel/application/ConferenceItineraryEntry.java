@@ -2,7 +2,6 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public record ConferenceItineraryEntry(

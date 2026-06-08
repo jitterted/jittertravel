@@ -4,14 +4,13 @@ import dev.ted.jittertravel.domain.*;
 import dev.ted.jittertravel.infrastructure.EventStore;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.web.*;
-
-import java.util.UUID;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class CommandImporter {
     private static final LocalDateTime BYPASS_NOW = LocalDateTime.MIN;

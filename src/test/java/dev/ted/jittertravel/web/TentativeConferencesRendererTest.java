@@ -53,9 +53,9 @@ class TentativeConferencesRendererTest {
     private static TentativeConferenceView view(String name, String start, String end,
                                                 String city, String country) {
         return new TentativeConferenceView(
-                ConferenceId.random(), name,
-                LocalDateTime.parse(start), LocalDateTime.parse(end),
-                city, country
+                ConferenceId.random(), name, "Venue",
+                new dev.ted.jittertravel.domain.Address("1 Street", city, "", "", country, null),
+                LocalDateTime.parse(start), LocalDateTime.parse(end)
         );
     }
 }

@@ -80,6 +80,52 @@ public class PostgresPersister {
                 .update();
     }
 
+    public int countEvents() {
+        Long count = jdbcClient.sql("SELECT COUNT(*) FROM event_log")
+                .query(Long.class)
+                .single();
+        return count.intValue();
+    }
+
+    public List<EventLogRow> loadEventPage(int offset, int limit) {
+        return jdbcClient.sql("""
+                        SELECT sequence,
+                               event_id     AS eventId,
+                               command_id   AS commandId,
+                               timestamp,
+                               type,
+                               payload::text AS payloadJson
+                        FROM event_log
+                        ORDER BY sequence DESC
+                        LIMIT :limit OFFSET :offset
+                        """)
+                .param("limit", limit)
+                .param("offset", offset)
+                .query((rs, _) -> new EventLogRow(
+                        rs.getLong("sequence"),
+                        (UUID) rs.getObject("eventId"),
+                        (UUID) rs.getObject("commandId"),
+                        rs.getObject("timestamp", OffsetDateTime.class),
+                        simpleTypeName(rs.getString("type")),
+                        prettyJson(rs.getString("payloadJson"))
+                ))
+                .list();
+    }
+
+    public record EventLogRow(
+            long sequence,
+            UUID eventId,
+            UUID commandId,
+            OffsetDateTime timestamp,
+            String type,
+            String payloadJson
+    ) {}
+
+    private static String simpleTypeName(String fqn) {
+        int dot = fqn.lastIndexOf('.');
+        return dot >= 0 ? fqn.substring(dot + 1) : fqn;
+    }
+
     public int countCommands() {
         Long count = jdbcClient.sql("SELECT COUNT(*) FROM command_log")
                 .query(Long.class)

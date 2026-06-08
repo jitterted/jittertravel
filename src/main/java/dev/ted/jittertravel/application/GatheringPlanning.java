@@ -1,22 +1,20 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.*;
-import dev.ted.jittertravel.infrastructure.EventStore;
 import dev.ted.jittertravel.web.PlanGatheringRequest;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 
 public class GatheringPlanning {
     private final CommandExecutor commandExecutor;
-    private final EventStore eventStore;
     private final Clock clock;
 
-    public GatheringPlanning(CommandExecutor commandExecutor, EventStore eventStore, Clock clock) {
+    public GatheringPlanning(CommandExecutor commandExecutor, Clock clock) {
         this.commandExecutor = commandExecutor;
-        this.eventStore = eventStore;
         this.clock = clock;
     }
 
@@ -27,8 +25,12 @@ public class GatheringPlanning {
     }
 
     public void clearConflict(GatheringId gatheringId, ConferenceId conferenceId, String reason) {
-        eventStore.append(
-                Stream.of(new DifferentCityConflictCleared(gatheringId, conferenceId, reason)),
-                UUID.randomUUID());
+        commandExecutor.appendEvents(
+                UUID.randomUUID(),
+                Map.of("type", "clearDifferentCityConflict",
+                       "gatheringId", gatheringId.id(),
+                       "conferenceId", conferenceId.id()),
+                Stream.of(new DifferentCityConflictCleared(gatheringId, conferenceId, reason))
+        );
     }
 }

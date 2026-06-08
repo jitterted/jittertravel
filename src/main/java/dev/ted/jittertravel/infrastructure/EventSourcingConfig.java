@@ -167,9 +167,8 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public GatheringPlanning gatheringPlanningApplicationService(CommandExecutor commandExecutor,
-                                                                  EventStore eventStore, Clock clock) {
-        return new GatheringPlanning(commandExecutor, eventStore, clock);
+    public GatheringPlanning gatheringPlanningApplicationService(CommandExecutor commandExecutor, Clock clock) {
+        return new GatheringPlanning(commandExecutor, clock);
     }
 
     @Bean
@@ -186,6 +185,12 @@ public class EventSourcingConfig {
         eventStore.subscribe(projector);
         projector.handle(eventStore.findAll());
         return projector;
+    }
+
+    @Bean
+    public ConferenceMigrationService conferenceMigrationService(
+            TentativeConferenceProjector tentativeConferenceProjector, CommandExecutor commandExecutor) {
+        return new ConferenceMigrationService(tentativeConferenceProjector, commandExecutor);
     }
 
     @Bean

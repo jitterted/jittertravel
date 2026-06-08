@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
@@ -25,19 +26,23 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(storedEvent -> {
-            if (storedEvent.payload() instanceof ConferenceTentativelyPlanned event) {
-                String location = event.venueAddress().city() + ", " + event.venueAddress().country();
-                List<String> locationLines = List.of(location);
-                entries.put(event.conferenceId(), new CalendarEntry(
-                        EntryKind.CONFERENCE,
-                        event.startDate(),
-                        event.endDate(),
-                        event.name(),
-                        locationLines,
-                        event.name() + " cont'd",
-                        locationLines,
-                        null
-                ));
+            switch (storedEvent.payload()) {
+                case ConferenceTentativelyPlanned event -> {
+                    String location = event.venueAddress().city() + ", " + event.venueAddress().country();
+                    List<String> locationLines = List.of(location);
+                    entries.put(event.conferenceId(), new CalendarEntry(
+                            EntryKind.CONFERENCE,
+                            event.startDate(),
+                            event.endDate(),
+                            event.name(),
+                            locationLines,
+                            event.name() + " cont'd",
+                            locationLines,
+                            null
+                    ));
+                }
+                case ConferenceCancelled event -> entries.remove(event.conferenceId());
+                default -> {}
             }
         });
     }

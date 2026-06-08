@@ -1,6 +1,10 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CommandImporter;
+import dev.ted.jittertravel.application.ConferenceMigrationService;
+import dev.ted.jittertravel.application.TentativeConferenceProjector;
+import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.ConferenceSpansMultipleDays;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -15,16 +19,23 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.UUID;
 
 @Controller
 @RequestMapping("/admin")
 public class AdminController {
     private final CommandImporter commandImporter;
     private final PostgresPersister persister;
+    private final TentativeConferenceProjector tentativeConferenceProjector;
+    private final ConferenceMigrationService conferenceMigrationService;
 
-    public AdminController(CommandImporter commandImporter, PostgresPersister persister) {
+    public AdminController(CommandImporter commandImporter, PostgresPersister persister,
+                           TentativeConferenceProjector tentativeConferenceProjector,
+                           ConferenceMigrationService conferenceMigrationService) {
         this.commandImporter = commandImporter;
         this.persister = persister;
+        this.tentativeConferenceProjector = tentativeConferenceProjector;
+        this.conferenceMigrationService = conferenceMigrationService;
     }
 
     @GetMapping("")
@@ -70,6 +81,23 @@ public class AdminController {
         persister.truncateAllTables();
         redirectAttributes.addFlashAttribute("truncated", true);
         return "redirect:/admin/database";
+    }
+
+    @GetMapping("/migrate-conferences")
+    public String migrateConferencesForm(Model model) {
+        model.addAttribute("conferences", tentativeConferenceProjector.views());
+        return "admin-migrate-conferences";
+    }
+
+    @PostMapping("/migrate-conferences")
+    public String migrateConference(@RequestParam UUID conferenceId,
+                                    RedirectAttributes redirectAttributes) {
+        try {
+            conferenceMigrationService.migrateToGathering(ConferenceId.of(conferenceId));
+        } catch (ConferenceSpansMultipleDays e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/admin/migrate-conferences";
     }
 
     @GetMapping("/export")

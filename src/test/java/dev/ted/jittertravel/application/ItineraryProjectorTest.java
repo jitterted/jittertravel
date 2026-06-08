@@ -282,6 +282,32 @@ class ItineraryProjectorTest {
     }
 
     @Test
+    void conferenceCancelledRemovesConferenceFromItinerary() {
+        ItineraryProjector projector = new ItineraryProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        ConferenceTentativelyPlanned planned = new ConferenceTentativelyPlanned(
+                conferenceId, "JitterConf 2026",
+                DATE.atStartOfDay(), DATE.plusDays(2).atStartOfDay(),
+                "Moscone Center",
+                new Address("747 Howard St", "San Francisco", "CA", "94103", "USA", null));
+
+        projector.handle(Stream.of(stored(planned)));
+        assertThat(projector.entriesForDate(DATE))
+                .as("conference appears on the itinerary before cancellation")
+                .hasSize(1);
+
+        // e.g. migrating the conference to a gathering emits ConferenceCancelled
+        projector.handle(Stream.of(stored(new ConferenceCancelled(conferenceId, "Migrated to gathering"))));
+
+        assertThat(projector.entriesForDate(DATE))
+                .as("cancelled (migrated) conference must not appear on the itinerary")
+                .isEmpty();
+        assertThat(projector.entriesForDate(DATE.plusDays(1)))
+                .as("cancelled conference must not appear on any of its days")
+                .isEmpty();
+    }
+
+    @Test
     void entriesForDateAreSortedByAnchorTime() {
         ItineraryProjector projector = new ItineraryProjector();
         TrainStationAddress london = new TrainStationAddress("London Euston", "London", "UK", "");

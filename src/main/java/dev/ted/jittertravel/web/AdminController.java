@@ -91,9 +91,10 @@ public class AdminController {
 
     @PostMapping("/migrate-conferences")
     public String migrateConference(@RequestParam UUID conferenceId,
+                                    @RequestParam(defaultValue = "false") boolean speaking,
                                     RedirectAttributes redirectAttributes) {
         try {
-            conferenceMigrationService.migrateToGathering(ConferenceId.of(conferenceId));
+            conferenceMigrationService.migrateToGathering(ConferenceId.of(conferenceId), speaking);
         } catch (ConferenceSpansMultipleDays e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
         }

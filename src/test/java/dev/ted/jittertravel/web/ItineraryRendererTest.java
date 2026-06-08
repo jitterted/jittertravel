@@ -18,6 +18,7 @@ class ItineraryRendererTest {
     private static final LocalDate JUN_2 = LocalDate.of(2026, 6, 2);
     private static final LocalDate JUN_3 = LocalDate.of(2026, 6, 3);
     private static final LocalDate MAY_31 = LocalDate.of(2026, 5, 31);
+    private static final LocalDate JUN_10 = LocalDate.of(2026, 6, 10);
 
     // --- Date navigation ---
 
@@ -36,10 +37,32 @@ class ItineraryRendererTest {
     }
 
     @Test
-    void dateRangeHeaderShowsFirstAndLastDay() {
-        String html = renderEmpty();
+    void todayLinkShownWhenTodayBeforeDisplayedRange() {
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, MAY_31);
 
-        assertThat(html).contains("Jun 1 – Jun 3, 2026");
+        assertThat(html)
+                .contains(">Today<")
+                .contains("/itinerary?date=2026-05-31");
+    }
+
+    @Test
+    void todayLinkShownWhenTodayAfterDisplayedRange() {
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_10);
+
+        assertThat(html)
+                .contains(">Today<")
+                .contains("/itinerary?date=2026-06-10");
+    }
+
+    @Test
+    void todayShownAsNonLinkWhenTodayWithinDisplayedRange() {
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1);
+
+        assertThat(html).contains("today-link--current");
+        assertThat(html).doesNotContain("/itinerary?date=2026-06-01");
     }
 
     // --- Day headers ---
@@ -65,7 +88,7 @@ class ItineraryRendererTest {
     void daysWithEntriesDoNotShowNothingScheduled() {
         ItineraryEntry entry = gathering("Some Meetup", true, "");
         String html = ItineraryRenderer.render(
-                threeDays(List.of(entry), List.of(entry), List.of(entry)), MAY_31, JUN_2);
+                threeDays(List.of(entry), List.of(entry), List.of(entry)), MAY_31, JUN_2, JUN_1);
 
         assertThat(html).doesNotContain("Nothing scheduled");
     }
@@ -235,6 +258,14 @@ class ItineraryRendererTest {
     // --- Gathering ---
 
     @Test
+    void gatheringShowsGatheringLabel() {
+        String html = renderWithEntry(gathering("Some Meetup", false, ""));
+
+        assertThat(html).contains("entry-kind--gathering");
+        assertThat(html).contains(">Gathering<");
+    }
+
+    @Test
     void gatheringWithInfoUrlRendersTitleAsLink() {
         String html = renderWithEntry(gathering("London Java Community", false, "https://meetup.com/ljc/events/123"));
 
@@ -276,11 +307,11 @@ class ItineraryRendererTest {
     // --- Helpers ---
 
     private static String renderEmpty() {
-        return ItineraryRenderer.render(threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2);
+        return ItineraryRenderer.render(threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1);
     }
 
     private static String renderWithEntry(ItineraryEntry entry) {
-        return ItineraryRenderer.render(threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2);
+        return ItineraryRenderer.render(threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1);
     }
 
     private static List<ItineraryDay> threeDays(List<ItineraryEntry> day1,

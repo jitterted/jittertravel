@@ -50,6 +50,8 @@ class ItineraryControllerTest {
 
     @Test
     void itineraryWithDateParamUsesProvidedDate() {
+        given(clock.instant()).willReturn(FIXED_CLOCK.instant());
+        given(clock.getZone()).willReturn(FIXED_CLOCK.getZone());
         given(projector.entriesForDate(FIXED_DATE)).willReturn(List.of());
         given(projector.entriesForDate(FIXED_DATE.plusDays(1))).willReturn(List.of());
         given(projector.entriesForDate(FIXED_DATE.plusDays(2))).willReturn(List.of());

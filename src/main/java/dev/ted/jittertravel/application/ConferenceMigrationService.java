@@ -17,7 +17,7 @@ public class ConferenceMigrationService {
         this.commandExecutor = commandExecutor;
     }
 
-    public void migrateToGathering(ConferenceId conferenceId) {
+    public void migrateToGathering(ConferenceId conferenceId, boolean speaking) {
         TentativeConferenceView conference = tentativeConferenceProjector.findById(conferenceId)
                 .orElseThrow(() -> new IllegalArgumentException("Conference not found: " + conferenceId));
 
@@ -39,7 +39,7 @@ public class ConferenceMigrationService {
                                 conference.startDate().toLocalDate(),
                                 conference.startDate().toLocalTime(),
                                 conference.endDate().toLocalTime(),
-                                false,
+                                speaking,
                                 ""
                         )
                 )

@@ -16,8 +16,6 @@ public class ItineraryRenderer {
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("h:mm a");
     private static final DateTimeFormatter DAY_HEADER_FMT = DateTimeFormatter.ofPattern("EEE, MMM d");
-    private static final DateTimeFormatter RANGE_START_FMT = DateTimeFormatter.ofPattern("MMM d");
-    private static final DateTimeFormatter RANGE_END_FMT = DateTimeFormatter.ofPattern("MMM d, yyyy");
 
     private static final String FLIGHT_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#075985\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2 16l20-7-9 13-2-6-9 0z\"/></svg>";
     private static final String TRAIN_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#9a3412\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"4\" y=\"3\" width=\"16\" height=\"14\" rx=\"3\"/><path d=\"M4 11h16M8 3v8M16 3v8M7 17l-2 4M17 17l2 4\"/><circle cx=\"8.5\" cy=\"14.5\" r=\"1\" fill=\"#9a3412\" stroke=\"none\"/><circle cx=\"15.5\" cy=\"14.5\" r=\"1\" fill=\"#9a3412\" stroke=\"none\"/></svg>";
@@ -33,7 +31,7 @@ public class ItineraryRenderer {
                 .date-nav { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.25rem; font-size: 0.95rem; }
                 .date-nav a { color: var(--accent-color); text-decoration: none; font-weight: 600; }
                 .date-nav a:hover { text-decoration: underline; }
-                .date-range { font-weight: 500; color: var(--text-color); }
+                .today-link--current { font-weight: 400; color: var(--muted-text); cursor: default; }
                 .itinerary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; align-items: start; }
                 .day-header { font-weight: 700; font-size: 1rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--border-color); margin-bottom: 0.6rem; color: var(--text-color); }
                 .empty-day { font-size: 0.85rem; color: var(--muted-text); font-style: italic; }
@@ -50,6 +48,7 @@ public class ItineraryRenderer {
                 .entry-kind--flight     { color: #075985; }
                 .entry-kind--train      { color: #9a3412; }
                 .entry-kind--lodging    { color: #166534; }
+                .entry-kind--gathering  { color: #7c3aed; }
                 .entry-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; line-height: 1.3; }
                 .entry-detail { font-size: 0.82rem; color: #374151; line-height: 1.4; }
                 .entry-detail a { color: inherit; text-decoration: underline; }
@@ -57,11 +56,7 @@ public class ItineraryRenderer {
                 .speaking-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: #7c3aed; color: #fff; border-radius: 4px; padding: 0.1rem 0.4rem; margin-top: 0.25rem; }
             """;
 
-    public static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate) {
-        String dateRange = days.get(0).date().format(RANGE_START_FMT)
-                + " – "
-                + days.get(2).date().format(RANGE_END_FMT);
-
+    public static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate, LocalDate today) {
         return "<!DOCTYPE html>\n" + html(
                 head(
                         meta().withCharset("UTF-8"),
@@ -77,17 +72,29 @@ public class ItineraryRenderer {
                                         a("Calendar").withHref("/calendar")
                                 ),
                                 h1("Itinerary"),
-                                div().withClass("date-nav").with(
-                                        a().withHref("/itinerary?date=" + prevDate).with(rawHtml("&larr; Previous")),
-                                        span(dateRange).withClass("date-range"),
-                                        a().withHref("/itinerary?date=" + nextDate).with(rawHtml("Next &rarr;"))
-                                ),
+                                renderDateNav(days, prevDate, nextDate, today),
                                 div().withClass("itinerary-grid").with(
                                         days.stream().map(ItineraryRenderer::renderDay).toList()
                                 )
                         )
                 )
         ).withLang("en").render();
+    }
+
+    private static DivTag renderDateNav(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate, LocalDate today) {
+        DivTag dateNav = div().withClass("date-nav").with(
+                a().withHref("/itinerary?date=" + prevDate).with(rawHtml("&larr; Previous"))
+        );
+        LocalDate firstDay = days.get(0).date();
+        LocalDate lastDay = days.get(days.size() - 1).date();
+        boolean todayDisplayed = !today.isBefore(firstDay) && !today.isAfter(lastDay);
+        if (todayDisplayed) {
+            dateNav.with(span("Today").withClass("today-link today-link--current"));
+        } else {
+            dateNav.with(a("Today").withClass("today-link").withHref("/itinerary?date=" + today));
+        }
+        dateNav.with(a().withHref("/itinerary?date=" + nextDate).with(rawHtml("Next &rarr;")));
+        return dateNav;
     }
 
     private static DivTag renderDay(ItineraryDay day) {
@@ -190,6 +197,7 @@ public class ItineraryRenderer {
                 ? new Text(e.title())
                 : a(e.title()).withHref(e.infoUrl()).withTarget("_blank").withRel("noopener");
         DivTag card = div().withClass("entry-card entry-card--gathering").with(
+                div("Gathering").withClass("entry-kind entry-kind--gathering"),
                 div().withClass("entry-title").with(titleContent),
                 div(e.venueLocation()).withClass("entry-detail")
         );

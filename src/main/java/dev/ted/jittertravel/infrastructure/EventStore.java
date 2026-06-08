@@ -53,10 +53,8 @@ public class EventStore {
     }
 
     public void append(Stream<? extends Event> eventStream, UUID commandId) {
-        List<StoredEvent> storedEvents;
-
         synchronized (transactionLock) {
-            storedEvents = eventStream.map(payload -> new StoredEvent(
+            List<StoredEvent> storedEvents = eventStream.map(payload -> new StoredEvent(
                     nextSequence.getAndIncrement(),
                     payload.getClass(),
                     UUID.randomUUID(),
@@ -65,18 +63,20 @@ public class EventStore {
                     commandId
             )).toList();
 
-            events.addAll(storedEvents);
             batchSizeSummary.record(storedEvents.size());
 
-            notifySynchronousSubscribers(List.copyOf(synchronousSubscribers), storedEvents);
-        }
+            // Persist first: if this throws, subscribers are never notified and
+            // in-memory state stays consistent with the durable store.
+            try {
+                persister.appendEvents(storedEvents, commandId);
+            } catch (Exception e) {
+                log.error("Failed to APPEND EVENTS to persistent store. Entering read-only mode.", e);
+                isReadOnly.set(true);
+                throw e;
+            }
 
-        try {
-            persister.appendEvents(storedEvents, commandId);
-        } catch (Exception e) {
-            log.error("Failed to APPEND EVENTS to persistent store. Entering read-only mode.", e);
-            isReadOnly.set(true);
-            throw e;
+            events.addAll(storedEvents);
+            notifySynchronousSubscribers(List.copyOf(synchronousSubscribers), storedEvents);
         }
     }
 

@@ -51,6 +51,10 @@
             white-space: nowrap;
         }
         button[type=submit]:hover { opacity: 0.88; }
+
+        .migrate-form { display: flex; align-items: center; gap: 0.75rem; justify-content: flex-end; }
+        .speaking-check { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; color: var(--text-color); white-space: nowrap; cursor: pointer; }
+        .speaking-check input { cursor: pointer; }
     </style>
 </head>
 <body>
@@ -86,8 +90,12 @@
             <td th:text="${#temporals.format(conf.startDate(), 'EEE, MMM d, yyyy')}"></td>
             <td th:text="${conf.city() + ', ' + conf.country()}"></td>
             <td>
-                <form th:action="@{/admin/migrate-conferences}" method="post">
+                <form class="migrate-form" th:action="@{/admin/migrate-conferences}" method="post">
                     <input type="hidden" name="conferenceId" th:value="${conf.conferenceId().id()}"/>
+                    <label class="speaking-check">
+                        <input type="checkbox" name="speaking" value="true"/>
+                        Speaking
+                    </label>
                     <button type="submit">Convert to Gathering</button>
                 </form>
             </td>

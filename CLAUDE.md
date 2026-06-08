@@ -16,3 +16,11 @@ and partial writes (some events land, others don't).
 
 **TODO:** Add an ArchUnit test that verifies no class in the `application` package has a
 field of type `EventStore`. See `src/test/java/.../architecture/` for the right home.
+
+### EventStore ordering invariant: persist before notify
+
+`EventStore.append()` persists to the database **before** adding to the in-memory list
+and notifying subscribers. This guarantees projectors only ever see events that are
+durable. If persistence fails, the exception propagates and subscribers are never called.
+
+Covered by `EventStoreTest.subscribersNotNotifiedWhenPersistenceFails()`.

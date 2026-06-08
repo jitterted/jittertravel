@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class EventStoreTest {
 
@@ -48,6 +49,30 @@ class EventStoreTest {
                 .hasSize(3);
         assertThat(receivedEvents.get(2).sequence())
                 .isEqualTo(3);
+    }
+
+    @Test
+    void subscribersNotNotifiedWhenPersistenceFails() {
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), failingPersister());
+        List<StoredEvent> receivedEvents = new ArrayList<>();
+        eventStore.subscribe(eventStream -> receivedEvents.addAll(eventStream.toList()));
+
+        assertThatThrownBy(() -> eventStore.append(Stream.of(new DummyEvent1()), UUID.randomUUID()))
+                .isInstanceOf(RuntimeException.class);
+
+        assertThat(receivedEvents)
+                .as("subscriber must not see events from a command that failed to persist")
+                .isEmpty();
+    }
+
+    private PostgresPersister failingPersister() {
+        return new PostgresPersister(null, null) {
+            @Override public long getMaxSequence() { return 0; }
+            @Override public List<StoredEvent> loadAllEvents() { return List.of(); }
+            @Override public void appendEvents(List<StoredEvent> events, UUID commandId) {
+                throw new RuntimeException("simulated DB failure");
+            }
+        };
     }
 
     private PostgresPersister mockPersister() {

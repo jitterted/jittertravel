@@ -23,7 +23,7 @@ import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(TimelineController.class)
-@WithMockUser
+@WithMockUser(roles = "OWNER")
 class TimelineControllerTest {
 
     @Autowired

@@ -22,7 +22,7 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(BookTrainController.class)
-@WithMockUser
+@WithMockUser(roles = "OWNER")
 class BookTrainWebIntegrationTest {
 
     @Autowired

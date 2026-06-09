@@ -16,7 +16,7 @@ import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(PlanConferenceController.class)
-@WithMockUser
+@WithMockUser(roles = "OWNER")
 class ConferenceWebIntegrationTest {
 
     @Autowired

@@ -1,17 +1,16 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.core.env.Environment;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.core.Authentication;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 
 @Controller
 class GeneralController {
@@ -30,26 +29,27 @@ class GeneralController {
     }
 
     @GetMapping("/")
-    public String home(Model model, Authentication authentication) {
-        List<String> activeProfiles = List.of(environment.getActiveProfiles());
-        boolean local = activeProfiles.contains("local");
-        boolean runningLocally = local || activeProfiles.contains("prod-preview");
+    public String home(Model model, HttpServletRequest request) {
+        boolean local = environment.acceptsProfiles(Profiles.of("local"));
+        boolean runningLocally = local || environment.acceptsProfiles(Profiles.of("prod-preview"));
 
-        // In the `local` profile there is no authentication (everything is permitted), so treat
-        // it as full access. Otherwise the data-entry/admin nav is shown only when logged in.
-        boolean showDataEntryNav = local || isAuthenticated(authentication);
+        // Nav visibility mirrors the route rules in SecurityConfig (the "!local" chain).
+        // In the `local` profile there is no authentication, so show everything.
+        boolean owner = local || request.isUserInRole("OWNER");
+        boolean family = local || request.isUserInRole("FAMILY");
+
+        boolean showDataEntryNav = owner;
+        boolean showBookingsNav = owner;
+        boolean showItineraryNav = owner || family;
+        // Calendar is always visible (content is redacted for anonymous by CalendarEntryRedactor).
 
         model.addAttribute("runningLocally", runningLocally);
         model.addAttribute("showDataEntryNav", showDataEntryNav);
+        model.addAttribute("showBookingsNav", showBookingsNav);
+        model.addAttribute("showItineraryNav", showItineraryNav);
         model.addAttribute("pendingCount", persister.countPendingCommands());
         model.addAttribute("buildTime", BUILD_TIME_FORMATTER.format(buildProperties.getTime()));
         return "index";
-    }
-
-    private static boolean isAuthenticated(Authentication authentication) {
-        return authentication != null
-                && authentication.isAuthenticated()
-                && !(authentication instanceof AnonymousAuthenticationToken);
     }
 
     @GetMapping("/read-only")

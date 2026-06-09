@@ -54,7 +54,7 @@ class CalendarRedactionSecurityTest {
     }
 
     @Test
-    @WithMockUser(username = "ted")
+    @WithMockUser(username = "ted", roles = "OWNER")
     void tedSeesFullHotelName() {
         assertThat(mockMvc.get().uri("/calendar"))
                 .hasStatusOk()
@@ -62,7 +62,7 @@ class CalendarRedactionSecurityTest {
     }
 
     @Test
-    @WithMockUser(username = "family")
+    @WithMockUser(username = "family", roles = "FAMILY")
     void familySeesFullHotelName() {
         assertThat(mockMvc.get().uri("/calendar"))
                 .hasStatusOk()

@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(ClearConflictController.class)
-@WithMockUser
+@WithMockUser(roles = "OWNER")
 class ClearConflictWebIntegrationTest {
 
     @Autowired

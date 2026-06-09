@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
 @WebMvcTest(ItineraryController.class)
-@WithMockUser
+@WithMockUser(roles = "FAMILY")
 class ItineraryControllerTest {
 
     private static final LocalDate FIXED_DATE = LocalDate.of(2026, 6, 1);

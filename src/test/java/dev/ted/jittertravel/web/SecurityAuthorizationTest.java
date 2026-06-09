@@ -9,6 +9,7 @@ import org.springframework.boot.info.BuildProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -21,9 +22,9 @@ import static org.mockito.Mockito.lenient;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 /**
- * Verifies the secured (production) authorization rules: data-entry and admin pages require
- * login, read-only pages stay public, and a failed login returns to the home page. Runs under
- * the default profile (the secured chain, "!local") with stand-in login credentials.
+ * Verifies login-related behavior and the rendered home-page navigation per role under the
+ * secured ("!local") chain. Pure route authorization (role × route → outcome) lives in
+ * {@link AuthorizationMatrixTest}.
  */
 @WebMvcTest(GeneralController.class)
 @Import(SecurityConfig.class)
@@ -46,31 +47,6 @@ class SecurityAuthorizationTest {
 
     @Test
     @WithAnonymousUser
-    void anonymousIsRedirectedToLoginForAdminPages() {
-        assertThat(mockMvc.get().uri("/admin/commandlog"))
-                .hasStatus3xxRedirection()
-                .hasHeader("Location", "/login");
-    }
-
-    @Test
-    @WithAnonymousUser
-    void anonymousIsRedirectedToLoginForBookingPages() {
-        assertThat(mockMvc.get().uri("/book-flight"))
-                .hasStatus3xxRedirection()
-                .hasHeader("Location", "/login");
-    }
-
-    @Test
-    @WithAnonymousUser
-    void anonymousIsRedirectedToLoginForChangeFlightEditButNotTheList() {
-        // the per-flight edit form is protected...
-        assertThat(mockMvc.get().uri("/booked-flights/{id}", "abc"))
-                .hasStatus3xxRedirection()
-                .hasHeader("Location", "/login");
-    }
-
-    @Test
-    @WithAnonymousUser
     void homePageIsPublicAndRendersHomeNotTheLoginForm() {
         given(persister.countPendingCommands()).willReturn(0);
 
@@ -86,12 +62,30 @@ class SecurityAuthorizationTest {
 
     @Test
     @WithAnonymousUser
-    void anonymousHomeHidesDataEntryAndAdminNav() {
+    void anonymousHomeShowsCalendarOnly() {
         given(persister.countPendingCommands()).willReturn(0);
 
         assertThat(mockMvc.get().uri("/"))
                 .hasStatusOk()
                 .bodyText()
+                .contains("/calendar")
+                .doesNotContain("/itinerary")
+                .doesNotContain("/booked-flights")
+                .doesNotContain("/book-flight")
+                .doesNotContain(">Admin</span>");
+    }
+
+    @Test
+    @WithMockUser(roles = "FAMILY")
+    void familyHomeShowsItineraryAndCalendarOnly() {
+        given(persister.countPendingCommands()).willReturn(0);
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("/itinerary")
+                .contains("/calendar")
+                .doesNotContain("/booked-flights")
                 .doesNotContain("/book-flight")
                 .doesNotContain(">Admin</span>");
     }

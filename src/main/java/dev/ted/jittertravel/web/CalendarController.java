@@ -1,11 +1,9 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarAggregator;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
@@ -21,14 +19,10 @@ public class CalendarController {
     }
 
     @GetMapping("/calendar")
-    public ResponseEntity<String> getCalendar() {
+    public ResponseEntity<String> getCalendar(HttpServletRequest request) {
+        boolean isPublicUser = request.getRemoteUser() == null;
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
-                .body(ConfirmedCalendarRenderer.render(calendarAggregator.allEntries(), isPublicUser()));
-    }
-
-    private static boolean isPublicUser() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return auth instanceof AnonymousAuthenticationToken;
+                .body(ConfirmedCalendarRenderer.render(calendarAggregator.allEntries(), isPublicUser));
     }
 }

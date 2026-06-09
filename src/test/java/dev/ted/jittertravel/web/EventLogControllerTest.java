@@ -18,7 +18,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
 
 @WebMvcTest(EventLogController.class)
-@WithMockUser
+@WithMockUser(roles = "OWNER")
 class EventLogControllerTest {
 
     @Autowired

@@ -19,7 +19,7 @@ import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(PendingCommandsController.class)
-@WithMockUser
+@WithMockUser(roles = "OWNER")
 class PendingCommandsControllerTest {
 
     @Autowired

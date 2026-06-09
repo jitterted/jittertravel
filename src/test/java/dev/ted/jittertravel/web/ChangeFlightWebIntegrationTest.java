@@ -26,7 +26,7 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(ChangeFlightController.class)
-@WithMockUser
+@WithMockUser(roles = "OWNER")
 class ChangeFlightWebIntegrationTest {
 
     @Autowired

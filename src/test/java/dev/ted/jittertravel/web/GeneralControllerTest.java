@@ -18,7 +18,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 
 @WebMvcTest(GeneralController.class)
-@WithMockUser
+@WithMockUser(roles = "OWNER")
 class GeneralControllerTest {
 
     @Autowired
@@ -75,14 +75,17 @@ class GeneralControllerTest {
     }
 
     @Test
-    void homeShowsDataEntryNavWhenAuthenticated() {
+    void homeShowsAllNavGroupsForOwner() {
         given(persister.countPendingCommands()).willReturn(0);
 
         assertThat(mockMvc.get().uri("/"))
                 .hasStatusOk()
                 .bodyText()
                 .contains("/book-flight")
-                .contains(">Admin</span>");
+                .contains(">Admin</span>")
+                .contains("/booked-flights")
+                .contains("/itinerary")
+                .contains("/calendar");
     }
 
     @Test

@@ -77,4 +77,21 @@ class CalendarRedactionSecurityTest {
                 .contains("Hotel")
                 .doesNotContain("Grand Hotel");
     }
+
+    @Test
+    void anonymousUserDoesNotSeeItineraryLinks() {
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("href=\"/itinerary");
+    }
+
+    @Test
+    @WithMockUser(username = "family", roles = "FAMILY")
+    void authenticatedUserSeesItineraryLinks() {
+        assertThat(mockMvc.get().uri("/calendar"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("href=\"/itinerary");
+    }
 }

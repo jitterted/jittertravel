@@ -117,7 +117,7 @@ public class ConfirmedCalendarRenderer {
                     .plusDays(5);
         }
 
-        String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd);
+        String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, isPublicUser);
 
         return "<!DOCTYPE html>\n" + html(
                 head(

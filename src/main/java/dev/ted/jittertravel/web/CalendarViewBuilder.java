@@ -28,14 +28,14 @@ public class CalendarViewBuilder {
     private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MMM d");
     private static final DateTimeFormatter MONTH_DAY_YEAR = DateTimeFormatter.ofPattern("MMM d, yyyy");
 
-    public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd) {
+    public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd, boolean isPublicUser) {
         LocalDate gridStart = rangeStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
         LocalDate gridEnd = rangeEnd.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
 
         List<DomContent> weekRows = new ArrayList<>();
         LocalDate sunday = gridStart;
         while (!sunday.isAfter(gridEnd)) {
-            weekRows.add(renderWeek(sunday, sunday.plusDays(6), gridStart, entries));
+            weekRows.add(renderWeek(sunday, sunday.plusDays(6), gridStart, entries, isPublicUser));
             sunday = sunday.plusDays(7);
         }
 
@@ -51,7 +51,8 @@ public class CalendarViewBuilder {
     private static DivTag renderWeek(LocalDate sunday,
                                      LocalDate saturday,
                                      LocalDate gridStart,
-                                     List<CalendarEntry> allEntries) {
+                                     List<CalendarEntry> allEntries,
+                                     boolean isPublicUser) {
         List<CalendarEntry> intersecting = allEntries.stream()
                 .filter(e -> intersectsWeek(e, sunday, saturday))
                 .sorted(Comparator.comparing(CalendarEntry::start))
@@ -110,7 +111,7 @@ public class CalendarViewBuilder {
 
         // Day-label row (grid-row: 1, columns 1..7)
         for (int i = 0; i < 7; i++) {
-            cells.add(renderDayLabelCell(sunday.plusDays(i), gridStart));
+            cells.add(renderDayLabelCell(sunday.plusDays(i), gridStart, isPublicUser));
         }
 
         // Per-day lane filler cells, one per (column × lane sub-row), so that the
@@ -145,17 +146,17 @@ public class CalendarViewBuilder {
         return div().withClass("calendar-week").withStyle(rowsStyle).with(cells);
     }
 
-    private static DomContent renderDayLabelCell(LocalDate date, LocalDate gridStart) {
+    private static DomContent renderDayLabelCell(LocalDate date, LocalDate gridStart, boolean isPublicUser) {
         boolean isFirstCellOfGrid = date.equals(gridStart);
         boolean isMonthStart = date.getDayOfMonth() == 1 || isFirstCellOfGrid;
         String monthTint = (date.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
         String labelClass = "day-label-cell " + monthTint + (isMonthStart ? " is-month-start" : "");
         String dayNumberClass = "day-number" + (isMonthStart ? " is-month-start" : "");
-        return div().withClass(labelClass).with(
-                a(formatDayLabel(date, isMonthStart, isFirstCellOfGrid))
-                        .withHref("/itinerary?date=" + date)
-                        .withClass(dayNumberClass)
-        );
+        String label = formatDayLabel(date, isMonthStart, isFirstCellOfGrid);
+        DomContent dayNumber = isPublicUser
+                ? span(label).withClass(dayNumberClass)
+                : a(label).withHref("/itinerary?date=" + date).withClass(dayNumberClass);
+        return div().withClass(labelClass).with(dayNumber);
     }
 
     private static DomContent renderEntrySegment(CalendarEntry entry,

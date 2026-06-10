@@ -17,7 +17,8 @@ class CalendarViewBuilderTest {
         String html = CalendarViewBuilder.render(
                 List.of(),
                 LocalDate.of(2026, 5, 28),
-                LocalDate.of(2026, 6, 5)
+                LocalDate.of(2026, 6, 5),
+                false
         );
 
         // No entries means every week collapses to its day-label row only.
@@ -32,7 +33,8 @@ class CalendarViewBuilderTest {
         String html = CalendarViewBuilder.render(
                 List.of(),
                 LocalDate.of(2026, 5, 28),
-                LocalDate.of(2026, 6, 5)
+                LocalDate.of(2026, 6, 5),
+                false
         );
 
         // First visible cell (Sunday May 24, 2026) and June 1 are month-starts.
@@ -47,7 +49,8 @@ class CalendarViewBuilderTest {
         String html = CalendarViewBuilder.render(
                 List.of(),
                 LocalDate.of(2026, 12, 28),
-                LocalDate.of(2027, 1, 5)
+                LocalDate.of(2027, 1, 5),
+                false
         );
 
         assertThat(html).contains(">Jan 1, 2027<");
@@ -69,7 +72,8 @@ class CalendarViewBuilderTest {
         String html = CalendarViewBuilder.render(
                 List.of(conf),
                 LocalDate.of(2026, 5, 28),
-                LocalDate.of(2026, 6, 5)
+                LocalDate.of(2026, 6, 5),
+                false
         );
 
         assertThat(html).contains("entry entry--conference");
@@ -107,7 +111,8 @@ class CalendarViewBuilderTest {
         String html = CalendarViewBuilder.render(
                 List.of(conf, flight),
                 LocalDate.of(2026, 6, 6),
-                LocalDate.of(2026, 6, 10)
+                LocalDate.of(2026, 6, 10),
+                false
         );
 
         // Both entry titles appear (flight title only on departure segment).
@@ -149,7 +154,8 @@ class CalendarViewBuilderTest {
         String html = CalendarViewBuilder.render(
                 List.of(a, b),
                 LocalDate.of(2026, 5, 31),
-                LocalDate.of(2026, 6, 6)
+                LocalDate.of(2026, 6, 6),
+                false
         );
 
         // Two overlapping conferences -> 2 sub-rows in the conference lane.
@@ -174,7 +180,8 @@ class CalendarViewBuilderTest {
         String html = CalendarViewBuilder.render(
                 List.of(hotel),
                 LocalDate.of(2026, 6, 7),
-                LocalDate.of(2026, 6, 14)
+                LocalDate.of(2026, 6, 14),
+                false
         );
 
         assertThat(html)
@@ -205,7 +212,8 @@ class CalendarViewBuilderTest {
         String html = CalendarViewBuilder.render(
                 List.of(flight, conf),  // intentionally out of lane order
                 LocalDate.of(2026, 6, 7),
-                LocalDate.of(2026, 6, 13)
+                LocalDate.of(2026, 6, 13),
+                false
         );
 
         // Two lane sub-rows.
@@ -237,7 +245,8 @@ class CalendarViewBuilderTest {
         String html = CalendarViewBuilder.render(
                 List.of(gathering),
                 LocalDate.of(2026, 6, 7),
-                LocalDate.of(2026, 6, 14)
+                LocalDate.of(2026, 6, 14),
+                false
         );
 
         assertThat(html).contains("entry entry--gathering");

@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.EntryKind;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -13,7 +14,7 @@ class ConfirmedCalendarRendererTest {
 
     @Test
     void emptyEntriesRendersCalendarPage() {
-        String html = ConfirmedCalendarRenderer.render(List.of(), false);
+        String html = ConfirmedCalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false);
 
         assertThat(html)
                 .contains("Confirmed Calendar")
@@ -31,7 +32,7 @@ class ConfirmedCalendarRendererTest {
                 "https://maps.google.com/grand"
         );
 
-        String html = ConfirmedCalendarRenderer.render(List.of(hotel), true);
+        String html = ConfirmedCalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), true);
 
         assertThat(html)
                 .contains("Hotel")
@@ -49,7 +50,7 @@ class ConfirmedCalendarRendererTest {
                 "https://maps.google.com/grand"
         );
 
-        String html = ConfirmedCalendarRenderer.render(List.of(hotel), false);
+        String html = ConfirmedCalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), false);
 
         assertThat(html).contains("Grand Hotel");
     }

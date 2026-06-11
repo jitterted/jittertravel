@@ -25,6 +25,8 @@ public class ConfirmedCalendarRenderer {
                 --calendar-tint-odd: #ffffff;
                 --calendar-month-start-color: #b45309;
                 --calendar-month-start-border-width: 3px;
+                --calendar-past-hatch: rgba(0, 0, 0, 0.2);
+                --calendar-today-tint: #eef2ff;
                 --entry-conference-bg: #e0e7ff; --entry-conference-fg: #4f46e5;
                 --entry-gathering-bg: #f5f3ff;  --entry-gathering-fg: #7c3aed;
                 --entry-flight-bg: #cfeafd;     --entry-flight-fg: #075985;
@@ -77,6 +79,18 @@ public class ConfirmedCalendarRenderer {
             .lane-cell { border-right: 1px solid var(--calendar-border); min-height: 64px; box-sizing: border-box; }
             .lane-cell.month-tint-even { background-color: var(--calendar-tint-even-lane); }
             .lane-cell.month-tint-odd  { background-color: var(--calendar-tint-odd); }
+            /* Past days: diagonal hatch layered over the month tint. */
+            .day-label-cell.is-past, .lane-cell.is-past {
+                background-image: repeating-linear-gradient(
+                    -45deg,
+                    transparent 0, transparent 7px,
+                    var(--calendar-past-hatch) 7px, var(--calendar-past-hatch) 8px
+                );
+            }
+            /* Today: full-height tinted column. */
+            .day-label-cell.is-today, .lane-cell.is-today {
+                background-color: var(--calendar-today-tint);
+            }
             .entry {
                 margin: 4px 6px; padding: 6px 10px; border-radius: 8px;
                 box-sizing: border-box; font-size: 0.9rem; line-height: 1.3;
@@ -92,7 +106,7 @@ public class ConfirmedCalendarRenderer {
             .entry--continuation { opacity: 0.9; }
             """;
 
-    public static String render(List<CalendarEntry> rawEntries, boolean isPublicUser) {
+    public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser) {
         List<CalendarEntry> entries = rawEntries.stream()
                 .sorted(Comparator.comparing(CalendarEntry::start))
                 .map(e -> isPublicUser ? REDACTOR.redact(e) : e)
@@ -101,7 +115,6 @@ public class ConfirmedCalendarRenderer {
         LocalDate rangeStart;
         LocalDate rangeEnd;
         if (entries.isEmpty()) {
-            LocalDate today = LocalDate.now();
             rangeStart = today.minusWeeks(2);
             rangeEnd = today.plusWeeks(2);
         } else {
@@ -117,7 +130,7 @@ public class ConfirmedCalendarRenderer {
                     .plusDays(5);
         }
 
-        String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, isPublicUser);
+        String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser);
 
         return "<!DOCTYPE html>\n" + html(
                 head(

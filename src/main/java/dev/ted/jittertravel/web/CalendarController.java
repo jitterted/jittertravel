@@ -8,6 +8,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 
 @Controller
 public class CalendarController {
@@ -23,6 +24,6 @@ public class CalendarController {
         boolean isPublicUser = request.getRemoteUser() == null;
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
-                .body(ConfirmedCalendarRenderer.render(calendarAggregator.allEntries(), isPublicUser));
+                .body(ConfirmedCalendarRenderer.render(calendarAggregator.allEntries(), LocalDate.now(), isPublicUser));
     }
 }

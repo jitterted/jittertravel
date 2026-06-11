@@ -12,12 +12,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class CalendarViewBuilderTest {
 
+    // "today" pinned far before every range below, so existing assertions see
+    // neither is-past nor is-today markup. Past/today behavior has dedicated tests.
+    private static final LocalDate TODAY = LocalDate.of(2020, 1, 1);
+
     @Test
     void emptyRangeRendersDayLabelsAndNoLaneRows() {
         String html = CalendarViewBuilder.render(
                 List.of(),
                 LocalDate.of(2026, 5, 28),
                 LocalDate.of(2026, 6, 5),
+                TODAY,
                 false
         );
 
@@ -34,6 +39,7 @@ class CalendarViewBuilderTest {
                 List.of(),
                 LocalDate.of(2026, 5, 28),
                 LocalDate.of(2026, 6, 5),
+                TODAY,
                 false
         );
 
@@ -50,6 +56,7 @@ class CalendarViewBuilderTest {
                 List.of(),
                 LocalDate.of(2026, 12, 28),
                 LocalDate.of(2027, 1, 5),
+                TODAY,
                 false
         );
 
@@ -73,6 +80,7 @@ class CalendarViewBuilderTest {
                 List.of(conf),
                 LocalDate.of(2026, 5, 28),
                 LocalDate.of(2026, 6, 5),
+                TODAY,
                 false
         );
 
@@ -112,6 +120,7 @@ class CalendarViewBuilderTest {
                 List.of(conf, flight),
                 LocalDate.of(2026, 6, 6),
                 LocalDate.of(2026, 6, 10),
+                TODAY,
                 false
         );
 
@@ -155,6 +164,7 @@ class CalendarViewBuilderTest {
                 List.of(a, b),
                 LocalDate.of(2026, 5, 31),
                 LocalDate.of(2026, 6, 6),
+                TODAY,
                 false
         );
 
@@ -181,6 +191,7 @@ class CalendarViewBuilderTest {
                 List.of(hotel),
                 LocalDate.of(2026, 6, 7),
                 LocalDate.of(2026, 6, 14),
+                TODAY,
                 false
         );
 
@@ -213,6 +224,7 @@ class CalendarViewBuilderTest {
                 List.of(flight, conf),  // intentionally out of lane order
                 LocalDate.of(2026, 6, 7),
                 LocalDate.of(2026, 6, 13),
+                TODAY,
                 false
         );
 
@@ -227,6 +239,47 @@ class CalendarViewBuilderTest {
         int confTitle = html.indexOf(">Conf<");
         int row2 = html.lastIndexOf("grid-row: 2;", confTitle);
         assertThat(row2).isPositive();
+    }
+
+    @Test
+    void daysBeforeTodayGetIsPastClassAndTodayGetsIsTodayClass() {
+        // Week of Sun 2026-06-07 .. Sat 2026-06-13; pin today to Wed 2026-06-10.
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 13),
+                LocalDate.of(2026, 6, 10),
+                false
+        );
+
+        // June 9 (the day before today) is past; its label cell is hatched.
+        assertThat(html)
+                .contains(">9<")
+                .contains("is-past");
+        // June 10 (today) gets the accent-column class, and is not also marked past.
+        assertThat(html).contains("is-today");
+        // Today's own label cell must not carry is-past.
+        int todayLabel = html.indexOf(">10<");
+        int cellStart = html.lastIndexOf("day-label-cell", todayLabel);
+        String todayCellTag = html.substring(cellStart, todayLabel);
+        assertThat(todayCellTag)
+                .contains("is-today")
+                .doesNotContain("is-past");
+    }
+
+    @Test
+    void allFutureDaysHaveNeitherPastNorTodayClass() {
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 13),
+                LocalDate.of(2020, 1, 1),
+                false
+        );
+
+        assertThat(html)
+                .doesNotContain("is-past")
+                .doesNotContain("is-today");
     }
 
     @Test
@@ -246,6 +299,7 @@ class CalendarViewBuilderTest {
                 List.of(gathering),
                 LocalDate.of(2026, 6, 7),
                 LocalDate.of(2026, 6, 14),
+                TODAY,
                 false
         );
 

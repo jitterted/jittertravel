@@ -28,14 +28,14 @@ public class CalendarViewBuilder {
     private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MMM d");
     private static final DateTimeFormatter MONTH_DAY_YEAR = DateTimeFormatter.ofPattern("MMM d, yyyy");
 
-    public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd, boolean isPublicUser) {
+    public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd, LocalDate today, boolean isPublicUser) {
         LocalDate gridStart = rangeStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
         LocalDate gridEnd = rangeEnd.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
 
         List<DomContent> weekRows = new ArrayList<>();
         LocalDate sunday = gridStart;
         while (!sunday.isAfter(gridEnd)) {
-            weekRows.add(renderWeek(sunday, sunday.plusDays(6), gridStart, entries, isPublicUser));
+            weekRows.add(renderWeek(sunday, sunday.plusDays(6), gridStart, today, entries, isPublicUser));
             sunday = sunday.plusDays(7);
         }
 
@@ -51,6 +51,7 @@ public class CalendarViewBuilder {
     private static DivTag renderWeek(LocalDate sunday,
                                      LocalDate saturday,
                                      LocalDate gridStart,
+                                     LocalDate today,
                                      List<CalendarEntry> allEntries,
                                      boolean isPublicUser) {
         List<CalendarEntry> intersecting = allEntries.stream()
@@ -111,7 +112,7 @@ public class CalendarViewBuilder {
 
         // Day-label row (grid-row: 1, columns 1..7)
         for (int i = 0; i < 7; i++) {
-            cells.add(renderDayLabelCell(sunday.plusDays(i), gridStart, isPublicUser));
+            cells.add(renderDayLabelCell(sunday.plusDays(i), gridStart, today, isPublicUser));
         }
 
         // Per-day lane filler cells, one per (column × lane sub-row), so that the
@@ -123,7 +124,7 @@ public class CalendarViewBuilder {
             for (int col = 1; col <= 7; col++) {
                 LocalDate d = sunday.plusDays(col - 1);
                 String tint = (d.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
-                cells.add(div().withClass("lane-cell " + tint)
+                cells.add(div().withClass("lane-cell " + tint + dayStateClass(d, today))
                         .withStyle("grid-column: " + col + "; grid-row: " + gridRow + ";"));
             }
         }
@@ -146,11 +147,11 @@ public class CalendarViewBuilder {
         return div().withClass("calendar-week").withStyle(rowsStyle).with(cells);
     }
 
-    private static DomContent renderDayLabelCell(LocalDate date, LocalDate gridStart, boolean isPublicUser) {
+    private static DomContent renderDayLabelCell(LocalDate date, LocalDate gridStart, LocalDate today, boolean isPublicUser) {
         boolean isFirstCellOfGrid = date.equals(gridStart);
         boolean isMonthStart = date.getDayOfMonth() == 1 || isFirstCellOfGrid;
         String monthTint = (date.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
-        String labelClass = "day-label-cell " + monthTint + (isMonthStart ? " is-month-start" : "");
+        String labelClass = "day-label-cell " + monthTint + (isMonthStart ? " is-month-start" : "") + dayStateClass(date, today);
         String dayNumberClass = "day-number" + (isMonthStart ? " is-month-start" : "");
         String label = formatDayLabel(date, isMonthStart, isFirstCellOfGrid);
         DomContent dayNumber = isPublicUser
@@ -192,6 +193,17 @@ public class CalendarViewBuilder {
             }
         }
         return div;
+    }
+
+    /** Past days are hatched; today gets the accent-column treatment. */
+    private static String dayStateClass(LocalDate date, LocalDate today) {
+        if (date.isBefore(today)) {
+            return " is-past";
+        }
+        if (date.equals(today)) {
+            return " is-today";
+        }
+        return "";
     }
 
     private static int[] segmentColumns(CalendarEntry entry, LocalDate sunday) {

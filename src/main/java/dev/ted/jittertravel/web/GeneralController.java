@@ -30,22 +30,20 @@ class GeneralController {
 
     @GetMapping("/")
     public String home(Model model, HttpServletRequest request) {
-        boolean local = environment.acceptsProfiles(Profiles.of("local"));
-        boolean runningLocally = local || environment.acceptsProfiles(Profiles.of("prod-preview"));
+        boolean isLocalProfile = environment.acceptsProfiles(Profiles.of("local"));
+        boolean isRunningLocally = isLocalProfile || environment.acceptsProfiles(Profiles.of("prod-preview"));
 
-        // Nav visibility mirrors the route rules in SecurityConfig (the "!local" chain).
-        // In the `local` profile there is no authentication, so show everything.
-        boolean owner = local || request.isUserInRole("OWNER");
-        boolean family = local || request.isUserInRole("FAMILY");
+        // Nav visibility mirrors the route rules in SecurityConfig (the "!isLocalProfile" chain).
+        // In the `isLocalProfile` profile there is no authentication, so show everything.
+        boolean isOwner = isLocalProfile || request.isUserInRole("OWNER");
+        boolean isFamily = isLocalProfile || request.isUserInRole("FAMILY");
 
-        boolean showDataEntryNav = owner;
-        boolean showBookingsNav = owner;
-        boolean showItineraryNav = owner || family;
+        boolean showItineraryNav = isOwner || isFamily;
         // Calendar is always visible (content is redacted for anonymous by CalendarEntryRedactor).
 
-        model.addAttribute("runningLocally", runningLocally);
-        model.addAttribute("showDataEntryNav", showDataEntryNav);
-        model.addAttribute("showBookingsNav", showBookingsNav);
+        model.addAttribute("runningLocally", isRunningLocally);
+        model.addAttribute("showDataEntryNav", isOwner);
+        model.addAttribute("showBookingsNav", isOwner);
         model.addAttribute("showItineraryNav", showItineraryNav);
         model.addAttribute("pendingCount", persister.countPendingCommands());
         model.addAttribute("buildTime", BUILD_TIME_FORMATTER.format(buildProperties.getTime()));

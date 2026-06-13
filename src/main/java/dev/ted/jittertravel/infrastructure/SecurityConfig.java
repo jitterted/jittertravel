@@ -47,6 +47,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Admin (includes /admin/eventlog, /admin/commandlog, /admin/pending-commands)
                         .requestMatchers("/admin", "/admin/**").hasRole("OWNER")
+                        // Actuator: health stays public for Railway's health check; everything
+                        // else (metrics, etc.) is owner-only. Order matters: the health matcher
+                        // must precede the catch-all actuator matcher.
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/**").hasRole("OWNER")
                         // Booking / planning data-entry forms and their submit/lookup endpoints
                         .requestMatchers(
                                 "/book-flight", "/book-flight/**",

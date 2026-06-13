@@ -1,0 +1,267 @@
+Nodes and flows
+Name nodes in a diagram and link them to other nodes with arrows
+
+# A, B and C are basic nodes.
+A -> B
+B -> C
+
+# Nodes can connect back to previous nodes
+# Links can have optional notes
+C -(connect back)-> A
+
+# (*) Flows can also be stringed together in single lines
+# ex. A -> B -> C -> A
+
+Groups
+Node names can be prefixed with a "group" name. Use groups to distinguish categories in your model. Aggregates, services, actors, etc. Switch to the "grouped" layout mode to visualise them.
+
+# 'bookings' and 'billing' services coordinating work
+bookings.book -> billing.process-payment
+billing.process-payment -> bookings.confirm-payment
+
+Groups
+Node types
+Define nodes with a type prefix and connect them with arrows.
+
+# UIs are placeholder for any user-facing interfaces
+ui:Booking Page
+
+# Commands are intents to update state
+cmd:StartBooking
+cmd:ConfirmPayment
+
+# Events are the record of the state change
+evt:BookingStarted
+evt:PaymentConfirmed
+
+# Read models are system state
+# derived from events
+rm:Pending Bookings
+
+# Automations (A.K.A "Process Managers")
+# Observe changes in read models or events
+# And dispatch the next command in a workflow
+aut:Payment Processor
+
+# "Externals" are placeholders for 3rd parties
+# or services outside of your system
+ext:Stripe API
+
+# "Entry points" are technical entry points
+# APIs, webhooks, bots, LLMs, etc.
+ent:Webhook Handler
+
+# Once node types are declared,
+# you can define flows by refering to the node names
+
+# 1. Start a booking and record an event
+Booking Page -> StartBooking
+StartBooking -(validate data)-> BookingStarted
+
+# 2. Collect state in a read model
+BookingStarted -> Pending Bookings
+
+# 3. Pending bookings trigger an automation
+Pending Bookings -> Payment Processor
+
+# 4. Automation contacts some 3rd party
+Payment Processor -(POST request)->Stripe API
+
+# 5. Automation continues the workflow
+Payment Processor -> ConfirmPayment -> PaymentConfirmed
+
+# 6. Confirmed payments remove pending booking
+PaymentConfirmed -(remove)-> Pending Bookings
+
+# (*) You can also declare types as part of flows
+# ex. cmd:CreateUser -> evt:UserCreated
+
+Node data attributes
+Attach inline data to commands, events, read models, and errors using (key: value) syntax. Inline attributes auto-generate a schema so properties are visible in the diagram. Values can be quoted strings, unquoted literals, or [bracket lists]. Attributes can span multiple lines.
+
+# Inline attributes auto-generate schemas
+cmd:StartBooking(customer: "joe", room: 101)
+evt:BookingStarted(customer: "joe")
+
+StartBooking -> BookingStarted
+
+# Multi-line attributes
+cmd:Register(
+  name: "Joe",
+  email: "joe@email.com",
+  tags: [admin, staff]
+) -> evt:Registered(name: "Joe")
+
+# Errors support attributes too
+Register -> err:InvalidInput(reason: "bad email")
+
+# Alias with multi-line attributes
+cmd:CancelAccount(*ca)(
+  account_id: "acc-1",
+  reason: "Too expensive"
+)
+
+# Per-instance data
+cmd:Notify(*n) -> evt:Notified(*nd)
+*n[1](channel: "email") -> *nd[1](channel: "email")
+*n[2](channel: "sms") -> *nd[2](channel: "sms")
+
+Given-When-Then (GWT) test cases
+Add [GWT: title] sections to define test cases for your model. Use GIVEN for preconditions (events), WHEN for the command being tested, and THEN for expected outcomes (new events, or data in read models). Use AND to add multiple steps of the same kind. Switch to the "GWTs" layout mode to view each case as a separate diagram.
+
+cmd:RegisterUser -> evt:UserRegistered
+cmd:RegisterUser -> evt:RegistrationFailed
+
+[schemas]
+RegisterUser(
+  name: string,
+  email: string
+)
+UserRegistered(
+  name: string,
+  email: string
+)
+rm:Users(name: string)
+
+# Happy path
+[GWT: Successful registration]
+WHEN RegisterUser(name: "joe", email: "joe@test.com")
+THEN UserRegistered(name: "joe")
+
+# Sad path: user already exists
+[GWT: Duplicate registration]
+GIVEN UserRegistered
+WHEN RegisterUser(name: "joe")
+THEN RegistrationFailed(reason: "already exists")
+
+# Read model projection
+[GWT: User projection]
+GIVEN evt:UserRegistered(name: "joe")
+THEN rm:Users(name: "joe")
+
+Schemas
+Schemas define typed properties for nodes. Inline attributes auto-generate schemas with type "string". Use a [schemas] section to set explicit types using attribute syntax. Explicit schemas merge with auto-generated ones: matching fields get their types overwritten, other fields are preserved.
+
+These are the only valid types: string, integer, number, boolean, array, object
+
+# Inline attributes auto-generate schemas
+# (all fields default to type "string")
+cmd:StartBooking(
+  customer_name: "joe",
+  room_number: 101
+) -> evt:BookingStarted(customer_name: "joe")
+BookingStarted -> rm:Bookings
+
+# Use [schemas] to set explicit types.
+# Fields merge with auto-generated ones:
+# customer_name type overwritten to string,
+# room_number overwritten to integer,
+# status added as new field.
+[schemas]
+StartBooking(
+  customer_name: string,
+  room_number: integer,
+  status: string
+)
+BookingStarted(customer_name: string)
+Bookings(
+  customer_name: string,
+  room_number: integer,
+  status: string
+)
+
+Multiple instances of the same node
+Add [number] to node names to make the same node appear multiple times in the diagram.
+
+cmd:StartBooking -> evt:BookingStarted
+# Add [1] to first instance of a node
+BookingStarted -> rm:Pending Bookings[1]
+
+Pending Bookings[1] -> aut:Payment Processor
+
+Payment Processor -> cmd:ConfirmPayment
+
+ConfirmPayment -> evt:PaymentConfirmed
+
+# Add [2] to make it a separate node
+# on the diagram
+PaymentConfirmed -> Pending Bookings[2]
+
+Aliases
+Assign short aliases to nodes with (*alias) on first mention, then reference them with *alias. Keeps large specs readable. Works with instance suffixes and schemas.
+
+# Declare aliases on first mention
+cmd:StartBooking(*sb)
+evt:BookingStarted(*bs)
+rm:Pending Bookings(*pb)
+
+# Use aliases in flows
+*sb -(validate)-> *bs
+*bs -> *pb[1]
+*pb[1] -> aut:Payment Processor
+Payment Processor -> *sb[1] -> *bs[1]
+*bs[1] -> *pb[2]
+
+# Use aliases in schema headers
+[schemas]
+*sb
+* customer_name: string
+* room_number: integer
+
+Node networks
+Click on a node to highlight its connected network. Use the network handle to move the entire network together.
+
+Node networks
+Automations & external systems
+Automations consume read models and produce commands. They can also interact with external systems.
+
+evt:OrderPlaced
+rm:OrderDetails
+aut:FulfillOrder
+cmd:ShipOrder
+ext:Warehouse
+
+OrderPlaced -> OrderDetails
+OrderDetails -> FulfillOrder
+FulfillOrder -> ShipOrder
+FulfillOrder -> Warehouse
+
+Users (human actors)
+User nodes represent human roles or actors in your system. They share the same lane as UIs and automations, and connect to commands.
+
+usr:Lawyer
+ext:Patent office
+ui:Proposals
+cmd:ConfirmPatent
+evt:PatentConfirmed
+rm:Patents
+
+Proposals -> Lawyer
+Lawyer -(visits office)-> Patent office
+Lawyer -> ConfirmPatent -> PatentConfirmed
+PatentConfirmed -> Patents
+
+Entry points (webhooks, APIs, etc.)
+Entry points represent technical ingress into your system: incoming webhooks, API endpoints, bots, LLMs, etc. They connect to commands to kick off workflows.
+
+aut:Notifier -(notify)-> ext:3rd Party API
+3rd Party API -(later...)-> ent:POST /webhooks
+POST /webhooks -> cmd:Confirm -> evt:Confirmed
+
+Error nodes
+Error nodes represent error outcomes. They are terminal sinks — any node type can connect to an error, but errors have no outgoing transitions. Optionally include a message string in quotes. Errors can also appear as THEN steps in GWT test cases.
+
+cmd:RegisterUser -> evt:UserRegistered
+cmd:RegisterUser -> err:UserExists("User already exists")
+
+evt:UserRegistered -> rm:Users
+
+# GWT test cases with error outcomes
+[GWT: Successful registration]
+WHEN RegisterUser(name: "joe")
+THEN UserRegistered(name: "joe")
+
+[GWT: Duplicate registration]
+GIVEN UserRegistered(name: "joe")
+WHEN RegisterUser(name: "joe")
+THEN UserExists("User already exists")

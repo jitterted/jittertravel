@@ -1,0 +1,119 @@
+# ─────────────────────────────────────────────────────────────
+# Slice: Correct / Update an existing Booked Train
+# Flow: projection -> UI -> command -> event -> projections
+# ─────────────────────────────────────────────────────────────
+
+usr:Traveler
+ui:Edit Train Page
+cmd:ChangeTrain(*ct)
+evt:TrainChanged(*tc)
+evt:TrainBooked(*tb)
+
+# Projections that feed the UI and re-react to the change
+rm:Booked Trains(*bt)
+rm:Train Calendar(*cal)
+rm:Itinerary(*itin)
+rm:Schedule Gaps(*gaps)
+
+# Error outcomes (preconditions failed)
+err:TrainNotFound("No train exists with that tripId")
+err:DepartureNotInFuture("Departure date/time must be in the future")
+err:InvalidDateRange("Arrival date/time must be after departure")
+
+# 0. The original booking establishes the read model state
+TrainBooked -> Booked Trains
+
+# 1. The existing booking is read to pre-fill the edit form
+Booked Trains -> Edit Train Page
+Edit Train Page -> Traveler
+
+# 2. Traveler submits corrected details, keeping the same tripId
+Traveler -> ChangeTrain
+
+# 3. Command validates against the folded state for tripId
+ChangeTrain -(trip exists & dates ok)-> TrainChanged
+ChangeTrain -> TrainNotFound
+ChangeTrain -> DepartureNotInFuture
+ChangeTrain -> InvalidDateRange
+
+# 4. Full-snapshot event overwrites every train projection
+TrainChanged -(overwrite by tripId)-> Booked Trains
+TrainChanged -> Train Calendar
+TrainChanged -> Itinerary
+TrainChanged -(re-evaluate)-> Schedule Gaps
+
+[schemas]
+TrainBooked(
+  tripId: string,
+  departureStation: string,
+  departureDateTime: string,
+  arrivalStation: string,
+  arrivalDateTime: string,
+  serviceId: string
+)
+ChangeTrain(
+  tripId: string,
+  departureStation: string,
+  departureDateTime: string,
+  arrivalStation: string,
+  arrivalDateTime: string,
+  serviceId: string
+)
+TrainChanged(
+  tripId: string,
+  departureStation: string,
+  departureDateTime: string,
+  arrivalStation: string,
+  arrivalDateTime: string,
+  serviceId: string
+)
+Booked Trains(
+  tripId: string,
+  departureStation: string,
+  departureDateTime: string,
+  arrivalStation: string,
+  arrivalDateTime: string,
+  serviceId: string
+)
+
+# ─────────────────────────────────────────────────────────────
+# GWT Rules — one or more unit tests implement each
+# ─────────────────────────────────────────────────────────────
+
+# Happy path — existing trip, valid future range
+[GWT: Change succeeds for a valid, existing train]
+GIVEN TrainBooked(tripId: "t-1", departureDateTime: "2026-07-01T09:00", arrivalDateTime: "2026-07-01T12:00")
+WHEN ChangeTrain(tripId: "t-1", departureDateTime: "2026-07-02T09:00", arrivalDateTime: "2026-07-02T13:30")
+THEN TrainChanged(tripId: "t-1", departureDateTime: "2026-07-02T09:00", arrivalDateTime: "2026-07-02T13:30")
+
+# Precondition: the tripId must fold into an existing train
+[GWT: Change rejected when train does not exist]
+WHEN ChangeTrain(tripId: "t-unknown", departureDateTime: "2026-07-02T09:00", arrivalDateTime: "2026-07-02T13:30")
+THEN TrainNotFound("No train exists with that tripId")
+
+# Precondition: departure must be in the future
+[GWT: Change rejected when departure is not in the future]
+GIVEN TrainBooked(tripId: "t-1")
+WHEN ChangeTrain(tripId: "t-1", departureDateTime: "2020-01-01T09:00", arrivalDateTime: "2020-01-01T12:00")
+THEN DepartureNotInFuture("Departure date/time must be in the future")
+
+# Precondition: arrival strictly after departure
+[GWT: Change rejected when arrival is not after departure]
+GIVEN TrainBooked(tripId: "t-1")
+WHEN ChangeTrain(tripId: "t-1", departureDateTime: "2026-07-02T13:00", arrivalDateTime: "2026-07-02T13:00")
+THEN InvalidDateRange("Arrival date/time must be after departure")
+
+# Projection: full snapshot overwrites the read model by tripId
+[GWT: Booked Trains reflects the changed details]
+GIVEN TrainBooked(tripId: "t-1", departureStation: "Gare de Lyon")
+AND TrainChanged(tripId: "t-1", departureStation: "Gare du Nord")
+THEN Booked Trains(tripId: "t-1", departureStation: "Gare du Nord")
+
+# Lifecycle propagation — guards the "silent missed event" risk
+# across every projection that consumes TrainBooked
+[GWT: All train projections reflect the change]
+GIVEN TrainBooked(tripId: "t-1", departureDateTime: "2026-07-01T09:00")
+AND TrainChanged(tripId: "t-1", departureDateTime: "2026-07-05T09:00")
+THEN Booked Trains(tripId: "t-1", departureDateTime: "2026-07-05T09:00")
+AND Train Calendar(tripId: "t-1", departureDateTime: "2026-07-05T09:00")
+AND Itinerary(tripId: "t-1", departureDateTime: "2026-07-05T09:00")

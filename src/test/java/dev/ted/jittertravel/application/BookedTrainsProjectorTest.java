@@ -35,7 +35,7 @@ class BookedTrainsProjectorTest {
 
         projector.handle(Stream.of(stored(event)));
 
-        List<BookedTrainView> views = projector.views();
+        List<BookedTrainView> views = projector.views(TimeView.ALL, DEPARTURE);
         assertThat(views)
                 .hasSize(1);
         BookedTrainView view = views.getFirst();
@@ -59,6 +59,46 @@ class BookedTrainsProjectorTest {
                 .isEmpty();
         assertThat(view.arrivalDateTime())
                 .isEqualTo(ARRIVAL);
+    }
+
+    @Test
+    void futureFilterExcludesTrainsDepartingBeforeNow() {
+        BookedTrainsProjector projector = new BookedTrainsProjector();
+        LocalDateTime now = LocalDateTime.of(2026, 6, 15, 12, 0);
+        TrainBooked past = trainBookedDeparting(LocalDateTime.of(2026, 6, 10, 9, 0));
+        TrainBooked future = trainBookedDeparting(LocalDateTime.of(2026, 6, 20, 9, 0));
+
+        projector.handle(Stream.of(stored(past), stored(future)));
+
+        assertThat(projector.views(TimeView.FUTURE, now))
+                .extracting(BookedTrainView::departureDateTime)
+                .containsExactly(future.departureDateTime());
+        assertThat(projector.views(TimeView.ALL, now))
+                .extracting(BookedTrainView::departureDateTime)
+                .containsExactly(past.departureDateTime(), future.departureDateTime());
+    }
+
+    @Test
+    void futureFilterIncludesTrainDepartingExactlyNow() {
+        BookedTrainsProjector projector = new BookedTrainsProjector();
+        LocalDateTime now = LocalDateTime.of(2026, 6, 15, 12, 0);
+        TrainBooked departingNow = trainBookedDeparting(now);
+
+        projector.handle(Stream.of(stored(departingNow)));
+
+        assertThat(projector.views(TimeView.FUTURE, now))
+                .hasSize(1);
+    }
+
+    private static TrainBooked trainBookedDeparting(LocalDateTime departure) {
+        return new TrainBooked(
+                TrainTripId.random(),
+                new TrainStationAddress("London Euston", "London", "UK", ""),
+                departure,
+                new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", ""),
+                departure.plusHours(4),
+                ""
+        );
     }
 
     private static StoredEvent stored(Event event) {

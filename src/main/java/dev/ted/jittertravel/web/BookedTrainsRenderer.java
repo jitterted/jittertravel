@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedTrainView;
+import dev.ted.jittertravel.application.TimeView;
 import j2html.tags.DomContent;
 
 import java.util.List;
@@ -33,9 +34,19 @@ public class BookedTrainsRenderer {
             .station-name { font-weight: 500; }
             .station-city { font-size: 0.85rem; color: var(--muted-text, #6c757d); }
             .empty-state { margin-top: 1rem; color: var(--muted-text, #6c757d); }
+            .time-toggle { display: inline-flex; margin-top: 1rem; border-radius: 6px;
+                overflow: hidden; border: 1px solid var(--border-color, #dee2e6); }
+            .time-toggle a {
+                padding: 6px 16px; text-decoration: none; font-size: 0.9rem;
+                color: var(--muted-text, #6c757d); background-color: var(--surface, #fff);
+            }
+            .time-toggle a + a { border-left: 1px solid var(--border-color, #dee2e6); }
+            .time-toggle a.active {
+                background-color: var(--accent, #0d6efd); color: #fff; font-weight: 600;
+            }
             """;
 
-    public static String render(List<BookedTrainView> trains) {
+    public static String render(List<BookedTrainView> trains, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
                 head(
                         meta().withCharset("UTF-8"),
@@ -47,7 +58,10 @@ public class BookedTrainsRenderer {
                         nav(h3(a("JitterTravel").withHref("/"))),
                         div().withClass("trains-container").with(
                                 h1("Booked Trains"),
-                                trains.isEmpty() ? renderEmptyState() : renderTrainList(trains),
+                                renderToggle(activeFilter),
+                                trains.isEmpty()
+                                        ? renderEmptyState(activeFilter)
+                                        : renderTrainList(trains),
                                 br(),
                                 a("Book another train").withHref("/book-train")
                         )
@@ -55,8 +69,26 @@ public class BookedTrainsRenderer {
         ).withLang("en").render();
     }
 
-    private static DomContent renderEmptyState() {
-        return p("No train trips booked yet.").withClass("empty-state");
+    private static DomContent renderToggle(TimeView activeFilter) {
+        return div().withClass("time-toggle").with(
+                toggleLink("Upcoming", "/booked-trains?filter=future",
+                        activeFilter == TimeView.FUTURE),
+                toggleLink("All", "/booked-trains?filter=all",
+                        activeFilter == TimeView.ALL)
+        );
+    }
+
+    private static DomContent toggleLink(String label, String href, boolean active) {
+        return active
+                ? a(label).withHref(href).withClass("active")
+                : a(label).withHref(href);
+    }
+
+    private static DomContent renderEmptyState(TimeView activeFilter) {
+        String message = activeFilter == TimeView.FUTURE
+                ? "No upcoming trains."
+                : "No train trips booked yet.";
+        return p(message).withClass("empty-state");
     }
 
     private static DomContent renderTrainList(List<BookedTrainView> trains) {

@@ -1,10 +1,14 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.domain.BookFlightCommand;
+import dev.ted.jittertravel.domain.Event;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
+import java.util.stream.Stream;
 
-public class BookFlightRequest {
+public class BookFlightRequest implements ImportableCommand {
     private String flightId;
     private String airline;
     private String flightNumber;
@@ -73,6 +77,16 @@ public class BookFlightRequest {
 
     public void setArrivalDateTime(LocalDateTime arrivalDateTime) {
         this.arrivalDateTime = arrivalDateTime;
+    }
+
+    @Override
+    public UUID commandId() {
+        return UUID.fromString(flightId);
+    }
+
+    @Override
+    public Stream<? extends Event> events() {
+        return new BookFlightCommand().execute(this, IMPORT_BYPASS_NOW);
     }
 
     @Override

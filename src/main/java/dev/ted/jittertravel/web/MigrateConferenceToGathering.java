@@ -1,4 +1,4 @@
-package dev.ted.jittertravel.application;
+package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.domain.*;
 
@@ -26,7 +26,14 @@ public record MigrateConferenceToGathering(
         boolean speaking,
         String infoUrl,
         String cancellationReason
-) {
+) implements ImportableCommand {
+
+    @Override
+    public UUID commandId() {
+        return UUID.randomUUID();
+    }
+
+    @Override
     public Stream<? extends Event> events() {
         return Stream.of(
                 new ConferenceCancelled(ConferenceId.of(conferenceId), cancellationReason),

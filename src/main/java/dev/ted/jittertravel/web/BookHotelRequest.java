@@ -1,11 +1,16 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.BookHotelHandler;
+import dev.ted.jittertravel.domain.BookHotelContext;
 import dev.ted.jittertravel.domain.BookingIntent;
+import dev.ted.jittertravel.domain.Event;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
+import java.util.stream.Stream;
 
-public class BookHotelRequest {
+public class BookHotelRequest implements ImportableCommand {
     private String hotelBookingId;
     private String hotelName;
     private String street;
@@ -58,4 +63,14 @@ public class BookHotelRequest {
 
     public BookingIntent getBookingIntent() { return bookingIntent; }
     public void setBookingIntent(BookingIntent bookingIntent) { this.bookingIntent = bookingIntent; }
+
+    @Override
+    public UUID commandId() {
+        return UUID.fromString(hotelBookingId);
+    }
+
+    @Override
+    public Stream<? extends Event> events() {
+        return new BookHotelHandler().handle(this).execute(new BookHotelContext(IMPORT_BYPASS_NOW));
+    }
 }

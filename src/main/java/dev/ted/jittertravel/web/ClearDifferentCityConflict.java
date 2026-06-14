@@ -1,4 +1,4 @@
-package dev.ted.jittertravel.application;
+package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.DifferentCityConflictCleared;
@@ -17,7 +17,14 @@ public record ClearDifferentCityConflict(
         UUID gatheringId,
         UUID conferenceId,
         String reason
-) {
+) implements ImportableCommand {
+
+    @Override
+    public UUID commandId() {
+        return UUID.randomUUID();
+    }
+
+    @Override
     public Stream<? extends Event> events() {
         return Stream.of(new DifferentCityConflictCleared(
                 GatheringId.of(gatheringId), ConferenceId.of(conferenceId), reason));

@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceSpansMultipleDays;
+import dev.ted.jittertravel.web.MigrateConferenceToGathering;
 
 import java.util.UUID;
 

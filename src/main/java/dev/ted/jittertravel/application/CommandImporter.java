@@ -1,20 +1,17 @@
 package dev.ted.jittertravel.application;
 
-import dev.ted.jittertravel.domain.*;
 import dev.ted.jittertravel.infrastructure.EventStore;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
-import dev.ted.jittertravel.web.*;
+import dev.ted.jittertravel.web.ImportableCommand;
+import dev.ted.jittertravel.web.ImportableCommandTypes;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 public class CommandImporter {
-    private static final LocalDateTime BYPASS_NOW = LocalDateTime.MIN;
 
     private final PostgresPersister persister;
     private final EventStore eventStore;
@@ -63,64 +60,18 @@ public class CommandImporter {
         public boolean hasErrors() { return !errors.isEmpty(); }
     }
 
-    private void importEntry(String type, JsonNode payloadNode) throws Exception {
-        String payloadJson = payloadNode.toString();
-        if (type.equals(BookHotelRequest.class.getName())) {
-            BookHotelRequest request = jsonMapper.readValue(payloadJson, BookHotelRequest.class);
-            BookHotelCommand command = new BookHotelHandler().handle(request);
-            var events = command.execute(new BookHotelContext(BYPASS_NOW));
-            persister.saveCommand(command.hotelBookingId().id(), request);
-            eventStore.append(events, command.hotelBookingId().id());
-        } else if (type.equals(BookFlightRequest.class.getName())) {
-            BookFlightRequest request = jsonMapper.readValue(payloadJson, BookFlightRequest.class);
-            UUID commandId = UUID.fromString(request.getFlightId());
-            var events = new BookFlightCommand().execute(request, BYPASS_NOW);
-            persister.saveCommand(commandId, request);
-            eventStore.append(events, commandId);
-        } else if (type.equals(PlanTentativeConferenceRequest.class.getName())) {
-            PlanTentativeConferenceRequest request = jsonMapper.readValue(payloadJson, PlanTentativeConferenceRequest.class);
-            UUID commandId = UUID.fromString(request.getConferenceId());
-            var events = new PlanTentativeConferenceCommand().execute(request, BYPASS_NOW);
-            persister.saveCommand(commandId, request);
-            eventStore.append(events, commandId);
-        } else if (type.equals(ChangeFlightRequest.class.getName())) {
-            ChangeFlightRequest request = jsonMapper.readValue(payloadJson, ChangeFlightRequest.class);
-            UUID commandId = UUID.randomUUID();
-            var events = new ChangeFlightCommand().execute(request, true, BYPASS_NOW);
-            persister.saveCommand(commandId, request);
-            eventStore.append(events, commandId);
-        } else if (type.equals(BookTrainRequest.class.getName())) {
-            BookTrainRequest request = jsonMapper.readValue(payloadJson, BookTrainRequest.class);
-            UUID commandId = UUID.fromString(request.getTrainTripId());
-            BookTrainCommand command = new BookTrainHandler().handle(request);
-            var events = command.execute(new BookTrainContext(BYPASS_NOW));
-            persister.saveCommand(commandId, request);
-            eventStore.append(events, commandId);
-        } else if (type.equals(PlanGatheringRequest.class.getName())) {
-            PlanGatheringRequest request = jsonMapper.readValue(payloadJson, PlanGatheringRequest.class);
-            UUID commandId = UUID.fromString(request.getGatheringId());
-            PlanGatheringCommand command = new PlanGatheringHandler().handle(request);
-            var events = command.execute(new GatheringPlanningContext(LocalDate.MIN));
-            persister.saveCommand(commandId, request);
-            eventStore.append(events, commandId);
-        } else if (type.equals(MigrateConferenceToGathering.class.getName())) {
-            MigrateConferenceToGathering command = jsonMapper.readValue(payloadJson, MigrateConferenceToGathering.class);
-            UUID commandId = UUID.randomUUID();
-            persister.saveCommand(commandId, command);
-            eventStore.append(command.events(), commandId);
-        } else if (type.equals(ClearDifferentCityConflict.class.getName())) {
-            ClearDifferentCityConflict command = jsonMapper.readValue(payloadJson, ClearDifferentCityConflict.class);
-            UUID commandId = UUID.randomUUID();
-            persister.saveCommand(commandId, command);
-            eventStore.append(command.events(), commandId);
-        } else {
-            throw new IllegalArgumentException("Unknown command type: " + type);
-        }
+    private void importEntry(String type, JsonNode payloadNode) {
+        Class<? extends ImportableCommand> commandType = ImportableCommandTypes.classFor(type);
+        ImportableCommand command = jsonMapper.readValue(payloadNode.toString(), commandType);
+        UUID commandId = command.commandId();
+        persister.saveCommand(commandId, command);     // command persisted first (FK target for events)
+        eventStore.append(command.events(), commandId);
     }
 
     private ExportEntry toExportEntry(PostgresPersister.CommandPayloadRow row) {
         try {
-            return new ExportEntry(row.type(), jsonMapper.readTree(row.payloadJson()));
+            return new ExportEntry(ImportableCommandTypes.logicalNameFor(row.type()),
+                    jsonMapper.readTree(row.payloadJson()));
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse payload for type " + row.type(), e);
         }

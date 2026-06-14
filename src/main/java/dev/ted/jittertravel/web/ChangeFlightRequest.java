@@ -1,10 +1,14 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.domain.ChangeFlightCommand;
+import dev.ted.jittertravel.domain.Event;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
+import java.util.stream.Stream;
 
-public class ChangeFlightRequest {
+public class ChangeFlightRequest implements ImportableCommand {
     private String flightId;
     private String airline;
     private String flightNumber;
@@ -81,6 +85,19 @@ public class ChangeFlightRequest {
 
     public void setArrivalDateTime(LocalDateTime arrivalDateTime) {
         this.arrivalDateTime = arrivalDateTime;
+    }
+
+    @Override
+    public UUID commandId() {
+        // A flight may be changed many times; each change is a distinct command, so the id is not
+        // derived from flightId (import keeps it random, matching the prior behavior).
+        return UUID.randomUUID();
+    }
+
+    @Override
+    public Stream<? extends Event> events() {
+        // On import the flight is assumed to already exist (its booking imported earlier).
+        return new ChangeFlightCommand().execute(this, true, IMPORT_BYPASS_NOW);
     }
 
     @Override

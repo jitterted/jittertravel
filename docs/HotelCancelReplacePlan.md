@@ -201,10 +201,14 @@ Phase 1.
 
 ## Verification
 
-- **Unit/slice tests:** `./gradlew test` — new `CancelHotelCommandTest`,
+- **Unit/slice tests:** `./mvnw test` (Maven project) — new `CancelHotelCommandTest`,
   `ReplaceHotelCommandTest`, projector lifecycle tests, `HotelDetailsViewProjectorTest`,
   renderer tests, `@WebMvcTest` controller tests, round-trip + golden-JSON contract tests,
-  `AuthorizationMatrixTest`.
+  `AuthorizationMatrixTest`. These are plain JUnit/`@WebMvcTest` (not the `js` group), so the
+  default build runs them.
+- **JS-behavior tests (only if needed):** if the Thymeleaf details page gains an inline script
+  (e.g. a cancel/replace confirm dialog), that behavior goes in the Playwright `js` tier
+  (`JsBehaviorTest`, `@Tag("js")`, `./mvnw test -Pjs-tests`) per CLAUDE.md — not a server test.
 - **Phase 0:** `EventTypes` completeness test (every `Event` registered); events round-trip
   under logical names; legacy FQCN `type` values still resolve. Boot the app against an existing
   DB to confirm replay of pre-change `event_log` rows still works.

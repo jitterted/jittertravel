@@ -25,7 +25,7 @@ public class ConfirmedCalendarRenderer {
                 --calendar-tint-odd: #ffffff;
                 --calendar-month-start-color: #b45309;
                 --calendar-month-start-border-width: 3px;
-                --calendar-past-hatch: rgba(0, 0, 0, 0.2);
+                --calendar-past-hatch: rgba(0, 0, 0, 0.1);
                 --calendar-today-tint: #eef2ff;
                 --entry-conference-bg: #e0e7ff; --entry-conference-fg: #4f46e5;
                 --entry-gathering-bg: #f5f3ff;  --entry-gathering-fg: #7c3aed;
@@ -33,9 +33,11 @@ public class ConfirmedCalendarRenderer {
                 --entry-train-bg: #ffedd5;      --entry-train-fg: #9a3412;
                 --entry-lodging-bg: #dcfce7;    --entry-lodging-fg: #166534;
             }
-            .calendar-container {
+            .calendar-outer {
                 margin: 2rem 4rem;
                 font-family: system-ui, -apple-system, sans-serif;
+            }
+            .calendar-container {
                 border-left: 1px solid var(--calendar-border-strong);
                 border-top: 1px solid var(--calendar-border-strong);
             }
@@ -67,11 +69,12 @@ public class ConfirmedCalendarRenderer {
                 border-left: var(--calendar-month-start-border-width) solid var(--calendar-month-start-color);
             }
             .day-number {
-                font-size: 0.9rem; font-weight: 500;
+                font-size: 0.9rem; font-weight: 700;
                 color: var(--calendar-text-secondary);
                 text-align: left; text-decoration: none; display: block;
             }
             .day-number:hover { text-decoration: underline; }
+            .day-label-cell.is-past .day-number { font-weight: 500; }
             .day-number.is-month-start {
                 font-size: 1.25rem; font-weight: 700;
                 color: var(--calendar-month-start-color); letter-spacing: 0.02em;
@@ -92,6 +95,7 @@ public class ConfirmedCalendarRenderer {
                 background-color: var(--calendar-today-tint);
             }
             .entry {
+                position: relative;
                 margin: 4px 6px; padding: 6px 10px; border-radius: 8px;
                 box-sizing: border-box; font-size: 0.9rem; line-height: 1.3;
                 min-height: 52px; display: flex; flex-direction: column; justify-content: center;
@@ -104,6 +108,80 @@ public class ConfirmedCalendarRenderer {
             .entry--train      { background-color: var(--entry-train-bg);      color: var(--entry-train-fg); }
             .entry--lodging    { background-color: var(--entry-lodging-bg);    color: var(--entry-lodging-fg); }
             .entry--continuation { opacity: 0.9; }
+            /* Entries spanning a week boundary: square the continuing edge and run it flush
+               to the boundary so the bar visibly carries over into the adjacent week. */
+            .entry--from-left {
+                border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: 0;
+            }
+            .entry--to-right {
+                border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: 0;
+                padding-right: 20px;
+            }
+            .entry--to-right::after {
+                content: "\\2192";  /* rightwards arrow: this entry continues next week */
+                position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+                font-size: 1rem; font-weight: 700; opacity: 0.75;
+            }
+            /* Collapsed prior weeks: hide the lane rows + entries so only the day-label
+               row shows (the auto track sizes to 0 with no content). The markup stays in
+               place so a click can reveal it. */
+            .calendar-week--collapsed .lane-cell,
+            .calendar-week--collapsed .entry { display: none; }
+            .calendar-week--collapsed { cursor: pointer; }
+            /* Revealed weeks: is-expanded is the single source of truth, set per-week by a
+               click or for every week by the global toggle. */
+            .calendar-week--collapsed.is-expanded .lane-cell { display: block; }
+            .calendar-week--collapsed.is-expanded .entry { display: flex; }
+            .calendar-week--collapsed.is-expanded { cursor: default; }
+            /* Per-day count badge: only visible on a collapsed week, hidden once expanded. */
+            .day-badge {
+                display: none;
+                float: right;
+                min-width: 1.1rem; padding: 0 5px; margin-top: 1px;
+                border-radius: 9px; background-color: #e5e7eb;
+                color: #6b7280; font-size: 0.7rem; font-weight: 700;
+                line-height: 1.25rem; text-align: center;
+            }
+            .calendar-week--collapsed .day-badge { display: inline-block; }
+            .calendar-week--collapsed.is-expanded .day-badge { display: none; }
+            .toggle-all-weeks {
+                display: block; margin: 0 0 6px auto;
+                background: none; border: none; padding: 2px 4px;
+                color: var(--calendar-text-secondary); font-size: 0.75rem;
+                cursor: pointer; text-decoration: underline;
+            }
+            .toggle-all-weeks:hover { color: var(--calendar-month-start-color); }
+            """;
+
+    private static final String TOGGLE_SCRIPT = """
+            var collapsedWeeks = document.querySelectorAll('.calendar-week--collapsed');
+            var toggleAll = document.getElementById('toggle-all-weeks');
+            function anyWeekCollapsed() {
+                return Array.prototype.some.call(collapsedWeeks, function (week) {
+                    return !week.classList.contains('is-expanded');
+                });
+            }
+            function syncToggleAllLabel() {
+                if (toggleAll) {
+                    toggleAll.textContent = anyWeekCollapsed() ? 'Show past weeks' : 'Hide past weeks';
+                }
+            }
+            collapsedWeeks.forEach(function (week) {
+                week.addEventListener('click', function (event) {
+                    if (event.target.closest('a')) return;  // let day links navigate
+                    week.classList.toggle('is-expanded');
+                    syncToggleAllLabel();
+                });
+            });
+            if (toggleAll) {
+                toggleAll.addEventListener('click', function () {
+                    var expandAll = anyWeekCollapsed();  // any still collapsed -> show all, else hide all
+                    collapsedWeeks.forEach(function (week) {
+                        week.classList.toggle('is-expanded', expandAll);
+                    });
+                    syncToggleAllLabel();
+                });
+            }
             """;
 
     public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser) {
@@ -144,7 +222,8 @@ public class ConfirmedCalendarRenderer {
                                         .withHref("/")
                                         .withStyle("font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI'; color: #4f46e5;")
                         ).withStyle("margin-left: 4rem; font-size: 0.9rem;"),
-                        rawHtml(calendarMarkup)
+                        rawHtml(calendarMarkup),
+                        rawHtml("<script>" + TOGGLE_SCRIPT + "</script>")
                 )
         ).withLang("en").render();
     }

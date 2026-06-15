@@ -2,62 +2,185 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <title>Plan Tentative Conference</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        fieldset {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        legend {
+            font-weight: 600;
+            padding: 0 0.4em;
+            color: var(--muted-text);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .field { margin-bottom: 0.5rem; }
+        .field:last-child { margin-bottom: 0; }
+
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+
+        .field input {
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+
+        .field-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .field-row .field { flex: 2; margin-bottom: 0; }
+        .field-row .field.narrow { flex: 1; }
+
+        .error {
+            display: block;
+            margin-top: 2px;
+            font-size: 0.8rem;
+            color: #b00;
+        }
+
+        button[type=submit] {
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        button[type=submit]:hover { opacity: 0.88; }
+    </style>
 </head>
 <body>
-<h1>Plan Tentative Conference</h1>
-<form th:action="@{/plan-conference}" th:object="${planTentativeConference}" method="post">
-    <input type="hidden" th:field="*{conferenceId}"/>
+<div class="page">
 
-    <div>
-        <label>
-            Conference Name:
-            <input type="text" th:field="*{name}"/>
-        </label>
-        <span th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
-    </div>
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/calendar">Calendar</a>
+    </nav>
 
-    <div>
-        <label>Start Date:</label>
-        <input type="datetime-local" th:field="*{startDate}"/>
-        <span th:if="${#fields.hasErrors('startDate')}" th:errors="*{startDate}"></span>
-    </div>
+    <h1>Plan Tentative Conference</h1>
 
-    <div>
-        <label>End Date:</label>
-        <input type="datetime-local" th:field="*{endDate}"/>
-        <span th:if="${#fields.hasErrors('endDate')}" th:errors="*{endDate}"></span>
-    </div>
+    <form th:action="@{/plan-conference}" th:object="${planTentativeConference}" method="post">
+        <input type="hidden" th:field="*{conferenceId}"/>
 
-    <div>
-        <label>Venue Name:</label>
-        <input type="text" th:field="*{venueName}"/>
-    </div>
-
-    <div th:object="${planTentativeConference}">
-        <h3>Venue Address</h3>
-        <div>
-            <label>Street:</label>
-            <input type="text" th:field="*{venueStreet}"/>
+        <div class="field" style="margin-bottom: 0.75rem;">
+            <label>
+                Conference Name
+                <input type="text" th:field="*{name}"/>
+            </label>
+            <span class="error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
         </div>
-        <div>
-            <label>City:</label>
-            <input type="text" th:field="*{venueCity}"/>
-        </div>
-        <div>
-            <label>State:</label>
-            <input type="text" th:field="*{venueState}"/>
-        </div>
-        <div>
-            <label>Country:</label>
-            <input type="text" th:field="*{venueCountry}"/>
-        </div>
-        <div>
-            <label>Postal Code:</label>
-            <input type="text" th:field="*{venuePostalCode}"/>
-        </div>
-    </div>
 
-    <button type="submit">Plan Conference</button>
-</form>
+        <div class="field-row" style="margin-bottom: 0.75rem;">
+            <div class="field">
+                <label>
+                    Start Date
+                    <input type="datetime-local" th:field="*{startDate}"/>
+                </label>
+                <span class="error"
+                      th:if="${#fields.hasErrors('startDate')}"
+                      th:errors="*{startDate}"></span>
+            </div>
+            <div class="field">
+                <label>
+                    End Date
+                    <input type="datetime-local" th:field="*{endDate}"/>
+                </label>
+                <span class="error"
+                      th:if="${#fields.hasErrors('endDate')}"
+                      th:errors="*{endDate}"></span>
+            </div>
+        </div>
+
+        <fieldset>
+            <legend>Venue</legend>
+
+            <div class="field">
+                <label>
+                    Venue Name
+                    <input type="text" th:field="*{venueName}"/>
+                </label>
+            </div>
+            <div class="field">
+                <label>
+                    Street
+                    <input type="text" th:field="*{venueStreet}"/>
+                </label>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>
+                        City
+                        <input type="text" th:field="*{venueCity}"/>
+                    </label>
+                </div>
+                <div class="field narrow">
+                    <label>
+                        State
+                        <input type="text" th:field="*{venueState}"/>
+                    </label>
+                </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>
+                        Country
+                        <input type="text" th:field="*{venueCountry}"/>
+                    </label>
+                </div>
+                <div class="field narrow">
+                    <label>
+                        Postal Code
+                        <input type="text" th:field="*{venuePostalCode}"/>
+                    </label>
+                </div>
+            </div>
+        </fieldset>
+
+        <button type="submit">Plan Conference</button>
+    </form>
+
+</div>
 </body>
 </html>

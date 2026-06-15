@@ -32,20 +32,45 @@ public class CalendarViewBuilder {
         LocalDate gridStart = rangeStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
         LocalDate gridEnd = rangeEnd.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
 
+        // Weeks entirely before the week containing "today" collapse to their day-label
+        // row; if they carry entries, those entries are kept in the markup (hidden) so a
+        // click can reveal them without a server round-trip.
+        LocalDate currentWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+
         List<DomContent> weekRows = new ArrayList<>();
+        boolean anyCollapsedWithEntries = false;
         LocalDate sunday = gridStart;
         while (!sunday.isAfter(gridEnd)) {
-            weekRows.add(renderWeek(sunday, sunday.plusDays(6), gridStart, today, entries, isPublicUser));
+            LocalDate weekStart = sunday;
+            LocalDate saturday = sunday.plusDays(6);
+            boolean collapsed = saturday.isBefore(currentWeekStart);
+            if (collapsed && entries.stream().anyMatch(e -> intersectsWeek(e, weekStart, saturday))) {
+                anyCollapsedWithEntries = true;
+            }
+            weekRows.add(renderWeek(sunday, saturday, gridStart, today, entries, isPublicUser, collapsed));
             sunday = sunday.plusDays(7);
         }
 
-        return div().withClass("calendar-container").with(
+        DivTag container = div().withClass("calendar-container").with(
                 div().withClass("calendar-header").with(
                         div("Sunday"), div("Monday"), div("Tuesday"), div("Wednesday"),
                         div("Thursday"), div("Friday"), div("Saturday")
                 ),
                 each(weekRows.stream())
-        ).render();
+        );
+
+        // The toggle sits in the outer wrapper, above the container's top-right border.
+        List<DomContent> outerChildren = new ArrayList<>();
+        if (anyCollapsedWithEntries) {
+            outerChildren.add(
+                    button("Show past weeks")
+                            .withId("toggle-all-weeks")
+                            .withType("button")
+                            .withClass("toggle-all-weeks"));
+        }
+        outerChildren.add(container);
+
+        return div().withClass("calendar-outer").with(outerChildren).render();
     }
 
     private static DivTag renderWeek(LocalDate sunday,
@@ -53,7 +78,8 @@ public class CalendarViewBuilder {
                                      LocalDate gridStart,
                                      LocalDate today,
                                      List<CalendarEntry> allEntries,
-                                     boolean isPublicUser) {
+                                     boolean isPublicUser,
+                                     boolean collapsed) {
         List<CalendarEntry> intersecting = allEntries.stream()
                 .filter(e -> intersectsWeek(e, sunday, saturday))
                 .sorted(Comparator.comparing(CalendarEntry::start))
@@ -108,11 +134,25 @@ public class CalendarViewBuilder {
         }
         int totalSubRows = offset;
 
+        // Per-day entry counts (a multi-day entry counts on every day it spans). Surfaced
+        // as a badge that is only visible while the week is collapsed.
+        int[] dayCounts = new int[7];
+        for (CalendarEntry entry : intersecting) {
+            for (int i = 0; i < 7; i++) {
+                LocalDate d = sunday.plusDays(i);
+                if (!entry.start().toLocalDate().isAfter(d) && !entry.end().toLocalDate().isBefore(d)) {
+                    dayCounts[i]++;
+                }
+            }
+        }
+
         List<DomContent> cells = new ArrayList<>();
 
-        // Day-label row (grid-row: 1, columns 1..7)
+        // Day-label row (grid-row: 1, columns 1..7). Count badges are only emitted for
+        // collapsed weeks, where they are the sole hint of hidden entries.
         for (int i = 0; i < 7; i++) {
-            cells.add(renderDayLabelCell(sunday.plusDays(i), gridStart, today, isPublicUser));
+            int badgeCount = collapsed ? dayCounts[i] : 0;
+            cells.add(renderDayLabelCell(sunday.plusDays(i), gridStart, today, isPublicUser, badgeCount));
         }
 
         // Per-day lane filler cells, one per (column × lane sub-row), so that the
@@ -144,10 +184,11 @@ public class CalendarViewBuilder {
                 ? "grid-template-rows: auto;"
                 : "grid-template-rows: auto repeat(" + totalSubRows + ", auto);";
 
-        return div().withClass("calendar-week").withStyle(rowsStyle).with(cells);
+        String weekClass = "calendar-week" + (collapsed ? " calendar-week--collapsed" : "");
+        return div().withClass(weekClass).withStyle(rowsStyle).with(cells);
     }
 
-    private static DomContent renderDayLabelCell(LocalDate date, LocalDate gridStart, LocalDate today, boolean isPublicUser) {
+    private static DomContent renderDayLabelCell(LocalDate date, LocalDate gridStart, LocalDate today, boolean isPublicUser, int entryCount) {
         boolean isFirstCellOfGrid = date.equals(gridStart);
         boolean isMonthStart = date.getDayOfMonth() == 1 || isFirstCellOfGrid;
         String monthTint = (date.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
@@ -157,7 +198,14 @@ public class CalendarViewBuilder {
         DomContent dayNumber = isPublicUser
                 ? span(label).withClass(dayNumberClass)
                 : a(label).withHref("/itinerary?date=" + date).withClass(dayNumberClass);
-        return div().withClass(labelClass).with(dayNumber);
+        DivTag cell = div().withClass(labelClass).with(dayNumber);
+        // Only emitted when the day has entries; CSS reveals it only in collapsed weeks.
+        if (entryCount > 0) {
+            cell.with(span(String.valueOf(entryCount))
+                    .withClass("day-badge")
+                    .withTitle(entryCount + (entryCount == 1 ? " item" : " items")));
+        }
+        return cell;
     }
 
     private static DomContent renderEntrySegment(CalendarEntry entry,
@@ -168,6 +216,15 @@ public class CalendarViewBuilder {
                                                  boolean isFinalSegment) {
         String kindClass = "entry--" + entry.kind().name().toLowerCase();
         String classes = "entry " + kindClass + (isContinuation ? " entry--continuation" : "");
+        // Square the edge (and run flush to the week boundary) on the side where the entry
+        // continues into an adjacent week: leftward for a continuation, rightward when this
+        // is not the final segment.
+        if (isContinuation) {
+            classes += " entry--from-left";
+        }
+        if (!isFinalSegment) {
+            classes += " entry--to-right";
+        }
         String style = "grid-column: " + startCol + " / span " + span
                 + "; grid-row: " + gridRow + ";";
         if (entry.kind() == EntryKind.LODGING && isFinalSegment) {

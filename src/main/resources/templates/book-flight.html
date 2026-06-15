@@ -2,85 +2,264 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <title>Book Flight</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .lookup {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .lookup legend {
+            font-weight: 600;
+            padding: 0 0.4em;
+            color: var(--muted-text);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .lookup p {
+            margin: 0 0 0.6rem;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+
+        .lookup-row {
+            display: flex;
+            gap: 0.5rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .lookup-row .field { flex: 1; min-width: 8rem; }
+
+        .service-field { margin-bottom: 1rem; }
+
+        .fieldsets {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        fieldset {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin: 0;
+        }
+
+        legend {
+            font-weight: 600;
+            padding: 0 0.4em;
+            color: var(--muted-text);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .field { margin-bottom: 0.5rem; }
+        .field:last-child { margin-bottom: 0; }
+
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+
+        .field input {
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+
+        .field-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .field-row .field { flex: 2; margin-bottom: 0; }
+        .field-row .field.narrow { flex: 1; }
+
+        .error {
+            display: block;
+            margin-top: 2px;
+            font-size: 0.8rem;
+            color: #b00;
+        }
+
+        .global-errors {
+            margin: 0 0 1rem;
+            padding-left: 1.2rem;
+            font-size: 0.8rem;
+            color: #b00;
+        }
+
+        button[type=submit] {
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        button[type=submit]:hover { opacity: 0.88; }
+
+        .lookup-btn {
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.35rem 1rem;
+            font-size: 0.85rem;
+            font-family: inherit;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .lookup-btn:hover { opacity: 0.88; }
+    </style>
 </head>
 <body>
-<h1>Book Flight</h1>
+<div class="page">
 
-<section style="border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem;">
-    <h2>Lookup flight</h2>
-    <p>Enter a flight number and departure date to auto-fill the form using AeroDataBox.</p>
-    <form th:action="@{/book-flight/lookup}" method="post">
-        <div>
-            <label>
-                Flight Number (e.g., UA195):
-                <input type="text" name="lookupFlightNumber" th:value="${lookupFlightNumber}"/>
-            </label>
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/calendar">Calendar</a>
+    </nav>
+
+    <h1>Book Flight</h1>
+
+    <fieldset class="lookup">
+        <legend>Lookup Flight</legend>
+        <p>Enter a flight number and departure date to auto-fill the form using AeroDataBox.</p>
+        <form th:action="@{/book-flight/lookup}" method="post">
+            <div class="lookup-row">
+                <div class="field">
+                    <label>
+                        Flight Number (e.g. UA195)
+                        <input type="text" name="lookupFlightNumber" th:value="${lookupFlightNumber}"/>
+                    </label>
+                </div>
+                <div class="field">
+                    <label>
+                        Departure Date
+                        <input type="date" name="lookupDepartureDate" th:value="${lookupDepartureDate}"/>
+                    </label>
+                </div>
+                <button type="submit" class="lookup-btn">Lookup ▶</button>
+            </div>
+            <span class="error" th:if="${lookupError}" th:text="${lookupError}"></span>
+        </form>
+    </fieldset>
+
+    <form th:action="@{/book-flight}" th:object="${bookFlight}" method="post">
+        <input type="hidden" th:field="*{flightId}"/>
+
+        <div class="field-row service-field">
+            <div class="field">
+                <label>
+                    Airline
+                    <input type="text" th:field="*{airline}"/>
+                </label>
+                <span class="error" th:if="${#fields.hasErrors('airline')}" th:errors="*{airline}"></span>
+            </div>
+            <div class="field narrow">
+                <label>
+                    Flight Number
+                    <input type="text" th:field="*{flightNumber}"/>
+                </label>
+                <span class="error" th:if="${#fields.hasErrors('flightNumber')}" th:errors="*{flightNumber}"></span>
+            </div>
         </div>
-        <div>
-            <label>
-                Departure Date:
-                <input type="date" name="lookupDepartureDate" th:value="${lookupDepartureDate}"/>
-            </label>
+
+        <div class="fieldsets">
+            <fieldset>
+                <legend>Departure</legend>
+
+                <div class="field">
+                    <label>
+                        Airport (3-letter code)
+                        <input type="text" th:field="*{departureAirport}" maxlength="3" minlength="3"/>
+                    </label>
+                    <span class="error"
+                          th:if="${#fields.hasErrors('departureAirport')}"
+                          th:errors="*{departureAirport}"></span>
+                </div>
+                <div class="field">
+                    <label>
+                        Date / Time
+                        <input type="datetime-local" th:field="*{departureDateTime}"/>
+                    </label>
+                    <span class="error"
+                          th:if="${#fields.hasErrors('departureDateTime')}"
+                          th:errors="*{departureDateTime}"></span>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Arrival</legend>
+
+                <div class="field">
+                    <label>
+                        Airport (3-letter code)
+                        <input type="text" th:field="*{arrivalAirport}" maxlength="3" minlength="3"/>
+                    </label>
+                    <span class="error"
+                          th:if="${#fields.hasErrors('arrivalAirport')}"
+                          th:errors="*{arrivalAirport}"></span>
+                </div>
+                <div class="field">
+                    <label>
+                        Date / Time
+                        <input type="datetime-local" th:field="*{arrivalDateTime}"/>
+                    </label>
+                    <span class="error"
+                          th:if="${#fields.hasErrors('arrivalDateTime')}"
+                          th:errors="*{arrivalDateTime}"></span>
+                </div>
+            </fieldset>
         </div>
-        <button type="submit">Lookup</button>
-    </form>
-    <p th:if="${lookupError}" th:text="${lookupError}" style="color: #b00;"></p>
-</section>
 
-<form th:action="@{/book-flight}" th:object="${bookFlight}" method="post">
-    <input type="hidden" th:field="*{flightId}"/>
-
-    <div>
-        <label>
-            Airline:
-            <input type="text" th:field="*{airline}"/>
-        </label>
-        <span th:if="${#fields.hasErrors('airline')}" th:errors="*{airline}"></span>
-    </div>
-
-    <div>
-        <label>
-            Flight Number:
-            <input type="text" th:field="*{flightNumber}"/>
-        </label>
-        <span th:if="${#fields.hasErrors('flightNumber')}" th:errors="*{flightNumber}"></span>
-    </div>
-
-    <div>
-        <label>
-            Departure Airport (3-letter code):
-            <input type="text" th:field="*{departureAirport}" maxlength="3" minlength="3"/>
-        </label>
-        <span th:if="${#fields.hasErrors('departureAirport')}" th:errors="*{departureAirport}"></span>
-    </div>
-
-    <div>
-        <label>Departure Date/Time:</label>
-        <input type="datetime-local" th:field="*{departureDateTime}"/>
-        <span th:if="${#fields.hasErrors('departureDateTime')}" th:errors="*{departureDateTime}"></span>
-    </div>
-
-    <div>
-        <label>
-            Arrival Airport (3-letter code):
-            <input type="text" th:field="*{arrivalAirport}" maxlength="3" minlength="3"/>
-        </label>
-        <span th:if="${#fields.hasErrors('arrivalAirport')}" th:errors="*{arrivalAirport}"></span>
-    </div>
-
-    <div>
-        <label>Arrival Date/Time:</label>
-        <input type="datetime-local" th:field="*{arrivalDateTime}"/>
-        <span th:if="${#fields.hasErrors('arrivalDateTime')}" th:errors="*{arrivalDateTime}"></span>
-    </div>
-
-    <div th:if="${#fields.hasGlobalErrors()}">
-        <ul>
+        <ul class="global-errors" th:if="${#fields.hasGlobalErrors()}">
             <li th:each="err : ${#fields.globalErrors()}" th:text="${err}"></li>
         </ul>
-    </div>
 
-    <button type="submit">Book Flight</button>
-</form>
+        <button type="submit">Book Flight</button>
+    </form>
+
+</div>
 </body>
 </html>

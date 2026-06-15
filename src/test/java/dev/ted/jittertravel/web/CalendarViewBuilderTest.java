@@ -283,6 +283,62 @@ class CalendarViewBuilderTest {
     }
 
     @Test
+    void weeksBeforeCurrentWeekAreMarkedCollapsedAndKeepEntryMarkup() {
+        // Conference Mon-Wed 2026-06-01..03; today is Mon 2026-06-15, so its week
+        // (Sun 2026-06-14..) is current and the conference week is a prior week.
+        CalendarEntry conf = new CalendarEntry(
+                EntryKind.CONFERENCE,
+                LocalDateTime.of(2026, 6, 1, 9, 0),
+                LocalDateTime.of(2026, 6, 3, 17, 0),
+                "PastConf", List.of("(City, Country)"),
+                "PastConf cont'd", List.of("(City, Country)"),
+                null
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(conf),
+                LocalDate.of(2026, 5, 31),
+                LocalDate.of(2026, 6, 20),
+                LocalDate.of(2026, 6, 15),
+                false
+        );
+
+        // The prior week carries the collapsed marker, but its entry markup is retained
+        // (hidden by CSS) so a click can reveal it.
+        assertThat(html).contains("calendar-week--collapsed");
+        assertThat(html).contains(">PastConf<");
+        // Per-day badges show the count on each day the entry spans (Mon/Tue/Wed).
+        long badgeCount = html.split("class=\"day-badge\"", -1).length - 1;
+        assertThat(badgeCount).isEqualTo(3);
+        // A global toggle is offered because a collapsed week has entries.
+        assertThat(html).contains("id=\"toggle-all-weeks\"");
+    }
+
+    @Test
+    void currentAndFutureWeeksAreNotCollapsedAndHaveNoBadges() {
+        CalendarEntry conf = new CalendarEntry(
+                EntryKind.CONFERENCE,
+                LocalDateTime.of(2026, 6, 16, 9, 0),
+                LocalDateTime.of(2026, 6, 16, 17, 0),
+                "FutureConf", List.of("(City, Country)"),
+                "FutureConf cont'd", List.of("(City, Country)"),
+                null
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(conf),
+                LocalDate.of(2026, 6, 14),
+                LocalDate.of(2026, 6, 20),
+                LocalDate.of(2026, 6, 15),
+                false
+        );
+
+        assertThat(html).doesNotContain("calendar-week--collapsed");
+        assertThat(html).doesNotContain("class=\"day-badge\"");
+        assertThat(html).doesNotContain("id=\"toggle-all-weeks\"");
+    }
+
+    @Test
     void gatheringEntryRendersWithGatheringCssClass() {
         CalendarEntry gathering = new CalendarEntry(
                 EntryKind.GATHERING,

@@ -24,3 +24,14 @@ and notifying subscribers. This guarantees projectors only ever see events that 
 durable. If persistence fails, the exception propagates and subscribers are never called.
 
 Covered by `EventStoreTest.subscribersNotNotifiedWhenPersistenceFails()`.
+
+## Testing
+
+### JS-behavior tests: tag `js`, browser-only, no server
+
+Tiny inline scripts our renderers embed (e.g. the calendar "Show/Hide past weeks"
+toggle) are tested in a dedicated Playwright tier. These tests render HTML directly and
+load it with `page.setContent(...)` — **no server, Spring context, DB, or auth** — so only
+the JS is under test. Extend `JsBehaviorTest` (`@Tag("js")` is inherited) and run with
+`./mvnw test -Pjs-tests`; the default build excludes the `js` group. Full do/don't
+guidance: `docs/JS-Behavior-Tests.md`.

@@ -41,7 +41,10 @@ public class ConfirmedCalendarRenderer {
                 border-left: 1px solid var(--calendar-border-strong);
                 border-top: 1px solid var(--calendar-border-strong);
             }
-            .calendar-header { display: grid; grid-template-columns: repeat(7, 1fr); }
+            .calendar-header {
+                display: grid; grid-template-columns: repeat(7, 1fr);
+                position: sticky; top: 0; z-index: 10;
+            }
             .calendar-header div {
                 text-align: center; font-weight: 600;
                 background-color: var(--calendar-header-bg);

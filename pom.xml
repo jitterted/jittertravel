@@ -29,6 +29,7 @@
   <properties>
     <java.version>26</java.version>
     <spring-modulith.version>2.0.6</spring-modulith.version>
+    <playwright.version>1.49.0</playwright.version>
   </properties>
   <dependencies>
     <dependency>
@@ -128,6 +129,14 @@
       <artifactId>j2html</artifactId>
       <version>1.6.0</version>
     </dependency>
+    <!-- JS-behavior tests only (see docs/JS-Behavior-Tests.md). Tagged "js" and
+         excluded from the default build; run with `mvn test -Pjs-tests`. -->
+    <dependency>
+      <groupId>com.microsoft.playwright</groupId>
+      <artifactId>playwright</artifactId>
+      <version>${playwright.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
   <dependencyManagement>
     <dependencies>
@@ -154,7 +163,35 @@
           </execution>
         </executions>
       </plugin>
+      <!-- The default build skips JS-behavior tests so it stays fast and needs no
+           browser binaries. Run them explicitly with `mvn test -Pjs-tests`. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <excludedGroups>js</excludedGroups>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <!-- Runs ONLY the "js" group. First run auto-downloads the Chromium binary. -->
+      <id>js-tests</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <excludedGroups combine.self="override"></excludedGroups>
+              <groups>js</groups>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 
 </project>

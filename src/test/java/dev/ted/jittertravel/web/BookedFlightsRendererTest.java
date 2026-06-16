@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedFlightView;
 import dev.ted.jittertravel.application.ChangeEntry;
+import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.FlightId;
 import org.junit.jupiter.api.Test;
 
@@ -13,17 +14,33 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BookedFlightsRendererTest {
 
     @Test
-    void emptyFlightsRendersEmptyState() {
-        String html = BookedFlightsRenderer.render(List.of());
+    void emptyAllListRendersBookedYetMessage() {
+        String html = BookedFlightsRenderer.render(List.of(), TimeView.ALL);
 
         assertThat(html).contains("No flights booked yet.");
+    }
+
+    @Test
+    void emptyFutureListRendersNoUpcomingMessage() {
+        String html = BookedFlightsRenderer.render(List.of(), TimeView.FUTURE);
+
+        assertThat(html).contains("No upcoming flights.");
+    }
+
+    @Test
+    void activeFilterMarkedOnToggleLink() {
+        String html = BookedFlightsRenderer.render(List.of(), TimeView.ALL);
+
+        assertThat(html)
+                .contains("<a href=\"/booked-flights?filter=all\" class=\"active\">All</a>")
+                .contains("<a href=\"/booked-flights?filter=future\">Upcoming</a>");
     }
 
     @Test
     void flightWithoutChangesRendersRouteAirlineAndFlightNumber() {
         String html = BookedFlightsRenderer.render(List.of(
                 viewWithoutChanges("Sat, Jun 6, 1:55 PM", "SFO→FRA", "United", "UA59")
-        ));
+        ), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("Sat, Jun 6, 1:55 PM")
@@ -38,7 +55,7 @@ class BookedFlightsRendererTest {
                 viewWithChanges("Sat, Jun 6, 1:55 PM", "SFO→FRA", "United", "UA59",
                         "Booked on 2026-05-20 12:22PM",
                         "Changed on 2026-05-21 9:00AM")
-        ));
+        ), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("Booked on 2026-05-20 12:22PM")
@@ -50,14 +67,14 @@ class BookedFlightsRendererTest {
         FlightId flightId = FlightId.random();
         String html = BookedFlightsRenderer.render(List.of(
                 viewWithoutChanges(flightId, "Sat, Jun 6, 1:55 PM", "SFO→FRA", "United", "UA59")
-        ));
+        ), TimeView.FUTURE);
 
         assertThat(html).contains("/booked-flights/" + flightId.id());
     }
 
     @Test
     void bookAnotherFlightLinkIsPresent() {
-        String html = BookedFlightsRenderer.render(List.of());
+        String html = BookedFlightsRenderer.render(List.of(), TimeView.ALL);
 
         assertThat(html).contains("/book-flight");
     }

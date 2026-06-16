@@ -45,8 +45,7 @@ public class BookedTrainsProjector implements EventStreamConsumer {
 
     public List<BookedTrainView> views(TimeView filter, LocalDateTime now) {
         return viewsById.values().stream()
-                .filter(view -> filter == TimeView.ALL
-                                || !view.departureDateTime().isBefore(now))
+                .filter(view -> filter.includes(view, now))
                 .sorted(Comparator.comparing(BookedTrainView::departureDateTime))
                 .toList();
     }

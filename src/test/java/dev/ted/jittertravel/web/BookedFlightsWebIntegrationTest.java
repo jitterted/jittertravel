@@ -11,6 +11,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
 @WebMvcTest(BookedFlightsController.class)
@@ -25,7 +26,7 @@ class BookedFlightsWebIntegrationTest {
 
     @Test
     void bookedFlightsPageRendersOk() {
-        given(projector.views()).willReturn(List.of());
+        given(projector.views(any(), any())).willReturn(List.of());
 
         assertThat(mockMvc.get().uri("/booked-flights"))
                 .hasStatusOk();

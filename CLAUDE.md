@@ -27,6 +27,20 @@ Covered by `EventStoreTest.subscribersNotNotifiedWhenPersistenceFails()`.
 
 ## Testing
 
+### List views: future/all toggle is a shared, enforced convention
+
+Booked/planned list views (trains, flights, hotels, conferences, gatherings) all share one
+FUTURE/ALL filter, defaulting to FUTURE. A new list view opts in by following the trio:
+the view record implements `TemporalView.relevantUntil()` (the instant after which the item
+is past — the *end* for multi-day items); the projector filters with
+`timeView.includes(view, now)` in `views(TimeView, now)`; the controller reads `?filter=` via
+`TimeView.fromParam` and passes `now()`; the renderer calls
+`TimeFilterToggle.render("/its-path", activeFilter)` (toggle CSS lives in `site.css`).
+
+`TimeFilterToggleConventionTest` enforces the last step: it discovers every static
+`render(List, TimeView)` in the `web` package and asserts each emits the shared toggle wired
+to the active filter. Forget the toggle on a new list renderer and that test fails.
+
 ### JS-behavior tests: tag `js`, browser-only, no server
 
 Tiny inline scripts our renderers embed (e.g. the calendar "Show/Hide past weeks"

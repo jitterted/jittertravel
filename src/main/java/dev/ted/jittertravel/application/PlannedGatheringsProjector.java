@@ -5,6 +5,7 @@ import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +36,9 @@ public class PlannedGatheringsProjector implements EventStreamConsumer {
         });
     }
 
-    public List<PlannedGatheringView> views() {
+    public List<PlannedGatheringView> views(TimeView timeView, LocalDateTime now) {
         return viewsById.values().stream()
+                .filter(view -> timeView.includes(view, now))
                 .sorted(Comparator.comparing(PlannedGatheringView::date))
                 .toList();
     }

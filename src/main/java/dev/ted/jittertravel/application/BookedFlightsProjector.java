@@ -100,8 +100,9 @@ public class BookedFlightsProjector implements EventStreamConsumer {
         return timestamp.atZone(ZoneId.systemDefault()).toLocalDateTime();
     }
 
-    public List<BookedFlightView> views() {
+    public List<BookedFlightView> views(TimeView timeView, LocalDateTime now) {
         return viewsByFlight.values().stream()
+                .filter(view -> timeView.includes(view, now))
                 .sorted(Comparator.comparing(BookedFlightView::departureDateTime))
                 .toList();
     }

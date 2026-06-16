@@ -14,5 +14,11 @@ public record BookedHotelView(
         LocalDateTime checkOut,
         BookingIntent status,
         String mapsUrl
-) {
+) implements TemporalView {
+
+    /** A hotel stay is "upcoming" until the guest checks out. */
+    @Override
+    public LocalDateTime relevantUntil() {
+        return checkOut;
+    }
 }

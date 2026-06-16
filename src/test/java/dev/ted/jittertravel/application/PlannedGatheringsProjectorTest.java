@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
@@ -22,6 +23,7 @@ class PlannedGatheringsProjectorTest {
     private static final LocalDate DATE_JUN_15 = LocalDate.of(2026, 6, 15);
     private static final LocalTime START = LocalTime.of(18, 0);
     private static final LocalTime END = LocalTime.of(21, 0);
+    private static final LocalDateTime NOW = LocalDateTime.of(2020, 1, 1, 0, 0);
 
     @Test
     void noEventsProducesEmptyList() {
@@ -29,7 +31,7 @@ class PlannedGatheringsProjectorTest {
 
         projector.handle(Stream.empty());
 
-        assertThat(projector.views()).isEmpty();
+        assertThat(projector.views(TimeView.ALL, NOW)).isEmpty();
     }
 
     @Test
@@ -49,7 +51,7 @@ class PlannedGatheringsProjectorTest {
 
         projector.handle(Stream.of(stored(event)));
 
-        List<PlannedGatheringView> views = projector.views();
+        List<PlannedGatheringView> views = projector.views(TimeView.ALL, NOW);
         assertThat(views).hasSize(1);
         PlannedGatheringView view = views.getFirst();
         assertThat(view.gatheringId()).isEqualTo(gatheringId);
@@ -72,10 +74,27 @@ class PlannedGatheringsProjectorTest {
 
         projector.handle(Stream.of(stored(later), stored(earlier)));
 
-        List<PlannedGatheringView> views = projector.views();
+        List<PlannedGatheringView> views = projector.views(TimeView.ALL, NOW);
         assertThat(views).hasSize(2);
         assertThat(views.get(0).title()).isEqualTo("Earlier Meetup");
         assertThat(views.get(1).title()).isEqualTo("Later Meetup");
+    }
+
+    @Test
+    void futureFilterExcludesGatheringsThatEndedBeforeNow() {
+        PlannedGatheringsProjector projector = new PlannedGatheringsProjector();
+        LocalDateTime now = LocalDateTime.of(2026, 6, 18, 12, 0);
+        GatheringPlanned past = gathering(GatheringId.random(), "Past Meetup", DATE_JUN_15);
+        GatheringPlanned upcoming = gathering(GatheringId.random(), "Upcoming Meetup", DATE_JUN_20);
+
+        projector.handle(Stream.of(stored(past), stored(upcoming)));
+
+        assertThat(projector.views(TimeView.FUTURE, now))
+                .extracting(PlannedGatheringView::title)
+                .containsExactly("Upcoming Meetup");
+        assertThat(projector.views(TimeView.ALL, now))
+                .extracting(PlannedGatheringView::title)
+                .containsExactly("Past Meetup", "Upcoming Meetup");
     }
 
     private static GatheringPlanned gathering(GatheringId id, String title, LocalDate date) {

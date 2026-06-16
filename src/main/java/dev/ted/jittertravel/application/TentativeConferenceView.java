@@ -12,7 +12,13 @@ public record TentativeConferenceView(
         Address venueAddress,
         LocalDateTime startDate,
         LocalDateTime endDate
-) {
+) implements TemporalView {
     public String city() { return venueAddress.city(); }
     public String country() { return venueAddress.country(); }
+
+    /** A conference is "upcoming" until its last day ends. */
+    @Override
+    public LocalDateTime relevantUntil() {
+        return endDate;
+    }
 }

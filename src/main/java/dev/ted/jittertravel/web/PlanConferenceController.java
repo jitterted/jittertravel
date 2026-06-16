@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.ConferencePlanning;
 import dev.ted.jittertravel.application.ReadOnlyModeException;
 import dev.ted.jittertravel.application.TentativeConferenceProjector;
+import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.DateRangeNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
 import org.slf4j.Logger;
@@ -15,6 +16,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.nio.charset.StandardCharsets;
 
@@ -76,10 +78,13 @@ public class PlanConferenceController {
     }
 
     @GetMapping("/tentative-conferences")
-    public ResponseEntity<String> tentativeConferences() {
+    public ResponseEntity<String> tentativeConferences(
+            @RequestParam(required = false) String filter) {
+        TimeView timeView = TimeView.fromParam(filter);
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
-                .body(TentativeConferencesRenderer.render(projector.views()));
+                .body(TentativeConferencesRenderer.render(
+                        projector.views(timeView, LocalDateTime.now()), timeView));
     }
 
 }

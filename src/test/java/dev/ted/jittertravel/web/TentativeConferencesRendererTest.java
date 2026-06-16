@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.TentativeConferenceView;
+import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.ConferenceId;
 import org.junit.jupiter.api.Test;
 
@@ -12,19 +13,35 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TentativeConferencesRendererTest {
 
     @Test
-    void emptyListRendersTableWithNoRows() {
-        String html = TentativeConferencesRenderer.render(List.of());
+    void emptyAllListRendersEmptyStateMessage() {
+        String html = TentativeConferencesRenderer.render(List.of(), TimeView.ALL);
 
         assertThat(html)
-                .contains("<table")
+                .contains("No tentative conferences yet.")
                 .doesNotContain("<td");
+    }
+
+    @Test
+    void emptyFutureListRendersNoUpcomingMessage() {
+        String html = TentativeConferencesRenderer.render(List.of(), TimeView.FUTURE);
+
+        assertThat(html).contains("No upcoming conferences.");
+    }
+
+    @Test
+    void activeFilterMarkedOnToggleLink() {
+        String html = TentativeConferencesRenderer.render(List.of(), TimeView.ALL);
+
+        assertThat(html)
+                .contains("<a href=\"/tentative-conferences?filter=all\" class=\"active\">All</a>")
+                .contains("<a href=\"/tentative-conferences?filter=future\">Upcoming</a>");
     }
 
     @Test
     void conferenceNameCityAndCountryAreRendered() {
         String html = TentativeConferencesRenderer.render(List.of(
                 view("DDD Europe 2026", "2026-06-07T11:00", "2026-06-10T17:00", "Frankfurt", "Germany")
-        ));
+        ), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("DDD Europe 2026")
@@ -36,7 +53,7 @@ class TentativeConferencesRendererTest {
     void startAndEndDatesAreFormatted() {
         String html = TentativeConferencesRenderer.render(List.of(
                 view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "City", "Country")
-        ));
+        ), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("Sun, Jun 7, 11:00 AM")
@@ -45,7 +62,7 @@ class TentativeConferencesRendererTest {
 
     @Test
     void planConferenceLinkIsPresent() {
-        String html = TentativeConferencesRenderer.render(List.of());
+        String html = TentativeConferencesRenderer.render(List.of(), TimeView.ALL);
 
         assertThat(html).contains("/plan-conference");
     }

@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.PlannedGatheringView;
+import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.GatheringId;
 import org.junit.jupiter.api.Test;
 
@@ -17,17 +18,33 @@ class PlannedGatheringsRendererTest {
     private static final LocalTime NINE_PM = LocalTime.of(21, 0);
 
     @Test
-    void emptyGatheringsRendersEmptyStateMessage() {
-        String html = PlannedGatheringsRenderer.render(List.of());
+    void emptyAllListRendersPlannedYetMessage() {
+        String html = PlannedGatheringsRenderer.render(List.of(), TimeView.ALL);
 
         assertThat(html).contains("No gatherings planned yet.");
+    }
+
+    @Test
+    void emptyFutureListRendersNoUpcomingMessage() {
+        String html = PlannedGatheringsRenderer.render(List.of(), TimeView.FUTURE);
+
+        assertThat(html).contains("No upcoming gatherings.");
+    }
+
+    @Test
+    void activeFilterMarkedOnToggleLink() {
+        String html = PlannedGatheringsRenderer.render(List.of(), TimeView.ALL);
+
+        assertThat(html)
+                .contains("<a href=\"/planned-gatherings?filter=all\" class=\"active\">All</a>")
+                .contains("<a href=\"/planned-gatherings?filter=future\">Upcoming</a>");
     }
 
     @Test
     void gatheringTitleVenueAndCityCountryAreRendered() {
         String html = PlannedGatheringsRenderer.render(List.of(
                 view("London Java Community", "Skills Matter", "London", "GB", false, "")
-        ));
+        ), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("London Java Community")
@@ -39,7 +56,7 @@ class PlannedGatheringsRendererTest {
     void dateAndTimeRangeAreFormatted() {
         String html = PlannedGatheringsRenderer.render(List.of(
                 view("Some Meetup", "Venue", "City", "US", false, "")
-        ));
+        ), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("Thu, Aug 20, 2026")
@@ -51,7 +68,7 @@ class PlannedGatheringsRendererTest {
     void speakingTrueRendersSpeakingBadge() {
         String html = PlannedGatheringsRenderer.render(List.of(
                 view("Some Meetup", "Venue", "City", "US", true, "")
-        ));
+        ), TimeView.FUTURE);
 
         assertThat(html).contains("Speaking");
     }
@@ -60,7 +77,7 @@ class PlannedGatheringsRendererTest {
     void speakingFalseOmitsSpeakingBadge() {
         String html = PlannedGatheringsRenderer.render(List.of(
                 view("Some Meetup", "Venue", "City", "US", false, "")
-        ));
+        ), TimeView.FUTURE);
 
         assertThat(html).doesNotContain("Speaking");
     }
@@ -69,7 +86,7 @@ class PlannedGatheringsRendererTest {
     void presentInfoUrlRendersEventPageLink() {
         String html = PlannedGatheringsRenderer.render(List.of(
                 view("Some Meetup", "Venue", "City", "US", false, "https://meetup.com/events/123")
-        ));
+        ), TimeView.FUTURE);
 
         assertThat(html).contains("https://meetup.com/events/123");
     }
@@ -78,7 +95,7 @@ class PlannedGatheringsRendererTest {
     void blankInfoUrlOmitsEventPageLink() {
         String html = PlannedGatheringsRenderer.render(List.of(
                 view("Some Meetup", "Venue", "City", "US", false, "")
-        ));
+        ), TimeView.FUTURE);
 
         assertThat(html).doesNotContain("Event page");
     }

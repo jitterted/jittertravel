@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedHotelView;
+import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import org.junit.jupiter.api.Test;
@@ -16,16 +17,32 @@ class BookedHotelsRendererTest {
     private static final LocalDateTime CHECK_OUT = LocalDateTime.of(2026, 7, 5, 11, 0);
 
     @Test
-    void emptyListRendersEmptyStateMessage() {
-        String html = BookedHotelsRenderer.render(List.of());
+    void emptyAllListRendersBookedYetMessage() {
+        String html = BookedHotelsRenderer.render(List.of(), TimeView.ALL);
 
         assertThat(html).contains("No hotel bookings yet.");
     }
 
     @Test
+    void emptyFutureListRendersNoUpcomingMessage() {
+        String html = BookedHotelsRenderer.render(List.of(), TimeView.FUTURE);
+
+        assertThat(html).contains("No upcoming hotel stays.");
+    }
+
+    @Test
+    void activeFilterMarkedOnToggleLink() {
+        String html = BookedHotelsRenderer.render(List.of(), TimeView.ALL);
+
+        assertThat(html)
+                .contains("<a href=\"/booked-hotels?filter=all\" class=\"active\">All</a>")
+                .contains("<a href=\"/booked-hotels?filter=future\">Upcoming</a>");
+    }
+
+    @Test
     void hotelNameRendersAsLinkToMapsUrl() {
         String html = BookedHotelsRenderer.render(List.of(hotelView("Grand Hotel",
-                "https://maps.google.com/grand", BookingIntent.TENTATIVE)));
+                "https://maps.google.com/grand", BookingIntent.TENTATIVE)), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("<a href=\"https://maps.google.com/grand\"")
@@ -35,7 +52,7 @@ class BookedHotelsRendererTest {
     @Test
     void locationShowsCityAndCountry() {
         String html = BookedHotelsRenderer.render(List.of(hotelView("Any Hotel",
-                "https://maps.google.com/", BookingIntent.FINAL)));
+                "https://maps.google.com/", BookingIntent.FINAL)), TimeView.FUTURE);
 
         assertThat(html).contains("Berlin, Germany");
     }
@@ -43,7 +60,7 @@ class BookedHotelsRendererTest {
     @Test
     void checkInAndCheckOutDatesAreFormatted() {
         String html = BookedHotelsRenderer.render(List.of(hotelView("Any Hotel",
-                "https://maps.google.com/", BookingIntent.TENTATIVE)));
+                "https://maps.google.com/", BookingIntent.TENTATIVE)), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("Wed, Jul 1, 3:00 PM")
@@ -53,7 +70,7 @@ class BookedHotelsRendererTest {
     @Test
     void tentativeStatusRendersTentativeBadge() {
         String html = BookedHotelsRenderer.render(List.of(hotelView("Any Hotel",
-                "https://maps.google.com/", BookingIntent.TENTATIVE)));
+                "https://maps.google.com/", BookingIntent.TENTATIVE)), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("status-tentative")
@@ -63,7 +80,7 @@ class BookedHotelsRendererTest {
     @Test
     void finalStatusRendersFinalBadge() {
         String html = BookedHotelsRenderer.render(List.of(hotelView("Any Hotel",
-                "https://maps.google.com/", BookingIntent.FINAL)));
+                "https://maps.google.com/", BookingIntent.FINAL)), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("status-final")

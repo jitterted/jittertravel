@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.PlannedGatheringView;
+import dev.ted.jittertravel.application.TimeView;
 import j2html.tags.specialized.DivTag;
 
 import java.time.format.DateTimeFormatter;
@@ -45,7 +46,7 @@ public class PlannedGatheringsRenderer {
                 .empty-state { color: var(--muted-text); font-style: italic; font-size: 0.9rem; }
             """;
 
-    public static String render(List<PlannedGatheringView> gatherings) {
+    public static String render(List<PlannedGatheringView> gatherings, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
                 head(
                         meta().withCharset("UTF-8"),
@@ -61,14 +62,21 @@ public class PlannedGatheringsRenderer {
                                         a("Calendar").withHref("/calendar")
                                 ),
                                 h1("Planned Gatherings"),
+                                TimeFilterToggle.render("/planned-gatherings", activeFilter),
                                 gatherings.isEmpty()
-                                        ? div("No gatherings planned yet.").withClass("empty-state")
+                                        ? div(emptyStateMessage(activeFilter)).withClass("empty-state")
                                         : div().withClass("gathering-list").with(
                                                 gatherings.stream().map(PlannedGatheringsRenderer::renderCard).toList()
                                         )
                         )
                 )
         ).withLang("en").render();
+    }
+
+    private static String emptyStateMessage(TimeView activeFilter) {
+        return activeFilter == TimeView.FUTURE
+                ? "No upcoming gatherings."
+                : "No gatherings planned yet.";
     }
 
     private static DivTag renderCard(PlannedGatheringView g) {

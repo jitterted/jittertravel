@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedFlightView;
+import dev.ted.jittertravel.application.TimeView;
 import j2html.tags.DomContent;
 
 import java.util.List;
@@ -48,7 +49,7 @@ public class BookedFlightsRenderer {
             .empty-state p { margin: 0.5rem 0; }
             """;
 
-    public static String render(List<BookedFlightView> flights) {
+    public static String render(List<BookedFlightView> flights, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
                 head(
                         meta().withCharset("UTF-8"),
@@ -60,7 +61,10 @@ public class BookedFlightsRenderer {
                         nav(a("JitterTravel").withHref("/")),
                         h1("Booked Flights"),
                         div().withClass("conference-container").with(
-                                flights.isEmpty() ? renderEmptyState() : renderFlightList(flights),
+                                TimeFilterToggle.render("/booked-flights", activeFilter),
+                                flights.isEmpty()
+                                        ? renderEmptyState(activeFilter)
+                                        : renderFlightList(flights),
                                 br(),
                                 a("Book another flight").withHref("/book-flight")
                         )
@@ -68,7 +72,12 @@ public class BookedFlightsRenderer {
         ).withLang("en").render();
     }
 
-    private static DomContent renderEmptyState() {
+    private static DomContent renderEmptyState(TimeView activeFilter) {
+        if (activeFilter == TimeView.FUTURE) {
+            return div().withClass("empty-state").with(
+                    p("No upcoming flights.")
+            );
+        }
         return div().withClass("empty-state").with(
                 p("No flights booked yet."),
                 p(a("Book a flight").withHref("/book-flight"))

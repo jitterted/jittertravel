@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
@@ -49,7 +50,7 @@ class ConferenceWebIntegrationTest {
 
     @Test
     void tentativeConferencesPageRendersOk() {
-        given(projector.views()).willReturn(List.of());
+        given(projector.views(any(), any())).willReturn(List.of());
 
         assertThat(mockMvc.get().uri("/tentative-conferences"))
                 .hasStatusOk();

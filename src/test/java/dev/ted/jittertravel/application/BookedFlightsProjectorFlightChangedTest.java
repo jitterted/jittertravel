@@ -15,6 +15,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class BookedFlightsProjectorFlightChangedTest {
 
+    private static final LocalDateTime NOW = LocalDateTime.of(2020, 1, 1, 0, 0);
+
     @Test
     void flightChangedOverwritesPreviousListEntry() {
         BookedFlightsProjector projector = new BookedFlightsProjector();
@@ -33,7 +35,7 @@ class BookedFlightsProjectorFlightChangedTest {
 
         projector.handle(Stream.of(stored(booked, Instant.now()), stored(changed, Instant.now())));
 
-        List<BookedFlightView> views = projector.views();
+        List<BookedFlightView> views = projector.views(TimeView.ALL, NOW);
         assertThat(views).hasSize(1);
         BookedFlightView view = views.getFirst();
         assertThat(view.airline()).isEqualTo("Lufthansa");
@@ -59,7 +61,7 @@ class BookedFlightsProjectorFlightChangedTest {
                 stored(secondChange, change2Ts)
         ));
 
-        BookedFlightView view = projector.views().getFirst();
+        BookedFlightView view = projector.views(TimeView.ALL, NOW).getFirst();
         assertThat(view.hasChanges()).isTrue();
         assertThat(view.history())
                 .extracting(ChangeEntry::displayText)
@@ -78,7 +80,7 @@ class BookedFlightsProjectorFlightChangedTest {
 
         projector.handle(Stream.of(stored(booked, Instant.now())));
 
-        BookedFlightView view = projector.views().getFirst();
+        BookedFlightView view = projector.views(TimeView.ALL, NOW).getFirst();
         assertThat(view.hasChanges()).isFalse();
         assertThat(view.history()).hasSize(1);
         assertThat(view.history().getFirst().displayText()).startsWith("Booked on ");

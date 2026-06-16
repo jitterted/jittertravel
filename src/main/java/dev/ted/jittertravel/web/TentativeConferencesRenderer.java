@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.TentativeConferenceView;
+import dev.ted.jittertravel.application.TimeView;
+import j2html.tags.DomContent;
 import j2html.tags.specialized.TrTag;
 
 import java.time.format.DateTimeFormatter;
@@ -33,9 +35,10 @@ public class TentativeConferencesRenderer {
             .conference-table tbody tr:hover { background-color: var(--hover-bg); }
             .conf-name { font-weight: 500; color: var(--accent-color); }
             .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .empty-state { margin-top: 1rem; color: var(--muted-text); }
             """;
 
-    public static String render(List<TentativeConferenceView> conferences) {
+    public static String render(List<TentativeConferenceView> conferences, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
                 head(
                         meta().withCharset("UTF-8"),
@@ -47,27 +50,41 @@ public class TentativeConferencesRenderer {
                         nav(a("JitterTravel").withHref("/")),
                         h1("Tentative Conferences"),
                         div().withClass("conference-container").with(
-                                div().withClass("table-responsive").with(
-                                        table().withClass("conference-table").with(
-                                                thead(tr(
-                                                        th("Name"),
-                                                        th("Start Date"),
-                                                        th("End Date"),
-                                                        th("City"),
-                                                        th("Country")
-                                                )),
-                                                tbody().with(
-                                                        conferences.stream()
-                                                                   .map(TentativeConferencesRenderer::renderRow)
-                                                                   .toList()
-                                                )
-                                        )
-                                ),
+                                TimeFilterToggle.render("/tentative-conferences", activeFilter),
+                                conferences.isEmpty()
+                                        ? renderEmptyState(activeFilter)
+                                        : renderTable(conferences),
                                 br(),
                                 a("Plan another conference").withHref("/plan-conference")
                         )
                 )
         ).withLang("en").render();
+    }
+
+    private static DomContent renderEmptyState(TimeView activeFilter) {
+        String message = activeFilter == TimeView.FUTURE
+                ? "No upcoming conferences."
+                : "No tentative conferences yet.";
+        return p(message).withClass("empty-state");
+    }
+
+    private static DomContent renderTable(List<TentativeConferenceView> conferences) {
+        return div().withClass("table-responsive").with(
+                table().withClass("conference-table").with(
+                        thead(tr(
+                                th("Name"),
+                                th("Start Date"),
+                                th("End Date"),
+                                th("City"),
+                                th("Country")
+                        )),
+                        tbody().with(
+                                conferences.stream()
+                                           .map(TentativeConferencesRenderer::renderRow)
+                                           .toList()
+                        )
+                )
+        );
     }
 
     private static TrTag renderRow(TentativeConferenceView conf) {

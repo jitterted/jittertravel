@@ -23,7 +23,14 @@ public record BookedFlightView(
         LocalDateTime departureDateTime,
         String departureDateTimeDisplay,
         List<ChangeEntry> history
-) {
+) implements TemporalView {
+
+    /** A flight is "upcoming" until it departs. */
+    @Override
+    public LocalDateTime relevantUntil() {
+        return departureDateTime;
+    }
+
     /** True when there is at least one change beyond the original booking. */
     public boolean hasChanges() {
         return history.size() > 1;

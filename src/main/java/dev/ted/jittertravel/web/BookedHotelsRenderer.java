@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedHotelView;
+import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.BookingIntent;
 import j2html.tags.DomContent;
 
@@ -55,7 +56,7 @@ public class BookedHotelsRenderer {
             .action-row a:hover { text-decoration: underline; }
             """;
 
-    public static String render(List<BookedHotelView> hotels) {
+    public static String render(List<BookedHotelView> hotels, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
                 head(
                         meta().withCharset("UTF-8"),
@@ -71,7 +72,10 @@ public class BookedHotelsRenderer {
                                         a("Calendar").withHref("/calendar")
                                 ),
                                 h1("Booked Hotels"),
-                                hotels.isEmpty() ? renderEmptyState() : renderTable(hotels),
+                                TimeFilterToggle.render("/booked-hotels", activeFilter),
+                                hotels.isEmpty()
+                                        ? renderEmptyState(activeFilter)
+                                        : renderTable(hotels),
                                 div().withClass("action-row").with(
                                         a("Book another hotel").withHref("/book-hotel")
                                 )
@@ -80,8 +84,11 @@ public class BookedHotelsRenderer {
         ).withLang("en").render();
     }
 
-    private static DomContent renderEmptyState() {
-        return p("No hotel bookings yet.").withClass("empty-state");
+    private static DomContent renderEmptyState(TimeView activeFilter) {
+        String message = activeFilter == TimeView.FUTURE
+                ? "No upcoming hotel stays."
+                : "No hotel bookings yet.";
+        return p(message).withClass("empty-state");
     }
 
     private static DomContent renderTable(List<BookedHotelView> hotels) {

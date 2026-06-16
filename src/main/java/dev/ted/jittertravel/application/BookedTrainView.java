@@ -17,5 +17,11 @@ public record BookedTrainView(
         String arrivalMapsUrl,
         LocalDateTime arrivalDateTime,
         String arrivalDateTimeDisplay
-) {
+) implements TemporalView {
+
+    /** A train trip is "upcoming" until it departs. */
+    @Override
+    public LocalDateTime relevantUntil() {
+        return departureDateTime;
+    }
 }

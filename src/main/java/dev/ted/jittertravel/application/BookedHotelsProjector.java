@@ -7,6 +7,7 @@ import dev.ted.jittertravel.infrastructure.AddressRenderer;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -38,8 +39,9 @@ public class BookedHotelsProjector implements EventStreamConsumer {
         });
     }
 
-    public List<BookedHotelView> views() {
+    public List<BookedHotelView> views(TimeView timeView, LocalDateTime now) {
         return viewsById.values().stream()
+                .filter(view -> timeView.includes(view, now))
                 .sorted(Comparator.comparing(BookedHotelView::checkIn))
                 .toList();
     }

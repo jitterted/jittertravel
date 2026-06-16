@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.TentativeConferenceProjector;
 import dev.ted.jittertravel.application.TentativeConferenceView;
+import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
@@ -16,6 +17,8 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TentativeConferenceProjectorTest {
+
+    private static final LocalDateTime NOW = LocalDateTime.of(2020, 1, 1, 0, 0);
 
     @Test
     void projectorCreatesViewFromEvents() {
@@ -34,13 +37,13 @@ class TentativeConferenceProjectorTest {
 
         projector.handle(Stream.of(storedEvent));
 
-        assertThat(projector.views())
+        assertThat(projector.views(TimeView.ALL, NOW))
                 .hasSize(1);
-        assertThat(projector.views().getFirst().conferenceId())
+        assertThat(projector.views(TimeView.ALL, NOW).getFirst().conferenceId())
                 .isEqualTo(conferenceId);
-        assertThat(projector.views().getFirst().name())
+        assertThat(projector.views(TimeView.ALL, NOW).getFirst().name())
                 .isEqualTo("Conference Name");
-        assertThat(projector.views().getFirst().city())
+        assertThat(projector.views(TimeView.ALL, NOW).getFirst().city())
                 .isEqualTo("Venue City");
     }
 
@@ -71,7 +74,7 @@ class TentativeConferenceProjectorTest {
                 new StoredEvent(2, earlierEvent.getClass(), UUID.randomUUID(), Instant.now(), earlierEvent, UUID.randomUUID())
         ));
 
-        assertThat(projector.views())
+        assertThat(projector.views(TimeView.ALL, NOW))
                 .hasSize(2)
                 .extracting(TentativeConferenceView::name)
                 .containsExactly("Earlier Conference", "Later Conference");
@@ -116,6 +119,26 @@ class TentativeConferenceProjectorTest {
         assertThat(projector.migratableViews())
                 .extracting(TentativeConferenceView::name)
                 .containsExactly("Earlier Single-day", "Later Single-day");
+    }
+
+    @Test
+    void futureFilterKeepsInProgressConferenceButDropsFinishedOne() {
+        TentativeConferenceProjector projector = new TentativeConferenceProjector();
+        Address address = new Address("Street", "City", "State", "Postal", "Country", null);
+        LocalDateTime now = LocalDateTime.of(2026, 6, 15, 12, 0);
+        // started yesterday, ends tomorrow -> still "upcoming" by endDate
+        handle(projector, 1, "In Progress",
+                now.minusDays(1), now.plusDays(1), address);
+        // ended last week -> past
+        handle(projector, 2, "Finished",
+                now.minusDays(10), now.minusDays(8), address);
+
+        assertThat(projector.views(TimeView.FUTURE, now))
+                .extracting(TentativeConferenceView::name)
+                .containsExactly("In Progress");
+        assertThat(projector.views(TimeView.ALL, now))
+                .extracting(TentativeConferenceView::name)
+                .containsExactlyInAnyOrder("In Progress", "Finished");
     }
 
     private static void handle(TentativeConferenceProjector projector, long seq, String name,

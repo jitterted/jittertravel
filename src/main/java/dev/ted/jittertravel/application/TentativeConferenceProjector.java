@@ -6,6 +6,7 @@ import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +36,9 @@ public class TentativeConferenceProjector implements EventStreamConsumer {
         });
     }
 
-    public List<TentativeConferenceView> views() {
+    public List<TentativeConferenceView> views(TimeView timeView, LocalDateTime now) {
         return conferences.values().stream()
+                .filter(view -> timeView.includes(view, now))
                 .sorted(Comparator.comparing(TentativeConferenceView::startDate))
                 .toList();
     }

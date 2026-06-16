@@ -34,16 +34,6 @@ public class BookedTrainsRenderer {
             .station-name { font-weight: 500; }
             .station-city { font-size: 0.85rem; color: var(--muted-text, #6c757d); }
             .empty-state { margin-top: 1rem; color: var(--muted-text, #6c757d); }
-            .time-toggle { display: inline-flex; margin-top: 1rem; border-radius: 6px;
-                overflow: hidden; border: 1px solid var(--border-color, #dee2e6); }
-            .time-toggle a {
-                padding: 6px 16px; text-decoration: none; font-size: 0.9rem;
-                color: var(--muted-text, #6c757d); background-color: var(--surface, #fff);
-            }
-            .time-toggle a + a { border-left: 1px solid var(--border-color, #dee2e6); }
-            .time-toggle a.active {
-                background-color: var(--accent, #0d6efd); color: #fff; font-weight: 600;
-            }
             """;
 
     public static String render(List<BookedTrainView> trains, TimeView activeFilter) {
@@ -58,7 +48,7 @@ public class BookedTrainsRenderer {
                         nav(h3(a("JitterTravel").withHref("/"))),
                         div().withClass("trains-container").with(
                                 h1("Booked Trains"),
-                                renderToggle(activeFilter),
+                                TimeFilterToggle.render("/booked-trains", activeFilter),
                                 trains.isEmpty()
                                         ? renderEmptyState(activeFilter)
                                         : renderTrainList(trains),
@@ -67,21 +57,6 @@ public class BookedTrainsRenderer {
                         )
                 )
         ).withLang("en").render();
-    }
-
-    private static DomContent renderToggle(TimeView activeFilter) {
-        return div().withClass("time-toggle").with(
-                toggleLink("Upcoming", "/booked-trains?filter=future",
-                        activeFilter == TimeView.FUTURE),
-                toggleLink("All", "/booked-trains?filter=all",
-                        activeFilter == TimeView.ALL)
-        );
-    }
-
-    private static DomContent toggleLink(String label, String href, boolean active) {
-        return active
-                ? a(label).withHref(href).withClass("active")
-                : a(label).withHref(href);
     }
 
     private static DomContent renderEmptyState(TimeView activeFilter) {

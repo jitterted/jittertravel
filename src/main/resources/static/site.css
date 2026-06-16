@@ -18,3 +18,27 @@ body {
     margin: 1rem;
     padding: 0;
 }
+
+/* Shared FUTURE/ALL toggle for list views (see web/TimeFilterToggle). */
+.time-toggle {
+    display: inline-flex;
+    margin-top: 1rem;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+.time-toggle a {
+    padding: 6px 16px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    color: var(--muted-text);
+    background-color: var(--surface, #fff);
+}
+.time-toggle a + a {
+    border-left: 1px solid var(--border-color);
+}
+.time-toggle a.active {
+    background-color: var(--accent-color);
+    color: #fff;
+    font-weight: 600;
+}

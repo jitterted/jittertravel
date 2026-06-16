@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
+import jakarta.annotation.Nullable;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.core.env.Environment;
@@ -20,9 +21,12 @@ class GeneralController {
 
     private final PostgresPersister persister;
     private final Environment environment;
+    @Nullable
     private final BuildProperties buildProperties;
 
-    GeneralController(PostgresPersister persister, Environment environment, BuildProperties buildProperties) {
+    GeneralController(PostgresPersister persister,
+                      Environment environment,
+                      @Nullable BuildProperties buildProperties) {
         this.persister = persister;
         this.environment = environment;
         this.buildProperties = buildProperties;

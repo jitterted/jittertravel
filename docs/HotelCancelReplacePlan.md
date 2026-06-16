@@ -88,8 +88,10 @@ Keep the existing `mapsUrl` null→"" normalization; leave the two new fields nu
 **Backward-compat analysis (verified):** the stack uses Jackson 3 (`tools.jackson`,
 `PostgresPersister` line 409 `jsonMapper.readValue(payloadJson, eventClass)`). Old `event_log`
 rows and old backup JSON simply lack the new keys → Jackson sets the missing creator
-properties to `null`. No mapper config change needed. Risk is low but must be locked down by a
-test.
+properties to `null`. No mapper config change needed. The event/command mapper is built in one
+place — `EventJsonMapperFactory.create()` (`infrastructure/`), exposed as the `@Bean JsonMapper`
+in `EventSourcingConfig`; any contract test must build its mapper from that factory so it matches
+what we persist. Risk is low but must be locked down by a test.
 
 **Touch points for the new `cancelBy` field (it flows through the live book path):**
 - `BookHotelCommand` — accept `cancelBy`, validate `cancelBy == null || !cancelBy.isAfter(checkIn)`
@@ -102,12 +104,24 @@ test.
 - `BookHotelControllerValidationTest` / `BookHotelCommandTest` — cover the `cancelBy ≤ checkIn`
   rule and the null/absent case.
 
-**Backward-compat / contract test (lands the standing serialization-contract TODO):**
-- Add a golden-JSON deserialization test: a pre-change `HotelBooked` payload (no `cancelBy`,
-  no `replacesHotelBookingId`) must deserialize with both fields `null`. Inline the sample as a
-  text block (<30 lines) per the inline-samples rule.
-- Extend `CommandExportImportRoundTripTest` so a `BookHotel` with a `cancelBy` round-trips, and
-  confirm an old backup without it still imports.
+**Backward-compat / contract tests (reuse existing infra; see
+`docs/Event_Serialization_Contract_Tests.md`):**
+- **Read side (required):** extend the existing `GoldenEventDeserializationTest` with a
+  `HotelBooked` case — a pre-change payload (no `cancelBy`, no `replacesHotelBookingId`) must
+  deserialize with both fields `null`. (That test uses a stricter `FAIL_ON_UNKNOWN_PROPERTIES`
+  mapper; missing creator props still resolve to `null`, so adding fields stays compatible.)
+  Inline the sample as a text block (<30 lines) per the inline-samples rule.
+- **Round-trip (required):** extend `CommandExportImportRoundTripTest` so a `BookHotel` with a
+  `cancelBy` round-trips, and confirm an old backup without it still imports.
+- **Write side (OPTIONAL — Strictland, not yet committed):** the repo has a Strictland spike
+  (`io.event-driven:strictland:0.3.0`, test scope) proven viable via a Jackson-3 adapter
+  (`contract/JsonMapperMessageSerializer` + `ConferenceCancelledContractTest`). *If* Ted adopts
+  Strictland, this plan's new events (`HotelBooked` with the new fields, `HotelBookingCancelled`)
+  would each get a snapshot contract test (`thenContractIsUnchanged()` + an approved file) built
+  via that adapter, catching accidental write-format drift the golden read test can't. **Do not
+  implement this for this plan** — adoption is undecided (see
+  `docs/Event_Serialization_Contract_Tests.md` open questions); ship the required golden +
+  round-trip tests above regardless, since they stand whether or not Strictland is adopted.
 
 **Projectors:** the six `HotelBooked` consumers ignore the new fields automatically; only views
 that display the deadline read it (see Phase 2 details view). No projector changes required in

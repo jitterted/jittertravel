@@ -66,25 +66,84 @@ Two check types, written as ordinary unit tests with a fluent "given / when / th
   review before it ships. Lightweight — no live services or brokers (unlike consumer-driven
   contract testing).
 
-## Open questions for our codebase
+## Spike results (2026-06-16)
 
-- **Jackson version.** We serialize events with **Jackson 3** (`tools.jackson.*` —
-  `JsonMapper` in `PostgresPersister`), not the legacy `com.fasterxml.jackson` line. Confirm
-  whether Strictland 0.3.0's `Json.Jackson.of(...)` accepts a Jackson-3 mapper, or whether it
-  binds the old API. **This is the gating compatibility check before adopting.**
-- **Use our real mapper.** Tests must run against the same `JsonMapper` bean used by
-  `PostgresPersister` so snapshots reflect the exact JSONB we store, not a default.
-- **Scope.** Events are the primary target (one snapshot per `Event` subtype). Decide whether
-  to also snapshot command DTOs (secondary) or leave those to
-  `CommandExportImportRoundTripTest`.
-- **Coverage enforcement.** How do we ensure a newly-added event type gets a snapshot test?
-  (Parallel to the existing "every new command needs a round-trip case" rule.)
-- **Test tier.** Plain JVM unit tests, no Spring context / DB needed — decide tag/profile and
-  where they live relative to existing serialization tests.
+**Verdict: works for us, via a one-class adapter. Viable to adopt.**
+
+- **Jackson mismatch confirmed.** Strictland 0.3.0 bundles **Jackson 2**
+  (`com.fasterxml.jackson.core:jackson-databind:2.21.4`, per `mvn dependency:tree`), and
+  `Json.Jackson.of(...)` takes a `com.fasterxml.jackson.databind.ObjectMapper`. Our app
+  serializes events with **Jackson 3** (`tools.jackson…JsonMapper`). So we **cannot** hand our
+  production mapper to `Json.Jackson.of(...)` — the types don't line up.
+- **Escape hatch used.** Strictland exposes a serializer-agnostic seam:
+  `SpecificationOptions.serializer(MessageSerializer)` where `MessageSerializer` is just
+  `byte[] serialize(Object)` + `<T> T deserialize(byte[], Class<T>)`. We implemented a
+  ~15-line adapter delegating to a Jackson-3 `JsonMapper`
+  (`src/test/java/dev/ted/jittertravel/contract/JsonMapperMessageSerializer.java`). This routes
+  Strictland through our real mapper, so snapshots are the exact bytes we'd persist.
+- **Proof.** `ConferenceCancelledContractTest` (same package) runs two checks against
+  `ConferenceCancelled`:
+  - `thenContractIsUnchanged()` — snapshot, approved file `ConferenceCancelled.approved.txt`
+    generated next to the test:
+    `{"conferenceId":{"id":"22222222-…"},"reason":"Venue double-booked"}` — matches the
+    shape the golden deserialization test already expects.
+  - `thenBackwardCompatible(...)` — round-trips through the real mapper.
+  Both pass. Verified the guard is **not** a no-op: editing the approved file to drift the
+  payload fails the build as expected.
+- **Plain unit tests.** No Spring context / DB / auth needed — same tier as
+  `GoldenEventDeserializationTest`.
+
+### Relationship to existing tests
+
+`GoldenEventDeserializationTest` already covers the **read** side (old JSON → current type, with
+`FAIL_ON_UNKNOWN_PROPERTIES`). Strictland adds the **write** side (current type → approved bytes)
+that we don't have today, plus first-class forward/backward-compat helpers. They're complementary,
+not redundant.
+
+## Pinned mapper config (2026-06-16)
+
+**Done.** The mapper is now pinned to a single source of truth shared by production and tests, so
+snapshots/contracts can't drift from what we persist:
+
+- `EventJsonMapperFactory.create()` (in `infrastructure`) is the one place the event/command
+  `JsonMapper` is built.
+- `EventSourcingConfig` now declares an explicit `@Bean JsonMapper` from the factory, replacing
+  reliance on Spring Boot's auto-configured mapper (this also pins us against a framework-default
+  change silently altering stored-event format).
+- `EventJsonMapperEquivalenceTest` **proves** the factory serializes byte-for-byte identically to
+  the previously auto-configured mapper (imports the real `JacksonAutoConfiguration`; covers
+  dates, nested records, empty strings, booleans). This is the backward-compat safety net.
+- `ConferenceCancelledContractTest` and `PostgresPersisterTest` both build their mapper from the
+  factory. `GoldenEventDeserializationTest` intentionally stays separate — it uses a *stricter*
+  mapper (`FAIL_ON_UNKNOWN_PROPERTIES=true`).
+- Verified the full Spring context still starts (the `JsonMapper` bean is app-wide, also used by
+  web MVC) and `CommandExportImportRoundTripTest` still passes.
+
+## Open questions / remaining work
+
+- **Keep the dependency?** Adapter means we use only Strictland's harness, not its Jackson layer.
+  Re-confirm the value over extending the existing hand-rolled golden tests before committing.
+- **Scope.** Events first (one snapshot per `Event` subtype). Commands stay with
+  `CommandExportImportRoundTripTest` unless we want snapshots there too.
+- **Coverage enforcement.** How to ensure a new event type gets a snapshot (parallel to the
+  "every new command needs a round-trip case" rule).
+
+## Spike artifacts (remove if we don't adopt Strictland)
+
+- `pom.xml` — `io.event-driven:strictland:0.3.0`, `test` scope (marked SPIKE).
+- `src/test/java/dev/ted/jittertravel/contract/JsonMapperMessageSerializer.java`
+- `src/test/java/dev/ted/jittertravel/contract/ConferenceCancelledContractTest.java`
+- `src/test/java/dev/ted/jittertravel/contract/ConferenceCancelled.approved.txt`
+
+Note: the pinned-mapper work below is **independently valuable** and would stay even if we drop
+Strictland: `EventJsonMapperFactory`, the `@Bean JsonMapper` in `EventSourcingConfig`, and
+`EventJsonMapperEquivalenceTest`.
 
 ## Next steps
 
-- [ ] Spike: add Strictland in `test` scope, write one snapshot check for a single event using
-      our production `JsonMapper`; confirm Jackson-3 compatibility.
-- [ ] If it works, pick the first events to cover and define the snapshot-file location/naming.
-- [ ] Decide the coverage-enforcement mechanism for new event types.
+- [x] Spike: add Strictland, snapshot one event via our Jackson-3 mapper; confirm compatibility.
+- [x] Pin a single shared mapper config (`EventJsonMapperFactory`) used by prod + tests, proven
+      equivalent to the auto-configured mapper.
+- [ ] Decide: adopt Strictland or revert the spike artifacts (mapper pin stays either way).
+- [ ] If adopting: pick the first events to cover and define snapshot-file location/naming.
+- [ ] If adopting: decide the coverage-enforcement mechanism for new event types.

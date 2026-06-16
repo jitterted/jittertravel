@@ -5,11 +5,23 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
 
 @Configuration
 public class EventSourcingConfig {
+
+    /**
+     * Pins the JsonMapper used for event/command (de)serialization to a single, version-controlled
+     * config shared with the serialization tests, instead of Spring Boot's auto-configured mapper.
+     * See {@link EventJsonMapperFactory}; {@code EventJsonMapperEquivalenceTest} proves this bean
+     * is byte-for-byte equivalent to the previously auto-configured one.
+     */
+    @Bean
+    public JsonMapper jsonMapper() {
+        return EventJsonMapperFactory.create();
+    }
 
     @Bean
     public EventStore eventStore(MeterRegistry meterRegistry, PostgresPersister persister) {

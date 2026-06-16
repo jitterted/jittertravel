@@ -137,6 +137,14 @@
       <version>${playwright.version}</version>
       <scope>test</scope>
     </dependency>
+    <!-- SPIKE: Strictland event-serialization contract testing.
+         See docs/Event_Serialization_Contract_Tests.md. Evaluate, then keep or remove. -->
+    <dependency>
+      <groupId>io.event-driven</groupId>
+      <artifactId>strictland</artifactId>
+      <version>0.3.0</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
   <dependencyManagement>
     <dependencies>

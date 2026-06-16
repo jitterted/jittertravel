@@ -30,10 +30,10 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
 
     @TestConfiguration
     static class TestConfig {
-        // needed for the instantiation of the PostgresPersister
+        // needed for the instantiation of the PostgresPersister; use the pinned production config
         @Bean
         JsonMapper jsonMapper() {
-            return JsonMapper.builder().findAndAddModules().build();
+            return EventJsonMapperFactory.create();
         }
     }
 

@@ -21,21 +21,21 @@ public class ChangeFlight {
         this.persister = persister;
     }
 
-    public void changeFlight(ChangeFlightRequest request) {
+    public void changeFlight(UUID commandId, ChangeFlightRequest request, LocalDateTime now) {
         if (eventStore.isReadOnly()) {
             throw new ReadOnlyModeException("Attempting to execute request while in read-only mode:" + request);
         }
 
-        // Each change attempt is its own command. We use a fresh id (not the
-        // flightId, which is the aggregate id, not the command id).
-        UUID commandId = UUID.randomUUID();
+        // commandId and now are captured at the boundary (the controller) and passed in.
+        // Each change attempt is its own command, with a fresh id (not the flightId, which is
+        // the aggregate id). The application service performs no clock or UUID I/O of its own.
         persister.saveCommand(commandId, request);
 
         FlightId flightId = FlightId.of(UUID.fromString(request.getFlightId()));
         boolean flightExists = flightExists(flightId);
 
         ChangeFlightCommand domainCommand = new ChangeFlightCommand();
-        var events = domainCommand.execute(request, flightExists, LocalDateTime.now());
+        var events = domainCommand.execute(request, flightExists, now);
 
         eventStore.append(events, commandId);
     }

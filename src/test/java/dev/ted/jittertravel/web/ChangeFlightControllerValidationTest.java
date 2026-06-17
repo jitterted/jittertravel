@@ -60,7 +60,7 @@ class ChangeFlightControllerValidationTest {
 
         FlightNotFound thrown = null;
         try {
-            service.changeFlight(command);
+            service.changeFlight(UUID.randomUUID(), command, NOW);
         } catch (FlightNotFound e) {
             thrown = e;
         }
@@ -74,7 +74,7 @@ class ChangeFlightControllerValidationTest {
         BindingResult bindingResult = new BeanPropertyBindingResult(command, "changeFlight");
 
         try {
-            service.changeFlight(command);
+            service.changeFlight(UUID.randomUUID(), command, NOW);
         } catch (Exception e) {
             bindingResult.reject("error", e.getMessage());
         }
@@ -84,7 +84,7 @@ class ChangeFlightControllerValidationTest {
 
     private static void catchAndBind(ChangeFlight service, ChangeFlightRequest command, BindingResult bindingResult) {
         try {
-            service.changeFlight(command);
+            service.changeFlight(UUID.randomUUID(), command, NOW);
         } catch (DepartureNotInFuture e) {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {
@@ -111,8 +111,8 @@ class ChangeFlightControllerValidationTest {
     private ChangeFlight mockService(boolean flightExists) {
         return new ChangeFlight(null, null) {
             @Override public boolean isReadOnly() { return false; }
-            @Override public void changeFlight(ChangeFlightRequest request) {
-                new ChangeFlightCommand().execute(request, flightExists, NOW);
+            @Override public void changeFlight(UUID commandId, ChangeFlightRequest request, LocalDateTime now) {
+                new ChangeFlightCommand().execute(request, flightExists, now);
             }
         };
     }

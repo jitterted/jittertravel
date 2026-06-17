@@ -43,7 +43,7 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         // one of every command type
         String flightId = UUID.randomUUID().toString();
         flightBooking.bookFlight(bookFlight(flightId));
-        changeFlight.changeFlight(changeFlight(flightId));
+        changeFlight.changeFlight(UUID.randomUUID(), changeFlight(flightId), java.time.LocalDateTime.now());
         hotelBooking.bookHotel(bookHotel());
         trainBooking.bookTrain(bookTrain());
         conferencePlanning.planConference(planConference(UUID.randomUUID().toString(),

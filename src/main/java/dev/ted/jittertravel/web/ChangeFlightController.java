@@ -16,7 +16,9 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,13 +30,16 @@ public class ChangeFlightController {
     private final ChangeFlight applicationService;
     private final FlightDetailsViewProjector detailsProjector;
     private final AeroDataBoxClient aeroDataBoxClient;
+    private final Clock clock;
 
     public ChangeFlightController(ChangeFlight applicationService,
                                   FlightDetailsViewProjector detailsProjector,
-                                  AeroDataBoxClient aeroDataBoxClient) {
+                                  AeroDataBoxClient aeroDataBoxClient,
+                                  Clock clock) {
         this.applicationService = applicationService;
         this.detailsProjector = detailsProjector;
         this.aeroDataBoxClient = aeroDataBoxClient;
+        this.clock = clock;
     }
 
     @GetMapping("/booked-flights/{flightId}")
@@ -69,7 +74,8 @@ public class ChangeFlightController {
         command.setFlightId(flightIdString);
 
         try {
-            applicationService.changeFlight(command);
+            // Nondeterministic inputs (commandId, now) are captured here at the boundary.
+            applicationService.changeFlight(UUID.randomUUID(), command, LocalDateTime.now(clock));
         } catch (FlightNotFound e) {
             redirectAttributes.addFlashAttribute("notFoundMessage", e.getMessage());
             return "redirect:/booked-flights";

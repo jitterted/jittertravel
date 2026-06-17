@@ -15,7 +15,10 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,9 +44,14 @@ class ChangeFlightWebIntegrationTest {
     @MockitoBean
     AeroDataBoxClient aeroDataBoxClient;
 
+    @MockitoBean
+    Clock clock;
+
     @BeforeEach
     void setUp() {
         given(changeFlight.isReadOnly()).willReturn(false);
+        given(clock.instant()).willReturn(Instant.parse("2026-06-01T00:00:00Z"));
+        given(clock.getZone()).willReturn(ZoneId.systemDefault());
     }
 
     @Test
@@ -87,7 +95,7 @@ class ChangeFlightWebIntegrationTest {
 
     @Test
     void postOnUnknownFlightIdRedirectsToBookedFlights() {
-        willThrow(new FlightNotFound("Flight not found")).given(changeFlight).changeFlight(any());
+        willThrow(new FlightNotFound("Flight not found")).given(changeFlight).changeFlight(any(), any(), any());
 
         assertThat(mockMvc.post().uri("/booked-flights/" + UUID.randomUUID())
                 .with(csrf())

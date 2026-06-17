@@ -33,17 +33,11 @@ public class BookedTrainsRenderer {
             .train-card-row:hover { background-color: var(--hover-bg, #f8f9fa); }
             .station-name { font-weight: 500; }
             .station-city { font-size: 0.85rem; color: var(--muted-text, #6c757d); }
-            .empty-state { margin-top: 1rem; color: var(--muted-text, #6c757d); }
             """;
 
     public static String render(List<BookedTrainView> trains, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
-                head(
-                        meta().withCharset("UTF-8"),
-                        title("Booked Trains"),
-                        link().withRel("stylesheet").withHref("/site.css"),
-                        rawHtml("<style>" + CSS + "</style>")
-                ),
+                Page.head("Booked Trains", CSS),
                 body(
                         nav(h3(a("JitterTravel").withHref("/"))),
                         div().withClass("trains-container").with(

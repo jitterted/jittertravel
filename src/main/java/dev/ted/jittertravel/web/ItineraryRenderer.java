@@ -22,12 +22,7 @@ public class ItineraryRenderer {
     private static final String HOTEL_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#166534\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20\"/><path d=\"M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2\"/></svg>";
 
     private static final String CSS = """
-                .page { max-width: 1200px; margin: 0 auto; padding: 1rem; }
-                nav { margin-bottom: 1rem; font-size: 0.9rem; }
-                nav a { color: var(--accent-color); text-decoration: none; }
-                nav a:hover { text-decoration: underline; }
-                nav .sep { color: var(--muted-text); margin: 0 0.4em; }
-                h1 { margin: 0 0 0.75rem; font-size: 1.4rem; }
+                .page { max-width: 1200px; }
                 .date-nav { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.25rem; font-size: 0.95rem; }
                 .date-nav a { color: var(--accent-color); text-decoration: none; font-weight: 600; }
                 .date-nav a:hover { text-decoration: underline; }
@@ -58,19 +53,10 @@ public class ItineraryRenderer {
 
     public static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate, LocalDate today) {
         return "<!DOCTYPE html>\n" + html(
-                head(
-                        meta().withCharset("UTF-8"),
-                        title("Itinerary"),
-                        link().withRel("stylesheet").withHref("/site.css"),
-                        rawHtml("<style>" + CSS + "</style>")
-                ),
+                Page.head("Itinerary", CSS),
                 body(
                         div().withClass("page").with(
-                                nav(
-                                        a("JitterTravel").withHref("/"),
-                                        rawHtml("<span class=\"sep\">&middot;</span>"),
-                                        a("Calendar").withHref("/calendar")
-                                ),
+                                Page.navHomeAndCalendar(),
                                 h1("Itinerary"),
                                 renderDateNav(days, prevDate, nextDate, today),
                                 div().withClass("itinerary-grid").with(

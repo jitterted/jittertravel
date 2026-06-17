@@ -34,13 +34,12 @@ class GeneralController {
 
     @GetMapping("/")
     public String home(Model model, HttpServletRequest request) {
-        boolean isLocalProfile = environment.acceptsProfiles(Profiles.of("local"));
-        boolean isRunningLocally = isLocalProfile || environment.acceptsProfiles(Profiles.of("prod-preview"));
+        boolean isRunningLocally = environment.acceptsProfiles(Profiles.of("prod-preview"));
 
-        // Nav visibility mirrors the route rules in SecurityConfig (the "!isLocalProfile" chain).
-        // In the `isLocalProfile` profile there is no authentication, so show everything.
-        boolean isOwner = isLocalProfile || request.isUserInRole("OWNER");
-        boolean isFamily = isLocalProfile || request.isUserInRole("FAMILY");
+        // Nav visibility mirrors the route rules in SecurityConfig: roles come from the
+        // authenticated user (locally you log in via the secured chain, just like production).
+        boolean isOwner = request.isUserInRole("OWNER");
+        boolean isFamily = request.isUserInRole("FAMILY");
 
         boolean showItineraryNav = isOwner || isFamily;
         // Calendar is always visible (content is redacted for anonymous by CalendarEntryRedactor).

@@ -15,12 +15,7 @@ public class PlannedGatheringsRenderer {
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a");
 
     private static final String CSS = """
-                .page { max-width: 800px; margin: 0 auto; padding: 1rem; }
-                nav { margin-bottom: 1rem; font-size: 0.9rem; }
-                nav a { color: var(--accent-color); text-decoration: none; }
-                nav a:hover { text-decoration: underline; }
-                nav .sep { color: var(--muted-text); margin: 0 0.4em; }
-                h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+                .page { max-width: 800px; }
                 .gathering-list { display: flex; flex-direction: column; gap: 0.75rem; }
                 .gathering-card {
                     border-left: 4px solid #7c3aed;
@@ -43,24 +38,15 @@ public class PlannedGatheringsRenderer {
                     border-radius: 4px; padding: 0.15rem 0.45rem;
                 }
                 .info-link { font-size: 0.82rem; color: #6d28d9; text-decoration: underline; }
-                .empty-state { color: var(--muted-text); font-style: italic; font-size: 0.9rem; }
+                .empty-state { font-style: italic; font-size: 0.9rem; }
             """;
 
     public static String render(List<PlannedGatheringView> gatherings, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
-                head(
-                        meta().withCharset("UTF-8"),
-                        title("Planned Gatherings"),
-                        link().withRel("stylesheet").withHref("/site.css"),
-                        rawHtml("<style>" + CSS + "</style>")
-                ),
+                Page.head("Planned Gatherings", CSS),
                 body(
                         div().withClass("page").with(
-                                nav(
-                                        a("JitterTravel").withHref("/"),
-                                        rawHtml("<span class=\"sep\">&middot;</span>"),
-                                        a("Calendar").withHref("/calendar")
-                                ),
+                                Page.navHomeAndCalendar(),
                                 h1("Planned Gatherings"),
                                 TimeFilterToggle.render("/planned-gatherings", activeFilter),
                                 gatherings.isEmpty()

@@ -27,3 +27,13 @@ Conferences have event-specific web pages just like gatherings. Add `infoUrl: St
 Conferences have a physical venue. Add `mapsUrl: String` to `ConferenceTentativelyPlanned`, auto-computed from venue name + address in compact constructor if blank, and expose it in calendar/itinerary views.
 
 **When to build:** When conference venue links are needed in views.
+
+---
+
+## Ability to View Calendar and Itinerary in Time Zone of Viewer
+
+Anonymous viewers and logged-in users may be in a different time zone OWNER, so should see all calendar and itinerary information in their time zone.
+All date-time entries in the system are entered in local date-time for the location (city-region-country) that they take place in.
+Time zone from the browser should be used to localize the date-times of entries.
+To override the default time zone, a drop-down menu is available on the Calendar and Itinerary views to select the time zone, defaulting to the time zone from the viewer's browser.
+

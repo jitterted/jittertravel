@@ -3,10 +3,8 @@ package dev.ted.jittertravel.infrastructure;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -15,33 +13,21 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Security is <strong>secured by default</strong>: the production form-login chain is active
- * unless the {@code local} profile is explicitly enabled. This makes the safe configuration
- * the one you get when you forget to set a profile (e.g. on deploy), and the permissive,
- * no-auth dev chain something you must opt into with {@code local}.
+ * One security chain, always on. There is no permissive/no-auth variant: local development runs
+ * the same secured form-login chain as production (via the {@code prod-preview} profile, which
+ * supplies local stand-in passwords). A single chain means local and production cannot diverge
+ * on who is treated as authenticated.
+ *
+ * <p>Three access tiers: OWNER (ted) has full access; FAMILY can view the itinerary and the
+ * full calendar only; anonymous can only see the redacted calendar and home page.
+ * An anonymous request to a protected page is redirected to the login form; an authenticated
+ * user who lacks the required role is redirected back to the home page (a friendlier
+ * alternative to a bare 403).
  */
 @Configuration
 public class SecurityConfig {
 
     @Bean
-    @Profile("local")
-    public SecurityFilterChain devFilterChain(HttpSecurity http) throws Exception {
-        return http
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .anonymous(AbstractHttpConfigurer::disable)
-                .csrf(AbstractHttpConfigurer::disable)
-                .build();
-    }
-
-    /**
-     * Three access tiers: OWNER (ted) has full access; FAMILY can view the itinerary and the
-     * full calendar only; anonymous can only see the redacted calendar and home page.
-     * An anonymous request to a protected page is redirected to the login form; an authenticated
-     * user who lacks the required role is redirected back to the home page (a friendlier
-     * alternative to a bare 403).
-     */
-    @Bean
-    @Profile("!local")
     public SecurityFilterChain securedFilterChain(HttpSecurity http) throws Exception {
         return http
                 .authorizeHttpRequests(auth -> auth
@@ -84,7 +70,6 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Profile("!local")
     public UserDetailsService userDetailsService(
             @Value("${TED_PASSWORD}") String tedPassword,
             @Value("${FAMILY_PASSWORD}") String familyPassword,
@@ -102,7 +87,6 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Profile("!local")
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }

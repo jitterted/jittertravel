@@ -214,11 +214,7 @@ public class ConfirmedCalendarRenderer {
         String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser);
 
         return "<!DOCTYPE html>\n" + html(
-                head(
-                        meta().withCharset("UTF-8"),
-                        title("Confirmed Calendar"),
-                        rawHtml("<style>" + CSS + "</style>")
-                ),
+                Page.head("Confirmed Calendar", CSS),
                 body(
                         nav(
                                 a("JitterTravel")

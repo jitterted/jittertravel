@@ -23,7 +23,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 /**
  * Verifies login-related behavior and the rendered home-page navigation per role under the
- * secured ("!local") chain. Pure route authorization (role × route → outcome) lives in
+ * secured chain. Pure route authorization (role × route → outcome) lives in
  * {@link AuthorizationMatrixTest}.
  */
 @WebMvcTest(GeneralController.class)

@@ -27,8 +27,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  * tests, these assert on response body content because the behavior under test
  * is security-driven (which code path the controller takes), not rendering.
  */
-// No @ActiveProfiles: the secured chain is the default (profile "!local"), which is exactly
-// the production security path this test exercises.
+// The secured chain is the only chain, active by default — exactly the production security
+// path this test exercises.
 @WebMvcTest(CalendarController.class)
 @Import(SecurityConfig.class)
 @TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass"})

@@ -42,3 +42,15 @@ body {
     color: #fff;
     font-weight: 600;
 }
+
+/* Shared chrome for `.page` list/detail views (see web/Page). Each renderer's
+   own <style> sets only its `.page { max-width }` plus view-specific rules. */
+.page { margin: 0 auto; padding: 1rem; }
+.page nav { margin-bottom: 1rem; font-size: 0.9rem; }
+.page nav a { color: var(--accent-color); text-decoration: none; }
+.page nav a:hover { text-decoration: underline; }
+.page nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+.page h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+/* Empty-state message shared by the booked/planned list views. */
+.empty-state { margin-top: 1rem; color: var(--muted-text); }

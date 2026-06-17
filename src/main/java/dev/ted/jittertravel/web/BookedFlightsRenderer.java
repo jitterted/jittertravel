@@ -45,18 +45,12 @@ public class BookedFlightsRenderer {
             .conf-name { font-weight: 500; color: var(--accent-color); }
             .flight-history-list { margin: 0; padding: 0 16px 12px 3rem; list-style: disc; color: var(--muted-text); font-size: 0.9rem; }
             .flight-history-list li { margin: 0.15rem 0; }
-            .empty-state { margin-top: 1rem; color: var(--muted-text); }
             .empty-state p { margin: 0.5rem 0; }
             """;
 
     public static String render(List<BookedFlightView> flights, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
-                head(
-                        meta().withCharset("UTF-8"),
-                        title("Booked Flights"),
-                        link().withRel("stylesheet").withHref("/site.css"),
-                        rawHtml("<style>" + CSS + "</style>")
-                ),
+                Page.head("Booked Flights", CSS),
                 body(
                         nav(a("JitterTravel").withHref("/")),
                         h1("Booked Flights"),

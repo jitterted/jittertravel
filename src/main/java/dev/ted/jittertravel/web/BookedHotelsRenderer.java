@@ -17,12 +17,7 @@ public class BookedHotelsRenderer {
             DateTimeFormatter.ofPattern("EEE, MMM d, h:mm a", Locale.ENGLISH);
 
     private static final String CSS = """
-            .page { max-width: 900px; margin: 0 auto; padding: 1rem; }
-            nav { margin-bottom: 1rem; font-size: 0.9rem; }
-            nav a { color: var(--accent-color); text-decoration: none; }
-            nav a:hover { text-decoration: underline; }
-            nav .sep { color: var(--muted-text); margin: 0 0.4em; }
-            h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+            .page { max-width: 900px; }
             .hotel-table {
                 width: 100%; border-collapse: collapse;
                 background: var(--surface, #fff);
@@ -50,7 +45,6 @@ public class BookedHotelsRenderer {
             }
             .status-tentative { background: #fef3c7; color: #92400e; }
             .status-final { background: #dcfce7; color: #166534; }
-            .empty-state { margin-top: 1rem; color: var(--muted-text); }
             .action-row { margin-top: 1rem; }
             .action-row a { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
             .action-row a:hover { text-decoration: underline; }
@@ -58,19 +52,10 @@ public class BookedHotelsRenderer {
 
     public static String render(List<BookedHotelView> hotels, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
-                head(
-                        meta().withCharset("UTF-8"),
-                        title("Booked Hotels"),
-                        link().withRel("stylesheet").withHref("/site.css"),
-                        rawHtml("<style>" + CSS + "</style>")
-                ),
+                Page.head("Booked Hotels", CSS),
                 body(
                         div().withClass("page").with(
-                                nav(
-                                        a("JitterTravel").withHref("/"),
-                                        rawHtml("<span class=\"sep\">&middot;</span>"),
-                                        a("Calendar").withHref("/calendar")
-                                ),
+                                Page.navHomeAndCalendar(),
                                 h1("Booked Hotels"),
                                 TimeFilterToggle.render("/booked-hotels", activeFilter),
                                 hotels.isEmpty()

@@ -14,25 +14,22 @@ Status: **configured, not yet verified on a live Railway deploy.** A committed `
 
 ## Secured by default (the important part)
 
-Security is **production-by-default**. `SecurityConfig` activates the secured form-login chain
-unless the **`local`** profile is explicitly enabled:
+Security has **one chain, always on**. `SecurityConfig` activates the secured form-login chain in
+every profile, including local development. There is no permissive/no-auth variant:
 
 | Profile | Auth | CSRF | Datasource | Intended use |
 |---|---|---|---|---|
-| **default** (no profile / anything but `local`) | **form login** (`ted`, `family`) | enabled | `PGDATABASE`, `PGHOST`, `PGPASSWORD`, `PGPORT`, `PGUSER` | **production / Railway** |
-| `local` | none — every request permitted | disabled | `SPRING_DATASOURCE_*` (localhost defaults), docker-compose | local dev |
-| `prod-preview` | **form login** (like production) | enabled | localhost (with `SPRING_DATASOURCE_*` overrides), docker-compose | run the secured config locally |
+| **default** (no profile) | **form login** (`ted`, `family`) | enabled | `PGDATABASE`, `PGHOST`, `PGPASSWORD`, `PGPORT`, `PGUSER` | **production / Railway** |
+| `prod-preview` | **form login** (like production) | enabled | localhost (with `SPRING_DATASOURCE_*` overrides), docker-compose | local dev / run the secured config locally |
 
-Because the secured chain is active for **any** profile that isn't `local`, `prod-preview` exercises
-the real production security path — but as an explicit, opt-in profile it is **never** active on
-Railway when no profile is set. It supplies local stand-in DB settings and dummy
-`TED_PASSWORD`/`FAMILY_PASSWORD` so the secured chain can start on your machine without the real
-Railway variables.
+`prod-preview` exercises the real production security path — but as an explicit, opt-in profile it
+is **never** active on Railway when no profile is set. It supplies local stand-in DB settings and
+dummy `TED_PASSWORD`/`FAMILY_PASSWORD` so the secured chain can start on your machine without the
+real Railway variables.
 
-> This is deliberately inverted from the usual "dev by default": **forgetting to set a profile
-> yields the *secure* configuration, not an open one.** You cannot accidentally deploy an
-> unauthenticated instance by omitting a variable. Local development is the thing you must opt
-> into, with `SPRING_PROFILES_ACTIVE=local`.
+> There is no way to run unauthenticated. Forgetting to set a profile yields the **secured**
+> configuration (production); local development opts into `prod-preview`, which is the *same*
+> secured chain with local stand-in credentials. You cannot accidentally deploy an open instance.
 
 ### Access control (secured profiles)
 Data-entry and admin pages require login; read-only views stay public:
@@ -46,20 +43,16 @@ Data-entry and admin pages require login; read-only views stay public:
 
 Visiting a protected page while logged out redirects to the login form; a **failed login
 returns to the login page with an error** (`/login?error`). The home page hides the "Book & Plan"
-and "Admin" nav groups until you log in (they always show under `local`, which has no auth), and
-intentionally exposes no "Log in" link.
+and "Admin" nav groups until you log in, and intentionally exposes no "Log in" link.
 
 ### Running locally
 ```
-# Day-to-day dev (no auth):
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
-
-# Exercise the secured production config locally (form login, CSRF, redaction):
+# Local dev = the secured production config (form login, CSRF, redaction):
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=prod-preview
 #   log in with ted / preview  (or family / preview)
 ```
-`local` uses the permissive no-auth chain (no passwords needed). `prod-preview` uses the secured
-form-login chain with dummy local passwords. Both start Postgres via `compose.yml`
+`prod-preview` uses the secured
+form-login chain with dummy local passwords and starts Postgres via `compose.yml`
 (spring-boot-docker-compose). A real `TED_PASSWORD`/`FAMILY_PASSWORD` env var overrides the
 `prod-preview` defaults if you want to test specific credentials.
 
@@ -86,13 +79,13 @@ the service — check the app service's **Variables** tab first; add any that ar
 you do not set it.
 
 > Do **not** set `SPRING_PROFILES_ACTIVE` in production — the default (unset) is already the
-> secured profile. Setting it to `local` would disable authentication.
+> secured profile with the real Railway DB references. `prod-preview` is for local use only.
 
 ### Application secrets (set by hand — private)
 
 | Variable | Required | Secret | Notes |
 |---|---|---|---|
-| `TED_PASSWORD` | ✅ | **yes** | Login password for the `ted` user. **App fails to start if unset** (in any non-`local` profile). |
+| `TED_PASSWORD` | ✅ | **yes** | Login password for the `ted` user. **App fails to start if unset.** |
 | `FAMILY_PASSWORD` | ✅ | **yes** | Login password for the `family` user. **App fails to start if unset.** |
 | `AERODATABOX_API_KEY` | optional | **yes** | RapidAPI key for AeroDataBox flight lookups. If unset the app still starts but flight lookup is non-functional. |
 

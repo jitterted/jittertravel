@@ -25,7 +25,7 @@ import static org.mockito.Mockito.lenient;
 
 /**
  * Canonical, change-friendly statement of the authorization policy as a (role × route → outcome)
- * matrix, verified against the real secured chain ({@link SecurityConfig}, the "!local" profile).
+ * matrix, verified against the real secured chain ({@link SecurityConfig}).
  * <p>
  * To change the policy, edit the rows in {@link #policy()} and update {@code SecurityConfig}
  * accordingly; a mismatch will fail here pointing at the exact route/role.

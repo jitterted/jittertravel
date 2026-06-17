@@ -21,12 +21,7 @@ public class ScheduleProblemsRenderer {
             DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
 
     private static final String CSS = """
-            .page { max-width: 1100px; margin: 0 auto; padding: 1rem; }
-            nav { margin-bottom: 1rem; font-size: 0.9rem; }
-            nav a { color: var(--accent-color); text-decoration: none; }
-            nav a:hover { text-decoration: underline; }
-            nav .sep { color: var(--muted-text); margin: 0 0.4em; }
-            h1 { margin: 0 0 1.25rem; font-size: 1.4rem; }
+            .page { max-width: 1100px; }
             .no-problems { color: var(--muted-text); font-style: italic; font-size: 0.95rem; padding: 2rem 0; }
             .problem-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
             .column-heading {
@@ -68,19 +63,10 @@ public class ScheduleProblemsRenderer {
                 .toList();
 
         return "<!DOCTYPE html>\n" + html(
-                head(
-                        meta().withCharset("UTF-8"),
-                        title("Schedule Problems"),
-                        link().withRel("stylesheet").withHref("/site.css"),
-                        rawHtml("<style>" + CSS + "</style>")
-                ),
+                Page.head("Schedule Problems", CSS),
                 body(
                         div().withClass("page").with(
-                                nav(
-                                        a("JitterTravel").withHref("/"),
-                                        rawHtml("<span class=\"sep\">&middot;</span>"),
-                                        a("Calendar").withHref("/calendar")
-                                ),
+                                Page.navHomeAndCalendar(),
                                 h1("Schedule Problems"),
                                 travel.isEmpty() && hotel.isEmpty() && scheduling.isEmpty() && cityConflicts.isEmpty()
                                         ? renderNoProblems()

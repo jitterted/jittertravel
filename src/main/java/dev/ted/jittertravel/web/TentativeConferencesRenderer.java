@@ -35,17 +35,11 @@ public class TentativeConferencesRenderer {
             .conference-table tbody tr:hover { background-color: var(--hover-bg); }
             .conf-name { font-weight: 500; color: var(--accent-color); }
             .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-            .empty-state { margin-top: 1rem; color: var(--muted-text); }
             """;
 
     public static String render(List<TentativeConferenceView> conferences, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
-                head(
-                        meta().withCharset("UTF-8"),
-                        title("Tentative Conferences"),
-                        link().withRel("stylesheet").withHref("/site.css"),
-                        rawHtml("<style>" + CSS + "</style>")
-                ),
+                Page.head("Tentative Conferences", CSS),
                 body(
                         nav(a("JitterTravel").withHref("/")),
                         h1("Tentative Conferences"),

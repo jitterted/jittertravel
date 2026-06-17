@@ -99,6 +99,24 @@ class BookedTrainsRendererTest {
                 .contains("Tue, Jun 9, 1:00 PM");
     }
 
+    @Test
+    void eachTrainRowLinksToItsEditPage() {
+        TrainTripId tripId = TrainTripId.random();
+        BookedTrainView train = new BookedTrainView(
+                tripId,
+                "",
+                "London Euston", "London", "",
+                DEPARTURE, "Tue, Jun 9, 9:00 AM",
+                "Manchester Piccadilly", "Manchester", "",
+                ARRIVAL, "Tue, Jun 9, 1:00 PM"
+        );
+
+        String html = BookedTrainsRenderer.render(List.of(train), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<a class=\"train-edit-link\" href=\"/booked-trains/" + tripId.id() + "\">Edit</a>");
+    }
+
     private static BookedTrainView trainView(
             String depName, String depCity, String depMapsUrl,
             String arrName, String arrCity, String arrMapsUrl) {

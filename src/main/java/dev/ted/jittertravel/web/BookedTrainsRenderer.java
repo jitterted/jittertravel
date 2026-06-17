@@ -19,9 +19,11 @@ public class BookedTrainsRenderer {
             }
             .train-card-header, .train-card-row {
                 display: grid;
-                grid-template-columns: 2fr 1fr 2fr 1fr;
+                grid-template-columns: 2fr 1fr 2fr 1fr auto;
                 align-items: center; gap: 0.75rem; padding: 10px 16px;
             }
+            .train-edit-link { font-size: 0.85rem; color: var(--accent-color, #0a58ca); text-decoration: none; }
+            .train-edit-link:hover { text-decoration: underline; }
             .train-card-header {
                 background-color: var(--header-bg, #f8f9fa); color: var(--muted-text, #6c757d);
                 font-weight: 600; text-transform: uppercase;
@@ -66,7 +68,8 @@ public class BookedTrainsRenderer {
                         span("Departure"),
                         span("Departs"),
                         span("Arrival"),
-                        span("Arrives")
+                        span("Arrives"),
+                        span()
                 ),
                 each(trains, BookedTrainsRenderer::renderTrainCard)
         );
@@ -87,7 +90,9 @@ public class BookedTrainsRenderer {
                                 stationNameElement(train.arrivalStationName(), train.arrivalMapsUrl()),
                                 div(train.arrivalCity()).withClass("station-city")
                         ),
-                        div(train.arrivalDateTimeDisplay())
+                        div(train.arrivalDateTimeDisplay()),
+                        a("Edit").withClass("train-edit-link")
+                                .withHref("/booked-trains/" + train.tripId().id())
                 )
         );
     }

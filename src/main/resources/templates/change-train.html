@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Change Train Trip</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .service-field { margin-bottom: 1rem; }
+
+        .fieldsets {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        fieldset {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin: 0;
+        }
+
+        legend {
+            font-weight: 600;
+            padding: 0 0.4em;
+            color: var(--muted-text);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .field { margin-bottom: 0.5rem; }
+        .field:last-child { margin-bottom: 0; }
+
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+
+        .field input {
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+
+        .field-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .field-row .field { flex: 2; margin-bottom: 0; }
+        .field-row .field.narrow { flex: 1; }
+
+        .error {
+            display: block;
+            margin-top: 2px;
+            font-size: 0.8rem;
+            color: #b00;
+        }
+
+        button[type=submit] {
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        button[type=submit]:hover { opacity: 0.88; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/booked-trains">Booked Trains</a>
+    </nav>
+
+    <h1>Change Train Trip</h1>
+
+    <form th:action="@{|/booked-trains/${changeTrain.trainTripId}|}" th:object="${changeTrain}" method="post">
+        <input type="hidden" th:field="*{trainTripId}"/>
+
+        <div class="field service-field">
+            <label>
+                Service Number (optional)
+                <input type="text" th:field="*{serviceId}" placeholder="e.g. DB - ICE 610"/>
+            </label>
+        </div>
+
+        <div class="fieldsets">
+            <fieldset>
+                <legend>Departure</legend>
+
+                <div class="field">
+                    <label>
+                        Station Name
+                        <input type="text" th:field="*{departureStationName}"/>
+                    </label>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label>
+                            City
+                            <input type="text" th:field="*{departureCityName}"/>
+                        </label>
+                    </div>
+                    <div class="field narrow">
+                        <label>
+                            Country
+                            <input type="text" th:field="*{departureCountry}"/>
+                        </label>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>
+                        Google Maps URL (optional)
+                        <input type="url" th:field="*{departureMapsUrl}"/>
+                    </label>
+                </div>
+                <div class="field">
+                    <label>
+                        Date / Time
+                        <input type="datetime-local" th:field="*{departureDateTime}"/>
+                    </label>
+                    <span class="error"
+                          th:if="${#fields.hasErrors('departureDateTime')}"
+                          th:errors="*{departureDateTime}"></span>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Arrival</legend>
+
+                <div class="field">
+                    <label>
+                        Station Name
+                        <input type="text" th:field="*{arrivalStationName}"/>
+                    </label>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label>
+                            City
+                            <input type="text" th:field="*{arrivalCityName}"/>
+                        </label>
+                    </div>
+                    <div class="field narrow">
+                        <label>
+                            Country
+                            <input type="text" th:field="*{arrivalCountry}"/>
+                        </label>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>
+                        Google Maps URL (optional)
+                        <input type="url" th:field="*{arrivalMapsUrl}"/>
+                    </label>
+                </div>
+                <div class="field">
+                    <label>
+                        Date / Time
+                        <input type="datetime-local" th:field="*{arrivalDateTime}"/>
+                    </label>
+                    <span class="error"
+                          th:if="${#fields.hasErrors('arrivalDateTime')}"
+                          th:errors="*{arrivalDateTime}"></span>
+                </div>
+            </fieldset>
+        </div>
+
+        <button type="submit">Save changes</button>
+    </form>
+
+</div>
+</body>
+</html>

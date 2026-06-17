@@ -4,21 +4,19 @@ import dev.ted.jittertravel.domain.BookHotelCommand;
 import dev.ted.jittertravel.domain.BookHotelContext;
 import dev.ted.jittertravel.web.BookHotelRequest;
 
-import java.time.Clock;
 import java.time.LocalDateTime;
 
 public class HotelBooking {
     private final CommandExecutor commandExecutor;
-    private final Clock clock;
 
-    public HotelBooking(CommandExecutor commandExecutor, Clock clock) {
+    public HotelBooking(CommandExecutor commandExecutor) {
         this.commandExecutor = commandExecutor;
-        this.clock = clock;
     }
 
-    public void bookHotel(BookHotelRequest request) {
+    // now is captured at the boundary (controller) and passed in; the service reads no clock.
+    public void bookHotel(BookHotelRequest request, LocalDateTime now) {
         BookHotelCommand command = new BookHotelHandler().handle(request);
-        BookHotelContext context = new BookHotelContext(LocalDateTime.now(clock));
+        BookHotelContext context = new BookHotelContext(now);
         commandExecutor.execute(command.hotelBookingId().id(), request, context, command);
     }
 }

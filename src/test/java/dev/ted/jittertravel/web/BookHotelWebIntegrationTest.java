@@ -67,7 +67,7 @@ class BookHotelWebIntegrationTest {
     @Test
     void postWithCheckInInPastRendersFormAgain() {
         willThrow(new CheckInNotInFuture("Check-in must be in the future"))
-                .given(hotelBooking).bookHotel(any());
+                .given(hotelBooking).bookHotel(any(), any());
 
         assertThat(mockMvc.post().uri("/book-hotel")
                 .with(csrf())
@@ -86,7 +86,7 @@ class BookHotelWebIntegrationTest {
     @Test
     void postWithCheckOutSameDayRendersFormAgain() {
         willThrow(new InvalidHotelDateRange("Check-out must be at least one day after check-in"))
-                .given(hotelBooking).bookHotel(any());
+                .given(hotelBooking).bookHotel(any(), any());
 
         assertThat(mockMvc.post().uri("/book-hotel")
                 .with(csrf())

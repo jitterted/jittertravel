@@ -41,7 +41,7 @@ public class BookTrainController {
     public String bookTrainSubmit(@ModelAttribute("bookTrain") BookTrainRequest request,
                                   BindingResult bindingResult) {
         try {
-            trainBooking.bookTrain(request);
+            trainBooking.bookTrain(request, LocalDateTime.now(clock));
         } catch (DepartureNotInFuture e) {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {

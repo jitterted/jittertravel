@@ -105,8 +105,8 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public HotelBooking hotelBookingApplicationService(CommandExecutor commandExecutor, Clock clock) {
-        return new HotelBooking(commandExecutor, clock);
+    public HotelBooking hotelBookingApplicationService(CommandExecutor commandExecutor) {
+        return new HotelBooking(commandExecutor);
     }
 
     @Bean
@@ -158,8 +158,8 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public TrainBooking trainBookingApplicationService(CommandExecutor commandExecutor, Clock clock) {
-        return new TrainBooking(commandExecutor, clock);
+    public TrainBooking trainBookingApplicationService(CommandExecutor commandExecutor) {
+        return new TrainBooking(commandExecutor);
     }
 
     @Bean
@@ -179,8 +179,8 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public GatheringPlanning gatheringPlanningApplicationService(CommandExecutor commandExecutor, Clock clock) {
-        return new GatheringPlanning(commandExecutor, clock);
+    public GatheringPlanning gatheringPlanningApplicationService(CommandExecutor commandExecutor) {
+        return new GatheringPlanning(commandExecutor);
     }
 
     @Bean

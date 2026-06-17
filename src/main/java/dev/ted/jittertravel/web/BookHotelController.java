@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Controller
@@ -39,7 +40,7 @@ public class BookHotelController {
     public String bookHotelSubmit(@ModelAttribute("bookHotel") BookHotelRequest request,
                                   BindingResult bindingResult) {
         try {
-            hotelBooking.bookHotel(request);
+            hotelBooking.bookHotel(request, LocalDateTime.now(clock));
         } catch (CheckInNotInFuture e) {
             bindingResult.rejectValue("checkIn", "future", e.getMessage());
         } catch (InvalidHotelDateRange e) {

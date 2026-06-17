@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
@@ -43,12 +44,12 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         // one of every command type
         String flightId = UUID.randomUUID().toString();
         flightBooking.bookFlight(bookFlight(flightId));
-        changeFlight.changeFlight(UUID.randomUUID(), changeFlight(flightId), java.time.LocalDateTime.now());
-        hotelBooking.bookHotel(bookHotel());
-        trainBooking.bookTrain(bookTrain());
+        changeFlight.changeFlight(UUID.randomUUID(), changeFlight(flightId), LocalDateTime.now());
+        hotelBooking.bookHotel(bookHotel(), LocalDateTime.now());
+        trainBooking.bookTrain(bookTrain(), LocalDateTime.now());
         conferencePlanning.planConference(planConference(UUID.randomUUID().toString(),
                 FUTURE.atTime(9, 0), FUTURE.plusDays(2).atTime(17, 0)));  // multi-day, stays tentative
-        gatheringPlanning.planGathering(planGathering());
+        gatheringPlanning.planGathering(planGathering(), LocalDate.now());
 
         // single-day conference that we then migrate to a gathering
         String migratedConferenceId = UUID.randomUUID().toString();
@@ -56,7 +57,7 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
                 FUTURE.atTime(9, 0), FUTURE.atTime(17, 0)));
         conferenceMigrationService.migrateToGathering(ConferenceId.of(UUID.fromString(migratedConferenceId)), true);
 
-        gatheringPlanning.clearConflict(GatheringId.random(), ConferenceId.random(), "Attending virtually");
+        gatheringPlanning.clearConflict(GatheringId.random(), ConferenceId.random(), "Attending virtually", UUID.randomUUID());
 
         List<Event> before = currentEvents();
         assertThat(before)
@@ -149,8 +150,8 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
     }
 
     private static PlanTentativeConferenceRequest planConference(String conferenceId,
-                                                                 java.time.LocalDateTime start,
-                                                                 java.time.LocalDateTime end) {
+                                                                 LocalDateTime start,
+                                                                 LocalDateTime end) {
         PlanTentativeConferenceRequest r = new PlanTentativeConferenceRequest();
         r.setConferenceId(conferenceId);
         r.setName("JitterConf 2027");

@@ -61,7 +61,7 @@ class BookTrainControllerValidationTest {
 
     private void invokeService(TrainBooking service, BookTrainRequest request, BindingResult bindingResult) {
         try {
-            service.bookTrain(request);
+            service.bookTrain(request, NOW);
         } catch (DepartureNotInFuture e) {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {
@@ -84,10 +84,10 @@ class BookTrainControllerValidationTest {
     }
 
     private TrainBooking mockService() {
-        return new TrainBooking(null, null) {
+        return new TrainBooking(null) {
             @Override
-            public void bookTrain(BookTrainRequest request) {
-                new BookTrainHandler().handle(request).execute(new BookTrainContext(NOW));
+            public void bookTrain(BookTrainRequest request, LocalDateTime now) {
+                new BookTrainHandler().handle(request).execute(new BookTrainContext(now));
             }
         };
     }

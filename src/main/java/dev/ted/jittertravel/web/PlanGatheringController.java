@@ -41,7 +41,7 @@ public class PlanGatheringController {
     public String planGatheringSubmit(@ModelAttribute("planGathering") PlanGatheringRequest request,
                                       BindingResult bindingResult) {
         try {
-            gatheringPlanning.planGathering(request);
+            gatheringPlanning.planGathering(request, LocalDate.now(clock));
         } catch (GatheringDateNotInFuture e) {
             bindingResult.rejectValue("date", "future", e.getMessage());
         } catch (InvalidGatheringTimeRange e) {

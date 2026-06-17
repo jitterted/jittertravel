@@ -68,7 +68,7 @@ class BookTrainWebIntegrationTest {
     @Test
     void postWithPastDepartureRendersFormAgain() {
         willThrow(new DepartureNotInFuture("Departure must be in the future"))
-                .given(trainBooking).bookTrain(any());
+                .given(trainBooking).bookTrain(any(), any());
 
         assertThat(mockMvc.post().uri("/book-train")
                 .with(csrf())
@@ -87,7 +87,7 @@ class BookTrainWebIntegrationTest {
     @Test
     void postWithArrivalBeforeDepartureRendersFormAgain() {
         willThrow(new InvalidDateRange("Arrival must be after departure"))
-                .given(trainBooking).bookTrain(any());
+                .given(trainBooking).bookTrain(any(), any());
 
         assertThat(mockMvc.post().uri("/book-train")
                 .with(csrf())

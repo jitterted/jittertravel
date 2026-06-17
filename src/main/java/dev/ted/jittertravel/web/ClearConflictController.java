@@ -49,7 +49,8 @@ public class ClearConflictController {
         gatheringPlanning.clearConflict(
                 GatheringId.of(UUID.fromString(request.getGatheringId())),
                 ConferenceId.of(UUID.fromString(request.getConferenceId())),
-                request.getReason() != null ? request.getReason() : "");
+                request.getReason() != null ? request.getReason() : "",
+                UUID.randomUUID());
         return "redirect:/schedule-problems";
     }
 }

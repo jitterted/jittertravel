@@ -63,7 +63,7 @@ class BookHotelControllerValidationTest {
 
     private void invokeService(HotelBooking service, BookHotelRequest request, BindingResult bindingResult) {
         try {
-            service.bookHotel(request);
+            service.bookHotel(request, NOW);
         } catch (CheckInNotInFuture e) {
             bindingResult.rejectValue("checkIn", "future", e.getMessage());
         } catch (InvalidHotelDateRange e) {
@@ -87,10 +87,10 @@ class BookHotelControllerValidationTest {
     }
 
     private HotelBooking mockService() {
-        return new HotelBooking(null, null) {
+        return new HotelBooking(null) {
             @Override
-            public void bookHotel(BookHotelRequest request) {
-                new BookHotelHandler().handle(request).execute(new BookHotelContext(NOW));
+            public void bookHotel(BookHotelRequest request, LocalDateTime now) {
+                new BookHotelHandler().handle(request).execute(new BookHotelContext(now));
             }
         };
     }

@@ -393,7 +393,7 @@ public class PostgresPersister {
                         event.eventId(),
                         event.commandId(),
                         event.timestamp().atOffset(ZoneOffset.UTC),
-                        event.type().getName(),
+                        EventTypes.logicalNameFor(event.type()),
                         jsonMapper.writeValueAsString(event.payload())
                 );
             } catch (Exception e) {
@@ -403,8 +403,7 @@ public class PostgresPersister {
 
         StoredEvent toStoredEvent(JsonMapper jsonMapper) {
             try {
-                @SuppressWarnings("unchecked")
-                Class<? extends Event> eventClass = (Class<? extends Event>) Class.forName(type);
+                Class<? extends Event> eventClass = EventTypes.classFor(type);
 
                 Event payload = jsonMapper.readValue(payloadJson, eventClass);
 

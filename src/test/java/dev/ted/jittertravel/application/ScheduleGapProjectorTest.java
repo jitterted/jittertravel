@@ -740,6 +740,35 @@ class ScheduleGapProjectorTest {
     }
 
     // -------------------------------------------------------------------------
+    // Change Train propagation
+    // -------------------------------------------------------------------------
+
+    @Test
+    void trainChangedRevaluatesTravelLegForSameTrip() {
+        ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+        TrainBooked booked = train(AMS, SEP_15.atTime(13, 0), BRU, SEP_15.atTime(15, 0));
+
+        // Flight LON->AMS connects with the train departing AMS: no missing travel.
+        projector.handle(Stream.of(
+                stored(flight(LON, SEP_15.atTime(9, 0), AMS, SEP_15.atTime(11, 0))),
+                stored(booked)));
+        assertThat(projector.problems())
+                .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
+                .isEmpty();
+
+        // Re-route the same trip to depart from PRG: now the flight arrives AMS with no onward leg.
+        projector.handle(Stream.of(stored(
+                trainChanged(booked.tripId(), PRG, SEP_15.atTime(13, 0), BRU, SEP_15.atTime(15, 0)))));
+
+        assertThat(projector.problems())
+                .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
+                .hasSize(1)
+                .first()
+                .isEqualTo(new ScheduleProblem.MissingTravel(
+                        "AMS", SEP_15.atTime(11, 0), "PRG", SEP_15.atTime(13, 0)));
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
@@ -755,6 +784,13 @@ class ScheduleGapProjectorTest {
 
     private static TrainBooked train(String fromCity, LocalDateTime dep, String toCity, LocalDateTime arr) {
         return new TrainBooked(TrainTripId.random(),
+                new TrainStationAddress("Station", fromCity, "XX", ""), dep,
+                new TrainStationAddress("Station", toCity, "XX", ""), arr, "");
+    }
+
+    private static TrainChanged trainChanged(TrainTripId tripId, String fromCity, LocalDateTime dep,
+                                             String toCity, LocalDateTime arr) {
+        return new TrainChanged(tripId,
                 new TrainStationAddress("Station", fromCity, "XX", ""), dep,
                 new TrainStationAddress("Station", toCity, "XX", ""), arr, "");
     }

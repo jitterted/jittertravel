@@ -38,6 +38,9 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 case TrainBooked e -> trainLegs.put(e.tripId(), new TravelLeg(
                         e.departureStation().city(), e.departureDateTime(),
                         e.arrivalStation().city(), e.arrivalDateTime()));
+                case TrainChanged e -> trainLegs.put(e.tripId(), new TravelLeg(
+                        e.departureStation().city(), e.departureDateTime(),
+                        e.arrivalStation().city(), e.arrivalDateTime()));
                 case HotelBooked e -> hotelStays.put(e.hotelBookingId(), new HotelStay(
                         e.address().locationForMatching(), e.checkIn().toLocalDate(), e.checkOut().toLocalDate()));
                 case ConferenceTentativelyPlanned e -> conferenceOccupancies.put(e.conferenceId(),

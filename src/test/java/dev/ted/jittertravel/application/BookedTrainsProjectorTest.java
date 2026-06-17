@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainChanged;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -88,6 +89,39 @@ class BookedTrainsProjectorTest {
 
         assertThat(projector.views(TimeView.FUTURE, now))
                 .hasSize(1);
+    }
+
+    @Test
+    void trainChangedOverwritesTheBookedTrainViewForSameTrip() {
+        BookedTrainsProjector projector = new BookedTrainsProjector();
+        TrainTripId tripId = TrainTripId.random();
+        TrainBooked booked = new TrainBooked(
+                tripId,
+                new TrainStationAddress("London Euston", "London", "UK", ""),
+                LocalDateTime.of(2026, 7, 1, 9, 0),
+                new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", ""),
+                LocalDateTime.of(2026, 7, 1, 13, 0),
+                "");
+        TrainChanged changed = new TrainChanged(
+                tripId,
+                new TrainStationAddress("London Kings Cross", "London", "UK", ""),
+                LocalDateTime.of(2026, 7, 5, 10, 0),
+                new TrainStationAddress("Edinburgh Waverley", "Edinburgh", "UK", ""),
+                LocalDateTime.of(2026, 7, 5, 14, 30),
+                "LNER - Azuma 9E22");
+
+        projector.handle(Stream.of(stored(booked), stored(changed)));
+
+        List<BookedTrainView> views = projector.views(TimeView.ALL, LocalDateTime.of(2026, 6, 1, 0, 0));
+        assertThat(views)
+                .hasSize(1);
+        BookedTrainView view = views.getFirst();
+        assertThat(view.arrivalCity())
+                .isEqualTo("Edinburgh");
+        assertThat(view.departureDateTime())
+                .isEqualTo(LocalDateTime.of(2026, 7, 5, 10, 0));
+        assertThat(view.serviceId())
+                .isEqualTo("LNER - Azuma 9E22");
     }
 
     private static TrainBooked trainBookedDeparting(LocalDateTime departure) {

@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainChanged;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
@@ -34,11 +35,14 @@ public class TrainCalendarProjector implements EventStreamConsumer {
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(stored -> {
-            if (stored.payload() instanceof TrainBooked event) {
-                entriesByTrip.put(event.tripId(), buildEntries(
-                        event.departureStation(), event.departureDateTime(),
-                        event.arrivalStation(), event.arrivalDateTime(),
-                        event.serviceId()));
+            switch (stored.payload()) {
+                case TrainBooked e -> entriesByTrip.put(e.tripId(), buildEntries(
+                        e.departureStation(), e.departureDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
+                case TrainChanged e -> entriesByTrip.put(e.tripId(), buildEntries(
+                        e.departureStation(), e.departureDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
+                default -> { /* not a train event */ }
             }
         });
     }

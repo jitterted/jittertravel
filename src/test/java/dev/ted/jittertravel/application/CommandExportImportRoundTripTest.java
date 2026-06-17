@@ -34,6 +34,7 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
     @Autowired ChangeFlight changeFlight;
     @Autowired HotelBooking hotelBooking;
     @Autowired TrainBooking trainBooking;
+    @Autowired ChangeTrain changeTrain;
     @Autowired GatheringPlanning gatheringPlanning;
     @Autowired ConferenceMigrationService conferenceMigrationService;
     @Autowired CommandImporter commandImporter;
@@ -46,7 +47,9 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         flightBooking.bookFlight(bookFlight(flightId));
         changeFlight.changeFlight(UUID.randomUUID(), changeFlight(flightId), LocalDateTime.now());
         hotelBooking.bookHotel(bookHotel(), LocalDateTime.now());
-        trainBooking.bookTrain(bookTrain(), LocalDateTime.now());
+        String trainTripId = UUID.randomUUID().toString();
+        trainBooking.bookTrain(bookTrain(trainTripId), LocalDateTime.now());
+        changeTrain.changeTrain(UUID.randomUUID(), changeTrain(trainTripId), LocalDateTime.now());
         conferencePlanning.planConference(planConference(UUID.randomUUID().toString(),
                 FUTURE.atTime(9, 0), FUTURE.plusDays(2).atTime(17, 0)));  // multi-day, stays tentative
         gatheringPlanning.planGathering(planGathering(), LocalDate.now());
@@ -132,9 +135,9 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         return r;
     }
 
-    private static BookTrainRequest bookTrain() {
+    private static BookTrainRequest bookTrain(String tripId) {
         BookTrainRequest r = new BookTrainRequest();
-        r.setTrainTripId(UUID.randomUUID().toString());
+        r.setTrainTripId(tripId);
         r.setServiceId("LNER - Azuma 1A");
         r.setDepartureStationName("London Euston");
         r.setDepartureCityName("London");
@@ -146,6 +149,23 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         r.setArrivalCountry("UK");
         r.setArrivalMapsUrl("");
         r.setArrivalDateTime(FUTURE.atTime(11, 15));
+        return r;
+    }
+
+    private static ChangeTrainRequest changeTrain(String tripId) {
+        ChangeTrainRequest r = new ChangeTrainRequest();
+        r.setTrainTripId(tripId);
+        r.setServiceId("Avanti - 9M12");
+        r.setDepartureStationName("London Kings Cross");
+        r.setDepartureCityName("London");
+        r.setDepartureCountry("UK");
+        r.setDepartureMapsUrl("");
+        r.setDepartureDateTime(FUTURE.atTime(10, 30));
+        r.setArrivalStationName("Edinburgh Waverley");
+        r.setArrivalCityName("Edinburgh");
+        r.setArrivalCountry("UK");
+        r.setArrivalMapsUrl("");
+        r.setArrivalDateTime(FUTURE.atTime(15, 0));
         return r;
     }
 

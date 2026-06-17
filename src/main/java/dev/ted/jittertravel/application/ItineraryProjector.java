@@ -27,6 +27,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                 case FlightBooked e -> flightEntries.put(e.flightId(), toFlightEntries(e));
                 case FlightChanged e -> flightEntries.put(e.flightId(), toFlightEntries(e));
                 case TrainBooked e -> trainEntries.put(e.tripId(), toTrainEntries(e));
+                case TrainChanged e -> trainEntries.put(e.tripId(), toTrainEntries(e));
                 case HotelBooked e -> hotelEntries.put(e.hotelBookingId(), toHotelEntries(e));
                 case ConferenceTentativelyPlanned e -> conferenceEntries.put(e.conferenceId(), toConferenceEntries(e));
                 case ConferenceCancelled(ConferenceId conferenceId, String _) -> conferenceEntries.remove(conferenceId);
@@ -102,21 +103,34 @@ public class ItineraryProjector implements EventStreamConsumer {
     }
 
     private static List<TrainItineraryEntry> toTrainEntries(TrainBooked e) {
+        return toTrainEntries(e.serviceId(), e.departureStation(), e.departureDateTime(),
+                e.arrivalStation(), e.arrivalDateTime());
+    }
+
+    private static List<TrainItineraryEntry> toTrainEntries(TrainChanged e) {
+        return toTrainEntries(e.serviceId(), e.departureStation(), e.departureDateTime(),
+                e.arrivalStation(), e.arrivalDateTime());
+    }
+
+    private static List<TrainItineraryEntry> toTrainEntries(
+            String serviceId,
+            TrainStationAddress departureStation, LocalDateTime departureDateTime,
+            TrainStationAddress arrivalStation, LocalDateTime arrivalDateTime) {
         TrainItineraryEntry departure = new TrainItineraryEntry(
-                TrainDayRole.DEPARTURE, e.serviceId(),
-                e.departureStation().name(), e.departureStation().city(), e.departureStation().mapsUrl(),
-                e.departureDateTime(),
-                e.arrivalStation().name(), e.arrivalStation().city(), e.arrivalStation().mapsUrl(),
-                e.arrivalDateTime());
-        if (e.departureDateTime().toLocalDate().equals(e.arrivalDateTime().toLocalDate())) {
+                TrainDayRole.DEPARTURE, serviceId,
+                departureStation.name(), departureStation.city(), departureStation.mapsUrl(),
+                departureDateTime,
+                arrivalStation.name(), arrivalStation.city(), arrivalStation.mapsUrl(),
+                arrivalDateTime);
+        if (departureDateTime.toLocalDate().equals(arrivalDateTime.toLocalDate())) {
             return List.of(departure);
         }
         return List.of(departure, new TrainItineraryEntry(
-                TrainDayRole.ARRIVAL, e.serviceId(),
-                e.departureStation().name(), e.departureStation().city(), e.departureStation().mapsUrl(),
-                e.departureDateTime(),
-                e.arrivalStation().name(), e.arrivalStation().city(), e.arrivalStation().mapsUrl(),
-                e.arrivalDateTime()));
+                TrainDayRole.ARRIVAL, serviceId,
+                departureStation.name(), departureStation.city(), departureStation.mapsUrl(),
+                departureDateTime,
+                arrivalStation.name(), arrivalStation.city(), arrivalStation.mapsUrl(),
+                arrivalDateTime));
     }
 
     private static List<HotelItineraryEntry> toHotelEntries(HotelBooked e) {

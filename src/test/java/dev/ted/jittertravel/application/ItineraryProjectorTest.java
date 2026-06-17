@@ -206,6 +206,30 @@ class ItineraryProjectorTest {
     }
 
     @Test
+    void trainChangedReplacesOriginalTrainEntry() {
+        ItineraryProjector projector = new ItineraryProjector();
+        TrainTripId tripId = TrainTripId.random();
+        TrainStationAddress london = new TrainStationAddress("London Euston", "London", "UK", "");
+        TrainStationAddress manchester = new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", "");
+        TrainStationAddress edinburgh = new TrainStationAddress("Edinburgh Waverley", "Edinburgh", "UK", "");
+        TrainBooked booked = new TrainBooked(
+                tripId, london, DEPARTURE, manchester, ARRIVAL, "LNER - Azuma 1A");
+        TrainChanged changed = new TrainChanged(
+                tripId, london, DEPARTURE.plusHours(1), edinburgh, ARRIVAL.plusHours(2), "LNER - Azuma 9E22");
+
+        projector.handle(Stream.of(stored(booked), stored(changed)));
+
+        List<ItineraryEntry> entries = projector.entriesForDate(DATE);
+        assertThat(entries)
+                .hasSize(1);
+        TrainItineraryEntry entry = (TrainItineraryEntry) entries.getFirst();
+        assertThat(entry.serviceId())
+                .isEqualTo("LNER - Azuma 9E22");
+        assertThat(entry.arrivalStationName())
+                .isEqualTo("Edinburgh Waverley");
+    }
+
+    @Test
     void hotelBookedCreatesCheckInOnCheckInDateAndCheckOutOnCheckOutDate() {
         ItineraryProjector projector = new ItineraryProjector();
         LocalDate checkIn = DATE;

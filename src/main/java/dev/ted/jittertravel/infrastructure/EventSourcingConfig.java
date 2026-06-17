@@ -158,6 +158,20 @@ public class EventSourcingConfig {
     }
 
     @Bean
+    public TrainDetailsViewProjector trainDetailsViewProjector(EventStore eventStore) {
+        TrainDetailsViewProjector projector = new TrainDetailsViewProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
+
+    @Bean
+    public ChangeTrain changeTrainApplicationService(CommandExecutor commandExecutor,
+                                                     TrainDetailsViewProjector trainDetailsViewProjector) {
+        return new ChangeTrain(commandExecutor, trainDetailsViewProjector);
+    }
+
+    @Bean
     public TrainBooking trainBookingApplicationService(CommandExecutor commandExecutor) {
         return new TrainBooking(commandExecutor);
     }

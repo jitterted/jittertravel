@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainChanged;
+import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -24,23 +26,38 @@ public class BookedTrainsProjector implements EventStreamConsumer {
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(stored -> {
-            if (stored.payload() instanceof TrainBooked event) {
-                viewsById.put(event.tripId(), new BookedTrainView(
-                        event.tripId(),
-                        event.serviceId(),
-                        event.departureStation().name(),
-                        event.departureStation().city(),
-                        event.departureStation().mapsUrl(),
-                        event.departureDateTime(),
-                        event.departureDateTime().format(DISPLAY),
-                        event.arrivalStation().name(),
-                        event.arrivalStation().city(),
-                        event.arrivalStation().mapsUrl(),
-                        event.arrivalDateTime(),
-                        event.arrivalDateTime().format(DISPLAY)
-                ));
+            switch (stored.payload()) {
+                case TrainBooked e -> viewsById.put(e.tripId(), toView(
+                        e.tripId(), e.departureStation(), e.departureDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
+                case TrainChanged e -> viewsById.put(e.tripId(), toView(
+                        e.tripId(), e.departureStation(), e.departureDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
+                default -> { /* not a train event */ }
             }
         });
+    }
+
+    private static BookedTrainView toView(TrainTripId tripId,
+                                          TrainStationAddress departureStation,
+                                          LocalDateTime departureDateTime,
+                                          TrainStationAddress arrivalStation,
+                                          LocalDateTime arrivalDateTime,
+                                          String serviceId) {
+        return new BookedTrainView(
+                tripId,
+                serviceId,
+                departureStation.name(),
+                departureStation.city(),
+                departureStation.mapsUrl(),
+                departureDateTime,
+                departureDateTime.format(DISPLAY),
+                arrivalStation.name(),
+                arrivalStation.city(),
+                arrivalStation.mapsUrl(),
+                arrivalDateTime,
+                arrivalDateTime.format(DISPLAY)
+        );
     }
 
     public List<BookedTrainView> views(TimeView filter, LocalDateTime now) {

@@ -9,6 +9,7 @@ import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainChanged;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -44,6 +45,7 @@ public final class EventTypes {
         register("FlightBooked", FlightBooked.class);
         register("FlightChanged", FlightChanged.class);
         register("TrainBooked", TrainBooked.class);
+        register("TrainChanged", TrainChanged.class);
         register("HotelBooked", HotelBooked.class);
         register("ConferenceTentativelyPlanned", ConferenceTentativelyPlanned.class);
         register("ConferenceCancelled", ConferenceCancelled.class);

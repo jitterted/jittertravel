@@ -105,6 +105,9 @@ public class ConfirmedCalendarRenderer {
             }
             .entry-title { font-weight: 700; font-size: 0.95rem; letter-spacing: 0.01em; }
             .entry-subtitle { font-size: 0.8rem; font-weight: 500; opacity: 0.95; margin-top: 2px; }
+            .edit-pencil { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
+            .edit-pencil:hover { opacity: 1; }
+            .edit-pencil svg { width: 12px; height: 12px; }
             .entry--conference { background-color: var(--entry-conference-bg); color: var(--entry-conference-fg); }
             .entry--gathering  { background-color: var(--entry-gathering-bg);  color: var(--entry-gathering-fg); }
             .entry--flight     { background-color: var(--entry-flight-bg);     color: var(--entry-flight-fg); }

@@ -28,6 +28,10 @@ public class CalendarViewBuilder {
     private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MMM d");
     private static final DateTimeFormatter MONTH_DAY_YEAR = DateTimeFormatter.ofPattern("MMM d, yyyy");
 
+    // Shared with the itinerary view: a pencil always means "edit this booking". stroke uses
+    // currentColor so the icon picks up each entry kind's foreground tint.
+    private static final String PENCIL_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z\"/></svg>";
+
     public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd, LocalDate today, boolean isPublicUser) {
         return render(entries, rangeStart, rangeEnd, today, isPublicUser, false);
     }
@@ -245,16 +249,18 @@ public class CalendarViewBuilder {
 
         DivTag div = div().withClass(classes).withStyle(style);
         if (title != null) {
-            DomContent titleContent;
-            if (entry.mapsUrl() != null && !isContinuation) {
-                titleContent = a(title).withHref(entry.mapsUrl()).withTarget("_blank").withRel("noopener").withClass("entry-title");
-            } else if (entry.editPath() != null && isOwner && !isContinuation) {
+            // The title is a plain text link only when it navigates *out* (maps); editing is
+            // never the title itself but a separate pencil appended after it, so a link on the
+            // title always means "go look at this elsewhere" and the pencil always means "edit".
+            DomContent titleText = entry.mapsUrl() != null && !isContinuation
+                    ? a(title).withHref(entry.mapsUrl()).withTarget("_blank").withRel("noopener")
+                    : span(title);
+            DivTag titleDiv = div().withClass("entry-title").with(titleText);
+            if (entry.editPath() != null && isOwner && !isContinuation) {
                 // OWNER-only deep link to the booking's edit page (flights and trains).
-                titleContent = a(title).withHref(entry.editPath()).withClass("entry-title");
-            } else {
-                titleContent = div(title).withClass("entry-title");
+                titleDiv.with(editPencil(entry.editPath(), "Edit"));
             }
-            div.with(titleContent);
+            div.with(titleDiv);
         }
         if (subtitle != null) {
             for (String line : subtitle) {
@@ -262,6 +268,10 @@ public class CalendarViewBuilder {
             }
         }
         return div;
+    }
+
+    private static DomContent editPencil(String href, String label) {
+        return a(rawHtml(PENCIL_SVG)).withClass("edit-pencil").withHref(href).withTitle(label);
     }
 
     /** Past days are hatched; today gets the accent-column treatment. */

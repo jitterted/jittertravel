@@ -29,6 +29,10 @@ public class CalendarViewBuilder {
     private static final DateTimeFormatter MONTH_DAY_YEAR = DateTimeFormatter.ofPattern("MMM d, yyyy");
 
     public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd, LocalDate today, boolean isPublicUser) {
+        return render(entries, rangeStart, rangeEnd, today, isPublicUser, false);
+    }
+
+    public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd, LocalDate today, boolean isPublicUser, boolean isOwner) {
         LocalDate gridStart = rangeStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
         LocalDate gridEnd = rangeEnd.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
 
@@ -47,7 +51,7 @@ public class CalendarViewBuilder {
             if (collapsed && entries.stream().anyMatch(e -> intersectsWeek(e, weekStart, saturday))) {
                 anyCollapsedWithEntries = true;
             }
-            weekRows.add(renderWeek(sunday, saturday, gridStart, today, entries, isPublicUser, collapsed));
+            weekRows.add(renderWeek(sunday, saturday, gridStart, today, entries, isPublicUser, isOwner, collapsed));
             sunday = sunday.plusDays(7);
         }
 
@@ -79,6 +83,7 @@ public class CalendarViewBuilder {
                                      LocalDate today,
                                      List<CalendarEntry> allEntries,
                                      boolean isPublicUser,
+                                     boolean isOwner,
                                      boolean collapsed) {
         List<CalendarEntry> intersecting = allEntries.stream()
                 .filter(e -> intersectsWeek(e, sunday, saturday))
@@ -177,7 +182,7 @@ public class CalendarViewBuilder {
             int gridRow = 2 + kindOffset.get(entry.kind()) + subRowOf.get(entry);
             boolean isContinuation = entry.start().toLocalDate().isBefore(sunday);
             boolean isFinalSegment = !entry.end().toLocalDate().isAfter(sunday.plusDays(6));
-            cells.add(renderEntrySegment(entry, startCol, span, gridRow, isContinuation, isFinalSegment));
+            cells.add(renderEntrySegment(entry, startCol, span, gridRow, isContinuation, isFinalSegment, isOwner));
         }
 
         String rowsStyle = totalSubRows == 0
@@ -213,7 +218,8 @@ public class CalendarViewBuilder {
                                                  int span,
                                                  int gridRow,
                                                  boolean isContinuation,
-                                                 boolean isFinalSegment) {
+                                                 boolean isFinalSegment,
+                                                 boolean isOwner) {
         String kindClass = "entry--" + entry.kind().name().toLowerCase();
         String classes = "entry " + kindClass + (isContinuation ? " entry--continuation" : "");
         // Square the edge (and run flush to the week boundary) on the side where the entry
@@ -239,9 +245,15 @@ public class CalendarViewBuilder {
 
         DivTag div = div().withClass(classes).withStyle(style);
         if (title != null) {
-            DomContent titleContent = (entry.mapsUrl() != null && !isContinuation)
-                    ? a(title).withHref(entry.mapsUrl()).withTarget("_blank").withRel("noopener").withClass("entry-title")
-                    : div(title).withClass("entry-title");
+            DomContent titleContent;
+            if (entry.mapsUrl() != null && !isContinuation) {
+                titleContent = a(title).withHref(entry.mapsUrl()).withTarget("_blank").withRel("noopener").withClass("entry-title");
+            } else if (entry.editPath() != null && isOwner && !isContinuation) {
+                // OWNER-only deep link to the booking's edit page (flights and trains).
+                titleContent = a(title).withHref(entry.editPath()).withClass("entry-title");
+            } else {
+                titleContent = div(title).withClass("entry-title");
+            }
             div.with(titleContent);
         }
         if (subtitle != null) {

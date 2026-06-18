@@ -20,6 +20,16 @@ public record CalendarEntry(
         List<String> subTitle,
         String continuationTitle,
         List<String> continuationSubTitle,
-        String mapsUrl
+        String mapsUrl,
+        String editPath
 ) {
+    /**
+     * Convenience constructor for entries with no owner edit link (everything except booked
+     * flights and trains). Keeps the many existing call sites that predate {@code editPath}.
+     */
+    public CalendarEntry(EntryKind kind, LocalDateTime start, LocalDateTime end,
+                         String mainTitle, List<String> subTitle,
+                         String continuationTitle, List<String> continuationSubTitle, String mapsUrl) {
+        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, null);
+    }
 }

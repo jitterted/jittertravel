@@ -22,8 +22,9 @@ public class CalendarController {
     @GetMapping("/calendar")
     public ResponseEntity<String> getCalendar(HttpServletRequest request) {
         boolean isPublicUser = request.getRemoteUser() == null;
+        boolean isOwner = request.isUserInRole("OWNER");
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
-                .body(ConfirmedCalendarRenderer.render(calendarAggregator.allEntries(), LocalDate.now(), isPublicUser));
+                .body(ConfirmedCalendarRenderer.render(calendarAggregator.allEntries(), LocalDate.now(), isPublicUser, isOwner));
     }
 }

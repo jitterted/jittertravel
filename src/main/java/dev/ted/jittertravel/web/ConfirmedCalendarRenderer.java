@@ -188,6 +188,10 @@ public class ConfirmedCalendarRenderer {
             """;
 
     public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser) {
+        return render(rawEntries, today, isPublicUser, false);
+    }
+
+    public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser, boolean isOwner) {
         List<CalendarEntry> entries = rawEntries.stream()
                 .sorted(Comparator.comparing(CalendarEntry::start))
                 .map(e -> isPublicUser ? REDACTOR.redact(e) : e)
@@ -211,7 +215,7 @@ public class ConfirmedCalendarRenderer {
                     .plusDays(5);
         }
 
-        String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser);
+        String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser, isOwner);
 
         return "<!DOCTYPE html>\n" + html(
                 Page.head("Confirmed Calendar", CSS),

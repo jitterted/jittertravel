@@ -37,17 +37,18 @@ public class TrainCalendarProjector implements EventStreamConsumer {
         eventStream.forEach(stored -> {
             switch (stored.payload()) {
                 case TrainBooked e -> entriesByTrip.put(e.tripId(), buildEntries(
-                        e.departureStation(), e.departureDateTime(),
+                        e.tripId(), e.departureStation(), e.departureDateTime(),
                         e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
                 case TrainChanged e -> entriesByTrip.put(e.tripId(), buildEntries(
-                        e.departureStation(), e.departureDateTime(),
+                        e.tripId(), e.departureStation(), e.departureDateTime(),
                         e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
                 default -> { /* not a train event */ }
             }
         });
     }
 
-    private static List<CalendarEntry> buildEntries(TrainStationAddress dep,
+    private static List<CalendarEntry> buildEntries(TrainTripId tripId,
+                                                    TrainStationAddress dep,
                                                     LocalDateTime depDt,
                                                     TrainStationAddress arr,
                                                     LocalDateTime arrDt,
@@ -55,6 +56,7 @@ public class TrainCalendarProjector implements EventStreamConsumer {
         String route = "🚄 " + dep.city() + " → " + arr.city();
         String departs = "Departs " + depDt.format(TIME_OF_DAY);
         String arrives = "Arrives " + arrDt.format(TIME_OF_DAY);
+        String editPath = "/booked-trains/" + tripId.id();
 
         boolean sameDay = depDt.toLocalDate().equals(arrDt.toLocalDate());
         if (sameDay) {
@@ -65,15 +67,15 @@ public class TrainCalendarProjector implements EventStreamConsumer {
             return List.of(new CalendarEntry(
                     EntryKind.TRAIN, depDt, arrDt,
                     route, subtitle,
-                    null, null, null));
+                    null, null, null, editPath));
         }
 
         List<String> depSubtitle = serviceId.isEmpty()
                 ? List.of(departs)
                 : List.of(serviceId, departs);
         return List.of(
-                new CalendarEntry(EntryKind.TRAIN, depDt, depDt, route, depSubtitle, null, null, null),
-                new CalendarEntry(EntryKind.TRAIN, arrDt, arrDt, route, List.of(arrives), null, null, null)
+                new CalendarEntry(EntryKind.TRAIN, depDt, depDt, route, depSubtitle, null, null, null, editPath),
+                new CalendarEntry(EntryKind.TRAIN, arrDt, arrDt, route, List.of(arrives), null, null, null, editPath)
         );
     }
 

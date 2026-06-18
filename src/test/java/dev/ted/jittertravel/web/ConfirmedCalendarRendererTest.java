@@ -40,6 +40,51 @@ class ConfirmedCalendarRendererTest {
     }
 
     @Test
+    void ownerSeesEditLinkOnTrainEntry() {
+        CalendarEntry train = new CalendarEntry(
+                EntryKind.TRAIN,
+                LocalDateTime.of(2026, 7, 1, 9, 0),
+                LocalDateTime.of(2026, 7, 1, 13, 0),
+                "🚄 London → Manchester", List.of("9:00 AM → 1:00 PM"),
+                null, null, null, "/booked-trains/trip-123"
+        );
+
+        String html = ConfirmedCalendarRenderer.render(List.of(train), LocalDate.of(2026, 6, 11), false, true);
+
+        assertThat(html).contains("href=\"/booked-trains/trip-123\"");
+    }
+
+    @Test
+    void nonOwnerSeesNoEditLinkOnTrainEntry() {
+        CalendarEntry train = new CalendarEntry(
+                EntryKind.TRAIN,
+                LocalDateTime.of(2026, 7, 1, 9, 0),
+                LocalDateTime.of(2026, 7, 1, 13, 0),
+                "🚄 London → Manchester", List.of("9:00 AM → 1:00 PM"),
+                null, null, null, "/booked-trains/trip-123"
+        );
+
+        String html = ConfirmedCalendarRenderer.render(List.of(train), LocalDate.of(2026, 6, 11), false, false);
+
+        assertThat(html).doesNotContain("href=\"/booked-trains/");
+    }
+
+    @Test
+    void ownerSeesEditLinkOnFlightEntry() {
+        CalendarEntry flight = new CalendarEntry(
+                EntryKind.FLIGHT,
+                LocalDateTime.of(2026, 7, 1, 9, 0),
+                LocalDateTime.of(2026, 7, 1, 13, 0),
+                "✈️ SFO→JFK", List.of("9:00 AM → 1:00 PM"),
+                null, null, null, "/booked-flights/flight-123"
+        );
+
+        String html = ConfirmedCalendarRenderer.render(List.of(flight), LocalDate.of(2026, 6, 11), false, true);
+
+        assertThat(html).contains("href=\"/booked-flights/flight-123\"");
+    }
+
+    @Test
     void authenticatedUserSeesFullHotelName() {
         CalendarEntry hotel = new CalendarEntry(
                 EntryKind.LODGING,

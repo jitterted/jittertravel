@@ -41,23 +41,25 @@ public class FlightCalendarProjector implements EventStreamConsumer {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
                 case FlightBooked event -> entriesByFlight.put(event.flightId(), buildEntries(
-                        event.departureAirport(), event.arrivalAirport(),
+                        event.flightId(), event.departureAirport(), event.arrivalAirport(),
                         event.departureDateTime(), event.arrivalDateTime()));
                 case FlightChanged event -> entriesByFlight.put(event.flightId(), buildEntries(
-                        event.departureAirport(), event.arrivalAirport(),
+                        event.flightId(), event.departureAirport(), event.arrivalAirport(),
                         event.departureDateTime(), event.arrivalDateTime()));
                 default -> { /* not a flight event */ }
             }
         });
     }
 
-    private static List<CalendarEntry> buildEntries(AirportCode departureAirport,
+    private static List<CalendarEntry> buildEntries(FlightId flightId,
+                                                    AirportCode departureAirport,
                                                     AirportCode arrivalAirport,
                                                     LocalDateTime departureDateTime,
                                                     LocalDateTime arrivalDateTime) {
         String route = "✈️ " + departureAirport.code() + "\u2192" + arrivalAirport.code();
         String departs = "Departs " + departureDateTime.format(TIME_OF_DAY);
         String arrives = "Arrives " + arrivalDateTime.format(TIME_OF_DAY);
+        String editPath = "/booked-flights/" + flightId.id();
 
         boolean sameDay = departureDateTime.toLocalDate()
                 .equals(arrivalDateTime.toLocalDate());
@@ -72,7 +74,8 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                     List.of(timeRange),
                     null,
                     null,
-                    null
+                    null,
+                    editPath
             ));
         }
 
@@ -86,7 +89,8 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                 List.of(departs),
                 null,
                 null,
-                null
+                null,
+                editPath
         );
         CalendarEntry arrivalEntry = new CalendarEntry(
                 EntryKind.FLIGHT,
@@ -96,7 +100,8 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                 List.of(arrives),
                 null,
                 null,
-                null
+                null,
+                editPath
         );
         return List.of(departureEntry, arrivalEntry);
     }

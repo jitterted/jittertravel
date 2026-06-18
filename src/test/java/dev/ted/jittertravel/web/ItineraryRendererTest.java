@@ -3,6 +3,8 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.*;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.BookingIntent;
+import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.TrainTripId;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -39,7 +41,7 @@ class ItineraryRendererTest {
     @Test
     void todayLinkShownWhenTodayBeforeDisplayedRange() {
         String html = ItineraryRenderer.render(
-                threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, MAY_31);
+                threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, MAY_31, false);
 
         assertThat(html)
                 .contains(">Today<")
@@ -49,7 +51,7 @@ class ItineraryRendererTest {
     @Test
     void todayLinkShownWhenTodayAfterDisplayedRange() {
         String html = ItineraryRenderer.render(
-                threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_10);
+                threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_10, false);
 
         assertThat(html)
                 .contains(">Today<")
@@ -59,7 +61,7 @@ class ItineraryRendererTest {
     @Test
     void todayShownAsNonLinkWhenTodayWithinDisplayedRange() {
         String html = ItineraryRenderer.render(
-                threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1);
+                threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1, false);
 
         assertThat(html).contains("today-link--current");
         assertThat(html).doesNotContain("/itinerary?date=2026-06-01");
@@ -88,7 +90,7 @@ class ItineraryRendererTest {
     void daysWithEntriesDoNotShowNothingScheduled() {
         ItineraryEntry entry = gathering("Some Meetup", true, "");
         String html = ItineraryRenderer.render(
-                threeDays(List.of(entry), List.of(entry), List.of(entry)), MAY_31, JUN_2, JUN_1);
+                threeDays(List.of(entry), List.of(entry), List.of(entry)), MAY_31, JUN_2, JUN_1, false);
 
         assertThat(html).doesNotContain("Nothing scheduled");
     }
@@ -180,6 +182,50 @@ class ItineraryRendererTest {
         assertThat(html)
                 .contains("9:00 AM")
                 .contains("11:15 AM");
+    }
+
+    @Test
+    void trainStationLineAppearsBeforeServiceId() {
+        String html = renderWithEntry(train(TrainDayRole.DEPARTURE, "Caledonian Sleeper", "", ""));
+
+        assertThat(html.indexOf("London Euston"))
+                .as("station -> station must render above the service id")
+                .isLessThan(html.indexOf("Caledonian Sleeper"));
+    }
+
+    @Test
+    void trainShowsEditPencilLinkingToEditPageForOwner() {
+        TrainTripId tripId = TrainTripId.random();
+        TrainItineraryEntry entry = new TrainItineraryEntry(tripId, TrainDayRole.DEPARTURE, "",
+                "London Euston", "London", "", JUN_1.atTime(9, 0),
+                "Manchester Piccadilly", "Manchester", "", JUN_1.atTime(11, 15));
+
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains("class=\"edit-pencil\" href=\"/booked-trains/" + tripId.id() + "\"");
+    }
+
+    @Test
+    void trainHasNoEditPencilForNonOwner() {
+        String html = renderWithEntry(train(TrainDayRole.DEPARTURE, "Caledonian Sleeper", "", ""));
+
+        assertThat(html)
+                .doesNotContain("href=\"/booked-trains/");
+    }
+
+    @Test
+    void flightShowsEditPencilLinkingToEditPageForOwner() {
+        FlightId flightId = FlightId.random();
+        FlightItineraryEntry entry = new FlightItineraryEntry(flightId, FlightDayRole.DEPARTURE,
+                "British Airways", "BA100", "SFO", JUN_1.atTime(9, 0), "LHR", JUN_1.atTime(17, 15));
+
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains("class=\"edit-pencil\" href=\"/booked-flights/" + flightId.id() + "\"");
     }
 
     // --- Hotel ---
@@ -315,11 +361,11 @@ class ItineraryRendererTest {
     // --- Helpers ---
 
     private static String renderEmpty() {
-        return ItineraryRenderer.render(threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1);
+        return ItineraryRenderer.render(threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1, false);
     }
 
     private static String renderWithEntry(ItineraryEntry entry) {
-        return ItineraryRenderer.render(threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1);
+        return ItineraryRenderer.render(threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, false);
     }
 
     private static List<ItineraryDay> threeDays(List<ItineraryEntry> day1,
@@ -332,14 +378,14 @@ class ItineraryRendererTest {
     }
 
     private static FlightItineraryEntry flight(FlightDayRole role) {
-        return new FlightItineraryEntry(role, "British Airways", "BA100",
+        return new FlightItineraryEntry(FlightId.random(), role, "British Airways", "BA100",
                 "SFO", JUN_1.atTime(9, 0),
                 "LHR", JUN_1.atTime(17, 15));
     }
 
     private static TrainItineraryEntry train(TrainDayRole role, String serviceId,
                                              String departureMapsUrl, String arrivalMapsUrl) {
-        return new TrainItineraryEntry(role, serviceId,
+        return new TrainItineraryEntry(TrainTripId.random(), role, serviceId,
                 "London Euston", "London", departureMapsUrl,
                 JUN_1.atTime(9, 0),
                 "Manchester Piccadilly", "Manchester", arrivalMapsUrl,

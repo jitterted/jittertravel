@@ -1,8 +1,11 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.TrainTripId;
+
 import java.time.LocalDateTime;
 
 public record TrainItineraryEntry(
+        TrainTripId tripId,
         TrainDayRole role,
         String serviceId,
         String departureStationName,

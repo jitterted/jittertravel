@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ItineraryDay;
 import dev.ted.jittertravel.application.ItineraryProjector;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -27,8 +28,10 @@ public class ItineraryController {
 
     @GetMapping("/itinerary")
     public ResponseEntity<String> itinerary(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            HttpServletRequest request) {
         LocalDate today = LocalDate.now(clock);
+        boolean isOwner = request.isUserInRole("OWNER");
         if (date == null) {
             date = itineraryProjector.firstDateOnOrAfter(today);
         }
@@ -37,7 +40,7 @@ public class ItineraryController {
                 new ItineraryDay(date.plusDays(1), itineraryProjector.entriesForDate(date.plusDays(1))),
                 new ItineraryDay(date.plusDays(2), itineraryProjector.entriesForDate(date.plusDays(2)))
         );
-        String html = ItineraryRenderer.render(days, date.minusDays(1), date.plusDays(1), today);
+        String html = ItineraryRenderer.render(days, date.minusDays(1), date.plusDays(1), today, isOwner);
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
                 .body(html);

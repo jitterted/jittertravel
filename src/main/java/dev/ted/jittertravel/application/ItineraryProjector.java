@@ -78,46 +78,48 @@ public class ItineraryProjector implements EventStreamConsumer {
     }
 
     private static List<FlightItineraryEntry> toFlightEntries(FlightBooked e) {
-        return toFlightEntries(e.airline(), e.flightNumber(),
+        return toFlightEntries(e.flightId(), e.airline(), e.flightNumber(),
                 e.departureAirport().code(), e.departureDateTime(),
                 e.arrivalAirport().code(), e.arrivalDateTime());
     }
 
     private static List<FlightItineraryEntry> toFlightEntries(FlightChanged e) {
-        return toFlightEntries(e.airline(), e.flightNumber(),
+        return toFlightEntries(e.flightId(), e.airline(), e.flightNumber(),
                 e.departureAirport().code(), e.departureDateTime(),
                 e.arrivalAirport().code(), e.arrivalDateTime());
     }
 
     private static List<FlightItineraryEntry> toFlightEntries(
+            FlightId flightId,
             String airline, String flightNumber,
             String depCode, LocalDateTime depDt,
             String arrCode, LocalDateTime arrDt) {
         FlightItineraryEntry departure = new FlightItineraryEntry(
-                FlightDayRole.DEPARTURE, airline, flightNumber, depCode, depDt, arrCode, arrDt);
+                flightId, FlightDayRole.DEPARTURE, airline, flightNumber, depCode, depDt, arrCode, arrDt);
         if (depDt.toLocalDate().equals(arrDt.toLocalDate())) {
             return List.of(departure);
         }
         return List.of(departure, new FlightItineraryEntry(
-                FlightDayRole.ARRIVAL, airline, flightNumber, depCode, depDt, arrCode, arrDt));
+                flightId, FlightDayRole.ARRIVAL, airline, flightNumber, depCode, depDt, arrCode, arrDt));
     }
 
     private static List<TrainItineraryEntry> toTrainEntries(TrainBooked e) {
-        return toTrainEntries(e.serviceId(), e.departureStation(), e.departureDateTime(),
+        return toTrainEntries(e.tripId(), e.serviceId(), e.departureStation(), e.departureDateTime(),
                 e.arrivalStation(), e.arrivalDateTime());
     }
 
     private static List<TrainItineraryEntry> toTrainEntries(TrainChanged e) {
-        return toTrainEntries(e.serviceId(), e.departureStation(), e.departureDateTime(),
+        return toTrainEntries(e.tripId(), e.serviceId(), e.departureStation(), e.departureDateTime(),
                 e.arrivalStation(), e.arrivalDateTime());
     }
 
     private static List<TrainItineraryEntry> toTrainEntries(
+            TrainTripId tripId,
             String serviceId,
             TrainStationAddress departureStation, LocalDateTime departureDateTime,
             TrainStationAddress arrivalStation, LocalDateTime arrivalDateTime) {
         TrainItineraryEntry departure = new TrainItineraryEntry(
-                TrainDayRole.DEPARTURE, serviceId,
+                tripId, TrainDayRole.DEPARTURE, serviceId,
                 departureStation.name(), departureStation.city(), departureStation.mapsUrl(),
                 departureDateTime,
                 arrivalStation.name(), arrivalStation.city(), arrivalStation.mapsUrl(),
@@ -126,7 +128,7 @@ public class ItineraryProjector implements EventStreamConsumer {
             return List.of(departure);
         }
         return List.of(departure, new TrainItineraryEntry(
-                TrainDayRole.ARRIVAL, serviceId,
+                tripId, TrainDayRole.ARRIVAL, serviceId,
                 departureStation.name(), departureStation.city(), departureStation.mapsUrl(),
                 departureDateTime,
                 arrivalStation.name(), arrivalStation.city(), arrivalStation.mapsUrl(),

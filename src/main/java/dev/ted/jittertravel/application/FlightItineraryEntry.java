@@ -1,8 +1,11 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.FlightId;
+
 import java.time.LocalDateTime;
 
 public record FlightItineraryEntry(
+        FlightId flightId,
         FlightDayRole role,
         String airline,
         String flightNumber,

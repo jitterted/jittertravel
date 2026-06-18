@@ -20,6 +20,7 @@ public class ItineraryRenderer {
     private static final String FLIGHT_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#075985\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2 16l20-7-9 13-2-6-9 0z\"/></svg>";
     private static final String TRAIN_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#9a3412\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"4\" y=\"3\" width=\"16\" height=\"14\" rx=\"3\"/><path d=\"M4 11h16M8 3v8M16 3v8M7 17l-2 4M17 17l2 4\"/><circle cx=\"8.5\" cy=\"14.5\" r=\"1\" fill=\"#9a3412\" stroke=\"none\"/><circle cx=\"15.5\" cy=\"14.5\" r=\"1\" fill=\"#9a3412\" stroke=\"none\"/></svg>";
     private static final String HOTEL_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#166534\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20\"/><path d=\"M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2\"/></svg>";
+    private static final String PENCIL_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z\"/></svg>";
 
     private static final String CSS = """
                 .page { max-width: 1200px; }
@@ -47,11 +48,14 @@ public class ItineraryRenderer {
                 .entry-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; line-height: 1.3; }
                 .entry-detail { font-size: 0.82rem; color: #374151; line-height: 1.4; }
                 .entry-detail a { color: inherit; text-decoration: underline; }
+                .edit-pencil { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
+                .edit-pencil:hover { opacity: 1; }
+                .edit-pencil svg { width: 12px; height: 12px; }
                 .entry-location { font-weight: 700; }
                 .speaking-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: #7c3aed; color: #fff; border-radius: 4px; padding: 0.1rem 0.4rem; margin-top: 0.25rem; }
             """;
 
-    public static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate, LocalDate today) {
+    public static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate, LocalDate today, boolean isOwner) {
         return "<!DOCTYPE html>\n" + html(
                 Page.head("Itinerary", CSS),
                 body(
@@ -60,7 +64,7 @@ public class ItineraryRenderer {
                                 h1("Itinerary"),
                                 renderDateNav(days, prevDate, nextDate, today),
                                 div().withClass("itinerary-grid").with(
-                                        days.stream().map(ItineraryRenderer::renderDay).toList()
+                                        days.stream().map(day -> renderDay(day, isOwner)).toList()
                                 )
                         )
                 )
@@ -83,7 +87,7 @@ public class ItineraryRenderer {
         return dateNav;
     }
 
-    private static DivTag renderDay(ItineraryDay day) {
+    private static DivTag renderDay(ItineraryDay day, boolean isOwner) {
         DivTag dayDiv = div(
                 div(day.date().format(DAY_HEADER_FMT)).withClass("day-header")
         );
@@ -91,30 +95,34 @@ public class ItineraryRenderer {
             dayDiv.with(div("Nothing scheduled").withClass("empty-day"));
         } else {
             day.entries().stream()
-                    .map(ItineraryRenderer::renderEntry)
+                    .map(entry -> renderEntry(entry, isOwner))
                     .forEach(dayDiv::with);
         }
         return dayDiv;
     }
 
-    private static DomContent renderEntry(ItineraryEntry entry) {
+    private static DomContent renderEntry(ItineraryEntry entry, boolean isOwner) {
         return switch (entry) {
-            case FlightItineraryEntry e -> renderFlight(e);
-            case TrainItineraryEntry e -> renderTrain(e);
+            case FlightItineraryEntry e -> renderFlight(e, isOwner);
+            case TrainItineraryEntry e -> renderTrain(e, isOwner);
             case HotelItineraryEntry e -> renderHotel(e);
             case GatheringItineraryEntry e -> renderGathering(e);
             case ConferenceItineraryEntry e -> renderConference(e);
         };
     }
 
-    private static DivTag renderFlight(FlightItineraryEntry e) {
+    private static DivTag renderFlight(FlightItineraryEntry e, boolean isOwner) {
         String kindLabel = e.role() == FlightDayRole.ARRIVAL ? "Arriving" : "Flight";
+        DivTag title = div().withClass("entry-title").with(span(e.airline() + " " + e.flightNumber()));
+        if (isOwner) {
+            title.with(editPencil("/booked-flights/" + e.flightId().id(), "Edit flight"));
+        }
         return div().withClass("entry-card entry-card--flight").with(
                 div().withClass("entry-header").with(
                         rawHtml(FLIGHT_SVG),
                         span(kindLabel).withClass("entry-kind entry-kind--flight")
                 ),
-                div(e.airline() + " " + e.flightNumber()).withClass("entry-title"),
+                title,
                 div().withClass("entry-detail").with(
                         strong(e.departureAirportCode()),
                         span(" " + e.departureDateTime().format(TIME_FMT)),
@@ -125,30 +133,45 @@ public class ItineraryRenderer {
         );
     }
 
-    private static DivTag renderTrain(TrainItineraryEntry e) {
+    private static DivTag renderTrain(TrainItineraryEntry e, boolean isOwner) {
         String kindLabel = e.role() == TrainDayRole.ARRIVAL ? "Arriving" : "Train";
         DivTag card = div().withClass("entry-card entry-card--train").with(
                 div().withClass("entry-header").with(
                         rawHtml(TRAIN_SVG),
                         span(kindLabel).withClass("entry-kind entry-kind--train")
-                )
-        );
-        if (!e.serviceId().isBlank()) {
-            card.with(div(e.serviceId()).withClass("entry-detail"));
-        }
-        card.with(
-                div().withClass("entry-detail").with(
-                        span(e.departureDateTime().format(TIME_FMT)),
-                        rawHtml("&nbsp;&rarr;&nbsp;"),
-                        span(e.arrivalDateTime().format(TIME_FMT))
                 ),
+                // Station -> station moved to the top of the entry; stations keep their maps links.
                 div().withClass("entry-title").with(
                         stationContent(e.departureStationName(), e.departureMapsUrl()),
                         rawHtml("&nbsp;&rarr;&nbsp;"),
                         stationContent(e.arrivalStationName(), e.arrivalMapsUrl())
                 )
         );
+        // Service-ID line carries the OWNER edit pencil at its end; when there is no service id
+        // the pencil still appears on its own (owner only).
+        boolean hasService = !e.serviceId().isBlank();
+        if (hasService || isOwner) {
+            DivTag serviceLine = div().withClass("entry-detail");
+            if (hasService) {
+                serviceLine.with(span(e.serviceId()));
+            }
+            if (isOwner) {
+                serviceLine.with(editPencil("/booked-trains/" + e.tripId().id(), "Edit train"));
+            }
+            card.with(serviceLine);
+        }
+        card.with(
+                div().withClass("entry-detail").with(
+                        span(e.departureDateTime().format(TIME_FMT)),
+                        rawHtml("&nbsp;&rarr;&nbsp;"),
+                        span(e.arrivalDateTime().format(TIME_FMT))
+                )
+        );
         return card;
+    }
+
+    private static DomContent editPencil(String href, String label) {
+        return a(rawHtml(PENCIL_SVG)).withClass("edit-pencil").withHref(href).withTitle(label);
     }
 
     private static DomContent stationContent(String name, String mapsUrl) {

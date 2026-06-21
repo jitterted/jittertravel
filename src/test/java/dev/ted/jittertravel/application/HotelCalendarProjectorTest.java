@@ -42,6 +42,33 @@ class HotelCalendarProjectorTest {
         assertThat(entry.subTitle()).isEqualTo(List.of("Springfield, US"));
     }
 
+    @Test
+    void hotelChangedReplacesCalendarEntryUnderSameId() {
+        HotelCalendarProjector projector = new HotelCalendarProjector();
+        HotelBookingId id = HotelBookingId.random();
+        HotelBooked booked = new HotelBooked(id, "Grand Hotel",
+                new Address("123 Main St", "Springfield", "IL", "62701", "US", null),
+                CHECK_IN, CHECK_OUT, BookingIntent.TENTATIVE, null);
+        HotelChanged changed = new HotelChanged(id, "Seaside Resort",
+                new Address("1 Ocean Dr", "Miami", "FL", "33139", "US", null),
+                CHECK_IN.plusDays(10), CHECK_OUT.plusDays(11), BookingIntent.FINAL, null);
+
+        projector.handle(Stream.of(stored(booked), stored(changed)));
+
+        List<CalendarEntry> entries = projector.entries();
+        assertThat(entries)
+                .hasSize(1);
+        CalendarEntry entry = entries.getFirst();
+        assertThat(entry.start())
+                .isEqualTo(CHECK_IN.plusDays(10));
+        assertThat(entry.end())
+                .isEqualTo(CHECK_OUT.plusDays(11));
+        assertThat(entry.mainTitle())
+                .isEqualTo("Seaside Resort");
+        assertThat(entry.subTitle())
+                .isEqualTo(List.of("Miami, US"));
+    }
+
     private static StoredEvent stored(Event event) {
         return new StoredEvent(1, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID());
     }

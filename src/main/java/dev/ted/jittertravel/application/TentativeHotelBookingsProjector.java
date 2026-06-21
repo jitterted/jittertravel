@@ -1,10 +1,13 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -18,18 +21,27 @@ public class TentativeHotelBookingsProjector implements EventStreamConsumer {
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(storedEvent -> {
-            if (storedEvent.payload() instanceof HotelBooked event) {
-                viewsById.put(event.hotelBookingId(), new TentativeHotelBookingView(
-                        event.hotelBookingId(),
-                        event.hotelName(),
-                        event.address().city(),
-                        event.address().country(),
-                        event.checkIn(),
-                        event.checkOut(),
-                        false
-                ));
+            switch (storedEvent.payload()) {
+                case HotelBooked e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
+                        e.checkIn(), e.checkOut());
+                case HotelChanged e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
+                        e.checkIn(), e.checkOut());
+                default -> { /* not a hotel event */ }
             }
         });
+    }
+
+    private void put(HotelBookingId hotelBookingId, String hotelName, Address address,
+                     LocalDateTime checkIn, LocalDateTime checkOut) {
+        viewsById.put(hotelBookingId, new TentativeHotelBookingView(
+                hotelBookingId,
+                hotelName,
+                address.city(),
+                address.country(),
+                checkIn,
+                checkOut,
+                false
+        ));
     }
 
     public List<TentativeHotelBookingView> views() {

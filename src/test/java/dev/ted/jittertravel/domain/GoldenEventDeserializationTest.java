@@ -179,6 +179,66 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
+    void hotelChangedCurrentPayloadDeserializes() {
+        String json = """
+                {
+                  "hotelBookingId": {"id": "33333333-3333-3333-3333-333333333333"},
+                  "hotelName": "Milton Mill House",
+                  "address": {
+                    "street": "Milton Hill",
+                    "city": "Steventon",
+                    "region": "Oxfordshire",
+                    "postalCode": "OX13 6AF",
+                    "country": "GB",
+                    "locationForMatching": "Steventon"
+                  },
+                  "checkIn": "2026-06-18T16:00:00",
+                  "checkOut": "2026-06-22T10:00:00",
+                  "bookingIntent": "FINAL",
+                  "mapsUrl": "https://maps.google.com/?q=place_id:ChIJexample"
+                }
+                """;
+
+        HotelChanged event = deserialize(json, HotelChanged.class);
+
+        assertThat(event.hotelName())
+                .isEqualTo("Milton Mill House");
+        assertThat(event.address().city())
+                .isEqualTo("Steventon");
+        assertThat(event.checkIn().toString())
+                .isEqualTo("2026-06-18T16:00");
+        assertThat(event.mapsUrl())
+                .isEqualTo("https://maps.google.com/?q=place_id:ChIJexample");
+    }
+
+    @Test
+    void hotelChangedPayloadWithoutMapsUrlDefaultsToEmpty() {
+        String json = """
+                {
+                  "hotelBookingId": {"id": "33333333-3333-3333-3333-333333333333"},
+                  "hotelName": "Grand Hotel",
+                  "address": {
+                    "street": "123 Main St",
+                    "city": "Springfield",
+                    "region": "IL",
+                    "postalCode": "62701",
+                    "country": "US",
+                    "locationForMatching": "Springfield"
+                  },
+                  "checkIn": "2026-09-15T15:00:00",
+                  "checkOut": "2026-09-18T11:00:00",
+                  "bookingIntent": "TENTATIVE"
+                }
+                """;
+
+        HotelChanged event = deserialize(json, HotelChanged.class);
+
+        assertThat(event.mapsUrl())
+                .as("mapsUrl absent in JSON must be empty — render-time generation applies")
+                .isEmpty();
+    }
+
+    @Test
     void hotelBookedLegacyPayloadWithStateFieldAndNoLocationForMatchingDeserializes() {
         // Legacy events use "state" not "region"; locationForMatching absent → defaults to city.
         String json = """

@@ -769,6 +769,31 @@ class ScheduleGapProjectorTest {
     }
 
     // -------------------------------------------------------------------------
+    // Change Hotel propagation
+    // -------------------------------------------------------------------------
+
+    @Test
+    void hotelChangedRevaluatesStayCityForSameBooking() {
+        ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+        HotelBookingId id = HotelBookingId.random();
+        // Arrive AMS Sep 15, depart AMS Sep 18; hotel in AMS covers the stay → no missing hotel.
+        projector.handle(Stream.of(
+                stored(flight(LON, SEP_15.atTime(7, 0), AMS, SEP_15.atTime(9, 0))),
+                stored(flight(AMS, SEP_18.atTime(10, 0), LON, SEP_18.atTime(12, 0))),
+                stored(hotelWithId(id, AMS, SEP_15, SEP_18))));
+        assertThat(projector.problems())
+                .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                .isEmpty();
+
+        // Move the same booking to Brussels: AMS nights are now uncovered.
+        projector.handle(Stream.of(stored(hotelChanged(id, BRU, SEP_15, SEP_18))));
+
+        assertThat(projector.problems())
+                .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                .containsExactly(new ScheduleProblem.MissingHotel(AMS, SEP_15, SEP_18, ""));
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
@@ -797,6 +822,18 @@ class ScheduleGapProjectorTest {
 
     private static HotelBooked hotel(String city, LocalDate checkIn, LocalDate checkOut) {
         return new HotelBooked(HotelBookingId.random(), "Hotel",
+                new Address("1 Street", city, "", "00000", "XX", null),
+                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL, null);
+    }
+
+    private static HotelBooked hotelWithId(HotelBookingId id, String city, LocalDate checkIn, LocalDate checkOut) {
+        return new HotelBooked(id, "Hotel",
+                new Address("1 Street", city, "", "00000", "XX", null),
+                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL, null);
+    }
+
+    private static HotelChanged hotelChanged(HotelBookingId id, String city, LocalDate checkIn, LocalDate checkOut) {
+        return new HotelChanged(id, "Hotel",
                 new Address("1 Street", city, "", "00000", "XX", null),
                 checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL, null);
     }

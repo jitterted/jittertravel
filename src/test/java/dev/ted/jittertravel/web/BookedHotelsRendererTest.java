@@ -40,6 +40,20 @@ class BookedHotelsRendererTest {
     }
 
     @Test
+    void rowRendersEditLinkToBookingEditPage() {
+        HotelBookingId id = HotelBookingId.random();
+        BookedHotelView view = new BookedHotelView(
+                id, "Grand Hotel", "Berlin", "Germany",
+                CHECK_IN, CHECK_OUT, BookingIntent.FINAL, "https://maps.google.com/");
+
+        String html = BookedHotelsRenderer.render(List.of(view), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("href=\"/booked-hotels/" + id.id() + "\"")
+                .contains(">Edit</a>");
+    }
+
+    @Test
     void hotelNameRendersAsLinkToMapsUrl() {
         String html = BookedHotelsRenderer.render(List.of(hotelView("Grand Hotel",
                 "https://maps.google.com/grand", BookingIntent.TENTATIVE)), TimeView.FUTURE);

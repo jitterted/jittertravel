@@ -142,6 +142,20 @@ public class EventSourcingConfig {
     }
 
     @Bean
+    public HotelDetailsViewProjector hotelDetailsViewProjector(EventStore eventStore) {
+        HotelDetailsViewProjector projector = new HotelDetailsViewProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
+
+    @Bean
+    public ChangeHotel changeHotelApplicationService(CommandExecutor commandExecutor,
+                                                     HotelDetailsViewProjector hotelDetailsViewProjector) {
+        return new ChangeHotel(commandExecutor, hotelDetailsViewProjector);
+    }
+
+    @Bean
     public BookedTrainsProjector bookedTrainsProjector(EventStore eventStore) {
         BookedTrainsProjector projector = new BookedTrainsProjector();
         eventStore.subscribe(projector);

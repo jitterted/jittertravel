@@ -1,8 +1,10 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.infrastructure.AddressRenderer;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -21,22 +23,31 @@ public class BookedHotelsProjector implements EventStreamConsumer {
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(storedEvent -> {
-            if (storedEvent.payload() instanceof HotelBooked event) {
-                String mapsUrl = event.mapsUrl().isBlank()
-                        ? AddressRenderer.mapsUrl(event.hotelName(), event.address())
-                        : event.mapsUrl();
-                viewsById.put(event.hotelBookingId(), new BookedHotelView(
-                        event.hotelBookingId(),
-                        event.hotelName(),
-                        event.address().city(),
-                        event.address().country(),
-                        event.checkIn(),
-                        event.checkOut(),
-                        BookingIntent.TENTATIVE,
-                        mapsUrl
-                ));
+            switch (storedEvent.payload()) {
+                case HotelBooked e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
+                        e.checkIn(), e.checkOut(), e.mapsUrl());
+                case HotelChanged e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
+                        e.checkIn(), e.checkOut(), e.mapsUrl());
+                default -> { /* not a hotel event */ }
             }
         });
+    }
+
+    private void put(HotelBookingId hotelBookingId, String hotelName, Address address,
+                     LocalDateTime checkIn, LocalDateTime checkOut, String rawMapsUrl) {
+        String mapsUrl = rawMapsUrl.isBlank()
+                ? AddressRenderer.mapsUrl(hotelName, address)
+                : rawMapsUrl;
+        viewsById.put(hotelBookingId, new BookedHotelView(
+                hotelBookingId,
+                hotelName,
+                address.city(),
+                address.country(),
+                checkIn,
+                checkOut,
+                BookingIntent.TENTATIVE,
+                mapsUrl
+        ));
     }
 
     public List<BookedHotelView> views(TimeView timeView, LocalDateTime now) {

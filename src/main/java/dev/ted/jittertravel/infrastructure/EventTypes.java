@@ -8,6 +8,7 @@ import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
+import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.domain.TrainBooked;
 import dev.ted.jittertravel.domain.TrainChanged;
 
@@ -47,6 +48,7 @@ public final class EventTypes {
         register("TrainBooked", TrainBooked.class);
         register("TrainChanged", TrainChanged.class);
         register("HotelBooked", HotelBooked.class);
+        register("HotelChanged", HotelChanged.class);
         register("ConferenceTentativelyPlanned", ConferenceTentativelyPlanned.class);
         register("ConferenceCancelled", ConferenceCancelled.class);
         register("GatheringPlanned", GatheringPlanned.class);

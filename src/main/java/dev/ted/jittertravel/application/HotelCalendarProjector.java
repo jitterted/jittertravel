@@ -1,11 +1,14 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.infrastructure.AddressRenderer;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -19,24 +22,33 @@ public class HotelCalendarProjector implements EventStreamConsumer {
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(storedEvent -> {
-            if (storedEvent.payload() instanceof HotelBooked event) {
-                String location = event.address().city() + ", " + event.address().country();
-                String mapsUrl = event.mapsUrl().isBlank()
-                        ? AddressRenderer.mapsUrl(event.hotelName(), event.address())
-                        : event.mapsUrl();
-                List<String> locationLines = List.of(location);
-                entriesById.put(event.hotelBookingId(), new CalendarEntry(
-                        EntryKind.LODGING,
-                        event.checkIn(),
-                        event.checkOut(),
-                        event.hotelName(),
-                        locationLines,
-                        event.hotelName() + " cont'd",
-                        locationLines,
-                        mapsUrl
-                ));
+            switch (storedEvent.payload()) {
+                case HotelBooked e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
+                        e.checkIn(), e.checkOut(), e.mapsUrl());
+                case HotelChanged e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
+                        e.checkIn(), e.checkOut(), e.mapsUrl());
+                default -> { /* not a hotel event */ }
             }
         });
+    }
+
+    private void put(HotelBookingId hotelBookingId, String hotelName, Address address,
+                     LocalDateTime checkIn, LocalDateTime checkOut, String rawMapsUrl) {
+        String location = address.city() + ", " + address.country();
+        String mapsUrl = rawMapsUrl.isBlank()
+                ? AddressRenderer.mapsUrl(hotelName, address)
+                : rawMapsUrl;
+        List<String> locationLines = List.of(location);
+        entriesById.put(hotelBookingId, new CalendarEntry(
+                EntryKind.LODGING,
+                checkIn,
+                checkOut,
+                hotelName,
+                locationLines,
+                hotelName + " cont'd",
+                locationLines,
+                mapsUrl
+        ));
     }
 
     public List<CalendarEntry> entries() {

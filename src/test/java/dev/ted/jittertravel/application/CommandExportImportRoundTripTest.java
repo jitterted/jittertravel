@@ -33,6 +33,7 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
     @Autowired FlightBooking flightBooking;
     @Autowired ChangeFlight changeFlight;
     @Autowired HotelBooking hotelBooking;
+    @Autowired ChangeHotel changeHotel;
     @Autowired TrainBooking trainBooking;
     @Autowired ChangeTrain changeTrain;
     @Autowired GatheringPlanning gatheringPlanning;
@@ -46,7 +47,9 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         String flightId = UUID.randomUUID().toString();
         flightBooking.bookFlight(bookFlight(flightId));
         changeFlight.changeFlight(UUID.randomUUID(), changeFlight(flightId), LocalDateTime.now());
-        hotelBooking.bookHotel(bookHotel(), LocalDateTime.now());
+        String hotelBookingId = UUID.randomUUID().toString();
+        hotelBooking.bookHotel(bookHotel(hotelBookingId), LocalDateTime.now());
+        changeHotel.changeHotel(UUID.randomUUID(), changeHotel(hotelBookingId), LocalDateTime.now());
         String trainTripId = UUID.randomUUID().toString();
         trainBooking.bookTrain(bookTrain(trainTripId), LocalDateTime.now());
         changeTrain.changeTrain(UUID.randomUUID(), changeTrain(trainTripId), LocalDateTime.now());
@@ -118,9 +121,9 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         return r;
     }
 
-    private static BookHotelRequest bookHotel() {
+    private static BookHotelRequest bookHotel(String hotelBookingId) {
         BookHotelRequest r = new BookHotelRequest();
-        r.setHotelBookingId(UUID.randomUUID().toString());
+        r.setHotelBookingId(hotelBookingId);
         r.setHotelName("Marriott Downtown");
         r.setStreet("742 Evergreen Terrace");
         r.setCity("San Francisco");
@@ -131,6 +134,23 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         r.setMapsUrl("");
         r.setCheckIn(FUTURE.atTime(15, 0));
         r.setCheckOut(FUTURE.plusDays(2).atTime(11, 0));
+        r.setBookingIntent(BookingIntent.FINAL);
+        return r;
+    }
+
+    private static ChangeHotelRequest changeHotel(String hotelBookingId) {
+        ChangeHotelRequest r = new ChangeHotelRequest();
+        r.setHotelBookingId(hotelBookingId);
+        r.setHotelName("Hilton Union Square");
+        r.setStreet("333 O'Farrell St");
+        r.setCity("San Francisco");
+        r.setRegion("CA");
+        r.setCountry("USA");
+        r.setPostalCode("94102");
+        r.setLocationForMatching("San Francisco");
+        r.setMapsUrl("");
+        r.setCheckIn(FUTURE.plusDays(1).atTime(16, 0));
+        r.setCheckOut(FUTURE.plusDays(3).atTime(10, 0));
         r.setBookingIntent(BookingIntent.FINAL);
         return r;
     }

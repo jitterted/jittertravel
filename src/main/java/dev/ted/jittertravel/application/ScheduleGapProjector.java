@@ -43,6 +43,8 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                         e.arrivalStation().city(), e.arrivalDateTime()));
                 case HotelBooked e -> hotelStays.put(e.hotelBookingId(), new HotelStay(
                         e.address().locationForMatching(), e.checkIn().toLocalDate(), e.checkOut().toLocalDate()));
+                case HotelChanged e -> hotelStays.put(e.hotelBookingId(), new HotelStay(
+                        e.address().locationForMatching(), e.checkIn().toLocalDate(), e.checkOut().toLocalDate()));
                 case ConferenceTentativelyPlanned e -> conferenceOccupancies.put(e.conferenceId(),
                         new CityOccupancy(e.venueAddress().locationForMatching(),
                                 e.startDate(), e.endDate(), e.name()));

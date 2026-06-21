@@ -279,6 +279,40 @@ class ItineraryProjectorTest {
     }
 
     @Test
+    void hotelChangedReplacesOriginalHotelEntry() {
+        ItineraryProjector projector = new ItineraryProjector();
+        HotelBookingId id = HotelBookingId.random();
+        LocalDate checkIn = DATE;
+        LocalDate checkOut = DATE.plusDays(3);
+        HotelBooked booked = new HotelBooked(
+                id, "Marriott Downtown",
+                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
+                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL, null);
+        LocalDate newCheckIn = DATE.plusDays(10);
+        LocalDate newCheckOut = DATE.plusDays(12);
+        HotelChanged changed = new HotelChanged(
+                id, "Hilton Union Square",
+                new Address("333 O'Farrell St", "San Francisco", "CA", "94102", "USA", null),
+                newCheckIn.atTime(16, 0), newCheckOut.atTime(10, 0), BookingIntent.FINAL, null);
+
+        projector.handle(Stream.of(stored(booked), stored(changed)));
+
+        assertThat(projector.entriesForDate(checkIn))
+                .as("original check-in date must no longer have an entry after the change")
+                .isEmpty();
+        List<ItineraryEntry> newCheckInEntries = projector.entriesForDate(newCheckIn);
+        assertThat(newCheckInEntries)
+                .hasSize(1);
+        HotelItineraryEntry entry = (HotelItineraryEntry) newCheckInEntries.getFirst();
+        assertThat(entry.dayRole())
+                .isEqualTo(HotelDayRole.CHECK_IN);
+        assertThat(entry.hotelName())
+                .isEqualTo("Hilton Union Square");
+        assertThat(projector.entriesForDate(newCheckOut))
+                .hasSize(1);
+    }
+
+    @Test
     void conferencePlannedCreatesOneEntryPerDayWithDayOfNIndicator() {
         ItineraryProjector projector = new ItineraryProjector();
         ConferenceTentativelyPlanned event = new ConferenceTentativelyPlanned(

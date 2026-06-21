@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.*;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.TrainTripId;
 import org.junit.jupiter.api.Test;
 
@@ -274,6 +275,28 @@ class ItineraryRendererTest {
         assertThat(html).contains("3:00 PM");
     }
 
+    @Test
+    void hotelShowsEditPencilLinkingToEditPageForOwner() {
+        HotelBookingId bookingId = HotelBookingId.random();
+        Address address = new Address("Kaiserstrasse 1", "Frankfurt", "Hessen", "60311", "DE", null);
+        HotelItineraryEntry entry = new HotelItineraryEntry(bookingId, "Grand Hotel Frankfurt", address,
+                BookingIntent.FINAL, HotelDayRole.CHECK_IN, JUN_1.atTime(15, 0), "https://maps.example.com/hotel");
+
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains("class=\"edit-pencil\" href=\"/booked-hotels/" + bookingId.id() + "\"");
+    }
+
+    @Test
+    void hotelHasNoEditPencilForNonOwner() {
+        String html = renderWithEntry(hotel(HotelDayRole.CHECK_IN, "Hessen"));
+
+        assertThat(html)
+                .doesNotContain("href=\"/booked-hotels/");
+    }
+
     // --- Conference ---
 
     @Test
@@ -396,8 +419,8 @@ class ItineraryRendererTest {
         Address address = new Address("Kaiserstrasse 1", "Frankfurt", region, "60311", "DE", null);
         LocalDateTime anchorTime = dayRole == HotelDayRole.CHECK_IN
                 ? JUN_1.atTime(15, 0) : JUN_1.atTime(11, 0);
-        return new HotelItineraryEntry("Grand Hotel Frankfurt", address, BookingIntent.FINAL,
-                dayRole, anchorTime, "https://maps.example.com/hotel");
+        return new HotelItineraryEntry(HotelBookingId.random(), "Grand Hotel Frankfurt", address,
+                BookingIntent.FINAL, dayRole, anchorTime, "https://maps.example.com/hotel");
     }
 
     private static ConferenceItineraryEntry conference(int dayNumber, int totalDays) {

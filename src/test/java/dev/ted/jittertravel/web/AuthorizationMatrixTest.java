@@ -66,6 +66,7 @@ class AuthorizationMatrixTest {
                 arguments("/booked-flights",       Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/booked-flights/abc",   Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/booked-trains/abc",    Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
+                arguments("/booked-hotels/abc",    Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/admin",                Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/actuator/health",      Outcome.OK,       Outcome.OK,           Outcome.OK),
                 arguments("/actuator/metrics",     Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN)

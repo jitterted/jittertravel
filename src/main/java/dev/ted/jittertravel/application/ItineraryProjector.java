@@ -29,6 +29,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                 case TrainBooked e -> trainEntries.put(e.tripId(), toTrainEntries(e));
                 case TrainChanged e -> trainEntries.put(e.tripId(), toTrainEntries(e));
                 case HotelBooked e -> hotelEntries.put(e.hotelBookingId(), toHotelEntries(e));
+                case HotelChanged e -> hotelEntries.put(e.hotelBookingId(), toHotelEntries(e));
                 case ConferenceTentativelyPlanned e -> conferenceEntries.put(e.conferenceId(), toConferenceEntries(e));
                 case ConferenceCancelled(ConferenceId conferenceId, String _) -> conferenceEntries.remove(conferenceId);
                 case GatheringPlanned e -> gatheringEntries.put(e.gatheringId(), toGatheringEntry(e));
@@ -136,14 +137,26 @@ public class ItineraryProjector implements EventStreamConsumer {
     }
 
     private static List<HotelItineraryEntry> toHotelEntries(HotelBooked e) {
-        String mapsUrl = e.mapsUrl().isBlank()
-                ? AddressRenderer.mapsUrl(e.hotelName(), e.address())
-                : e.mapsUrl();
+        return toHotelEntries(e.hotelBookingId(), e.hotelName(), e.address(), e.bookingIntent(),
+                e.checkIn(), e.checkOut(), e.mapsUrl());
+    }
+
+    private static List<HotelItineraryEntry> toHotelEntries(HotelChanged e) {
+        return toHotelEntries(e.hotelBookingId(), e.hotelName(), e.address(), e.bookingIntent(),
+                e.checkIn(), e.checkOut(), e.mapsUrl());
+    }
+
+    private static List<HotelItineraryEntry> toHotelEntries(
+            HotelBookingId hotelBookingId, String hotelName, Address address, BookingIntent bookingIntent,
+            LocalDateTime checkIn, LocalDateTime checkOut, String rawMapsUrl) {
+        String mapsUrl = rawMapsUrl.isBlank()
+                ? AddressRenderer.mapsUrl(hotelName, address)
+                : rawMapsUrl;
         return List.of(
-                new HotelItineraryEntry(e.hotelName(), e.address(), e.bookingIntent(),
-                        HotelDayRole.CHECK_IN, e.checkIn(), mapsUrl),
-                new HotelItineraryEntry(e.hotelName(), e.address(), e.bookingIntent(),
-                        HotelDayRole.CHECK_OUT, e.checkOut(), mapsUrl));
+                new HotelItineraryEntry(hotelBookingId, hotelName, address, bookingIntent,
+                        HotelDayRole.CHECK_IN, checkIn, mapsUrl),
+                new HotelItineraryEntry(hotelBookingId, hotelName, address, bookingIntent,
+                        HotelDayRole.CHECK_OUT, checkOut, mapsUrl));
     }
 
     private static GatheringItineraryEntry toGatheringEntry(GatheringPlanned e) {

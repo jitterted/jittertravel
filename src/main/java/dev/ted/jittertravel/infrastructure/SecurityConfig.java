@@ -49,7 +49,7 @@ public class SecurityConfig {
                                 "/api/parse-address").hasRole("OWNER")
                         // Per-flight and per-train edit must be ordered before the list matchers below.
                         .requestMatchers("/booked-flights/*", "/booked-flights/*/lookup",
-                                "/booked-trains/*").hasRole("OWNER")
+                                "/booked-trains/*", "/booked-hotels/*").hasRole("OWNER")
                         // Booking lists: OWNER-only (FAMILY cannot view booking details).
                         .requestMatchers(
                                 "/booked-flights", "/booked-trains", "/booked-hotels",

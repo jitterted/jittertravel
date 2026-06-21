@@ -48,6 +48,8 @@ public class BookedHotelsRenderer {
             .action-row { margin-top: 1rem; }
             .action-row a { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
             .action-row a:hover { text-decoration: underline; }
+            .hotel-edit-link { color: var(--accent-color); text-decoration: none; font-size: 0.85rem; }
+            .hotel-edit-link:hover { text-decoration: underline; }
             """;
 
     public static String render(List<BookedHotelView> hotels, TimeView activeFilter) {
@@ -84,7 +86,8 @@ public class BookedHotelsRenderer {
                                 th("Location"),
                                 th("Check-In"),
                                 th("Check-Out"),
-                                th("Status")
+                                th("Status"),
+                                th()
                         )
                 ),
                 tbody(
@@ -100,7 +103,9 @@ public class BookedHotelsRenderer {
                 td(hotel.city() + ", " + hotel.country()),
                 td(hotel.checkIn().format(DATE_DISPLAY)),
                 td(hotel.checkOut().format(DATE_DISPLAY)),
-                td(statusBadge(hotel.status()))
+                td(statusBadge(hotel.status())),
+                td(a("Edit").withClass("hotel-edit-link")
+                        .withHref("/booked-hotels/" + hotel.hotelBookingId().id()))
         );
     }
 

@@ -105,7 +105,7 @@ public class ItineraryRenderer {
         return switch (entry) {
             case FlightItineraryEntry e -> renderFlight(e, isOwner);
             case TrainItineraryEntry e -> renderTrain(e, isOwner);
-            case HotelItineraryEntry e -> renderHotel(e);
+            case HotelItineraryEntry e -> renderHotel(e, isOwner);
             case GatheringItineraryEntry e -> renderGathering(e);
             case ConferenceItineraryEntry e -> renderConference(e);
         };
@@ -181,19 +181,23 @@ public class ItineraryRenderer {
         return a(name).withHref(mapsUrl).withTarget("_blank").withRel("noopener");
     }
 
-    private static DivTag renderHotel(HotelItineraryEntry e) {
+    private static DivTag renderHotel(HotelItineraryEntry e, boolean isOwner) {
         String kindLabel = e.dayRole() == HotelDayRole.CHECK_IN ? "Check-In" : "Check-Out";
         Address addr = e.address();
         String cityLine = addr.city()
                 + (addr.region().isEmpty() ? "" : ", " + addr.region())
                 + " " + addr.postalCode();
+        DivTag title = div().withClass("entry-title").with(
+                a(e.hotelName()).withHref(e.mapsUrl()).withTarget("_blank").withRel("noopener"));
+        if (isOwner) {
+            title.with(editPencil("/booked-hotels/" + e.hotelBookingId().id(), "Edit hotel"));
+        }
         return div().withClass("entry-card entry-card--lodging").with(
                 div().withClass("entry-header").with(
                         rawHtml(HOTEL_SVG),
                         span(kindLabel).withClass("entry-kind entry-kind--lodging")
                 ),
-                a(e.hotelName()).withClass("entry-title")
-                        .withHref(e.mapsUrl()).withTarget("_blank").withRel("noopener"),
+                title,
                 div(addr.street()).withClass("entry-detail"),
                 div(cityLine).withClass("entry-detail entry-location"),
                 div(addr.country()).withClass("entry-detail entry-location"),

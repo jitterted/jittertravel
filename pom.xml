@@ -178,6 +178,9 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
           <excludedGroups>js</excludedGroups>
+          <!-- Pin the test JVM to UTC so timezone-dependent tests behave the same
+               on every machine and on CI, regardless of the host's default zone. -->
+          <argLine>-Duser.timezone=UTC</argLine>
         </configuration>
       </plugin>
     </plugins>

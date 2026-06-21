@@ -22,6 +22,7 @@ public record BookedFlightView(
         String route,
         LocalDateTime departureDateTime,
         String departureDateTimeDisplay,
+        String arrivalDateTimeDisplay,
         List<ChangeEntry> history
 ) implements TemporalView {
 

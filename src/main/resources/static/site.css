@@ -54,3 +54,125 @@ body {
 
 /* Empty-state message shared by the booked/planned list views. */
 .empty-state { margin-top: 1rem; color: var(--muted-text); }
+
+/* Booking forms (book-flight, change-flight): a lookup box plus the two-column
+   departure/arrival fieldsets. Pages add class="booking-form" to their .page. */
+.booking-form { max-width: 920px; }
+
+.booking-form .lookup {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+.booking-form .lookup p {
+    margin: 0 0 0.6rem;
+    font-size: 0.8rem;
+    color: var(--muted-text);
+}
+.booking-form .lookup-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+.booking-form .lookup-row .field { flex: 1; min-width: 8rem; }
+
+.booking-form .service-field { margin-bottom: 1rem; }
+
+.booking-form .fieldsets {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.booking-form fieldset {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin: 0;
+}
+.booking-form legend {
+    font-weight: 600;
+    padding: 0 0.4em;
+    color: var(--muted-text);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.booking-form .field { margin-bottom: 0.5rem; }
+.booking-form .field:last-child { margin-bottom: 0; }
+.booking-form .field label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.8rem;
+    color: var(--muted-text);
+}
+.booking-form .field input {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    width: 100%;
+    box-sizing: border-box;
+}
+.booking-form .field input:focus {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 1px;
+    border-color: transparent;
+}
+.booking-form .field-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.booking-form .field-row .field { flex: 2; margin-bottom: 0; }
+.booking-form .field-row .field.narrow { flex: 1; }
+
+.booking-form .error {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.8rem;
+    color: #b00;
+}
+.booking-form .global-errors {
+    margin: 0 0 1rem;
+    padding-left: 1.2rem;
+    font-size: 0.8rem;
+    color: #b00;
+}
+
+/* The main form submit ("Book Flight" / "Save changes"); excludes the lookup
+   button, which is also type=submit but styled separately below. */
+.booking-form button[type=submit]:not(.lookup-btn) {
+    background: var(--accent-color);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.45rem 1.4rem;
+    font-size: 0.95rem;
+    font-family: inherit;
+    cursor: pointer;
+}
+.booking-form button[type=submit]:not(.lookup-btn):hover { opacity: 0.88; }
+
+/* Lookup button: its own style (it is type=submit but excluded from the main
+   submit rule above). The margin-bottom lifts it off the row's flex-end bottom
+   so it lines up with the input boxes. */
+.booking-form .lookup-btn {
+    background: var(--accent-color);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.4rem 1.4rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    font-family: inherit;
+    box-sizing: border-box;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.booking-form .lookup-btn:hover { opacity: 0.88; }

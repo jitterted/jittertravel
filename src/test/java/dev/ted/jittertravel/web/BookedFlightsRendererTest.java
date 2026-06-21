@@ -44,9 +44,22 @@ class BookedFlightsRendererTest {
 
         assertThat(html)
                 .contains("Sat, Jun 6, 1:55 PM")
+                .contains("Sun, Jun 7, 9:45 AM")
                 .contains("SFO→FRA")
                 .contains("United")
                 .contains("UA59");
+    }
+
+    @Test
+    void flightRowRendersArrivalAndASeparateEditLink() {
+        FlightId flightId = FlightId.random();
+        String html = BookedFlightsRenderer.render(List.of(
+                viewWithoutChanges(flightId, "Sat, Jun 6, 1:55 PM", "SFO→FRA", "United", "UA59")
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("Sun, Jun 7, 9:45 AM")
+                .contains("<a class=\"flight-edit-link\" href=\"/booked-flights/" + flightId.id() + "\">Edit</a>");
     }
 
     @Test
@@ -89,7 +102,7 @@ class BookedFlightsRendererTest {
                                                        String flightNumber) {
         return new BookedFlightView(
                 flightId, airline, flightNumber, route,
-                LocalDateTime.of(2026, 6, 6, 13, 55), display,
+                LocalDateTime.of(2026, 6, 6, 13, 55), display, "Sun, Jun 7, 9:45 AM",
                 List.of(new ChangeEntry(LocalDateTime.of(2026, 5, 20, 12, 22), "Booked on 2026-05-20 12:22PM"))
         );
     }
@@ -102,7 +115,7 @@ class BookedFlightsRendererTest {
                 .toList();
         return new BookedFlightView(
                 FlightId.random(), airline, flightNumber, route,
-                LocalDateTime.of(2026, 6, 6, 13, 55), display,
+                LocalDateTime.of(2026, 6, 6, 13, 55), display, "Sun, Jun 7, 9:45 AM",
                 history
         );
     }

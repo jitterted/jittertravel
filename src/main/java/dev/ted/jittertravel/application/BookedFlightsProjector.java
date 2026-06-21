@@ -25,7 +25,7 @@ import java.util.stream.Stream;
  */
 public class BookedFlightsProjector implements EventStreamConsumer {
 
-    private static final DateTimeFormatter DEPARTURE_DISPLAY =
+    private static final DateTimeFormatter DATETIME_DISPLAY =
             DateTimeFormatter.ofPattern("EEE, MMM d, h:mm a", Locale.ENGLISH);
     private static final DateTimeFormatter TIMESTAMP_DISPLAY =
             DateTimeFormatter.ofPattern("uuuu-MM-dd h:mma", Locale.ENGLISH);
@@ -39,12 +39,12 @@ public class BookedFlightsProjector implements EventStreamConsumer {
                 case FlightBooked event -> apply(
                         event.flightId(), event.airline(), event.flightNumber(),
                         event.departureAirport(), event.arrivalAirport(),
-                        event.departureDateTime(),
+                        event.departureDateTime(), event.arrivalDateTime(),
                         bookingEntry(storedEvent.timestamp()));
                 case FlightChanged event -> apply(
                         event.flightId(), event.airline(), event.flightNumber(),
                         event.departureAirport(), event.arrivalAirport(),
-                        event.departureDateTime(),
+                        event.departureDateTime(), event.arrivalDateTime(),
                         changeEntry(storedEvent.timestamp(), event.reason()));
                 default -> { /* not a flight event */ }
             }
@@ -57,6 +57,7 @@ public class BookedFlightsProjector implements EventStreamConsumer {
                        AirportCode departureAirport,
                        AirportCode arrivalAirport,
                        LocalDateTime departureDateTime,
+                       LocalDateTime arrivalDateTime,
                        ChangeEntry newEntry) {
         viewsByFlight.compute(flightId, (id, previous) -> {
             List<ChangeEntry> history = previous == null
@@ -69,7 +70,8 @@ public class BookedFlightsProjector implements EventStreamConsumer {
                     flightNumber,
                     route,
                     departureDateTime,
-                    departureDateTime.format(DEPARTURE_DISPLAY),
+                    departureDateTime.format(DATETIME_DISPLAY),
+                    arrivalDateTime.format(DATETIME_DISPLAY),
                     history
             );
         });

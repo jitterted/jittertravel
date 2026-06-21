@@ -19,9 +19,11 @@ public class BookedFlightsRenderer {
             }
             .flight-card-header, .flight-card-row {
                 display: grid;
-                grid-template-columns: 2fr 1fr 2fr 1fr 28px;
+                grid-template-columns: 2fr 2fr 1fr 2fr 1fr 28px auto;
                 align-items: center; gap: 0.75rem; padding: 10px 16px;
             }
+            .flight-edit-link { font-size: 0.85rem; color: var(--accent-color); text-decoration: none; }
+            .flight-edit-link:hover { text-decoration: underline; }
             .flight-card-header {
                 background-color: var(--header-bg); color: var(--muted-text);
                 font-weight: 600; text-transform: uppercase;
@@ -42,7 +44,7 @@ public class BookedFlightsRenderer {
             .flight-card-has-history[open] > summary .flight-card-chevron::before { transform: rotate(90deg); }
             div.flight-card-row > .flight-card-chevron::before,
             .flight-card-header > .flight-card-chevron::before { content: ""; }
-            .conf-name { font-weight: 500; color: var(--accent-color); }
+            .flight-departure { font-weight: 500; }
             .flight-history-list { margin: 0; padding: 0 16px 12px 3rem; list-style: disc; color: var(--muted-text); font-size: 0.9rem; }
             .flight-history-list li { margin: 0.15rem 0; }
             .empty-state p { margin: 0.5rem 0; }
@@ -82,10 +84,12 @@ public class BookedFlightsRenderer {
         return div().withClass("flight-cards").with(
                 header().withClass("flight-card-header").with(
                         div("Departure"),
+                        div("Arrival"),
                         div("Route"),
                         div("Airline"),
                         div("Flight Number"),
-                        div().withClass("flight-card-chevron").attr("aria-hidden", "true")
+                        div().withClass("flight-card-chevron").attr("aria-hidden", "true"),
+                        div()
                 ),
                 each(flights, BookedFlightsRenderer::renderFlightCard)
         );
@@ -96,12 +100,14 @@ public class BookedFlightsRenderer {
         if (flight.hasChanges()) {
             return details().withClass("flight-card flight-card-has-history").with(
                     summary().withClass("flight-card-row").with(
-                            div(a(flight.departureDateTimeDisplay()).withHref(changeUrl))
-                                    .withClass("flight-card-cell conf-name"),
+                            div(flight.departureDateTimeDisplay())
+                                    .withClass("flight-card-cell flight-departure"),
+                            div(flight.arrivalDateTimeDisplay()).withClass("flight-card-cell"),
                             div(flight.route()).withClass("flight-card-cell"),
                             div(flight.airline()).withClass("flight-card-cell"),
                             div(flight.flightNumber()).withClass("flight-card-cell"),
-                            div().withClass("flight-card-cell flight-card-chevron").attr("aria-hidden", "true")
+                            div().withClass("flight-card-cell flight-card-chevron").attr("aria-hidden", "true"),
+                            a("Edit").withClass("flight-edit-link").withHref(changeUrl)
                     ),
                     ul().withClass("flight-history-list").with(
                             each(flight.history(), entry -> li(entry.displayText()))
@@ -109,12 +115,14 @@ public class BookedFlightsRenderer {
             );
         }
         return div().withClass("flight-card flight-card-row").with(
-                div(a(flight.departureDateTimeDisplay()).withHref(changeUrl))
-                        .withClass("flight-card-cell conf-name"),
+                div(flight.departureDateTimeDisplay())
+                        .withClass("flight-card-cell flight-departure"),
+                div(flight.arrivalDateTimeDisplay()).withClass("flight-card-cell"),
                 div(flight.route()).withClass("flight-card-cell"),
                 div(flight.airline()).withClass("flight-card-cell"),
                 div(flight.flightNumber()).withClass("flight-card-cell"),
-                div().withClass("flight-card-cell flight-card-chevron").attr("aria-hidden", "true")
+                div().withClass("flight-card-cell flight-card-chevron").attr("aria-hidden", "true"),
+                a("Edit").withClass("flight-edit-link").withHref(changeUrl)
         );
     }
 }

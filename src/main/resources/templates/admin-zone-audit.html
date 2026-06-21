@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Zone Audit — Admin — JitterTravel</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #faf9f7;
+            --surface: #ffffff;
+            --text-primary: #1a1916;
+            --text-secondary: #6b6860;
+            --text-muted: #b0aea8;
+            --border: rgba(0, 0, 0, 0.10);
+            --danger: #c0392b;
+            --danger-bg: #fdf2f2;
+            --danger-border: #f5c6c6;
+            --success: #1a7a3f;
+            --success-bg: #f0faf4;
+            --success-border: #b2dfc4;
+            --radius: 10px;
+        }
+
+        body {
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .container { max-width: 64ch; margin: 3rem auto; padding: 0 1.5rem; }
+
+        nav { margin-bottom: 2rem; font-size: 0.9rem; color: var(--text-muted); }
+        nav a { color: var(--text-secondary); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+
+        h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .lede { color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.5; font-size: 0.95rem; }
+
+        h2 { font-size: 1.05rem; font-weight: 700; margin: 2rem 0 0.75rem; }
+
+        .banner {
+            border-radius: var(--radius);
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+        .banner.success { background: var(--success-bg); border: 1px solid var(--success-border); color: var(--success); }
+        .banner.danger  { background: var(--danger-bg);  border: 1px solid var(--danger-border);  color: var(--danger); }
+        .banner strong { display: block; font-size: 1rem; margin-bottom: 0.25rem; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        th, td { padding: 0.6rem 1rem; text-align: left; }
+        th {
+            font-size: 0.8rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+        tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+
+        .kind {
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--text-muted);
+        }
+        td.zone { font-family: monospace; font-size: 0.9rem; }
+        td.missing { color: var(--danger); font-style: italic; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <nav><a href="/admin">← Admin</a></nav>
+
+    <h1>Zone Audit</h1>
+    <p class="lede">
+        Checks every distinct location in the event data against the strict zone resolvers, before the
+        UTC-storage migration. There is no default zone, so any <strong>unresolved</strong> location
+        below must be fixed (extend the resolver tables, or correct the entry) before migrating.
+    </p>
+
+    <div class="banner success" th:if="${report.allResolved()}">
+        <strong>✓ All <span th:text="${report.totalCount()}">0</span> locations resolved.</strong>
+        Safe to proceed with the migration.
+    </div>
+    <div class="banner danger" th:unless="${report.allResolved()}">
+        <strong>⚠ <span th:text="${report.unresolved().size()}">0</span> of
+            <span th:text="${report.totalCount()}">0</span> locations could not be resolved.</strong>
+        These would block the migration.
+    </div>
+
+    <h2 th:unless="${report.allResolved()}">Unresolved</h2>
+    <table th:unless="${report.allResolved()}">
+        <thead>
+            <tr><th>Kind</th><th>Location</th><th>Zone</th></tr>
+        </thead>
+        <tbody>
+            <tr th:each="entry : ${report.unresolved()}">
+                <td class="kind" th:text="${entry.kind()}"></td>
+                <td th:text="${entry.label()}"></td>
+                <td class="missing">unresolved</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Resolved</h2>
+    <table>
+        <thead>
+            <tr><th>Kind</th><th>Location</th><th>Zone</th></tr>
+        </thead>
+        <tbody>
+            <tr th:each="entry : ${report.resolved()}">
+                <td class="kind" th:text="${entry.kind()}"></td>
+                <td th:text="${entry.label()}"></td>
+                <td class="zone" th:text="${entry.zoneId()}"></td>
+            </tr>
+            <tr th:if="${report.resolved().isEmpty()}">
+                <td colspan="3" class="missing">No locations in the event data yet.</td>
+            </tr>
+        </tbody>
+    </table>
+
+</div>
+</body>
+</html>

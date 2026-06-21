@@ -12,6 +12,30 @@ import java.time.Clock;
 @Configuration
 public class EventSourcingConfig {
 
+    @Bean
+    public LocationZoneResolver locationZoneResolver() {
+        return new LocationZoneResolver();
+    }
+
+    @Bean
+    public AirportZoneResolver airportZoneResolver() {
+        return new AirportZoneResolver();
+    }
+
+    @Bean
+    public LocationAuditProjector locationAuditProjector(EventStore eventStore) {
+        LocationAuditProjector projector = new LocationAuditProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
+
+    @Bean
+    public LocationZoneAudit locationZoneAudit(LocationZoneResolver locationZoneResolver,
+                                              AirportZoneResolver airportZoneResolver) {
+        return new LocationZoneAudit(locationZoneResolver, airportZoneResolver);
+    }
+
     /**
      * Pins the JsonMapper used for event/command (de)serialization to a single, version-controlled
      * config shared with the serialization tests, instead of Spring Boot's auto-configured mapper.

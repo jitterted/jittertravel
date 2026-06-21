@@ -12,17 +12,21 @@ travel app.
 Fix: make time unambiguous end to end.
 - **Store** every event datetime as a UTC instant **plus** the IANA zone id of that endpoint.
 - **Resolve** the zone from the endpoint's location (airport / city+country), else a manual
-  common-zone pick, else a configured default.
+  common-zone pick. Strict — no default; if neither yields a zone, the command is rejected.
 - **Evaluate** past/future by comparing instants (zone-independent, always correct).
 - **Display** entry-local by default (server-side); for FAMILY (and an anonymous toggle), JS
   upgrades to the viewer's browser zone.
 
 ## Decisions (confirmed with the user)
 
-1. Entry zone is **derived from location**, with fallbacks (see Zone resolution).
+1. Entry zone is **derived from location** — **strictly, with no default zone** (see Zone
+   resolution). This is a travel app; most entries are away from any "home" zone, so a silent
+   default would be wrong more often than right.
 2. Events persist **UTC instant + zone id**.
-3. **Read-time upcaster** for legacy data: derive the zone from the event's own location, else the
-   configured default. No rewrite of `event_log`/`command_log`; old export files stay importable.
+3. **Read-time upcaster** for legacy data: derive the zone from the event's own location. With no
+   default, an unresolvable legacy location must **fail loudly** rather than be assumed — so the
+   existing-data audit (decision below) must pass *before* the upcaster ships, or replay breaks.
+   No rewrite of `event_log`/`command_log`; old export files stay importable.
    *Assumption to validate:* legacy bare datetimes were entered as local-at-the-location wall-clock
    (so reinterpreting them in the location zone preserves intent). Confirm old backups still import.
 4. **Display zone is role-dependent** (evaluation is unaffected — always instant-based):
@@ -66,18 +70,29 @@ Field changes (each `LocalDateTime` → `ZonedTimestamp`, independent zone per f
 zone)` (lenient: non-existent spring-forward times shift forward, fall-back ambiguity picks the
 earlier offset). Documented and accepted; no custom rejection.
 
-## Zone resolution (`LocationZoneResolver`)
+## Zone resolution (`LocationZoneResolver`) — strict, no default
 
-Plain-Java instance service injected at the boundary (controllers/importers). Per endpoint:
-1. **Flights via API:** `AeroDataBoxClient.parseLocal()` (`AeroDataBoxClient.java`) already receives
+Plain-Java instance service injected at the boundary (controllers/importers). **`resolve(Address)`
+returns a `ZoneId` or throws `ZoneResolutionException` — there is no default fallback.** Per
+endpoint the boundary's contract is:
+1. **Explicit `CommonZone` wins.** If the form carries a user-chosen zone, use it and never call
+   location resolution. The list is small: USA (Eastern/Central/Mountain/Pacific), Canada, UK,
+   Western Europe (CET). Flights, which carry only airport codes, always offer this picker per
+   endpoint as the manual entry path.
+2. **Flights via API:** `AeroDataBoxClient.parseLocal()` (`AeroDataBoxClient.java`) already receives
    the airport offset (`"2026-06-28 11:45+02:00"`) and discards it via `.toLocalDateTime()`. Keep
    the `OffsetDateTime`; obtain the IANA zone from the API (airport timezone) when looked up.
-2. **Manual entry (no API / no key) + cities:** resolve from city/country where possible (curated,
-   dependency-free single-tz-country table + notable cities); otherwise the user picks from a small
-   **`CommonZone`** list — USA (Eastern/Central/Mountain/Pacific), Canada, UK, Western Europe (CET).
-   Flights, which carry only airport codes, always offer this picker per endpoint as the manual
-   fallback.
-3. **Configured default** `jittertravel.default-zone` when nothing else resolves.
+3. **Location-based resolve** from city/country (curated, dependency-free single-tz-country table +
+   notable cities for multi-tz countries).
+4. **Otherwise: command validation fails.** When no explicit `CommonZone` was chosen and
+   location-based resolve throws, the command is rejected and the form re-prompts, *requiring* a
+   `CommonZone` selection. A record is therefore stored either with a verified-resolved zone or a
+   human-chosen zone — never a silent guess.
+
+**Correctness is proven by an audit** over every distinct location already in `event_log` /
+`command_log` (plus airport codes via the flight path): each must resolve, and the
+`location → zone` output is eyeballed once. After that, any unrecognized future location fails fast
+at the boundary (extend the curated table, or the user picks a `CommonZone`).
 
 Editing recomputes the `ZonedTimestamp` at the boundary from current inputs, so changing a
 location/zone naturally re-resolves. Wrong guesses are correctable via the common-zone picker.
@@ -85,16 +100,18 @@ location/zone naturally re-resolves. Wrong guesses are correctable via the commo
 ## Implementation phases
 
 ### 1. Value type + resolver
-Add `ZonedTimestamp` (domain), `LocationZoneResolver` (+ city/country table), `CommonZone` enum,
-`jittertravel.default-zone` property. Unit-test the resolver directly (per renderer/services
-testing convention).
+Add `ZonedTimestamp` (domain), `LocationZoneResolver` (+ city/country table, throws
+`ZoneResolutionException` on a miss — no default), `CommonZone` enum. Unit-test the resolver
+directly (per renderer/services testing convention).
 
 ### 2. Events & commands → `ZonedTimestamp`
 - Change events + commands/contexts (hotel/flight/train/conference/gathering). Flight/train resolve
   departure and arrival zones independently; gathering collapses date+times to start/end.
 - Web requests keep binding `datetime-local` wall-clock as `LocalDateTime` (`@DateTimeFormat`
-  stays) and gain a zone selector where manual resolution is needed (flights per endpoint; others
-  when derivation can fail). At the boundary, resolve zone(s), build `ZonedTimestamp`(s), capture
+  stays) and gain an optional `CommonZone` selector. At the boundary, per endpoint: if a
+  `CommonZone` was chosen, use it; otherwise call `resolve(address)`. If that throws
+  `ZoneResolutionException` and no `CommonZone` was supplied, **command validation fails** and the
+  form re-renders *requiring* a `CommonZone` selection. Then build `ZonedTimestamp`(s), capture
   `Instant.now()`.
 - **Validations run in the entry zone**, not UTC: checkout-after-checkin (`BookHotelCommand.java:21`),
   conference start-before-end, and not-in-the-past comparisons use `utc.atZone(zone).toLocalDate()`
@@ -120,13 +137,26 @@ Update `TimeViewTest` + projector tests to instants.
 - **Day bucketing by entry zone** (decision 7): `CalendarViewBuilder`/`ItineraryProjector` group by
   `utc.atZone(entryZone).toLocalDate()`; `ScheduleGapProjector`'s `.toLocalDate()` overlap/
   "missing hotel" logic likewise uses entry-zone local dates.
-- Tests: server-side entry-local formatting = renderer unit tests; the browser-zone upgrade =
-  `JsBehaviorTest` (`@Tag("js")`, `./mvnw test -Pjs-tests`, per `docs/JS-Behavior-Tests.md`).
+- Tests: server-side entry-local formatting = renderer unit tests; the browser-zone behavior =
+  `JsBehaviorTest` (`@Tag("js")`, `./mvnw test -Pjs-tests`, per `docs/JS-Behavior-Tests.md`):
+  - **Rendering test:** render HTML with a known `<time datetime="…Z">`, load via `setContent` in a
+    Playwright context pinned to a fixed zone (`browser.newContext({ timezoneId })`), assert the
+    upgraded text equals the expected browser-zone time; a second context with a different
+    `timezoneId` proves the same instant localizes differently.
+  - **Toggle-interaction test:** start from the entry-local baseline text, click the browser-zone
+    toggle, assert each `<time>` switches to the browser-zone rendering; toggle back and assert it
+    returns to the entry-local baseline. If the toggle persists via `?tz=`/`localStorage`, assert
+    the choice survives a reload. No server/Spring/DB/auth — JS only.
 
 ### 5. Backward compatibility (sensitive — events, commands, backups)
+- **Existing-data audit (do first):** sweep every distinct location in `event_log` / `command_log`
+  (plus airport codes via the flight path) through `resolve`; assert each succeeds and review the
+  `location → zone` output once. This must pass *before* the upcaster ships — with no default, an
+  unresolvable legacy location has nowhere to go and replay would throw.
 - **Read-time JSON upcaster** keyed by type (beside `EventTypes`/`ImportableCommandTypes`): a bare
-  scalar datetime → resolve zone from the same payload's location (else default) → rewrite to a
-  `ZonedTimestamp` object before record binding. New rows pass through untouched. Applies to **both**
+  scalar datetime → resolve zone from the same payload's location → rewrite to a `ZonedTimestamp`
+  object before record binding. **No default:** an unresolvable location fails loudly (the audit
+  guarantees this can't happen for known data). New rows pass through untouched. Applies to **both**
   the `event_log` read/replay path **and** the `command_log`/import path — not only backups.
 - **Golden/contract tests:** keep old-format golden files passing *through the upcaster*
   (`GoldenEventDeserializationTest`); add new-shape golden files. Keep
@@ -164,14 +194,16 @@ Update `TimeViewTest` + projector tests to instants.
 1. **Bug repro:** a hotel with checkout earlier today shows under `/booked-hotels` (FUTURE) pre-fix;
    post-fix it drops off once `Instant.now()` passes the checkout instant.
 2. `LocationZoneResolver` unit tests: flight API zone, single-tz country, multi-tz city, common-zone
-   manual pick, default fallback; plus a DST spring-forward/fall-back case.
+   manual pick, and `ZoneResolutionException` on an unresolvable location; plus a DST
+   spring-forward/fall-back case.
 3. Per-endpoint zones: a Frankfurt→Paris train stores two different zones; durations correct.
 4. Entry-zone validation: checkout same calendar day as checkin still rejected across UTC midnight.
 5. `GoldenEventDeserializationTest`: old scalar golden files upcast; new-shape files round-trip.
    `CommandExportImportRoundTripTest`: old + new backups both import.
 6. Display by role: OWNER entry-local; FAMILY browser zone; ANON entry-local + working toggle;
-   no-JS falls back to entry-local; calendar buckets by entry-zone day. `js` tier asserts a UTC
-   instant renders correctly in two browser zones.
+   no-JS falls back to entry-local; calendar buckets by entry-zone day. `js` tier: a UTC instant
+   renders correctly in two browser zones, **and a Playwright toggle test confirms clicking the
+   browser-zone toggle switches the displayed times and toggling back restores entry-local**.
 7. "All Tests" IDEA config + `./mvnw test -Pjs-tests` green.
 
 ## Open follow-ups (not in this plan)

@@ -74,6 +74,23 @@
         }
         td.zone { font-family: monospace; font-size: 0.9rem; }
         td.missing { color: var(--danger); font-style: italic; }
+
+        .sources { margin: 0.5rem 0 0; padding: 0; list-style: none; }
+        .sources li { margin-bottom: 0.4rem; }
+        .source-head { font-size: 0.75rem; color: var(--text-secondary); }
+        .source-head .seq { font-family: monospace; color: var(--text-muted); }
+        .source-detail {
+            margin: 0.15rem 0 0;
+            padding: 0.5rem 0.65rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.78rem;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
     </style>
 </head>
 <body>
@@ -101,13 +118,26 @@
     <h2 th:unless="${report.allResolved()}">Unresolved</h2>
     <table th:unless="${report.allResolved()}">
         <thead>
-            <tr><th>Kind</th><th>Location</th><th>Zone</th></tr>
+            <tr><th>Kind</th><th>Location</th><th>Source events</th></tr>
         </thead>
         <tbody>
             <tr th:each="entry : ${report.unresolved()}">
                 <td class="kind" th:text="${entry.kind()}"></td>
-                <td th:text="${entry.label()}"></td>
-                <td class="missing">unresolved</td>
+                <td>
+                    <span th:text="${entry.label()}"></span>
+                    <div class="missing">unresolved</div>
+                </td>
+                <td>
+                    <ul class="sources">
+                        <li th:each="source : ${entry.sources()}">
+                            <div class="source-head">
+                                <span th:text="${source.type()}">EventType</span>
+                                <span class="seq" th:text="'#' + ${source.sequence()}">#0</span>
+                            </div>
+                            <pre class="source-detail" th:text="${source.detail()}"></pre>
+                        </li>
+                    </ul>
+                </td>
             </tr>
         </tbody>
     </table>

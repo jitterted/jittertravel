@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.EventReference;
 import dev.ted.jittertravel.application.LocationAuditProjector;
 import dev.ted.jittertravel.application.LocationZoneAudit;
 import org.junit.jupiter.api.Test;
@@ -40,19 +41,23 @@ class ZoneAuditControllerTest {
     }
 
     @Test
-    void rendersResolvedAndUnresolvedRows() {
+    void rendersResolvedAndUnresolvedRowsWithSourceEvents() {
         given(locationZoneAudit.report(any(), any()))
                 .willReturn(new LocationZoneAudit.Report(
                         List.of(new LocationZoneAudit.Entry(
-                                LocationZoneAudit.Kind.LOCATION, "Frankfurt, Germany", "Europe/Berlin")),
+                                LocationZoneAudit.Kind.LOCATION, "Frankfurt, Germany", "Europe/Berlin", List.of())),
                         List.of(new LocationZoneAudit.Entry(
-                                LocationZoneAudit.Kind.AIRPORT, "XXX", null))));
+                                LocationZoneAudit.Kind.AIRPORT, "XXX", null,
+                                List.of(new EventReference(7, "FlightBooked",
+                                        "FlightBooked[departureAirport=XXX, airline=Mystery Air]"))))));
 
         assertThat(mockMvc.get().uri("/admin/zone-audit"))
                 .hasStatusOk()
                 .bodyText()
                 .contains("Frankfurt, Germany")
                 .contains("Europe/Berlin")
-                .contains("XXX");
+                .contains("XXX")
+                .contains("FlightBooked")
+                .contains("Mystery Air");
     }
 }

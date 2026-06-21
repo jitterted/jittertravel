@@ -1,6 +1,9 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.application.LocationAuditProjector.AuditedAirport;
+import dev.ted.jittertravel.application.LocationAuditProjector.AuditedLocation;
 import dev.ted.jittertravel.domain.AirportCode;
+import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -15,8 +18,8 @@ class LocationZoneAuditTest {
     @Test
     void reportsResolvedLocationsWithTheirZones() {
         LocationZoneAudit.Report report = audit.report(
-                List.of(new CityCountry("Frankfurt", "Germany"), new CityCountry("Chicago", "USA")),
-                List.of(AirportCode.of("SFO")));
+                List.of(location("Frankfurt", "Germany"), location("Chicago", "USA")),
+                List.of(airport("SFO")));
 
         assertThat(report.allResolved())
                 .as("every supplied location resolves")
@@ -24,16 +27,16 @@ class LocationZoneAuditTest {
         assertThat(report.resolved())
                 .extracting(LocationZoneAudit.Entry::label, LocationZoneAudit.Entry::zoneId)
                 .containsExactlyInAnyOrder(
-                        org.assertj.core.groups.Tuple.tuple("Chicago, USA", "America/Chicago"),
-                        org.assertj.core.groups.Tuple.tuple("Frankfurt, Germany", "Europe/Berlin"),
-                        org.assertj.core.groups.Tuple.tuple("SFO", "America/Los_Angeles"));
+                        Tuple.tuple("Chicago, USA", "America/Chicago"),
+                        Tuple.tuple("Frankfurt, Germany", "Europe/Berlin"),
+                        Tuple.tuple("SFO", "America/Los_Angeles"));
     }
 
     @Test
     void separatesUnresolvableLocationsAndAirports() {
         LocationZoneAudit.Report report = audit.report(
-                List.of(new CityCountry("Frankfurt", "Germany"), new CityCountry("Nowheresville", "Atlantis")),
-                List.of(AirportCode.of("XXX")));
+                List.of(location("Frankfurt", "Germany"), location("Nowheresville", "Atlantis")),
+                List.of(airport("XXX")));
 
         assertThat(report.allResolved())
                 .as("two of the three locations are unresolved")
@@ -41,13 +44,23 @@ class LocationZoneAuditTest {
         assertThat(report.unresolved())
                 .extracting(LocationZoneAudit.Entry::label)
                 .containsExactlyInAnyOrder("Nowheresville, Atlantis", "XXX");
-        assertThat(report.unresolved())
-                .allSatisfy(entry -> assertThat(entry.resolved())
-                        .as("unresolved entries carry no zone")
-                        .isFalse());
         assertThat(report.resolved())
                 .extracting(LocationZoneAudit.Entry::label)
                 .containsExactly("Frankfurt, Germany");
+    }
+
+    @Test
+    void unresolvedEntriesCarryTheirSourceEvents() {
+        EventReference source = new EventReference(42, "HotelBooked", "HotelBooked[city=Nowheresville]");
+
+        LocationZoneAudit.Report report = audit.report(
+                List.of(new AuditedLocation(new CityCountry("Nowheresville", "Atlantis"), List.of(source))),
+                List.of());
+
+        assertThat(report.unresolved())
+                .singleElement()
+                .extracting(LocationZoneAudit.Entry::sources)
+                .isEqualTo(List.of(source));
     }
 
     @Test
@@ -58,5 +71,13 @@ class LocationZoneAuditTest {
                 .isTrue();
         assertThat(report.totalCount())
                 .isZero();
+    }
+
+    private static AuditedLocation location(String city, String country) {
+        return new AuditedLocation(new CityCountry(city, country), List.of());
+    }
+
+    private static AuditedAirport airport(String code) {
+        return new AuditedAirport(AirportCode.of(code), List.of());
     }
 }

@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.application.LocationAuditProjector.AuditedLocation;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.BookingIntent;
@@ -36,9 +37,22 @@ class LocationAuditProjectorTest {
                         new TrainStationAddress("Frankfurt Hbf", "Frankfurt", "Germany", ""))));
 
         assertThat(projector.cities())
-                .extracting(CityCountry::label)
+                .extracting(audited -> audited.location().label())
                 .as("duplicate Frankfurt/Germany is collapsed; Paris is kept")
                 .containsExactlyInAnyOrder("Frankfurt, Germany", "Paris, France");
+    }
+
+    @Test
+    void retainsEverySourceEventForADuplicatedLocation() {
+        projector.handle(streamOf(
+                hotelBooked(new Address("1 St", "Frankfurt", "", "", "Germany", null)),
+                hotelBooked(new Address("2 St", "Frankfurt", "", "", "Germany", null))));
+
+        AuditedLocation frankfurt = projector.cities().iterator().next();
+        assertThat(frankfurt.sources())
+                .as("both hotel events that named Frankfurt are kept for diagnosis")
+                .hasSize(2)
+                .allSatisfy(source -> assertThat(source.type()).isEqualTo("HotelBooked"));
     }
 
     @Test
@@ -48,7 +62,7 @@ class LocationAuditProjectorTest {
                 flightBooked("JFK", "LHR")));
 
         assertThat(projector.airports())
-                .extracting(AirportCode::code)
+                .extracting(audited -> audited.airport().code())
                 .containsExactlyInAnyOrder("SFO", "JFK", "LHR");
     }
 

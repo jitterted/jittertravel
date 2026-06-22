@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -16,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ItineraryProjectorTest {
 
+    private static final ZoneId ZONE = ZoneId.of("America/Los_Angeles");
     private static final LocalDate DATE = LocalDate.of(2026, 9, 15);
     private static final LocalDateTime DEPARTURE = DATE.atTime(9, 0);
     private static final LocalDateTime ARRIVAL = DATE.atTime(11, 15);
@@ -237,7 +239,7 @@ class ItineraryProjectorTest {
         HotelBooked event = new HotelBooked(
                 HotelBookingId.random(), "Marriott Downtown",
                 new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
-                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL, null);
+                zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null);
 
         projector.handle(Stream.of(stored(event)));
 
@@ -266,7 +268,7 @@ class ItineraryProjectorTest {
         HotelBooked event = new HotelBooked(
                 HotelBookingId.random(), "Marriott Downtown",
                 new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
-                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL, null);
+                zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null);
 
         projector.handle(Stream.of(stored(event)));
 
@@ -287,13 +289,13 @@ class ItineraryProjectorTest {
         HotelBooked booked = new HotelBooked(
                 id, "Marriott Downtown",
                 new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
-                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL, null);
+                zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null);
         LocalDate newCheckIn = DATE.plusDays(10);
         LocalDate newCheckOut = DATE.plusDays(12);
         HotelChanged changed = new HotelChanged(
                 id, "Hilton Union Square",
                 new Address("333 O'Farrell St", "San Francisco", "CA", "94102", "USA", null),
-                newCheckIn.atTime(16, 0), newCheckOut.atTime(10, 0), BookingIntent.FINAL, null);
+                zt(newCheckIn.atTime(16, 0)), zt(newCheckOut.atTime(10, 0)), BookingIntent.FINAL, null);
 
         projector.handle(Stream.of(stored(booked), stored(changed)));
 
@@ -391,7 +393,7 @@ class ItineraryProjectorTest {
         HotelBooked hotel = new HotelBooked(
                 HotelBookingId.random(), "Grand Hotel",
                 new Address("1 Main St", "Amsterdam", "", "1000", "NL", null),
-                date.minusDays(3).atTime(15, 0), date.atTime(7, 0), BookingIntent.FINAL, null);
+                zt(date.minusDays(3).atTime(15, 0)), zt(date.atTime(7, 0)), BookingIntent.FINAL, null);
 
         // Train departs 7:51 AM
         TrainStationAddress amsterdam = new TrainStationAddress("Amsterdam Centraal", "Amsterdam", "NL", "");
@@ -482,6 +484,10 @@ class ItineraryProjectorTest {
         assertThat(entry.speaking()).as("speaking flag should be overwritten by the change").isFalse();
         assertThat(entry.infoUrl()).isEqualTo("https://new.example.com");
         assertThat(entry.anchorTime()).isEqualTo(DATE.plusDays(1).atTime(17, 30));
+    }
+
+    private static ZonedTimestamp zt(LocalDateTime local) {
+        return ZonedTimestamp.fromLocal(local, ZONE);
     }
 
     private static StoredEvent stored(Event event) {

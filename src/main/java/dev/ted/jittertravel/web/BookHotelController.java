@@ -1,7 +1,9 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.HotelBooking;
+import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.CheckInNotInFuture;
+import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -11,8 +13,8 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Controller
@@ -23,6 +25,11 @@ public class BookHotelController {
     public BookHotelController(HotelBooking hotelBooking, Clock clock) {
         this.hotelBooking = hotelBooking;
         this.clock = clock;
+    }
+
+    @ModelAttribute("commonZones")
+    public CommonZone[] commonZones() {
+        return CommonZone.values();
     }
 
     @GetMapping("/book-hotel")
@@ -40,11 +47,15 @@ public class BookHotelController {
     public String bookHotelSubmit(@ModelAttribute("bookHotel") BookHotelRequest request,
                                   BindingResult bindingResult) {
         try {
-            hotelBooking.bookHotel(request, LocalDateTime.now(clock));
+            // now is captured at the boundary as an Instant; the zone is resolved inward.
+            hotelBooking.bookHotel(request, Instant.now(clock));
         } catch (CheckInNotInFuture e) {
             bindingResult.rejectValue("checkIn", "future", e.getMessage());
         } catch (InvalidHotelDateRange e) {
             bindingResult.rejectValue("checkOut", "minOneDay", e.getMessage());
+        } catch (ZoneResolutionException e) {
+            bindingResult.rejectValue("zone", "zoneUnresolved",
+                    "Could not determine the time zone from the location — please choose one.");
         }
 
         if (bindingResult.hasErrors()) {

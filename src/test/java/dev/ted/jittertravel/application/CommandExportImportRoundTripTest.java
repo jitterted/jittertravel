@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -49,8 +50,8 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         flightBooking.bookFlight(bookFlight(flightId));
         changeFlight.changeFlight(UUID.randomUUID(), changeFlight(flightId), LocalDateTime.now());
         String hotelBookingId = UUID.randomUUID().toString();
-        hotelBooking.bookHotel(bookHotel(hotelBookingId), LocalDateTime.now());
-        changeHotel.changeHotel(UUID.randomUUID(), changeHotel(hotelBookingId), LocalDateTime.now());
+        hotelBooking.bookHotel(bookHotel(hotelBookingId), Instant.now());
+        changeHotel.changeHotel(UUID.randomUUID(), changeHotel(hotelBookingId), Instant.now());
         String trainTripId = UUID.randomUUID().toString();
         trainBooking.bookTrain(bookTrain(trainTripId), LocalDateTime.now());
         changeTrain.changeTrain(UUID.randomUUID(), changeTrain(trainTripId), LocalDateTime.now());

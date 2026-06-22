@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -131,8 +133,8 @@ class GoldenEventDeserializationTest {
                     "country": "GB",
                     "locationForMatching": "Steventon"
                   },
-                  "checkIn": "2026-06-17T15:00:00",
-                  "checkOut": "2026-06-21T11:00:00",
+                  "checkIn": {"utc": "2026-06-17T14:00:00Z", "zone": "Europe/London"},
+                  "checkOut": {"utc": "2026-06-21T10:00:00Z", "zone": "Europe/London"},
                   "bookingIntent": "FINAL"
                 }
                 """;
@@ -164,8 +166,8 @@ class GoldenEventDeserializationTest {
                     "country": "GB",
                     "locationForMatching": "London"
                   },
-                  "checkIn": "2026-07-10T15:00:00",
-                  "checkOut": "2026-07-12T11:00:00",
+                  "checkIn": {"utc": "2026-07-10T14:00:00Z", "zone": "Europe/London"},
+                  "checkOut": {"utc": "2026-07-12T10:00:00Z", "zone": "Europe/London"},
                   "bookingIntent": "FINAL",
                   "mapsUrl": "https://maps.google.com/?q=place_id:ChIJB9OTMDIbdkgRp0JWR_EVkZM"
                 }
@@ -192,8 +194,8 @@ class GoldenEventDeserializationTest {
                     "country": "GB",
                     "locationForMatching": "Steventon"
                   },
-                  "checkIn": "2026-06-18T16:00:00",
-                  "checkOut": "2026-06-22T10:00:00",
+                  "checkIn": {"utc": "2026-06-18T15:00:00Z", "zone": "Europe/London"},
+                  "checkOut": {"utc": "2026-06-22T09:00:00Z", "zone": "Europe/London"},
                   "bookingIntent": "FINAL",
                   "mapsUrl": "https://maps.google.com/?q=place_id:ChIJexample"
                 }
@@ -205,8 +207,10 @@ class GoldenEventDeserializationTest {
                 .isEqualTo("Milton Mill House");
         assertThat(event.address().city())
                 .isEqualTo("Steventon");
-        assertThat(event.checkIn().toString())
-                .isEqualTo("2026-06-18T16:00");
+        assertThat(event.checkIn().utc())
+                .isEqualTo(Instant.parse("2026-06-18T15:00:00Z"));
+        assertThat(event.checkIn().zone())
+                .isEqualTo(ZoneId.of("Europe/London"));
         assertThat(event.mapsUrl())
                 .isEqualTo("https://maps.google.com/?q=place_id:ChIJexample");
     }
@@ -225,8 +229,8 @@ class GoldenEventDeserializationTest {
                     "country": "US",
                     "locationForMatching": "Springfield"
                   },
-                  "checkIn": "2026-09-15T15:00:00",
-                  "checkOut": "2026-09-18T11:00:00",
+                  "checkIn": {"utc": "2026-09-15T20:00:00Z", "zone": "America/Chicago"},
+                  "checkOut": {"utc": "2026-09-18T16:00:00Z", "zone": "America/Chicago"},
                   "bookingIntent": "TENTATIVE"
                 }
                 """;
@@ -252,8 +256,8 @@ class GoldenEventDeserializationTest {
                     "postalCode": "62701",
                     "country": "US"
                   },
-                  "checkIn": "2026-09-15T15:00:00",
-                  "checkOut": "2026-09-18T11:00:00",
+                  "checkIn": {"utc": "2026-09-15T20:00:00Z", "zone": "America/Chicago"},
+                  "checkOut": {"utc": "2026-09-18T16:00:00Z", "zone": "America/Chicago"},
                   "bookingIntent": "TENTATIVE"
                 }
                 """;

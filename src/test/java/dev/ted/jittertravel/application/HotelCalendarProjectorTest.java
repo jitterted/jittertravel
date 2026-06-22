@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -14,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class HotelCalendarProjectorTest {
 
+    private static final ZoneId ZONE = ZoneId.of("America/Chicago");
     private static final LocalDateTime CHECK_IN = LocalDateTime.of(2026, 6, 14, 15, 0);
     private static final LocalDateTime CHECK_OUT = LocalDateTime.of(2026, 6, 15, 11, 0);
 
@@ -24,8 +26,8 @@ class HotelCalendarProjectorTest {
                 HotelBookingId.random(),
                 "Grand Hotel",
                 new Address("123 Main St", "Springfield", "IL", "62701", "US", null),
-                CHECK_IN,
-                CHECK_OUT,
+                zt(CHECK_IN),
+                zt(CHECK_OUT),
                 BookingIntent.TENTATIVE,
                 null
         );
@@ -48,10 +50,10 @@ class HotelCalendarProjectorTest {
         HotelBookingId id = HotelBookingId.random();
         HotelBooked booked = new HotelBooked(id, "Grand Hotel",
                 new Address("123 Main St", "Springfield", "IL", "62701", "US", null),
-                CHECK_IN, CHECK_OUT, BookingIntent.TENTATIVE, null);
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null);
         HotelChanged changed = new HotelChanged(id, "Seaside Resort",
                 new Address("1 Ocean Dr", "Miami", "FL", "33139", "US", null),
-                CHECK_IN.plusDays(10), CHECK_OUT.plusDays(11), BookingIntent.FINAL, null);
+                zt(CHECK_IN.plusDays(10)), zt(CHECK_OUT.plusDays(11)), BookingIntent.FINAL, null);
 
         projector.handle(Stream.of(stored(booked), stored(changed)));
 
@@ -67,6 +69,10 @@ class HotelCalendarProjectorTest {
                 .isEqualTo("Seaside Resort");
         assertThat(entry.subTitle())
                 .isEqualTo(List.of("Miami, US"));
+    }
+
+    private static ZonedTimestamp zt(LocalDateTime local) {
+        return ZonedTimestamp.fromLocal(local, ZONE);
     }
 
     private static StoredEvent stored(Event event) {

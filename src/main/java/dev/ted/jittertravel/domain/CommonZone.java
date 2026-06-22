@@ -6,8 +6,9 @@ import java.util.Locale;
 /**
  * The short list of time zones a user can pick from a form when we cannot derive the zone from a
  * location (e.g. a manually-entered flight, which carries only airport codes). Deliberately small —
- * the destinations the owner actually travels to (USA, Canada, UK, Western Europe). When none fits,
- * the configured default zone is used instead; a wrong pick is correctable by re-editing.
+ * the destinations the owner actually travels to (USA, Canada, UK, Western Europe). Resolution is
+ * strict: an explicit pick wins, otherwise location-based resolution must succeed or the command is
+ * rejected (there is no default zone). A wrong pick is correctable by re-editing.
  */
 public enum CommonZone {
     US_EASTERN("US Eastern", "America/New_York"),

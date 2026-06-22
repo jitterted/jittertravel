@@ -144,12 +144,12 @@ public class ItineraryProjector implements EventStreamConsumer {
 
     private static List<HotelItineraryEntry> toHotelEntries(HotelBooked e) {
         return toHotelEntries(e.hotelBookingId(), e.hotelName(), e.address(), e.bookingIntent(),
-                e.checkIn(), e.checkOut(), e.mapsUrl());
+                e.checkIn().localDateTime(), e.checkOut().localDateTime(), e.mapsUrl());
     }
 
     private static List<HotelItineraryEntry> toHotelEntries(HotelChanged e) {
         return toHotelEntries(e.hotelBookingId(), e.hotelName(), e.address(), e.bookingIntent(),
-                e.checkIn(), e.checkOut(), e.mapsUrl());
+                e.checkIn().localDateTime(), e.checkOut().localDateTime(), e.mapsUrl());
     }
 
     private static List<HotelItineraryEntry> toHotelEntries(

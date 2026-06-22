@@ -208,6 +208,22 @@
             </div>
         </div>
 
+        <div class="field" style="margin-bottom: 0.75rem;">
+            <label>
+                Time zone
+                <select th:field="*{zone}">
+                    <option value="">Derive from location (default)</option>
+                    <option th:each="cz : ${commonZones}"
+                            th:value="${cz.name()}"
+                            th:text="${cz.label()}"></option>
+                </select>
+            </label>
+            <span class="hint">Leave on "derive" unless the location can't be matched — then pick the zone of the hotel</span>
+            <span class="error"
+                  th:if="${#fields.hasErrors('zone')}"
+                  th:errors="*{zone}"></span>
+        </div>
+
         <div class="intent-group">
             <label>
                 <input type="radio" th:field="*{bookingIntent}" value="TENTATIVE"/>

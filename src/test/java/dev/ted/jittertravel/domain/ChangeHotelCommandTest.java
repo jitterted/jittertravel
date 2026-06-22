@@ -2,7 +2,9 @@ package dev.ted.jittertravel.domain;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -10,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ChangeHotelCommandTest {
 
+    private static final ZoneId ZONE = ZoneId.of("America/Chicago"); // Springfield, IL
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 5, 31, 10, 0);
     private static final LocalDateTime CHECK_IN = NOW.toLocalDate().plusWeeks(2).atTime(15, 0);
     private static final LocalDateTime CHECK_OUT = CHECK_IN.toLocalDate().plusDays(1).atTime(11, 0);
@@ -19,7 +22,7 @@ class ChangeHotelCommandTest {
     void validChangeProducesHotelChangedEventWithAllFields() {
         ChangeHotelCommand command = validCommand();
 
-        List<HotelChanged> events = command.execute(new ChangeHotelContext(true, NOW)).toList();
+        List<HotelChanged> events = command.execute(new ChangeHotelContext(true, at(NOW))).toList();
 
         assertThat(events)
                 .hasSize(1);
@@ -31,9 +34,9 @@ class ChangeHotelCommandTest {
         assertThat(event.address())
                 .isEqualTo(ADDRESS);
         assertThat(event.checkIn())
-                .isEqualTo(CHECK_IN);
+                .isEqualTo(zt(CHECK_IN));
         assertThat(event.checkOut())
-                .isEqualTo(CHECK_OUT);
+                .isEqualTo(zt(CHECK_OUT));
         assertThat(event.bookingIntent())
                 .isEqualTo(BookingIntent.FINAL);
     }
@@ -42,7 +45,7 @@ class ChangeHotelCommandTest {
     void changeRejectedWhenBookingDoesNotExist() {
         ChangeHotelCommand command = validCommand();
 
-        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(false, NOW)))
+        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(false, at(NOW))))
                 .isInstanceOf(HotelBookingNotFound.class);
     }
 
@@ -50,9 +53,9 @@ class ChangeHotelCommandTest {
     void checkInInPastThrowsCheckInNotInFuture() {
         ChangeHotelCommand command = new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                NOW.minusHours(1), CHECK_OUT, BookingIntent.FINAL, null);
+                zt(NOW.minusHours(1)), zt(CHECK_OUT), BookingIntent.FINAL, null);
 
-        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, NOW)))
+        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, at(NOW))))
                 .isInstanceOf(CheckInNotInFuture.class);
     }
 
@@ -60,9 +63,9 @@ class ChangeHotelCommandTest {
     void checkInExactlyNowIsNotAcceptedMustBeStrictlyAfter() {
         ChangeHotelCommand command = new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                NOW, CHECK_OUT, BookingIntent.FINAL, null);
+                zt(NOW), zt(CHECK_OUT), BookingIntent.FINAL, null);
 
-        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, NOW)))
+        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, at(NOW))))
                 .isInstanceOf(CheckInNotInFuture.class);
     }
 
@@ -70,9 +73,9 @@ class ChangeHotelCommandTest {
     void checkOutOnSameDayAsCheckInThrowsInvalidHotelDateRange() {
         ChangeHotelCommand command = new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                CHECK_IN, CHECK_IN.withHour(23).withMinute(59), BookingIntent.FINAL, null);
+                zt(CHECK_IN), zt(CHECK_IN.withHour(23).withMinute(59)), BookingIntent.FINAL, null);
 
-        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, NOW)))
+        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, at(NOW))))
                 .isInstanceOf(InvalidHotelDateRange.class);
     }
 
@@ -81,15 +84,23 @@ class ChangeHotelCommandTest {
         // A non-existent booking with otherwise-invalid dates still fails as HotelBookingNotFound first.
         ChangeHotelCommand command = new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                NOW.minusHours(1), CHECK_OUT, BookingIntent.FINAL, null);
+                zt(NOW.minusHours(1)), zt(CHECK_OUT), BookingIntent.FINAL, null);
 
-        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(false, NOW)))
+        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(false, at(NOW))))
                 .isInstanceOf(HotelBookingNotFound.class);
     }
 
     private static ChangeHotelCommand validCommand() {
         return new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                CHECK_IN, CHECK_OUT, BookingIntent.FINAL, null);
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null);
+    }
+
+    private static ZonedTimestamp zt(LocalDateTime local) {
+        return ZonedTimestamp.fromLocal(local, ZONE);
+    }
+
+    private static Instant at(LocalDateTime local) {
+        return local.atZone(ZONE).toInstant();
     }
 }

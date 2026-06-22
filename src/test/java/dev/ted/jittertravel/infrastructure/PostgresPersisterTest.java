@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
@@ -34,6 +35,11 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
         @Bean
         JsonMapper jsonMapper() {
             return EventJsonMapperFactory.create();
+        }
+
+        @Bean
+        EventPayloadUpcaster eventPayloadUpcaster(JsonMapper jsonMapper) {
+            return new EventPayloadUpcaster(new LocationZoneResolver(), jsonMapper);
         }
     }
 

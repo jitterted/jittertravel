@@ -66,7 +66,7 @@ class EventStoreTest {
     }
 
     private PostgresPersister failingPersister() {
-        return new PostgresPersister(null, null) {
+        return new PostgresPersister(null, null, null) {
             @Override public long getMaxSequence() { return 0; }
             @Override public List<StoredEvent> loadAllEvents() { return List.of(); }
             @Override public void appendEvents(List<StoredEvent> events, UUID commandId) {
@@ -76,7 +76,7 @@ class EventStoreTest {
     }
 
     private PostgresPersister mockPersister() {
-        return new PostgresPersister(null, null) {
+        return new PostgresPersister(null, null, null) {
             @Override public long getMaxSequence() { return 0; }
             @Override public List<StoredEvent> loadAllEvents() { return List.of(); }
             @Override public void appendEvents(List<StoredEvent> events, UUID commandId) {}

@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookHotelHandler;
 import dev.ted.jittertravel.application.HotelBooking;
+import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.BookHotelContext;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.CheckInNotInFuture;
@@ -10,14 +11,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class BookHotelControllerValidationTest {
 
+    private static final ZoneId ZONE = ZoneId.of("America/Chicago"); // Springfield, IL
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 5, 31, 10, 0);
+    private static final Instant NOW_INSTANT = NOW.atZone(ZONE).toInstant();
 
     @Test
     void checkInInPastProducesFieldErrorOnCheckIn() {
@@ -63,7 +68,7 @@ class BookHotelControllerValidationTest {
 
     private void invokeService(HotelBooking service, BookHotelRequest request, BindingResult bindingResult) {
         try {
-            service.bookHotel(request, NOW);
+            service.bookHotel(request, NOW_INSTANT);
         } catch (CheckInNotInFuture e) {
             bindingResult.rejectValue("checkIn", "future", e.getMessage());
         } catch (InvalidHotelDateRange e) {
@@ -80,6 +85,8 @@ class BookHotelControllerValidationTest {
         request.setRegion("IL");
         request.setCountry("US");
         request.setPostalCode("62701");
+        // Springfield/US is ambiguous, so pin the zone explicitly (the supported fallback).
+        request.setZone("US_CENTRAL");
         request.setCheckIn(NOW.plusWeeks(2).withHour(15).withMinute(0));
         request.setCheckOut(NOW.plusWeeks(2).plusDays(1).withHour(11).withMinute(0));
         request.setBookingIntent(BookingIntent.TENTATIVE);
@@ -87,10 +94,11 @@ class BookHotelControllerValidationTest {
     }
 
     private HotelBooking mockService() {
-        return new HotelBooking(null) {
+        return new HotelBooking(null, new LocationZoneResolver()) {
             @Override
-            public void bookHotel(BookHotelRequest request, LocalDateTime now) {
-                new BookHotelHandler().handle(request).execute(new BookHotelContext(now));
+            public void bookHotel(BookHotelRequest request, Instant now) {
+                new BookHotelHandler(new LocationZoneResolver()).handle(request)
+                        .execute(new BookHotelContext(now));
             }
         };
     }

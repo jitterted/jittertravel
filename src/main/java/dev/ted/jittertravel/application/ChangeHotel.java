@@ -4,7 +4,7 @@ import dev.ted.jittertravel.domain.ChangeHotelCommand;
 import dev.ted.jittertravel.domain.ChangeHotelContext;
 import dev.ted.jittertravel.web.ChangeHotelRequest;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -19,14 +19,17 @@ import java.util.UUID;
 public class ChangeHotel {
     private final CommandExecutor commandExecutor;
     private final HotelDetailsViewProjector detailsProjector;
+    private final LocationZoneResolver zoneResolver;
 
-    public ChangeHotel(CommandExecutor commandExecutor, HotelDetailsViewProjector detailsProjector) {
+    public ChangeHotel(CommandExecutor commandExecutor, HotelDetailsViewProjector detailsProjector,
+                       LocationZoneResolver zoneResolver) {
         this.commandExecutor = commandExecutor;
         this.detailsProjector = detailsProjector;
+        this.zoneResolver = zoneResolver;
     }
 
-    public void changeHotel(UUID commandId, ChangeHotelRequest request, LocalDateTime now) {
-        ChangeHotelCommand command = new ChangeHotelHandler().handle(request);
+    public void changeHotel(UUID commandId, ChangeHotelRequest request, Instant now) {
+        ChangeHotelCommand command = new ChangeHotelHandler(zoneResolver).handle(request);
         boolean bookingExists = detailsProjector.findById(command.hotelBookingId()).isPresent();
         ChangeHotelContext context = new ChangeHotelContext(bookingExists, now);
         commandExecutor.execute(commandId, request, context, command);

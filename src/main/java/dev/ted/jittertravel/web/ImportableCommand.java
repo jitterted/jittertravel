@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.domain.Event;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -22,6 +23,7 @@ public interface ImportableCommand {
 
     LocalDateTime IMPORT_BYPASS_NOW = LocalDateTime.MIN;
     LocalDate IMPORT_BYPASS_DATE = LocalDate.MIN;
+    Instant IMPORT_BYPASS_INSTANT = Instant.MIN;
 
     /** Id to persist this command's events under in {@code command_log}. */
     UUID commandId();

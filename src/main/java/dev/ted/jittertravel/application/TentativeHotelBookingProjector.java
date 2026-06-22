@@ -21,9 +21,9 @@ public class TentativeHotelBookingProjector implements EventStreamConsumer {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
                 case HotelBooked e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
-                        e.checkIn(), e.checkOut());
+                        e.checkIn().localDateTime(), e.checkOut().localDateTime());
                 case HotelChanged e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
-                        e.checkIn(), e.checkOut());
+                        e.checkIn().localDateTime(), e.checkOut().localDateTime());
                 default -> { /* not a hotel event */ }
             }
         });

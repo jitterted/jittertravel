@@ -23,6 +23,12 @@ public class EventSourcingConfig {
     }
 
     @Bean
+    public EventPayloadUpcaster eventPayloadUpcaster(LocationZoneResolver locationZoneResolver,
+                                                     JsonMapper jsonMapper) {
+        return new EventPayloadUpcaster(locationZoneResolver, jsonMapper);
+    }
+
+    @Bean
     public LocationAuditProjector locationAuditProjector(EventStore eventStore) {
         LocationAuditProjector projector = new LocationAuditProjector();
         eventStore.subscribe(projector);
@@ -129,8 +135,9 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public HotelBooking hotelBookingApplicationService(CommandExecutor commandExecutor) {
-        return new HotelBooking(commandExecutor);
+    public HotelBooking hotelBookingApplicationService(CommandExecutor commandExecutor,
+                                                       LocationZoneResolver locationZoneResolver) {
+        return new HotelBooking(commandExecutor, locationZoneResolver);
     }
 
     @Bean
@@ -175,8 +182,9 @@ public class EventSourcingConfig {
 
     @Bean
     public ChangeHotel changeHotelApplicationService(CommandExecutor commandExecutor,
-                                                     HotelDetailsViewProjector hotelDetailsViewProjector) {
-        return new ChangeHotel(commandExecutor, hotelDetailsViewProjector);
+                                                     HotelDetailsViewProjector hotelDetailsViewProjector,
+                                                     LocationZoneResolver locationZoneResolver) {
+        return new ChangeHotel(commandExecutor, hotelDetailsViewProjector, locationZoneResolver);
     }
 
     @Bean

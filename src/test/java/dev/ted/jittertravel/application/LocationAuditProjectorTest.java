@@ -12,11 +12,13 @@ import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.TrainBooked;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class LocationAuditProjectorTest {
 
+    private static final ZoneId ZONE = ZoneId.of("Europe/Berlin");
     private static final LocalDateTime SOME_TIME = LocalDateTime.of(2026, 6, 21, 11, 0);
 
     private final LocationAuditProjector projector = new LocationAuditProjector();
@@ -76,7 +79,8 @@ class LocationAuditProjectorTest {
 
     private static HotelBooked hotelBooked(Address address) {
         return new HotelBooked(HotelBookingId.random(), "Some Hotel", address,
-                SOME_TIME, SOME_TIME.plusDays(1), BookingIntent.TENTATIVE, null);
+                ZonedTimestamp.fromLocal(SOME_TIME, ZONE),
+                ZonedTimestamp.fromLocal(SOME_TIME.plusDays(1), ZONE), BookingIntent.TENTATIVE, null);
     }
 
     private static TrainBooked trainBooked(TrainStationAddress departure, TrainStationAddress arrival) {

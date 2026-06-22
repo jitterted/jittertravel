@@ -3,7 +3,9 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.ChangeHotel;
 import dev.ted.jittertravel.application.HotelDetailsView;
 import dev.ted.jittertravel.application.HotelDetailsViewProjector;
+import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.CheckInNotInFuture;
+import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelBookingNotFound;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
@@ -17,7 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +36,11 @@ public class ChangeHotelController {
         this.applicationService = applicationService;
         this.detailsProjector = detailsProjector;
         this.clock = clock;
+    }
+
+    @ModelAttribute("commonZones")
+    public CommonZone[] commonZones() {
+        return CommonZone.values();
     }
 
     @GetMapping("/booked-hotels/{hotelBookingId}")
@@ -61,7 +68,7 @@ public class ChangeHotelController {
 
         try {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
-            applicationService.changeHotel(UUID.randomUUID(), command, LocalDateTime.now(clock));
+            applicationService.changeHotel(UUID.randomUUID(), command, Instant.now(clock));
         } catch (HotelBookingNotFound e) {
             redirectAttributes.addFlashAttribute("notFoundMessage", e.getMessage());
             return "redirect:/booked-hotels";
@@ -69,6 +76,9 @@ public class ChangeHotelController {
             bindingResult.rejectValue("checkIn", "future", e.getMessage());
         } catch (InvalidHotelDateRange e) {
             bindingResult.rejectValue("checkOut", "afterCheckIn", e.getMessage());
+        } catch (ZoneResolutionException e) {
+            bindingResult.rejectValue("zone", "zoneUnresolved",
+                    "Could not determine the time zone from the location — please choose one.");
         }
 
         if (bindingResult.hasErrors()) {

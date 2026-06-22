@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.Event;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Instant;
@@ -16,10 +17,12 @@ import java.util.*;
 public class PostgresPersister {
     private final JdbcClient jdbcClient;
     private final JsonMapper jsonMapper;
+    private final EventPayloadUpcaster upcaster;
 
-    public PostgresPersister(JdbcClient jdbcClient, JsonMapper jsonMapper) {
+    public PostgresPersister(JdbcClient jdbcClient, JsonMapper jsonMapper, EventPayloadUpcaster upcaster) {
         this.jdbcClient = jdbcClient;
         this.jsonMapper = jsonMapper;
+        this.upcaster = upcaster;
     }
 
     public void saveCommand(UUID commandId, Object dto) {
@@ -374,7 +377,7 @@ public class PostgresPersister {
                 .query(StoredEventRow.class)
                 .list() // materialize the JDBC stream (which is not a Collections Stream!) into a list
                 .stream()
-                .map(row -> row.toStoredEvent(jsonMapper))
+                .map(row -> row.toStoredEvent(jsonMapper, upcaster))
                 .toList();
     }
 
@@ -401,11 +404,14 @@ public class PostgresPersister {
             }
         }
 
-        StoredEvent toStoredEvent(JsonMapper jsonMapper) {
+        StoredEvent toStoredEvent(JsonMapper jsonMapper, EventPayloadUpcaster upcaster) {
             try {
                 Class<? extends Event> eventClass = EventTypes.classFor(type);
 
-                Event payload = jsonMapper.readValue(payloadJson, eventClass);
+                // Legacy rows (bare scalar datetimes) are rewritten to the current shape before
+                // binding; new rows pass through untouched.
+                JsonNode tree = upcaster.upcast(type, jsonMapper.readTree(payloadJson));
+                Event payload = jsonMapper.treeToValue(tree, eventClass);
 
                 return new StoredEvent(
                         sequence,

@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ChangeHotelHandler;
+import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ChangeHotelContext;
 import dev.ted.jittertravel.domain.Event;
@@ -20,6 +21,9 @@ public class ChangeHotelRequest implements ImportableCommand {
     private String postalCode;
     private String locationForMatching;
     private String mapsUrl;
+    // Optional explicit time-zone pick (a CommonZone enum name). Empty/absent means "derive from
+    // the location"; a value wins over derivation. The form requires it only when derivation fails.
+    private String zone;
     // @DateTimeFormat required to match browser's <input type="datetime-local" /> format
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime checkIn;
@@ -64,6 +68,9 @@ public class ChangeHotelRequest implements ImportableCommand {
     public BookingIntent getBookingIntent() { return bookingIntent; }
     public void setBookingIntent(BookingIntent bookingIntent) { this.bookingIntent = bookingIntent; }
 
+    public String getZone() { return zone; }
+    public void setZone(String zone) { this.zone = zone; }
+
     @Override
     public UUID commandId() {
         // A booking may be changed many times; each change is a distinct command, so the id is not
@@ -76,6 +83,7 @@ public class ChangeHotelRequest implements ImportableCommand {
     @Override
     public Stream<? extends Event> events() {
         // On import the booking is assumed to already exist (its booking imported earlier).
-        return new ChangeHotelHandler().handle(this).execute(new ChangeHotelContext(true, IMPORT_BYPASS_NOW));
+        return new ChangeHotelHandler(new LocationZoneResolver()).handle(this)
+                .execute(new ChangeHotelContext(true, IMPORT_BYPASS_INSTANT));
     }
 }

@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -17,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ScheduleGapProjectorTest {
 
+    private static final ZoneId ZONE = ZoneId.of("Europe/London");
     // Three-letter codes usable with AirportCode + identity resolver (code == city name)
     private static final String LON = "LON";
     private static final String AMS = "AMS";
@@ -846,19 +848,19 @@ class ScheduleGapProjectorTest {
     private static HotelBooked hotel(String city, LocalDate checkIn, LocalDate checkOut) {
         return new HotelBooked(HotelBookingId.random(), "Hotel",
                 new Address("1 Street", city, "", "00000", "XX", null),
-                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL, null);
+                zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null);
     }
 
     private static HotelBooked hotelWithId(HotelBookingId id, String city, LocalDate checkIn, LocalDate checkOut) {
         return new HotelBooked(id, "Hotel",
                 new Address("1 Street", city, "", "00000", "XX", null),
-                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL, null);
+                zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null);
     }
 
     private static HotelChanged hotelChanged(HotelBookingId id, String city, LocalDate checkIn, LocalDate checkOut) {
         return new HotelChanged(id, "Hotel",
                 new Address("1 Street", city, "", "00000", "XX", null),
-                checkIn.atTime(15, 0), checkOut.atTime(11, 0), BookingIntent.FINAL, null);
+                zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null);
     }
 
     private static ConferenceTentativelyPlanned conference(String city, LocalDate start, LocalDate end) {
@@ -1010,6 +1012,10 @@ class ScheduleGapProjectorTest {
         return new GatheringPlanned(GatheringId.random(), title, "Venue",
                 new Address("1 Street", city, "", "", "", null),
                 date, start, end, false, "");
+    }
+
+    private static ZonedTimestamp zt(LocalDateTime local) {
+        return ZonedTimestamp.fromLocal(local, ZONE);
     }
 
     private static StoredEvent stored(Event event) {

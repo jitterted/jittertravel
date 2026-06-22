@@ -51,8 +51,9 @@ class EventJsonMapperEquivalenceTest {
         assertSerializesIdentically("""
                 {"hotelBookingId":{"id":"33333333-3333-3333-3333-333333333333"},"hotelName":"Savoy",\
                 "address":{"street":"Strand","city":"London","region":"","postalCode":"WC2R 0EZ",\
-                "country":"GB","locationForMatching":"London"},"checkIn":"2026-07-10T15:00:00",\
-                "checkOut":"2026-07-12T11:00:00","bookingIntent":"FINAL",\
+                "country":"GB","locationForMatching":"London"},\
+                "checkIn":{"utc":"2026-07-10T14:00:00Z","zone":"Europe/London"},\
+                "checkOut":{"utc":"2026-07-12T10:00:00Z","zone":"Europe/London"},"bookingIntent":"FINAL",\
                 "mapsUrl":"https://maps.google.com/?q=place_id:ChIJB9OTMDIbdkgRp0JWR_EVkZM"}""",
                 HotelBooked.class);
     }

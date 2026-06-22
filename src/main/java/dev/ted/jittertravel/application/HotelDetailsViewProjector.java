@@ -30,10 +30,10 @@ public class HotelDetailsViewProjector implements EventStreamConsumer {
             switch (stored.payload()) {
                 case HotelBooked e -> viewsById.put(e.hotelBookingId(), toView(
                         e.hotelBookingId(), e.hotelName(), e.address(),
-                        e.checkIn(), e.checkOut(), e.bookingIntent(), e.mapsUrl()));
+                        e.checkIn().localDateTime(), e.checkOut().localDateTime(), e.bookingIntent(), e.mapsUrl()));
                 case HotelChanged e -> viewsById.put(e.hotelBookingId(), toView(
                         e.hotelBookingId(), e.hotelName(), e.address(),
-                        e.checkIn(), e.checkOut(), e.bookingIntent(), e.mapsUrl()));
+                        e.checkIn().localDateTime(), e.checkOut().localDateTime(), e.bookingIntent(), e.mapsUrl()));
                 default -> { /* not a hotel event */ }
             }
         });

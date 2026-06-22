@@ -1,6 +1,5 @@
 package dev.ted.jittertravel.domain;
 
-import java.time.LocalDateTime;
 import java.util.stream.Stream;
 
 /**
@@ -17,8 +16,8 @@ public record ChangeHotelCommand(
         HotelBookingId hotelBookingId,
         String hotelName,
         Address address,
-        LocalDateTime checkIn,
-        LocalDateTime checkOut,
+        ZonedTimestamp checkIn,
+        ZonedTimestamp checkOut,
         BookingIntent bookingIntent,
         String mapsUrl
 ) implements DomainCommand<ChangeHotelContext> {
@@ -28,10 +27,13 @@ public record ChangeHotelCommand(
         if (!context.bookingExists()) {
             throw new HotelBookingNotFound("No hotel booking exists with that id");
         }
-        if (checkIn == null || !checkIn.isAfter(context.now())) {
+        // "In the future" is an instant comparison (zone-independent). The calendar-day range is
+        // checked in the entry zone, never UTC, so a stay never collapses across a UTC midnight.
+        if (checkIn == null || !checkIn.utc().isAfter(context.now())) {
             throw new CheckInNotInFuture("Check-in date/time must be in the future");
         }
-        if (checkOut == null || !checkOut.toLocalDate().isAfter(checkIn.toLocalDate())) {
+        if (checkOut == null
+                || !checkOut.localDateTime().toLocalDate().isAfter(checkIn.localDateTime().toLocalDate())) {
             throw new InvalidHotelDateRange(
                     "Check-out must be at least one calendar day after check-in");
         }

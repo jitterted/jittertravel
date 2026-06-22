@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Controller
 public class BookedFlightsController {
@@ -27,6 +27,6 @@ public class BookedFlightsController {
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
                 .body(BookedFlightsRenderer.render(
-                        projector.views(timeView, LocalDateTime.now()), timeView));
+                        projector.views(timeView, Instant.now()), timeView));
     }
 }

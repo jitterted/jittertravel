@@ -2,21 +2,22 @@ package dev.ted.jittertravel.application;
 
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Duration;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TimeViewTest {
 
-    private static final LocalDateTime NOW = LocalDateTime.of(2026, 6, 15, 12, 0);
+    private static final Instant NOW = Instant.parse("2026-06-15T12:00:00Z");
 
-    private static TemporalView relevantUntil(LocalDateTime instant) {
+    private static TemporalView relevantUntil(Instant instant) {
         return () -> instant;
     }
 
     @Test
     void allIncludesItemsThatHaveAlreadyEnded() {
-        TemporalView ended = relevantUntil(NOW.minusDays(1));
+        TemporalView ended = relevantUntil(NOW.minus(Duration.ofDays(1)));
 
         assertThat(TimeView.ALL.includes(ended, NOW))
                 .as("ALL includes a past item")
@@ -43,7 +44,7 @@ class TimeViewTest {
 
     @Test
     void futureIncludesItemStillInTheFuture() {
-        TemporalView upcoming = relevantUntil(NOW.plusDays(1));
+        TemporalView upcoming = relevantUntil(NOW.plus(Duration.ofDays(1)));
 
         assertThat(TimeView.FUTURE.includes(upcoming, NOW))
                 .as("FUTURE includes an item ending after now")

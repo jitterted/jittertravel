@@ -1,18 +1,18 @@
 package dev.ted.jittertravel.application;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Locale;
 
 public enum TimeView {
     FUTURE {
         @Override
-        public boolean includes(TemporalView view, LocalDateTime now) {
+        public boolean includes(TemporalView view, Instant now) {
             return !view.relevantUntil().isBefore(now);
         }
     },
     ALL {
         @Override
-        public boolean includes(TemporalView view, LocalDateTime now) {
+        public boolean includes(TemporalView view, Instant now) {
             return true;
         }
     };
@@ -22,7 +22,7 @@ public enum TimeView {
      * includes; FUTURE includes only items that have not ended — i.e. whose
      * {@link TemporalView#relevantUntil()} is not before {@code now}.
      */
-    public abstract boolean includes(TemporalView view, LocalDateTime now);
+    public abstract boolean includes(TemporalView view, Instant now);
 
     /**
      * Resolves a request parameter to a TimeView, falling back to FUTURE

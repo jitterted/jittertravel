@@ -15,7 +15,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class BookedFlightsProjectorFlightChangedTest {
 
-    private static final LocalDateTime NOW = LocalDateTime.of(2020, 1, 1, 0, 0);
+    // All assertions here use TimeView.ALL, which ignores now; any instant works.
+    private static final Instant NOW = Instant.parse("2020-01-01T00:00:00Z");
 
     @Test
     void flightChangedOverwritesPreviousListEntry() {

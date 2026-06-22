@@ -18,7 +18,8 @@ class BookedHotelsProjectorTest {
     private static final ZoneId ZONE = ZoneId.of("America/Chicago");
     private static final LocalDateTime CHECK_IN = LocalDateTime.of(2026, 6, 14, 15, 0);
     private static final LocalDateTime CHECK_OUT = LocalDateTime.of(2026, 6, 15, 11, 0);
-    private static final LocalDateTime NOW = LocalDateTime.of(2020, 1, 1, 0, 0);
+    // ALL ignores now, so any instant works for those cases.
+    private static final Instant NOW = Instant.parse("2020-01-01T00:00:00Z");
 
     @Test
     void hotelBookedAddsEntryWithTentativeStatus() {
@@ -52,12 +53,37 @@ class BookedHotelsProjectorTest {
 
         projector.handle(Stream.of(stored(inProgress), stored(checkedOut)));
 
-        assertThat(projector.views(TimeView.FUTURE, now))
+        // Evaluate "now" as the same instant the stays are anchored to (their zone).
+        Instant nowInstant = now.atZone(ZONE).toInstant();
+        assertThat(projector.views(TimeView.FUTURE, nowInstant))
                 .extracting(BookedHotelView::hotelName)
                 .containsExactly("Currently Here");
-        assertThat(projector.views(TimeView.ALL, now))
+        assertThat(projector.views(TimeView.ALL, nowInstant))
                 .extracting(BookedHotelView::hotelName)
                 .containsExactlyInAnyOrder("Currently Here", "Already Left");
+    }
+
+    @Test
+    void futureFilterComparesInstantsSoZoneDecidesPastVsFuture() {
+        // The bug: past/future was decided by wall-clock in the server zone, so a stay
+        // away from that zone could linger (or vanish) by the offset. Both hotels here
+        // share the SAME checkout wall-clock (Jun 23, 8:00 PM) but sit in different zones;
+        // against one instant they must resolve differently — Tokyo's checkout instant has
+        // already passed, Los Angeles's has not.
+        BookedHotelsProjector projector = new BookedHotelsProjector();
+        LocalDateTime checkInLocal = LocalDateTime.of(2026, 6, 22, 15, 0);
+        LocalDateTime checkOutLocal = LocalDateTime.of(2026, 6, 23, 20, 0);
+        HotelBooked tokyo = hotelBookedInZone("Tokyo Stay",
+                ZoneId.of("Asia/Tokyo"), checkInLocal, checkOutLocal);       // checkout 11:00Z
+        HotelBooked losAngeles = hotelBookedInZone("LA Stay",
+                ZoneId.of("America/Los_Angeles"), checkInLocal, checkOutLocal); // checkout 03:00Z next day
+
+        projector.handle(Stream.of(stored(tokyo), stored(losAngeles)));
+
+        Instant now = Instant.parse("2026-06-23T12:00:00Z");
+        assertThat(projector.views(TimeView.FUTURE, now))
+                .extracting(BookedHotelView::hotelName)
+                .containsExactly("LA Stay");
     }
 
     @Test
@@ -96,6 +122,19 @@ class BookedHotelsProjectorTest {
                 new Address("123 Main St", "Springfield", "IL", "62701", "US", null),
                 zt(checkIn),
                 zt(checkOut),
+                BookingIntent.TENTATIVE,
+                null
+        );
+    }
+
+    private static HotelBooked hotelBookedInZone(String name, ZoneId zone,
+                                                 LocalDateTime checkIn, LocalDateTime checkOut) {
+        return new HotelBooked(
+                HotelBookingId.random(),
+                name,
+                new Address("123 Main St", "Springfield", "IL", "62701", "US", null),
+                ZonedTimestamp.fromLocal(checkIn, zone),
+                ZonedTimestamp.fromLocal(checkOut, zone),
                 BookingIntent.TENTATIVE,
                 null
         );

@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -24,7 +25,8 @@ class PlannedGatheringsProjectorTest {
     private static final LocalDate DATE_JUN_15 = LocalDate.of(2026, 6, 15);
     private static final LocalTime START = LocalTime.of(18, 0);
     private static final LocalTime END = LocalTime.of(21, 0);
-    private static final LocalDateTime NOW = LocalDateTime.of(2020, 1, 1, 0, 0);
+    // ALL ignores now; any instant works for those cases.
+    private static final Instant NOW = Instant.parse("2020-01-01T00:00:00Z");
 
     @Test
     void noEventsProducesEmptyList() {
@@ -87,7 +89,7 @@ class PlannedGatheringsProjectorTest {
     @Test
     void futureFilterExcludesGatheringsThatEndedBeforeNow() {
         PlannedGatheringsProjector projector = new PlannedGatheringsProjector();
-        LocalDateTime now = LocalDateTime.of(2026, 6, 18, 12, 0);
+        Instant now = LocalDateTime.of(2026, 6, 18, 12, 0).atZone(ZoneId.systemDefault()).toInstant();
         GatheringPlanned past = gathering(GatheringId.random(), "Past Meetup", DATE_JUN_15);
         GatheringPlanned upcoming = gathering(GatheringId.random(), "Upcoming Meetup", DATE_JUN_20);
 

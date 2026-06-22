@@ -7,6 +7,7 @@ import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -60,7 +61,7 @@ public class BookedTrainsProjector implements EventStreamConsumer {
         );
     }
 
-    public List<BookedTrainView> views(TimeView filter, LocalDateTime now) {
+    public List<BookedTrainView> views(TimeView filter, Instant now) {
         return viewsById.values().stream()
                 .filter(view -> filter.includes(view, now))
                 .sorted(Comparator.comparing(BookedTrainView::departureDateTime))

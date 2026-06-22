@@ -19,6 +19,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BookedFlightsProjectorTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 6, 15, 12, 0);
+    // Flights still store wall-clock, so the view evaluates "now" in the server zone (see
+    // BookedFlightView.relevantUntil); the test mirrors that conversion.
+    private static final Instant NOW_INSTANT = NOW.atZone(ZoneId.systemDefault()).toInstant();
 
     @Test
     void flightBookedProducesViewWithRouteAndFormattedDeparture() {
@@ -36,7 +39,7 @@ class BookedFlightsProjectorTest {
 
         projector.handle(Stream.of(stored(event, instant(2026, 5, 20, 12, 22))));
 
-        List<BookedFlightView> views = projector.views(TimeView.ALL, NOW);
+        List<BookedFlightView> views = projector.views(TimeView.ALL, NOW_INSTANT);
         assertThat(views).hasSize(1);
         BookedFlightView view = views.getFirst();
         assertThat(view.flightId()).isEqualTo(flightId);
@@ -59,7 +62,7 @@ class BookedFlightsProjectorTest {
 
         projector.handle(Stream.of(stored(later, Instant.now()), stored(earlier, Instant.now())));
 
-        assertThat(projector.views(TimeView.ALL, NOW))
+        assertThat(projector.views(TimeView.ALL, NOW_INSTANT))
                 .extracting(BookedFlightView::flightNumber)
                 .containsExactly("UA1", "UA2");
     }
@@ -75,8 +78,8 @@ class BookedFlightsProjectorTest {
         projector.handle(Stream.of(stored(event, Instant.now())));
         projector.handle(Stream.of(stored(event, Instant.now())));
 
-        assertThat(projector.views(TimeView.ALL, NOW)).hasSize(1);
-        assertThat(projector.views(TimeView.ALL, NOW).getFirst().history()).hasSize(2);
+        assertThat(projector.views(TimeView.ALL, NOW_INSTANT)).hasSize(1);
+        assertThat(projector.views(TimeView.ALL, NOW_INSTANT).getFirst().history()).hasSize(2);
     }
 
     @Test
@@ -87,10 +90,10 @@ class BookedFlightsProjectorTest {
 
         projector.handle(Stream.of(stored(past, Instant.now()), stored(upcoming, Instant.now())));
 
-        assertThat(projector.views(TimeView.FUTURE, NOW))
+        assertThat(projector.views(TimeView.FUTURE, NOW_INSTANT))
                 .extracting(BookedFlightView::flightNumber)
                 .containsExactly("UA2");
-        assertThat(projector.views(TimeView.ALL, NOW))
+        assertThat(projector.views(TimeView.ALL, NOW_INSTANT))
                 .extracting(BookedFlightView::flightNumber)
                 .containsExactly("UA1", "UA2");
     }

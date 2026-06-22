@@ -9,7 +9,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,7 +35,7 @@ class BookedTrainsWebIntegrationTest {
         assertThat(mockMvc.get().uri("/booked-trains"))
                 .hasStatusOk();
 
-        verify(projector).views(eq(TimeView.FUTURE), any(LocalDateTime.class));
+        verify(projector).views(eq(TimeView.FUTURE), any(Instant.class));
     }
 
     @Test
@@ -45,7 +45,7 @@ class BookedTrainsWebIntegrationTest {
         assertThat(mockMvc.get().uri("/booked-trains?filter=all"))
                 .hasStatusOk();
 
-        verify(projector).views(eq(TimeView.ALL), any(LocalDateTime.class));
+        verify(projector).views(eq(TimeView.ALL), any(Instant.class));
     }
 
     @Test
@@ -55,6 +55,6 @@ class BookedTrainsWebIntegrationTest {
         assertThat(mockMvc.get().uri("/booked-trains?filter=bogus"))
                 .hasStatusOk();
 
-        verify(projector).views(eq(TimeView.FUTURE), any(LocalDateTime.class));
+        verify(projector).views(eq(TimeView.FUTURE), any(Instant.class));
     }
 }

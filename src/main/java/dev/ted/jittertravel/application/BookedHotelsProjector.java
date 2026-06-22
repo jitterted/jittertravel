@@ -9,6 +9,7 @@ import dev.ted.jittertravel.infrastructure.AddressRenderer;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -25,16 +26,19 @@ public class BookedHotelsProjector implements EventStreamConsumer {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
                 case HotelBooked e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
-                        e.checkIn().localDateTime(), e.checkOut().localDateTime(), e.mapsUrl());
+                        e.checkIn().localDateTime(), e.checkOut().localDateTime(),
+                        e.checkOut().utc(), e.mapsUrl());
                 case HotelChanged e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
-                        e.checkIn().localDateTime(), e.checkOut().localDateTime(), e.mapsUrl());
+                        e.checkIn().localDateTime(), e.checkOut().localDateTime(),
+                        e.checkOut().utc(), e.mapsUrl());
                 default -> { /* not a hotel event */ }
             }
         });
     }
 
     private void put(HotelBookingId hotelBookingId, String hotelName, Address address,
-                     LocalDateTime checkIn, LocalDateTime checkOut, String rawMapsUrl) {
+                     LocalDateTime checkIn, LocalDateTime checkOut, Instant checkOutInstant,
+                     String rawMapsUrl) {
         String mapsUrl = rawMapsUrl.isBlank()
                 ? AddressRenderer.mapsUrl(hotelName, address)
                 : rawMapsUrl;
@@ -45,12 +49,13 @@ public class BookedHotelsProjector implements EventStreamConsumer {
                 address.country(),
                 checkIn,
                 checkOut,
+                checkOutInstant,
                 BookingIntent.TENTATIVE,
                 mapsUrl
         ));
     }
 
-    public List<BookedHotelView> views(TimeView timeView, LocalDateTime now) {
+    public List<BookedHotelView> views(TimeView timeView, Instant now) {
         return viewsById.values().stream()
                 .filter(view -> timeView.includes(view, now))
                 .sorted(Comparator.comparing(BookedHotelView::checkIn))

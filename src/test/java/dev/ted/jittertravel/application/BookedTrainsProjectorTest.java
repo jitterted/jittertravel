@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -36,7 +37,7 @@ class BookedTrainsProjectorTest {
 
         projector.handle(Stream.of(stored(event)));
 
-        List<BookedTrainView> views = projector.views(TimeView.ALL, DEPARTURE);
+        List<BookedTrainView> views = projector.views(TimeView.ALL, instant(DEPARTURE));
         assertThat(views)
                 .hasSize(1);
         BookedTrainView view = views.getFirst();
@@ -71,10 +72,10 @@ class BookedTrainsProjectorTest {
 
         projector.handle(Stream.of(stored(past), stored(future)));
 
-        assertThat(projector.views(TimeView.FUTURE, now))
+        assertThat(projector.views(TimeView.FUTURE, instant(now)))
                 .extracting(BookedTrainView::departureDateTime)
                 .containsExactly(future.departureDateTime());
-        assertThat(projector.views(TimeView.ALL, now))
+        assertThat(projector.views(TimeView.ALL, instant(now)))
                 .extracting(BookedTrainView::departureDateTime)
                 .containsExactly(past.departureDateTime(), future.departureDateTime());
     }
@@ -87,7 +88,7 @@ class BookedTrainsProjectorTest {
 
         projector.handle(Stream.of(stored(departingNow)));
 
-        assertThat(projector.views(TimeView.FUTURE, now))
+        assertThat(projector.views(TimeView.FUTURE, instant(now)))
                 .hasSize(1);
     }
 
@@ -112,7 +113,7 @@ class BookedTrainsProjectorTest {
 
         projector.handle(Stream.of(stored(booked), stored(changed)));
 
-        List<BookedTrainView> views = projector.views(TimeView.ALL, LocalDateTime.of(2026, 6, 1, 0, 0));
+        List<BookedTrainView> views = projector.views(TimeView.ALL, instant(LocalDateTime.of(2026, 6, 1, 0, 0)));
         assertThat(views)
                 .hasSize(1);
         BookedTrainView view = views.getFirst();
@@ -133,6 +134,12 @@ class BookedTrainsProjectorTest {
                 departure.plusHours(4),
                 ""
         );
+    }
+
+    // Trains still store wall-clock; the view evaluates "now" in the server zone
+    // (see BookedTrainView.relevantUntil), so the test mirrors that conversion.
+    private static Instant instant(LocalDateTime wallClock) {
+        return wallClock.atZone(ZoneId.systemDefault()).toInstant();
     }
 
     private static StoredEvent stored(Event event) {

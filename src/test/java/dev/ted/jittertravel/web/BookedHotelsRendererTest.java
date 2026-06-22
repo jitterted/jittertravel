@@ -6,7 +6,9 @@ import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,6 +17,8 @@ class BookedHotelsRendererTest {
 
     private static final LocalDateTime CHECK_IN = LocalDateTime.of(2026, 7, 1, 15, 0);
     private static final LocalDateTime CHECK_OUT = LocalDateTime.of(2026, 7, 5, 11, 0);
+    // The renderer never reads the instant; an arbitrary value is fine for display tests.
+    private static final Instant CHECK_OUT_INSTANT = CHECK_OUT.toInstant(ZoneOffset.UTC);
 
     @Test
     void emptyAllListRendersBookedYetMessage() {
@@ -44,7 +48,7 @@ class BookedHotelsRendererTest {
         HotelBookingId id = HotelBookingId.random();
         BookedHotelView view = new BookedHotelView(
                 id, "Grand Hotel", "Berlin", "Germany",
-                CHECK_IN, CHECK_OUT, BookingIntent.FINAL, "https://maps.google.com/");
+                CHECK_IN, CHECK_OUT, CHECK_OUT_INSTANT, BookingIntent.FINAL, "https://maps.google.com/");
 
         String html = BookedHotelsRenderer.render(List.of(view), TimeView.FUTURE);
 
@@ -106,7 +110,7 @@ class BookedHotelsRendererTest {
                 HotelBookingId.random(),
                 name,
                 "Berlin", "Germany",
-                CHECK_IN, CHECK_OUT,
+                CHECK_IN, CHECK_OUT, CHECK_OUT_INSTANT,
                 status,
                 mapsUrl
         );

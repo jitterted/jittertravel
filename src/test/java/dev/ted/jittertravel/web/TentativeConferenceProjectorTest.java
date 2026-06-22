@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -18,7 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TentativeConferenceProjectorTest {
 
-    private static final LocalDateTime NOW = LocalDateTime.of(2020, 1, 1, 0, 0);
+    // ALL ignores now; any instant works for those cases.
+    private static final Instant NOW = Instant.parse("2020-01-01T00:00:00Z");
 
     @Test
     void projectorCreatesViewFromEvents() {
@@ -133,10 +135,13 @@ class TentativeConferenceProjectorTest {
         handle(projector, 2, "Finished",
                 now.minusDays(10), now.minusDays(8), address);
 
-        assertThat(projector.views(TimeView.FUTURE, now))
+        // Conferences still store wall-clock, evaluated in the server zone (see
+        // TentativeConferenceView.relevantUntil); mirror that conversion here.
+        Instant nowInstant = now.atZone(ZoneId.systemDefault()).toInstant();
+        assertThat(projector.views(TimeView.FUTURE, nowInstant))
                 .extracting(TentativeConferenceView::name)
                 .containsExactly("In Progress");
-        assertThat(projector.views(TimeView.ALL, now))
+        assertThat(projector.views(TimeView.ALL, nowInstant))
                 .extracting(TentativeConferenceView::name)
                 .containsExactlyInAnyOrder("In Progress", "Finished");
     }

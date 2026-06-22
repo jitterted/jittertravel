@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.nio.charset.StandardCharsets;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -84,7 +85,7 @@ public class PlanConferenceController {
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
                 .body(TentativeConferencesRenderer.render(
-                        projector.views(timeView, LocalDateTime.now()), timeView));
+                        projector.views(timeView, Instant.now()), timeView));
     }
 
 }

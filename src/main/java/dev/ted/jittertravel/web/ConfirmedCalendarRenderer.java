@@ -40,6 +40,7 @@ public class ConfirmedCalendarRenderer {
             .calendar-container {
                 border-left: 1px solid var(--calendar-border-strong);
                 border-top: 1px solid var(--calendar-border-strong);
+                border-bottom: 1px solid var(--calendar-border-strong);
             }
             .calendar-header {
                 display: grid; grid-template-columns: repeat(7, 1fr);
@@ -191,10 +192,15 @@ public class ConfirmedCalendarRenderer {
             """;
 
     public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser) {
-        return render(rawEntries, today, isPublicUser, false);
+        return render(rawEntries, today, isPublicUser, false, null, null);
     }
 
     public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser, boolean isOwner) {
+        return render(rawEntries, today, isPublicUser, isOwner, null, null);
+    }
+
+    public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser, boolean isOwner,
+                                LocalDate from, LocalDate to) {
         List<CalendarEntry> entries = rawEntries.stream()
                 .sorted(Comparator.comparing(CalendarEntry::start))
                 .map(e -> isPublicUser ? REDACTOR.redact(e) : e)
@@ -216,6 +222,19 @@ public class ConfirmedCalendarRenderer {
                     .max(LocalDate::compareTo)
                     .orElseThrow()
                     .plusDays(5);
+        }
+        // When both endpoints are given explicitly but reversed, swap them so the viewer
+        // sees the intended window regardless of param order (a reversed range renders empty).
+        if (from != null && to != null && from.isAfter(to)) {
+            LocalDate earlier = to;
+            to = from;
+            from = earlier;
+        }
+        if (from != null) {
+            rangeStart = from;
+        }
+        if (to != null) {
+            rangeEnd = to;
         }
 
         String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser, isOwner);

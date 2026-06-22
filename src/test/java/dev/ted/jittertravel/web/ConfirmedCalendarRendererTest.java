@@ -85,6 +85,21 @@ class ConfirmedCalendarRendererTest {
     }
 
     @Test
+    void reversedExplicitDateRangeIsNormalizedToForwardOrder() {
+        LocalDate today = LocalDate.of(2026, 6, 11);
+        LocalDate from = LocalDate.of(2026, 7, 1);
+        LocalDate to = LocalDate.of(2026, 8, 31);
+
+        String forward = ConfirmedCalendarRenderer.render(List.of(), today, false, false, from, to);
+        String reversed = ConfirmedCalendarRenderer.render(List.of(), today, false, false, to, from);
+
+        assertThat(reversed)
+                .as("Reversed from/to must render the same (non-empty) window as forward order")
+                .isEqualTo(forward)
+                .contains("Aug 1");
+    }
+
+    @Test
     void authenticatedUserSeesFullHotelName() {
         CalendarEntry hotel = new CalendarEntry(
                 EntryKind.LODGING,

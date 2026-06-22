@@ -133,6 +133,21 @@ class ChangeHotelControllerTest {
     }
 
     @Test
+    void postWithUnparsableDateRendersFormInsteadOfThrowing() {
+        // A bad datetime value makes Spring add a typeMismatch binding error and leave the field
+        // null; the controller must short-circuit to the form, not call the service with null.
+        assertThat(mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
+                .with(csrf())
+                .param("hotelName", "Grand Hotel")
+                .param("city", "Berlin")
+                .param("country", "Germany")
+                .param("checkIn", "notadate")
+                .param("checkOut", "2026-08-06T10:00")
+                .param("bookingIntent", "FINAL"))
+                .hasStatusOk();
+    }
+
+    @Test
     void postWithInvalidDateRangeRendersFormAgain() {
         willThrow(new InvalidHotelDateRange("Check-out must be at least one calendar day after check-in"))
                 .given(changeHotel).changeHotel(any(), any(), any());

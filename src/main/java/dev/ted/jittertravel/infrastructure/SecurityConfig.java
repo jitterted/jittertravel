@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -65,9 +66,17 @@ public class SecurityConfig {
                 .logout(logout -> logout.logoutSuccessUrl("/"))
                 // Authenticated-but-unauthorized users are redirected to the home page instead
                 // of seeing a bare 403. Anonymous users still go to /login via the entry point.
+                // Exception: /api/** callers (our fetch endpoints) get a real 403 — a 302 redirect
+                // to an HTML page reads as a 200 success to fetch(), masking the actual failure
+                // (this is what turned a CSRF rejection into an opaque client-side "Error").
                 .exceptionHandling(exceptions -> exceptions
-                        .accessDeniedHandler((request, response, accessDenied) ->
-                                response.sendRedirect(request.getContextPath() + "/")))
+                        .accessDeniedHandler((request, response, accessDenied) -> {
+                            if (request.getRequestURI().startsWith(request.getContextPath() + "/api/")) {
+                                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                            } else {
+                                response.sendRedirect(request.getContextPath() + "/");
+                            }
+                        }))
                 .build();
     }
 

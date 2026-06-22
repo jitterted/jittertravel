@@ -46,6 +46,9 @@ public class BookHotelController {
     @PostMapping("/book-hotel")
     public String bookHotelSubmit(@ModelAttribute("bookHotel") BookHotelRequest request,
                                   BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            return "book-hotel";
+        }
         try {
             // now is captured at the boundary as an Instant; the zone is resolved inward.
             hotelBooking.bookHotel(request, Instant.now(clock));

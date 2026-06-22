@@ -180,6 +180,7 @@
                 <textarea id="rawAddress" placeholder="Paste full address here to auto-fill fields below…"></textarea>
                 <button type="button" class="parse-btn" id="parseBtn">Parse ▶</button>
             </div>
+            <div id="parseError" class="error" style="display:none"></div>
 
             <div class="field">
                 <label>
@@ -288,15 +289,18 @@
         const raw = document.getElementById('rawAddress').value.trim();
         if (!raw) return;
         const btn = document.getElementById('parseBtn');
+        const errorEl = document.getElementById('parseError');
         btn.textContent = '…';
         btn.disabled = true;
+        errorEl.style.display = 'none';
+        errorEl.textContent = '';
         try {
-            const resp = await fetch('/api/parse-address', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({rawAddress: raw})
-            });
-            if (!resp.ok) { btn.textContent = 'Not found'; return; }
+            const resp = await fetch('/api/parse-address?q=' + encodeURIComponent(raw));
+            if (!resp.ok) {
+                errorEl.textContent = 'Address not found — try a shorter query, or fill in the fields manually.';
+                errorEl.style.display = 'block';
+                return;
+            }
             const d = await resp.json();
             const set = (name, val) => { if (val) { const el = document.querySelector('[name="' + name + '"]'); if (el) el.value = val; } };
             set('street', d.street);
@@ -306,9 +310,11 @@
             set('postalCode', d.postalCode);
             set('locationForMatching', d.locationForMatching || d.city);
         } catch (e) {
-            btn.textContent = 'Error';
+            errorEl.textContent = 'Parse failed — check your connection and try again.';
+            errorEl.style.display = 'block';
         } finally {
-            setTimeout(() => { btn.textContent = 'Parse ▶'; btn.disabled = false; }, 1500);
+            btn.textContent = 'Parse ▶';
+            btn.disabled = false;
         }
     });
 </script>

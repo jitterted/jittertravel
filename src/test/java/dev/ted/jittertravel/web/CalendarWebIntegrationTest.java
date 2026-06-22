@@ -30,4 +30,28 @@ class CalendarWebIntegrationTest {
         assertThat(mockMvc.get().uri("/calendar"))
                 .hasStatusOk();
     }
+
+    @Test
+    void calendarPageWithDashedDateRangeParamsRendersOk() {
+        given(calendarAggregator.allEntries()).willReturn(List.of());
+
+        assertThat(mockMvc.get().uri("/calendar?from=2026-07-01&to=2026-08-31"))
+                .hasStatusOk();
+    }
+
+    @Test
+    void calendarPageWithBasicIsoDateRangeParamsRendersOk() {
+        given(calendarAggregator.allEntries()).willReturn(List.of());
+
+        assertThat(mockMvc.get().uri("/calendar?from=20260701&to=20260831"))
+                .hasStatusOk();
+    }
+
+    @Test
+    void calendarPageWithInvalidDateParamsFallsBackToDefaultRendering() {
+        given(calendarAggregator.allEntries()).willReturn(List.of());
+
+        assertThat(mockMvc.get().uri("/calendar?from=notadate&to=20260825x"))
+                .hasStatusOk();
+    }
 }

@@ -84,6 +84,18 @@ class BookHotelWebIntegrationTest {
     }
 
     @Test
+    void postWithUnparsableDateRendersFormInsteadOfThrowing() {
+        assertThat(mockMvc.post().uri("/book-hotel")
+                .with(csrf())
+                .param("hotelBookingId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("hotelName", "Grand Hotel")
+                .param("checkIn", "notadate")
+                .param("checkOut", "2026-07-02T11:00")
+                .param("bookingIntent", "TENTATIVE"))
+                .hasStatusOk();
+    }
+
+    @Test
     void postWithCheckOutSameDayRendersFormAgain() {
         willThrow(new InvalidHotelDateRange("Check-out must be at least one day after check-in"))
                 .given(hotelBooking).bookHotel(any(), any());

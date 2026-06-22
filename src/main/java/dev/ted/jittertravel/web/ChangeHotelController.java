@@ -66,6 +66,9 @@ public class ChangeHotelController {
         // Path is the source of truth for hotelBookingId; it is not user-editable.
         command.setHotelBookingId(hotelBookingIdString);
 
+        if (bindingResult.hasErrors()) {
+            return "change-hotel";
+        }
         try {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
             applicationService.changeHotel(UUID.randomUUID(), command, Instant.now(clock));

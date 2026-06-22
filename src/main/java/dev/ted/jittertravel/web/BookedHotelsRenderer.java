@@ -32,6 +32,7 @@ public class BookedHotelsRenderer {
                 padding: 10px 16px;
                 border-bottom: 1px solid var(--border-color);
                 font-size: 0.9rem;
+                text-wrap-mode: nowrap;
             }
             .hotel-table tr:last-child td { border-bottom: none; }
             .hotel-table tr:hover td { background: var(--hover-bg); }

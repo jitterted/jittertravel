@@ -35,8 +35,8 @@ class BookedHotelsProjectorTest {
         assertThat(view.hotelName()).isEqualTo("Grand Hotel");
         assertThat(view.city()).isEqualTo("Springfield");
         assertThat(view.country()).isEqualTo("US");
-        assertThat(view.checkIn()).isEqualTo(CHECK_IN);
-        assertThat(view.checkOut()).isEqualTo(CHECK_OUT);
+        assertThat(view.checkIn().localDateTime()).isEqualTo(CHECK_IN);
+        assertThat(view.checkOut().localDateTime()).isEqualTo(CHECK_OUT);
         assertThat(view.status()).isEqualTo(BookingIntent.TENTATIVE);
     }
 
@@ -109,9 +109,9 @@ class BookedHotelsProjectorTest {
                 .isEqualTo("Seaside Resort");
         assertThat(view.city())
                 .isEqualTo("Miami");
-        assertThat(view.checkIn())
+        assertThat(view.checkIn().localDateTime())
                 .isEqualTo(CHECK_IN.plusDays(10));
-        assertThat(view.checkOut())
+        assertThat(view.checkOut().localDateTime())
                 .isEqualTo(CHECK_OUT.plusDays(11));
     }
 

@@ -5,16 +5,13 @@ import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.BookingIntent;
 import j2html.tags.DomContent;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Locale;
 
 import static j2html.TagCreator.*;
 
 public class BookedHotelsRenderer {
 
-    private static final DateTimeFormatter DATE_DISPLAY =
-            DateTimeFormatter.ofPattern("EEE, MMM d, h:mm a", Locale.ENGLISH);
+    private static final String DATE_DISPLAY_PATTERN = "EEE, MMM d, h:mm a";
 
     private static final String CSS = """
             .page { max-width: 900px; }
@@ -101,8 +98,8 @@ public class BookedHotelsRenderer {
                 td(a(hotel.hotelName()).withHref(hotel.mapsUrl())
                         .withTarget("_blank").withRel("noopener")),
                 td(hotel.city() + ", " + hotel.country()),
-                td(hotel.checkIn().format(DATE_DISPLAY)),
-                td(hotel.checkOut().format(DATE_DISPLAY)),
+                td(ZonedTimeTag.render(hotel.checkIn(), DATE_DISPLAY_PATTERN)),
+                td(ZonedTimeTag.render(hotel.checkOut(), DATE_DISPLAY_PATTERN)),
                 td(statusBadge(hotel.status())),
                 td(a("Edit").withClass("hotel-edit-link")
                         .withHref("/booked-hotels/" + hotel.hotelBookingId().id()))

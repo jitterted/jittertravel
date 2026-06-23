@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.infrastructure.AddressParseService;
+import dev.ted.jittertravel.infrastructure.AddressParseService.ParsedAddress;
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +12,11 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 /**
  * Exercises the real {@link SecurityConfig} chain (not the @WebMvcTest default) to verify that
@@ -40,6 +45,8 @@ class ApiAccessDeniedSecurityTest {
     @Test
     @WithMockUser(roles = "OWNER")
     void ownerApiRequestIsAllowed() {
+        when(parseService.parse(anyString()))
+                .thenReturn(Optional.of(new ParsedAddress("", "", "", "", "", "")));
         assertThat(mockMvc.get().uri("/api/parse-address?q={q}", "Berlin"))
                 .hasStatusOk();
     }

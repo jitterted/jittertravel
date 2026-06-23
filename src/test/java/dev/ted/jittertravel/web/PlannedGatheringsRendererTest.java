@@ -103,7 +103,7 @@ class PlannedGatheringsRendererTest {
     private PlannedGatheringView view(String title, String venueName, String city, String country,
                                       boolean speaking, String infoUrl) {
         return new PlannedGatheringView(
-                GatheringId.random(), title, venueName, city, country,
+                GatheringId.random(), title, venueName, "", city, "", "", country,
                 AUG_20_2026, SIX_PM, NINE_PM, speaking, infoUrl);
     }
 }

@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.TrainBooking;
+import dev.ted.jittertravel.application.ZoneResolutionException;
+import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
 import org.springframework.stereotype.Controller;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -24,6 +27,11 @@ public class BookTrainController {
     public BookTrainController(TrainBooking trainBooking, Clock clock) {
         this.trainBooking = trainBooking;
         this.clock = clock;
+    }
+
+    @ModelAttribute("commonZones")
+    public CommonZone[] commonZones() {
+        return CommonZone.values();
     }
 
     @GetMapping("/book-train")
@@ -41,11 +49,15 @@ public class BookTrainController {
     public String bookTrainSubmit(@ModelAttribute("bookTrain") BookTrainRequest request,
                                   BindingResult bindingResult) {
         try {
-            trainBooking.bookTrain(request, LocalDateTime.now(clock));
+            trainBooking.bookTrain(request, Instant.now(clock));
         } catch (DepartureNotInFuture e) {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {
             bindingResult.rejectValue("arrivalDateTime", "afterDeparture", e.getMessage());
+        } catch (ZoneResolutionException e) {
+            bindingResult.reject("zoneUnresolved",
+                    "Could not determine the time zone for a station from its location — "
+                            + "please choose the zone(s) below.");
         }
 
         if (bindingResult.hasErrors()) {

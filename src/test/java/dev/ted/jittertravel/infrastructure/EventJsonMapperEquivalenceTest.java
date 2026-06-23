@@ -63,9 +63,9 @@ class EventJsonMapperEquivalenceTest {
         assertSerializesIdentically("""
                 {"tripId":{"id":"22222222-2222-2222-2222-222222222222"},\
                 "departureStation":{"name":"London Euston","city":"London","country":"UK","mapsUrl":null},\
-                "departureDateTime":"2026-06-09T09:00:00",\
+                "departureDateTime":{"utc":"2026-06-09T08:00:00Z","zone":"Europe/London"},\
                 "arrivalStation":{"name":"Manchester Piccadilly","city":"Manchester","country":"UK","mapsUrl":null},\
-                "arrivalDateTime":"2026-06-09T11:15:00","serviceId":"DB - ICE 610"}""", TrainBooked.class);
+                "arrivalDateTime":{"utc":"2026-06-09T10:15:00Z","zone":"Europe/London"},"serviceId":"DB - ICE 610"}""", TrainBooked.class);
     }
 
     @Test

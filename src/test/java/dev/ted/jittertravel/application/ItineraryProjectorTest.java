@@ -103,8 +103,8 @@ class ItineraryProjectorTest {
         TrainStationAddress london = new TrainStationAddress("London Euston", "London", "UK", "");
         TrainStationAddress edinburgh = new TrainStationAddress("Edinburgh Waverley", "Edinburgh", "UK", "");
         TrainBooked event = new TrainBooked(
-                TrainTripId.random(), london, DATE.atTime(23, 45),
-                edinburgh, arrivalDate.atTime(7, 30), "Caledonian Sleeper");
+                TrainTripId.random(), london, zt(DATE.atTime(23, 45)),
+                edinburgh, zt(arrivalDate.atTime(7, 30)), "Caledonian Sleeper");
 
         projector.handle(Stream.of(stored(event)));
 
@@ -122,8 +122,8 @@ class ItineraryProjectorTest {
         TrainStationAddress london = new TrainStationAddress("London Euston", "London", "UK", "");
         TrainStationAddress manchester = new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", "");
         TrainBooked event = new TrainBooked(
-                TrainTripId.random(), london, DATE.atTime(9, 0),
-                manchester, DATE.atTime(11, 15), "");
+                TrainTripId.random(), london, zt(DATE.atTime(9, 0)),
+                manchester, zt(DATE.atTime(11, 15)), "");
 
         projector.handle(Stream.of(stored(event)));
 
@@ -191,7 +191,7 @@ class ItineraryProjectorTest {
         TrainStationAddress london = new TrainStationAddress("London Euston", "London", "UK", "");
         TrainStationAddress manchester = new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", "");
         TrainBooked event = new TrainBooked(
-                TrainTripId.random(), london, DEPARTURE, manchester, ARRIVAL, "LNER - Azuma 1A");
+                TrainTripId.random(), london, zt(DEPARTURE), manchester, zt(ARRIVAL), "LNER - Azuma 1A");
 
         projector.handle(Stream.of(stored(event)));
 
@@ -215,9 +215,9 @@ class ItineraryProjectorTest {
         TrainStationAddress manchester = new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", "");
         TrainStationAddress edinburgh = new TrainStationAddress("Edinburgh Waverley", "Edinburgh", "UK", "");
         TrainBooked booked = new TrainBooked(
-                tripId, london, DEPARTURE, manchester, ARRIVAL, "LNER - Azuma 1A");
+                tripId, london, zt(DEPARTURE), manchester, zt(ARRIVAL), "LNER - Azuma 1A");
         TrainChanged changed = new TrainChanged(
-                tripId, london, DEPARTURE.plusHours(1), edinburgh, ARRIVAL.plusHours(2), "LNER - Azuma 9E22");
+                tripId, london, zt(DEPARTURE.plusHours(1)), edinburgh, zt(ARRIVAL.plusHours(2)), "LNER - Azuma 9E22");
 
         projector.handle(Stream.of(stored(booked), stored(changed)));
 
@@ -373,9 +373,9 @@ class ItineraryProjectorTest {
         TrainStationAddress london = new TrainStationAddress("London Euston", "London", "UK", "");
         TrainStationAddress manchester = new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", "");
         TrainBooked afternoon = new TrainBooked(
-                TrainTripId.random(), london, DATE.atTime(15, 0), manchester, DATE.atTime(17, 0), "");
+                TrainTripId.random(), london, zt(DATE.atTime(15, 0)), manchester, zt(DATE.atTime(17, 0)), "");
         TrainBooked morning = new TrainBooked(
-                TrainTripId.random(), london, DATE.atTime(9, 0), manchester, DATE.atTime(11, 0), "");
+                TrainTripId.random(), london, zt(DATE.atTime(9, 0)), manchester, zt(DATE.atTime(11, 0)), "");
 
         projector.handle(Stream.of(stored(afternoon), stored(morning)));
 
@@ -399,7 +399,7 @@ class ItineraryProjectorTest {
         TrainStationAddress amsterdam = new TrainStationAddress("Amsterdam Centraal", "Amsterdam", "NL", "");
         TrainStationAddress brussels = new TrainStationAddress("Brussels Midi", "Brussels", "BE", "");
         TrainBooked train = new TrainBooked(
-                TrainTripId.random(), amsterdam, date.atTime(7, 51), brussels, date.atTime(9, 30), "");
+                TrainTripId.random(), amsterdam, zt(date.atTime(7, 51)), brussels, zt(date.atTime(9, 30)), "");
 
         // Conference starts 9:00 AM
         ConferenceTentativelyPlanned conference = new ConferenceTentativelyPlanned(

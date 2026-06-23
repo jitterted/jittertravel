@@ -1,10 +1,9 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 
 public record BookedTrainView(
         TrainTripId tripId,
@@ -12,24 +11,21 @@ public record BookedTrainView(
         String departureStationName,
         String departureCity,
         String departureMapsUrl,
-        LocalDateTime departureDateTime,
-        String departureDateTimeDisplay,
+        ZonedTimestamp departureDateTime,
         String arrivalStationName,
         String arrivalCity,
         String arrivalMapsUrl,
-        LocalDateTime arrivalDateTime,
-        String arrivalDateTimeDisplay
+        ZonedTimestamp arrivalDateTime
 ) implements TemporalView {
 
     /**
-     * A train trip is "upcoming" until it departs. STOPGAP: train events still store
-     * bare wall-clock times, so the departure is interpreted in the server zone to
-     * preserve pre-migration behavior. Once TrainBooked/TrainChanged carry a
-     * {@code ZonedTimestamp}, return its {@code utc()} directly (see
-     * {@link TemporalView}).
+     * A train trip is "upcoming" until it departs. Each {@link ZonedTimestamp} keeps both the UTC
+     * instant (used here, so the FUTURE filter is correct no matter which zones the trip spans or
+     * what zone the server runs in) and the endpoint zone (used to render the wall-clock the
+     * traveler entered).
      */
     @Override
     public Instant relevantUntil() {
-        return departureDateTime.atZone(ZoneId.systemDefault()).toInstant();
+        return departureDateTime.utc();
     }
 }

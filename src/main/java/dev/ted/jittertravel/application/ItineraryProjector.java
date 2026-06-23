@@ -111,13 +111,14 @@ public class ItineraryProjector implements EventStreamConsumer {
     }
 
     private static List<TrainItineraryEntry> toTrainEntries(TrainBooked e) {
-        return toTrainEntries(e.tripId(), e.serviceId(), e.departureStation(), e.departureDateTime(),
-                e.arrivalStation(), e.arrivalDateTime());
+        // Bucket each endpoint on its own entry-zone local day (decision 7).
+        return toTrainEntries(e.tripId(), e.serviceId(), e.departureStation(), e.departureDateTime().localDateTime(),
+                e.arrivalStation(), e.arrivalDateTime().localDateTime());
     }
 
     private static List<TrainItineraryEntry> toTrainEntries(TrainChanged e) {
-        return toTrainEntries(e.tripId(), e.serviceId(), e.departureStation(), e.departureDateTime(),
-                e.arrivalStation(), e.arrivalDateTime());
+        return toTrainEntries(e.tripId(), e.serviceId(), e.departureStation(), e.departureDateTime().localDateTime(),
+                e.arrivalStation(), e.arrivalDateTime().localDateTime());
     }
 
     private static List<TrainItineraryEntry> toTrainEntries(

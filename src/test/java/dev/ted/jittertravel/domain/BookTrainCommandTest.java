@@ -2,7 +2,9 @@ package dev.ted.jittertravel.domain;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -10,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class BookTrainCommandTest {
 
+    private static final ZoneId ZONE = ZoneId.of("Europe/London");
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 6, 2, 10, 0);
     private static final LocalDateTime DEPARTURE = NOW.toLocalDate().plusWeeks(1).atTime(9, 0);
     private static final LocalDateTime ARRIVAL = DEPARTURE.plusHours(4);
@@ -22,7 +25,7 @@ class BookTrainCommandTest {
     void validCommandProducesTrainBookedEventWithAllFields() {
         BookTrainCommand command = validCommand();
 
-        List<TrainBooked> events = command.execute(new BookTrainContext(NOW)).toList();
+        List<TrainBooked> events = command.execute(new BookTrainContext(at(NOW))).toList();
 
         assertThat(events)
                 .hasSize(1);
@@ -32,11 +35,11 @@ class BookTrainCommandTest {
         assertThat(event.departureStation())
                 .isEqualTo(LONDON);
         assertThat(event.departureDateTime())
-                .isEqualTo(DEPARTURE);
+                .isEqualTo(zt(DEPARTURE));
         assertThat(event.arrivalStation())
                 .isEqualTo(MANCHESTER);
         assertThat(event.arrivalDateTime())
-                .isEqualTo(ARRIVAL);
+                .isEqualTo(zt(ARRIVAL));
         assertThat(event.serviceId())
                 .isEqualTo("DB - ICE 610");
     }
@@ -44,27 +47,27 @@ class BookTrainCommandTest {
     @Test
     void departureInPastThrowsDepartureNotInFuture() {
         BookTrainCommand command = new BookTrainCommand(
-                TrainTripId.random(), LONDON, NOW.minusHours(1), MANCHESTER, ARRIVAL, "");
+                TrainTripId.random(), LONDON, zt(NOW.minusHours(1)), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(NOW)))
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
                 .isInstanceOf(DepartureNotInFuture.class);
     }
 
     @Test
     void departureExactlyNowIsNotAcceptedMustBeStrictlyAfter() {
         BookTrainCommand command = new BookTrainCommand(
-                TrainTripId.random(), LONDON, NOW, MANCHESTER, ARRIVAL, "");
+                TrainTripId.random(), LONDON, zt(NOW), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(NOW)))
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
                 .isInstanceOf(DepartureNotInFuture.class);
     }
 
     @Test
     void arrivalBeforeDepartureThrowsInvalidDateRange() {
         BookTrainCommand command = new BookTrainCommand(
-                TrainTripId.random(), LONDON, DEPARTURE, MANCHESTER, DEPARTURE.minusMinutes(1), "");
+                TrainTripId.random(), LONDON, zt(DEPARTURE), MANCHESTER, zt(DEPARTURE.minusMinutes(1)), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(NOW)))
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
                 .isInstanceOf(InvalidDateRange.class);
     }
 
@@ -72,13 +75,21 @@ class BookTrainCommandTest {
     void arrivalSameDayAsDepartureIsValid() {
         LocalDateTime sameDayArrival = DEPARTURE.plusHours(2);
         BookTrainCommand command = new BookTrainCommand(
-                TrainTripId.random(), LONDON, DEPARTURE, MANCHESTER, sameDayArrival, "");
+                TrainTripId.random(), LONDON, zt(DEPARTURE), MANCHESTER, zt(sameDayArrival), "");
 
-        assertThat(command.execute(new BookTrainContext(NOW)).toList())
+        assertThat(command.execute(new BookTrainContext(at(NOW))).toList())
                 .hasSize(1);
     }
 
     private static BookTrainCommand validCommand() {
-        return new BookTrainCommand(TrainTripId.random(), LONDON, DEPARTURE, MANCHESTER, ARRIVAL, "DB - ICE 610");
+        return new BookTrainCommand(TrainTripId.random(), LONDON, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "DB - ICE 610");
+    }
+
+    private static ZonedTimestamp zt(LocalDateTime local) {
+        return ZonedTimestamp.fromLocal(local, ZONE);
+    }
+
+    private static Instant at(LocalDateTime local) {
+        return local.atZone(ZONE).toInstant();
     }
 }

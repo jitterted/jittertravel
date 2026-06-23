@@ -5,11 +5,13 @@ import dev.ted.jittertravel.domain.TrainBooked;
 import dev.ted.jittertravel.domain.TrainChanged;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -19,6 +21,7 @@ import static org.assertj.core.api.Assertions.tuple;
 
 class TrainCalendarProjectorTest {
 
+    private static final ZoneId ZONE = ZoneId.of("Europe/London");
     private static final TrainStationAddress LONDON =
             new TrainStationAddress("London Euston", "London", "UK", "");
     private static final TrainStationAddress MANCHESTER =
@@ -31,9 +34,9 @@ class TrainCalendarProjectorTest {
         TrainCalendarProjector projector = new TrainCalendarProjector();
         TrainBooked event = new TrainBooked(
                 TrainTripId.random(), LONDON,
-                LocalDateTime.of(2026, 6, 9, 9, 0),
+                zt(LocalDateTime.of(2026, 6, 9, 9, 0)),
                 MANCHESTER,
-                LocalDateTime.of(2026, 6, 9, 11, 15),
+                zt(LocalDateTime.of(2026, 6, 9, 11, 15)),
                 ""
         );
 
@@ -60,9 +63,9 @@ class TrainCalendarProjectorTest {
         TrainCalendarProjector projector = new TrainCalendarProjector();
         TrainBooked event = new TrainBooked(
                 TrainTripId.random(), LONDON,
-                LocalDateTime.of(2026, 6, 9, 9, 0),
+                zt(LocalDateTime.of(2026, 6, 9, 9, 0)),
                 MANCHESTER,
-                LocalDateTime.of(2026, 6, 9, 11, 15),
+                zt(LocalDateTime.of(2026, 6, 9, 11, 15)),
                 "LNER - Azuma 1A34"
         );
 
@@ -77,9 +80,9 @@ class TrainCalendarProjectorTest {
         TrainCalendarProjector projector = new TrainCalendarProjector();
         TrainBooked event = new TrainBooked(
                 TrainTripId.random(), LONDON,
-                LocalDateTime.of(2026, 6, 9, 22, 0),
+                zt(LocalDateTime.of(2026, 6, 9, 22, 0)),
                 PARIS,
-                LocalDateTime.of(2026, 6, 10, 6, 30),
+                zt(LocalDateTime.of(2026, 6, 10, 6, 30)),
                 ""
         );
 
@@ -111,16 +114,16 @@ class TrainCalendarProjectorTest {
         TrainCalendarProjector projector = new TrainCalendarProjector();
         TrainBooked morning = new TrainBooked(
                 TrainTripId.random(), LONDON,
-                LocalDateTime.of(2026, 6, 10, 7, 0),
+                zt(LocalDateTime.of(2026, 6, 10, 7, 0)),
                 MANCHESTER,
-                LocalDateTime.of(2026, 6, 10, 9, 15),
+                zt(LocalDateTime.of(2026, 6, 10, 9, 15)),
                 ""
         );
         TrainBooked afternoon = new TrainBooked(
                 TrainTripId.random(), MANCHESTER,
-                LocalDateTime.of(2026, 6, 10, 15, 0),
+                zt(LocalDateTime.of(2026, 6, 10, 15, 0)),
                 LONDON,
-                LocalDateTime.of(2026, 6, 10, 17, 15),
+                zt(LocalDateTime.of(2026, 6, 10, 17, 15)),
                 ""
         );
 
@@ -137,16 +140,16 @@ class TrainCalendarProjectorTest {
         TrainCalendarProjector projector = new TrainCalendarProjector();
         TrainBooked later = new TrainBooked(
                 TrainTripId.random(), LONDON,
-                LocalDateTime.of(2026, 7, 1, 9, 0),
+                zt(LocalDateTime.of(2026, 7, 1, 9, 0)),
                 MANCHESTER,
-                LocalDateTime.of(2026, 7, 1, 11, 0),
+                zt(LocalDateTime.of(2026, 7, 1, 11, 0)),
                 ""
         );
         TrainBooked earlier = new TrainBooked(
                 TrainTripId.random(), LONDON,
-                LocalDateTime.of(2026, 6, 1, 9, 0),
+                zt(LocalDateTime.of(2026, 6, 1, 9, 0)),
                 MANCHESTER,
-                LocalDateTime.of(2026, 6, 1, 11, 0),
+                zt(LocalDateTime.of(2026, 6, 1, 11, 0)),
                 ""
         );
 
@@ -164,11 +167,11 @@ class TrainCalendarProjectorTest {
         TrainCalendarProjector projector = new TrainCalendarProjector();
         TrainTripId tripId = TrainTripId.random();
         TrainBooked booked = new TrainBooked(
-                tripId, LONDON, LocalDateTime.of(2026, 6, 9, 9, 0),
-                MANCHESTER, LocalDateTime.of(2026, 6, 9, 11, 15), "");
+                tripId, LONDON, zt(LocalDateTime.of(2026, 6, 9, 9, 0)),
+                MANCHESTER, zt(LocalDateTime.of(2026, 6, 9, 11, 15)), "");
         TrainChanged changed = new TrainChanged(
-                tripId, LONDON, LocalDateTime.of(2026, 6, 12, 14, 0),
-                PARIS, LocalDateTime.of(2026, 6, 12, 18, 30), "");
+                tripId, LONDON, zt(LocalDateTime.of(2026, 6, 12, 14, 0)),
+                PARIS, zt(LocalDateTime.of(2026, 6, 12, 18, 30)), "");
 
         projector.handle(Stream.of(stored(booked), stored(changed)));
 
@@ -176,6 +179,10 @@ class TrainCalendarProjectorTest {
                 .hasSize(1)
                 .extracting(CalendarEntry::mainTitle, CalendarEntry::start)
                 .containsExactly(tuple("🚄 London → Paris", LocalDateTime.of(2026, 6, 12, 14, 0)));
+    }
+
+    private static ZonedTimestamp zt(LocalDateTime wallClock) {
+        return ZonedTimestamp.fromLocal(wallClock, ZONE);
     }
 
     private static StoredEvent stored(Event event) {

@@ -38,6 +38,7 @@ public class EventPayloadUpcaster {
         }
         switch (logicalType) {
             case "HotelBooked", "HotelChanged" -> upcastHotelStay(object);
+            case "TrainBooked", "TrainChanged" -> upcastTrainTrip(object);
             default -> { /* type not migrated, or it has no datetime fields */ }
         }
         return object;
@@ -53,6 +54,36 @@ public class EventPayloadUpcaster {
                 addressField(object, "city"), addressField(object, "country"));
         object.set("checkIn", toZoned(checkIn.asText(), zone));
         object.set("checkOut", toZoned(object.get("checkOut").asText(), zone));
+    }
+
+    /**
+     * Departure and arrival resolve <em>independently</em> from their own station's city/country —
+     * a trip may span two zones (e.g. Frankfurt→Paris).
+     */
+    private void upcastTrainTrip(ObjectNode object) {
+        JsonNode departure = object.get("departureDateTime");
+        if (!isLegacyScalar(departure)) {
+            return; // already a {utc, zone} object
+        }
+        ZoneId departureZone = stationZone(object, "departureStation");
+        ZoneId arrivalZone = stationZone(object, "arrivalStation");
+        object.set("departureDateTime", toZoned(departure.asText(), departureZone));
+        object.set("arrivalDateTime", toZoned(object.get("arrivalDateTime").asText(), arrivalZone));
+    }
+
+    private ZoneId stationZone(ObjectNode payload, String stationField) {
+        JsonNode station = payload.get(stationField);
+        String city = nestedText(station, "city");
+        String country = nestedText(station, "country");
+        return locationZoneResolver.resolve(city, country);
+    }
+
+    private static String nestedText(JsonNode node, String field) {
+        if (node == null) {
+            return "";
+        }
+        JsonNode value = node.get(field);
+        return value == null ? "" : value.asText();
     }
 
     private JsonNode toZoned(String wallClock, ZoneId zone) {

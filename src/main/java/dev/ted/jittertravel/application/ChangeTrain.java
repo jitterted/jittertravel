@@ -4,7 +4,7 @@ import dev.ted.jittertravel.domain.ChangeTrainCommand;
 import dev.ted.jittertravel.domain.ChangeTrainContext;
 import dev.ted.jittertravel.web.ChangeTrainRequest;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -19,14 +19,17 @@ import java.util.UUID;
 public class ChangeTrain {
     private final CommandExecutor commandExecutor;
     private final TrainDetailsViewProjector detailsProjector;
+    private final LocationZoneResolver zoneResolver;
 
-    public ChangeTrain(CommandExecutor commandExecutor, TrainDetailsViewProjector detailsProjector) {
+    public ChangeTrain(CommandExecutor commandExecutor, TrainDetailsViewProjector detailsProjector,
+                       LocationZoneResolver zoneResolver) {
         this.commandExecutor = commandExecutor;
         this.detailsProjector = detailsProjector;
+        this.zoneResolver = zoneResolver;
     }
 
-    public void changeTrain(UUID commandId, ChangeTrainRequest request, LocalDateTime now) {
-        ChangeTrainCommand command = new ChangeTrainHandler().handle(request);
+    public void changeTrain(UUID commandId, ChangeTrainRequest request, Instant now) {
+        ChangeTrainCommand command = new ChangeTrainHandler(zoneResolver).handle(request);
         boolean tripExists = detailsProjector.findById(command.tripId()).isPresent();
         ChangeTrainContext context = new ChangeTrainContext(tripExists, now);
         commandExecutor.execute(commandId, request, context, command);

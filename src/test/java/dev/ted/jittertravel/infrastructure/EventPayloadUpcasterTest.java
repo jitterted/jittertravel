@@ -2,6 +2,7 @@ package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.HotelBooked;
+import dev.ted.jittertravel.domain.TrainBooked;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -75,6 +76,38 @@ class EventPayloadUpcasterTest {
                 .isEqualTo(Instant.parse("2026-07-10T14:00:00Z"));
         assertThat(event.checkIn().zone())
                 .isEqualTo(ZoneId.of("Europe/London"));
+    }
+
+    @Test
+    void legacyTrainBookedScalarDatetimesUpcastEachEndpointInItsOwnZone() {
+        // A Paris→Frankfurt trip: both endpoints happen to be CET (+02:00 in summer), so 14:30
+        // local == 12:30Z. Departure resolves from Paris/France, arrival from Frankfurt/Germany —
+        // independently.
+        String legacy = """
+                {
+                  "tripId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "departureStation": {
+                    "name": "Paris Est", "city": "Paris", "country": "France", "mapsUrl": null
+                  },
+                  "departureDateTime": "2026-06-09T14:30:00",
+                  "arrivalStation": {
+                    "name": "Frankfurt Hbf", "city": "Frankfurt", "country": "Germany", "mapsUrl": null
+                  },
+                  "arrivalDateTime": "2026-06-09T18:15:00"
+                }
+                """;
+
+        TrainBooked event = upcastTo(legacy, TrainBooked.class);
+
+        assertThat(event.departureDateTime().zone())
+                .isEqualTo(ZoneId.of("Europe/Paris"));
+        assertThat(event.departureDateTime().utc())
+                .isEqualTo(Instant.parse("2026-06-09T12:30:00Z"));
+        assertThat(event.arrivalDateTime().zone())
+                .isEqualTo(ZoneId.of("Europe/Berlin"));
+        assertThat(event.arrivalDateTime().localDateTime().toString())
+                .as("the original arrival wall-clock is preserved as the entry-zone local time")
+                .isEqualTo("2026-06-09T18:15");
     }
 
     private <T> T upcastTo(String json, Class<T> type) {

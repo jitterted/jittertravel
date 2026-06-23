@@ -3,6 +3,8 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.ChangeTrain;
 import dev.ted.jittertravel.application.TrainDetailsView;
 import dev.ted.jittertravel.application.TrainDetailsViewProjector;
+import dev.ted.jittertravel.application.ZoneResolutionException;
+import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
 import dev.ted.jittertravel.domain.TrainNotFound;
@@ -17,7 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +36,11 @@ public class ChangeTrainController {
         this.applicationService = applicationService;
         this.detailsProjector = detailsProjector;
         this.clock = clock;
+    }
+
+    @ModelAttribute("commonZones")
+    public CommonZone[] commonZones() {
+        return CommonZone.values();
     }
 
     @GetMapping("/booked-trains/{tripId}")
@@ -61,7 +68,7 @@ public class ChangeTrainController {
 
         try {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
-            applicationService.changeTrain(UUID.randomUUID(), command, LocalDateTime.now(clock));
+            applicationService.changeTrain(UUID.randomUUID(), command, Instant.now(clock));
         } catch (TrainNotFound e) {
             redirectAttributes.addFlashAttribute("notFoundMessage", e.getMessage());
             return "redirect:/booked-trains";
@@ -69,6 +76,10 @@ public class ChangeTrainController {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {
             bindingResult.rejectValue("arrivalDateTime", "afterDeparture", e.getMessage());
+        } catch (ZoneResolutionException e) {
+            bindingResult.reject("zoneUnresolved",
+                    "Could not determine the time zone for a station from its location — "
+                            + "please choose the zone(s) below.");
         }
 
         if (bindingResult.hasErrors()) {

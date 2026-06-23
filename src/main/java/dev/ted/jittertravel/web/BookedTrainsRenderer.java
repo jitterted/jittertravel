@@ -10,6 +10,8 @@ import static j2html.TagCreator.*;
 
 public class BookedTrainsRenderer {
 
+    private static final String DATE_DISPLAY_PATTERN = "EEE, MMM d, h:mm a";
+
     private static final String CSS = """
             .trains-container { max-width: 140ch; margin: 2rem; }
             .train-cards {
@@ -85,12 +87,12 @@ public class BookedTrainsRenderer {
                                         ? span()
                                         : div(train.serviceId()).withClass("station-city")
                         ),
-                        div(train.departureDateTimeDisplay()),
+                        div(ZonedTimeTag.render(train.departureDateTime(), DATE_DISPLAY_PATTERN)),
                         div().with(
                                 stationNameElement(train.arrivalStationName(), train.arrivalMapsUrl()),
                                 div(train.arrivalCity()).withClass("station-city")
                         ),
-                        div(train.arrivalDateTimeDisplay()),
+                        div(ZonedTimeTag.render(train.arrivalDateTime(), DATE_DISPLAY_PATTERN)),
                         a("Edit").withClass("train-edit-link")
                                 .withHref("/booked-trains/" + train.tripId().id())
                 )

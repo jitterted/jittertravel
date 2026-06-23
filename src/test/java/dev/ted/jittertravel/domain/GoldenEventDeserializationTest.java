@@ -286,14 +286,14 @@ class GoldenEventDeserializationTest {
                     "country": "UK",
                     "mapsUrl": null
                   },
-                  "departureDateTime": "2026-06-09T09:00:00",
+                  "departureDateTime": {"utc": "2026-06-09T08:00:00Z", "zone": "Europe/London"},
                   "arrivalStation": {
                     "name": "Manchester Piccadilly",
                     "city": "Manchester",
                     "country": "UK",
                     "mapsUrl": null
                   },
-                  "arrivalDateTime": "2026-06-09T11:15:00"
+                  "arrivalDateTime": {"utc": "2026-06-09T10:15:00Z", "zone": "Europe/London"}
                 }
                 """;
 
@@ -318,14 +318,14 @@ class GoldenEventDeserializationTest {
                     "country": "UK",
                     "mapsUrl": null
                   },
-                  "departureDateTime": "2026-06-09T09:00:00",
+                  "departureDateTime": {"utc": "2026-06-09T08:00:00Z", "zone": "Europe/London"},
                   "arrivalStation": {
                     "name": "Manchester Piccadilly",
                     "city": "Manchester",
                     "country": "UK",
                     "mapsUrl": null
                   },
-                  "arrivalDateTime": "2026-06-09T11:15:00",
+                  "arrivalDateTime": {"utc": "2026-06-09T10:15:00Z", "zone": "Europe/London"},
                   "serviceId": "DB - ICE 610"
                 }
                 """;

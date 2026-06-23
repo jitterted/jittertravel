@@ -213,13 +213,15 @@ public class EventSourcingConfig {
 
     @Bean
     public ChangeTrain changeTrainApplicationService(CommandExecutor commandExecutor,
-                                                     TrainDetailsViewProjector trainDetailsViewProjector) {
-        return new ChangeTrain(commandExecutor, trainDetailsViewProjector);
+                                                     TrainDetailsViewProjector trainDetailsViewProjector,
+                                                     LocationZoneResolver locationZoneResolver) {
+        return new ChangeTrain(commandExecutor, trainDetailsViewProjector, locationZoneResolver);
     }
 
     @Bean
-    public TrainBooking trainBookingApplicationService(CommandExecutor commandExecutor) {
-        return new TrainBooking(commandExecutor);
+    public TrainBooking trainBookingApplicationService(CommandExecutor commandExecutor,
+                                                       LocationZoneResolver locationZoneResolver) {
+        return new TrainBooking(commandExecutor, locationZoneResolver);
     }
 
     @Bean

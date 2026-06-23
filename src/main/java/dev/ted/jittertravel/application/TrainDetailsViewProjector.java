@@ -28,11 +28,11 @@ public class TrainDetailsViewProjector implements EventStreamConsumer {
         eventStream.forEach(stored -> {
             switch (stored.payload()) {
                 case TrainBooked e -> viewsByTrip.put(e.tripId(), toView(
-                        e.tripId(), e.departureStation(), e.departureDateTime(),
-                        e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
+                        e.tripId(), e.departureStation(), e.departureDateTime().localDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime().localDateTime(), e.serviceId()));
                 case TrainChanged e -> viewsByTrip.put(e.tripId(), toView(
-                        e.tripId(), e.departureStation(), e.departureDateTime(),
-                        e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
+                        e.tripId(), e.departureStation(), e.departureDateTime().localDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime().localDateTime(), e.serviceId()));
                 default -> { /* not a train event */ }
             }
         });

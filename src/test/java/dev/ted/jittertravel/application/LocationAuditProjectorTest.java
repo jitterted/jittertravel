@@ -84,7 +84,9 @@ class LocationAuditProjectorTest {
     }
 
     private static TrainBooked trainBooked(TrainStationAddress departure, TrainStationAddress arrival) {
-        return new TrainBooked(TrainTripId.random(), departure, SOME_TIME, arrival, SOME_TIME.plusHours(4), "ICE");
+        return new TrainBooked(TrainTripId.random(), departure,
+                ZonedTimestamp.fromLocal(SOME_TIME, ZONE), arrival,
+                ZonedTimestamp.fromLocal(SOME_TIME.plusHours(4), ZONE), "ICE");
     }
 
     private static FlightBooked flightBooked(String departure, String arrival) {

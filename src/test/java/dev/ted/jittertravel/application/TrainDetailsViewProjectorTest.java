@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -14,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TrainDetailsViewProjectorTest {
 
+    private static final ZoneId ZONE = ZoneId.of("Europe/London");
     private static final TrainStationAddress EUSTON =
             new TrainStationAddress("London Euston", "London", "UK", "https://maps.example/euston");
     private static final TrainStationAddress PICCADILLY =
@@ -24,8 +26,8 @@ class TrainDetailsViewProjectorTest {
         TrainDetailsViewProjector projector = new TrainDetailsViewProjector();
         TrainTripId tripId = TrainTripId.random();
         TrainBooked event = new TrainBooked(
-                tripId, EUSTON, LocalDateTime.of(2026, 7, 1, 9, 0),
-                PICCADILLY, LocalDateTime.of(2026, 7, 1, 13, 0), "LNER - Azuma 1A34");
+                tripId, EUSTON, zt(LocalDateTime.of(2026, 7, 1, 9, 0)),
+                PICCADILLY, zt(LocalDateTime.of(2026, 7, 1, 13, 0)), "LNER - Azuma 1A34");
 
         projector.handle(Stream.of(stored(event)));
 
@@ -43,11 +45,11 @@ class TrainDetailsViewProjectorTest {
         TrainDetailsViewProjector projector = new TrainDetailsViewProjector();
         TrainTripId tripId = TrainTripId.random();
         TrainBooked booked = new TrainBooked(
-                tripId, EUSTON, LocalDateTime.of(2026, 7, 1, 9, 0),
-                PICCADILLY, LocalDateTime.of(2026, 7, 1, 13, 0), "LNER - Azuma 1A34");
+                tripId, EUSTON, zt(LocalDateTime.of(2026, 7, 1, 9, 0)),
+                PICCADILLY, zt(LocalDateTime.of(2026, 7, 1, 13, 0)), "LNER - Azuma 1A34");
         TrainChanged changed = new TrainChanged(
-                tripId, EUSTON, LocalDateTime.of(2026, 7, 5, 11, 0),
-                PICCADILLY, LocalDateTime.of(2026, 7, 5, 15, 30), "Avanti - 9M12");
+                tripId, EUSTON, zt(LocalDateTime.of(2026, 7, 5, 11, 0)),
+                PICCADILLY, zt(LocalDateTime.of(2026, 7, 5, 15, 30)), "Avanti - 9M12");
 
         projector.handle(Stream.of(stored(booked), stored(changed)));
 
@@ -61,6 +63,10 @@ class TrainDetailsViewProjectorTest {
     void findByIdReturnsEmptyWhenNoTrip() {
         TrainDetailsViewProjector projector = new TrainDetailsViewProjector();
         assertThat(projector.findById(TrainTripId.random())).isEmpty();
+    }
+
+    private static ZonedTimestamp zt(LocalDateTime wallClock) {
+        return ZonedTimestamp.fromLocal(wallClock, ZONE);
     }
 
     private static StoredEvent stored(Event event) {

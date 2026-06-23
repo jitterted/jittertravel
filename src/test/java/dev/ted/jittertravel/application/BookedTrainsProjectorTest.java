@@ -5,6 +5,7 @@ import dev.ted.jittertravel.domain.TrainBooked;
 import dev.ted.jittertravel.domain.TrainChanged;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class BookedTrainsProjectorTest {
 
+    private static final ZoneId ZONE = ZoneId.of("Europe/London");
     private static final LocalDateTime DEPARTURE = LocalDateTime.of(2026, 6, 9, 9, 0);
     private static final LocalDateTime ARRIVAL = LocalDateTime.of(2026, 6, 9, 13, 0);
 
@@ -29,9 +31,9 @@ class BookedTrainsProjectorTest {
         TrainBooked event = new TrainBooked(
                 tripId,
                 new TrainStationAddress("London Euston", "London", "UK", "https://maps.google.com/euston"),
-                DEPARTURE,
+                zt(DEPARTURE),
                 new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", ""),
-                ARRIVAL,
+                zt(ARRIVAL),
                 "LNER - Azuma 1A34"
         );
 
@@ -52,7 +54,7 @@ class BookedTrainsProjectorTest {
         assertThat(view.departureMapsUrl())
                 .isEqualTo("https://maps.google.com/euston");
         assertThat(view.departureDateTime())
-                .isEqualTo(DEPARTURE);
+                .isEqualTo(zt(DEPARTURE));
         assertThat(view.arrivalStationName())
                 .isEqualTo("Manchester Piccadilly");
         assertThat(view.arrivalCity())
@@ -60,7 +62,7 @@ class BookedTrainsProjectorTest {
         assertThat(view.arrivalMapsUrl())
                 .isEmpty();
         assertThat(view.arrivalDateTime())
-                .isEqualTo(ARRIVAL);
+                .isEqualTo(zt(ARRIVAL));
     }
 
     @Test
@@ -99,16 +101,16 @@ class BookedTrainsProjectorTest {
         TrainBooked booked = new TrainBooked(
                 tripId,
                 new TrainStationAddress("London Euston", "London", "UK", ""),
-                LocalDateTime.of(2026, 7, 1, 9, 0),
+                zt(LocalDateTime.of(2026, 7, 1, 9, 0)),
                 new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", ""),
-                LocalDateTime.of(2026, 7, 1, 13, 0),
+                zt(LocalDateTime.of(2026, 7, 1, 13, 0)),
                 "");
         TrainChanged changed = new TrainChanged(
                 tripId,
                 new TrainStationAddress("London Kings Cross", "London", "UK", ""),
-                LocalDateTime.of(2026, 7, 5, 10, 0),
+                zt(LocalDateTime.of(2026, 7, 5, 10, 0)),
                 new TrainStationAddress("Edinburgh Waverley", "Edinburgh", "UK", ""),
-                LocalDateTime.of(2026, 7, 5, 14, 30),
+                zt(LocalDateTime.of(2026, 7, 5, 14, 30)),
                 "LNER - Azuma 9E22");
 
         projector.handle(Stream.of(stored(booked), stored(changed)));
@@ -120,7 +122,7 @@ class BookedTrainsProjectorTest {
         assertThat(view.arrivalCity())
                 .isEqualTo("Edinburgh");
         assertThat(view.departureDateTime())
-                .isEqualTo(LocalDateTime.of(2026, 7, 5, 10, 0));
+                .isEqualTo(zt(LocalDateTime.of(2026, 7, 5, 10, 0)));
         assertThat(view.serviceId())
                 .isEqualTo("LNER - Azuma 9E22");
     }
@@ -129,17 +131,20 @@ class BookedTrainsProjectorTest {
         return new TrainBooked(
                 TrainTripId.random(),
                 new TrainStationAddress("London Euston", "London", "UK", ""),
-                departure,
+                zt(departure),
                 new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", ""),
-                departure.plusHours(4),
+                zt(departure.plusHours(4)),
                 ""
         );
     }
 
-    // Trains still store wall-clock; the view evaluates "now" in the server zone
-    // (see BookedTrainView.relevantUntil), so the test mirrors that conversion.
+    private static ZonedTimestamp zt(LocalDateTime wallClock) {
+        return ZonedTimestamp.fromLocal(wallClock, ZONE);
+    }
+
+    // FUTURE/past is evaluated by instant; the trip's departure is in ZONE, so resolve "now" there.
     private static Instant instant(LocalDateTime wallClock) {
-        return wallClock.atZone(ZoneId.systemDefault()).toInstant();
+        return wallClock.atZone(ZONE).toInstant();
     }
 
     private static StoredEvent stored(Event event) {

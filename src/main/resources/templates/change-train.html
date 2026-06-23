@@ -113,6 +113,8 @@
     <form th:action="@{|/booked-trains/${changeTrain.trainTripId}|}" th:object="${changeTrain}" method="post">
         <input type="hidden" th:field="*{trainTripId}"/>
 
+        <div class="error" th:if="${#fields.hasGlobalErrors()}" th:errors="*{global}"></div>
+
         <div class="field service-field">
             <label>
                 Service Number (optional)
@@ -159,6 +161,17 @@
                           th:if="${#fields.hasErrors('departureDateTime')}"
                           th:errors="*{departureDateTime}"></span>
                 </div>
+                <div class="field">
+                    <label>
+                        Time zone
+                        <select th:field="*{departureZone}">
+                            <option value="">Derive from city (default)</option>
+                            <option th:each="cz : ${commonZones}"
+                                    th:value="${cz.name()}"
+                                    th:text="${cz.label()}"></option>
+                        </select>
+                    </label>
+                </div>
             </fieldset>
 
             <fieldset>
@@ -198,6 +211,17 @@
                     <span class="error"
                           th:if="${#fields.hasErrors('arrivalDateTime')}"
                           th:errors="*{arrivalDateTime}"></span>
+                </div>
+                <div class="field">
+                    <label>
+                        Time zone
+                        <select th:field="*{arrivalZone}">
+                            <option value="">Derive from city (default)</option>
+                            <option th:each="cz : ${commonZones}"
+                                    th:value="${cz.name()}"
+                                    th:text="${cz.label()}"></option>
+                        </select>
+                    </label>
                 </div>
             </fieldset>
         </div>

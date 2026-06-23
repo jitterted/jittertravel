@@ -1,6 +1,6 @@
 package dev.ted.jittertravel.domain;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
-public record BookTrainContext(LocalDateTime now) implements DecisionContext {
+public record BookTrainContext(Instant now) implements DecisionContext {
 }

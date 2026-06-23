@@ -3,17 +3,20 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.BookedTrainView;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class BookedTrainsRendererTest {
 
-    private static final LocalDateTime DEPARTURE = LocalDateTime.of(2026, 6, 9, 9, 0);
-    private static final LocalDateTime ARRIVAL = LocalDateTime.of(2026, 6, 9, 13, 0);
+    private static final ZoneId ZONE = ZoneId.of("Europe/London");
+    private static final ZonedTimestamp DEPARTURE = zt(LocalDateTime.of(2026, 6, 9, 9, 0));
+    private static final ZonedTimestamp ARRIVAL = zt(LocalDateTime.of(2026, 6, 9, 13, 0));
 
     @Test
     void emptyAllListRendersBookedYetMessage() {
@@ -71,9 +74,9 @@ class BookedTrainsRendererTest {
                 TrainTripId.random(),
                 "LNER - Azuma 1A34",
                 "London Euston", "London", "",
-                DEPARTURE, "Tue, Jun 9, 9:00 AM",
+                DEPARTURE,
                 "Manchester Piccadilly", "Manchester", "",
-                ARRIVAL, "Tue, Jun 9, 1:00 PM"
+                ARRIVAL
         );
 
         String html = BookedTrainsRenderer.render(List.of(train), TimeView.FUTURE);
@@ -87,9 +90,9 @@ class BookedTrainsRendererTest {
                 TrainTripId.random(),
                 "",
                 "London Euston", "London", "",
-                DEPARTURE, "Tue, Jun 9, 9:00 AM",
+                DEPARTURE,
                 "Manchester Piccadilly", "Manchester", "",
-                ARRIVAL, "Tue, Jun 9, 1:00 PM"
+                ARRIVAL
         );
 
         String html = BookedTrainsRenderer.render(List.of(train), TimeView.FUTURE);
@@ -106,9 +109,9 @@ class BookedTrainsRendererTest {
                 tripId,
                 "",
                 "London Euston", "London", "",
-                DEPARTURE, "Tue, Jun 9, 9:00 AM",
+                DEPARTURE,
                 "Manchester Piccadilly", "Manchester", "",
-                ARRIVAL, "Tue, Jun 9, 1:00 PM"
+                ARRIVAL
         );
 
         String html = BookedTrainsRenderer.render(List.of(train), TimeView.FUTURE);
@@ -124,9 +127,13 @@ class BookedTrainsRendererTest {
                 TrainTripId.random(),
                 "",
                 depName, depCity, depMapsUrl,
-                DEPARTURE, "Tue, Jun 9, 9:00 AM",
+                DEPARTURE,
                 arrName, arrCity, arrMapsUrl,
-                ARRIVAL, "Tue, Jun 9, 1:00 PM"
+                ARRIVAL
         );
+    }
+
+    private static ZonedTimestamp zt(LocalDateTime wallClock) {
+        return ZonedTimestamp.fromLocal(wallClock, ZONE);
     }
 }

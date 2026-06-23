@@ -37,11 +37,11 @@ public class TrainCalendarProjector implements EventStreamConsumer {
         eventStream.forEach(stored -> {
             switch (stored.payload()) {
                 case TrainBooked e -> entriesByTrip.put(e.tripId(), buildEntries(
-                        e.tripId(), e.departureStation(), e.departureDateTime(),
-                        e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
+                        e.tripId(), e.departureStation(), e.departureDateTime().localDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime().localDateTime(), e.serviceId()));
                 case TrainChanged e -> entriesByTrip.put(e.tripId(), buildEntries(
-                        e.tripId(), e.departureStation(), e.departureDateTime(),
-                        e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
+                        e.tripId(), e.departureStation(), e.departureDateTime().localDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime().localDateTime(), e.serviceId()));
                 default -> { /* not a train event */ }
             }
         });

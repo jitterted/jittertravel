@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookTrainHandler;
+import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.application.TrainBooking;
 import dev.ted.jittertravel.domain.BookTrainContext;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
@@ -9,14 +10,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class BookTrainControllerValidationTest {
 
+    private static final ZoneId ZONE = ZoneId.of("Europe/London");
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 6, 2, 10, 0);
+    private static final Instant NOW_INSTANT = NOW.atZone(ZONE).toInstant();
 
     @Test
     void departureInPastProducesFieldErrorOnDepartureDateTime() {
@@ -61,7 +66,7 @@ class BookTrainControllerValidationTest {
 
     private void invokeService(TrainBooking service, BookTrainRequest request, BindingResult bindingResult) {
         try {
-            service.bookTrain(request, NOW);
+            service.bookTrain(request, NOW_INSTANT);
         } catch (DepartureNotInFuture e) {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {
@@ -84,10 +89,11 @@ class BookTrainControllerValidationTest {
     }
 
     private TrainBooking mockService() {
-        return new TrainBooking(null) {
+        return new TrainBooking(null, new LocationZoneResolver()) {
             @Override
-            public void bookTrain(BookTrainRequest request, LocalDateTime now) {
-                new BookTrainHandler().handle(request).execute(new BookTrainContext(now));
+            public void bookTrain(BookTrainRequest request, Instant now) {
+                new BookTrainHandler(new LocationZoneResolver()).handle(request)
+                        .execute(new BookTrainContext(now));
             }
         };
     }

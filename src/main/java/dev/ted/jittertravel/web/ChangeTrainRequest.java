@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ChangeTrainHandler;
+import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.ChangeTrainContext;
 import dev.ted.jittertravel.domain.Event;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -17,6 +18,9 @@ public class ChangeTrainRequest implements ImportableCommand {
     private String departureCityName;
     private String departureCountry;
     private String departureMapsUrl;
+    // Optional explicit time-zone pick (a CommonZone enum name) per endpoint; empty means "derive
+    // from the station's city/country". Departure and arrival are independent.
+    private String departureZone;
     // @DateTimeFormat required to match browser's <input type="datetime-local" /> format
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime departureDateTime;
@@ -25,6 +29,7 @@ public class ChangeTrainRequest implements ImportableCommand {
     private String arrivalCityName;
     private String arrivalCountry;
     private String arrivalMapsUrl;
+    private String arrivalZone;
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime arrivalDateTime;
 
@@ -49,6 +54,9 @@ public class ChangeTrainRequest implements ImportableCommand {
     public String getDepartureMapsUrl() { return departureMapsUrl; }
     public void setDepartureMapsUrl(String departureMapsUrl) { this.departureMapsUrl = departureMapsUrl; }
 
+    public String getDepartureZone() { return departureZone; }
+    public void setDepartureZone(String departureZone) { this.departureZone = departureZone; }
+
     public LocalDateTime getDepartureDateTime() { return departureDateTime; }
     public void setDepartureDateTime(LocalDateTime departureDateTime) { this.departureDateTime = departureDateTime; }
 
@@ -64,6 +72,9 @@ public class ChangeTrainRequest implements ImportableCommand {
     public String getArrivalMapsUrl() { return arrivalMapsUrl; }
     public void setArrivalMapsUrl(String arrivalMapsUrl) { this.arrivalMapsUrl = arrivalMapsUrl; }
 
+    public String getArrivalZone() { return arrivalZone; }
+    public void setArrivalZone(String arrivalZone) { this.arrivalZone = arrivalZone; }
+
     public LocalDateTime getArrivalDateTime() { return arrivalDateTime; }
     public void setArrivalDateTime(LocalDateTime arrivalDateTime) { this.arrivalDateTime = arrivalDateTime; }
 
@@ -77,6 +88,7 @@ public class ChangeTrainRequest implements ImportableCommand {
     @Override
     public Stream<? extends Event> events() {
         // On import the trip is assumed to already exist (its booking imported earlier).
-        return new ChangeTrainHandler().handle(this).execute(new ChangeTrainContext(true, IMPORT_BYPASS_NOW));
+        return new ChangeTrainHandler(new LocationZoneResolver()).handle(this)
+                .execute(new ChangeTrainContext(true, IMPORT_BYPASS_INSTANT));
     }
 }

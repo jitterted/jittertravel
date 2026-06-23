@@ -834,15 +834,15 @@ class ScheduleGapProjectorTest {
 
     private static TrainBooked train(String fromCity, LocalDateTime dep, String toCity, LocalDateTime arr) {
         return new TrainBooked(TrainTripId.random(),
-                new TrainStationAddress("Station", fromCity, "XX", ""), dep,
-                new TrainStationAddress("Station", toCity, "XX", ""), arr, "");
+                new TrainStationAddress("Station", fromCity, "XX", ""), zt(dep),
+                new TrainStationAddress("Station", toCity, "XX", ""), zt(arr), "");
     }
 
     private static TrainChanged trainChanged(TrainTripId tripId, String fromCity, LocalDateTime dep,
                                              String toCity, LocalDateTime arr) {
         return new TrainChanged(tripId,
-                new TrainStationAddress("Station", fromCity, "XX", ""), dep,
-                new TrainStationAddress("Station", toCity, "XX", ""), arr, "");
+                new TrainStationAddress("Station", fromCity, "XX", ""), zt(dep),
+                new TrainStationAddress("Station", toCity, "XX", ""), zt(arr), "");
     }
 
     private static HotelBooked hotel(String city, LocalDate checkIn, LocalDate checkOut) {

@@ -53,8 +53,8 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         hotelBooking.bookHotel(bookHotel(hotelBookingId), Instant.now());
         changeHotel.changeHotel(UUID.randomUUID(), changeHotel(hotelBookingId), Instant.now());
         String trainTripId = UUID.randomUUID().toString();
-        trainBooking.bookTrain(bookTrain(trainTripId), LocalDateTime.now());
-        changeTrain.changeTrain(UUID.randomUUID(), changeTrain(trainTripId), LocalDateTime.now());
+        trainBooking.bookTrain(bookTrain(trainTripId), Instant.now());
+        changeTrain.changeTrain(UUID.randomUUID(), changeTrain(trainTripId), Instant.now());
         conferencePlanning.planConference(planConference(UUID.randomUUID().toString(),
                 FUTURE.atTime(9, 0), FUTURE.plusDays(2).atTime(17, 0)));  // multi-day, stays tentative
         String gatheringId = UUID.randomUUID().toString();

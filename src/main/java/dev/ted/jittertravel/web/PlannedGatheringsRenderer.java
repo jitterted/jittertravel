@@ -99,7 +99,16 @@ public class PlannedGatheringsRenderer {
         if (!g.venueName().isBlank()) {
             sb.append(g.venueName()).append(" · ");
         }
+        if (!g.street().isBlank()) {
+            sb.append(g.street()).append(", ");
+        }
         sb.append(g.city());
+        if (!g.region().isBlank()) {
+            sb.append(", ").append(g.region());
+        }
+        if (!g.postalCode().isBlank()) {
+            sb.append(" ").append(g.postalCode());
+        }
         if (!g.country().isBlank()) {
             sb.append(", ").append(g.country());
         }

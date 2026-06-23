@@ -57,7 +57,10 @@ class PlannedGatheringsProjectorTest {
         assertThat(view.gatheringId()).isEqualTo(gatheringId);
         assertThat(view.title()).isEqualTo("London Java Community");
         assertThat(view.venueName()).isEqualTo("Skills Matter");
+        assertThat(view.street()).isEqualTo("1 Example St");
         assertThat(view.city()).isEqualTo("London");
+        assertThat(view.region()).isEqualTo("");
+        assertThat(view.postalCode()).isEqualTo("EC1A 1BB");
         assertThat(view.country()).isEqualTo("GB");
         assertThat(view.date()).isEqualTo(DATE_JUN_20);
         assertThat(view.startTime()).isEqualTo(START);

@@ -4,12 +4,13 @@ import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,8 +26,6 @@ import java.util.stream.Stream;
  */
 public class BookedFlightsProjector implements EventStreamConsumer {
 
-    private static final DateTimeFormatter DATETIME_DISPLAY =
-            DateTimeFormatter.ofPattern("EEE, MMM d, h:mm a", Locale.ENGLISH);
     private static final DateTimeFormatter TIMESTAMP_DISPLAY =
             DateTimeFormatter.ofPattern("uuuu-MM-dd h:mma", Locale.ENGLISH);
 
@@ -56,22 +55,21 @@ public class BookedFlightsProjector implements EventStreamConsumer {
                        String flightNumber,
                        AirportCode departureAirport,
                        AirportCode arrivalAirport,
-                       LocalDateTime departureDateTime,
-                       LocalDateTime arrivalDateTime,
+                       ZonedTimestamp departureDateTime,
+                       ZonedTimestamp arrivalDateTime,
                        ChangeEntry newEntry) {
         viewsByFlight.compute(flightId, (id, previous) -> {
             List<ChangeEntry> history = previous == null
                     ? List.of(newEntry)
                     : appendHistory(previous.history(), newEntry);
-            String route = departureAirport.code() + "\u2192" + arrivalAirport.code();
+            String route = departureAirport.code() + "→" + arrivalAirport.code();
             return new BookedFlightView(
                     flightId,
                     airline,
                     flightNumber,
                     route,
                     departureDateTime,
-                    departureDateTime.format(DATETIME_DISPLAY),
-                    arrivalDateTime.format(DATETIME_DISPLAY),
+                    arrivalDateTime,
                     history
             );
         });
@@ -99,13 +97,13 @@ public class BookedFlightsProjector implements EventStreamConsumer {
     }
 
     private static LocalDateTime toLocal(Instant timestamp) {
-        return timestamp.atZone(ZoneId.systemDefault()).toLocalDateTime();
+        return timestamp.atOffset(ZoneOffset.UTC).toLocalDateTime();
     }
 
     public List<BookedFlightView> views(TimeView timeView, Instant now) {
         return viewsByFlight.values().stream()
                 .filter(view -> timeView.includes(view, now))
-                .sorted(Comparator.comparing(BookedFlightView::departureDateTime))
+                .sorted(Comparator.comparing(v -> v.departureDateTime().utc()))
                 .toList();
     }
 }

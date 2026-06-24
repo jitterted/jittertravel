@@ -30,11 +30,11 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         events.forEach(stored -> {
             switch (stored.payload()) {
                 case FlightBooked e -> flightLegs.put(e.flightId(), flightLeg(
-                        e.departureAirport(), e.departureDateTime(),
-                        e.arrivalAirport(), e.arrivalDateTime()));
+                        e.departureAirport(), e.departureDateTime().localDateTime(),
+                        e.arrivalAirport(), e.arrivalDateTime().localDateTime()));
                 case FlightChanged e -> flightLegs.put(e.flightId(), flightLeg(
-                        e.departureAirport(), e.departureDateTime(),
-                        e.arrivalAirport(), e.arrivalDateTime()));
+                        e.departureAirport(), e.departureDateTime().localDateTime(),
+                        e.arrivalAirport(), e.arrivalDateTime().localDateTime()));
                 case TrainBooked e -> trainLegs.put(e.tripId(), new TravelLeg(
                         e.departureStation().city(), e.departureDateTime().localDateTime(),
                         e.arrivalStation().city(), e.arrivalDateTime().localDateTime()));

@@ -35,8 +35,8 @@ class ItineraryProjectorTest {
         ItineraryProjector projector = new ItineraryProjector();
         projector.handle(Stream.of(stored(new FlightBooked(
                 FlightId.random(), "BA", "BA1",
-                AirportCode.of("SFO"), DATE.minusDays(5).atTime(9, 0),
-                AirportCode.of("LHR"), DATE.minusDays(4).atTime(17, 0)))));
+                AirportCode.of("SFO"), zt(DATE.minusDays(5).atTime(9, 0)),
+                AirportCode.of("LHR"), zt(DATE.minusDays(4).atTime(17, 0))))));
 
         assertThat(projector.firstDateOnOrAfter(DATE))
                 .isEqualTo(DATE);
@@ -49,11 +49,11 @@ class ItineraryProjectorTest {
         LocalDate twoWeeks = DATE.plusWeeks(2);
         projector.handle(Stream.of(
                 stored(new FlightBooked(FlightId.random(), "BA", "BA1",
-                        AirportCode.of("SFO"), twoWeeks.atTime(9, 0),
-                        AirportCode.of("LHR"), twoWeeks.atTime(17, 0))),
+                        AirportCode.of("SFO"), zt(twoWeeks.atTime(9, 0)),
+                        AirportCode.of("LHR"), zt(twoWeeks.atTime(17, 0)))),
                 stored(new FlightBooked(FlightId.random(), "UA", "UA2",
-                        AirportCode.of("LHR"), nextWeek.atTime(10, 0),
-                        AirportCode.of("SFO"), nextWeek.atTime(14, 0)))));
+                        AirportCode.of("LHR"), zt(nextWeek.atTime(10, 0)),
+                        AirportCode.of("SFO"), zt(nextWeek.atTime(14, 0))))));
 
         assertThat(projector.firstDateOnOrAfter(DATE))
                 .isEqualTo(nextWeek);
@@ -65,8 +65,8 @@ class ItineraryProjectorTest {
         LocalDate arrivalDate = DATE.plusDays(1);
         FlightBooked event = new FlightBooked(
                 FlightId.random(), "United", "UA58",
-                AirportCode.of("SFO"), DATE.atTime(13, 55),
-                AirportCode.of("FRA"), arrivalDate.atTime(9, 45));
+                AirportCode.of("SFO"), zt(DATE.atTime(13, 55)),
+                AirportCode.of("FRA"), zt(arrivalDate.atTime(9, 45)));
 
         projector.handle(Stream.of(stored(event)));
 
@@ -83,8 +83,8 @@ class ItineraryProjectorTest {
         ItineraryProjector projector = new ItineraryProjector();
         FlightBooked event = new FlightBooked(
                 FlightId.random(), "Ryanair", "FR123",
-                AirportCode.of("LHR"), DATE.atTime(7, 0),
-                AirportCode.of("AMS"), DATE.atTime(9, 15));
+                AirportCode.of("LHR"), zt(DATE.atTime(7, 0)),
+                AirportCode.of("AMS"), zt(DATE.atTime(9, 15)));
 
         projector.handle(Stream.of(stored(event)));
 
@@ -140,8 +140,8 @@ class ItineraryProjectorTest {
         ItineraryProjector projector = new ItineraryProjector();
         FlightBooked event = new FlightBooked(
                 FlightId.random(), "United", "UA59",
-                AirportCode.of("SFO"), DEPARTURE,
-                AirportCode.of("FRA"), ARRIVAL);
+                AirportCode.of("SFO"), zt(DEPARTURE),
+                AirportCode.of("FRA"), zt(ARRIVAL));
 
         projector.handle(Stream.of(stored(event)));
 
@@ -165,12 +165,12 @@ class ItineraryProjectorTest {
         FlightId flightId = FlightId.random();
         FlightBooked booked = new FlightBooked(
                 flightId, "United", "UA59",
-                AirportCode.of("SFO"), DEPARTURE,
-                AirportCode.of("FRA"), ARRIVAL);
+                AirportCode.of("SFO"), zt(DEPARTURE),
+                AirportCode.of("FRA"), zt(ARRIVAL));
         FlightChanged changed = new FlightChanged(
                 flightId, "Lufthansa", "LH441",
-                AirportCode.of("SFO"), DEPARTURE.plusHours(2),
-                AirportCode.of("MUC"), ARRIVAL.plusHours(8),
+                AirportCode.of("SFO"), zt(DEPARTURE.plusHours(2)),
+                AirportCode.of("MUC"), zt(ARRIVAL.plusHours(8)),
                 "Schedule shifted by airline");
 
         projector.handle(Stream.of(stored(booked), stored(changed)));

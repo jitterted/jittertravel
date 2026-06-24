@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.application.AirportZoneResolver;
 import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.TrainBooked;
@@ -22,7 +23,7 @@ class EventPayloadUpcasterTest {
 
     private final JsonMapper mapper = EventJsonMapperFactory.create();
     private final EventPayloadUpcaster upcaster =
-            new EventPayloadUpcaster(new LocationZoneResolver(), mapper);
+            new EventPayloadUpcaster(new LocationZoneResolver(), new AirportZoneResolver(), mapper);
 
     @Test
     void legacyHotelBookedScalarDatetimesAreUpcastUsingTheAddressZone() {

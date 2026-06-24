@@ -24,8 +24,9 @@ public class EventSourcingConfig {
 
     @Bean
     public EventPayloadUpcaster eventPayloadUpcaster(LocationZoneResolver locationZoneResolver,
+                                                     AirportZoneResolver airportZoneResolver,
                                                      JsonMapper jsonMapper) {
-        return new EventPayloadUpcaster(locationZoneResolver, jsonMapper);
+        return new EventPayloadUpcaster(locationZoneResolver, airportZoneResolver, jsonMapper);
     }
 
     @Bean
@@ -72,8 +73,9 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public FlightBooking flightBookingApplicationService(EventStore eventStore, PostgresPersister persister) {
-        return new FlightBooking(eventStore, persister);
+    public FlightBooking flightBookingApplicationService(CommandExecutor commandExecutor,
+                                                         AirportZoneResolver airportZoneResolver) {
+        return new FlightBooking(commandExecutor, airportZoneResolver);
     }
 
     @Bean
@@ -114,8 +116,10 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public ChangeFlight changeFlightApplicationService(EventStore eventStore, PostgresPersister persister) {
-        return new ChangeFlight(eventStore, persister);
+    public ChangeFlight changeFlightApplicationService(CommandExecutor commandExecutor,
+                                                       FlightDetailsViewProjector flightDetailsViewProjector,
+                                                       AirportZoneResolver airportZoneResolver) {
+        return new ChangeFlight(commandExecutor, flightDetailsViewProjector, airportZoneResolver);
     }
 
     @Bean

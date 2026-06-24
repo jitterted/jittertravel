@@ -47,8 +47,8 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
     void everyCommandTypeSurvivesExportImportRoundTrip() {
         // one of every command type
         String flightId = UUID.randomUUID().toString();
-        flightBooking.bookFlight(bookFlight(flightId));
-        changeFlight.changeFlight(UUID.randomUUID(), changeFlight(flightId), LocalDateTime.now());
+        flightBooking.bookFlight(bookFlight(flightId), Instant.now());
+        changeFlight.changeFlight(UUID.randomUUID(), changeFlight(flightId), Instant.now());
         String hotelBookingId = UUID.randomUUID().toString();
         hotelBooking.bookHotel(bookHotel(hotelBookingId), Instant.now());
         changeHotel.changeHotel(UUID.randomUUID(), changeHotel(hotelBookingId), Instant.now());

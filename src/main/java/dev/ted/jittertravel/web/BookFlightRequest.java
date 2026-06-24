@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.domain.BookFlightCommand;
+import dev.ted.jittertravel.application.AirportZoneResolver;
+import dev.ted.jittertravel.application.BookFlightHandler;
+import dev.ted.jittertravel.domain.BookFlightContext;
 import dev.ted.jittertravel.domain.Event;
 import org.springframework.format.annotation.DateTimeFormat;
 
@@ -13,10 +15,14 @@ public class BookFlightRequest implements ImportableCommand {
     private String airline;
     private String flightNumber;
     private String departureAirport;
+    // Optional explicit time-zone pick (a CommonZone enum name or raw IANA zone ID). Empty/absent
+    // means "derive from the airport code via AirportZoneResolver". Departure and arrival are independent.
+    private String departureZone;
     // The @DateTimeFormat for departure and arrival times are required to match browser's <input type="datetime-local" /> format
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime departureDateTime;
     private String arrivalAirport;
+    private String arrivalZone;
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime arrivalDateTime;
 
@@ -55,6 +61,14 @@ public class BookFlightRequest implements ImportableCommand {
         this.departureAirport = departureAirport;
     }
 
+    public String getDepartureZone() {
+        return departureZone;
+    }
+
+    public void setDepartureZone(String departureZone) {
+        this.departureZone = departureZone;
+    }
+
     public LocalDateTime getDepartureDateTime() {
         return departureDateTime;
     }
@@ -69,6 +83,14 @@ public class BookFlightRequest implements ImportableCommand {
 
     public void setArrivalAirport(String arrivalAirport) {
         this.arrivalAirport = arrivalAirport;
+    }
+
+    public String getArrivalZone() {
+        return arrivalZone;
+    }
+
+    public void setArrivalZone(String arrivalZone) {
+        this.arrivalZone = arrivalZone;
     }
 
     public LocalDateTime getArrivalDateTime() {
@@ -86,7 +108,8 @@ public class BookFlightRequest implements ImportableCommand {
 
     @Override
     public Stream<? extends Event> events() {
-        return new BookFlightCommand().execute(this, IMPORT_BYPASS_NOW);
+        return new BookFlightHandler(new AirportZoneResolver()).handle(this)
+                .execute(new BookFlightContext(IMPORT_BYPASS_INSTANT));
     }
 
     @Override
@@ -96,8 +119,10 @@ public class BookFlightRequest implements ImportableCommand {
                 ", airline='" + airline + '\'' +
                 ", flightNumber='" + flightNumber + '\'' +
                 ", departureAirport='" + departureAirport + '\'' +
+                ", departureZone='" + departureZone + '\'' +
                 ", departureDateTime=" + departureDateTime +
                 ", arrivalAirport='" + arrivalAirport + '\'' +
+                ", arrivalZone='" + arrivalZone + '\'' +
                 ", arrivalDateTime=" + arrivalDateTime +
                 '}';
     }

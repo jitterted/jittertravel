@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.TentativeConferenceView;
+import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.ConferenceId;
 import org.junit.jupiter.api.Test;
@@ -71,7 +72,7 @@ class TentativeConferencesRendererTest {
                                                 String city, String country) {
         return new TentativeConferenceView(
                 ConferenceId.random(), name, "Venue",
-                new dev.ted.jittertravel.domain.Address("1 Street", city, "", "", country, null),
+                new Address("1 Street", city, "", "", country, null),
                 LocalDateTime.parse(start), LocalDateTime.parse(end)
         );
     }

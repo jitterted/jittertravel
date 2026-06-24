@@ -1,14 +1,12 @@
 package dev.ted.jittertravel.domain;
 
-import java.time.LocalDateTime;
-
 public record FlightBooked(
         FlightId flightId,
         String airline,
         String flightNumber,
         AirportCode departureAirport,
-        LocalDateTime departureDateTime,
+        ZonedTimestamp departureDateTime,
         AirportCode arrivalAirport,
-        LocalDateTime arrivalDateTime
+        ZonedTimestamp arrivalDateTime
 ) implements Event {
 }

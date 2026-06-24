@@ -1,110 +1,88 @@
 package dev.ted.jittertravel.domain;
 
-import dev.ted.jittertravel.web.ChangeFlightRequest;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ChangeFlightCommandTest {
 
-    private static final LocalDateTime NOW = LocalDateTime.of(2026, 5, 1, 12, 0);
+    private static final Instant NOW = Instant.parse("2026-05-01T12:00:00Z");
+    private static final ZoneId UTC = ZoneId.of("UTC");
 
     @Test
     void emitsFlightChangedWithFullSnapshotWhenValid() {
-        ChangeFlightRequest dto = validRequest();
+        ChangeFlightCommand command = validCommand();
 
-        List<FlightChanged> events = new ChangeFlightCommand()
-                .execute(dto, true, NOW)
-                .toList();
+        List<FlightChanged> events = command.execute(new ChangeFlightContext(true, NOW)).toList();
 
         assertThat(events).hasSize(1);
         FlightChanged event = events.getFirst();
-        assertThat(event.flightId().id()).isEqualTo(UUID.fromString(dto.getFlightId()));
         assertThat(event.airline()).isEqualTo("United");
         assertThat(event.flightNumber()).isEqualTo("UA59");
         assertThat(event.departureAirport().code()).isEqualTo("SFO");
         assertThat(event.arrivalAirport().code()).isEqualTo("FRA");
-        assertThat(event.departureDateTime()).isEqualTo(dto.getDepartureDateTime());
-        assertThat(event.arrivalDateTime()).isEqualTo(dto.getArrivalDateTime());
-        assertThat(event.reason()).isNull();
+        assertThat(event.reason()).isEmpty();
     }
 
     @Test
     void reasonForChangeIsCarriedOnTheEventWhenProvided() {
-        ChangeFlightRequest dto = validRequest();
-        dto.setReason("Schedule shifted by airline");
+        ChangeFlightCommand command = new ChangeFlightCommand(
+                FlightId.random(), "United", "UA59",
+                AirportCode.of("SFO"), zt(LocalDateTime.of(2026, 5, 8, 9, 0)),
+                AirportCode.of("FRA"), zt(LocalDateTime.of(2026, 5, 8, 19, 0)),
+                "Schedule shifted by airline");
 
-        FlightChanged event = new ChangeFlightCommand()
-                .execute(dto, true, NOW)
-                .findFirst()
-                .orElseThrow();
+        FlightChanged event = command.execute(new ChangeFlightContext(true, NOW)).findFirst().orElseThrow();
 
         assertThat(event.reason()).isEqualTo("Schedule shifted by airline");
     }
 
     @Test
-    void blankReasonIsNormalizedToNull() {
-        ChangeFlightRequest dto = validRequest();
-        dto.setReason("   ");
-
-        FlightChanged event = new ChangeFlightCommand()
-                .execute(dto, true, NOW)
-                .findFirst()
-                .orElseThrow();
-
-        assertThat(event.reason()).isNull();
-    }
-
-    @Test
     void rejectsWhenFlightDoesNotExist() {
-        ChangeFlightRequest dto = validRequest();
-
-        assertThatThrownBy(() -> new ChangeFlightCommand().execute(dto, false, NOW))
+        assertThatThrownBy(() -> validCommand().execute(new ChangeFlightContext(false, NOW)))
                 .isInstanceOf(FlightNotFound.class);
     }
 
     @Test
     void rejectsWhenDepartureIsNotInFuture() {
-        ChangeFlightRequest dto = validRequest();
-        dto.setDepartureDateTime(NOW.minusDays(1));
-        dto.setArrivalDateTime(NOW.plusDays(1));
+        ChangeFlightCommand command = new ChangeFlightCommand(
+                FlightId.random(), "United", "UA59",
+                AirportCode.of("SFO"), zt(LocalDateTime.of(2026, 4, 30, 9, 0)),
+                AirportCode.of("FRA"), zt(LocalDateTime.of(2026, 5, 8, 19, 0)),
+                null);
 
-        assertThatThrownBy(() -> new ChangeFlightCommand().execute(dto, true, NOW))
+        assertThatThrownBy(() -> command.execute(new ChangeFlightContext(true, NOW)))
                 .isInstanceOf(DepartureNotInFuture.class);
     }
 
     @Test
     void rejectsWhenArrivalIsNotAfterDeparture() {
-        ChangeFlightRequest dto = validRequest();
-        dto.setArrivalDateTime(dto.getDepartureDateTime());
+        ZonedTimestamp dep = zt(LocalDateTime.of(2026, 5, 8, 9, 0));
+        ChangeFlightCommand command = new ChangeFlightCommand(
+                FlightId.random(), "United", "UA59",
+                AirportCode.of("SFO"), dep,
+                AirportCode.of("FRA"), dep,
+                null);
 
-        assertThatThrownBy(() -> new ChangeFlightCommand().execute(dto, true, NOW))
+        assertThatThrownBy(() -> command.execute(new ChangeFlightContext(true, NOW)))
                 .isInstanceOf(InvalidDateRange.class);
     }
 
-    @Test
-    void rejectsWhenAirportCodeIsInvalid() {
-        ChangeFlightRequest dto = validRequest();
-        dto.setDepartureAirport("SF"); // not 3 letters
-
-        assertThatThrownBy(() -> new ChangeFlightCommand().execute(dto, true, NOW))
-                .isInstanceOf(InvalidAirportCode.class);
+    private ChangeFlightCommand validCommand() {
+        return new ChangeFlightCommand(
+                FlightId.random(), "United", "UA59",
+                AirportCode.of("SFO"), zt(LocalDateTime.of(2026, 5, 8, 9, 0)),
+                AirportCode.of("FRA"), zt(LocalDateTime.of(2026, 5, 8, 19, 0)),
+                null);
     }
 
-    private static ChangeFlightRequest validRequest() {
-        ChangeFlightRequest dto = new ChangeFlightRequest();
-        dto.setFlightId(UUID.randomUUID().toString());
-        dto.setAirline("United");
-        dto.setFlightNumber("UA59");
-        dto.setDepartureAirport("SFO");
-        dto.setDepartureDateTime(NOW.plusDays(7));
-        dto.setArrivalAirport("FRA");
-        dto.setArrivalDateTime(NOW.plusDays(7).plusHours(10));
-        return dto;
+    private static ZonedTimestamp zt(LocalDateTime local) {
+        return ZonedTimestamp.fromLocal(local, UTC);
     }
 }

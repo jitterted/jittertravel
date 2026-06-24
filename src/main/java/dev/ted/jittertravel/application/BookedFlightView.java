@@ -1,10 +1,9 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -22,22 +21,14 @@ public record BookedFlightView(
         String airline,
         String flightNumber,
         String route,
-        LocalDateTime departureDateTime,
-        String departureDateTimeDisplay,
-        String arrivalDateTimeDisplay,
+        ZonedTimestamp departureDateTime,
+        ZonedTimestamp arrivalDateTime,
         List<ChangeEntry> history
 ) implements TemporalView {
 
-    /**
-     * A flight is "upcoming" until it departs. STOPGAP: flight events still store
-     * bare wall-clock times, so the departure is interpreted in the server zone to
-     * preserve pre-migration behavior. Once FlightBooked/FlightChanged carry a
-     * {@code ZonedTimestamp}, return its {@code utc()} directly (see
-     * {@link TemporalView}).
-     */
     @Override
     public Instant relevantUntil() {
-        return departureDateTime.atZone(ZoneId.systemDefault()).toInstant();
+        return departureDateTime.utc();
     }
 
     /** True when there is at least one change beyond the original booking. */

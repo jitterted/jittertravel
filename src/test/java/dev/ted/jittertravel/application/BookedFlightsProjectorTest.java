@@ -4,12 +4,14 @@ import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -18,23 +20,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class BookedFlightsProjectorTest {
 
-    private static final LocalDateTime NOW = LocalDateTime.of(2026, 6, 15, 12, 0);
-    // Flights still store wall-clock, so the view evaluates "now" in the server zone (see
-    // BookedFlightView.relevantUntil); the test mirrors that conversion.
-    private static final Instant NOW_INSTANT = NOW.atZone(ZoneId.systemDefault()).toInstant();
+    private static final ZoneId UTC = ZoneId.of("UTC");
+    private static final Instant NOW_INSTANT = Instant.parse("2026-06-15T12:00:00Z");
 
     @Test
-    void flightBookedProducesViewWithRouteAndFormattedDeparture() {
+    void flightBookedProducesViewWithRouteAndDeparture() {
         BookedFlightsProjector projector = new BookedFlightsProjector();
         FlightId flightId = FlightId.random();
+        ZonedTimestamp dep = zt(LocalDateTime.of(2026, 6, 6, 13, 55));
+        ZonedTimestamp arr = zt(LocalDateTime.of(2026, 6, 7, 9, 45));
         FlightBooked event = new FlightBooked(
                 flightId,
                 "United Airlines",
                 "UA59",
                 AirportCode.of("SFO"),
-                LocalDateTime.of(2026, 6, 6, 13, 55),
+                dep,
                 AirportCode.of("FRA"),
-                LocalDateTime.of(2026, 6, 7, 9, 45)
+                arr
         );
 
         projector.handle(Stream.of(stored(event, instant(2026, 5, 20, 12, 22))));
@@ -45,9 +47,9 @@ class BookedFlightsProjectorTest {
         assertThat(view.flightId()).isEqualTo(flightId);
         assertThat(view.airline()).isEqualTo("United Airlines");
         assertThat(view.flightNumber()).isEqualTo("UA59");
-        assertThat(view.route()).isEqualTo("SFO\u2192FRA");
-        assertThat(view.departureDateTimeDisplay()).isEqualTo("Sat, Jun 6, 1:55 PM");
-        assertThat(view.arrivalDateTimeDisplay()).isEqualTo("Sun, Jun 7, 9:45 AM");
+        assertThat(view.route()).isEqualTo("SFO→FRA");
+        assertThat(view.departureDateTime()).isEqualTo(dep);
+        assertThat(view.arrivalDateTime()).isEqualTo(arr);
         assertThat(view.hasChanges()).isFalse();
         assertThat(view.history())
                 .extracting(ChangeEntry::displayText)
@@ -69,9 +71,6 @@ class BookedFlightsProjectorTest {
 
     @Test
     void replayingTheSameEventTwiceProducesTwoHistoryEntriesForOneFlight() {
-        // Replay through the projector is a one-way "events happened" stream;
-        // it does not de-duplicate. The list still has one row per flight,
-        // but its history reflects what was actually observed.
         BookedFlightsProjector projector = new BookedFlightsProjector();
         FlightBooked event = sampleFlight("UA1", LocalDateTime.of(2026, 6, 6, 13, 55));
 
@@ -85,8 +84,8 @@ class BookedFlightsProjectorTest {
     @Test
     void futureFilterExcludesFlightsDepartedBeforeNow() {
         BookedFlightsProjector projector = new BookedFlightsProjector();
-        FlightBooked past = sampleFlight("UA1", NOW.minusDays(5));
-        FlightBooked upcoming = sampleFlight("UA2", NOW.plusDays(5));
+        FlightBooked past = sampleFlight("UA1", LocalDateTime.of(2026, 6, 10, 12, 0));
+        FlightBooked upcoming = sampleFlight("UA2", LocalDateTime.of(2026, 6, 20, 12, 0));
 
         projector.handle(Stream.of(stored(past, Instant.now()), stored(upcoming, Instant.now())));
 
@@ -104,10 +103,14 @@ class BookedFlightsProjectorTest {
                 "United",
                 number,
                 AirportCode.of("SFO"),
-                departure,
+                zt(departure),
                 AirportCode.of("LAX"),
-                departure.plusHours(2)
+                zt(departure.plusHours(2))
         );
+    }
+
+    private static ZonedTimestamp zt(LocalDateTime local) {
+        return ZonedTimestamp.fromLocal(local, UTC);
     }
 
     private static StoredEvent stored(Event event, Instant timestamp) {
@@ -116,7 +119,7 @@ class BookedFlightsProjectorTest {
 
     private static Instant instant(int year, int month, int day, int hour, int minute) {
         return LocalDateTime.of(year, month, day, hour, minute)
-                .atZone(ZoneId.systemDefault())
+                .atOffset(ZoneOffset.UTC)
                 .toInstant();
     }
 }

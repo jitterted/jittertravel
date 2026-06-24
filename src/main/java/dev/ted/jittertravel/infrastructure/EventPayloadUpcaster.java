@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.application.AirportZoneResolver;
 import dev.ted.jittertravel.application.LocationZoneResolver;
+import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -25,10 +27,14 @@ import java.time.ZoneId;
 public class EventPayloadUpcaster {
 
     private final LocationZoneResolver locationZoneResolver;
+    private final AirportZoneResolver airportZoneResolver;
     private final JsonMapper jsonMapper;
 
-    public EventPayloadUpcaster(LocationZoneResolver locationZoneResolver, JsonMapper jsonMapper) {
+    public EventPayloadUpcaster(LocationZoneResolver locationZoneResolver,
+                                AirportZoneResolver airportZoneResolver,
+                                JsonMapper jsonMapper) {
         this.locationZoneResolver = locationZoneResolver;
+        this.airportZoneResolver = airportZoneResolver;
         this.jsonMapper = jsonMapper;
     }
 
@@ -39,6 +45,7 @@ public class EventPayloadUpcaster {
         switch (logicalType) {
             case "HotelBooked", "HotelChanged" -> upcastHotelStay(object);
             case "TrainBooked", "TrainChanged" -> upcastTrainTrip(object);
+            case "FlightBooked", "FlightChanged" -> upcastFlightTrip(object);
             default -> { /* type not migrated, or it has no datetime fields */ }
         }
         return object;
@@ -69,6 +76,26 @@ public class EventPayloadUpcaster {
         ZoneId arrivalZone = stationZone(object, "arrivalStation");
         object.set("departureDateTime", toZoned(departure.asText(), departureZone));
         object.set("arrivalDateTime", toZoned(object.get("arrivalDateTime").asText(), arrivalZone));
+    }
+
+    /**
+     * Departure and arrival resolve independently from their airport codes.
+     */
+    private void upcastFlightTrip(ObjectNode object) {
+        JsonNode departure = object.get("departureDateTime");
+        if (!isLegacyScalar(departure)) {
+            return; // already a {utc, zone} object
+        }
+        ZoneId departureZone = airportZone(object, "departureAirport");
+        ZoneId arrivalZone = airportZone(object, "arrivalAirport");
+        object.set("departureDateTime", toZoned(departure.asText(), departureZone));
+        object.set("arrivalDateTime", toZoned(object.get("arrivalDateTime").asText(), arrivalZone));
+    }
+
+    private ZoneId airportZone(ObjectNode payload, String airportField) {
+        JsonNode airport = payload.get(airportField);
+        String code = nestedText(airport, "code");
+        return airportZoneResolver.resolve(AirportCode.of(code));
     }
 
     private ZoneId stationZone(ObjectNode payload, String stationField) {

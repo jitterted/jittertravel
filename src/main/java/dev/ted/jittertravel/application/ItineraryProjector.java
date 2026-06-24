@@ -86,14 +86,14 @@ public class ItineraryProjector implements EventStreamConsumer {
 
     private static List<FlightItineraryEntry> toFlightEntries(FlightBooked e) {
         return toFlightEntries(e.flightId(), e.airline(), e.flightNumber(),
-                e.departureAirport().code(), e.departureDateTime(),
-                e.arrivalAirport().code(), e.arrivalDateTime());
+                e.departureAirport().code(), e.departureDateTime().localDateTime(),
+                e.arrivalAirport().code(), e.arrivalDateTime().localDateTime());
     }
 
     private static List<FlightItineraryEntry> toFlightEntries(FlightChanged e) {
         return toFlightEntries(e.flightId(), e.airline(), e.flightNumber(),
-                e.departureAirport().code(), e.departureDateTime(),
-                e.arrivalAirport().code(), e.arrivalDateTime());
+                e.departureAirport().code(), e.departureDateTime().localDateTime(),
+                e.arrivalAirport().code(), e.arrivalDateTime().localDateTime());
     }
 
     private static List<FlightItineraryEntry> toFlightEntries(
@@ -103,7 +103,7 @@ public class ItineraryProjector implements EventStreamConsumer {
             String arrCode, LocalDateTime arrDt) {
         FlightItineraryEntry departure = new FlightItineraryEntry(
                 flightId, FlightDayRole.DEPARTURE, airline, flightNumber, depCode, depDt, arrCode, arrDt);
-        if (depDt.toLocalDate().equals(arrDt.toLocalDate())) {
+        if (depDt.toLocalDate().equals(arrDt.toLocalDate()) && !arrDt.isBefore(depDt)) {
             return List.of(departure);
         }
         return List.of(departure, new FlightItineraryEntry(

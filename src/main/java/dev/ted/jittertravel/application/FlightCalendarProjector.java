@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
@@ -54,22 +55,23 @@ public class FlightCalendarProjector implements EventStreamConsumer {
     private static List<CalendarEntry> buildEntries(FlightId flightId,
                                                     AirportCode departureAirport,
                                                     AirportCode arrivalAirport,
-                                                    LocalDateTime departureDateTime,
-                                                    LocalDateTime arrivalDateTime) {
-        String route = "✈️ " + departureAirport.code() + "\u2192" + arrivalAirport.code();
-        String departs = "Departs " + departureDateTime.format(TIME_OF_DAY);
-        String arrives = "Arrives " + arrivalDateTime.format(TIME_OF_DAY);
+                                                    ZonedTimestamp departureDateTime,
+                                                    ZonedTimestamp arrivalDateTime) {
+        LocalDateTime depLocal = departureDateTime.localDateTime();
+        LocalDateTime arrLocal = arrivalDateTime.localDateTime();
+        String route = "✈️ " + departureAirport.code() + "→" + arrivalAirport.code();
+        String departs = "Departs " + depLocal.format(TIME_OF_DAY);
+        String arrives = "Arrives " + arrLocal.format(TIME_OF_DAY);
         String editPath = "/booked-flights/" + flightId.id();
 
-        boolean sameDay = departureDateTime.toLocalDate()
-                .equals(arrivalDateTime.toLocalDate());
+        boolean sameDay = depLocal.toLocalDate().equals(arrLocal.toLocalDate());
 
         if (sameDay) {
-            String timeRange = departureDateTime.format(TIME_OF_DAY) + " → " + arrivalDateTime.format(TIME_OF_DAY);
+            String timeRange = depLocal.format(TIME_OF_DAY) + " → " + arrLocal.format(TIME_OF_DAY);
             return List.of(new CalendarEntry(
                     EntryKind.FLIGHT,
-                    departureDateTime,
-                    arrivalDateTime,
+                    depLocal,
+                    arrLocal,
                     route,
                     List.of(timeRange),
                     null,
@@ -79,12 +81,10 @@ public class FlightCalendarProjector implements EventStreamConsumer {
             ));
         }
 
-        // Multi-day: render the flight twice, once on the departure day and once
-        // on the arrival day. Each is a self-contained single-day entry.
         CalendarEntry departureEntry = new CalendarEntry(
                 EntryKind.FLIGHT,
-                departureDateTime,
-                departureDateTime,
+                depLocal,
+                depLocal,
                 route,
                 List.of(departs),
                 null,
@@ -94,8 +94,8 @@ public class FlightCalendarProjector implements EventStreamConsumer {
         );
         CalendarEntry arrivalEntry = new CalendarEntry(
                 EntryKind.FLIGHT,
-                arrivalDateTime,
-                arrivalDateTime,
+                arrLocal,
+                arrLocal,
                 route,
                 List.of(arrives),
                 null,

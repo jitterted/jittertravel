@@ -1,37 +1,27 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.BookFlightCommand;
-import dev.ted.jittertravel.infrastructure.EventStore;
-import dev.ted.jittertravel.infrastructure.PostgresPersister;
+import dev.ted.jittertravel.domain.BookFlightContext;
 import dev.ted.jittertravel.web.BookFlightRequest;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
+import java.time.Instant;
 
 public class FlightBooking {
-    private final EventStore eventStore;
-    private final PostgresPersister persister;
+    private final CommandExecutor commandExecutor;
+    private final AirportZoneResolver airportZoneResolver;
 
-    public FlightBooking(EventStore eventStore, PostgresPersister persister) {
-        this.eventStore = eventStore;
-        this.persister = persister;
+    public FlightBooking(CommandExecutor commandExecutor, AirportZoneResolver airportZoneResolver) {
+        this.commandExecutor = commandExecutor;
+        this.airportZoneResolver = airportZoneResolver;
     }
 
-    public void bookFlight(BookFlightRequest request) {
-        if (eventStore.isReadOnly()) {
-            throw new ReadOnlyModeException("Attempting to execute request while in read-only mode:" + request);
-        }
-
-        UUID commandId = UUID.fromString(request.getFlightId());
-        persister.saveCommand(commandId, request);
-
-        BookFlightCommand domainCommand = new BookFlightCommand();
-        var events = domainCommand.execute(request, LocalDateTime.now());
-
-        eventStore.append(events, commandId);
+    public void bookFlight(BookFlightRequest request, Instant now) {
+        BookFlightCommand command = new BookFlightHandler(airportZoneResolver).handle(request);
+        BookFlightContext context = new BookFlightContext(now);
+        commandExecutor.execute(command.flightId().id(), request, context, command);
     }
 
     public boolean isReadOnly() {
-        return eventStore.isReadOnly();
+        return commandExecutor.isReadOnly();
     }
 }

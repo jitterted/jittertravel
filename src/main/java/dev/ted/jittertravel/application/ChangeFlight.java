@@ -1,61 +1,35 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.ChangeFlightCommand;
-import dev.ted.jittertravel.domain.FlightBooked;
-import dev.ted.jittertravel.domain.FlightChanged;
+import dev.ted.jittertravel.domain.ChangeFlightContext;
 import dev.ted.jittertravel.domain.FlightId;
-import dev.ted.jittertravel.infrastructure.EventStore;
-import dev.ted.jittertravel.infrastructure.PostgresPersister;
-import dev.ted.jittertravel.infrastructure.StoredEvent;
 import dev.ted.jittertravel.web.ChangeFlightRequest;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public class ChangeFlight {
-    private final EventStore eventStore;
-    private final PostgresPersister persister;
+    private final CommandExecutor commandExecutor;
+    private final FlightDetailsViewProjector detailsProjector;
+    private final AirportZoneResolver airportZoneResolver;
 
-    public ChangeFlight(EventStore eventStore, PostgresPersister persister) {
-        this.eventStore = eventStore;
-        this.persister = persister;
+    public ChangeFlight(CommandExecutor commandExecutor,
+                        FlightDetailsViewProjector detailsProjector,
+                        AirportZoneResolver airportZoneResolver) {
+        this.commandExecutor = commandExecutor;
+        this.detailsProjector = detailsProjector;
+        this.airportZoneResolver = airportZoneResolver;
     }
 
-    public void changeFlight(UUID commandId, ChangeFlightRequest request, LocalDateTime now) {
-        if (eventStore.isReadOnly()) {
-            throw new ReadOnlyModeException("Attempting to execute request while in read-only mode:" + request);
-        }
-
-        // commandId and now are captured at the boundary (the controller) and passed in.
-        // Each change attempt is its own command, with a fresh id (not the flightId, which is
-        // the aggregate id). The application service performs no clock or UUID I/O of its own.
-        persister.saveCommand(commandId, request);
-
-        FlightId flightId = FlightId.of(UUID.fromString(request.getFlightId()));
-        boolean flightExists = flightExists(flightId);
-
-        ChangeFlightCommand domainCommand = new ChangeFlightCommand();
-        var events = domainCommand.execute(request, flightExists, now);
-
-        eventStore.append(events, commandId);
-    }
-
-    /**
-     * Fold from the authoritative event stream — inline filter today.
-     * Will be replaced by an indexed tag query (see TaggedEventStoreQueryingDesign.md)
-     * when a second caller demands it.
-     */
-    private boolean flightExists(FlightId flightId) {
-        return eventStore.findAll()
-                .map(StoredEvent::payload)
-                .anyMatch(payload -> switch (payload) {
-                    case FlightBooked b -> b.flightId().equals(flightId);
-                    case FlightChanged c -> c.flightId().equals(flightId);
-                    default -> false;
-                });
+    public void changeFlight(UUID commandId, ChangeFlightRequest request, Instant now) {
+        ChangeFlightCommand command = new ChangeFlightHandler(airportZoneResolver).handle(request);
+        FlightId flightId = command.flightId();
+        boolean flightExists = detailsProjector.findById(flightId).isPresent();
+        ChangeFlightContext context = new ChangeFlightContext(flightExists, now);
+        commandExecutor.execute(commandId, request, context, command);
     }
 
     public boolean isReadOnly() {
-        return eventStore.isReadOnly();
+        return commandExecutor.isReadOnly();
     }
 }

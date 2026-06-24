@@ -6,6 +6,7 @@ import dev.ted.jittertravel.application.FlightDetailsViewProjector;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightNotFound;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.AeroDataBoxClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,8 +61,10 @@ class ChangeFlightWebIntegrationTest {
         FlightDetailsView view = new FlightDetailsView(
                 FlightId.of(UUID.fromString(flightId)),
                 "United", "UA100",
-                AirportCode.of("SFO"), LocalDateTime.of(2026, 7, 1, 9, 0),
-                AirportCode.of("JFK"), LocalDateTime.of(2026, 7, 1, 14, 0));
+                AirportCode.of("SFO"),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 9, 0), java.time.ZoneId.of("UTC")),
+                AirportCode.of("JFK"),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 14, 0), java.time.ZoneId.of("UTC")));
         given(detailsProjector.findById(any())).willReturn(Optional.of(view));
 
         assertThat(mockMvc.get().uri("/booked-flights/" + flightId))

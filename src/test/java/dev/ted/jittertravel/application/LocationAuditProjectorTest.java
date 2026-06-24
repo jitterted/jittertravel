@@ -91,7 +91,8 @@ class LocationAuditProjectorTest {
 
     private static FlightBooked flightBooked(String departure, String arrival) {
         return new FlightBooked(FlightId.random(), "AA", "100",
-                AirportCode.of(departure), SOME_TIME, AirportCode.of(arrival), SOME_TIME.plusHours(6));
+                AirportCode.of(departure), ZonedTimestamp.fromLocal(SOME_TIME, ZONE),
+                AirportCode.of(arrival), ZonedTimestamp.fromLocal(SOME_TIME.plusHours(6), ZONE));
     }
 
     private static java.util.stream.Stream<StoredEvent> streamOf(Event... events) {

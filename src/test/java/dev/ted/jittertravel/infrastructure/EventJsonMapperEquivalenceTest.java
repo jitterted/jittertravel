@@ -42,8 +42,8 @@ class EventJsonMapperEquivalenceTest {
         assertSerializesIdentically("""
                 {"flightId":{"id":"11111111-1111-1111-1111-111111111111"},"airline":"United",\
                 "flightNumber":"UA59","departureAirport":{"code":"SFO"},\
-                "departureDateTime":"2026-06-06T13:55:00","arrivalAirport":{"code":"FRA"},\
-                "arrivalDateTime":"2026-06-07T09:45:00"}""", FlightBooked.class);
+                "departureDateTime":{"utc":"2026-06-06T13:55:00Z","zone":"UTC"},"arrivalAirport":{"code":"FRA"},\
+                "arrivalDateTime":{"utc":"2026-06-07T09:45:00Z","zone":"UTC"}}""", FlightBooked.class);
     }
 
     @Test

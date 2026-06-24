@@ -4,9 +4,11 @@ import dev.ted.jittertravel.application.BookedFlightView;
 import dev.ted.jittertravel.application.ChangeEntry;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,12 +99,15 @@ class BookedFlightsRendererTest {
         return viewWithoutChanges(FlightId.random(), display, route, airline, flightNumber);
     }
 
+    private static final ZoneId UTC = ZoneId.of("UTC");
+
     private static BookedFlightView viewWithoutChanges(FlightId flightId, String display,
                                                        String route, String airline,
                                                        String flightNumber) {
         return new BookedFlightView(
                 flightId, airline, flightNumber, route,
-                LocalDateTime.of(2026, 6, 6, 13, 55), display, "Sun, Jun 7, 9:45 AM",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 6, 13, 55), UTC),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 7, 9, 45), UTC),
                 List.of(new ChangeEntry(LocalDateTime.of(2026, 5, 20, 12, 22), "Booked on 2026-05-20 12:22PM"))
         );
     }
@@ -115,7 +120,8 @@ class BookedFlightsRendererTest {
                 .toList();
         return new BookedFlightView(
                 FlightId.random(), airline, flightNumber, route,
-                LocalDateTime.of(2026, 6, 6, 13, 55), display, "Sun, Jun 7, 9:45 AM",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 6, 13, 55), UTC),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 7, 9, 45), UTC),
                 history
         );
     }

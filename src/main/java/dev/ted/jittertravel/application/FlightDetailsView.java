@@ -2,8 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightId;
-
-import java.time.LocalDateTime;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 /**
  * Full details for a single flight, used to hydrate the edit form.
@@ -17,8 +16,8 @@ public record FlightDetailsView(
         String airline,
         String flightNumber,
         AirportCode departureAirport,
-        LocalDateTime departureDateTime,
+        ZonedTimestamp departureDateTime,
         AirportCode arrivalAirport,
-        LocalDateTime arrivalDateTime
+        ZonedTimestamp arrivalDateTime
 ) {
 }

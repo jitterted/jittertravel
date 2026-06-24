@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.ChangeFlight;
 import dev.ted.jittertravel.application.FlightDetailsView;
 import dev.ted.jittertravel.application.FlightDetailsViewProjector;
 import dev.ted.jittertravel.application.ReadOnlyModeException;
+import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.*;
 import dev.ted.jittertravel.infrastructure.AeroDataBoxClient;
 import dev.ted.jittertravel.infrastructure.FlightLookupResult;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -40,6 +42,11 @@ public class ChangeFlightController {
         this.detailsProjector = detailsProjector;
         this.aeroDataBoxClient = aeroDataBoxClient;
         this.clock = clock;
+    }
+
+    @ModelAttribute("commonZones")
+    public CommonZone[] commonZones() {
+        return CommonZone.values();
     }
 
     @GetMapping("/booked-flights/{flightId}")
@@ -75,7 +82,7 @@ public class ChangeFlightController {
 
         try {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
-            applicationService.changeFlight(UUID.randomUUID(), command, LocalDateTime.now(clock));
+            applicationService.changeFlight(UUID.randomUUID(), command, Instant.now(clock));
         } catch (FlightNotFound e) {
             redirectAttributes.addFlashAttribute("notFoundMessage", e.getMessage());
             return "redirect:/booked-flights";
@@ -85,6 +92,10 @@ public class ChangeFlightController {
             bindingResult.rejectValue("arrivalDateTime", "afterDeparture", e.getMessage());
         } catch (InvalidAirportCode e) {
             bindingResult.reject("airportCode", e.getMessage());
+        } catch (ZoneResolutionException e) {
+            bindingResult.reject("zoneUnresolved",
+                    "Could not determine the time zone for an airport — "
+                            + "please choose the zone(s) below.");
         } catch (ReadOnlyModeException e) {
             log.warn("Attempted to change flight while in read-only mode", e);
             return "redirect:/read-only";
@@ -118,8 +129,10 @@ public class ChangeFlightController {
             request.setFlightNumber(lookup.flightNumber());
             request.setDepartureAirport(lookup.departureAirport());
             request.setDepartureDateTime(lookup.departureDateTime());
+            request.setDepartureZone(lookup.departureZoneId());
             request.setArrivalAirport(lookup.arrivalAirport());
             request.setArrivalDateTime(lookup.arrivalDateTime());
+            request.setArrivalZone(lookup.arrivalZoneId());
         } else {
             request.setFlightNumber(flightNumber);
             request.setDepartureDateTime(departureDate.atStartOfDay().plusHours(9));
@@ -148,9 +161,11 @@ public class ChangeFlightController {
         request.setAirline(view.airline());
         request.setFlightNumber(view.flightNumber());
         request.setDepartureAirport(view.departureAirport().code());
-        request.setDepartureDateTime(view.departureDateTime());
+        request.setDepartureDateTime(view.departureDateTime().localDateTime());
+        request.setDepartureZone(view.departureDateTime().zone().getId());
         request.setArrivalAirport(view.arrivalAirport().code());
-        request.setArrivalDateTime(view.arrivalDateTime());
+        request.setArrivalDateTime(view.arrivalDateTime().localDateTime());
+        request.setArrivalZone(view.arrivalDateTime().zone().getId());
         return request;
     }
 }

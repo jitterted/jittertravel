@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.domain.ChangeFlightCommand;
+import dev.ted.jittertravel.application.AirportZoneResolver;
+import dev.ted.jittertravel.application.ChangeFlightHandler;
+import dev.ted.jittertravel.domain.ChangeFlightContext;
 import dev.ted.jittertravel.domain.Event;
 import org.springframework.format.annotation.DateTimeFormat;
 
@@ -13,9 +15,11 @@ public class ChangeFlightRequest implements ImportableCommand {
     private String airline;
     private String flightNumber;
     private String departureAirport;
+    private String departureZone;
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime departureDateTime;
     private String arrivalAirport;
+    private String arrivalZone;
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime arrivalDateTime;
     private String reason;
@@ -63,6 +67,14 @@ public class ChangeFlightRequest implements ImportableCommand {
         this.departureAirport = departureAirport;
     }
 
+    public String getDepartureZone() {
+        return departureZone;
+    }
+
+    public void setDepartureZone(String departureZone) {
+        this.departureZone = departureZone;
+    }
+
     public LocalDateTime getDepartureDateTime() {
         return departureDateTime;
     }
@@ -77,6 +89,14 @@ public class ChangeFlightRequest implements ImportableCommand {
 
     public void setArrivalAirport(String arrivalAirport) {
         this.arrivalAirport = arrivalAirport;
+    }
+
+    public String getArrivalZone() {
+        return arrivalZone;
+    }
+
+    public void setArrivalZone(String arrivalZone) {
+        this.arrivalZone = arrivalZone;
     }
 
     public LocalDateTime getArrivalDateTime() {
@@ -97,7 +117,8 @@ public class ChangeFlightRequest implements ImportableCommand {
     @Override
     public Stream<? extends Event> events() {
         // On import the flight is assumed to already exist (its booking imported earlier).
-        return new ChangeFlightCommand().execute(this, true, IMPORT_BYPASS_NOW);
+        return new ChangeFlightHandler(new AirportZoneResolver()).handle(this)
+                .execute(new ChangeFlightContext(true, IMPORT_BYPASS_INSTANT));
     }
 
     @Override
@@ -107,8 +128,10 @@ public class ChangeFlightRequest implements ImportableCommand {
                 ", airline='" + airline + '\'' +
                 ", flightNumber='" + flightNumber + '\'' +
                 ", departureAirport='" + departureAirport + '\'' +
+                ", departureZone='" + departureZone + '\'' +
                 ", departureDateTime=" + departureDateTime +
                 ", arrivalAirport='" + arrivalAirport + '\'' +
+                ", arrivalZone='" + arrivalZone + '\'' +
                 ", arrivalDateTime=" + arrivalDateTime +
                 ", reason='" + reason + '\'' +
                 '}';

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -15,6 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class BookedFlightsProjectorFlightChangedTest {
 
+    private static final ZoneId UTC = ZoneId.of("UTC");
     // All assertions here use TimeView.ALL, which ignores now; any instant works.
     private static final Instant NOW = Instant.parse("2020-01-01T00:00:00Z");
 
@@ -24,13 +26,13 @@ class BookedFlightsProjectorFlightChangedTest {
         FlightId flightId = FlightId.random();
         FlightBooked booked = new FlightBooked(
                 flightId, "United", "UA59",
-                AirportCode.of("SFO"), LocalDateTime.of(2026, 6, 6, 13, 55),
-                AirportCode.of("FRA"), LocalDateTime.of(2026, 6, 7, 9, 45)
+                AirportCode.of("SFO"), zt(LocalDateTime.of(2026, 6, 6, 13, 55)),
+                AirportCode.of("FRA"), zt(LocalDateTime.of(2026, 6, 7, 9, 45))
         );
         FlightChanged changed = new FlightChanged(
                 flightId, "Lufthansa", "LH441",
-                AirportCode.of("SFO"), LocalDateTime.of(2026, 6, 8, 16, 0),
-                AirportCode.of("MUC"), LocalDateTime.of(2026, 6, 9, 11, 30),
+                AirportCode.of("SFO"), zt(LocalDateTime.of(2026, 6, 8, 16, 0)),
+                AirportCode.of("MUC"), zt(LocalDateTime.of(2026, 6, 9, 11, 30)),
                 null
         );
 
@@ -41,7 +43,7 @@ class BookedFlightsProjectorFlightChangedTest {
         BookedFlightView view = views.getFirst();
         assertThat(view.airline()).isEqualTo("Lufthansa");
         assertThat(view.flightNumber()).isEqualTo("LH441");
-        assertThat(view.route()).isEqualTo("SFO\u2192MUC");
+        assertThat(view.route()).isEqualTo("SFO→MUC");
     }
 
     @Test
@@ -90,18 +92,22 @@ class BookedFlightsProjectorFlightChangedTest {
     private static FlightBooked sampleBooked(FlightId flightId) {
         return new FlightBooked(
                 flightId, "United", "UA59",
-                AirportCode.of("SFO"), LocalDateTime.of(2026, 6, 6, 13, 55),
-                AirportCode.of("FRA"), LocalDateTime.of(2026, 6, 7, 9, 45)
+                AirportCode.of("SFO"), zt(LocalDateTime.of(2026, 6, 6, 13, 55)),
+                AirportCode.of("FRA"), zt(LocalDateTime.of(2026, 6, 7, 9, 45))
         );
     }
 
     private static FlightChanged sampleChanged(FlightId flightId, String reason) {
         return new FlightChanged(
                 flightId, "United", "UA59",
-                AirportCode.of("SFO"), LocalDateTime.of(2026, 6, 6, 13, 55),
-                AirportCode.of("FRA"), LocalDateTime.of(2026, 6, 7, 9, 45),
+                AirportCode.of("SFO"), zt(LocalDateTime.of(2026, 6, 6, 13, 55)),
+                AirportCode.of("FRA"), zt(LocalDateTime.of(2026, 6, 7, 9, 45)),
                 reason
         );
+    }
+
+    private static ZonedTimestamp zt(LocalDateTime local) {
+        return ZonedTimestamp.fromLocal(local, UTC);
     }
 
     private static StoredEvent stored(Event event, Instant timestamp) {
@@ -110,7 +116,7 @@ class BookedFlightsProjectorFlightChangedTest {
 
     private static Instant instant(int year, int month, int day, int hour, int minute) {
         return LocalDateTime.of(year, month, day, hour, minute)
-                .atZone(ZoneId.systemDefault())
+                .atOffset(ZoneOffset.UTC)
                 .toInstant();
     }
 }

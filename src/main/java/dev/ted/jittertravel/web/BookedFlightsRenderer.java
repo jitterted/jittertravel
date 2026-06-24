@@ -100,9 +100,10 @@ public class BookedFlightsRenderer {
         if (flight.hasChanges()) {
             return details().withClass("flight-card flight-card-has-history").with(
                     summary().withClass("flight-card-row").with(
-                            div(flight.departureDateTimeDisplay())
+                            div(ZonedTimeTag.render(flight.departureDateTime(), "EEE, MMM d, h:mm a"))
                                     .withClass("flight-card-cell flight-departure"),
-                            div(flight.arrivalDateTimeDisplay()).withClass("flight-card-cell"),
+                            div(ZonedTimeTag.render(flight.arrivalDateTime(), "EEE, MMM d, h:mm a"))
+                                    .withClass("flight-card-cell"),
                             div(flight.route()).withClass("flight-card-cell"),
                             div(flight.airline()).withClass("flight-card-cell"),
                             div(flight.flightNumber()).withClass("flight-card-cell"),
@@ -115,9 +116,10 @@ public class BookedFlightsRenderer {
             );
         }
         return div().withClass("flight-card flight-card-row").with(
-                div(flight.departureDateTimeDisplay())
+                div(ZonedTimeTag.render(flight.departureDateTime(), "EEE, MMM d, h:mm a"))
                         .withClass("flight-card-cell flight-departure"),
-                div(flight.arrivalDateTimeDisplay()).withClass("flight-card-cell"),
+                div(ZonedTimeTag.render(flight.arrivalDateTime(), "EEE, MMM d, h:mm a"))
+                        .withClass("flight-card-cell"),
                 div(flight.route()).withClass("flight-card-cell"),
                 div(flight.airline()).withClass("flight-card-cell"),
                 div(flight.flightNumber()).withClass("flight-card-cell"),

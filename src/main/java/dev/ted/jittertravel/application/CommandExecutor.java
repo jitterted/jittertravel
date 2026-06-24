@@ -33,6 +33,10 @@ public class CommandExecutor {
         appendOrMarkFailed(commandId, events);
     }
 
+    public boolean isReadOnly() {
+        return eventStore.isReadOnly();
+    }
+
     public void appendEvents(UUID commandId, Object commandRecord, Stream<? extends Event> events) {
         var eventList = events.toList();
         persister.saveCommand(commandId, commandRecord); // write-ahead: command persisted as PENDING

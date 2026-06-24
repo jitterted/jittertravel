@@ -109,14 +109,14 @@ class ScheduleGapProjectorTest {
             FlightId id = FlightId.random();
             // Originally LON→AMS (gap before next LON leg), changed to LON→LON (no gap)
             FlightBooked original = new FlightBooked(id, "Air", "A1",
-                    AirportCode.of(LON), SEP_15.atTime(7, 0),
-                    AirportCode.of(AMS), SEP_15.atTime(9, 0));
+                    AirportCode.of(LON), zt(SEP_15.atTime(7, 0)),
+                    AirportCode.of(AMS), zt(SEP_15.atTime(9, 0)));
             FlightChanged changed = new FlightChanged(id, "Air", "A1",
-                    AirportCode.of(LON), SEP_15.atTime(7, 0),
-                    AirportCode.of(LON), SEP_15.atTime(9, 0), null);
+                    AirportCode.of(LON), zt(SEP_15.atTime(7, 0)),
+                    AirportCode.of(LON), zt(SEP_15.atTime(9, 0)), null);
             FlightBooked next = new FlightBooked(FlightId.random(), "Air", "A2",
-                    AirportCode.of(LON), SEP_16.atTime(10, 0),
-                    AirportCode.of(AMS), SEP_16.atTime(12, 0));
+                    AirportCode.of(LON), zt(SEP_16.atTime(10, 0)),
+                    AirportCode.of(AMS), zt(SEP_16.atTime(12, 0)));
 
             projector.handle(Stream.of(stored(original), stored(changed), stored(next)));
 
@@ -131,8 +131,8 @@ class ScheduleGapProjectorTest {
             ScheduleGapProjector projector = new ScheduleGapProjector(new StaticAirportCityResolver());
             projector.handle(Stream.of(
                     stored(new FlightBooked(FlightId.random(), "BA", "BA100",
-                            AirportCode.of("SFO"), SEP_15.atTime(10, 0),
-                            AirportCode.of("LHR"), SEP_16.atTime(6, 0))),
+                            AirportCode.of("SFO"), zt(SEP_15.atTime(10, 0)),
+                            AirportCode.of("LHR"), zt(SEP_16.atTime(6, 0)))),
                     stored(train("London", SEP_17.atTime(9, 0), "Amsterdam", SEP_17.atTime(13, 0)))));
 
             assertThat(projector.problems())
@@ -146,11 +146,11 @@ class ScheduleGapProjectorTest {
             ScheduleGapProjector projector = new ScheduleGapProjector(new StaticAirportCityResolver());
             projector.handle(Stream.of(
                     stored(new FlightBooked(FlightId.random(), "Air", "X1",
-                            AirportCode.of("SFO"), SEP_15.atTime(10, 0),
-                            AirportCode.of("ZZZ"), SEP_15.atTime(14, 0))),
+                            AirportCode.of("SFO"), zt(SEP_15.atTime(10, 0)),
+                            AirportCode.of("ZZZ"), zt(SEP_15.atTime(14, 0)))),
                     stored(new FlightBooked(FlightId.random(), "Air", "X2",
-                            AirportCode.of("ZZZ"), SEP_16.atTime(9, 0),
-                            AirportCode.of("AMS"), SEP_16.atTime(11, 0)))));
+                            AirportCode.of("ZZZ"), zt(SEP_16.atTime(9, 0)),
+                            AirportCode.of("AMS"), zt(SEP_16.atTime(11, 0))))));
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
@@ -163,11 +163,11 @@ class ScheduleGapProjectorTest {
             ScheduleGapProjector projector = new ScheduleGapProjector(new StaticAirportCityResolver());
             projector.handle(Stream.of(
                     stored(new FlightBooked(FlightId.random(), "AA", "AA1",
-                            AirportCode.of("SFO"), SEP_15.atTime(8, 0),
-                            AirportCode.of("JFK"), SEP_15.atTime(16, 0))),
+                            AirportCode.of("SFO"), zt(SEP_15.atTime(8, 0)),
+                            AirportCode.of("JFK"), zt(SEP_15.atTime(16, 0)))),
                     stored(new FlightBooked(FlightId.random(), "AA", "AA2",
-                            AirportCode.of("LGA"), SEP_17.atTime(9, 0),
-                            AirportCode.of("LHR"), SEP_18.atTime(6, 0)))));
+                            AirportCode.of("LGA"), zt(SEP_17.atTime(9, 0)),
+                            AirportCode.of("LHR"), zt(SEP_18.atTime(6, 0))))));
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
@@ -733,8 +733,8 @@ class ScheduleGapProjectorTest {
             ScheduleGapProjector projector = new ScheduleGapProjector(new StaticAirportCityResolver());
             projector.handle(Stream.of(
                     stored(new FlightBooked(FlightId.random(), "BA", "BA286",
-                            AirportCode.of("SFO"), SEP_15.atTime(11, 0),
-                            AirportCode.of("LHR"), SEP_16.atTime(7, 0))),
+                            AirportCode.of("SFO"), zt(SEP_15.atTime(11, 0)),
+                            AirportCode.of("LHR"), zt(SEP_16.atTime(7, 0)))),
                     stored(hotel("London", SEP_16, SEP_19)),
                     stored(train("London", SEP_19.atTime(9, 0), "Amsterdam", SEP_19.atTime(13, 0))),
                     stored(hotel("Amsterdam", SEP_19, SEP_21))));
@@ -749,11 +749,11 @@ class ScheduleGapProjectorTest {
             // London has no booked departure so hotel need cannot be determined.
             projector.handle(Stream.of(
                     stored(new FlightBooked(FlightId.random(), "BA", "BA286",
-                            AirportCode.of("SFO"), SEP_15.atTime(11, 0),
-                            AirportCode.of("LHR"), SEP_16.atTime(7, 0))),
+                            AirportCode.of("SFO"), zt(SEP_15.atTime(11, 0)),
+                            AirportCode.of("LHR"), zt(SEP_16.atTime(7, 0)))),
                     stored(new FlightBooked(FlightId.random(), "KL", "KL1000",
-                            AirportCode.of("AMS"), SEP_19.atTime(10, 0),
-                            AirportCode.of("SFO"), SEP_19.atTime(13, 0)))));
+                            AirportCode.of("AMS"), zt(SEP_19.atTime(10, 0)),
+                            AirportCode.of("SFO"), zt(SEP_19.atTime(13, 0))))));
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
@@ -829,7 +829,7 @@ class ScheduleGapProjectorTest {
 
     private static FlightBooked flight(String fromCode, LocalDateTime dep, String toCode, LocalDateTime arr) {
         return new FlightBooked(FlightId.random(), "Airline", "F1",
-                AirportCode.of(fromCode), dep, AirportCode.of(toCode), arr);
+                AirportCode.of(fromCode), zt(dep), AirportCode.of(toCode), zt(arr));
     }
 
     private static TrainBooked train(String fromCity, LocalDateTime dep, String toCity, LocalDateTime arr) {

@@ -44,9 +44,9 @@ class GoldenEventDeserializationTest {
                   "airline": "United",
                   "flightNumber": "UA59",
                   "departureAirport": {"code": "SFO"},
-                  "departureDateTime": "2026-06-06T13:55:00",
+                  "departureDateTime": {"utc": "2026-06-06T13:55:00Z", "zone": "UTC"},
                   "arrivalAirport": {"code": "FRA"},
-                  "arrivalDateTime": "2026-06-07T09:45:00"
+                  "arrivalDateTime": {"utc": "2026-06-07T09:45:00Z", "zone": "UTC"}
                 }
                 """;
 
@@ -68,9 +68,9 @@ class GoldenEventDeserializationTest {
                   "airline": "Lufthansa",
                   "flightNumber": "LH441",
                   "departureAirport": {"code": "SFO"},
-                  "departureDateTime": "2026-06-08T16:00:00",
+                  "departureDateTime": {"utc": "2026-06-08T16:00:00Z", "zone": "UTC"},
                   "arrivalAirport": {"code": "MUC"},
-                  "arrivalDateTime": "2026-06-09T11:30:00",
+                  "arrivalDateTime": {"utc": "2026-06-09T11:30:00Z", "zone": "UTC"},
                   "reason": "Schedule shifted by airline"
                 }
                 """;

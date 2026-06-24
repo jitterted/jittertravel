@@ -6,21 +6,25 @@ import org.junit.jupiter.api.Test;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ChangeFlightControllerValidationTest {
 
-    private static final LocalDateTime NOW = LocalDateTime.of(2026, 5, 16, 10, 0);
+    private static final LocalDateTime NOW_LDT = LocalDateTime.of(2026, 5, 16, 10, 0);
+    private static final Instant NOW = NOW_LDT.toInstant(ZoneOffset.UTC);
 
     @Test
     void departureInThePastIsInvalid() {
         ChangeFlight service = mockService(true);
         ChangeFlightRequest command = baseRequest();
-        command.setDepartureDateTime(NOW.minusHours(1));
-        command.setArrivalDateTime(NOW.plusDays(1));
+        command.setDepartureDateTime(NOW_LDT.minusHours(1));
+        command.setArrivalDateTime(NOW_LDT.plusDays(1));
         BindingResult bindingResult = new BeanPropertyBindingResult(command, "changeFlight");
 
         catchAndBind(service, command, bindingResult);
@@ -32,8 +36,8 @@ class ChangeFlightControllerValidationTest {
     void arrivalBeforeDepartureIsInvalid() {
         ChangeFlight service = mockService(true);
         ChangeFlightRequest command = baseRequest();
-        command.setDepartureDateTime(NOW.plusDays(1));
-        command.setArrivalDateTime(NOW.plusDays(1).minusHours(1));
+        command.setDepartureDateTime(NOW_LDT.plusDays(1));
+        command.setArrivalDateTime(NOW_LDT.plusDays(1).minusHours(1));
         BindingResult bindingResult = new BeanPropertyBindingResult(command, "changeFlight");
 
         catchAndBind(service, command, bindingResult);
@@ -102,17 +106,26 @@ class ChangeFlightControllerValidationTest {
         command.setAirline("United");
         command.setFlightNumber("UA100");
         command.setDepartureAirport("SFO");
-        command.setDepartureDateTime(NOW.plusDays(1));
+        command.setDepartureDateTime(NOW_LDT.plusDays(1));
         command.setArrivalAirport("JFK");
-        command.setArrivalDateTime(NOW.plusDays(1).plusHours(5));
+        command.setArrivalDateTime(NOW_LDT.plusDays(1).plusHours(5));
         return command;
     }
 
     private ChangeFlight mockService(boolean flightExists) {
-        return new ChangeFlight(null, null) {
+        return new ChangeFlight(null, null, null) {
             @Override public boolean isReadOnly() { return false; }
-            @Override public void changeFlight(UUID commandId, ChangeFlightRequest request, LocalDateTime now) {
-                new ChangeFlightCommand().execute(request, flightExists, now);
+            @Override public void changeFlight(UUID commandId, ChangeFlightRequest request, Instant now) {
+                ZoneId zone = ZoneId.of("UTC");
+                ZonedTimestamp dep = ZonedTimestamp.fromLocal(request.getDepartureDateTime(), zone);
+                ZonedTimestamp arr = ZonedTimestamp.fromLocal(request.getArrivalDateTime(), zone);
+                new ChangeFlightCommand(
+                        FlightId.of(UUID.fromString(request.getFlightId())),
+                        request.getAirline(), request.getFlightNumber(),
+                        AirportCode.of(request.getDepartureAirport()), dep,
+                        AirportCode.of(request.getArrivalAirport()), arr,
+                        request.getReason()
+                ).execute(new ChangeFlightContext(flightExists, now)).toList();
             }
         };
     }

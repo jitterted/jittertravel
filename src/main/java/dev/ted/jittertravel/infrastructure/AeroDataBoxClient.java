@@ -98,9 +98,11 @@ public class AeroDataBoxClient {
 
             String departureAirport = textAt(firstSegment, "departure", "airport", "iata");
             LocalDateTime departureDateTime = parseLocal(textAt(firstSegment, "departure", "scheduledTime", "local"));
+            String departureZoneId = textAt(firstSegment, "departure", "airport", "timeZone");
 
             String arrivalAirport = textAt(lastSegment, "arrival", "airport", "iata");
             LocalDateTime arrivalDateTime = parseLocal(textAt(lastSegment, "arrival", "scheduledTime", "local"));
+            String arrivalZoneId = textAt(lastSegment, "arrival", "airport", "timeZone");
 
             if (departureAirport == null || arrivalAirport == null
                     || departureDateTime == null || arrivalDateTime == null) {
@@ -108,8 +110,8 @@ public class AeroDataBoxClient {
             }
             return Optional.of(new FlightLookupResult(
                     airline, flightNumber,
-                    departureAirport, departureDateTime,
-                    arrivalAirport, arrivalDateTime
+                    departureAirport, departureDateTime, departureZoneId,
+                    arrivalAirport, arrivalDateTime, arrivalZoneId
             ));
         } catch (Exception e) {
             log.warn("Failed to parse AeroDataBox response", e);

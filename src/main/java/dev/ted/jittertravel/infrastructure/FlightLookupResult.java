@@ -7,7 +7,9 @@ public record FlightLookupResult(
         String flightNumber,
         String departureAirport,
         LocalDateTime departureDateTime,
+        String departureZoneId,
         String arrivalAirport,
-        LocalDateTime arrivalDateTime
+        LocalDateTime arrivalDateTime,
+        String arrivalZoneId
 ) {
 }

@@ -1,7 +1,5 @@
 package dev.ted.jittertravel.domain;
 
-import java.time.LocalDateTime;
-
 /**
  * Recorded when an existing flight's details are changed. Full snapshot:
  * carries the complete new set of field values for every field except
@@ -15,9 +13,12 @@ public record FlightChanged(
         String airline,
         String flightNumber,
         AirportCode departureAirport,
-        LocalDateTime departureDateTime,
+        ZonedTimestamp departureDateTime,
         AirportCode arrivalAirport,
-        LocalDateTime arrivalDateTime,
+        ZonedTimestamp arrivalDateTime,
         String reason
 ) implements Event {
+    public FlightChanged {
+        if (reason == null) reason = "";
+    }
 }

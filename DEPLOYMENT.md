@@ -1,7 +1,24 @@
 # JitterTravel — Deployment (Railway)
 
-Status: **configured, not yet verified on a live Railway deploy.** A committed `Dockerfile` and
-`railway.json` make the repo deployable; see [Open items](#open-items) for what to confirm.
+Status: **live on Railway** (first verified deploy 2026-07-26) at **<https://jittertravel.com>** —
+a custom domain attached to the Railway service. A committed `Dockerfile` and `railway.json` drive
+the build; see [Open items](#open-items) for what's still unconfirmed.
+
+> The site is public in the sense that anyone can reach it, but it's a private family app: the
+> data-entry and admin pages sit behind form login and only the read-only views are visible without
+> one (see [Access control](#access-control-secured-profiles)).
+
+## How deploys happen
+
+**Pushing to `main` deploys.** Railway watches the repo and builds every commit that lands on
+`main` — there is no manual promote step and no separate staging environment. Consequences worth
+keeping in mind:
+
+- A merged PR is a production deploy the moment it hits `main`.
+- Anything you don't want in production stays on a branch until it's ready.
+- The health check (`/actuator/health`, `healthcheckTimeout` 120s in `railway.json`) gates the
+  rollout, and `restartPolicyType: ON_FAILURE` retries up to 3 times — a container that can't boot
+  (e.g. missing `TED_PASSWORD`) fails the rollout rather than replacing a healthy instance.
 
 ## What this app is
 
@@ -119,14 +136,14 @@ docker build -t jittertravel . && docker run --rm -p 8080:8080 \
 
 ## Open items
 
-- [ ] **Confirm the `eclipse-temurin:26` tags exist** at deploy time (jdk + jre). If a tag is
-      missing, switch to the available JDK 26 vendor/tag and keep `pom.xml` in sync.
-- [ ] **Database SSL:** the production datasource URL is
-      `jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}` with no `sslmode`. Fine on Railway's
-      private network; if connecting over the public proxy, append `?sslmode=require`.
-- [ ] **Decide on AeroDataBox** — set `AERODATABOX_API_KEY` or accept that flight lookup is off.
-- [ ] **DB privileges:** schema runs automatically on boot; confirm the Postgres user has
-      `CREATE`/`ALTER`.
+- [x] **`eclipse-temurin:26` tags exist** (jdk + jre) — confirmed by the 2026-07-26 deploy building
+      successfully. Re-check when bumping the JDK; keep the two `FROM` lines and `pom.xml` in sync.
+- [x] **DB privileges** — confirmed: the app boots, `schema.sql` runs, and the log shows
+      `Replayed N events from persistent store`, so the Postgres user has `CREATE`/`ALTER`.
+- [x] **Database SSL** — settled: production connects to Postgres over Railway's **private
+      network**, so the URL `jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}` needs no
+      `sslmode`. Only if you ever switch to the public proxy would you append `?sslmode=require`.
+- [x] **AeroDataBox** — `AERODATABOX_API_KEY` is set in production; flight lookup is live.
 - [ ] **Backups:** export/restore is manual via `/admin/export` & `/admin/import`. Use Railway
       Postgres backups as the durable mechanism.
 

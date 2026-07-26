@@ -1,0 +1,10 @@
+{
+    "mcpServers": {
+        "proophboard": {
+            "url": "https://flow.prooph-board.com/mcp",
+            "headers": {
+                "Authorization": "Bearer pb_e18184846efb4a9b92b642d080f3d7a4"
+            }
+        }
+    }
+}

@@ -47,9 +47,10 @@ public class SecurityConfig {
                                 "/plan-gathering", "/plan-gathering/**",
                                 "/clear-conflict", "/clear-conflict/**",
                                 "/api/parse-address").hasRole("OWNER")
-                        // Per-flight and per-train edit must be ordered before the list matchers below.
+                        // Per-item edit pages must be ordered before the list matchers below.
                         .requestMatchers("/booked-flights/*", "/booked-flights/*/lookup",
-                                "/booked-trains/*", "/booked-hotels/*").hasRole("OWNER")
+                                "/booked-trains/*", "/booked-hotels/*",
+                                "/planned-gatherings/*").hasRole("OWNER")
                         // Booking lists: OWNER-only (FAMILY cannot view booking details).
                         .requestMatchers(
                                 "/booked-flights", "/booked-trains", "/booked-hotels",

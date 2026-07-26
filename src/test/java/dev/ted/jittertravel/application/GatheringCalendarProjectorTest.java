@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.Event;
+import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -105,6 +106,42 @@ class GatheringCalendarProjectorTest {
         assertThat(projector.entries())
                 .extracting(CalendarEntry::mainTitle)
                 .containsExactly("Earlier", "Later");
+    }
+
+    @Test
+    void gatheringChangedOverwritesThePlannedEntry() {
+        GatheringCalendarProjector projector = new GatheringCalendarProjector();
+        GatheringId gatheringId = GatheringId.random();
+        GatheringPlanned planned = gathering(gatheringId, "Old Title", DATE, "https://old.example.com");
+        GatheringChanged changed = new GatheringChanged(
+                gatheringId, "New Title", "Federation House",
+                new Address("2 New St", "Manchester", "", "M1 1AA", "GB", null),
+                DATE.plusWeeks(1), LocalTime.of(17, 30), LocalTime.of(20, 0),
+                false, "https://new.example.com");
+
+        projector.handle(Stream.of(stored(planned), stored(changed)));
+
+        assertThat(projector.entries()).hasSize(1);
+        CalendarEntry entry = projector.entries().getFirst();
+        assertThat(entry.mainTitle()).isEqualTo("New Title");
+        assertThat(entry.subTitle()).isEqualTo(List.of("Federation House", "Manchester, GB"));
+        assertThat(entry.start()).isEqualTo(LocalDateTime.of(2026, 7, 17, 17, 30));
+        assertThat(entry.end()).isEqualTo(LocalDateTime.of(2026, 7, 17, 20, 0));
+        assertThat(entry.mapsUrl()).isEqualTo("https://new.example.com");
+    }
+
+    @Test
+    void gatheringChangedToBlankInfoUrlClearsTheMapsUrl() {
+        GatheringCalendarProjector projector = new GatheringCalendarProjector();
+        GatheringId gatheringId = GatheringId.random();
+
+        projector.handle(Stream.of(
+                stored(gathering(gatheringId, "Meetup", DATE, "https://old.example.com")),
+                stored(new GatheringChanged(gatheringId, "Meetup", "Some Venue",
+                        new Address("1 Street", "London", "", "EC1A 1BB", "GB", null),
+                        DATE, START, END, false, ""))));
+
+        assertThat(projector.entries().getFirst().mapsUrl()).isNull();
     }
 
     private static GatheringPlanned gathering(GatheringId id, String title, LocalDate date, String infoUrl) {

@@ -7,6 +7,7 @@ import dev.ted.jittertravel.infrastructure.StoredEvent;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +33,12 @@ public class ItineraryProjector implements EventStreamConsumer {
                 case HotelChanged e -> hotelEntries.put(e.hotelBookingId(), toHotelEntries(e));
                 case ConferenceTentativelyPlanned e -> conferenceEntries.put(e.conferenceId(), toConferenceEntries(e));
                 case ConferenceCancelled(ConferenceId conferenceId, String _) -> conferenceEntries.remove(conferenceId);
-                case GatheringPlanned e -> gatheringEntries.put(e.gatheringId(), toGatheringEntry(e));
+                case GatheringPlanned e -> gatheringEntries.put(e.gatheringId(), toGatheringEntry(
+                        e.title(), e.venueName(), e.location(),
+                        e.speaking(), e.infoUrl(), e.date(), e.startTime(), e.endTime()));
+                case GatheringChanged e -> gatheringEntries.put(e.gatheringId(), toGatheringEntry(
+                        e.title(), e.venueName(), e.location(),
+                        e.speaking(), e.infoUrl(), e.date(), e.startTime(), e.endTime()));
                 default -> {}
             }
         });
@@ -159,13 +165,20 @@ public class ItineraryProjector implements EventStreamConsumer {
                         HotelDayRole.CHECK_OUT, checkOut, mapsUrl));
     }
 
-    private static GatheringItineraryEntry toGatheringEntry(GatheringPlanned e) {
+    private static GatheringItineraryEntry toGatheringEntry(String title,
+                                                            String venueName,
+                                                            Address location,
+                                                            boolean speaking,
+                                                            String infoUrl,
+                                                            LocalDate date,
+                                                            LocalTime startTime,
+                                                            LocalTime endTime) {
         return new GatheringItineraryEntry(
-                e.title(), e.venueName(),
-                e.location().city(), e.location().country(),
-                e.speaking(), e.infoUrl(),
-                e.date().atTime(e.startTime()),
-                e.date().atTime(e.endTime()));
+                title, venueName,
+                location.city(), location.country(),
+                speaking, infoUrl,
+                date.atTime(startTime),
+                date.atTime(endTime));
     }
 
     private static List<ConferenceItineraryEntry> toConferenceEntries(ConferenceTentativelyPlanned e) {

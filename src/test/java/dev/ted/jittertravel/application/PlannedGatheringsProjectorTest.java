@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.Event;
+import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -98,6 +99,40 @@ class PlannedGatheringsProjectorTest {
         assertThat(projector.views(TimeView.ALL, now))
                 .extracting(PlannedGatheringView::title)
                 .containsExactly("Past Meetup", "Upcoming Meetup");
+    }
+
+    @Test
+    void gatheringChangedOverwritesThePlannedView() {
+        PlannedGatheringsProjector projector = new PlannedGatheringsProjector();
+        GatheringId gatheringId = GatheringId.random();
+        GatheringPlanned planned = new GatheringPlanned(
+                gatheringId, "Old Title", "Skills Matter",
+                new Address("1 Example St", "London", "", "EC1A 1BB", "GB", null),
+                DATE_JUN_15, START, END, true, "https://old.example.com");
+        GatheringChanged changed = new GatheringChanged(
+                gatheringId, "New Title", "Federation House",
+                new Address("2 New St", "Manchester", "Greater Manchester", "M1 1AA", "GB", null),
+                DATE_JUN_20, LocalTime.of(17, 30), LocalTime.of(20, 0), false, "https://new.example.com");
+
+        projector.handle(Stream.of(stored(planned), stored(changed)));
+
+        List<PlannedGatheringView> views = projector.views(TimeView.ALL, NOW);
+        assertThat(views).hasSize(1);
+        PlannedGatheringView view = views.getFirst();
+        assertThat(view.gatheringId()).isEqualTo(gatheringId);
+        assertThat(view.title()).isEqualTo("New Title");
+        assertThat(view.venueName()).isEqualTo("Federation House");
+        assertThat(view.street()).isEqualTo("2 New St");
+        assertThat(view.city()).isEqualTo("Manchester");
+        assertThat(view.region()).isEqualTo("Greater Manchester");
+        assertThat(view.postalCode()).isEqualTo("M1 1AA");
+        assertThat(view.date()).isEqualTo(DATE_JUN_20);
+        assertThat(view.startTime()).isEqualTo(LocalTime.of(17, 30));
+        assertThat(view.endTime()).isEqualTo(LocalTime.of(20, 0));
+        assertThat(view.speaking())
+                .as("speaking flag should be overwritten by the change")
+                .isFalse();
+        assertThat(view.infoUrl()).isEqualTo("https://new.example.com");
     }
 
     private static GatheringPlanned gathering(GatheringId id, String title, LocalDate date) {

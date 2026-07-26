@@ -33,6 +33,7 @@ public final class ImportableCommandTypes {
         register("ChangeTrain", ChangeTrainRequest.class);
         register("PlanTentativeConference", PlanTentativeConferenceRequest.class);
         register("PlanGathering", PlanGatheringRequest.class);
+        register("ChangeGathering", ChangeGatheringRequest.class);
         register("MigrateConferenceToGathering", MigrateConferenceToGathering.class);
         register("ClearDifferentCityConflict", ClearDifferentCityConflict.class);
 

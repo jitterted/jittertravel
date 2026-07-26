@@ -455,6 +455,35 @@ class ItineraryProjectorTest {
                 .isEmpty();
     }
 
+    @Test
+    void gatheringChangedMovesTheEntryToItsNewDateAndDetails() {
+        ItineraryProjector projector = new ItineraryProjector();
+        GatheringId gatheringId = GatheringId.random();
+        GatheringPlanned planned = new GatheringPlanned(
+                gatheringId, "Old Title", "Skills Matter",
+                new Address("1 Example St", "London", "", "EC1A 1BB", "GB", null),
+                DATE, LocalTime.of(18, 0), LocalTime.of(21, 0), true, "https://old.example.com");
+        GatheringChanged changed = new GatheringChanged(
+                gatheringId, "New Title", "Federation House",
+                new Address("2 New St", "Manchester", "", "M1 1AA", "GB", null),
+                DATE.plusDays(1), LocalTime.of(17, 30), LocalTime.of(20, 0), false, "https://new.example.com");
+
+        projector.handle(Stream.of(stored(planned), stored(changed)));
+
+        assertThat(projector.entriesForDate(DATE))
+                .as("gathering must no longer appear on its original date")
+                .isEmpty();
+        List<ItineraryEntry> entries = projector.entriesForDate(DATE.plusDays(1));
+        assertThat(entries).hasSize(1);
+        GatheringItineraryEntry entry = (GatheringItineraryEntry) entries.getFirst();
+        assertThat(entry.title()).isEqualTo("New Title");
+        assertThat(entry.venueName()).isEqualTo("Federation House");
+        assertThat(entry.city()).isEqualTo("Manchester");
+        assertThat(entry.speaking()).as("speaking flag should be overwritten by the change").isFalse();
+        assertThat(entry.infoUrl()).isEqualTo("https://new.example.com");
+        assertThat(entry.anchorTime()).isEqualTo(DATE.plusDays(1).atTime(17, 30));
+    }
+
     private static StoredEvent stored(Event event) {
         return new StoredEvent(1, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID());
     }

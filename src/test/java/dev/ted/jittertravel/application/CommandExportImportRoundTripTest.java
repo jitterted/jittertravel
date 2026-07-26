@@ -37,6 +37,7 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
     @Autowired TrainBooking trainBooking;
     @Autowired ChangeTrain changeTrain;
     @Autowired GatheringPlanning gatheringPlanning;
+    @Autowired ChangeGathering changeGathering;
     @Autowired ConferenceMigrationService conferenceMigrationService;
     @Autowired CommandImporter commandImporter;
     @Autowired PostgresPersister persister;
@@ -55,7 +56,9 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         changeTrain.changeTrain(UUID.randomUUID(), changeTrain(trainTripId), LocalDateTime.now());
         conferencePlanning.planConference(planConference(UUID.randomUUID().toString(),
                 FUTURE.atTime(9, 0), FUTURE.plusDays(2).atTime(17, 0)));  // multi-day, stays tentative
-        gatheringPlanning.planGathering(planGathering(), LocalDate.now());
+        String gatheringId = UUID.randomUUID().toString();
+        gatheringPlanning.planGathering(planGathering(gatheringId), LocalDate.now());
+        changeGathering.changeGathering(UUID.randomUUID(), changeGathering(gatheringId), LocalDate.now());
 
         // single-day conference that we then migrate to a gathering
         String migratedConferenceId = UUID.randomUUID().toString();
@@ -206,9 +209,9 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         return r;
     }
 
-    private static PlanGatheringRequest planGathering() {
+    private static PlanGatheringRequest planGathering(String gatheringId) {
         PlanGatheringRequest r = new PlanGatheringRequest();
-        r.setGatheringId(UUID.randomUUID().toString());
+        r.setGatheringId(gatheringId);
         r.setTitle("London Java Community");
         r.setVenueName("Skills Matter");
         r.setStreet("1 Example St");
@@ -222,6 +225,25 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         r.setEndTime(LocalTime.of(21, 0));
         r.setSpeaking(true);
         r.setInfoUrl("https://meetup.com/ljc/events/123");
+        return r;
+    }
+
+    private static ChangeGatheringRequest changeGathering(String gatheringId) {
+        ChangeGatheringRequest r = new ChangeGatheringRequest();
+        r.setGatheringId(gatheringId);
+        r.setTitle("London Java Community — rescheduled");
+        r.setVenueName("Federation House");
+        r.setStreet("2 New St");
+        r.setCity("Manchester");
+        r.setRegion("Greater Manchester");
+        r.setPostalCode("M1 1AA");
+        r.setCountry("GB");
+        r.setLocationForMatching("Manchester");
+        r.setDate(FUTURE.plusDays(1));
+        r.setStartTime(LocalTime.of(17, 30));
+        r.setEndTime(LocalTime.of(20, 0));
+        r.setSpeaking(false);
+        r.setInfoUrl("https://meetup.com/ljc/events/456");
         return r;
     }
 }

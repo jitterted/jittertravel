@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(TimelineController.class)
@@ -57,6 +58,41 @@ class TimelineControllerTest {
                 .bodyText()
                 .contains("Failed: domain")
                 .contains("Pending");
+    }
+
+    @Test
+    void newestFirstFirstPageLoadsTheTailOfTheCommandLog() {
+        given(persister.countCommands(anyString())).willReturn(120);
+        given(persister.loadTimelinePage(anyInt(), anyInt(), anyString())).willReturn(List.of());
+
+        assertThat(mockMvc.get().uri("/admin/commandlog"))
+                .hasStatusOk();
+
+        // Newest-first is the default, so the first page must be the last 50 rows of the
+        // oldest-first query — otherwise a just-recorded command hides on the final page.
+        verify(persister).loadTimelinePage(70, 50, "");
+    }
+
+    @Test
+    void oldestFirstFirstPageLoadsTheHeadOfTheCommandLog() {
+        given(persister.countCommands(anyString())).willReturn(120);
+        given(persister.loadTimelinePage(anyInt(), anyInt(), anyString())).willReturn(List.of());
+
+        assertThat(mockMvc.get().uri("/admin/commandlog").param("reverse", "false"))
+                .hasStatusOk();
+
+        verify(persister).loadTimelinePage(0, 50, "");
+    }
+
+    @Test
+    void orderToggleRestartsAtFirstPageBecausePageNumbersFollowDisplayOrder() {
+        given(persister.countCommands(anyString())).willReturn(120);
+        given(persister.loadTimelinePage(anyInt(), anyInt(), anyString())).willReturn(List.of());
+
+        assertThat(mockMvc.get().uri("/admin/commandlog").param("page", "2"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("/admin/commandlog?page=0&amp;reverse=false");
     }
 
     @Test

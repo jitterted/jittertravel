@@ -327,10 +327,11 @@
             (<span th:text="${pageSize}">50</span> per page)
         </span>
         <span>
+            <!-- Page numbers follow display order, so flipping the order must restart at page 1. -->
             <a th:if="${reverse}"
-               th:href="@{/admin/commandlog(page=${page}, reverse=false, status=${status})}">Oldest first ↑</a>
+               th:href="@{/admin/commandlog(page=0, reverse=false, status=${status})}">Oldest first ↑</a>
             <a th:unless="${reverse}"
-               th:href="@{/admin/commandlog(page=${page}, reverse=true, status=${status})}">Newest first ↓</a>
+               th:href="@{/admin/commandlog(page=0, reverse=true, status=${status})}">Newest first ↓</a>
         </span>
         <span>
             <a th:if="${hasPrev}"

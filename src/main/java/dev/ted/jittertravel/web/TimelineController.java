@@ -38,8 +38,10 @@ class TimelineController {
             safePage = totalPages - 1;
         }
 
-        int offset = safePage * PAGE_SIZE;
-        List<TimelineEntry> entries = persister.loadTimelinePage(offset, PAGE_SIZE, status);
+        // The query is always oldest-first, so a newest-first display page maps to a
+        // window counted back from the end of the log.
+        PageWindow window = new PageWindow(totalCommands, PAGE_SIZE, safePage, reverse);
+        List<TimelineEntry> entries = persister.loadTimelinePage(window.offset(), window.limit(), status);
 
         // Divergence is computed in canonical oldest-first order; reverse only for display.
         if (reverse) {

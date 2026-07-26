@@ -1,5 +1,7 @@
 .DS_Store
 target/
+# Local database dumps from scripts/backup-db.sh — real data, never commit.
+backups/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

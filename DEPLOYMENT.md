@@ -144,8 +144,75 @@ docker build -t jittertravel . && docker run --rm -p 8080:8080 \
       network**, so the URL `jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}` needs no
       `sslmode`. Only if you ever switch to the public proxy would you append `?sslmode=require`.
 - [x] **AeroDataBox** — `AERODATABOX_API_KEY` is set in production; flight lookup is live.
-- [ ] **Backups:** export/restore is manual via `/admin/export` & `/admin/import`. Use Railway
-      Postgres backups as the durable mechanism.
+- [x] **Backups** — Railway's built-in backups need a **Pro** subscription, which we're not buying,
+      so backups are **manual**: run `scripts/backup-db.sh`. See [Backups](#backups) below. The one
+      thing still on you is *remembering to run it* — there is no automatic schedule.
+
+## Backups
+
+Railway's automated Postgres backups are a **Pro**-plan feature and we don't subscribe, so backups
+are manual and there is **no schedule** — nothing runs unless you run it.
+
+### Taking a backup
+
+```
+railway link          # once per machine: pick the JitterTravel project
+scripts/backup-db.sh  # → backups/jittertravel-YYYYMMDD-HHMMSSZ.dump
+```
+
+What the script does:
+
+1. Reads `DATABASE_PUBLIC_URL` from the Postgres service via the Railway CLI. The private
+   `*.railway.internal` host is unreachable from a laptop, so the dump goes over the public TCP
+   proxy. (Service name override: `DB_SERVICE=...`; or set `DB_URL=...` yourself and Railway is
+   skipped entirely, which also lets you dump a local database.)
+2. Asks the live server its version and runs a **matching** `pg_dump` in Docker — nothing to install
+   locally, and no "server version mismatch" failure when Railway upgrades Postgres.
+3. Writes a compressed custom-format dump (`-Fc`, restorable whole or table-by-table).
+4. **Verifies** the dump: `pg_restore --list` must succeed *and* contain data for `command_log` and
+   `event_log`. A dump failing either check is deleted rather than left around looking like a
+   backup.
+5. Prunes to the most recent `KEEP` dumps (default 14): `KEEP=30 scripts/backup-db.sh`.
+
+Prerequisites: Railway CLI (logged in + linked), Docker running, `jq`. `BACKUP_DIR` defaults to
+`./backups`, which is **gitignored** — these dumps are real data, so keep them out of the repo and
+copy them somewhere off this machine (the whole point of a backup is surviving the laptop).
+
+Good moments to run it: before pushing a schema or event-shape change, before an `/admin/import`,
+and on whatever regular cadence you'll actually keep.
+
+### Restoring
+
+Deliberately **not** scripted — a restore overwrites live family data, so it stays a hands-on,
+read-the-command-before-you-run-it operation. Restore into a *fresh* database first and look at it:
+
+```
+# 1. Get the proxy URL (contains the password — don't paste it anywhere shared):
+railway variables list --service Postgres --kv | grep DATABASE_PUBLIC_URL
+
+# 2. Restore into a NEW database and inspect it (safe — touches nothing live):
+docker run --rm -i -e U="<proxy-url-with-/scratch-db-name>" postgres:18-alpine \
+  sh -c 'pg_restore -d "$U" --no-owner --no-privileges' < backups/jittertravel-<stamp>.dump
+
+# 3. Only once that looks right, restore over the real database, adding --clean
+#    to drop existing objects first. This DESTROYS current production data.
+```
+
+Then redeploy (or restart) the app so it replays `event_log` into its in-memory projections; watch
+for `Replayed N events from persistent store` and confirm `N` matches expectations.
+
+### Second layer: the app's JSON export
+
+`/admin/export` downloads `commands.json` — every row of `command_log`, and `/admin/import` replays
+them. Useful as a portable, human-readable snapshot, but it is **not** a substitute for `pg_dump`:
+
+- It covers **commands only**. `event_log` is *re-derived* by re-executing each command on import,
+  so event ids, sequences and timestamps are new rather than restored byte-for-byte.
+- Its format is a compatibility contract — old export files must stay importable, so treat any
+  change to it carefully.
+
+Use `pg_dump` as the real backup; use the JSON export when you want a readable snapshot or to move
+data into a scratch instance.
 
 ## Quick start
 

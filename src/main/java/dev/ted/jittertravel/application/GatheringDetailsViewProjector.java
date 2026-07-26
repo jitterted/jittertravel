@@ -8,23 +8,26 @@ import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
-public class PlannedGatheringsProjector implements EventStreamConsumer {
+/**
+ * Projects gathering events into the {@link GatheringDetailsView} used by the edit screen.
+ * Single-purpose: serves one view (the change-gathering form). Both {@link GatheringPlanned} and
+ * {@link GatheringChanged} are full snapshots, so each new event simply overwrites the entry keyed
+ * by {@link GatheringId}. Mirrors {@link TrainDetailsViewProjector}.
+ */
+public class GatheringDetailsViewProjector implements EventStreamConsumer {
 
-    private final Map<GatheringId, PlannedGatheringView> viewsById = new ConcurrentHashMap<>();
+    private final Map<GatheringId, GatheringDetailsView> viewsById = new ConcurrentHashMap<>();
 
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(stored -> {
             switch (stored.payload()) {
-                // Both events are full snapshots, so a change overwrites the planned view.
                 case GatheringPlanned e -> viewsById.put(e.gatheringId(), toView(
                         e.gatheringId(), e.title(), e.venueName(), e.location(),
                         e.date(), e.startTime(), e.endTime(), e.speaking(), e.infoUrl()));
@@ -36,7 +39,7 @@ public class PlannedGatheringsProjector implements EventStreamConsumer {
         });
     }
 
-    private static PlannedGatheringView toView(GatheringId gatheringId,
+    private static GatheringDetailsView toView(GatheringId gatheringId,
                                                String title,
                                                String venueName,
                                                Address location,
@@ -45,27 +48,11 @@ public class PlannedGatheringsProjector implements EventStreamConsumer {
                                                LocalTime endTime,
                                                boolean speaking,
                                                String infoUrl) {
-        return new PlannedGatheringView(
-                gatheringId,
-                title,
-                venueName,
-                location.street(),
-                location.city(),
-                location.region(),
-                location.postalCode(),
-                location.country(),
-                date,
-                startTime,
-                endTime,
-                speaking,
-                infoUrl
-        );
+        return new GatheringDetailsView(gatheringId, title, venueName, location,
+                date, startTime, endTime, speaking, infoUrl);
     }
 
-    public List<PlannedGatheringView> views(TimeView timeView, LocalDateTime now) {
-        return viewsById.values().stream()
-                .filter(view -> timeView.includes(view, now))
-                .sorted(Comparator.comparing(PlannedGatheringView::date))
-                .toList();
+    public Optional<GatheringDetailsView> findById(GatheringId gatheringId) {
+        return Optional.ofNullable(viewsById.get(gatheringId));
     }
 }

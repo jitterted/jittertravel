@@ -220,6 +220,20 @@ public class EventSourcingConfig {
     }
 
     @Bean
+    public GatheringDetailsViewProjector gatheringDetailsViewProjector(EventStore eventStore) {
+        GatheringDetailsViewProjector projector = new GatheringDetailsViewProjector();
+        eventStore.subscribe(projector);
+        projector.handle(eventStore.findAll());
+        return projector;
+    }
+
+    @Bean
+    public ChangeGathering changeGatheringApplicationService(
+            CommandExecutor commandExecutor, GatheringDetailsViewProjector gatheringDetailsViewProjector) {
+        return new ChangeGathering(commandExecutor, gatheringDetailsViewProjector);
+    }
+
+    @Bean
     public GatheringCalendarProjector gatheringCalendarProjector(EventStore eventStore) {
         GatheringCalendarProjector projector = new GatheringCalendarProjector();
         eventStore.subscribe(projector);

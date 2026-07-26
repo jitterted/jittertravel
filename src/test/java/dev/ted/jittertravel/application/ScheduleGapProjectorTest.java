@@ -477,6 +477,29 @@ class ScheduleGapProjectorTest {
                     .filteredOn(p -> p instanceof ScheduleProblem.SchedulingConflict)
                     .hasSize(1);
         }
+
+        @Test
+        void changingAGatheringToANonOverlappingSlotClearsTheConflict() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            GatheringId movedId = GatheringId.random();
+            projector.handle(Stream.of(
+                    stored(gathering("LJC", SEP_15, LocalTime.of(18, 0), LocalTime.of(21, 0))),
+                    stored(gatheringWithId(movedId, "London", "MJUG", SEP_15,
+                            LocalTime.of(19, 30), LocalTime.of(22, 0)))));
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.SchedulingConflict)
+                    .as("the two gatherings overlap before the change")
+                    .hasSize(1);
+
+            projector.handle(Stream.of(stored(new GatheringChanged(movedId, "MJUG", "Venue",
+                    new Address("1 Street", "London", "", "", "", null),
+                    SEP_16, LocalTime.of(19, 30), LocalTime.of(22, 0), false, ""))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.SchedulingConflict)
+                    .as("moving one gathering to another day resolves the overlap")
+                    .isEmpty();
+        }
     }
 
     // -------------------------------------------------------------------------

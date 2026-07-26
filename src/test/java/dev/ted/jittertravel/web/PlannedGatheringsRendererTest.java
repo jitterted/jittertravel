@@ -100,6 +100,20 @@ class PlannedGatheringsRendererTest {
         assertThat(html).doesNotContain("Event page");
     }
 
+    @Test
+    void eachCardLinksToItsEditPage() {
+        GatheringId gatheringId = GatheringId.random();
+        PlannedGatheringView gathering = new PlannedGatheringView(
+                gatheringId, "Some Meetup", "Venue", "", "City", "", "", "US",
+                AUG_20_2026, SIX_PM, NINE_PM, false, "");
+
+        String html = PlannedGatheringsRenderer.render(List.of(gathering), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<a class=\"gathering-edit-link\" href=\"/planned-gatherings/"
+                        + gatheringId.id() + "\">Edit</a>");
+    }
+
     private PlannedGatheringView view(String title, String venueName, String city, String country,
                                       boolean speaking, String infoUrl) {
         return new PlannedGatheringView(

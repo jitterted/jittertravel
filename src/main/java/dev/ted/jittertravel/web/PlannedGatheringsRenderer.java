@@ -38,6 +38,7 @@ public class PlannedGatheringsRenderer {
                     border-radius: 4px; padding: 0.15rem 0.45rem;
                 }
                 .info-link { font-size: 0.82rem; color: #6d28d9; text-decoration: underline; }
+                .gathering-edit-link { font-size: 0.82rem; color: #6d28d9; text-decoration: underline; }
                 .empty-state { font-style: italic; font-size: 0.9rem; }
             """;
 
@@ -84,6 +85,8 @@ public class PlannedGatheringsRenderer {
                     .withTarget("_blank")
                     .withRel("noopener"));
         }
+        footer.with(a("Edit").withClass("gathering-edit-link")
+                .withHref("/planned-gatherings/" + g.gatheringId().id()));
 
         DivTag contentCol = div(
                 div(g.title()).withClass("gathering-title"),

@@ -52,6 +52,9 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 case GatheringPlanned e -> gatheringOccupancies.put(e.gatheringId(),
                         new GatheringOccupancy(e.title(), e.location().locationForMatching(),
                                 e.date(), e.startTime(), e.endTime()));
+                case GatheringChanged e -> gatheringOccupancies.put(e.gatheringId(),
+                        new GatheringOccupancy(e.title(), e.location().locationForMatching(),
+                                e.date(), e.startTime(), e.endTime()));
                 case DifferentCityConflictCleared e ->
                         clearedConflicts.add(new ClearedConflict(e.gatheringId(), e.conferenceId()));
                 default -> {}

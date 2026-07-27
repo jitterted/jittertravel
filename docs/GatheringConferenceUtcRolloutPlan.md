@@ -27,6 +27,13 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done. Nothing her
    one `resolve` call per command, one `CommonZone` picker per form.
 5. **The command/request wire shape does not change.** Only an optional `zone` field is added.
    See "Backward compatibility" — this is what keeps existing backups importable.
+6. **Schedule conflicts: detect by instant, report in entry-zone local.** Comparing wall-clock
+   date+time across two zones compares numbers that denote different moments, and the "same
+   calendar date" precondition is the bigger liability — it hides any conflict that straddles
+   midnight in one of the zones (a San Francisco evening gathering and a Tokyo morning gathering
+   two hours apart in real time are never even compared). Detection therefore moves to `utc()`
+   comparisons; the problem records keep their `LocalDate`/`LocalTime` fields, derived from
+   `atEntryZone()`, so displayed messages are unchanged.
 
 ## Why gathering is harder than the previous three
 
@@ -70,12 +77,16 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
 5. `[ ]` **Projectors** — `PlannedGatheringsProjector`, `GatheringDetailsViewProjector`,
    `GatheringCalendarProjector` (`date.atTime(startTime)` → `startsAt.localDateTime()`),
    `GatheringItineraryEntry` + `ItineraryProjector`.
-6. `[ ]` **`ScheduleGapProjector`** — `GatheringOccupancy` currently overlaps by comparing
-   `LocalTime`s on an equal `LocalDate`, and `detectDifferentCityConflicts` compares a gathering's
-   `LocalDate` against a conference's date range. **Recommendation: compare instants**
-   (`a.startsAt().utc().isBefore(b.endsAt().utc()) && ...`), which is correct across zones and needs
-   no same-day precondition; keep *day bucketing* for display in the entry zone (decision 7 of the
-   master plan). Open for review — see "Open questions".
+6. `[ ]` **`ScheduleGapProjector` — instants for detection, entry-zone locals for reporting**
+   (decided 2026-07-26, decision 6 below). `GatheringOccupancy.overlapsWith` becomes
+   `this.startsAt.utc().isBefore(other.endsAt.utc()) && other.startsAt.utc().isBefore(this.endsAt.utc())`
+   — the `date.equals(other.date)` precondition **goes away entirely**, which is the point: it is
+   what currently hides any conflict straddling midnight in one of the two zones.
+   `detectDifferentCityConflicts` likewise compares the gathering's instants against the
+   conference's `startsAt`/`endsAt` instants instead of `LocalDate`s. `ScheduleProblem`
+   (`SchedulingConflict`, `DifferentCityConflict`) keeps carrying `LocalDate`/`LocalTime` for its
+   messages, now derived from `atEntryZone()` — displayed text is unchanged. Day *bucketing* for
+   display stays entry-zone (decision 7 of the master plan).
 7. `[ ]` **Web** — `PlanGatheringRequest`/`ChangeGatheringRequest` keep `date`/`startTime`/`endTime`
    and gain an optional `zone` (a `CommonZone` name); `events()` passes a real
    `LocationZoneResolver`. Controllers add `@ModelAttribute("commonZones")` and a
@@ -167,9 +178,12 @@ New tests this slice must add — the gaps found reviewing the earlier slices:
 2. `[ ]` **`EventPayloadUpcasterTest` cases** for `GatheringPlanned`/`GatheringChanged` (three keys →
    two, legacy keys removed, idempotent on new-shape input) and `ConferenceTentativelyPlanned`.
    While here: the flight cases added in `d2884fb` have **no upcaster test at all** — add them.
-3. `[ ]` **Golden legacy coverage** — give `GoldenEventDeserializationTest` an
-   upcast-then-deserialize path and add legacy-shape samples for gathering and conference (and,
-   retroactively, hotel/train/flight, which lost theirs). Keep the new-shape samples too.
+3. `[ ]` **Golden legacy coverage — decided 2026-07-26: build this now, in this slice.** Give
+   `GoldenEventDeserializationTest` an upcast-then-deserialize path and add legacy-shape samples for
+   gathering and conference **and**, retroactively, for hotel/train/flight, which lost theirs when
+   their samples were rewritten to the new shape. Keep the new-shape samples too. Writing the path
+   once covers all five types, and it is the master plan's phase-5 "old golden files pass through
+   the upcaster" bullet finally landing.
 4. `[ ]` **`CommandExportImportRoundTripTest`** — a zone-less legacy gathering command and a
    zone-less legacy conference command must both import and produce the right instants.
 5. `[ ]` **`MigrateConferenceToGathering.events()`** — direct test that it resolves a zone from its
@@ -185,10 +199,20 @@ New tests this slice must add — the gaps found reviewing the earlier slices:
 `[ ]` Finish with the "All Tests" IDEA run configuration + `./mvnw test -Pjs-tests`, and stage all
 new files for review.
 
-## Open questions
+## Resolved questions
 
-1. **`ScheduleGapProjector` overlap semantics** (gathering step 6): switch conflict detection to
-   instant comparison, or keep entry-zone local comparison? Instants are correct across zones;
-   entry-zone locals preserve exactly today's behavior. Recommendation: instants.
-2. **Backfill scope** — do the hotel/train/flight handler tests and golden legacy samples (tests 1
-   and 3) ride along with this slice, or land as a separate cleanup commit afterwards?
+1. ~~`ScheduleGapProjector` overlap semantics~~ — **resolved 2026-07-26:** instants for detection,
+   entry-zone locals for reporting (decision 6, gathering step 6). Test cases to write from the
+   scenarios that motivated it:
+   - two gatherings whose entry-zone locals overlap but whose instants do not (Amsterdam
+     19:00–20:30 CEST vs London 19:30–21:00 BST) ⇒ **no** `SchedulingConflict`;
+   - two gatherings on different entry-zone dates whose instants overlap (San Francisco Oct 3
+     18:00–21:00 PDT vs Tokyo Oct 4 09:00–12:00 JST) ⇒ `SchedulingConflict` reported;
+   - a gathering starting before a conference ends in another zone, on a later entry-zone date
+     (Tokyo Oct 8 06:00 JST vs a Chicago conference ending Oct 7 17:00 CDT) ⇒
+     `DifferentCityConflict` reported;
+   - a same-zone pair, to pin that the common case is unaffected.
+2. ~~Backfill scope~~ — **resolved 2026-07-26:** the golden upcast path and its legacy samples for
+   all five event types are built in this slice (test 3). The handler zone tests (test 1) are
+   written for gathering/conference here; backfilling hotel/train/flight with them is a ride-along
+   if convenient, otherwise a follow-up.

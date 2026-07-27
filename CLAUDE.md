@@ -25,6 +25,20 @@ durable. If persistence fails, the exception propagates and subscribers are neve
 
 Covered by `EventStoreTest.subscribersNotNotifiedWhenPersistenceFails()`.
 
+### Import is validate-then-apply, and resumable
+
+`CommandImporter.importJson` runs two passes: pass one deserializes every entry and recomputes
+its events **writing nothing**, pass two applies them (via `CommandExecutor`, per the rule above).
+Any validation error means zero writes, and *all* bad entries are reported together.
+
+**Why:** import failures are usually data problems in a few entries (an address whose zone
+doesn't resolve). Applying entries as they are read leaves a half-populated database that has to
+be wiped. Pass two also skips commands whose id is already in `command_log`, so re-running a
+fixed file resumes instead of colliding on the primary key.
+
+Keep new work in `events()` — it runs during validation, where throwing is safe and cheap.
+Covered by `CommandImportSafetyTest`.
+
 ## Testing
 
 ### List views: future/all toggle is a shared, enforced convention

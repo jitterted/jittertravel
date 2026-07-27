@@ -74,7 +74,7 @@ class AdminControllerTest {
     @Test
     void importSuccessRendersSuccessView() {
         given(commandImporter.importJson(anyString()))
-                .willReturn(new CommandImporter.ImportResult(3, List.of()));
+                .willReturn(new CommandImporter.ImportResult(3, 0, List.of()));
 
         assertThat(mockMvc.post().uri("/admin/import")
                 .with(csrf())
@@ -85,9 +85,22 @@ class AdminControllerTest {
     }
 
     @Test
+    void importSuccessViewReportsSkippedAlreadyImportedCommands() {
+        given(commandImporter.importJson(anyString()))
+                .willReturn(new CommandImporter.ImportResult(1, 2, List.of()));
+
+        assertThat(mockMvc.post().uri("/admin/import")
+                .with(csrf())
+                .param("content", "[]"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("Skipped 2 commands already in the log.");
+    }
+
+    @Test
     void importWithErrorsRedisplaysFormWithErrors() {
         given(commandImporter.importJson(anyString()))
-                .willReturn(new CommandImporter.ImportResult(0, List.of("Failed to import Foo: boom")));
+                .willReturn(new CommandImporter.ImportResult(0, 0, List.of("Failed to import Foo: boom")));
 
         assertThat(mockMvc.post().uri("/admin/import")
                 .with(csrf())

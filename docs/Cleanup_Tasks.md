@@ -7,9 +7,10 @@ done. For larger structural refactors, see `Refactoring_Opportunities.md`.
 ## Open
 
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
-- [ ] Migrate the three application services that still inject `EventStore` directly onto
-      `CommandExecutor` (`execute`/`appendEvents`): `ChangeFlight`, `ConferencePlanning`,
-      `FlightBooking`. **Then** add an ArchUnit test verifying no class in the `application`
+- [ ] Migrate the one remaining application service that still injects `EventStore` directly onto
+      `CommandExecutor` (`execute`/`appendEvents`): `ConferencePlanning`. (`ChangeFlight` and
+      `FlightBooking` have since been migrated; `CommandImporter` moved over with the
+      validate-then-apply import work.) **Then** add an ArchUnit test verifying no class in the `application`
       package has a field of type `EventStore` (enforces "use CommandExecutor, never
       EventStore directly"). Home: `src/test/java/.../architecture/`. Hard prerequisite for
       the conditional-append work in `CommandConsistencyEventStore.md` (the consistency guard

@@ -53,6 +53,7 @@ public class AdminController {
         CommandImporter.ImportResult result = commandImporter.importJson(content);
         if (!result.hasErrors()) {
             model.addAttribute("importedCount", result.importedCount());
+            model.addAttribute("skippedCount", result.skippedCount());
             return "admin-import-success";
         }
         model.addAttribute("errors", result.errors());

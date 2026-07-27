@@ -90,6 +90,8 @@
     <div class="checkmark">✓</div>
     <h1>Import complete</h1>
     <p th:text="'Successfully imported ' + ${importedCount} + ' command' + (${importedCount} != 1 ? 's' : '') + '.'"></p>
+    <p th:if="${skippedCount > 0}"
+       th:text="'Skipped ' + ${skippedCount} + ' command' + (${skippedCount} != 1 ? 's' : '') + ' already in the log.'"></p>
     <div class="links">
         <a class="btn btn-primary" href="/admin/commandlog">View command log</a>
         <a class="btn btn-secondary" href="/admin">Admin</a>

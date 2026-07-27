@@ -125,9 +125,9 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public CommandImporter commandImporter(PostgresPersister persister, EventStore eventStore,
-                                          tools.jackson.databind.json.JsonMapper jsonMapper) {
-        return new CommandImporter(persister, eventStore, jsonMapper);
+    public CommandImporter commandImporter(PostgresPersister persister, CommandExecutor commandExecutor,
+                                           JsonMapper jsonMapper) {
+        return new CommandImporter(persister, commandExecutor, jsonMapper);
     }
 
     @Bean

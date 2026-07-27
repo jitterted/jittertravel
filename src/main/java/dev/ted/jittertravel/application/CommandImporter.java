@@ -1,6 +1,6 @@
 package dev.ted.jittertravel.application;
 
-import dev.ted.jittertravel.infrastructure.EventStore;
+import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.web.ImportableCommand;
 import dev.ted.jittertravel.web.ImportableCommandTypes;
@@ -8,18 +8,35 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Exports the command log to JSON and re-applies such an export.
+ *
+ * <p><strong>Import is validate-then-apply.</strong> Every entry is deserialized and its events
+ * recomputed <em>before</em> anything is written; if any entry fails, nothing is written at all.
+ * That matters because import failures are typically data problems affecting a handful of entries
+ * (an address whose zone doesn't resolve, say), and a half-applied import leaves a database that
+ * has to be wiped. Validating first also reports <em>every</em> bad entry in one pass, so the file
+ * can be fixed in one editing round rather than one entry at a time.
+ *
+ * <p><strong>Import is resumable.</strong> Commands whose id is already in {@code command_log} are
+ * skipped, so re-running the same file after fixing it — or after an infrastructure failure
+ * mid-apply — imports only what is missing instead of colliding on the primary key.
+ */
 public class CommandImporter {
 
     private final PostgresPersister persister;
-    private final EventStore eventStore;
+    private final CommandExecutor commandExecutor;
     private final JsonMapper jsonMapper;
 
-    public CommandImporter(PostgresPersister persister, EventStore eventStore, JsonMapper jsonMapper) {
+    public CommandImporter(PostgresPersister persister, CommandExecutor commandExecutor, JsonMapper jsonMapper) {
         this.persister = persister;
-        this.eventStore = eventStore;
+        this.commandExecutor = commandExecutor;
         this.jsonMapper = jsonMapper;
     }
 
@@ -36,36 +53,92 @@ public class CommandImporter {
     }
 
     public ImportResult importJson(String json) {
-        List<String> errors = new ArrayList<>();
-        int importedCount = 0;
+        JsonNode root;
         try {
-            JsonNode root = jsonMapper.readTree(json);
-            for (JsonNode entry : root) {
-                String type = entry.get("type").asText();
-                JsonNode payload = entry.get("payload");
-                try {
-                    importEntry(type, payload);
-                    importedCount++;
-                } catch (Exception e) {
-                    errors.add("Failed to import %s: %s".formatted(type, e.getMessage()));
-                }
-            }
+            root = jsonMapper.readTree(json);
         } catch (Exception e) {
-            errors.add("Failed to parse JSON: " + e.getMessage());
+            return new ImportResult(0, 0, List.of("Failed to parse JSON: " + e.getMessage()));
         }
-        return new ImportResult(importedCount, errors);
+
+        Validation validation = validate(root);
+        if (validation.hasErrors()) {
+            return new ImportResult(0, 0, validation.errors());  // nothing written: fix the file and re-run
+        }
+        return apply(validation.commands());
     }
 
-    public record ImportResult(int importedCount, List<String> errors) {
+    public record ImportResult(int importedCount, int skippedCount, List<String> errors) {
         public boolean hasErrors() { return !errors.isEmpty(); }
     }
 
-    private void importEntry(String type, JsonNode payloadNode) {
+    /**
+     * Pass one: deserialize every entry and recompute its events, writing nothing. Collects an
+     * error per unusable entry rather than stopping at the first, so one run reports the whole
+     * list of problems.
+     */
+    private Validation validate(JsonNode root) {
+        List<PreparedCommand> commands = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        Map<UUID, Integer> firstEntryUsingId = new HashMap<>();
+        int index = 0;
+        for (JsonNode entry : root) {
+            JsonNode typeNode = entry.get("type");
+            JsonNode payloadNode = entry.get("payload");
+            String type = typeNode == null ? "no type" : typeNode.asText();
+            try {
+                if (typeNode == null || payloadNode == null) {
+                    throw new IllegalArgumentException("entry needs both a 'type' and a 'payload'");
+                }
+                PreparedCommand command = prepare(index, type, payloadNode);
+                Integer duplicateOf = firstEntryUsingId.putIfAbsent(command.commandId(), index);
+                if (duplicateOf == null) {
+                    commands.add(command);
+                } else {
+                    errors.add("Entry %d (%s): command id %s is already used by entry %d"
+                                       .formatted(index, type, command.commandId(), duplicateOf));
+                }
+            } catch (Exception e) {
+                errors.add("Entry %d (%s) cannot be imported: %s".formatted(index, type, e.getMessage()));
+            }
+            index++;
+        }
+        return new Validation(commands, errors);
+    }
+
+    private PreparedCommand prepare(int index, String type, JsonNode payloadNode) {
         Class<? extends ImportableCommand> commandType = ImportableCommandTypes.classFor(type);
         ImportableCommand command = jsonMapper.readValue(payloadNode.toString(), commandType);
-        UUID commandId = command.commandId();
-        persister.saveCommand(commandId, command);     // command persisted first (FK target for events)
-        eventStore.append(command.events(), commandId);
+        return new PreparedCommand(index, type, command.commandId(), command, command.events().toList());
+    }
+
+    /**
+     * Pass two: write the already-validated commands. Anything that fails here is an
+     * infrastructure problem rather than a data one, so it stops the run — the entries written so
+     * far stay put, and re-running the same file resumes from where it stopped.
+     */
+    private ImportResult apply(List<PreparedCommand> prepared) {
+        Set<UUID> alreadyImported = persister.existingCommandIds(
+                prepared.stream().map(PreparedCommand::commandId).toList());
+        int importedCount = 0;
+        int skippedCount = 0;
+        for (PreparedCommand entry : prepared) {
+            if (alreadyImported.contains(entry.commandId())) {
+                skippedCount++;
+                continue;
+            }
+            try {
+                // via CommandExecutor: it write-ahead-logs the command, appends the events, and
+                // marks the command FAILED_PERSIST if the append fails (no orphaned PENDING row)
+                commandExecutor.appendEvents(entry.commandId(), entry.command(), entry.events().stream());
+                importedCount++;
+            } catch (RuntimeException e) {
+                return new ImportResult(importedCount, skippedCount, List.of(
+                        ("Import stopped at entry %d (%s): %s. The %d command(s) written before it were kept; "
+                         + "re-run this same file to resume — already-imported commands are skipped.")
+                                .formatted(entry.index(), entry.type(), e.getMessage(), importedCount)));
+            }
+        }
+        return new ImportResult(importedCount, skippedCount, List.of());
     }
 
     private ExportEntry toExportEntry(PostgresPersister.CommandPayloadRow row) {
@@ -78,4 +151,16 @@ public class CommandImporter {
     }
 
     record ExportEntry(String type, JsonNode payload) {}
+
+    /** An entry that survived validation, with its events already computed. */
+    private record PreparedCommand(int index,
+                                   String type,
+                                   UUID commandId,
+                                   ImportableCommand command,
+                                   List<? extends Event> events) {}
+
+    /** Outcome of pass one: what is ready to write, and why the rest is not. */
+    private record Validation(List<PreparedCommand> commands, List<String> errors) {
+        boolean hasErrors() { return !errors.isEmpty(); }
+    }
 }

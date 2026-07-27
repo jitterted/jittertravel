@@ -356,6 +356,21 @@ public class PostgresPersister {
 
     public record CommandPayloadRow(String type, String payloadJson) {}
 
+    /**
+     * Of the given command ids, those already present in {@code command_log}. Lets import skip
+     * commands it has already written, so re-running a backup file is safe and resumable.
+     */
+    public Set<UUID> existingCommandIds(Collection<UUID> commandIds) {
+        if (commandIds.isEmpty()) {
+            return Set.of();
+        }
+        List<UUID> found = jdbcClient.sql("SELECT command_id FROM command_log WHERE command_id IN (:commandIds)")
+                .param("commandIds", commandIds)
+                .query((rs, _) -> (UUID) rs.getObject("command_id"))
+                .list();
+        return new HashSet<>(found);
+    }
+
     public long getMaxSequence() {
         // Returns max event sequence number, but if there are no events yet, returns 0.
         return jdbcClient.sql("SELECT COALESCE(MAX(sequence), 0) FROM event_log")

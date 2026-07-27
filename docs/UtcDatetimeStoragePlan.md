@@ -1,5 +1,23 @@
 # Plan: Store datetimes as UTC + zone, evaluate by instant, display per viewer role
 
+## Status at a glance (updated 2026-07-26)
+
+Legend: `[x]` done · `[~]` partially done · `[ ]` not started.
+
+| Phase | State | What's left |
+|-------|-------|-------------|
+| 1. Value type + resolver | `[x]` | — |
+| 2. Events & commands → `ZonedTimestamp` | `[~]` | conference + gathering (hotel/train/flight migrated) |
+| 3. Evaluation by instant | `[~]` | gathering/conference views still convert via `ZoneId.systemDefault()` |
+| 4. Display | `[~]` | browser-zone JS upgrade, role switch, ANON toggle; `<time>` in gathering/conference/itinerary/calendar renderers |
+| 5. Backward compatibility | `[~]` | `command_log`/import upcasting; legacy-shape golden + round-trip tests |
+| 6. Conventions & other consumers | `[~]` | test-JVM UTC-pin audit (no iCal/GCal export exists → n/a) |
+| 7. Full test pass | `[ ]` | run at the end |
+
+Next up: **phase 2 for gathering + conference** (they're the only event types still storing
+wall-clock), then **command-path upcasting** (phase 5), then the **browser-zone display upgrade**
+(phase 4).
+
 ## Context
 
 The "upcoming" filter on booked lists shows items already in the past. Root cause: event
@@ -99,12 +117,26 @@ location/zone naturally re-resolves. Wrong guesses are correctable via the commo
 
 ## Implementation phases
 
-### 1. Value type + resolver
+### 1. Value type + resolver — `[x]` done
 Add `ZonedTimestamp` (domain), `LocationZoneResolver` (+ city/country table, throws
 `ZoneResolutionException` on a miss — no default), `CommonZone` enum. Unit-test the resolver
 directly (per renderer/services testing convention).
 
-### 2. Events & commands → `ZonedTimestamp`
+Shipped: `ZonedTimestamp`, `CommonZone`, `LocationZoneResolver`, `AirportZoneResolver`,
+`StationZone`, `FlightEndpointZone`, `ZoneResolutionException`, each with unit tests.
+
+### 2. Events & commands → `ZonedTimestamp` — `[~]` hotel/train/flight done, conference + gathering left
+- `[x]` Hotel (`f35b7d6`), train (`daa7107`), flight (`d2884fb`): events, commands, contexts,
+  requests and controllers all carry `ZonedTimestamp`.
+- `[ ]` `ConferenceTentativelyPlanned` (startDate/endDate) + `PlanTentativeConferenceCommand` /
+  `PlanTentativeConferenceRequest`.
+- `[ ]` `GatheringPlanned`/`GatheringChanged` — still `LocalDate date` + `LocalTime start/endTime`;
+  collapse to `startsAt`/`endsAt` per the field-changes list above, plus `PlanGatheringCommand`,
+  `ChangeGatheringCommand`, their contexts, requests and controllers.
+- `[ ]` Entry-zone validation for those two (`InvalidGatheringTimeRange`,
+  `GatheringDateNotInFuture`, `ConferenceSpansMultipleDays`, `DateRangeNotInFuture`).
+
+Original detail, still the spec for the two remaining types:
 - Change events + commands/contexts (hotel/flight/train/conference/gathering). Flight/train resolve
   departure and arrival zones independently; gathering collapses date+times to start/end.
 - Web requests keep binding `datetime-local` wall-clock as `LocalDateTime` (`@DateTimeFormat`
@@ -119,12 +151,29 @@ directly (per renderer/services testing convention).
 - **Edit forms prefill** `datetime-local` from `utc.atZone(entryZone)` (and preselect the zone), so
   re-editing never silently shifts the time.
 
-### 3. Evaluation
+### 3. Evaluation — `[~]` mechanism done, two views on the stopgap
 `TemporalView.relevantUntil()` returns `Instant`; views derive it from their end `ZonedTimestamp`.
 `TimeView.includes(...)` compares `Instant`s; the five list controllers pass `Instant.now()`.
 Update `TimeViewTest` + projector tests to instants.
 
-### 4. Display
+- `[x]` `TemporalView`/`TimeView` on `Instant`, controllers pass `Instant.now()`, `TimeViewTest`
+  updated (`5dab535`).
+- `[ ]` `PlannedGatheringView.relevantUntil()` and `TentativeConferenceView.relevantUntil()` still
+  do `.atZone(ZoneId.systemDefault())` — the documented stopgap; it disappears with phase 2.
+
+### 4. Display — `[~]` server-side baseline started, browser-zone upgrade not started
+- `[x]` `ZonedTimeTag` helper emitting `<time datetime="…Z" data-fmt="…">`, used by
+  `BookedHotelsRenderer`, `BookedTrainsRenderer`, `BookedFlightsRenderer` (`a97e96e`, `7b31d6d`).
+- `[ ]` Same `<time>` treatment in `PlannedGatheringsRenderer`, `TentativeConferencesRenderer`,
+  `ItineraryRenderer`, `CalendarViewBuilder`, `ScheduleProblemsRenderer`.
+- `[ ]` Browser-zone upgrade script, role switch (OWNER/FAMILY/ANON), `?tz=` toggle.
+- `[ ]` The two `JsBehaviorTest`s below (rendering in two pinned `timezoneId` contexts; toggle
+  interaction).
+- `[x]` Day bucketing by entry zone for migrated types: calendar/itinerary/gap projectors read
+  `ZonedTimestamp.localDateTime()` (entry-zone wall-clock), so grouping is already entry-local;
+  gathering/conference follow when phase 2 lands.
+
+Spec for the remaining items:
 - **Baseline (all roles, no JS needed):** the renderer always emits entry-local, server-side, as
   `<time datetime="2026-06-21T09:00:00Z" data-fmt="EEE, MMM d, h:mm a">Sun, Jun 21, 11:00 AM</time>`
   — the element text is the entry-local rendering; the `datetime` attribute carries the UTC instant.
@@ -148,7 +197,22 @@ Update `TimeViewTest` + projector tests to instants.
     returns to the entry-local baseline. If the toggle persists via `?tz=`/`localStorage`, assert
     the choice survives a reload. No server/Spring/DB/auth — JS only.
 
-### 5. Backward compatibility (sensitive — events, commands, backups)
+### 5. Backward compatibility — `[~]` event path covered, command/import path is the gap
+- `[x]` Zone audit shipped (`/admin/zone-audit`, `LocationZoneAudit`) and **passed 2026-06-21**
+  (17 locations, all resolved).
+- `[x]` `EventPayloadUpcaster` wired into the `event_log` read path via `PostgresPersister`;
+  handles `HotelBooked/Changed`, `TrainBooked/Changed`, `FlightBooked/Changed`; idempotent on
+  new-shape payloads. Unit tests cover hotel + train.
+- `[ ]` Flight case has no upcaster unit test.
+- `[ ]` **`command_log` / import path is not upcast.** `BookHotelCommand` & co. now bind
+  `ZonedTimestamp`, so a pre-migration backup file (scalar `checkIn`) fails to import.
+  `CommandImporter` needs to run payloads through the upcaster.
+- `[ ]` `CommandExportImportRoundTripTest` case proving an old (scalar) backup still imports.
+- `[ ]` Golden legacy-shape samples run *through the upcaster*
+  (`GoldenEventDeserializationTest` currently has new-shape samples only for the migrated types).
+- `[ ]` Upcaster cases for conference + gathering, added with phase 2.
+
+Spec:
 - **Existing-data audit (do first):** sweep every distinct location in `event_log` / `command_log`
   (plus airport codes via the flight path) through `resolve`; assert each succeeds and review the
   `location → zone` output once. This must pass *before* the upcaster ships — with no default, an
@@ -165,15 +229,15 @@ Update `TimeViewTest` + projector tests to instants.
   backups both import; verify in `CommandExportImportRoundTripTest`. No backfill/rewrite of stored
   rows (preserves old-backup compatibility — per the export/import-compat rule).
 
-### 6. Conventions & other consumers
-- `TimeFilterToggleConventionTest` discovers `render(List, TimeView)`; if renderer signatures gain a
-  display-mode/role param, update the convention test accordingly.
-- `pom.xml:183` pins the test JVM to UTC — audit tests that implicitly assume server==UTC; new
+### 6. Conventions & other consumers — `[~]`
+- `[ ]` `TimeFilterToggleConventionTest` discovers `render(List, TimeView)`; if renderer signatures
+  gain a display-mode/role param (phase 4), update the convention test accordingly.
+- `[ ]` `pom.xml:183` pins the test JVM to UTC — audit tests that implicitly assume server==UTC; new
   display tests must set explicit zones.
-- Inventory any iCal / Google Calendar export / notification path that emits these datetimes and
-  route it through UTC/zone too.
+- `[x]` iCal / Google Calendar export / notification paths: none exist in the codebase — nothing to
+  route. Revisit if one is added.
 
-### 7. Full test pass
+### 7. Full test pass — `[ ]`
 "All Tests" IDEA run configuration + `./mvnw test -Pjs-tests`. Stage all new files for review.
 
 ## Critical files
@@ -191,6 +255,11 @@ Update `TimeViewTest` + projector tests to instants.
   `CommandImporter`, `CommandExportImportRoundTripTest`, `EventJsonMapperEquivalenceTest`.
 
 ## Verification
+
+Status: 1 `[x]` (hotel filtering fixed in `5dab535`) · 2 `[x]` · 3 `[x]` (train) · 4 `[~]`
+(hotel/train/flight done, gathering/conference pending) · 5 `[~]` (new-shape goldens exist;
+legacy-through-upcaster + old-backup import missing) · 6 `[ ]` · 7 `[ ]`.
+
 1. **Bug repro:** a hotel with checkout earlier today shows under `/booked-hotels` (FUTURE) pre-fix;
    post-fix it drops off once `Instant.now()` passes the checkout instant.
 2. `LocationZoneResolver` unit tests: flight API zone, single-tz country, multi-tz city, common-zone

@@ -15,7 +15,9 @@ Legend: `[x]` done · `[~]` partially done · `[ ]` not started.
 | 7. Full test pass | `[ ]` | run at the end |
 
 Next up: **phase 2 for gathering + conference** (they're the only event types still storing
-wall-clock), then **command-path upcasting** (phase 5), then the **browser-zone display upgrade**
+wall-clock) — detailed in `docs/GatheringConferenceUtcRolloutPlan.md`, which also carries the
+conference modernization to handler+context and the test-coverage gaps found reviewing the earlier
+slices. Then **command-path upcasting** (phase 5), then the **browser-zone display upgrade**
 (phase 4).
 
 ## Context
@@ -126,6 +128,9 @@ Shipped: `ZonedTimestamp`, `CommonZone`, `LocationZoneResolver`, `AirportZoneRes
 `StationZone`, `FlightEndpointZone`, `ZoneResolutionException`, each with unit tests.
 
 ### 2. Events & commands → `ZonedTimestamp` — `[~]` hotel/train/flight done, conference + gathering left
+Remaining work is planned in detail in `docs/GatheringConferenceUtcRolloutPlan.md` (previous slice:
+`docs/TrainFlightUtcRolloutPlan.md`).
+
 - `[x]` Hotel (`f35b7d6`), train (`daa7107`), flight (`d2884fb`): events, commands, contexts,
   requests and controllers all carry `ZonedTimestamp`.
 - `[ ]` `ConferenceTentativelyPlanned` (startDate/endDate) + `PlanTentativeConferenceCommand` /

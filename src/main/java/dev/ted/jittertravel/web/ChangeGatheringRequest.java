@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ChangeGatheringHandler;
+import dev.ted.jittertravel.application.LocationZoneResolver;
+import dev.ted.jittertravel.application.VenueZone;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ChangeGatheringContext;
 import dev.ted.jittertravel.domain.Event;
@@ -21,6 +23,8 @@ public class ChangeGatheringRequest implements ImportableCommand {
     private String postalCode;
     private String country;
     private String locationForMatching;
+    // See PlanGatheringRequest: optional CommonZone pick, wins over location-derived resolution.
+    private String zone;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate date;
@@ -76,6 +80,9 @@ public class ChangeGatheringRequest implements ImportableCommand {
     public String getInfoUrl() { return infoUrl; }
     public void setInfoUrl(String infoUrl) { this.infoUrl = infoUrl; }
 
+    public String getZone() { return zone; }
+    public void setZone(String zone) { this.zone = zone; }
+
     public Address getLocation() {
         return new Address(street, city, region, postalCode, country, locationForMatching);
     }
@@ -91,7 +98,7 @@ public class ChangeGatheringRequest implements ImportableCommand {
     @Override
     public Stream<? extends Event> events() {
         // On import the gathering is assumed to already exist (its planning imported earlier).
-        return new ChangeGatheringHandler().handle(this)
-                .execute(new ChangeGatheringContext(true, IMPORT_BYPASS_DATE));
+        return new ChangeGatheringHandler(new LocationZoneResolver()).handle(this)
+                .execute(new ChangeGatheringContext(true, IMPORT_BYPASS_INSTANT));
     }
 }

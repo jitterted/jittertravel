@@ -67,11 +67,14 @@ public class PlannedGatheringsRenderer {
     }
 
     private static DivTag renderCard(PlannedGatheringView g) {
-        String timeRange = g.startTime().format(TIME_FORMAT) + " – " + g.endTime().format(TIME_FORMAT);
+        // Date and times are the venue-local wall-clock: a gathering reads in the zone it happens
+        // in. (Phase 4 swaps these for ZonedTimeTag <time> elements.)
+        String timeRange = g.startsAt().localDateTime().format(TIME_FORMAT)
+                + " – " + g.endsAt().localDateTime().format(TIME_FORMAT);
         String venueLocation = buildVenueLocation(g);
 
         DivTag dateCol = div(
-                div(g.date().format(DATE_FORMAT)).withClass("gathering-date"),
+                div(g.startsAt().localDateTime().format(DATE_FORMAT)).withClass("gathering-date"),
                 div(timeRange).withClass("gathering-time")
         );
 

@@ -3,6 +3,8 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.ChangeGathering;
 import dev.ted.jittertravel.application.GatheringDetailsView;
 import dev.ted.jittertravel.application.GatheringDetailsViewProjector;
+import dev.ted.jittertravel.application.ZoneResolutionException;
+import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.GatheringDateNotInFuture;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringNotFound;
@@ -17,7 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.Clock;
-import java.time.LocalDate;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +36,11 @@ public class ChangeGatheringController {
         this.applicationService = applicationService;
         this.detailsProjector = detailsProjector;
         this.clock = clock;
+    }
+
+    @ModelAttribute("commonZones")
+    public CommonZone[] commonZones() {
+        return CommonZone.values();
     }
 
     @GetMapping("/planned-gatherings/{gatheringId}")
@@ -60,8 +67,8 @@ public class ChangeGatheringController {
         command.setGatheringId(gatheringIdString);
 
         try {
-            // Nondeterministic inputs (commandId, today) are captured here at the boundary.
-            applicationService.changeGathering(UUID.randomUUID(), command, LocalDate.now(clock));
+            // Nondeterministic inputs (commandId, now) are captured here at the boundary.
+            applicationService.changeGathering(UUID.randomUUID(), command, Instant.now(clock));
         } catch (GatheringNotFound e) {
             redirectAttributes.addFlashAttribute("notFoundMessage", e.getMessage());
             return "redirect:/planned-gatherings";
@@ -69,6 +76,9 @@ public class ChangeGatheringController {
             bindingResult.rejectValue("date", "future", e.getMessage());
         } catch (InvalidGatheringTimeRange e) {
             bindingResult.rejectValue("endTime", "afterStartTime", e.getMessage());
+        } catch (ZoneResolutionException e) {
+            bindingResult.rejectValue("zone", "zoneUnresolved",
+                    "Could not determine the time zone from the location — please choose one.");
         }
 
         if (bindingResult.hasErrors()) {
@@ -97,9 +107,13 @@ public class ChangeGatheringController {
         request.setPostalCode(view.location().postalCode());
         request.setCountry(view.location().country());
         request.setLocationForMatching(view.location().locationForMatching());
-        request.setDate(view.date());
-        request.setStartTime(view.startTime());
-        request.setEndTime(view.endTime());
+        // Prefill from the venue-zone wall-clock, so re-opening the form shows the time that was
+        // entered rather than one shifted into the server's zone. The zone picker is left on
+        // "derive from location" (as the hotel edit form does); an explicit pick is only needed
+        // again if the location still doesn't resolve.
+        request.setDate(view.startsAt().localDateTime().toLocalDate());
+        request.setStartTime(view.startsAt().localDateTime().toLocalTime());
+        request.setEndTime(view.endsAt().localDateTime().toLocalTime());
         request.setSpeaking(view.speaking());
         request.setInfoUrl(view.infoUrl());
         return request;

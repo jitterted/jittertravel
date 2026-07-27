@@ -7,8 +7,8 @@ import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
+
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -26,10 +26,10 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
                 // Both events are full snapshots, so a change overwrites the planned entry.
                 case GatheringPlanned e -> entries.put(e.gatheringId(), toEntry(
                         e.title(), e.venueName(), e.location(),
-                        e.date(), e.startTime(), e.endTime(), e.infoUrl()));
+                        e.startsAt(), e.endsAt(), e.infoUrl()));
                 case GatheringChanged e -> entries.put(e.gatheringId(), toEntry(
                         e.title(), e.venueName(), e.location(),
-                        e.date(), e.startTime(), e.endTime(), e.infoUrl()));
+                        e.startsAt(), e.endsAt(), e.infoUrl()));
                 default -> { /* not a gathering event */ }
             }
         });
@@ -38,14 +38,15 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
     private static CalendarEntry toEntry(String title,
                                          String venueName,
                                          Address location,
-                                         LocalDate date,
-                                         LocalTime startTime,
-                                         LocalTime endTime,
+                                         ZonedTimestamp startsAt,
+                                         ZonedTimestamp endsAt,
                                          String infoUrl) {
+        // The calendar buckets by the day the gathering happens *at its venue*, so an evening
+        // event never slides onto the neighbouring day for a viewer in another zone.
         return new CalendarEntry(
                 EntryKind.GATHERING,
-                date.atTime(startTime),
-                date.atTime(endTime),
+                startsAt.localDateTime(),
+                endsAt.localDateTime(),
                 title,
                 buildSubTitle(venueName, location),
                 null,

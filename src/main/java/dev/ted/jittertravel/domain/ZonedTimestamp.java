@@ -49,4 +49,26 @@ public record ZonedTimestamp(Instant utc, ZoneId zone) {
     public LocalDateTime localDateTime() {
         return atEntryZone().toLocalDateTime();
     }
+
+    /**
+     * Whether this timestamp's calendar day falls after the day {@code reference} lands on, read in
+     * <em>this</em> timestamp's zone — so the answer depends only on the entry location and never
+     * on where the server runs: a gathering in Tokyo is judged against the date it currently is in
+     * Tokyo.
+     * <p>
+     * This is a day-granularity question ("is it at least tomorrow?"), deliberately coarser than
+     * comparing {@link #utc()} — see the gathering commands, whose rule is that a gathering must be
+     * planned for a later date, not merely a later moment.
+     * <p>
+     * Expressed as "reference falls before midnight of this day" rather than by converting the
+     * reference to a local date. The two are equivalent, and this form never converts
+     * {@code reference} to a zoned date — which matters because import replays pass
+     * {@code Instant.MIN} as a bypass sentinel, and that overflows when given a zone.
+     */
+    public boolean isOnDayAfter(Instant reference) {
+        Instant startOfThisDay = atEntryZone().toLocalDate()
+                .atStartOfDay(zone)
+                .toInstant();
+        return reference.isBefore(startOfThisDay);
+    }
 }

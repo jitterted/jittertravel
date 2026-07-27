@@ -249,8 +249,9 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public GatheringPlanning gatheringPlanningApplicationService(CommandExecutor commandExecutor) {
-        return new GatheringPlanning(commandExecutor);
+    public GatheringPlanning gatheringPlanningApplicationService(CommandExecutor commandExecutor,
+                                                                 LocationZoneResolver locationZoneResolver) {
+        return new GatheringPlanning(commandExecutor, locationZoneResolver);
     }
 
     @Bean
@@ -271,8 +272,10 @@ public class EventSourcingConfig {
 
     @Bean
     public ChangeGathering changeGatheringApplicationService(
-            CommandExecutor commandExecutor, GatheringDetailsViewProjector gatheringDetailsViewProjector) {
-        return new ChangeGathering(commandExecutor, gatheringDetailsViewProjector);
+            CommandExecutor commandExecutor,
+            GatheringDetailsViewProjector gatheringDetailsViewProjector,
+            LocationZoneResolver locationZoneResolver) {
+        return new ChangeGathering(commandExecutor, gatheringDetailsViewProjector, locationZoneResolver);
     }
 
     @Bean

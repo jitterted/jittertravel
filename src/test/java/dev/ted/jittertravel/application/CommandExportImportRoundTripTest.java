@@ -58,8 +58,8 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         conferencePlanning.planConference(planConference(UUID.randomUUID().toString(),
                 FUTURE.atTime(9, 0), FUTURE.plusDays(2).atTime(17, 0)));  // multi-day, stays tentative
         String gatheringId = UUID.randomUUID().toString();
-        gatheringPlanning.planGathering(planGathering(gatheringId), LocalDate.now());
-        changeGathering.changeGathering(UUID.randomUUID(), changeGathering(gatheringId), LocalDate.now());
+        gatheringPlanning.planGathering(planGathering(gatheringId), Instant.now());
+        changeGathering.changeGathering(UUID.randomUUID(), changeGathering(gatheringId), Instant.now());
 
         // single-day conference that we then migrate to a gathering
         String migratedConferenceId = UUID.randomUUID().toString();
@@ -219,7 +219,9 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         r.setCity("London");
         r.setRegion("");
         r.setPostalCode("EC1A 1BB");
-        r.setCountry("GB");
+        // "United Kingdom", not "GB": the curated zone table keys on country names (what the
+        // address parser returns), and a gathering's zone is now derived from this location.
+        r.setCountry("United Kingdom");
         r.setLocationForMatching("London");
         r.setDate(FUTURE);
         r.setStartTime(LocalTime.of(18, 0));
@@ -238,7 +240,7 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         r.setCity("Manchester");
         r.setRegion("Greater Manchester");
         r.setPostalCode("M1 1AA");
-        r.setCountry("GB");
+        r.setCountry("United Kingdom");
         r.setLocationForMatching("Manchester");
         r.setDate(FUTURE.plusDays(1));
         r.setStartTime(LocalTime.of(17, 30));

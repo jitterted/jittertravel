@@ -1,7 +1,5 @@
 package dev.ted.jittertravel.domain;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.stream.Stream;
 
 /**
@@ -9,8 +7,9 @@ import java.util.stream.Stream;
  * rules (same as planning, plus existence):
  * <ul>
  *   <li>The gathering must already exist ({@link GatheringNotFound} otherwise).</li>
- *   <li>The new date must be in the future ({@link GatheringDateNotInFuture}).</li>
- *   <li>The end time must be after the start time ({@link InvalidGatheringTimeRange}).</li>
+ *   <li>The new date must be in the future, judged in the gathering's own zone
+ *       ({@link GatheringDateNotInFuture}).</li>
+ *   <li>The end must be after the start ({@link InvalidGatheringTimeRange}).</li>
  * </ul>
  * Emits a single {@link GatheringChanged} event carrying the full new snapshot.
  */
@@ -19,9 +18,8 @@ public record ChangeGatheringCommand(
         String title,
         String venueName,
         Address location,
-        LocalDate date,
-        LocalTime startTime,
-        LocalTime endTime,
+        ZonedTimestamp startsAt,
+        ZonedTimestamp endsAt,
         boolean speaking,
         String infoUrl
 ) implements DomainCommand<ChangeGatheringContext> {
@@ -31,13 +29,13 @@ public record ChangeGatheringCommand(
         if (!context.gatheringExists()) {
             throw new GatheringNotFound("No gathering exists with that gatheringId");
         }
-        if (date == null || !date.isAfter(context.today())) {
+        if (startsAt == null || !startsAt.isOnDayAfter(context.now())) {
             throw new GatheringDateNotInFuture("Gathering date must be in the future");
         }
-        if (endTime == null || !endTime.isAfter(startTime)) {
+        if (endsAt == null || !endsAt.utc().isAfter(startsAt.utc())) {
             throw new InvalidGatheringTimeRange("End time must be after start time");
         }
         return Stream.of(new GatheringChanged(gatheringId, title, venueName, location,
-                date, startTime, endTime, speaking, infoUrl));
+                startsAt, endsAt, speaking, infoUrl));
     }
 }

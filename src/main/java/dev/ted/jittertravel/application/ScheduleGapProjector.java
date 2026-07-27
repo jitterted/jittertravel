@@ -57,10 +57,10 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 case ConferenceCancelled e -> conferenceOccupancies.remove(e.conferenceId());
                 case GatheringPlanned e -> gatheringOccupancies.put(e.gatheringId(),
                         new GatheringOccupancy(e.title(), e.location().locationForMatching(),
-                                e.date(), e.startTime(), e.endTime()));
+                                e.startsAt(), e.endsAt()));
                 case GatheringChanged e -> gatheringOccupancies.put(e.gatheringId(),
                         new GatheringOccupancy(e.title(), e.location().locationForMatching(),
-                                e.date(), e.startTime(), e.endTime()));
+                                e.startsAt(), e.endsAt()));
                 case DifferentCityConflictCleared e ->
                         clearedConflicts.add(new ClearedConflict(e.gatheringId(), e.conferenceId()));
                 default -> {}
@@ -289,6 +289,8 @@ public class ScheduleGapProjector implements EventStreamConsumer {
             for (Map.Entry<ConferenceId, CityOccupancy> ce : conferenceOccupancies.entrySet()) {
                 ConferenceId conferenceId = ce.getKey();
                 CityOccupancy conf = ce.getValue();
+                // Still a date comparison because conferences have not migrated to instants yet;
+                // this flips to instants with them (see docs/GatheringConferenceUtcRolloutPlan.md).
                 boolean gatheringDuringConference =
                         !gathering.date().isBefore(conf.startDate())
                         && gathering.date().isBefore(conf.endDate());
@@ -338,11 +340,22 @@ public class ScheduleGapProjector implements EventStreamConsumer {
 
     private record ClearedConflict(GatheringId gatheringId, ConferenceId conferenceId) {}
 
-    private record GatheringOccupancy(String name, String city, LocalDate date, LocalTime startTime, LocalTime endTime) {
+    /**
+     * Detection compares instants; reporting reads the venue-local wall-clock. Two gatherings in
+     * different zones can overlap in real time while falling on different local dates (a San
+     * Francisco evening and a Tokyo morning), which the former same-date-plus-local-times test
+     * could never see.
+     */
+    private record GatheringOccupancy(String name, String city, ZonedTimestamp startsAt, ZonedTimestamp endsAt) {
         boolean overlapsWith(GatheringOccupancy other) {
-            return this.date.equals(other.date)
-                    && this.startTime.isBefore(other.endTime)
-                    && other.startTime.isBefore(this.endTime);
+            return this.startsAt.utc().isBefore(other.endsAt.utc())
+                    && other.startsAt.utc().isBefore(this.endsAt.utc());
         }
+
+        LocalDate date() { return startsAt.localDateTime().toLocalDate(); }
+
+        LocalTime startTime() { return startsAt.localDateTime().toLocalTime(); }
+
+        LocalTime endTime() { return endsAt.localDateTime().toLocalTime(); }
     }
 }

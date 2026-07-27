@@ -2,6 +2,7 @@ package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.AirportZoneResolver;
 import dev.ted.jittertravel.application.LocationZoneResolver;
+import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.TrainBooked;
 import org.junit.jupiter.api.Test;
@@ -109,6 +110,100 @@ class EventPayloadUpcasterTest {
         assertThat(event.arrivalDateTime().localDateTime().toString())
                 .as("the original arrival wall-clock is preserved as the entry-zone local time")
                 .isEqualTo("2026-06-09T18:15");
+    }
+
+    @Test
+    void legacyGatheringCollapsesItsDateAndTwoTimesIntoTwoTimestamps() {
+        // The one migration that changes the field *set* rather than a field's type: date +
+        // startTime + endTime become startsAt + endsAt, both in the venue's zone.
+        String legacy = """
+                {
+                  "gatheringId": {"id": "44444444-4444-4444-4444-444444444444"},
+                  "title": "London Java Community",
+                  "venueName": "Skills Matter",
+                  "location": {
+                    "street": "1 Example St", "city": "London", "region": "",
+                    "postalCode": "EC1A 1BB", "country": "United Kingdom",
+                    "locationForMatching": "London"
+                  },
+                  "date": "2026-09-15",
+                  "startTime": "18:30",
+                  "endTime": "21:00",
+                  "speaking": true,
+                  "infoUrl": ""
+                }
+                """;
+
+        GatheringPlanned event = upcastTo(legacy, GatheringPlanned.class);
+
+        assertThat(event.startsAt().zone())
+                .isEqualTo(ZoneId.of("Europe/London"));
+        assertThat(event.startsAt().utc())
+                .as("18:30 BST is 17:30Z")
+                .isEqualTo(Instant.parse("2026-09-15T17:30:00Z"));
+        assertThat(event.endsAt().localDateTime().toString())
+                .as("the original end wall-clock is preserved as the entry-zone local time")
+                .isEqualTo("2026-09-15T21:00");
+    }
+
+    @Test
+    void legacyGatheringKeysAreRemovedSoTheRecordCanBind() {
+        // Unlike the other migrations, leaving the old keys behind would break binding: the record
+        // no longer declares them and the golden contract test rejects unknown properties.
+        String legacy = """
+                {
+                  "gatheringId": {"id": "44444444-4444-4444-4444-444444444444"},
+                  "title": "London Java Community",
+                  "venueName": "Skills Matter",
+                  "location": {
+                    "street": "1 Example St", "city": "London", "region": "",
+                    "postalCode": "EC1A 1BB", "country": "United Kingdom",
+                    "locationForMatching": "London"
+                  },
+                  "date": "2026-09-15",
+                  "startTime": "18:30",
+                  "endTime": "21:00",
+                  "speaking": false,
+                  "infoUrl": ""
+                }
+                """;
+
+        JsonNode upcast = upcaster.upcast("GatheringPlanned", mapper.readTree(legacy));
+
+        assertThat(upcast.has("date") || upcast.has("startTime") || upcast.has("endTime"))
+                .as("legacy wall-clock keys must not survive the upcast")
+                .isFalse();
+        assertThat(upcast.has("startsAt") && upcast.has("endsAt"))
+                .as("both replacement timestamps must be present")
+                .isTrue();
+    }
+
+    @Test
+    void newShapeGatheringPassesThroughUnchanged() {
+        String current = """
+                {
+                  "gatheringId": {"id": "44444444-4444-4444-4444-444444444444"},
+                  "title": "London Java Community",
+                  "venueName": "Skills Matter",
+                  "location": {
+                    "street": "1 Example St", "city": "London", "region": "",
+                    "postalCode": "EC1A 1BB", "country": "GB", "locationForMatching": "London"
+                  },
+                  "startsAt": {"utc": "2026-09-15T17:30:00Z", "zone": "Europe/London"},
+                  "endsAt": {"utc": "2026-09-15T20:00:00Z", "zone": "Europe/London"},
+                  "speaking": true,
+                  "infoUrl": ""
+                }
+                """;
+
+        // Note the unresolvable "GB" country: an already-migrated payload must never reach the
+        // resolver, so a stored event whose location the tables don't know still replays.
+        GatheringPlanned event = upcastTo(current, GatheringPlanned.class);
+
+        assertThat(event.startsAt().utc())
+                .isEqualTo(Instant.parse("2026-09-15T17:30:00Z"));
+        assertThat(event.endsAt().zone())
+                .isEqualTo(ZoneId.of("Europe/London"));
     }
 
     private <T> T upcastTo(String json, Class<T> type) {

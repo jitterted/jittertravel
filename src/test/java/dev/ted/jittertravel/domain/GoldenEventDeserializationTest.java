@@ -1,10 +1,15 @@
 package dev.ted.jittertravel.domain;
 
+import dev.ted.jittertravel.application.AirportZoneResolver;
+import dev.ted.jittertravel.application.LocationZoneResolver;
+import dev.ted.jittertravel.infrastructure.EventPayloadUpcaster;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.UUID;
 
@@ -35,6 +40,9 @@ class GoldenEventDeserializationTest {
             .findAndAddModules()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true)
             .build();
+
+    private static final EventPayloadUpcaster UPCASTER = new EventPayloadUpcaster(
+            new LocationZoneResolver(), new AirportZoneResolver(), MAPPER);
 
     @Test
     void flightBookedSampleDeserializes() {
@@ -351,9 +359,8 @@ class GoldenEventDeserializationTest {
                     "country": "GB",
                     "locationForMatching": "London"
                   },
-                  "date": "2026-09-15",
-                  "startTime": "18:30",
-                  "endTime": "21:00",
+                  "startsAt": {"utc": "2026-09-15T17:30:00Z", "zone": "Europe/London"},
+                  "endsAt": {"utc": "2026-09-15T20:00:00Z", "zone": "Europe/London"},
                   "speaking": true,
                   "infoUrl": "https://www.meetup.com/londonjavacommunity/events/123456/"
                 }
@@ -369,10 +376,10 @@ class GoldenEventDeserializationTest {
                 .isEqualTo("Skills Matter");
         assertThat(event.location().city())
                 .isEqualTo("London");
-        assertThat(event.date().toString())
-                .isEqualTo("2026-09-15");
-        assertThat(event.startTime().toString())
-                .isEqualTo("18:30");
+        assertThat(event.startsAt().localDateTime().toString())
+                .isEqualTo("2026-09-15T18:30");
+        assertThat(event.endsAt().localDateTime().toString())
+                .isEqualTo("2026-09-15T21:00");
         assertThat(event.speaking())
                 .as("speaking flag must be preserved from JSON")
                 .isTrue();
@@ -380,7 +387,139 @@ class GoldenEventDeserializationTest {
                 .isEqualTo("https://www.meetup.com/londonjavacommunity/events/123456/");
     }
 
+    @Test
+    void legacyGatheringPlannedWallClockTrioIsUpcastToStartsAtAndEndsAt() {
+        // Written before gatherings stored instants: a date plus two times, no zone anywhere. The
+        // zone comes from the payload's own location, so the upcast lands on the same moment the
+        // traveler meant. Note this is a *shape* change — the three legacy keys must be gone, or
+        // FAIL_ON_UNKNOWN_PROPERTIES below would reject the payload.
+        String json = """
+                {
+                  "gatheringId": {"id": "44444444-4444-4444-4444-444444444444"},
+                  "title": "London Java Community — November Meetup",
+                  "venueName": "Skills Matter",
+                  "location": {
+                    "street": "1 Example Street",
+                    "city": "London",
+                    "region": "",
+                    "postalCode": "EC1A 1BB",
+                    "country": "United Kingdom",
+                    "locationForMatching": "London"
+                  },
+                  "date": "2026-09-15",
+                  "startTime": "18:30",
+                  "endTime": "21:00",
+                  "speaking": true,
+                  "infoUrl": "https://www.meetup.com/londonjavacommunity/events/123456/"
+                }
+                """;
+
+        GatheringPlanned event = deserializeLegacy(json, "GatheringPlanned", GatheringPlanned.class);
+
+        assertThat(event.startsAt())
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 9, 15, 18, 30), ZoneId.of("Europe/London")));
+        assertThat(event.endsAt())
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 9, 15, 21, 0), ZoneId.of("Europe/London")));
+        assertThat(event.title())
+                .isEqualTo("London Java Community — November Meetup");
+        assertThat(event.speaking())
+                .as("speaking flag must survive the upcast")
+                .isTrue();
+    }
+
+    @Test
+    void legacyHotelBookedScalarDatetimesAreUpcastFromTheAddressZone() {
+        String json = """
+                {
+                  "hotelBookingId": {"id": "55555555-5555-5555-5555-555555555555"},
+                  "hotelName": "Hotel Amsterdam",
+                  "address": {
+                    "street": "1 Dam Square",
+                    "city": "Amsterdam",
+                    "region": "",
+                    "postalCode": "1012",
+                    "country": "Netherlands",
+                    "locationForMatching": "Amsterdam"
+                  },
+                  "checkIn": "2026-06-17T15:00:00",
+                  "checkOut": "2026-06-20T11:00:00",
+                  "bookingIntent": "FINAL",
+                  "mapsUrl": ""
+                }
+                """;
+
+        HotelBooked event = deserializeLegacy(json, "HotelBooked", HotelBooked.class);
+
+        assertThat(event.checkIn())
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 6, 17, 15, 0), ZoneId.of("Europe/Amsterdam")));
+        assertThat(event.checkOut())
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 6, 20, 11, 0), ZoneId.of("Europe/Amsterdam")));
+    }
+
+    @Test
+    void legacyTrainBookedUpcastsEachEndpointInItsOwnStationZone() {
+        String json = """
+                {
+                  "tripId": {"id": "66666666-6666-6666-6666-666666666666"},
+                  "departureStation": {
+                    "name": "Frankfurt Hbf", "city": "Frankfurt", "country": "Germany", "mapsUrl": ""
+                  },
+                  "departureDateTime": "2026-06-28T09:00:00",
+                  "arrivalStation": {
+                    "name": "Paris Est", "city": "Paris", "country": "France", "mapsUrl": ""
+                  },
+                  "arrivalDateTime": "2026-06-28T13:00:00",
+                  "serviceId": "ICE 9553"
+                }
+                """;
+
+        TrainBooked event = deserializeLegacy(json, "TrainBooked", TrainBooked.class);
+
+        assertThat(event.departureDateTime().zone())
+                .isEqualTo(ZoneId.of("Europe/Berlin"));
+        assertThat(event.arrivalDateTime().zone())
+                .isEqualTo(ZoneId.of("Europe/Paris"));
+    }
+
+    @Test
+    void legacyFlightBookedUpcastsEachEndpointFromItsAirportCode() {
+        String json = """
+                {
+                  "flightId": {"id": "77777777-7777-7777-7777-777777777777"},
+                  "airline": "United",
+                  "flightNumber": "UA59",
+                  "departureAirport": {"code": "SFO"},
+                  "departureDateTime": "2026-06-06T15:55:00",
+                  "arrivalAirport": {"code": "FRA"},
+                  "arrivalDateTime": "2026-06-07T11:45:00"
+                }
+                """;
+
+        FlightBooked event = deserializeLegacy(json, "FlightBooked", FlightBooked.class);
+
+        assertThat(event.departureDateTime())
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 6, 6, 15, 55), ZoneId.of("America/Los_Angeles")));
+        assertThat(event.arrivalDateTime())
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 6, 7, 11, 45), ZoneId.of("Europe/Berlin")));
+    }
+
     private static <T> T deserialize(String json, Class<T> type) {
         return MAPPER.readValue(json, type);
+    }
+
+    /**
+     * Binds a payload written in a pre-migration shape the way production reads it: through
+     * {@link EventPayloadUpcaster} first. Deliberately still uses the strict {@link #MAPPER}, so a
+     * legacy key the upcaster forgot to consume fails the test rather than being ignored.
+     */
+    private static <T> T deserializeLegacy(String json, String logicalType, Class<T> type) {
+        JsonNode upcast = UPCASTER.upcast(logicalType, MAPPER.readTree(json));
+        return MAPPER.treeToValue(upcast, type);
     }
 }

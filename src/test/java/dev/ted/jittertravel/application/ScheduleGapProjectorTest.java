@@ -495,7 +495,7 @@ class ScheduleGapProjectorTest {
 
             projector.handle(Stream.of(stored(new GatheringChanged(movedId, "MJUG", "Venue",
                     new Address("1 Street", "London", "", "", "", null),
-                    SEP_16, LocalTime.of(19, 30), LocalTime.of(22, 0), false, ""))));
+                    zt(SEP_16.atTime(19, 30)), zt(SEP_16.atTime(22, 0)), false, ""))));
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.SchedulingConflict)
@@ -977,7 +977,7 @@ class ScheduleGapProjectorTest {
     private static GatheringPlanned gathering(String title, LocalDate date, LocalTime start, LocalTime end) {
         return new GatheringPlanned(GatheringId.random(), title, "Venue",
                 new Address("1 Street", "London", "", "EC1A", "GB", null),
-                date, start, end, false, "");
+                zt(date.atTime(start)), zt(date.atTime(end)), false, "");
     }
 
     // -------------------------------------------------------------------------
@@ -1104,13 +1104,13 @@ class ScheduleGapProjectorTest {
                                                     LocalDate date, LocalTime start, LocalTime end) {
         return new GatheringPlanned(id, title, "Venue",
                 new Address("1 Street", city, "", "", "", null),
-                date, start, end, false, "");
+                zt(date.atTime(start)), zt(date.atTime(end)), false, "");
     }
 
     private static GatheringPlanned gatheringIn(String city, String title, LocalDate date, LocalTime start, LocalTime end) {
         return new GatheringPlanned(GatheringId.random(), title, "Venue",
                 new Address("1 Street", city, "", "", "", null),
-                date, start, end, false, "");
+                zt(date.atTime(start)), zt(date.atTime(end)), false, "");
     }
 
     private static ZonedTimestamp zt(LocalDateTime local) {

@@ -7,8 +7,8 @@ import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,10 +30,10 @@ public class GatheringDetailsViewProjector implements EventStreamConsumer {
             switch (stored.payload()) {
                 case GatheringPlanned e -> viewsById.put(e.gatheringId(), toView(
                         e.gatheringId(), e.title(), e.venueName(), e.location(),
-                        e.date(), e.startTime(), e.endTime(), e.speaking(), e.infoUrl()));
+                        e.startsAt(), e.endsAt(), e.speaking(), e.infoUrl()));
                 case GatheringChanged e -> viewsById.put(e.gatheringId(), toView(
                         e.gatheringId(), e.title(), e.venueName(), e.location(),
-                        e.date(), e.startTime(), e.endTime(), e.speaking(), e.infoUrl()));
+                        e.startsAt(), e.endsAt(), e.speaking(), e.infoUrl()));
                 default -> { /* not a gathering event */ }
             }
         });
@@ -43,13 +43,12 @@ public class GatheringDetailsViewProjector implements EventStreamConsumer {
                                                String title,
                                                String venueName,
                                                Address location,
-                                               LocalDate date,
-                                               LocalTime startTime,
-                                               LocalTime endTime,
+                                               ZonedTimestamp startsAt,
+                                               ZonedTimestamp endsAt,
                                                boolean speaking,
                                                String infoUrl) {
         return new GatheringDetailsView(gatheringId, title, venueName, location,
-                date, startTime, endTime, speaking, infoUrl);
+                startsAt, endsAt, speaking, infoUrl);
     }
 
     public Optional<GatheringDetailsView> findById(GatheringId gatheringId) {

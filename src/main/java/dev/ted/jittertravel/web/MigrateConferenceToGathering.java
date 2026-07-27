@@ -1,9 +1,11 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.*;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -13,6 +15,12 @@ import java.util.stream.Stream;
  * re-emit its events on import (notably the generated {@code gatheringId}), so it round-trips
  * through export/import. Use {@link #events()} as the single source of the emitted events for
  * both the live action and import replay.
+ * <p>
+ * The record keeps its wall-clock {@code date}/{@code startTime}/{@code endTime} fields even though
+ * {@link GatheringPlanned} now stores instants: that is what lets backups written before the
+ * migration replay unchanged. The venue zone is re-derived from {@link #location()} in
+ * {@link #events()} — during import that runs in the validation pass, where an unresolvable
+ * location fails loudly before anything is written.
  */
 public record MigrateConferenceToGathering(
         UUID conferenceId,
@@ -35,10 +43,13 @@ public record MigrateConferenceToGathering(
 
     @Override
     public Stream<? extends Event> events() {
+        ZoneId zone = new LocationZoneResolver().resolve(location);
         return Stream.of(
                 new ConferenceCancelled(ConferenceId.of(conferenceId), cancellationReason),
                 new GatheringPlanned(GatheringId.of(gatheringId), title, venueName, location,
-                        date, startTime, endTime, speaking, infoUrl)
+                        ZonedTimestamp.fromLocal(date.atTime(startTime), zone),
+                        ZonedTimestamp.fromLocal(date.atTime(endTime), zone),
+                        speaking, infoUrl)
         );
     }
 }

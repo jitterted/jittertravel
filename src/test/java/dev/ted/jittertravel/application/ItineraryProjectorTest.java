@@ -422,7 +422,7 @@ class ItineraryProjectorTest {
         GatheringPlanned event = new GatheringPlanned(
                 GatheringId.random(), "London Java Community", "Skills Matter",
                 new Address("1 Example St", "London", "", "EC1A 1BB", "GB", null),
-                DATE, LocalTime.of(18, 0), LocalTime.of(21, 0), true,
+                ukTime(DATE, LocalTime.of(18, 0)), ukTime(DATE, LocalTime.of(21, 0)), true,
                 "https://meetup.com/ljc/events/123");
 
         projector.handle(Stream.of(stored(event)));
@@ -445,7 +445,7 @@ class ItineraryProjectorTest {
         GatheringPlanned event = new GatheringPlanned(
                 GatheringId.random(), "Some Meetup", "",
                 new Address("1 St", "London", "", "EC1A 1BB", "GB", null),
-                DATE, LocalTime.of(18, 0), LocalTime.of(21, 0), false, "");
+                ukTime(DATE, LocalTime.of(18, 0)), ukTime(DATE, LocalTime.of(21, 0)), false, "");
 
         projector.handle(Stream.of(stored(event)));
 
@@ -464,11 +464,11 @@ class ItineraryProjectorTest {
         GatheringPlanned planned = new GatheringPlanned(
                 gatheringId, "Old Title", "Skills Matter",
                 new Address("1 Example St", "London", "", "EC1A 1BB", "GB", null),
-                DATE, LocalTime.of(18, 0), LocalTime.of(21, 0), true, "https://old.example.com");
+                ukTime(DATE, LocalTime.of(18, 0)), ukTime(DATE, LocalTime.of(21, 0)), true, "https://old.example.com");
         GatheringChanged changed = new GatheringChanged(
                 gatheringId, "New Title", "Federation House",
                 new Address("2 New St", "Manchester", "", "M1 1AA", "GB", null),
-                DATE.plusDays(1), LocalTime.of(17, 30), LocalTime.of(20, 0), false, "https://new.example.com");
+                ukTime(DATE.plusDays(1), LocalTime.of(17, 30)), ukTime(DATE.plusDays(1), LocalTime.of(20, 0)), false, "https://new.example.com");
 
         projector.handle(Stream.of(stored(planned), stored(changed)));
 
@@ -488,6 +488,10 @@ class ItineraryProjectorTest {
 
     private static ZonedTimestamp zt(LocalDateTime local) {
         return ZonedTimestamp.fromLocal(local, ZONE);
+    }
+
+    private static ZonedTimestamp ukTime(LocalDate date, LocalTime time) {
+        return ZonedTimestamp.fromLocal(date.atTime(time), ZoneId.of("Europe/London"));
     }
 
     private static StoredEvent stored(Event event) {

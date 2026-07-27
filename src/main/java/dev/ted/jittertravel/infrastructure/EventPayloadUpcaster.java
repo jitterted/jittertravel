@@ -8,7 +8,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 
 /**
@@ -46,6 +48,7 @@ public class EventPayloadUpcaster {
             case "HotelBooked", "HotelChanged" -> upcastHotelStay(object);
             case "TrainBooked", "TrainChanged" -> upcastTrainTrip(object);
             case "FlightBooked", "FlightChanged" -> upcastFlightTrip(object);
+            case "GatheringPlanned", "GatheringChanged" -> upcastGathering(object);
             default -> { /* type not migrated, or it has no datetime fields */ }
         }
         return object;
@@ -61,6 +64,33 @@ public class EventPayloadUpcaster {
                 addressField(object, "city"), addressField(object, "country"));
         object.set("checkIn", toZoned(checkIn.asText(), zone));
         object.set("checkOut", toZoned(object.get("checkOut").asText(), zone));
+    }
+
+    /**
+     * The only <em>shape</em> change so far, rather than a field-type change: a gathering's legacy
+     * {@code date} + {@code startTime} + {@code endTime} trio collapses into {@code startsAt} and
+     * {@code endsAt}. The three legacy keys are removed, because the record no longer declares them
+     * and the golden contract test rejects unknown properties. Both endpoints are at the one venue,
+     * so they share its address-derived zone.
+     */
+    private void upcastGathering(ObjectNode object) {
+        JsonNode date = object.get("date");
+        if (!isLegacyScalar(date)) {
+            return; // already collapsed into startsAt/endsAt
+        }
+        ZoneId zone = locationZoneResolver.resolve(
+                nestedText(object.get("location"), "city"),
+                nestedText(object.get("location"), "country"));
+        LocalDate localDate = LocalDate.parse(date.asText());
+        object.set("startsAt", toZoned(localDate.atTime(localTime(object, "startTime")), zone));
+        object.set("endsAt", toZoned(localDate.atTime(localTime(object, "endTime")), zone));
+        object.remove("date");
+        object.remove("startTime");
+        object.remove("endTime");
+    }
+
+    private static LocalTime localTime(ObjectNode object, String field) {
+        return LocalTime.parse(object.get(field).asText());
     }
 
     /**
@@ -114,7 +144,11 @@ public class EventPayloadUpcaster {
     }
 
     private JsonNode toZoned(String wallClock, ZoneId zone) {
-        return jsonMapper.valueToTree(ZonedTimestamp.fromLocal(LocalDateTime.parse(wallClock), zone));
+        return toZoned(LocalDateTime.parse(wallClock), zone);
+    }
+
+    private JsonNode toZoned(LocalDateTime wallClock, ZoneId zone) {
+        return jsonMapper.valueToTree(ZonedTimestamp.fromLocal(wallClock, zone));
     }
 
     private static boolean isLegacyScalar(JsonNode node) {

@@ -5,6 +5,7 @@ import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanned;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
 
@@ -12,6 +13,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -20,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class GatheringCalendarProjectorTest {
 
+    private static final ZoneId UK = ZoneId.of("Europe/London");
     private static final LocalDate DATE = LocalDate.of(2026, 7, 10);
     private static final LocalTime START = LocalTime.of(18, 0);
     private static final LocalTime END = LocalTime.of(21, 0);
@@ -32,7 +35,7 @@ class GatheringCalendarProjectorTest {
                 "London Java Community",
                 "Skills Matter",
                 new Address("1 Example St", "London", "", "EC1A 1BB", "GB", null),
-                DATE, START, END,
+                ukTime(DATE, START), ukTime(DATE, END),
                 true,
                 "https://meetup.com/ljc/events/123"
         );
@@ -76,7 +79,7 @@ class GatheringCalendarProjectorTest {
         GatheringPlanned event = new GatheringPlanned(
                 GatheringId.random(), "Meetup", "",
                 new Address("", "London", "", "", "GB", null),
-                DATE, START, END, false, ""
+                ukTime(DATE, START), ukTime(DATE, END), false, ""
         );
 
         projector.handle(Stream.of(stored(event)));
@@ -116,7 +119,7 @@ class GatheringCalendarProjectorTest {
         GatheringChanged changed = new GatheringChanged(
                 gatheringId, "New Title", "Federation House",
                 new Address("2 New St", "Manchester", "", "M1 1AA", "GB", null),
-                DATE.plusWeeks(1), LocalTime.of(17, 30), LocalTime.of(20, 0),
+                ukTime(DATE.plusWeeks(1), LocalTime.of(17, 30)), ukTime(DATE.plusWeeks(1), LocalTime.of(20, 0)),
                 false, "https://new.example.com");
 
         projector.handle(Stream.of(stored(planned), stored(changed)));
@@ -139,7 +142,7 @@ class GatheringCalendarProjectorTest {
                 stored(gathering(gatheringId, "Meetup", DATE, "https://old.example.com")),
                 stored(new GatheringChanged(gatheringId, "Meetup", "Some Venue",
                         new Address("1 Street", "London", "", "EC1A 1BB", "GB", null),
-                        DATE, START, END, false, ""))));
+                        ukTime(DATE, START), ukTime(DATE, END), false, ""))));
 
         assertThat(projector.entries().getFirst().mapsUrl()).isNull();
     }
@@ -148,8 +151,12 @@ class GatheringCalendarProjectorTest {
         return new GatheringPlanned(
                 id, title, "Some Venue",
                 new Address("1 Street", "London", "", "EC1A 1BB", "GB", null),
-                date, START, END, false, infoUrl
+                ukTime(date, START), ukTime(date, END), false, infoUrl
         );
+    }
+
+    private static ZonedTimestamp ukTime(LocalDate date, LocalTime time) {
+        return ZonedTimestamp.fromLocal(date.atTime(time), UK);
     }
 
     private static StoredEvent stored(Event event) {

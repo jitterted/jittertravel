@@ -7,21 +7,23 @@ import dev.ted.jittertravel.domain.PlanGatheringCommand;
 import dev.ted.jittertravel.web.ClearDifferentCityConflict;
 import dev.ted.jittertravel.web.PlanGatheringRequest;
 
-import java.time.LocalDate;
+import java.time.Instant;
 import java.util.UUID;
 
 public class GatheringPlanning {
     private final CommandExecutor commandExecutor;
+    private final LocationZoneResolver zoneResolver;
 
-    public GatheringPlanning(CommandExecutor commandExecutor) {
+    public GatheringPlanning(CommandExecutor commandExecutor, LocationZoneResolver zoneResolver) {
         this.commandExecutor = commandExecutor;
+        this.zoneResolver = zoneResolver;
     }
 
-    // today and commandId are captured at the boundary (controller) and passed in;
+    // now and commandId are captured at the boundary (controller) and passed in;
     // the service generates no clock or UUID I/O of its own.
-    public void planGathering(PlanGatheringRequest request, LocalDate today) {
-        PlanGatheringCommand command = new PlanGatheringHandler().handle(request);
-        GatheringPlanningContext context = new GatheringPlanningContext(today);
+    public void planGathering(PlanGatheringRequest request, Instant now) {
+        PlanGatheringCommand command = new PlanGatheringHandler(zoneResolver).handle(request);
+        GatheringPlanningContext context = new GatheringPlanningContext(now);
         commandExecutor.execute(command.gatheringId().id(), request, context, command);
     }
 

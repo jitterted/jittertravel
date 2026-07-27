@@ -4,7 +4,7 @@ import dev.ted.jittertravel.domain.ChangeGatheringCommand;
 import dev.ted.jittertravel.domain.ChangeGatheringContext;
 import dev.ted.jittertravel.web.ChangeGatheringRequest;
 
-import java.time.LocalDate;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -12,23 +12,27 @@ import java.util.UUID;
  * (never {@link dev.ted.jittertravel.infrastructure.EventStore} directly) and reads existence from
  * the {@link GatheringDetailsViewProjector} read model rather than folding the raw event stream.
  * <p>
- * commandId and today are captured at the boundary (the controller) and passed in; the service
+ * commandId and now are captured at the boundary (the controller) and passed in; the service
  * performs no clock or UUID I/O of its own. commandId is a fresh id (not the gatheringId, which is
  * the aggregate id) because a gathering may be changed many times.
  */
 public class ChangeGathering {
     private final CommandExecutor commandExecutor;
     private final GatheringDetailsViewProjector detailsProjector;
+    private final LocationZoneResolver zoneResolver;
 
-    public ChangeGathering(CommandExecutor commandExecutor, GatheringDetailsViewProjector detailsProjector) {
+    public ChangeGathering(CommandExecutor commandExecutor,
+                           GatheringDetailsViewProjector detailsProjector,
+                           LocationZoneResolver zoneResolver) {
         this.commandExecutor = commandExecutor;
         this.detailsProjector = detailsProjector;
+        this.zoneResolver = zoneResolver;
     }
 
-    public void changeGathering(UUID commandId, ChangeGatheringRequest request, LocalDate today) {
-        ChangeGatheringCommand command = new ChangeGatheringHandler().handle(request);
+    public void changeGathering(UUID commandId, ChangeGatheringRequest request, Instant now) {
+        ChangeGatheringCommand command = new ChangeGatheringHandler(zoneResolver).handle(request);
         boolean gatheringExists = detailsProjector.findById(command.gatheringId()).isPresent();
-        ChangeGatheringContext context = new ChangeGatheringContext(gatheringExists, today);
+        ChangeGatheringContext context = new ChangeGatheringContext(gatheringExists, now);
         commandExecutor.execute(commandId, request, context, command);
     }
 }

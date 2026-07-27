@@ -35,10 +35,10 @@ public class ItineraryProjector implements EventStreamConsumer {
                 case ConferenceCancelled(ConferenceId conferenceId, String _) -> conferenceEntries.remove(conferenceId);
                 case GatheringPlanned e -> gatheringEntries.put(e.gatheringId(), toGatheringEntry(
                         e.title(), e.venueName(), e.location(),
-                        e.speaking(), e.infoUrl(), e.date(), e.startTime(), e.endTime()));
+                        e.speaking(), e.infoUrl(), e.startsAt(), e.endsAt()));
                 case GatheringChanged e -> gatheringEntries.put(e.gatheringId(), toGatheringEntry(
                         e.title(), e.venueName(), e.location(),
-                        e.speaking(), e.infoUrl(), e.date(), e.startTime(), e.endTime()));
+                        e.speaking(), e.infoUrl(), e.startsAt(), e.endsAt()));
                 default -> {}
             }
         });
@@ -171,15 +171,16 @@ public class ItineraryProjector implements EventStreamConsumer {
                                                             Address location,
                                                             boolean speaking,
                                                             String infoUrl,
-                                                            LocalDate date,
-                                                            LocalTime startTime,
-                                                            LocalTime endTime) {
+                                                            ZonedTimestamp startsAt,
+                                                            ZonedTimestamp endsAt) {
+        // Itinerary days are venue-local days (see CalendarEntry), so the entry keeps the
+        // wall-clock the traveler will actually read off a clock when they get there.
         return new GatheringItineraryEntry(
                 title, venueName,
                 location.city(), location.country(),
                 speaking, infoUrl,
-                date.atTime(startTime),
-                date.atTime(endTime));
+                startsAt.localDateTime(),
+                endsAt.localDateTime());
     }
 
     private static List<ConferenceItineraryEntry> toConferenceEntries(ConferenceTentativelyPlanned e) {

@@ -5,7 +5,11 @@ ship the pattern (`ZonedTimestamp` events, boundary zone resolution, read-time u
 rendering); see `docs/TrainFlightUtcRolloutPlan.md` for the previous slice. Gatherings and
 conferences are the only event types still storing bare wall-clock times.
 
-Status legend: `[ ]` not started · `[~]` in progress · `[x]` done. Nothing here is started yet.
+Status legend: `[ ]` not started · `[~]` in progress · `[x]` done.
+
+**Gathering is done** (2026-07-27): events, commands, contexts, handlers, views, projectors, web,
+upcaster and their tests. Left for later: its renderer moves to `<time>` in phase 4. **Conference is
+untouched** — that is the next slice.
 
 ## Decisions (confirmed 2026-07-26)
 
@@ -56,28 +60,34 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
 
 ## Gathering rollout steps
 
-1. `[ ]` **Domain** — `GatheringPlanned`, `GatheringChanged`: replace
+1. `[x]` **Domain** — `GatheringPlanned`, `GatheringChanged`: replace
    `LocalDate date, LocalTime startTime, LocalTime endTime` with
    `ZonedTimestamp startsAt, ZonedTimestamp endsAt`. Same field change on `PlanGatheringCommand` and
    `ChangeGatheringCommand`. Move validation onto instants/entry-zone per `BookHotelCommand`:
-   - future check → `startsAt.utc().isAfter(context.now())` (`GatheringDateNotInFuture`);
+   - future check: **kept at date granularity**, not switched to an instant comparison. The old rule
+     was `date.isAfter(today)` — a gathering must be on a *later day*, and a test pinned that one
+     later today is rejected. Shipped as `ZonedTimestamp.isOnDayAfter(Instant)`, which reads both
+     sides in the gathering's own zone (`GatheringDateNotInFuture`). Relaxing this to "any later
+     moment" would be a deliberate behavior change, not a side effect of the storage migration.
    - end-after-start → `endsAt.utc().isAfter(startsAt.utc())` (`InvalidGatheringTimeRange`);
-   - "same day" is an *entry-zone* check (`startsAt.localDateTime().toLocalDate()`), never UTC.
-2. `[ ]` **Contexts** — `GatheringPlanningContext(LocalDate today)` →
+   - `isOnDayAfter` is expressed as "reference falls before midnight of this day" rather than by
+     converting the reference to a local date — equivalent, and it survives the `Instant.MIN`
+     import-bypass sentinel, which overflows when given a zone.
+2. `[x]` **Contexts** — `GatheringPlanningContext(LocalDate today)` →
    `GatheringPlanningContext(Instant now)`; same for `ChangeGatheringContext`. `GatheringPlanning`
    and `ChangeGathering` take `Instant now` instead of `LocalDate today`; controllers pass
    `Instant.now(clock)`.
-3. `[ ]` **Handlers** — `PlanGatheringHandler` and `ChangeGatheringHandler` take a
+3. `[x]` **Handlers** — `PlanGatheringHandler` and `ChangeGatheringHandler` take a
    `LocationZoneResolver` (they currently take no dependencies), resolve the venue zone once
    (explicit `CommonZone` wins, else `resolve(location)`, else `ZoneResolutionException`), and build
    both `ZonedTimestamp`s from `date.atTime(startTime)` / `date.atTime(endTime)` in that zone.
-4. `[ ]` **Views** — `PlannedGatheringView` holds `ZonedTimestamp startsAt/endsAt`;
+4. `[x]` **Views** — `PlannedGatheringView` holds `ZonedTimestamp startsAt/endsAt`;
    `relevantUntil()` returns `endsAt.utc()`, removing the documented server-zone STOPGAP.
    `GatheringDetailsView` likewise, so the edit form prefills from `atEntryZone()`.
-5. `[ ]` **Projectors** — `PlannedGatheringsProjector`, `GatheringDetailsViewProjector`,
+5. `[x]` **Projectors** — `PlannedGatheringsProjector`, `GatheringDetailsViewProjector`,
    `GatheringCalendarProjector` (`date.atTime(startTime)` → `startsAt.localDateTime()`),
    `GatheringItineraryEntry` + `ItineraryProjector`.
-6. `[ ]` **`ScheduleGapProjector` — instants for detection, entry-zone locals for reporting**
+6. `[x]` **`ScheduleGapProjector` — instants for detection, entry-zone locals for reporting**
    (decided 2026-07-26, decision 6 below). `GatheringOccupancy.overlapsWith` becomes
    `this.startsAt.utc().isBefore(other.endsAt.utc()) && other.startsAt.utc().isBefore(this.endsAt.utc())`
    — the `date.equals(other.date)` precondition **goes away entirely**, which is the point: it is
@@ -87,21 +97,23 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
    (`SchedulingConflict`, `DifferentCityConflict`) keeps carrying `LocalDate`/`LocalTime` for its
    messages, now derived from `atEntryZone()` — displayed text is unchanged. Day *bucketing* for
    display stays entry-zone (decision 7 of the master plan).
-7. `[ ]` **Web** — `PlanGatheringRequest`/`ChangeGatheringRequest` keep `date`/`startTime`/`endTime`
+7. `[x]` **Web** — `PlanGatheringRequest`/`ChangeGatheringRequest` keep `date`/`startTime`/`endTime`
    and gain an optional `zone` (a `CommonZone` name); `events()` passes a real
    `LocationZoneResolver`. Controllers add `@ModelAttribute("commonZones")` and a
    `ZoneResolutionException` catch that rejects the `zone` field. `plan-gathering.html` and
-   `change-gathering.html` gain the selector block (copy `book-hotel.html:256-270`); the edit form
-   preselects the stored zone.
-8. `[ ]` **`MigrateConferenceToGathering`** — this `ImportableCommand` record builds
+   `change-gathering.html` gain the selector block (copy `book-hotel.html:256-270`). The edit form
+   prefills date/times from the venue-zone wall-clock and leaves the picker on "derive from
+   location" — matching what the hotel edit form does, rather than the "preselect the stored zone"
+   this plan originally called for.
+8. `[x]` **`MigrateConferenceToGathering`** — this `ImportableCommand` record builds
    `GatheringPlanned` **directly**, bypassing the handler, and appears in existing backups. Resolve
    the zone from its own `location` inside `events()` rather than adding a record field: old backups
    stay importable, and the work stays in `events()` where it runs during import validation (per
    `CLAUDE.md`). `ConferenceMigrationService` correspondingly reads
    `conference.startsAt().atEntryZone()` when destructuring into date/start/end.
-9. `[ ]` **Renderer** — `PlannedGatheringsRenderer` renders each time via
+9. `[ ]` **Renderer** (deferred to phase 4 with the other list views) — `PlannedGatheringsRenderer` renders each time via
    `ZonedTimeTag.render(view.startsAt(), "…")`, matching the booked-list renderers.
-10. `[ ]` **Upcaster** — add `"GatheringPlanned"`/`"GatheringChanged"` cases: resolve the zone from
+10. `[x]` **Upcaster** — add `"GatheringPlanned"`/`"GatheringChanged"` cases: resolve the zone from
     `location.{city,country}`, merge `date`+`startTime` → `startsAt` and `date`+`endTime` → `endsAt`,
     and **remove** the three legacy keys. Idempotent when `startsAt` is already present.
 
@@ -150,6 +162,14 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
   upcaster cannot throw on real data. Re-run it before shipping, since gathering/conference venues
   are in scope of that audit.
 - No rewrite of stored `event_log`/`command_log` rows.
+- **Found while implementing:** `LocationAuditProjector` swept `GatheringPlanned` but not
+  `GatheringChanged` — the only `*Changed` event it missed. A gathering edited to an unresolvable
+  venue would therefore pass the audit and then throw on replay. Fixed; re-run `/admin/zone-audit`
+  before deploying, since it now covers strictly more events than the 2026-06-21 green run did.
+- **Watch out for country codes:** the curated table keys on country *names* (what the Nominatim
+  address parser returns), so a manually-typed `"GB"` does not resolve and forces a `CommonZone`
+  pick. Test fixtures using `"GB"` had to change. Consider adding ISO alpha-2 codes for the
+  single-zone countries (never for the multi-zone ones) if this bites in practice.
 
 ## Tests
 
@@ -168,17 +188,17 @@ Existing tests to update (all currently assert wall-clock values):
 
 New tests this slice must add — the gaps found reviewing the earlier slices:
 
-1. `[ ]` **Handler zone tests** (`PlanGatheringHandlerTest`, `ChangeGatheringHandlerTest`,
+1. `[x]` **Handler zone tests** (gathering done; hotel/train/flight backfill still open) (`PlanGatheringHandlerTest`, `ChangeGatheringHandlerTest`,
    `PlanTentativeConferenceHandlerTest`): an explicit `CommonZone` wins over the address; an absent
    pick derives from the address; an unresolvable address with no pick throws
    `ZoneResolutionException`. **These rules are currently untested for every migrated type** — there
    is no `BookHotelHandlerTest`/`BookTrainHandlerTest`, and `BookHotelControllerValidationTest` only
    pins a zone to sidestep ambiguity. Backfilling hotel/train/flight is cheap once the pattern
    exists and should ride along.
-2. `[ ]` **`EventPayloadUpcasterTest` cases** for `GatheringPlanned`/`GatheringChanged` (three keys →
+2. `[x]` **`EventPayloadUpcasterTest` cases** for `GatheringPlanned`/`GatheringChanged` (three keys →
    two, legacy keys removed, idempotent on new-shape input) and `ConferenceTentativelyPlanned`.
    While here: the flight cases added in `d2884fb` have **no upcaster test at all** — add them.
-3. `[ ]` **Golden legacy coverage — decided 2026-07-26: build this now, in this slice.** Give
+3. `[x]` **Golden legacy coverage — decided 2026-07-26: build this now, in this slice.** Give
    `GoldenEventDeserializationTest` an upcast-then-deserialize path and add legacy-shape samples for
    gathering and conference **and**, retroactively, for hotel/train/flight, which lost theirs when
    their samples were rewritten to the new shape. Keep the new-shape samples too. Writing the path
@@ -188,11 +208,11 @@ New tests this slice must add — the gaps found reviewing the earlier slices:
    zone-less legacy conference command must both import and produce the right instants.
 5. `[ ]` **`MigrateConferenceToGathering.events()`** — direct test that it resolves a zone from its
    location (today it is only exercised indirectly via `ConferenceMigrationServiceTest`).
-6. `[ ]` **Zone-skew FUTURE filter** — a gathering and a conference whose end has passed in the entry
+6. `[x]` **Zone-skew FUTURE filter** — a gathering and a conference whose end has passed in the entry
    zone but not in UTC (and vice versa) drop off / stay on the FUTURE list correctly. `pom.xml:183`
    pins the test JVM to UTC, so the test must set the entry zone explicitly for this to prove
    anything.
-7. `[ ]` **`@WebMvcTest` render coverage** for `plan-gathering.html`, `change-gathering.html` and
+7. `[~]` **`@WebMvcTest` render coverage** (templates render green in the existing tests; no explicit assertion on the `<select>` or the rejection path yet) for `plan-gathering.html`, `change-gathering.html` and
    `plan-conference.html` after they gain the `<select>` (Thymeleaf errors surface only at render
    time), plus a POST that rejects on `ZoneResolutionException` and re-renders with the field error.
 

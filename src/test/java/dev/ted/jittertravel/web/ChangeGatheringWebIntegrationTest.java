@@ -7,6 +7,7 @@ import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.GatheringDateNotInFuture;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringNotFound;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,9 +60,8 @@ class ChangeGatheringWebIntegrationTest {
                 "London Java Community",
                 "Skills Matter",
                 new Address("1 Example St", "London", "", "EC1A 1BB", "GB", null),
-                LocalDate.of(2026, 7, 15),
-                LocalTime.of(18, 0),
-                LocalTime.of(21, 0),
+                ZonedTimestamp.fromLocal(LocalDate.of(2026, 7, 15).atTime(18, 0), ZoneId.of("Europe/London")),
+                ZonedTimestamp.fromLocal(LocalDate.of(2026, 7, 15).atTime(21, 0), ZoneId.of("Europe/London")),
                 true,
                 "https://meetup.com/ljc/events/123");
         given(detailsProjector.findById(any())).willReturn(Optional.of(view));

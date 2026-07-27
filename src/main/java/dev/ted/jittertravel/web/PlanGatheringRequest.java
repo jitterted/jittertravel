@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.application.PlanGatheringHandler;
+import dev.ted.jittertravel.application.VenueZone;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.GatheringPlanningContext;
@@ -21,7 +23,13 @@ public class PlanGatheringRequest implements ImportableCommand {
     private String postalCode;
     private String country;
     private String locationForMatching;
+    // Optional explicit time-zone pick (a CommonZone enum name). Empty/absent means "derive from
+    // the location"; a value wins over derivation. The form requires it only when derivation fails.
+    // Backups exported before this field existed simply lack it, and still import.
+    private String zone;
 
+    // The wire shape stays date + two times even though the event now stores two instants: that is
+    // what keeps pre-migration backups importable (see docs/GatheringConferenceUtcRolloutPlan.md).
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate date;
 
@@ -76,6 +84,9 @@ public class PlanGatheringRequest implements ImportableCommand {
     public String getInfoUrl() { return infoUrl; }
     public void setInfoUrl(String infoUrl) { this.infoUrl = infoUrl; }
 
+    public String getZone() { return zone; }
+    public void setZone(String zone) { this.zone = zone; }
+
     public Address getLocation() {
         return new Address(street, city, region, postalCode, country, locationForMatching);
     }
@@ -87,6 +98,8 @@ public class PlanGatheringRequest implements ImportableCommand {
 
     @Override
     public Stream<? extends Event> events() {
-        return new PlanGatheringHandler().handle(this).execute(new GatheringPlanningContext(IMPORT_BYPASS_DATE));
+        return new PlanGatheringHandler(new LocationZoneResolver())
+                .handle(this)
+                .execute(new GatheringPlanningContext(IMPORT_BYPASS_INSTANT));
     }
 }

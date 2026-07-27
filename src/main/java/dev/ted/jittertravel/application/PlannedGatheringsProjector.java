@@ -7,9 +7,9 @@ import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
+import dev.ted.jittertravel.domain.ZonedTimestamp;
+
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -27,10 +27,10 @@ public class PlannedGatheringsProjector implements EventStreamConsumer {
                 // Both events are full snapshots, so a change overwrites the planned view.
                 case GatheringPlanned e -> viewsById.put(e.gatheringId(), toView(
                         e.gatheringId(), e.title(), e.venueName(), e.location(),
-                        e.date(), e.startTime(), e.endTime(), e.speaking(), e.infoUrl()));
+                        e.startsAt(), e.endsAt(), e.speaking(), e.infoUrl()));
                 case GatheringChanged e -> viewsById.put(e.gatheringId(), toView(
                         e.gatheringId(), e.title(), e.venueName(), e.location(),
-                        e.date(), e.startTime(), e.endTime(), e.speaking(), e.infoUrl()));
+                        e.startsAt(), e.endsAt(), e.speaking(), e.infoUrl()));
                 default -> { /* not a gathering event */ }
             }
         });
@@ -40,9 +40,8 @@ public class PlannedGatheringsProjector implements EventStreamConsumer {
                                                String title,
                                                String venueName,
                                                Address location,
-                                               LocalDate date,
-                                               LocalTime startTime,
-                                               LocalTime endTime,
+                                               ZonedTimestamp startsAt,
+                                               ZonedTimestamp endsAt,
                                                boolean speaking,
                                                String infoUrl) {
         return new PlannedGatheringView(
@@ -54,9 +53,8 @@ public class PlannedGatheringsProjector implements EventStreamConsumer {
                 location.region(),
                 location.postalCode(),
                 location.country(),
-                date,
-                startTime,
-                endTime,
+                startsAt,
+                endsAt,
                 speaking,
                 infoUrl
         );
@@ -65,7 +63,7 @@ public class PlannedGatheringsProjector implements EventStreamConsumer {
     public List<PlannedGatheringView> views(TimeView timeView, Instant now) {
         return viewsById.values().stream()
                 .filter(view -> timeView.includes(view, now))
-                .sorted(Comparator.comparing(PlannedGatheringView::date))
+                .sorted(Comparator.comparing(view -> view.startsAt().utc()))
                 .toList();
     }
 }

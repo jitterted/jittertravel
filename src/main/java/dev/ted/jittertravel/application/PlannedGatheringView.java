@@ -1,11 +1,9 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.ZoneId;
 
 public record PlannedGatheringView(
         GatheringId gatheringId,
@@ -16,22 +14,18 @@ public record PlannedGatheringView(
         String region,
         String postalCode,
         String country,
-        LocalDate date,
-        LocalTime startTime,
-        LocalTime endTime,
+        ZonedTimestamp startsAt,
+        ZonedTimestamp endsAt,
         boolean speaking,
         String infoUrl
 ) implements TemporalView {
 
     /**
-     * A gathering is "upcoming" until it finishes on its day. STOPGAP: gathering
-     * events still store bare wall-clock date/times, so the end is interpreted in
-     * the server zone to preserve pre-migration behavior. Once GatheringPlanned
-     * carries {@code ZonedTimestamp}s, return the end's {@code utc()} directly
-     * (see {@link TemporalView}).
+     * A gathering is "upcoming" until it finishes — the instant it ends at its venue, which is the
+     * same moment no matter where the server or the viewer is.
      */
     @Override
     public Instant relevantUntil() {
-        return date.atTime(endTime).atZone(ZoneId.systemDefault()).toInstant();
+        return endsAt.utc();
     }
 }

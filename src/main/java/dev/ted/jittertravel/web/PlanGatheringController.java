@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.GatheringPlanning;
+import dev.ted.jittertravel.application.ZoneResolutionException;
+import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.GatheringDateNotInFuture;
 import dev.ted.jittertravel.domain.InvalidGatheringTimeRange;
 import org.springframework.stereotype.Controller;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
@@ -23,6 +26,11 @@ public class PlanGatheringController {
     public PlanGatheringController(GatheringPlanning gatheringPlanning, Clock clock) {
         this.gatheringPlanning = gatheringPlanning;
         this.clock = clock;
+    }
+
+    @ModelAttribute("commonZones")
+    public CommonZone[] commonZones() {
+        return CommonZone.values();
     }
 
     @GetMapping("/plan-gathering")
@@ -41,11 +49,15 @@ public class PlanGatheringController {
     public String planGatheringSubmit(@ModelAttribute("planGathering") PlanGatheringRequest request,
                                       BindingResult bindingResult) {
         try {
-            gatheringPlanning.planGathering(request, LocalDate.now(clock));
+            // now is captured at the boundary as an Instant; the venue zone is resolved inward.
+            gatheringPlanning.planGathering(request, Instant.now(clock));
         } catch (GatheringDateNotInFuture e) {
             bindingResult.rejectValue("date", "future", e.getMessage());
         } catch (InvalidGatheringTimeRange e) {
             bindingResult.rejectValue("endTime", "afterStartTime", e.getMessage());
+        } catch (ZoneResolutionException e) {
+            bindingResult.rejectValue("zone", "zoneUnresolved",
+                    "Could not determine the time zone from the location — please choose one.");
         }
 
         if (bindingResult.hasErrors()) {

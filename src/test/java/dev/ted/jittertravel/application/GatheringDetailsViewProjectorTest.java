@@ -5,12 +5,14 @@ import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanned;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -23,6 +25,7 @@ class GatheringDetailsViewProjectorTest {
     private static final LocalDate JUL_04 = LocalDate.of(2026, 7, 4);
     private static final LocalTime START = LocalTime.of(18, 0);
     private static final LocalTime END = LocalTime.of(21, 0);
+    private static final ZoneId UK = ZoneId.of("Europe/London");
     private static final Address LONDON = new Address("1 Example St", "London", "", "EC1A 1BB", "GB", null);
     private static final Address MANCHESTER = new Address("2 New St", "Manchester", "", "M1 1AA", "GB", null);
 
@@ -43,7 +46,7 @@ class GatheringDetailsViewProjectorTest {
 
         projector.handle(Stream.of(stored(new GatheringPlanned(
                 gatheringId, "London Java Community", "Skills Matter", LONDON,
-                JUN_20, START, END, true, "https://meetup.com/ljc/events/123"))));
+                ukTime(JUN_20, START), ukTime(JUN_20, END), true, "https://meetup.com/ljc/events/123"))));
 
         Optional<GatheringDetailsView> found = projector.findById(gatheringId);
         assertThat(found)
@@ -55,12 +58,10 @@ class GatheringDetailsViewProjectorTest {
                 .isEqualTo("Skills Matter");
         assertThat(view.location())
                 .isEqualTo(LONDON);
-        assertThat(view.date())
-                .isEqualTo(JUN_20);
-        assertThat(view.startTime())
-                .isEqualTo(START);
-        assertThat(view.endTime())
-                .isEqualTo(END);
+        assertThat(view.startsAt())
+                .isEqualTo(ukTime(JUN_20, START));
+        assertThat(view.endsAt())
+                .isEqualTo(ukTime(JUN_20, END));
         assertThat(view.speaking())
                 .as("speaking flag from the planned event")
                 .isTrue();
@@ -75,9 +76,9 @@ class GatheringDetailsViewProjectorTest {
 
         projector.handle(Stream.of(
                 stored(new GatheringPlanned(gatheringId, "Old Title", "Skills Matter", LONDON,
-                        JUN_20, START, END, true, "https://old.example.com")),
+                        ukTime(JUN_20, START), ukTime(JUN_20, END), true, "https://old.example.com")),
                 stored(new GatheringChanged(gatheringId, "New Title", "Federation House", MANCHESTER,
-                        JUL_04, LocalTime.of(17, 30), LocalTime.of(20, 0), false, "https://new.example.com"))));
+                        ukTime(JUL_04, LocalTime.of(17, 30)), ukTime(JUL_04, LocalTime.of(20, 0)), false, "https://new.example.com"))));
 
         GatheringDetailsView view = projector.findById(gatheringId).orElseThrow();
         assertThat(view.title())
@@ -86,12 +87,10 @@ class GatheringDetailsViewProjectorTest {
                 .isEqualTo("Federation House");
         assertThat(view.location())
                 .isEqualTo(MANCHESTER);
-        assertThat(view.date())
-                .isEqualTo(JUL_04);
-        assertThat(view.startTime())
-                .isEqualTo(LocalTime.of(17, 30));
-        assertThat(view.endTime())
-                .isEqualTo(LocalTime.of(20, 0));
+        assertThat(view.startsAt())
+                .isEqualTo(ukTime(JUL_04, LocalTime.of(17, 30)));
+        assertThat(view.endsAt())
+                .isEqualTo(ukTime(JUL_04, LocalTime.of(20, 0)));
         assertThat(view.speaking())
                 .as("speaking flag should be overwritten by the change")
                 .isFalse();
@@ -107,16 +106,20 @@ class GatheringDetailsViewProjectorTest {
 
         projector.handle(Stream.of(
                 stored(new GatheringPlanned(changed, "Changed Meetup", "Skills Matter", LONDON,
-                        JUN_20, START, END, false, "")),
+                        ukTime(JUN_20, START), ukTime(JUN_20, END), false, "")),
                 stored(new GatheringPlanned(untouched, "Other Meetup", "Skills Matter", LONDON,
-                        JUN_20, START, END, false, "")),
+                        ukTime(JUN_20, START), ukTime(JUN_20, END), false, "")),
                 stored(new GatheringChanged(changed, "Changed Meetup v2", "Federation House", MANCHESTER,
-                        JUL_04, START, END, false, ""))));
+                        ukTime(JUL_04, START), ukTime(JUL_04, END), false, ""))));
 
         assertThat(projector.findById(changed).orElseThrow().title())
                 .isEqualTo("Changed Meetup v2");
         assertThat(projector.findById(untouched).orElseThrow().title())
                 .isEqualTo("Other Meetup");
+    }
+
+    private static ZonedTimestamp ukTime(LocalDate date, LocalTime time) {
+        return ZonedTimestamp.fromLocal(date.atTime(time), UK);
     }
 
     private static StoredEvent stored(Event event) {

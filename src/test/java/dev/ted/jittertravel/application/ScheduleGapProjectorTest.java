@@ -819,6 +819,105 @@ class ScheduleGapProjectorTest {
     }
 
     // -------------------------------------------------------------------------
+    // Home cities: no hotel needed at home, and all home airports are one place
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class HomeCityHandling {
+
+        private ScheduleGapProjector projectorWithBayAreaHome() {
+            return new ScheduleGapProjector(new StaticAirportCityResolver(),
+                    new HomeCities(List.of("San Francisco", "San Jose", "Oakland")));
+        }
+
+        @Test
+        void noMissingHotelForNightsSpentAtHome() {
+            ScheduleGapProjector projector = projectorWithBayAreaHome();
+            // Home Sep 15–18 between an inbound flight and the next departure
+            projector.handle(Stream.of(
+                    stored(flight("AMS", SEP_15.atTime(9, 0), "SFO", SEP_15.atTime(13, 0))),
+                    stored(flight("SFO", SEP_18.atTime(10, 0), "LHR", SEP_19.atTime(6, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                    .isEmpty();
+        }
+
+        @Test
+        void missingHotelStillReportedForNightsAwayFromHome() {
+            ScheduleGapProjector projector = projectorWithBayAreaHome();
+            projector.handle(Stream.of(
+                    stored(flight("SFO", SEP_14.atTime(9, 0), "AMS", SEP_15.atTime(9, 0))),
+                    stored(flight("AMS", SEP_18.atTime(10, 0), "SFO", SEP_18.atTime(20, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                    .containsExactly(new ScheduleProblem.MissingHotel("Amsterdam", SEP_15, SEP_18, ""));
+        }
+
+        @Test
+        void noMissingHotelForConferenceInHomeCity() {
+            ScheduleGapProjector projector = projectorWithBayAreaHome();
+            projector.handle(Stream.of(stored(conference("San Francisco", SEP_15, SEP_17))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                    .isEmpty();
+        }
+
+        @Test
+        void missingHotelStillReportedForConferenceAwayFromHome() {
+            ScheduleGapProjector projector = projectorWithBayAreaHome();
+            projector.handle(Stream.of(stored(conference("Amsterdam", SEP_15, SEP_17))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                    .containsExactly(new ScheduleProblem.MissingHotel("Amsterdam", SEP_15, SEP_17, "Conf"));
+        }
+
+        @Test
+        void noMissingTravelWhenArrivingAndDepartingDifferentHomeAirports() {
+            ScheduleGapProjector projector = projectorWithBayAreaHome();
+            // Land at SFO ("San Francisco"), later depart from SJC ("San Jose") — both home
+            projector.handle(Stream.of(
+                    stored(flight("LHR", SEP_15.atTime(9, 0), "SFO", SEP_15.atTime(13, 0))),
+                    stored(flight("SJC", SEP_18.atTime(10, 0), "LAX", SEP_18.atTime(11, 30)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
+                    .isEmpty();
+        }
+
+        @Test
+        void missingTravelStillReportedWhenDepartingFromNonHomeCity() {
+            ScheduleGapProjector projector = projectorWithBayAreaHome();
+            projector.handle(Stream.of(
+                    stored(flight("LHR", SEP_15.atTime(9, 0), "SFO", SEP_15.atTime(13, 0))),
+                    stored(flight("LAX", SEP_18.atTime(10, 0), "SEA", SEP_18.atTime(13, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
+                    .containsExactly(new ScheduleProblem.MissingTravel(
+                            "San Francisco", SEP_15.atTime(13, 0),
+                            "Los Angeles", SEP_18.atTime(10, 0)));
+        }
+
+        @Test
+        void missingTravelBetweenNonHomeCitiesUnaffectedByHomeCities() {
+            ScheduleGapProjector projector = projectorWithBayAreaHome();
+            projector.handle(Stream.of(
+                    stored(flight("LHR", SEP_15.atTime(9, 0), "AMS", SEP_15.atTime(11, 0))),
+                    stored(flight("BRU", SEP_18.atTime(10, 0), "CDG", SEP_18.atTime(11, 30)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
+                    .containsExactly(new ScheduleProblem.MissingTravel(
+                            "Amsterdam", SEP_15.atTime(11, 0),
+                            "Brussels", SEP_18.atTime(10, 0)));
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 

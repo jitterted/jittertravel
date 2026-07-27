@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 public class ScheduleGapProjector implements EventStreamConsumer {
 
     private final AirportCityResolver cityResolver;
+    private final HomeCities homeCities;
     private final Map<FlightId, TravelLeg> flightLegs = new ConcurrentHashMap<>();
     private final Map<TrainTripId, TravelLeg> trainLegs = new ConcurrentHashMap<>();
     private final Map<HotelBookingId, HotelStay> hotelStays = new ConcurrentHashMap<>();
@@ -22,7 +23,12 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     private final Set<ClearedConflict> clearedConflicts = new HashSet<>();
 
     public ScheduleGapProjector(AirportCityResolver cityResolver) {
+        this(cityResolver, new HomeCities(List.of()));
+    }
+
+    public ScheduleGapProjector(AirportCityResolver cityResolver, HomeCities homeCities) {
         this.cityResolver = cityResolver;
+        this.homeCities = homeCities;
     }
 
     @Override
@@ -105,8 +111,8 @@ public class ScheduleGapProjector implements EventStreamConsumer {
 
             while (i + 1 < sorted.size()) {
                 ScheduleProblem.MissingTravel next = sorted.get(i + 1);
-                boolean sameCities = next.fromCity().equalsIgnoreCase(current.fromCity())
-                        && next.toCity().equalsIgnoreCase(current.toCity());
+                boolean sameCities = homeCities.sameLocation(next.fromCity(), current.fromCity())
+                        && homeCities.sameLocation(next.toCity(), current.toCity());
                 boolean overlaps = next.arrivedAt().isBefore(earliestNextDep);
                 if (!sameCities || !overlaps) break;
                 if (next.arrivedAt().isAfter(latestArrival)) latestArrival = next.arrivedAt();
@@ -133,7 +139,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         for (int i = 0; i < legs.size() - 1; i++) {
             TravelLeg current = legs.get(i);
             TravelLeg next = legs.get(i + 1);
-            if (!current.toCity().equalsIgnoreCase(next.fromCity())) {
+            if (!homeCities.sameLocation(current.toCity(), next.fromCity())) {
                 problems.add(new ScheduleProblem.MissingTravel(
                         current.toCity(), current.arrival(),
                         next.fromCity(), next.departure()));
@@ -186,6 +192,9 @@ public class ScheduleGapProjector implements EventStreamConsumer {
 
         for (TravelLeg leg : legs) {
             String city = leg.toCity();
+            if (homeCities.includes(city)) {
+                continue; // nights at home need no hotel
+            }
             LocalDate arrivalDate = leg.arrival().toLocalDate();
             nextDepartureFromCity(legs, city, leg.arrival()).ifPresent(nextDeparture -> {
                 for (LocalDate night = arrivalDate; night.isBefore(nextDeparture); night = night.plusDays(1)) {
@@ -206,6 +215,9 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         }
 
         for (CityOccupancy occ : conferenceOccupancies.values()) {
+            if (homeCities.includes(occ.city())) {
+                continue; // a conference at home doesn't imply a hotel stay
+            }
             for (LocalDate night = occ.startDate(); night.isBefore(occ.endDate()); night = night.plusDays(1)) {
                 neededNights.add(new CityNight(occ.city(), night));
             }
@@ -254,7 +266,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
 
     private Optional<LocalDate> nextDepartureFromCity(List<TravelLeg> legs, String city, LocalDateTime afterTime) {
         return legs.stream()
-                .filter(l -> l.fromCity().equalsIgnoreCase(city) && l.departure().isAfter(afterTime))
+                .filter(l -> homeCities.sameLocation(l.fromCity(), city) && l.departure().isAfter(afterTime))
                 .map(l -> l.departure().toLocalDate())
                 .min(Comparator.naturalOrder());
     }

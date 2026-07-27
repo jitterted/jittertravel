@@ -2,12 +2,14 @@ package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.*;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
+import java.util.List;
 
 @Configuration
 public class EventSourcingConfig {
@@ -237,8 +239,10 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public ScheduleGapProjector scheduleGapProjector(EventStore eventStore) {
-        ScheduleGapProjector projector = new ScheduleGapProjector(new StaticAirportCityResolver());
+    public ScheduleGapProjector scheduleGapProjector(EventStore eventStore,
+                                                     @Value("${jittertravel.home-cities:}") List<String> homeCityNames) {
+        ScheduleGapProjector projector = new ScheduleGapProjector(new StaticAirportCityResolver(),
+                                                                 new HomeCities(homeCityNames));
         eventStore.subscribe(projector);
         projector.handle(eventStore.findAll());
         return projector;

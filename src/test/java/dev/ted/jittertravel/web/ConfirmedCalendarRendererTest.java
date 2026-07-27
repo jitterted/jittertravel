@@ -100,6 +100,116 @@ class ConfirmedCalendarRendererTest {
     }
 
     @Test
+    void explicitDateRangeRendersOnlyEntriesWithinThatRange() {
+        LocalDate today = LocalDate.of(2026, 6, 11);
+        List<CalendarEntry> entries = List.of(
+                conference("WayBeforeRange", LocalDate.of(2026, 4, 6), LocalDate.of(2026, 4, 8)),
+                conference("JustBeforeRange", LocalDate.of(2026, 6, 15), LocalDate.of(2026, 6, 17)),
+                conference("InsideRangeEarly", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8)),
+                conference("InsideRangeLate", LocalDate.of(2026, 7, 27), LocalDate.of(2026, 7, 29)),
+                conference("JustAfterRange", LocalDate.of(2026, 8, 10), LocalDate.of(2026, 8, 12)),
+                conference("WayAfterRange", LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 7))
+        );
+
+        String html = ConfirmedCalendarRenderer.render(entries, today, false, false,
+                                                       LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+
+        assertThat(html)
+                .contains("InsideRangeEarly")
+                .contains("InsideRangeLate")
+                .doesNotContain("WayBeforeRange")
+                .doesNotContain("JustBeforeRange")
+                .doesNotContain("JustAfterRange")
+                .doesNotContain("WayAfterRange");
+    }
+
+    @Test
+    void explicitDateRangeRendersOnlyDaysWithinTheWeeksCoveringThatRange() {
+        LocalDate today = LocalDate.of(2026, 6, 11);
+
+        // from = Wed 2026-07-01 -> grid starts Sun 2026-06-28
+        // to   = Fri 2026-07-31 -> grid ends   Sat 2026-08-01
+        String html = ConfirmedCalendarRenderer.render(List.of(), today, false, false,
+                                                       LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+
+        assertThat(html)
+                .contains("/itinerary?date=2026-06-28")
+                .contains("/itinerary?date=2026-07-15")
+                .contains("/itinerary?date=2026-08-01")
+                .doesNotContain("/itinerary?date=2026-06-27")
+                .doesNotContain("/itinerary?date=2026-08-02");
+    }
+
+    @Test
+    void entryOverlappingTheStartOfTheDateRangeIsRendered() {
+        LocalDate today = LocalDate.of(2026, 6, 11);
+        List<CalendarEntry> entries = List.of(
+                conference("SpansIntoRange", LocalDate.of(2026, 6, 29), LocalDate.of(2026, 7, 3))
+        );
+
+        String html = ConfirmedCalendarRenderer.render(entries, today, false, false,
+                                                       LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+
+        assertThat(html).contains("SpansIntoRange");
+    }
+
+    @Test
+    void entryOverlappingTheEndOfTheDateRangeIsRendered() {
+        LocalDate today = LocalDate.of(2026, 6, 11);
+        List<CalendarEntry> entries = List.of(
+                conference("SpansOutOfRange", LocalDate.of(2026, 7, 29), LocalDate.of(2026, 8, 4))
+        );
+
+        String html = ConfirmedCalendarRenderer.render(entries, today, false, false,
+                                                       LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+
+        assertThat(html).contains("SpansOutOfRange");
+    }
+
+    @Test
+    void onlyFromGivenRendersFromThatDateThroughLastEntry() {
+        LocalDate today = LocalDate.of(2026, 6, 11);
+        List<CalendarEntry> entries = List.of(
+                conference("BeforeFrom", LocalDate.of(2026, 5, 4), LocalDate.of(2026, 5, 6)),
+                conference("AfterFrom", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8))
+        );
+
+        String html = ConfirmedCalendarRenderer.render(entries, today, false, false,
+                                                       LocalDate.of(2026, 7, 1), null);
+
+        assertThat(html)
+                .contains("AfterFrom")
+                .doesNotContain("BeforeFrom");
+    }
+
+    @Test
+    void onlyToGivenRendersFirstEntryThroughThatDate() {
+        LocalDate today = LocalDate.of(2026, 6, 11);
+        List<CalendarEntry> entries = List.of(
+                conference("BeforeTo", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8)),
+                conference("AfterTo", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 16))
+        );
+
+        String html = ConfirmedCalendarRenderer.render(entries, today, false, false,
+                                                       null, LocalDate.of(2026, 7, 31));
+
+        assertThat(html)
+                .contains("BeforeTo")
+                .doesNotContain("AfterTo");
+    }
+
+    private static CalendarEntry conference(String title, LocalDate start, LocalDate end) {
+        return new CalendarEntry(
+                EntryKind.CONFERENCE,
+                start.atTime(9, 0),
+                end.atTime(17, 0),
+                title, List.of("subtitle for " + title),
+                title + " cont'd", List.of("continued subtitle for " + title),
+                null
+        );
+    }
+
+    @Test
     void authenticatedUserSeesFullHotelName() {
         CalendarEntry hotel = new CalendarEntry(
                 EntryKind.LODGING,

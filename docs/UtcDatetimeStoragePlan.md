@@ -161,11 +161,24 @@ persisted `commandId` record field — that would orphan every existing backup. 
 on import the derived id differs from the original `command_log` id from live execution; that is
 already true today (worse — random), and ids are opaque, so per-file-content stability suffices.
 
+**Payload-collision caveat (2026-08-05 verification):** deriving the id from payload content means
+two entries with *identical payloads* derive the same id, and `CommandImporter.validate`'s
+`firstEntryUsingId` check would then reject the **entire file** as a duplicate-id error — a
+legitimately exported backup failing to import at all. `MigrateConferenceToGathering` is immune
+(the generated `gatheringId` is in the key). `ClearDifferentCityConflict`'s key
+`(gatheringId, conferenceId, reason)` is safe only because `ScheduleGapProjector`'s
+`clearedConflicts` hides a cleared pair forever, so the UI can never emit a second clear for the
+same pair — that invariant is load-bearing; if re-clearing ever becomes possible, revisit (e.g.
+treat identical-payload duplicates as a benign skip instead of an error, which is strictly more
+robust anyway).
+
 **Test:** import-the-same-file-twice (home: `CommandImportSafetyTest` or
 `CommandExportImportRoundTripTest`) asserting the second run reports every entry **skipped** and
 appends zero events — with a migrate and a clear-conflict entry in the file, since those are the
-types that would have caught this. Plus a determinism assertion (`commandId()` returns the same
-value on every call) in the `MigrateConferenceToGathering.events()` test (test backfill item 5).
+types that would have caught this. Include two clear-conflict entries for *different* pairs to pin
+that distinct payloads keep distinct ids (see the payload-collision caveat above). Plus a
+determinism assertion (`commandId()` returns the same value on every call) in the
+`MigrateConferenceToGathering.events()` test (test backfill item 5).
 
 ### R2. `[ ]` `ScheduleGapProjector` still compares wall-clock across zones outside gathering conflicts
 
@@ -240,10 +253,19 @@ they each anchor to a step that is being rewritten anyway):
   regress: a plain reflection test over `application`-package constructors (in
   `src/test/java/.../architecture/`, styled like `NoFullyQualifiedClassReferencesTest`) — no
   ArchUnit dependency needed. Delete the CLAUDE.md TODO when done.
-- `[ ]` **Read-only parity check.** `ConferencePlanning` throws `ReadOnlyModeException` *before*
-  saving the command; confirm `CommandExecutor` gives the same guarantee (no command row written in
-  read-only mode). `PlanConferenceController` also calls `isReadOnly()` directly and needs a
-  replacement source for that flag.
+- `[ ]` **Read-only guard moves into `CommandExecutor`** (verified 2026-08-05: parity does *not*
+  hold today). `ConferencePlanning` throws `ReadOnlyModeException` *before* saving the command, but
+  `CommandExecutor.execute()`/`appendEvents()` call `persister.saveCommand(...)` unconditionally —
+  no read-only check anywhere in the executor, and `EventStore.append()` doesn't check either (it
+  only *sets* the flag on persist failure). The guard exists purely as controller discipline
+  (each controller checks `service.isReadOnly()` before posting). Read-only mode can engage while
+  the database is still *writable* — startup replay can fail for a data reason — so a forgotten
+  controller check would write command rows. Migrating `ConferencePlanning` to `CommandExecutor`
+  as-is would therefore *weaken* its guarantee. **Fix:** throw `ReadOnlyModeException` at the top
+  of both `execute` and `appendEvents` (which also correctly blocks imports in read-only mode),
+  add a test, and later drop the per-controller boilerplate opportunistically.
+  `PlanConferenceController` also calls `isReadOnly()` directly and needs a replacement source for
+  that flag (`CommandExecutor.isReadOnly()`, as the other services already delegate).
 - `[ ]` **Sentinel cleanup.** After the conference command modernizes to `Instant now`, check
   whether `IMPORT_BYPASS_NOW` (`LocalDateTime.MIN`) and `IMPORT_BYPASS_DATE` still have any users
   (`ImportableCommand.java:24-25`) and delete the dead ones — they're exactly the kind of trap the

@@ -17,6 +17,7 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.*;
 
@@ -84,5 +85,35 @@ class CommandExecutorTest {
         InOrder inOrder = inOrder(persister, eventStore);
         inOrder.verify(persister).saveCommand(COMMAND_ID, "record");
         inOrder.verify(eventStore).append(any(), eq(COMMAND_ID));
+    }
+
+    /**
+     * Read-only mode can engage while the database is still writable (startup replay can fail for a
+     * data reason), so nothing downstream stops the write — the executor has to. Guarding here
+     * rather than in each controller is what makes the rule hold for imports too.
+     */
+    @Test
+    void executeWritesNothingInReadOnlyMode() {
+        given(eventStore.isReadOnly()).willReturn(true);
+        CommandExecutor executor = new CommandExecutor(persister, eventStore);
+        DomainCommand<TestContext> command = _ -> Stream.of(new TestEvent());
+
+        assertThatThrownBy(() -> executor.execute(COMMAND_ID, "request", new TestContext(), command))
+                .isInstanceOf(ReadOnlyModeException.class);
+
+        verify(persister, never()).saveCommand(any(), any());
+        verify(eventStore, never()).append(any(), any());
+    }
+
+    @Test
+    void appendEventsWritesNothingInReadOnlyMode() {
+        given(eventStore.isReadOnly()).willReturn(true);
+        CommandExecutor executor = new CommandExecutor(persister, eventStore);
+
+        assertThatThrownBy(() -> executor.appendEvents(COMMAND_ID, "record", Stream.of(new TestEvent())))
+                .isInstanceOf(ReadOnlyModeException.class);
+
+        verify(persister, never()).saveCommand(any(), any());
+        verify(eventStore, never()).append(any(), any());
     }
 }

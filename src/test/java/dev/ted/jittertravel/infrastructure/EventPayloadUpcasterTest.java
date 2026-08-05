@@ -2,6 +2,10 @@ package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.AirportZoneResolver;
 import dev.ted.jittertravel.application.LocationZoneResolver;
+import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightChanged;
+import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.TrainBooked;
@@ -110,6 +114,121 @@ class EventPayloadUpcasterTest {
         assertThat(event.arrivalDateTime().localDateTime().toString())
                 .as("the original arrival wall-clock is preserved as the entry-zone local time")
                 .isEqualTo("2026-06-09T18:15");
+    }
+
+    @Test
+    void legacyFlightBookedResolvesEachEndpointFromItsAirportCode() {
+        // SFO→FRA: the two endpoints are nine hours apart, so a single shared zone would put one of
+        // them badly wrong. SFO 15:55 PDT (-07:00) is 22:55Z; FRA 11:45 CEST (+02:00) is 09:45Z.
+        String legacy = """
+                {
+                  "flightId": {"id": "55555555-5555-5555-5555-555555555555"},
+                  "airline": "Lufthansa",
+                  "flightNumber": "LH441",
+                  "departureAirport": {"code": "SFO"},
+                  "departureDateTime": "2026-06-06T15:55:00",
+                  "arrivalAirport": {"code": "FRA"},
+                  "arrivalDateTime": "2026-06-07T11:45:00"
+                }
+                """;
+
+        FlightBooked event = upcastTo(legacy, FlightBooked.class);
+
+        assertThat(event.departureDateTime().zone())
+                .isEqualTo(ZoneId.of("America/Los_Angeles"));
+        assertThat(event.departureDateTime().utc())
+                .isEqualTo(Instant.parse("2026-06-06T22:55:00Z"));
+        assertThat(event.arrivalDateTime().zone())
+                .isEqualTo(ZoneId.of("Europe/Berlin"));
+        assertThat(event.arrivalDateTime().utc())
+                .isEqualTo(Instant.parse("2026-06-07T09:45:00Z"));
+        assertThat(event.arrivalDateTime().localDateTime().toString())
+                .as("the original arrival wall-clock is preserved as the entry-zone local time")
+                .isEqualTo("2026-06-07T11:45");
+    }
+
+    @Test
+    void legacyFlightChangedResolvesEachEndpointFromItsAirportCode() {
+        // FlightChanged carries the same endpoint pair as FlightBooked and would fail identically
+        // if the upcaster's case list missed it — which nothing else covers.
+        String legacy = """
+                {
+                  "flightId": {"id": "55555555-5555-5555-5555-555555555555"},
+                  "airline": "Lufthansa",
+                  "flightNumber": "LH441",
+                  "departureAirport": {"code": "LHR"},
+                  "departureDateTime": "2026-06-06T09:15:00",
+                  "arrivalAirport": {"code": "JFK"},
+                  "arrivalDateTime": "2026-06-06T12:30:00",
+                  "reason": "Schedule shifted by airline"
+                }
+                """;
+
+        FlightChanged event = upcastTo(legacy, FlightChanged.class);
+
+        assertThat(event.departureDateTime().zone())
+                .isEqualTo(ZoneId.of("Europe/London"));
+        assertThat(event.departureDateTime().utc())
+                .as("09:15 BST is 08:15Z")
+                .isEqualTo(Instant.parse("2026-06-06T08:15:00Z"));
+        assertThat(event.arrivalDateTime().zone())
+                .isEqualTo(ZoneId.of("America/New_York"));
+        assertThat(event.arrivalDateTime().utc())
+                .as("12:30 EDT is 16:30Z — the westbound flight lands 'before' it departed in "
+                    + "wall-clock terms, which only instants make sense of")
+                .isEqualTo(Instant.parse("2026-06-06T16:30:00Z"));
+    }
+
+    @Test
+    void newShapeFlightPassesThroughUnchanged() {
+        // The airport code is deliberately one the curated table does not know: an already-migrated
+        // payload must never reach the resolver, so a stored event still replays.
+        String current = """
+                {
+                  "flightId": {"id": "55555555-5555-5555-5555-555555555555"},
+                  "airline": "Lufthansa",
+                  "flightNumber": "LH441",
+                  "departureAirport": {"code": "ZZZ"},
+                  "departureDateTime": {"utc": "2026-06-06T22:55:00Z", "zone": "America/Los_Angeles"},
+                  "arrivalAirport": {"code": "QQQ"},
+                  "arrivalDateTime": {"utc": "2026-06-07T09:45:00Z", "zone": "Europe/Berlin"}
+                }
+                """;
+
+        FlightBooked event = upcastTo(current, FlightBooked.class);
+
+        assertThat(event.departureDateTime().utc())
+                .isEqualTo(Instant.parse("2026-06-06T22:55:00Z"));
+        assertThat(event.arrivalDateTime().zone())
+                .isEqualTo(ZoneId.of("Europe/Berlin"));
+    }
+
+    @Test
+    void legacyConferenceResolvesBothEndsFromTheVenueAddress() {
+        String legacy = """
+                {
+                  "conferenceId": {"id": "66666666-6666-6666-6666-666666666666"},
+                  "name": "JitterConf",
+                  "startDate": "2026-09-15T09:00:00",
+                  "endDate": "2026-09-17T17:00:00",
+                  "venueName": "Moscone Center",
+                  "venueAddress": {
+                    "street": "747 Howard St", "city": "San Francisco", "region": "CA",
+                    "postalCode": "94103", "country": "USA", "locationForMatching": "San Francisco"
+                  }
+                }
+                """;
+
+        ConferenceTentativelyPlanned event = upcastTo(legacy, ConferenceTentativelyPlanned.class);
+
+        assertThat(event.startDate().zone())
+                .isEqualTo(ZoneId.of("America/Los_Angeles"));
+        assertThat(event.startDate().utc())
+                .as("09:00 PDT is 16:00Z")
+                .isEqualTo(Instant.parse("2026-09-15T16:00:00Z"));
+        assertThat(event.endDate().localDateTime().toString())
+                .as("the original end wall-clock is preserved as the entry-zone local time")
+                .isEqualTo("2026-09-17T17:00");
     }
 
     @Test

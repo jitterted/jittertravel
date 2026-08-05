@@ -319,7 +319,7 @@ class ItineraryProjectorTest {
         ItineraryProjector projector = new ItineraryProjector();
         ConferenceTentativelyPlanned event = new ConferenceTentativelyPlanned(
                 ConferenceId.random(), "JitterConf 2026",
-                DATE.atStartOfDay(), DATE.plusDays(2).atStartOfDay(),
+                zt(DATE.atStartOfDay()), zt(DATE.plusDays(2).atStartOfDay()),
                 "Moscone Center",
                 new Address("747 Howard St", "San Francisco", "CA", "94103", "USA", null));
 
@@ -347,7 +347,7 @@ class ItineraryProjectorTest {
         ConferenceId conferenceId = ConferenceId.random();
         ConferenceTentativelyPlanned planned = new ConferenceTentativelyPlanned(
                 conferenceId, "JitterConf 2026",
-                DATE.atStartOfDay(), DATE.plusDays(2).atStartOfDay(),
+                zt(DATE.atStartOfDay()), zt(DATE.plusDays(2).atStartOfDay()),
                 "Moscone Center",
                 new Address("747 Howard St", "San Francisco", "CA", "94103", "USA", null));
 
@@ -404,7 +404,7 @@ class ItineraryProjectorTest {
         // Conference starts 9:00 AM
         ConferenceTentativelyPlanned conference = new ConferenceTentativelyPlanned(
                 ConferenceId.random(), "DevConf 2026",
-                date.atTime(9, 0), date.atTime(17, 0),
+                zt(date.atTime(9, 0)), zt(date.atTime(17, 0)),
                 "Conference Center",
                 new Address("10 Expo Blvd", "Brussels", "", "1000", "BE", null));
 

@@ -107,8 +107,8 @@ public class ScheduleProblemsRenderer {
                         : div().withClass("problem-list").with(
                                 each(travel, p -> div().withClass("problem-card problem-card--missing-travel").with(
                                         div(p.fromCity() + " → " + p.toCity()).withClass("problem-title"),
-                                        div("Arrive " + p.arrivedAt().format(DATE_TIME)
-                                            + " — next leg departs " + p.nextDepartureAt().format(DATE_TIME))
+                                        div("Arrive " + p.arrivedAt().localDateTime().format(DATE_TIME)
+                                            + " — next leg departs " + p.nextDepartureAt().localDateTime().format(DATE_TIME))
                                                 .withClass("problem-detail")
                                 ))
                         )

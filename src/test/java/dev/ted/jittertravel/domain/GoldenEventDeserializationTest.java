@@ -114,8 +114,16 @@ class GoldenEventDeserializationTest {
                 }
                 """;
 
-        ConferenceTentativelyPlanned event = deserialize(json, ConferenceTentativelyPlanned.class);
+        ConferenceTentativelyPlanned event =
+                deserializeLegacy(json, "ConferenceTentativelyPlanned", ConferenceTentativelyPlanned.class);
 
+        assertThat(event.startDate())
+                .as("the bare wall-clock is reinterpreted in the venue's zone, not the server's")
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 9, 15, 9, 0), ZoneId.of("America/Los_Angeles")));
+        assertThat(event.endDate())
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 9, 17, 17, 0), ZoneId.of("America/Los_Angeles")));
         assertThat(event.name())
                 .isEqualTo("JitterConf");
         assertThat(event.venueAddress().city())
@@ -125,6 +133,38 @@ class GoldenEventDeserializationTest {
         assertThat(event.venueAddress().locationForMatching())
                 .as("locationForMatching absent in legacy JSON defaults to city")
                 .isEqualTo("San Francisco");
+    }
+
+    @Test
+    void conferenceTentativelyPlannedNewShapePayloadDeserializes() {
+        String json = """
+                {
+                  "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "name": "JitterConf",
+                  "startDate": {"utc": "2026-09-15T16:00:00Z", "zone": "America/Los_Angeles"},
+                  "endDate": {"utc": "2026-09-18T00:00:00Z", "zone": "America/Los_Angeles"},
+                  "venueName": "Moscone Center",
+                  "venueAddress": {
+                    "street": "747 Howard St",
+                    "city": "San Francisco",
+                    "region": "CA",
+                    "country": "USA",
+                    "postalCode": "94103",
+                    "locationForMatching": "San Francisco"
+                  }
+                }
+                """;
+
+        ConferenceTentativelyPlanned event = deserialize(json, ConferenceTentativelyPlanned.class);
+
+        assertThat(event.startDate())
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 9, 15, 9, 0), ZoneId.of("America/Los_Angeles")));
+        assertThat(event.endDate())
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 9, 17, 17, 0), ZoneId.of("America/Los_Angeles")));
+        assertThat(event.venueName())
+                .isEqualTo("Moscone Center");
     }
 
     @Test
@@ -427,6 +467,45 @@ class GoldenEventDeserializationTest {
         assertThat(event.speaking())
                 .as("speaking flag must survive the upcast")
                 .isTrue();
+    }
+
+    @Test
+    void legacyGatheringChangedWallClockTrioIsUpcastToStartsAtAndEndsAt() {
+        // GatheringChanged carries the same date+startTime+endTime trio as GatheringPlanned and
+        // would fail identically if the upcaster's case list or key removal missed it. The venue is
+        // deliberately outside the server zone, so a zone read from the wrong place is visible.
+        String json = """
+                {
+                  "gatheringId": {"id": "44444444-4444-4444-4444-444444444444"},
+                  "title": "Tokyo Rubyist Meetup",
+                  "venueName": "Shibuya Hikarie",
+                  "location": {
+                    "street": "2-21-1 Shibuya",
+                    "city": "Tokyo",
+                    "region": "",
+                    "postalCode": "150-8510",
+                    "country": "Japan",
+                    "locationForMatching": "Tokyo"
+                  },
+                  "date": "2026-09-15",
+                  "startTime": "19:00",
+                  "endTime": "21:30",
+                  "speaking": false,
+                  "infoUrl": ""
+                }
+                """;
+
+        GatheringChanged event = deserializeLegacy(json, "GatheringChanged", GatheringChanged.class);
+
+        assertThat(event.startsAt())
+                .as("19:00 JST is 10:00Z")
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 9, 15, 19, 0), ZoneId.of("Asia/Tokyo")));
+        assertThat(event.endsAt())
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 9, 15, 21, 30), ZoneId.of("Asia/Tokyo")));
+        assertThat(event.title())
+                .isEqualTo("Tokyo Rubyist Meetup");
     }
 
     @Test

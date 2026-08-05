@@ -20,6 +20,7 @@ public class CommandExecutor {
     }
 
     public <C extends DecisionContext> void execute(UUID commandId, Object request, C context, DomainCommand<C> command) {
+        refuseWhenReadOnly(request);
         persister.saveCommand(commandId, request); // write-ahead: command persisted as PENDING
 
         List<? extends Event> events;
@@ -38,9 +39,24 @@ public class CommandExecutor {
     }
 
     public void appendEvents(UUID commandId, Object commandRecord, Stream<? extends Event> events) {
+        refuseWhenReadOnly(commandRecord);
         var eventList = events.toList();
         persister.saveCommand(commandId, commandRecord); // write-ahead: command persisted as PENDING
         appendOrMarkFailed(commandId, eventList);
+    }
+
+    /**
+     * Read-only mode can engage while the database is still writable — startup replay can fail for
+     * a data reason — so nothing downstream stops a write on its own. Refusing here, before the
+     * write-ahead {@code saveCommand}, is what makes the guarantee "no command row is written in
+     * read-only mode" hold for every caller, including imports, instead of depending on each
+     * controller remembering to check {@link #isReadOnly()} first.
+     */
+    private void refuseWhenReadOnly(Object request) {
+        if (eventStore.isReadOnly()) {
+            throw new ReadOnlyModeException(
+                    "Attempting to execute request while in read-only mode:" + request);
+        }
     }
 
     private void appendOrMarkFailed(UUID commandId, List<? extends Event> events) {

@@ -5,6 +5,7 @@ import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.web.PlanTentativeConferenceRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -141,8 +143,8 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
                 new ConferenceTentativelyPlanned(
                         ConferenceId.of(commandId),
                         name,
-                        req.getStartDate(),
-                        req.getEndDate(),
+                        ZonedTimestamp.fromLocal(req.getStartDate(), ZoneId.of("UTC")),
+                        ZonedTimestamp.fromLocal(req.getEndDate(), ZoneId.of("UTC")),
                         "Venue",
                         new Address("Street", "City", null, "12345", "Country", null)
                 ),
@@ -241,8 +243,8 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
                 new ConferenceTentativelyPlanned(
                         ConferenceId.of(commandId),
                         "Test Conference",
-                        request.getStartDate(),
-                        request.getEndDate(),
+                        ZonedTimestamp.fromLocal(request.getStartDate(), ZoneId.of("UTC")),
+                        ZonedTimestamp.fromLocal(request.getEndDate(), ZoneId.of("UTC")),
                         "Test Venue",
                         new Address("Street", "City", null, "12345", "Country", null)
                 ),

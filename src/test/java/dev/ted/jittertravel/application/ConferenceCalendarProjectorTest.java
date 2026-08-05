@@ -3,11 +3,13 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -23,8 +25,8 @@ class ConferenceCalendarProjectorTest {
         ConferenceTentativelyPlanned event = new ConferenceTentativelyPlanned(
                 conferenceId,
                 "DDD Europe 2026",
-                LocalDateTime.of(2026, 6, 7, 11, 0),
-                LocalDateTime.of(2026, 6, 10, 17, 0),
+                zt(LocalDateTime.of(2026, 6, 7, 11, 0)),
+                zt(LocalDateTime.of(2026, 6, 10, 17, 0)),
                 "Forum",
                 new Address("Street", "Frankfurt", "Hesse", "60311", "Germany", null)
         );
@@ -70,11 +72,16 @@ class ConferenceCalendarProjectorTest {
         return new ConferenceTentativelyPlanned(
                 ConferenceId.random(),
                 name,
-                start,
-                start.plusDays(2),
+                zt(start),
+                zt(start.plusDays(2)),
                 "Venue",
                 new Address("Street", "City", "State", "00000", "Country", null)
         );
+    }
+
+    /** Calendar days are venue-local; the venue here is in Frankfurt, not the UTC test JVM. */
+    private static ZonedTimestamp zt(LocalDateTime local) {
+        return ZonedTimestamp.fromLocal(local, ZoneId.of("Europe/Berlin"));
     }
 
     private static StoredEvent stored(ConferenceTentativelyPlanned event) {

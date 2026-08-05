@@ -2,20 +2,25 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 public sealed interface ScheduleProblem
         permits ScheduleProblem.MissingTravel, ScheduleProblem.MissingHotel,
                 ScheduleProblem.SchedulingConflict, ScheduleProblem.DifferentCityConflict {
 
+    /**
+     * The two endpoints are in different cities and therefore usually different zones, so they are
+     * {@link ZonedTimestamp}s: the gap between them is only meaningful as a comparison of instants.
+     * Renderers show {@code localDateTime()} — the wall-clock at each end.
+     */
     record MissingTravel(
             String fromCity,
-            LocalDateTime arrivedAt,
+            ZonedTimestamp arrivedAt,
             String toCity,
-            LocalDateTime nextDepartureAt
+            ZonedTimestamp nextDepartureAt
     ) implements ScheduleProblem {}
 
     record MissingHotel(

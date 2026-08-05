@@ -1,68 +1,118 @@
 package dev.ted.jittertravel.domain;
 
-import dev.ted.jittertravel.web.PlanTentativeConferenceRequest;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
+import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
+/**
+ * The venue zone is what every rule is read in: "at least a day out" asks whether the conference
+ * starts on a later calendar day <em>where it happens</em>, so the answer never depends on where
+ * the server runs. The test JVM is pinned to UTC (pom.xml), so the fixtures deliberately sit in a
+ * far-away zone — a rule accidentally evaluated in the server zone fails here.
+ */
 class PlanTentativeConferenceCommandTest {
 
+    private static final ZoneId VENUE_ZONE = ZoneId.of("America/Los_Angeles");
+    private static final Address VENUE = new Address("747 Howard St", "San Francisco", "CA",
+                                                     "94103", "USA", null);
+
     @Test
-    void startDateInThePastFails() {
-        PlanTentativeConferenceCommand command = new PlanTentativeConferenceCommand();
-        PlanTentativeConferenceRequest dto = new PlanTentativeConferenceRequest();
-        LocalDateTime now = LocalDateTime.of(2026, 5, 16, 10, 0);
-        dto.setStartDate(now.plusHours(23)); 
-        dto.setEndDate(now.plusDays(2));
+    void startLaterOnTheSameVenueDayIsRejected() {
+        Instant now = instantAt(LocalDateTime.of(2026, 5, 16, 10, 0));
 
         assertThatExceptionOfType(DateRangeNotInFuture.class)
-                .isThrownBy(() -> command.execute(dto, now));
+                .isThrownBy(() -> conference(LocalDateTime.of(2026, 5, 16, 18, 0),
+                                             LocalDateTime.of(2026, 5, 18, 17, 0))
+                        .execute(new PlanTentativeConferenceContext(now)).toList());
     }
 
     @Test
-    void endDateBeforeStartDateFails() {
-        PlanTentativeConferenceCommand command = new PlanTentativeConferenceCommand();
-        PlanTentativeConferenceRequest dto = new PlanTentativeConferenceRequest();
-        LocalDateTime now = LocalDateTime.now().plusDays(2).withHour(10).truncatedTo(ChronoUnit.HOURS);
-        dto.setStartDate(now.plusDays(1));
-        dto.setEndDate(now.plusDays(1).minusHours(1));
+    void startOnTheNextVenueDayIsAcceptedEvenIfLessThanTwentyFourHoursAway() {
+        Instant now = instantAt(LocalDateTime.of(2026, 5, 16, 10, 0));
+
+        var events = conference(LocalDateTime.of(2026, 5, 17, 9, 0),
+                                LocalDateTime.of(2026, 5, 18, 17, 0))
+                .execute(new PlanTentativeConferenceContext(now)).toList();
+
+        assertThat(events)
+                .as("the rule is 'a later day at the venue', not 'a full 24 hours out'")
+                .hasSize(1);
+    }
+
+    @Test
+    void endBeforeStartFails() {
+        Instant now = instantAt(LocalDateTime.of(2026, 5, 16, 10, 0));
 
         assertThatExceptionOfType(InvalidDateRange.class)
-                .isThrownBy(() -> command.execute(dto, now));
+                .isThrownBy(() -> conference(LocalDateTime.of(2026, 5, 20, 9, 0),
+                                             LocalDateTime.of(2026, 5, 20, 8, 0))
+                        .execute(new PlanTentativeConferenceContext(now)).toList());
     }
 
     @Test
-    void successReturnsConferenceTentativelyPlannedEvent() {
-        LocalDateTime startDate = LocalDateTime.now().plusDays(2).withHour(10).truncatedTo(ChronoUnit.HOURS);
-        LocalDateTime endDate = startDate.plusDays(2).withHour(17).truncatedTo(ChronoUnit.HOURS);
-        PlanTentativeConferenceRequest dto = new PlanTentativeConferenceRequest();
+    void endOnTheSameDayAsStartIsAllowed() {
+        Instant now = instantAt(LocalDateTime.of(2026, 5, 16, 10, 0));
+
+        var events = conference(LocalDateTime.of(2026, 5, 20, 9, 0),
+                                LocalDateTime.of(2026, 5, 20, 17, 0))
+                .execute(new PlanTentativeConferenceContext(now)).toList();
+
+        assertThat(events)
+                .as("a one-day conference is legitimate — it is what the gathering migration reads")
+                .hasSize(1);
+    }
+
+    @Test
+    void successCarriesEveryFieldOntoTheEvent() {
         ConferenceId conferenceId = ConferenceId.random();
-        dto.setConferenceId(conferenceId.id().toString());
-        dto.setName("Successful Conference");
-        dto.setStartDate(startDate);
-        dto.setEndDate(endDate);
-        dto.setVenueName("Test Venue");
-        dto.setVenueStreet("Test Street");
-        dto.setVenueCity("Test City");
-        dto.setVenueCountry("Test Country");
-        dto.setVenuePostalCode("12345");
+        ZonedTimestamp start = zt(LocalDateTime.of(2026, 5, 20, 9, 0));
+        ZonedTimestamp end = zt(LocalDateTime.of(2026, 5, 22, 17, 0));
+        PlanTentativeConferenceCommand command = new PlanTentativeConferenceCommand(
+                conferenceId, "Successful Conference", start, end, "Moscone Center", VENUE);
 
-        LocalDateTime now = LocalDateTime.now();
-        assertThat(new PlanTentativeConferenceCommand().execute(dto, now).toList())
-                .hasSize(1)
-                .allSatisfy(event -> assertThat(event).isInstanceOf(ConferenceTentativelyPlanned.class));
+        ConferenceTentativelyPlanned event = command
+                .execute(new PlanTentativeConferenceContext(instantAt(LocalDateTime.of(2026, 5, 16, 10, 0))))
+                .toList()
+                .getFirst();
 
-        assertThat(new PlanTentativeConferenceCommand().execute(dto, now).toList().getFirst().conferenceId())
+        assertThat(event.conferenceId())
                 .isEqualTo(conferenceId);
-        assertThat(new PlanTentativeConferenceCommand().execute(dto, now).toList().getFirst().name())
+        assertThat(event.name())
                 .isEqualTo("Successful Conference");
-        assertThat(new PlanTentativeConferenceCommand().execute(dto, now).toList().getFirst().startDate())
-                .isEqualTo(dto.getStartDate());
-        assertThat(new PlanTentativeConferenceCommand().execute(dto, now).toList().getFirst().venueAddress().street())
-                .isEqualTo("Test Street");
+        assertThat(event.startDate())
+                .isEqualTo(start);
+        assertThat(event.endDate())
+                .isEqualTo(end);
+        assertThat(event.venueName())
+                .isEqualTo("Moscone Center");
+        assertThat(event.venueAddress().street())
+                .isEqualTo("747 Howard St");
+    }
+
+    @Test
+    void theVenueWallClockBecomesTheInstantThatMomentActuallyIs() {
+        ZonedTimestamp start = zt(LocalDateTime.of(2026, 5, 20, 9, 0));
+
+        assertThat(start.utc())
+                .as("09:00 Pacific in May (PDT, UTC-7) is 16:00Z")
+                .isEqualTo(Instant.parse("2026-05-20T16:00:00Z"));
+    }
+
+    private static PlanTentativeConferenceCommand conference(LocalDateTime start, LocalDateTime end) {
+        return new PlanTentativeConferenceCommand(
+                ConferenceId.random(), "JitterConf", zt(start), zt(end), "Moscone Center", VENUE);
+    }
+
+    private static ZonedTimestamp zt(LocalDateTime local) {
+        return ZonedTimestamp.fromLocal(local, VENUE_ZONE);
+    }
+
+    private static Instant instantAt(LocalDateTime venueLocal) {
+        return venueLocal.atZone(VENUE_ZONE).toInstant();
     }
 }

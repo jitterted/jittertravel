@@ -1,96 +1,132 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ConferencePlanning;
+import dev.ted.jittertravel.application.LocationZoneResolver;
+import dev.ted.jittertravel.application.PlanTentativeConferenceHandler;
+import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.DateRangeNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
-import dev.ted.jittertravel.domain.PlanTentativeConferenceCommand;
+import dev.ted.jittertravel.domain.PlanTentativeConferenceContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Each way the conference form can be wrong maps to a specific field error, so the re-rendered
+ * form points at the input the traveler has to fix. The venue is in San Francisco, so "now" is
+ * expressed in that zone — the rules are read there, not in the UTC-pinned test JVM.
+ */
 class PlanConferenceControllerValidationTest {
 
-    @Test
-    void startDateInThePastIsInvalid() {
-        ConferencePlanning service = mockService(false);
-        PlanTentativeConferenceRequest command = new PlanTentativeConferenceRequest();
-        LocalDateTime now = LocalDateTime.of(2026, 5, 16, 10, 0);
-        command.setStartDate(now.plusHours(23)); // Less than 1 day in the future
-        command.setEndDate(now.plusDays(2));
-        command.setConferenceId(java.util.UUID.randomUUID().toString());
-        BindingResult bindingResult = new BeanPropertyBindingResult(command, "planTentativeConference");
+    private static final ZoneId VENUE_ZONE = ZoneId.of("America/Los_Angeles");
+    private static final Instant NOW =
+            LocalDateTime.of(2026, 5, 16, 10, 0).atZone(VENUE_ZONE).toInstant();
 
-        try {
-            service.planConference(command);
-        } catch (DateRangeNotInFuture e) {
-            bindingResult.rejectValue("startDate", "future", e.getMessage());
-        } catch (InvalidDateRange e) {
-            bindingResult.rejectValue("endDate", "afterStartDate", e.getMessage());
-        }
+    @Test
+    void startLaterOnTheSameDayIsRejectedOnTheStartDateField() {
+        BindingResult bindingResult = submit(conferenceForm(
+                LocalDateTime.of(2026, 5, 16, 18, 0), LocalDateTime.of(2026, 5, 18, 17, 0), null));
 
         assertThat(bindingResult.hasFieldErrors("startDate"))
+                .as("a conference must start on a later day at the venue")
                 .isTrue();
     }
 
     @Test
-    void startDateExactlyOneDayInFutureIsValid() {
-        ConferencePlanning service = mockService(false);
-        PlanTentativeConferenceRequest command = new PlanTentativeConferenceRequest();
-        LocalDateTime now = LocalDateTime.of(2026, 5, 16, 10, 0);
-        command.setConferenceId(java.util.UUID.randomUUID().toString());
-        command.setStartDate(now.plusDays(1)); 
-        command.setEndDate(now.plusDays(2));
-        command.setName("Valid Name");
-        command.setVenueStreet("Street");
-        command.setVenueCity("City");
-        command.setVenueCountry("Country");
-        command.setVenuePostalCode("12345");
-        BindingResult bindingResult = new BeanPropertyBindingResult(command, "planTentativeConference");
+    void startOnTheNextDayIsAccepted() {
+        BindingResult bindingResult = submit(conferenceForm(
+                LocalDateTime.of(2026, 5, 17, 9, 0), LocalDateTime.of(2026, 5, 18, 17, 0), null));
 
-        try {
-            service.planConference(command);
-        } catch (Exception e) {
-            bindingResult.reject("error", e.getMessage());
-        }
-
-        assertThat(bindingResult.hasFieldErrors("startDate"))
-                .isFalse();
         assertThat(bindingResult.hasErrors())
+                .as("tomorrow at the venue is valid even though it is under 24 hours away: %s",
+                    bindingResult.getAllErrors())
                 .isFalse();
     }
 
     @Test
-    void endDateBeforeStartDateIsInvalid() {
-        ConferencePlanning service = mockService(false);
-        PlanTentativeConferenceRequest command = new PlanTentativeConferenceRequest();
-        LocalDateTime now = LocalDateTime.of(2026, 5, 16, 10, 0);
-        command.setStartDate(now.plusDays(1));
-        command.setEndDate(now.plusDays(1).minusHours(1));
-        command.setConferenceId(java.util.UUID.randomUUID().toString());
-        BindingResult bindingResult = new BeanPropertyBindingResult(command, "planTentativeConference");
-
-        try {
-            service.planConference(command);
-        } catch (DateRangeNotInFuture e) {
-            bindingResult.rejectValue("startDate", "future", e.getMessage());
-        } catch (InvalidDateRange e) {
-            bindingResult.rejectValue("endDate", "afterStartDate", e.getMessage());
-        }
+    void endBeforeStartIsRejectedOnTheEndDateField() {
+        BindingResult bindingResult = submit(conferenceForm(
+                LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 20, 8, 0), null));
 
         assertThat(bindingResult.hasFieldErrors("endDate"))
                 .isTrue();
     }
 
-    private ConferencePlanning mockService(boolean readOnly) {
-        return new ConferencePlanning(null, null) {
-            @Override public boolean isReadOnly() { return readOnly; }
-            @Override public void planConference(PlanTentativeConferenceRequest request) {
-                new PlanTentativeConferenceCommand().execute(request, LocalDateTime.of(2026, 5, 16, 10, 0));
-            }
-        };
+    @Test
+    void anUnresolvableVenueWithNoZonePickIsRejectedOnTheZoneField() {
+        PlanTentativeConferenceRequest request = conferenceForm(
+                LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 22, 17, 0), null);
+        request.setVenueCity("Springfield");
+        request.setVenueCountry("Freedonia");
+
+        BindingResult bindingResult = submit(request);
+
+        assertThat(bindingResult.hasFieldErrors("zone"))
+                .as("with no zone derivable and none picked, the form must ask for one")
+                .isTrue();
+    }
+
+    @Test
+    void anUnresolvableVenueIsAcceptedOnceAZoneIsPicked() {
+        PlanTentativeConferenceRequest request = conferenceForm(
+                LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 22, 17, 0), "US_CENTRAL");
+        request.setVenueCity("Springfield");
+        request.setVenueCountry("Freedonia");
+
+        BindingResult bindingResult = submit(request);
+
+        assertThat(bindingResult.hasErrors())
+                .as("an explicit pick is what makes an unresolvable location usable: %s",
+                    bindingResult.getAllErrors())
+                .isFalse();
+    }
+
+    /** The controller's catch-and-reject block, exercised against the real handler and command. */
+    private static BindingResult submit(PlanTentativeConferenceRequest request) {
+        BindingResult bindingResult =
+                new BeanPropertyBindingResult(request, "planTentativeConference");
+        try {
+            plan(request);
+        } catch (DateRangeNotInFuture e) {
+            bindingResult.rejectValue("startDate", "future", e.getMessage());
+        } catch (InvalidDateRange e) {
+            bindingResult.rejectValue("endDate", "afterStartDate", e.getMessage());
+        } catch (ZoneResolutionException e) {
+            bindingResult.rejectValue("zone", "zoneUnresolved",
+                    "Could not determine the time zone from the location — please choose one.");
+        }
+        return bindingResult;
+    }
+
+    /** What {@link ConferencePlanning#planConference} does, minus the persistence. */
+    private static void plan(PlanTentativeConferenceRequest request) {
+        new PlanTentativeConferenceHandler(new LocationZoneResolver()).handle(request)
+                .execute(new PlanTentativeConferenceContext(NOW))
+                .toList();
+    }
+
+    private static PlanTentativeConferenceRequest conferenceForm(LocalDateTime start,
+                                                                 LocalDateTime end,
+                                                                 String zone) {
+        PlanTentativeConferenceRequest request = new PlanTentativeConferenceRequest();
+        request.setConferenceId(UUID.randomUUID().toString());
+        request.setName("JitterConf");
+        request.setStartDate(start);
+        request.setEndDate(end);
+        request.setVenueName("Moscone Center");
+        request.setVenueStreet("747 Howard St");
+        request.setVenueCity("San Francisco");
+        request.setVenueState("CA");
+        request.setVenueCountry("USA");
+        request.setVenuePostalCode("94103");
+        request.setZone(zone);
+        return request;
     }
 }

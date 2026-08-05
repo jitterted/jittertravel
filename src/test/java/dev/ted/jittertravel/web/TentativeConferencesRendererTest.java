@@ -4,14 +4,20 @@ import dev.ted.jittertravel.application.TentativeConferenceView;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TentativeConferencesRendererTest {
+
+    // The test JVM is pinned to UTC (pom.xml), so an explicit venue zone is what proves the
+    // rendered text is the venue's wall-clock rather than the server's.
+    private static final ZoneId ZONE = ZoneId.of("Europe/Amsterdam");
 
     @Test
     void emptyAllListRendersEmptyStateMessage() {
@@ -73,7 +79,8 @@ class TentativeConferencesRendererTest {
         return new TentativeConferenceView(
                 ConferenceId.random(), name, "Venue",
                 new Address("1 Street", city, "", "", country, null),
-                LocalDateTime.parse(start), LocalDateTime.parse(end)
+                ZonedTimestamp.fromLocal(LocalDateTime.parse(start), ZONE),
+                ZonedTimestamp.fromLocal(LocalDateTime.parse(end), ZONE)
         );
     }
 }

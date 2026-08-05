@@ -49,6 +49,7 @@ public class EventPayloadUpcaster {
             case "TrainBooked", "TrainChanged" -> upcastTrainTrip(object);
             case "FlightBooked", "FlightChanged" -> upcastFlightTrip(object);
             case "GatheringPlanned", "GatheringChanged" -> upcastGathering(object);
+            case "ConferenceTentativelyPlanned" -> upcastConference(object);
             default -> { /* type not migrated, or it has no datetime fields */ }
         }
         return object;
@@ -91,6 +92,19 @@ public class EventPayloadUpcaster {
 
     private static LocalTime localTime(ObjectNode object, String field) {
         return LocalTime.parse(object.get(field).asText());
+    }
+
+    /** Start and end are at the one venue, so they share its address-derived zone. */
+    private void upcastConference(ObjectNode object) {
+        JsonNode startDate = object.get("startDate");
+        if (!isLegacyScalar(startDate)) {
+            return; // already a {utc, zone} object
+        }
+        ZoneId zone = locationZoneResolver.resolve(
+                nestedText(object.get("venueAddress"), "city"),
+                nestedText(object.get("venueAddress"), "country"));
+        object.set("startDate", toZoned(startDate.asText(), zone));
+        object.set("endDate", toZoned(object.get("endDate").asText(), zone));
     }
 
     /**

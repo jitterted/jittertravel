@@ -12,26 +12,22 @@ tracker; the review doc is a historical record and its checkboxes are no longer 
 | Phase | State | What's left |
 |-------|-------|-------------|
 | 1. Value type + resolver | `[x]` | — |
-| 2. Events & commands → `ZonedTimestamp` | `[~]` | conference only (hotel/train/flight/gathering migrated) |
-| 3. Evaluation by instant | `[~]` | `TentativeConferenceView` still on the `systemDefault()` stopgap |
+| 2. Events & commands → `ZonedTimestamp` | `[x]` | — (all five types migrated) |
+| 3. Evaluation by instant | `[x]` | — (the conference stopgap is gone) |
 | 4. Display | `[~]` | browser-zone JS upgrade, role switch, ANON toggle; `<time>` in gathering/conference/itinerary/calendar/schedule-problems renderers; cross-zone conflict message fix (bug R3) |
-| 5. Backward compatibility | `[~]` | conference upcaster; legacy zone-less command round-trip tests; small golden/upcaster-test gaps (see phase 5) |
+| 5. Backward compatibility | `[~]` | legacy zone-less command round-trip tests; small golden/upcaster-test gaps (see phase 5) |
 | 6. Conventions & other consumers | `[~]` | test-JVM UTC-pin audit (no iCal/GCal export exists → n/a) |
 | 7. Full test pass | `[ ]` | run at the end |
-| R. Review fixes (2026-08-05) | `[ ]` | deterministic internal-command ids (R1); `ScheduleGapProjector` instant comparisons (R2); conflict-message dates (R3); test backfill |
+| R. Review fixes (2026-08-05) | `[~]` | R1 **dropped as not applicable**; R2 **done**; conflict-message dates (R3); test backfill |
 
-**Next up** (sequencing per the 2026-08-05 review §6):
+**Next up:**
 
-1. **Bug R1** (deterministic `commandId()` for the two internal commands) + its import-twice test —
-   small, standalone, and it protects every backup made between now and the conference deploy.
-2. **Conference slice** per `docs/GatheringConferenceUtcRolloutPlan.md`, folding in the ride-alongs
-   listed under phase 2 below (instant comparisons in `ScheduleGapProjector`'s conference paths,
-   the application-layer architecture guard, golden legacy conference sample, sentinel cleanup) and
-   the four cross-zone `ScheduleGapProjector` scenarios (test backfill item 1). **Urgency:** the
-   server runs UTC, so `TentativeConferenceView.relevantUntil()`'s stopgap reads a venue wall-clock
-   as UTC — a US conference ending 17:00 local drops off the FUTURE list ~7–8 hours *early*. This
-   is the original bug of the whole plan, still live for conferences, in the opposite direction.
-3. **Test backfill batch** (see "Test backfill" section) — mechanical, the patterns all exist.
+1. ~~**Bug R1**~~ — **dropped 2026-08-05, not applicable.** See R1 below.
+2. ~~**Conference slice**~~ — **done 2026-08-05**, with every ride-along and bug R2. The original
+   bug of this whole plan is now fixed for all five event types.
+3. **Test backfill batch** (see "Test backfill" section) — mechanical, the patterns all exist. The
+   four cross-zone `ScheduleGapProjector` scenarios (item 1) are the most valuable: the
+   instant-based overlap logic they pin is now load-bearing in two places.
 4. **Phase 4 display work** as planned, picking up bug R3's renderer tweak.
 
 ## Context
@@ -102,7 +98,7 @@ Field changes (each `LocalDateTime` → `ZonedTimestamp`, independent zone per f
 - `TrainBooked`/`TrainChanged`: departure, arrival (independent zones). — done
 - `GatheringPlanned`/`GatheringChanged`: `date`+`startTime`/`endTime` collapsed into
   `startsAt`/`endsAt` `ZonedTimestamp`s. — done (2026-07-27)
-- `ConferenceTentativelyPlanned`: startDate, endDate. — **remaining**
+- `ConferenceTentativelyPlanned`: startDate, endDate. — done (2026-08-05)
 
 **DST policy:** building a `ZonedTimestamp` from a typed wall-clock uses `ZonedDateTime.of(local,
 zone)` (lenient: non-existent spring-forward times shift forward, fall-back ambiguity picks the
@@ -137,7 +133,28 @@ location/zone naturally re-resolves. Wrong guesses are correctable via the commo
 
 ## Bugs found in the 2026-08-05 review
 
-### R1. `[ ]` Internal commands return a random `commandId()` — import resumability broken for them
+### R1. ~~Internal commands return a random `commandId()`~~ — **dropped 2026-08-05, not applicable**
+
+Implemented, then reverted the same day once its premise was checked against the actual operating
+workflow. **Ted never re-imports a backup onto existing data — he deletes the database and imports
+once.** `commandId()` is called exactly once per entry per run (`CommandImporter.prepare`), and it
+is called from *nowhere else*: live paths supply their own id at the boundary
+(`ConferenceMigrationService` passes a fresh `UUID.randomUUID()`; `GatheringPlanning.clearConflict`
+takes one as a parameter), and `findAllCommandsForExport` never reads it — the export deliberately
+drops the `command_id` column, which is the whole reason `commandId()` exists. So a single import
+run is internally consistent and the duplication described below **cannot occur in practice**.
+
+The same reasoning retires the parallel concern about the four `Change*Request` types, which return
+`UUID.randomUUID()` with a comment calling it deliberate: same non-issue. (Their duplicates would
+also be inert — every `*Changed` projection is a last-write-wins `put`.)
+
+Kept from the reverted work: `MigrateConferenceToGatheringTest`, whose value is unrelated (zone
+re-derived from the payload's own location; unresolvable location throws during validation) — that
+is test backfill item 5.
+
+**Revisit only if** the wipe-then-import workflow changes, or if `CommandImporter`'s advertised
+"import is resumable" behavior ever needs to be true for these two types. The original analysis
+follows, unchanged, for that case.
 
 `MigrateConferenceToGathering.commandId()` (`MigrateConferenceToGathering.java:41`) and
 `ClearDifferentCityConflict.commandId()` (`ClearDifferentCityConflict.java:24`) both return
@@ -180,7 +197,16 @@ that distinct payloads keep distinct ids (see the payload-collision caveat above
 determinism assertion (`commandId()` returns the same value on every call) in the
 `MigrateConferenceToGathering.events()` test (test backfill item 5).
 
-### R2. `[ ]` `ScheduleGapProjector` still compares wall-clock across zones outside gathering conflicts
+### R2. `[x]` `ScheduleGapProjector` still compares wall-clock across zones outside gathering conflicts
+
+**Fixed 2026-08-05** with the conference slice. `TravelLeg` and `CityOccupancy` hold
+`ZonedTimestamp`s; `allLegs()` sequences by `utc()`; `deduplicateMissingTravel`,
+`nextDepartureFromCity` and `detectMissingTravelToFromConferences` compare `utc()`; and
+`detectDifferentCityConflicts` is now a true instant overlap rather than a local-date range test —
+so a Tokyo morning gathering overlapping the last afternoon of a Chicago conference is finally
+detected. `ScheduleProblem.MissingTravel` carries `ZonedTimestamp`s (the dedup needs instants to
+compare); night bucketing and rendered text stay entry-zone local, per decision 7. Renderers read
+`localDateTime()`. Original analysis follows.
 
 Gathering-vs-gathering conflicts compare instants (gathering slice, done), but the rest of the
 projector compares entry-zone `LocalDateTime`s *from different cities* against each other:
@@ -233,28 +259,37 @@ Remaining work is planned in detail in `docs/GatheringConferenceUtcRolloutPlan.m
 - `[x]` Gathering (2026-07-27, `ddf4ba8`): `GatheringPlanned`/`GatheringChanged` collapsed to
   `startsAt`/`endsAt`; commands, contexts, handlers, views, projectors, web forms, upcaster and
   tests all landed. Renderer `<time>` treatment deferred to phase 4 with the other list views.
-- `[ ]` **Conference** — `ConferenceTentativelyPlanned` (startDate/endDate) +
-  `PlanTentativeConferenceCommand`/`Request`, including the handler+context modernization and the
-  `ConferencePlanning`→`CommandExecutor` rewrite (slice plan, conference steps 1–7).
+- `[x]` **Conference** (2026-08-05): `ConferenceTentativelyPlanned` on `ZonedTimestamp`,
+  `PlanTentativeConferenceCommand` a `DomainCommand` record with a new context and handler, the
+  `ConferencePlanning`→`CommandExecutor` rewrite, view/projectors/web/upcaster, plus every
+  ride-along below. **Behavior change:** the "start at least one day out" rule is now "a later
+  calendar day at the venue" (`isOnDayAfter`, matching gatherings) rather than 24 wall-clock hours,
+  so a conference starting tomorrow morning is accepted where it used to be rejected.
 
 **Ride-alongs to fold into the conference slice** (from review §2 — do these in the same slice,
 they each anchor to a step that is being rewritten anyway):
 
-- `[ ]` **"Start at least one day out" rule: reuse `ZonedTimestamp.isOnDayAfter`.** The existing
+- `[x]` **"Start at least one day out" reuses `ZonedTimestamp.isOnDayAfter`** (decided and done
+  2026-08-05): the rule is now "a later calendar day at the venue", matching gatherings. Deliberate
+  behavior change — a conference under 24h out but starting tomorrow is now accepted. Original note: The existing
   rule is `startDate.isBefore(now.plusDays(1))` on wall-clock
   (`PlanTentativeConferenceCommand.java:11`). The gathering slice built the day-granularity,
   entry-zone, `Instant.MIN`-sentinel-safe version (`ZonedTimestamp.java:68`). Re-deriving it with
   `now.plus(Duration.ofDays(1))` would silently change semantics ("24h out" vs "a later calendar
   day") *and* re-open the `Instant.MIN` overflow trap its javadoc warns about. Decide explicitly
   which rule conferences want; if it's "later day", it's one method call.
-- `[ ]` **Application-layer architecture guard, in the same commit that rewrites
-  `ConferencePlanning`.** `ConferencePlanning` is the last `EventStore`-injecting service (the
+- `[x]` **Application-layer architecture guard added** 2026-08-05:
+  `ApplicationServicesUseCommandExecutorTest` (plain reflection, `CommandExecutor` itself excluded
+  as the authorized holder). CLAUDE.md TODO deleted. Original note: `ConferencePlanning` is the last `EventStore`-injecting service (the
   CLAUDE.md rule + TODO). The moment the rewrite lands, add the enforcement test so it can never
   regress: a plain reflection test over `application`-package constructors (in
   `src/test/java/.../architecture/`, styled like `NoFullyQualifiedClassReferencesTest`) — no
   ArchUnit dependency needed. Delete the CLAUDE.md TODO when done.
-- `[ ]` **Read-only guard moves into `CommandExecutor`** (verified 2026-08-05: parity does *not*
-  hold today). `ConferencePlanning` throws `ReadOnlyModeException` *before* saving the command, but
+- `[x]` **Read-only guard moved into `CommandExecutor`** 2026-08-05: `execute` and `appendEvents`
+  both throw `ReadOnlyModeException` before `saveCommand`, pinned by two `CommandExecutorTest`
+  cases; `PlanConferenceController` reads the flag through `ConferencePlanning.isReadOnly()`.
+  Per-controller `isReadOnly()` boilerplate elsewhere is now redundant and can be dropped
+  opportunistically. Original analysis (parity did *not* hold): `ConferencePlanning` throws `ReadOnlyModeException` *before* saving the command, but
   `CommandExecutor.execute()`/`appendEvents()` call `persister.saveCommand(...)` unconditionally —
   no read-only check anywhere in the executor, and `EventStore.append()` doesn't check either (it
   only *sets* the flag on persist failure). The guard exists purely as controller discipline
@@ -266,14 +301,14 @@ they each anchor to a step that is being rewritten anyway):
   add a test, and later drop the per-controller boilerplate opportunistically.
   `PlanConferenceController` also calls `isReadOnly()` directly and needs a replacement source for
   that flag (`CommandExecutor.isReadOnly()`, as the other services already delegate).
-- `[ ]` **Sentinel cleanup.** After the conference command modernizes to `Instant now`, check
-  whether `IMPORT_BYPASS_NOW` (`LocalDateTime.MIN`) and `IMPORT_BYPASS_DATE` still have any users
-  (`ImportableCommand.java:24-25`) and delete the dead ones — they're exactly the kind of trap the
+- `[x]` **Sentinel cleanup** done 2026-08-05: `IMPORT_BYPASS_NOW` and `IMPORT_BYPASS_DATE` had no
+  users left and are deleted; only `IMPORT_BYPASS_INSTANT` remains. Original note: delete the dead ones — they're exactly the kind of trap the
   next new command grabs.
-- `[ ]` **`ScheduleGapProjector` conference paths move to instants** (bug R2) in the same pass as
+- `[x]` **`ScheduleGapProjector` moved to instants** (bug R2) — done 2026-08-05, and wider than
+  just the conference paths; see R2. Original note: in the same pass as
   `detectDifferentCityConflicts` — the slice's step 5 mentions `CityOccupancy` but not the
   leg-vs-conference comparisons around `ScheduleGapProjector.java:150-188`.
-- `[ ]` **Golden conference sample switches to the legacy path** (see phase 5).
+- `[x]` **Golden conference sample switched to the legacy path** (see phase 5) — done 2026-08-05.
 
 Original spec, still authoritative for the conference type:
 - Change events + commands/contexts. Web requests keep binding `datetime-local` wall-clock as
@@ -297,18 +332,18 @@ Original spec, still authoritative for the conference type:
 - `[x]` `TemporalView`/`TimeView` on `Instant`, controllers pass `Instant.now()`, `TimeViewTest`
   updated (`5dab535`).
 - `[x]` `PlannedGatheringView.relevantUntil()` returns `endsAt.utc()` (gathering slice).
-- `[ ]` `TentativeConferenceView.relevantUntil()` (`TentativeConferenceView.java:30`) still does
-  `.atZone(ZoneId.systemDefault())` — the documented stopgap; it disappears with the conference
-  slice. **Note the direction of the live bug:** the server runs UTC, so a venue wall-clock read
-  as UTC makes a US conference drop off the FUTURE list ~7–8 hours *early* (not linger). This is
-  the plan's original bug still live for conferences — a reason to do the slice soon.
+- `[x]` `TentativeConferenceView.relevantUntil()` returns `endDate.utc()` (2026-08-05); the
+  `systemDefault()` stopgap is gone, and with it the last live instance of this plan's original
+  bug. `TentativeConferenceProjectorTest` pins the FUTURE filter against a venue zone
+  (America/Los_Angeles) rather than the UTC-pinned test JVM.
 
 ### 4. Display — `[~]` server-side baseline started, browser-zone upgrade not started
 - `[x]` `ZonedTimeTag` helper emitting `<time datetime="…Z" data-fmt="…">`, used by
   `BookedHotelsRenderer`, `BookedTrainsRenderer`, `BookedFlightsRenderer` (`a97e96e`, `7b31d6d`).
-- `[ ]` Same `<time>` treatment in `PlannedGatheringsRenderer` (gathering slice step 9, deferred
-  here), `TentativeConferencesRenderer`, `ItineraryRenderer`, `CalendarViewBuilder`,
-  `ScheduleProblemsRenderer`.
+- `[~]` Same `<time>` treatment: `TentativeConferencesRenderer` done 2026-08-05 with the
+  conference slice. Still to do: `PlannedGatheringsRenderer` (gathering slice step 9, deferred
+  here), `ItineraryRenderer`, `CalendarViewBuilder`, `ScheduleProblemsRenderer` (the last reads
+  `MissingTravel`'s `ZonedTimestamp`s via `localDateTime()` today).
 - `[ ]` Bug R3's fix rides along with the `ScheduleProblemsRenderer` work: per-gathering dates (or
   full `ZonedTimestamp`s) in `SchedulingConflict`, rendered as
   "Oct 3 18:00–21:00 (San Francisco) overlaps Oct 4 09:00–12:00 (Tokyo)".
@@ -353,17 +388,15 @@ Spec for the remaining items:
 - `[x]` `EventPayloadUpcaster` wired into the `event_log` read path via `PostgresPersister`;
   handles `HotelBooked/Changed`, `TrainBooked/Changed`, `FlightBooked/Changed`,
   `GatheringPlanned/Changed` (the key-merging gathering case); idempotent on new-shape payloads.
-- `[ ]` Conference upcaster case (`ConferenceTentativelyPlanned`, simple hotel-style in-place
-  rewrite) — lands with the conference slice (slice step 7).
+- `[x]` Conference upcaster case (`ConferenceTentativelyPlanned`, simple hotel-style in-place
+  rewrite) — done 2026-08-05, resolving from `venueAddress.{city,country}`.
 - `[x]` **Golden legacy-shape coverage exists.** `GoldenEventDeserializationTest` has the
   `deserializeLegacy` upcast-then-deserialize path and legacy samples for hotel, train, flight
   (`legacyFlightBookedUpcastsEachEndpointFromItsAirportCode`) and gathering, alongside the
   new-shape samples.
-- `[ ]` When the conference event migrates, the current
-  `conferenceTentativelyPlannedLegacyPayloadWithStateFieldDeserializes` sample
-  (`GoldenEventDeserializationTest.java:97`) — which binds scalar `startDate`/`endDate` directly —
-  **must switch to the `deserializeLegacy` path**, and a *new-shape* conference sample added
-  beside it, matching the other types.
+- `[x]` Done 2026-08-05: `conferenceTentativelyPlannedLegacyPayloadWithStateFieldDeserializes`
+  now goes through `deserializeLegacy` and asserts the venue-zone instants, and
+  `conferenceTentativelyPlannedNewShapePayloadDeserializes` sits beside it.
 - `[ ]` Remaining upcaster/golden test gaps: see test backfill items 2–3 (flight cases in
   `EventPayloadUpcasterTest`; a `GatheringChanged` legacy golden sample).
 - `[ ]` Legacy zone-less command **round-trip import** cases: see test backfill item 4.
@@ -397,7 +430,8 @@ Spec (unchanged where still relevant):
 
 ### 6. Conventions & other consumers — `[~]`
 - `[ ]` `TimeFilterToggleConventionTest` discovers `render(List, TimeView)`; if renderer signatures
-  gain a display-mode/role param (phase 4), update the convention test accordingly.
+  gain a display-mode/role param (phase 4), update the convention test accordingly. (Still green
+  after the conference renderer moved to `ZonedTimeTag` — the signature did not change.)
 - `[ ]` `pom.xml:183` pins the test JVM to UTC — audit tests that implicitly assume server==UTC; new
   display tests must set explicit zones.
 - `[x]` iCal / Google Calendar export / notification paths: none exist in the codebase — nothing to
@@ -408,37 +442,52 @@ Spec (unchanged where still relevant):
 
 ## Test backfill (from the 2026-08-05 review §4)
 
-Beyond what the conference slice plan already lists; mechanical — the pattern exists for each.
+**Complete as of 2026-08-05 except item 9, which belongs to phase 4.** Every item below was
+mutation-verified: the production code was temporarily broken in a way the test should catch, the
+failure confirmed, and the code restored. Item 8 found a live bug that way.
 
-1. `[ ]` **The four cross-zone `ScheduleGapProjector` scenarios were never written**, although
-   gathering step 6 is marked done and the slice's "Resolved questions" item 1 lists them.
-   `ScheduleGapProjectorTest` has no cross-zone case at all — every conflict test uses same-zone
-   fixtures, so the instant-based `overlapsWith` and the removal of the same-date precondition
-   (the whole point of that change) are unpinned. Write: Amsterdam-vs-London locals overlap but
-   instants don't ⇒ no conflict; SF Oct 3 evening vs Tokyo Oct 4 morning instants overlap ⇒
-   conflict; Tokyo gathering vs Chicago conference `DifferentCityConflict` (after the conference
-   slice); a same-zone pair to pin the common case.
-2. `[ ]` **`EventPayloadUpcasterTest` flight cases** (`FlightBooked`/`FlightChanged` via
-   `AirportZoneResolver`) — currently only hotel/train/gathering. The golden test covers
-   `FlightBooked` end-to-end, but nothing anywhere covers `FlightChanged` through the upcaster.
-3. `[ ]` **Golden legacy sample for `GatheringChanged`** — the upcaster handles it, but only
-   `GatheringPlanned` has a legacy golden sample; `GatheringChanged` carries the same field trio
-   and would fail identically if a key were missed.
-4. `[ ]` **Legacy zone-less command import round-trip** (slice test 4): a gathering and a
-   conference command JSON *without* the `zone` field must import and produce the right instants.
-   Inline JSON text blocks per the under-30-lines convention.
-5. `[ ]` **`MigrateConferenceToGathering.events()` direct test** (slice test 5): zone resolved
-   from its own location; plus, once R1 is fixed, the determinism assertion that `commandId()`
-   returns the same value on every call.
-6. `[ ]` **Import-twice/resume test** for the internal commands (pins bug R1; see there).
-7. `[ ]` **Handler zone-rule backfill for hotel/train/flight** (slice test 1 ride-along): explicit
-   `CommonZone` wins / derive from address / unresolvable+no-pick throws — the pattern exists in
-   `PlanGatheringHandlerTest`.
-8. `[ ]` **`@WebMvcTest` assertions on the zone `<select>` and the `ZoneResolutionException`
-   re-render** (slice test 7) for the gathering forms now, the conference form when it gains the
-   selector.
+1. `[x]` **The four cross-zone `ScheduleGapProjector` scenarios** — written 2026-08-05 as
+   `ScheduleGapProjectorTest.CrossZoneConflictDetection`: Amsterdam 19:00–20:30 CEST vs London
+   19:30–21:00 BST (locals overlap, instants meet but don't) ⇒ no conflict; SF Oct 3 18:00–21:00
+   PDT vs Tokyo Oct 4 09:00–12:00 JST (different local dates, instants overlap) ⇒ conflict; Tokyo
+   Oct 8 06:00 JST vs a Chicago conference ending Oct 7 17:00 CDT ⇒ `DifferentCityConflict`; plus a
+   same-zone Tokyo pair as the control. **Verified by reverting** `overlapsWith` and
+   `detectDifferentCityConflicts` to their wall-clock forms: the first three fail, the control
+   passes — so they pin the instant logic rather than merely exercising it.
+2. `[x]` **`EventPayloadUpcasterTest` flight cases** — done 2026-08-05: `FlightBooked`,
+   `FlightChanged` (nothing covered it before), a new-shape flight pass-through using unknown
+   airport codes, and a conference case. Mutation-verified: dropping `FlightChanged` from the
+   case list, and collapsing the two endpoints onto one zone, both fail the new tests.
+3. `[x]` **Golden legacy sample for `GatheringChanged`** — done 2026-08-05 (Tokyo venue, so a
+   zone read from the server instead of the location is visible). Mutation-verified: dropping
+   `GatheringChanged` from the upcaster's case list fails it on the leftover `date` key.
+4. `[x]` **Legacy zone-less command import round-trip** — done 2026-08-05 in
+   `CommandExportImportRoundTripTest`, inline JSON text blocks, Tokyo + San Francisco venues.
+   Mutation-verified by making `VenueZone` fall back to `systemDefault()`: this test fails while
+   the existing export/import round trip does **not** (it exports and re-imports through the same
+   resolver, so it agrees with itself) — which is exactly the gap it closes.
+5. `[x]` **`MigrateConferenceToGathering.events()` direct test** — done 2026-08-05
+   (`MigrateConferenceToGatheringTest`): zone resolved from its own location; unresolvable location
+   throws.
+6. ~~**Import-twice/resume test** for the internal commands~~ — **dropped with R1** (see there):
+   there is no re-import workflow to protect.
+7. `[x]` **Handler zone-rule backfill for hotel/train/flight** — done 2026-08-05:
+   `BookHotelHandlerTest`, `BookTrainHandlerTest`, `BookFlightHandlerTest` (16 cases), each
+   covering explicit pick wins / derive from location / unresolvable+no-pick throws, plus the
+   per-endpoint independence that hotels don't have and the raw-IANA-zone path flights do.
+   Mutation-verified: hotel ignoring the pick, train sharing one zone across endpoints, and flight
+   defaulting to UTC instead of throwing are all caught.
+8. `[x]` **`@WebMvcTest` assertions on the zone `<select>` and the rejection re-render** — done
+   2026-08-05 for both the gathering and conference forms. **This found a real pre-existing bug:**
+   `PlanConferenceController`'s POST used a bare `@ModelAttribute`, so Spring bound the form under
+   `planTentativeConferenceRequest` while `plan-conference.html`'s `th:object` is
+   `planTentativeConference` — *every* validation failure on `/plan-conference` (the date rules
+   too, not just the zone) threw at render time instead of showing the error. Fixed by naming the
+   attribute, as `PlanGatheringController` already did. Mutation-verified: removing the selector
+   block, reverting the attribute name, and swallowing the gathering's `ZoneResolutionException`
+   are each caught.
 9. `[ ]` **Phase 4 `js`-tier tests** as specced in phase 4 (two pinned `timezoneId` contexts;
-   toggle interaction).
+   toggle interaction) — belongs with the phase 4 display work, not this backfill batch.
 
 ## Smaller design improvements (from the 2026-08-05 review §5 — non-blocking)
 
@@ -454,8 +503,7 @@ Beyond what the conference slice plan already lists; mechanical — the pattern 
    golden samples store `"country": "GB"` — evidence real data can carry codes. Aliases for
    single-zone countries only (never multi-zone) are cheap insurance and keep the strict-no-default
    promise. Re-run `/admin/zone-audit` after (needed before the conference deploy anyway).
-3. `[ ]` **`TentativeConferenceProjectorTest` lives in `web/`** while the projector is in
-   `application/` — move it beside its peers when the conference slice touches it.
+3. `[x]` **`TentativeConferenceProjectorTest` moved to `application/`** 2026-08-05.
 4. `[ ]` **`EventSourcingConfig` projector wiring** repeats the subscribe-then-replay triple
    fifteen times; a small private `wire(projector)` helper would collapse it without Spring
    cleverness. Cosmetic; do it opportunistically.
@@ -470,7 +518,7 @@ Beyond what the conference slice plan already lists; mechanical — the pattern 
   `GatheringPlanned/Changed`, `ConferenceTentativelyPlanned`.
 - Commands/contexts + web requests: `BookHotelCommand`/`ChangeHotelCommand` (+ flight/train/
   conference/gathering), `BookHotelRequest`/`ChangeHotelRequest` (+ siblings); internal commands
-  `MigrateConferenceToGathering`, `ClearDifferentCityConflict` (bug R1).
+  `MigrateConferenceToGathering`, `ClearDifferentCityConflict`.
 - Eval: `TemporalView`, `TimeView`, the five list controllers.
 - Display: renderers (`BookedHotelsRenderer` + siblings), `ItineraryProjector`/`CalendarViewBuilder`/
   `ScheduleGapProjector`; role read as in `GeneralController.java:42`.
@@ -481,10 +529,10 @@ Beyond what the conference slice plan already lists; mechanical — the pattern 
 
 ## Verification
 
-Status: 1 `[x]` (hotel filtering fixed in `5dab535`) · 2 `[x]` · 3 `[x]` (train) · 4 `[~]`
-(hotel/train/flight/gathering entry-zone validation done; conference pending) · 5 `[~]` (legacy
-goldens through the upcaster exist; zone-less command round-trip missing) · 6 `[ ]` · 7 `[ ]` ·
-8 `[ ]` (new — resume idempotence).
+Status: 1 `[x]` (hotel filtering fixed in `5dab535`) · 2 `[x]` · 3 `[x]` (train) · 4 `[x]`
+(entry-zone validation done for all five types as of 2026-08-05) · 5 `[~]` (legacy goldens through
+the upcaster exist for all five; zone-less command round-trip missing) · 6 `[ ]` · 7 `[ ]` ·
+8 ~~resume idempotence~~ (dropped with R1 — no re-import workflow).
 
 1. **Bug repro:** a hotel with checkout earlier today shows under `/booked-hotels` (FUTURE) pre-fix;
    post-fix it drops off once `Instant.now()` passes the checkout instant.
@@ -501,8 +549,9 @@ goldens through the upcaster exist; zone-less command round-trip missing) · 6 `
    renders correctly in two browser zones, **and a Playwright toggle test confirms clicking the
    browser-zone toggle switches the displayed times and toggling back restores entry-local**.
 7. "All Tests" IDEA config + `./mvnw test -Pjs-tests` green.
-8. **Resume idempotence:** importing the same backup file twice (including migrate/clear-conflict
-   entries) reports every entry skipped on the second run and appends zero events.
+8. ~~**Resume idempotence:** importing the same backup file twice reports every entry skipped on the
+   second run and appends zero events.~~ **Dropped with R1** — the workflow is wipe-then-import-once,
+   so nothing ever re-imports onto existing data.
 
 ## Open follow-ups (not in this plan)
 - Promote the common-zone picker to a richer per-entry zone override/search if the curated list and

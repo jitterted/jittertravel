@@ -3,8 +3,6 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.domain.Event;
 
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -16,13 +14,13 @@ import java.util.stream.Stream;
  * export/import; its stable wire identity lives in {@link ImportableCommandTypes}.
  *
  * <p>Import replays historical commands whose dates are necessarily in the past relative to the
- * real "now". The {@code IMPORT_BYPASS_*} sentinels make the domains' future-dating checks pass
- * so old data round-trips unchanged; live booking paths use the real clock instead.
+ * real "now". {@link #IMPORT_BYPASS_INSTANT} makes the domains' future-dating checks pass so old
+ * data round-trips unchanged; live booking paths use the real clock instead. (Its
+ * {@code LocalDateTime}/{@code LocalDate} predecessors went away with the conference migration —
+ * every command now decides on instants.)
  */
 public interface ImportableCommand {
 
-    LocalDateTime IMPORT_BYPASS_NOW = LocalDateTime.MIN;
-    LocalDate IMPORT_BYPASS_DATE = LocalDate.MIN;
     Instant IMPORT_BYPASS_INSTANT = Instant.MIN;
 
     /** Id to persist this command's events under in {@code command_log}. */

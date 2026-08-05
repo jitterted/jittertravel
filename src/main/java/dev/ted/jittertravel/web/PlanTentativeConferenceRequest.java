@@ -1,8 +1,10 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.LocationZoneResolver;
+import dev.ted.jittertravel.application.PlanTentativeConferenceHandler;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.Event;
-import dev.ted.jittertravel.domain.PlanTentativeConferenceCommand;
+import dev.ted.jittertravel.domain.PlanTentativeConferenceContext;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
@@ -23,6 +25,9 @@ public class PlanTentativeConferenceRequest implements ImportableCommand {
     private String venueState;
     private String venueCountry;
     private String venuePostalCode;
+    // Optional CommonZone pick. Absent (older backups have no such field) means "derive the zone
+    // from the venue address" — which is what keeps pre-migration backups importable unchanged.
+    private String zone;
 
     public PlanTentativeConferenceRequest() {
     }
@@ -107,6 +112,14 @@ public class PlanTentativeConferenceRequest implements ImportableCommand {
         this.venuePostalCode = venuePostalCode;
     }
 
+    public String getZone() {
+        return zone;
+    }
+
+    public void setZone(String zone) {
+        this.zone = zone;
+    }
+
     public Address getVenueAddress() {
         return new Address(venueStreet, venueCity, venueState, venuePostalCode, venueCountry, null);
     }
@@ -118,7 +131,8 @@ public class PlanTentativeConferenceRequest implements ImportableCommand {
 
     @Override
     public Stream<? extends Event> events() {
-        return new PlanTentativeConferenceCommand().execute(this, IMPORT_BYPASS_NOW);
+        return new PlanTentativeConferenceHandler(new LocationZoneResolver()).handle(this)
+                .execute(new PlanTentativeConferenceContext(IMPORT_BYPASS_INSTANT));
     }
 
     @Override
@@ -134,6 +148,7 @@ public class PlanTentativeConferenceRequest implements ImportableCommand {
                 ", venueState='" + venueState + '\'' +
                 ", venueCountry='" + venueCountry + '\'' +
                 ", venuePostalCode='" + venuePostalCode + '\'' +
+                ", zone='" + zone + '\'' +
                 '}';
     }
 }

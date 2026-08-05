@@ -30,10 +30,12 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                 case ConferenceTentativelyPlanned event -> {
                     String location = event.venueAddress().city() + ", " + event.venueAddress().country();
                     List<String> locationLines = List.of(location);
+                    // Calendar days are venue-local days (decision 7): bucket by the wall-clock
+                    // the traveler will read off a clock at the venue, not by UTC.
                     entries.put(event.conferenceId(), new CalendarEntry(
                             EntryKind.CONFERENCE,
-                            event.startDate(),
-                            event.endDate(),
+                            event.startDate().localDateTime(),
+                            event.endDate().localDateTime(),
                             event.name(),
                             locationLines,
                             event.name() + " cont'd",

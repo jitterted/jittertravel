@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceSpansMultipleDays;
 import dev.ted.jittertravel.web.MigrateConferenceToGathering;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public class ConferenceMigrationService {
@@ -21,7 +22,10 @@ public class ConferenceMigrationService {
         TentativeConferenceView conference = tentativeConferenceProjector.findById(conferenceId)
                 .orElseThrow(() -> new IllegalArgumentException("Conference not found: " + conferenceId));
 
-        if (!conference.startDate().toLocalDate().equals(conference.endDate().toLocalDate())) {
+        // Single-day is judged in the venue's own zone, matching the migratable list.
+        LocalDateTime start = conference.startDate().localDateTime();
+        LocalDateTime end = conference.endDate().localDateTime();
+        if (!start.toLocalDate().equals(end.toLocalDate())) {
             throw new ConferenceSpansMultipleDays(
                     "Cannot migrate \"" + conference.name() + "\": start and end dates differ");
         }
@@ -32,9 +36,9 @@ public class ConferenceMigrationService {
                 conference.name(),
                 conference.venueName(),
                 conference.venueAddress(),
-                conference.startDate().toLocalDate(),
-                conference.startDate().toLocalTime(),
-                conference.endDate().toLocalTime(),
+                start.toLocalDate(),
+                start.toLocalTime(),
+                end.toLocalTime(),
                 speaking,
                 "",
                 "Migrated to gathering"

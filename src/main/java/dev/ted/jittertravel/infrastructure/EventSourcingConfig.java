@@ -70,8 +70,9 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public ConferencePlanning conferenceApplicationService(EventStore eventStore, PostgresPersister persister) {
-        return new ConferencePlanning(eventStore, persister);
+    public ConferencePlanning conferenceApplicationService(CommandExecutor commandExecutor,
+                                                          LocationZoneResolver locationZoneResolver) {
+        return new ConferencePlanning(commandExecutor, locationZoneResolver);
     }
 
     @Bean

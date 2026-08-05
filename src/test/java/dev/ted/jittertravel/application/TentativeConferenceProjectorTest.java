@@ -1,11 +1,9 @@
-package dev.ted.jittertravel.web;
+package dev.ted.jittertravel.application;
 
-import dev.ted.jittertravel.application.TentativeConferenceProjector;
-import dev.ted.jittertravel.application.TentativeConferenceView;
-import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
 
@@ -21,6 +19,9 @@ class TentativeConferenceProjectorTest {
 
     // ALL ignores now; any instant works for those cases.
     private static final Instant NOW = Instant.parse("2020-01-01T00:00:00Z");
+    // The test JVM is pinned to UTC (pom.xml), so fixtures name a venue zone explicitly —
+    // otherwise "is it over?" would accidentally agree with the server and prove nothing.
+    private static final ZoneId VENUE_ZONE = ZoneId.of("America/Los_Angeles");
 
     @Test
     void projectorCreatesViewFromEvents() {
@@ -30,8 +31,8 @@ class TentativeConferenceProjectorTest {
         ConferenceTentativelyPlanned event = new ConferenceTentativelyPlanned(
                 conferenceId,
                 "Conference Name",
-                LocalDateTime.of(2026, 6, 1, 9, 0),
-                LocalDateTime.of(2026, 6, 3, 17, 0),
+                zt(LocalDateTime.of(2026, 6, 1, 9, 0)),
+                zt(LocalDateTime.of(2026, 6, 3, 17, 0)),
                 "Venue",
                 address
         );
@@ -57,16 +58,16 @@ class TentativeConferenceProjectorTest {
         ConferenceTentativelyPlanned laterEvent = new ConferenceTentativelyPlanned(
                 ConferenceId.random(),
                 "Later Conference",
-                LocalDateTime.of(2026, 7, 1, 9, 0),
-                LocalDateTime.of(2026, 7, 3, 17, 0),
+                zt(LocalDateTime.of(2026, 7, 1, 9, 0)),
+                zt(LocalDateTime.of(2026, 7, 3, 17, 0)),
                 "Later Venue",
                 address
         );
         ConferenceTentativelyPlanned earlierEvent = new ConferenceTentativelyPlanned(
                 ConferenceId.random(),
                 "Earlier Conference",
-                LocalDateTime.of(2026, 6, 28, 9, 0),
-                LocalDateTime.of(2026, 6, 30, 17, 0),
+                zt(LocalDateTime.of(2026, 6, 28, 9, 0)),
+                zt(LocalDateTime.of(2026, 6, 30, 17, 0)),
                 "Earlier Venue",
                 address
         );
@@ -135,9 +136,8 @@ class TentativeConferenceProjectorTest {
         handle(projector, 2, "Finished",
                 now.minusDays(10), now.minusDays(8), address);
 
-        // Conferences still store wall-clock, evaluated in the server zone (see
-        // TentativeConferenceView.relevantUntil); mirror that conversion here.
-        Instant nowInstant = now.atZone(ZoneId.systemDefault()).toInstant();
+        // "Now" is a moment, read against the venue's own zone — not the server's.
+        Instant nowInstant = now.atZone(VENUE_ZONE).toInstant();
         assertThat(projector.views(TimeView.FUTURE, nowInstant))
                 .extracting(TentativeConferenceView::name)
                 .containsExactly("In Progress");
@@ -146,10 +146,14 @@ class TentativeConferenceProjectorTest {
                 .containsExactlyInAnyOrder("In Progress", "Finished");
     }
 
+    private static ZonedTimestamp zt(LocalDateTime local) {
+        return ZonedTimestamp.fromLocal(local, VENUE_ZONE);
+    }
+
     private static void handle(TentativeConferenceProjector projector, long seq, String name,
                                 LocalDateTime start, LocalDateTime end, Address address) {
         ConferenceTentativelyPlanned event = new ConferenceTentativelyPlanned(
-                ConferenceId.random(), name, start, end, "Venue", address);
+                ConferenceId.random(), name, zt(start), zt(end), "Venue", address);
         projector.handle(Stream.of(
                 new StoredEvent(seq, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID())));
     }

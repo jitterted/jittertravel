@@ -39,14 +39,19 @@ public class TentativeConferenceProjector implements EventStreamConsumer {
     public List<TentativeConferenceView> views(TimeView timeView, Instant now) {
         return conferences.values().stream()
                 .filter(view -> timeView.includes(view, now))
-                .sorted(Comparator.comparing(TentativeConferenceView::startDate))
+                .sorted(Comparator.comparing(view -> view.startDate().utc()))
                 .toList();
     }
 
+    /**
+     * "One day long" is asked in the venue's own zone — a conference is single-day where it
+     * happens, regardless of where the server or the viewer is.
+     */
     public List<TentativeConferenceView> migratableViews() {
         return conferences.values().stream()
-                .filter(v -> v.startDate().toLocalDate().equals(v.endDate().toLocalDate()))
-                .sorted(Comparator.comparing(TentativeConferenceView::startDate))
+                .filter(v -> v.startDate().localDateTime().toLocalDate()
+                        .equals(v.endDate().localDateTime().toLocalDate()))
+                .sorted(Comparator.comparing(v -> v.startDate().utc()))
                 .toList();
     }
 

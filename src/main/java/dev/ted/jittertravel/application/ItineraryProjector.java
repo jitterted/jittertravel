@@ -184,9 +184,11 @@ public class ItineraryProjector implements EventStreamConsumer {
     }
 
     private static List<ConferenceItineraryEntry> toConferenceEntries(ConferenceTentativelyPlanned e) {
-        LocalDateTime startDateTime = e.startDate();
+        // Itinerary days are venue-local days (see CalendarEntry), so the entry keeps the
+        // wall-clock the traveler will actually read off a clock when they get there.
+        LocalDateTime startDateTime = e.startDate().localDateTime();
         LocalDate start = startDateTime.toLocalDate();
-        int totalDays = (int) ChronoUnit.DAYS.between(start, e.endDate().toLocalDate()) + 1;
+        int totalDays = (int) ChronoUnit.DAYS.between(start, e.endDate().localDateTime().toLocalDate()) + 1;
         List<ConferenceItineraryEntry> entries = new ArrayList<>();
         for (int i = 0; i < totalDays; i++) {
             entries.add(new ConferenceItineraryEntry(

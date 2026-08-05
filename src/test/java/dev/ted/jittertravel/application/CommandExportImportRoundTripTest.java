@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -56,7 +57,7 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         trainBooking.bookTrain(bookTrain(trainTripId), Instant.now());
         changeTrain.changeTrain(UUID.randomUUID(), changeTrain(trainTripId), Instant.now());
         conferencePlanning.planConference(planConference(UUID.randomUUID().toString(),
-                FUTURE.atTime(9, 0), FUTURE.plusDays(2).atTime(17, 0)));  // multi-day, stays tentative
+                FUTURE.atTime(9, 0), FUTURE.plusDays(2).atTime(17, 0)), Instant.now());  // multi-day, stays tentative
         String gatheringId = UUID.randomUUID().toString();
         gatheringPlanning.planGathering(planGathering(gatheringId), Instant.now());
         changeGathering.changeGathering(UUID.randomUUID(), changeGathering(gatheringId), Instant.now());
@@ -64,7 +65,7 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         // single-day conference that we then migrate to a gathering
         String migratedConferenceId = UUID.randomUUID().toString();
         conferencePlanning.planConference(planConference(migratedConferenceId,
-                FUTURE.atTime(9, 0), FUTURE.atTime(17, 0)));
+                FUTURE.atTime(9, 0), FUTURE.atTime(17, 0)), Instant.now());
         conferenceMigrationService.migrateToGathering(ConferenceId.of(UUID.fromString(migratedConferenceId)), true);
 
         gatheringPlanning.clearConflict(GatheringId.random(), ConferenceId.random(), "Attending virtually", UUID.randomUUID());
@@ -92,6 +93,68 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         assertThat(currentEvents())
                 .as("every exported command re-produced its original events on import")
                 .containsExactlyInAnyOrderElementsOf(before);
+    }
+
+    /**
+     * A backup written before the UTC migration has no {@code zone} field anywhere — that absence
+     * is the whole backward-compatibility strategy: requests kept their scalar wall-clock fields,
+     * so "no zone" means "derive it from the location" and old files import with no command-path
+     * upcaster at all. The venues here are deliberately far from the UTC-pinned test JVM, so a zone
+     * silently read from the server instead of the location shows up as a wrong instant.
+     */
+    @Test
+    void legacyZoneLessCommandsImportAndDeriveTheirZonesFromTheLocation() {
+        String legacyBackup = """
+                [
+                  {"type": "PlanGathering", "payload": {
+                    "gatheringId": "77777777-7777-7777-7777-777777777777",
+                    "title": "Tokyo Rubyist Meetup", "venueName": "Shibuya Hikarie",
+                    "street": "2-21-1 Shibuya", "city": "Tokyo", "region": "",
+                    "postalCode": "150-8510", "country": "Japan", "locationForMatching": "Tokyo",
+                    "date": "2026-09-15", "startTime": "19:00", "endTime": "21:30",
+                    "speaking": false, "infoUrl": ""
+                  }},
+                  {"type": "PlanTentativeConference", "payload": {
+                    "conferenceId": "88888888-8888-8888-8888-888888888888",
+                    "name": "JitterConf",
+                    "startDate": "2026-09-15T09:00:00", "endDate": "2026-09-17T17:00:00",
+                    "venueName": "Moscone Center", "venueStreet": "747 Howard St",
+                    "venueCity": "San Francisco", "venueState": "CA",
+                    "venueCountry": "USA", "venuePostalCode": "94103"
+                  }}
+                ]
+                """;
+
+        CommandImporter.ImportResult result = commandImporter.importJson(legacyBackup);
+
+        assertThat(result.hasErrors())
+                .as("a pre-migration backup must import unchanged: %s", result.errors())
+                .isFalse();
+        GatheringPlanned gathering = onlyEventOfType(GatheringPlanned.class);
+        assertThat(gathering.startsAt())
+                .as("19:00 in Tokyo is 10:00Z, derived from the venue's country")
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 9, 15, 19, 0), ZoneId.of("Asia/Tokyo")));
+        assertThat(gathering.endsAt())
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 9, 15, 21, 30), ZoneId.of("Asia/Tokyo")));
+
+        ConferenceTentativelyPlanned conference = onlyEventOfType(ConferenceTentativelyPlanned.class);
+        assertThat(conference.startDate())
+                .as("09:00 in San Francisco is 16:00Z, derived from the venue city")
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 9, 15, 9, 0), ZoneId.of("America/Los_Angeles")));
+        assertThat(conference.endDate())
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 9, 17, 17, 0), ZoneId.of("America/Los_Angeles")));
+    }
+
+    private <T extends Event> T onlyEventOfType(Class<T> type) {
+        return currentEvents().stream()
+                .filter(type::isInstance)
+                .map(type::cast)
+                .reduce((a, b) -> { throw new AssertionError("more than one " + type.getSimpleName()); })
+                .orElseThrow(() -> new AssertionError("no " + type.getSimpleName() + " was imported"));
     }
 
     private List<Event> currentEvents() {

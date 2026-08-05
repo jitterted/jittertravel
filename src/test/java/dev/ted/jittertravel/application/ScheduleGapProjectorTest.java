@@ -31,6 +31,14 @@ class ScheduleGapProjectorTest {
     private static final LocalDate SEP_17 = LocalDate.of(2026, 9, 17);
     private static final LocalDate SEP_18 = LocalDate.of(2026, 9, 18);
 
+    // Cross-zone cases: October, so the northern-hemisphere fixtures are still on summer time
+    // (CEST/BST/PDT/CDT) and the offset arithmetic in those tests reads as written.
+    private static final LocalDate OCT_3 = LocalDate.of(2026, 10, 3);
+    private static final LocalDate OCT_4 = LocalDate.of(2026, 10, 4);
+    private static final LocalDate OCT_5 = LocalDate.of(2026, 10, 5);
+    private static final LocalDate OCT_7 = LocalDate.of(2026, 10, 7);
+    private static final LocalDate OCT_8 = LocalDate.of(2026, 10, 8);
+
     // Identity resolver: airport code is used directly as the city name
     private static final AirportCityResolver IDENTITY = code -> code;
 
@@ -81,7 +89,7 @@ class ScheduleGapProjectorTest {
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
-                    .containsExactly(new ScheduleProblem.MissingTravel("AMS", flightArrival, "BRU", nextDeparture));
+                    .containsExactly(new ScheduleProblem.MissingTravel("AMS", zt(flightArrival), "BRU", zt(nextDeparture)));
         }
 
         @Test
@@ -505,6 +513,89 @@ class ScheduleGapProjectorTest {
     }
 
     // -------------------------------------------------------------------------
+    // Cross-zone conflicts — detection compares instants, never wall-clock
+    // -------------------------------------------------------------------------
+
+    /**
+     * The whole point of comparing instants: wall-clock numbers from two zones denote different
+     * moments, so reading them as if they were comparable produces both false positives and — worse
+     * — silent false negatives. Every fixture here is deliberately in a zone other than the
+     * UTC-pinned test JVM's, and the arithmetic is spelled out so a regression is diagnosable.
+     */
+    @Nested
+    class CrossZoneConflictDetection {
+
+        @Test
+        void noConflictWhenLocalTimesOverlapButTheActualMomentsDoNot() {
+            // Amsterdam 19:00–20:30 CEST (UTC+2) is 17:00–18:30Z;
+            // London    19:30–21:00 BST  (UTC+1) is 18:30–20:00Z — they meet, never overlap.
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(gatheringAt("Amsterdam", "Europe/Amsterdam", "DUJUG",
+                            SEP_15.atTime(19, 0), SEP_15.atTime(20, 30))),
+                    stored(gatheringAt("London", "Europe/London", "LJC",
+                            SEP_15.atTime(19, 30), SEP_15.atTime(21, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.SchedulingConflict)
+                    .as("the wall-clock ranges overlap on paper, but you could attend both")
+                    .isEmpty();
+        }
+
+        @Test
+        void conflictReportedWhenMomentsOverlapDespiteDifferentLocalDates() {
+            // San Francisco Oct 3 18:00–21:00 PDT (UTC-7) is Oct 4 01:00–04:00Z;
+            // Tokyo         Oct 4 09:00–12:00 JST (UTC+9) is Oct 4 00:00–03:00Z — two hours apart.
+            // The old same-date precondition compared Oct 3 with Oct 4 and never even looked.
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(gatheringAt("San Francisco", "America/Los_Angeles", "SFJUG",
+                            OCT_3.atTime(18, 0), OCT_3.atTime(21, 0))),
+                    stored(gatheringAt("Tokyo", "Asia/Tokyo", "JJUG",
+                            OCT_4.atTime(9, 0), OCT_4.atTime(12, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.SchedulingConflict)
+                    .as("these genuinely overlap in real time and cannot both be attended")
+                    .hasSize(1);
+        }
+
+        @Test
+        void differentCityConflictReportedWhenGatheringStartsBeforeAConferenceEndsInAnotherZone() {
+            // Chicago conference ends Oct 7 17:00 CDT (UTC-5) = Oct 7 22:00Z;
+            // Tokyo gathering starts Oct 8 06:00 JST (UTC+9) = Oct 7 21:00Z — one hour earlier.
+            // By local date (Oct 8 vs a range ending Oct 7) this looked like no conflict at all.
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(conferenceAtZone("Chicago", "America/Chicago",
+                            OCT_5.atTime(9, 0), OCT_7.atTime(17, 0))),
+                    stored(gatheringAt("Tokyo", "Asia/Tokyo", "JJUG",
+                            OCT_8.atTime(6, 0), OCT_8.atTime(9, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.DifferentCityConflict)
+                    .extracting(p -> ((ScheduleProblem.DifferentCityConflict) p).gatheringName())
+                    .as("you cannot be in Tokyo while the Chicago conference is still running")
+                    .containsExactly("JJUG");
+        }
+
+        @Test
+        void sameZoneOverlapStillConflicts() {
+            // The common case, pinned so the instant rewrite cannot quietly break it.
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(gatheringAt("Tokyo", "Asia/Tokyo", "JJUG",
+                            OCT_4.atTime(18, 0), OCT_4.atTime(21, 0))),
+                    stored(gatheringAt("Tokyo", "Asia/Tokyo", "Tokyo Rubyist Meetup",
+                            OCT_4.atTime(19, 30), OCT_4.atTime(22, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.SchedulingConflict)
+                    .hasSize(1);
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Ordering
     // -------------------------------------------------------------------------
 
@@ -569,7 +660,7 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            LON, trainArrival, "Steventon", SEP_16.atStartOfDay()));
+                            LON, zt(trainArrival), "Steventon", zt(SEP_16.atStartOfDay())));
         }
 
         @Test
@@ -595,7 +686,7 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            "Steventon", SEP_17.atStartOfDay(), LON, flightDeparture));
+                            "Steventon", zt(SEP_17.atStartOfDay()), LON, zt(flightDeparture)));
         }
 
         @Test
@@ -665,8 +756,8 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactlyInAnyOrder(
-                            new ScheduleProblem.MissingTravel(LON, trainArrival, "Steventon", SEP_16.atStartOfDay()),
-                            new ScheduleProblem.MissingTravel("Steventon", SEP_17.atStartOfDay(), LON, flightDeparture));
+                            new ScheduleProblem.MissingTravel(LON, zt(trainArrival), "Steventon", zt(SEP_16.atStartOfDay())),
+                            new ScheduleProblem.MissingTravel("Steventon", zt(SEP_17.atStartOfDay()), LON, zt(flightDeparture)));
         }
     }
 
@@ -695,7 +786,7 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            LON, arrival, AMS, confStart));
+                            LON, zt(arrival), AMS, zt(confStart)));
         }
 
         @Test
@@ -716,7 +807,7 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            LON, end2, AMS, nextDep));
+                            LON, zt(end2), AMS, zt(nextDep)));
         }
     }
 
@@ -760,7 +851,7 @@ class ScheduleGapProjectorTest {
                     .hasSize(1)
                     .first()
                     .isEqualTo(new ScheduleProblem.MissingTravel(
-                            "London", SEP_16.atTime(7, 0), "Amsterdam", SEP_19.atTime(10, 0)));
+                            "London", zt(SEP_16.atTime(7, 0)), "Amsterdam", zt(SEP_19.atTime(10, 0))));
         }
     }
 
@@ -790,7 +881,7 @@ class ScheduleGapProjectorTest {
                 .hasSize(1)
                 .first()
                 .isEqualTo(new ScheduleProblem.MissingTravel(
-                        "AMS", SEP_15.atTime(11, 0), "PRG", SEP_15.atTime(13, 0)));
+                        "AMS", zt(SEP_15.atTime(11, 0)), "PRG", zt(SEP_15.atTime(13, 0))));
     }
 
     // -------------------------------------------------------------------------
@@ -898,8 +989,8 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            "San Francisco", SEP_15.atTime(13, 0),
-                            "Los Angeles", SEP_18.atTime(10, 0)));
+                            "San Francisco", zt(SEP_15.atTime(13, 0)),
+                            "Los Angeles", zt(SEP_18.atTime(10, 0))));
         }
 
         @Test
@@ -912,8 +1003,8 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            "Amsterdam", SEP_15.atTime(11, 0),
-                            "Brussels", SEP_18.atTime(10, 0)));
+                            "Amsterdam", zt(SEP_15.atTime(11, 0)),
+                            "Brussels", zt(SEP_18.atTime(10, 0))));
         }
     }
 
@@ -964,14 +1055,36 @@ class ScheduleGapProjectorTest {
 
     private static ConferenceTentativelyPlanned conference(String city, LocalDate start, LocalDate end) {
         return new ConferenceTentativelyPlanned(ConferenceId.random(), "Conf",
-                start.atStartOfDay(), end.atStartOfDay(), "Venue",
+                zt(start.atStartOfDay()), zt(end.atStartOfDay()), "Venue",
                 new Address("1 Street", city, "", "00000", "XX", null));
     }
 
     private static ConferenceTentativelyPlanned conferenceAt(String city, LocalDateTime start, LocalDateTime end) {
         return new ConferenceTentativelyPlanned(ConferenceId.random(), "Conf",
-                start, end, "Venue",
+                zt(start), zt(end), "Venue",
                 new Address("1 Street", city, "", "00000", "XX", null));
+    }
+
+    /**
+     * Cross-zone fixtures name their zone explicitly, rather than going through {@link #zt}, which
+     * pins everything to one zone — the point of these cases is that the zones differ.
+     */
+    private static GatheringPlanned gatheringAt(String city, String zone, String title,
+                                                LocalDateTime start, LocalDateTime end) {
+        return new GatheringPlanned(GatheringId.random(), title, "Venue",
+                new Address("1 Street", city, "", "", "", null),
+                inZone(zone, start), inZone(zone, end), false, "");
+    }
+
+    private static ConferenceTentativelyPlanned conferenceAtZone(String city, String zone,
+                                                                 LocalDateTime start, LocalDateTime end) {
+        return new ConferenceTentativelyPlanned(ConferenceId.random(), "Conf",
+                inZone(zone, start), inZone(zone, end), "Venue",
+                new Address("1 Street", city, "", "00000", "XX", null));
+    }
+
+    private static ZonedTimestamp inZone(String zone, LocalDateTime local) {
+        return ZonedTimestamp.fromLocal(local, ZoneId.of(zone));
     }
 
     private static GatheringPlanned gathering(String title, LocalDate date, LocalTime start, LocalTime end) {
@@ -1096,7 +1209,7 @@ class ScheduleGapProjectorTest {
     private static ConferenceTentativelyPlanned conferenceWithId(ConferenceId id, String city,
                                                                   LocalDate start, LocalDate end) {
         return new ConferenceTentativelyPlanned(id, "Conf",
-                start.atStartOfDay(), end.atStartOfDay(), "Venue",
+                zt(start.atStartOfDay()), zt(end.atStartOfDay()), "Venue",
                 new Address("1 Street", city, "", "00000", "XX", null));
     }
 

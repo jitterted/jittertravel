@@ -36,24 +36,24 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         events.forEach(stored -> {
             switch (stored.payload()) {
                 case FlightBooked e -> flightLegs.put(e.flightId(), flightLeg(
-                        e.departureAirport(), e.departureDateTime().localDateTime(),
-                        e.arrivalAirport(), e.arrivalDateTime().localDateTime()));
+                        e.departureAirport(), e.departureDateTime(),
+                        e.arrivalAirport(), e.arrivalDateTime()));
                 case FlightChanged e -> flightLegs.put(e.flightId(), flightLeg(
-                        e.departureAirport(), e.departureDateTime().localDateTime(),
-                        e.arrivalAirport(), e.arrivalDateTime().localDateTime()));
+                        e.departureAirport(), e.departureDateTime(),
+                        e.arrivalAirport(), e.arrivalDateTime()));
                 case TrainBooked e -> trainLegs.put(e.tripId(), new TravelLeg(
-                        e.departureStation().city(), e.departureDateTime().localDateTime(),
-                        e.arrivalStation().city(), e.arrivalDateTime().localDateTime()));
+                        e.departureStation().city(), e.departureDateTime(),
+                        e.arrivalStation().city(), e.arrivalDateTime()));
                 case TrainChanged e -> trainLegs.put(e.tripId(), new TravelLeg(
-                        e.departureStation().city(), e.departureDateTime().localDateTime(),
-                        e.arrivalStation().city(), e.arrivalDateTime().localDateTime()));
+                        e.departureStation().city(), e.departureDateTime(),
+                        e.arrivalStation().city(), e.arrivalDateTime()));
                 case HotelBooked e -> hotelStays.put(e.hotelBookingId(), new HotelStay(
                         e.address().locationForMatching(), e.checkIn().localDateTime().toLocalDate(), e.checkOut().localDateTime().toLocalDate()));
                 case HotelChanged e -> hotelStays.put(e.hotelBookingId(), new HotelStay(
                         e.address().locationForMatching(), e.checkIn().localDateTime().toLocalDate(), e.checkOut().localDateTime().toLocalDate()));
                 case ConferenceTentativelyPlanned e -> conferenceOccupancies.put(e.conferenceId(),
                         new CityOccupancy(e.venueAddress().locationForMatching(),
-                                e.startDate(), e.endDate(), e.name()));
+                                e.startDate(), e.endDate(), e.name()));  // now ZonedTimestamps
                 case ConferenceCancelled e -> conferenceOccupancies.remove(e.conferenceId());
                 case GatheringPlanned e -> gatheringOccupancies.put(e.gatheringId(),
                         new GatheringOccupancy(e.title(), e.location().locationForMatching(),
@@ -99,24 +99,25 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 .map(p -> (ScheduleProblem.MissingTravel) p)
                 .sorted(Comparator.comparing((ScheduleProblem.MissingTravel t) -> t.fromCity().toLowerCase())
                         .thenComparing(t -> t.toCity().toLowerCase())
-                        .thenComparing(ScheduleProblem.MissingTravel::arrivedAt))
+                        .thenComparing(t -> t.arrivedAt().utc()))
                 .toList();
 
         List<ScheduleProblem.MissingTravel> result = new ArrayList<>();
         int i = 0;
         while (i < sorted.size()) {
             ScheduleProblem.MissingTravel current = sorted.get(i);
-            LocalDateTime latestArrival = current.arrivedAt();
-            LocalDateTime earliestNextDep = current.nextDepartureAt();
+            ZonedTimestamp latestArrival = current.arrivedAt();
+            ZonedTimestamp earliestNextDep = current.nextDepartureAt();
 
             while (i + 1 < sorted.size()) {
                 ScheduleProblem.MissingTravel next = sorted.get(i + 1);
                 boolean sameCities = homeCities.sameLocation(next.fromCity(), current.fromCity())
                         && homeCities.sameLocation(next.toCity(), current.toCity());
-                boolean overlaps = next.arrivedAt().isBefore(earliestNextDep);
+                // arrival in one city vs departure from another: only the instants are comparable
+                boolean overlaps = next.arrivedAt().utc().isBefore(earliestNextDep.utc());
                 if (!sameCities || !overlaps) break;
-                if (next.arrivedAt().isAfter(latestArrival)) latestArrival = next.arrivedAt();
-                if (next.nextDepartureAt().isBefore(earliestNextDep)) earliestNextDep = next.nextDepartureAt();
+                if (next.arrivedAt().utc().isAfter(latestArrival.utc())) latestArrival = next.arrivedAt();
+                if (next.nextDepartureAt().utc().isBefore(earliestNextDep.utc())) earliestNextDep = next.nextDepartureAt();
                 i++;
             }
             result.add(new ScheduleProblem.MissingTravel(
@@ -128,7 +129,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
 
     private LocalDate firstDate(ScheduleProblem p) {
         return switch (p) {
-            case ScheduleProblem.MissingTravel mt -> mt.arrivedAt().toLocalDate();
+            case ScheduleProblem.MissingTravel mt -> mt.arrivedAt().localDateTime().toLocalDate();
             case ScheduleProblem.MissingHotel mh -> mh.checkIn();
             case ScheduleProblem.SchedulingConflict sc -> sc.date();
             case ScheduleProblem.DifferentCityConflict dc -> dc.date();
@@ -153,16 +154,16 @@ public class ScheduleGapProjector implements EventStreamConsumer {
             // departs before the conference starts (even if it arrives after it starts).
             boolean hasConnectionToConference = legs.stream()
                     .anyMatch(l -> l.toCity().equalsIgnoreCase(conf.city())
-                            && l.departure().isBefore(conf.startDateTime()));
+                            && l.departure().utc().isBefore(conf.startsAt().utc()));
             if (!hasConnectionToConference) {
                 legs.stream()
-                        .filter(l -> l.arrival().isBefore(conf.startDateTime()))
-                        .max(Comparator.comparing(TravelLeg::arrival))
+                        .filter(l -> l.arrival().utc().isBefore(conf.startsAt().utc()))
+                        .max(Comparator.comparing(l -> l.arrival().utc()))
                         .ifPresent(lastLeg -> {
                             if (!lastLeg.toCity().equalsIgnoreCase(conf.city())) {
                                 problems.add(new ScheduleProblem.MissingTravel(
                                         lastLeg.toCity(), lastLeg.arrival(),
-                                        conf.city(), conf.startDateTime()));
+                                        conf.city(), conf.startsAt()));
                             }
                         });
             }
@@ -171,15 +172,15 @@ public class ScheduleGapProjector implements EventStreamConsumer {
             // departs after the conference starts (even before it officially ends).
             boolean hasConnectionFromConference = legs.stream()
                     .anyMatch(l -> l.fromCity().equalsIgnoreCase(conf.city())
-                            && l.departure().isAfter(conf.startDateTime()));
+                            && l.departure().utc().isAfter(conf.startsAt().utc()));
             if (!hasConnectionFromConference) {
                 legs.stream()
-                        .filter(l -> l.departure().isAfter(conf.endDateTime()))
-                        .min(Comparator.comparing(TravelLeg::departure))
+                        .filter(l -> l.departure().utc().isAfter(conf.endsAt().utc()))
+                        .min(Comparator.comparing(l -> l.departure().utc()))
                         .ifPresent(firstLeg -> {
                             if (!conf.city().equalsIgnoreCase(firstLeg.fromCity())) {
                                 problems.add(new ScheduleProblem.MissingTravel(
-                                        conf.city(), conf.endDateTime(),
+                                        conf.city(), conf.endsAt(),
                                         firstLeg.fromCity(), firstLeg.departure()));
                             }
                         });
@@ -195,7 +196,8 @@ public class ScheduleGapProjector implements EventStreamConsumer {
             if (homeCities.includes(city)) {
                 continue; // nights at home need no hotel
             }
-            LocalDate arrivalDate = leg.arrival().toLocalDate();
+            // Nights are bucketed by the local date in the city you land in (decision 7).
+            LocalDate arrivalDate = leg.arrival().localDateTime().toLocalDate();
             nextDepartureFromCity(legs, city, leg.arrival()).ifPresent(nextDeparture -> {
                 for (LocalDate night = arrivalDate; night.isBefore(nextDeparture); night = night.plusDays(1)) {
                     LocalDate finalNight = night;
@@ -264,20 +266,22 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 .anyMatch(occ -> occ.city().equalsIgnoreCase(city));
     }
 
-    private Optional<LocalDate> nextDepartureFromCity(List<TravelLeg> legs, String city, LocalDateTime afterTime) {
+    /** "After" is an instant comparison; the answer is a local date, because nights are local. */
+    private Optional<LocalDate> nextDepartureFromCity(List<TravelLeg> legs, String city, ZonedTimestamp afterTime) {
         return legs.stream()
-                .filter(l -> homeCities.sameLocation(l.fromCity(), city) && l.departure().isAfter(afterTime))
-                .map(l -> l.departure().toLocalDate())
+                .filter(l -> homeCities.sameLocation(l.fromCity(), city)
+                        && l.departure().utc().isAfter(afterTime.utc()))
+                .map(l -> l.departure().localDateTime().toLocalDate())
                 .min(Comparator.naturalOrder());
     }
 
     private List<TravelLeg> allLegs() {
         return Stream.concat(flightLegs.values().stream(), trainLegs.values().stream())
-                .sorted(Comparator.comparing(TravelLeg::departure))
+                .sorted(Comparator.comparing(l -> l.departure().utc()))
                 .toList();
     }
 
-    private TravelLeg flightLeg(AirportCode dep, LocalDateTime depDt, AirportCode arr, LocalDateTime arrDt) {
+    private TravelLeg flightLeg(AirportCode dep, ZonedTimestamp depDt, AirportCode arr, ZonedTimestamp arrDt) {
         return new TravelLeg(cityResolver.cityFor(dep.code()), depDt,
                 cityResolver.cityFor(arr.code()), arrDt);
     }
@@ -289,11 +293,12 @@ public class ScheduleGapProjector implements EventStreamConsumer {
             for (Map.Entry<ConferenceId, CityOccupancy> ce : conferenceOccupancies.entrySet()) {
                 ConferenceId conferenceId = ce.getKey();
                 CityOccupancy conf = ce.getValue();
-                // Still a date comparison because conferences have not migrated to instants yet;
-                // this flips to instants with them (see docs/GatheringConferenceUtcRolloutPlan.md).
+                // A real overlap in time, not "the gathering's local date falls in the conference's
+                // local date range" — that hid a Tokyo morning gathering overlapping the last
+                // afternoon of a Chicago conference, because the local dates never lined up.
                 boolean gatheringDuringConference =
-                        !gathering.date().isBefore(conf.startDate())
-                        && gathering.date().isBefore(conf.endDate());
+                        gathering.startsAt().utc().isBefore(conf.endsAt().utc())
+                        && conf.startsAt().utc().isBefore(gathering.endsAt().utc());
                 boolean differentCity = !gathering.city().equalsIgnoreCase(conf.city());
                 boolean alreadyCleared = clearedConflicts.contains(new ClearedConflict(gatheringId, conferenceId));
                 if (gatheringDuringConference && differentCity && !alreadyCleared) {
@@ -323,7 +328,13 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         }
     }
 
-    private record TravelLeg(String fromCity, LocalDateTime departure, String toCity, LocalDateTime arrival) {}
+    /**
+     * A leg's two ends are in different cities and usually different zones, so ordering and
+     * comparing legs is done on {@code utc()} — wall-clock numbers from two zones denote different
+     * moments, and a short eastbound hop can invert their apparent order. Entry-zone locals are
+     * read only for night bucketing and displayed messages.
+     */
+    private record TravelLeg(String fromCity, ZonedTimestamp departure, String toCity, ZonedTimestamp arrival) {}
 
     private record HotelStay(String city, LocalDate checkIn, LocalDate checkOut) {
         boolean coversNight(LocalDate night) {
@@ -331,9 +342,13 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         }
     }
 
-    private record CityOccupancy(String city, LocalDateTime startDateTime, LocalDateTime endDateTime, String name) {
-        LocalDate startDate() { return startDateTime.toLocalDate(); }
-        LocalDate endDate() { return endDateTime.toLocalDate(); }
+    /**
+     * Detection compares instants; night bucketing and messages read the venue-local dates — the
+     * days a traveler is actually in that city.
+     */
+    private record CityOccupancy(String city, ZonedTimestamp startsAt, ZonedTimestamp endsAt, String name) {
+        LocalDate startDate() { return startsAt.localDateTime().toLocalDate(); }
+        LocalDate endDate() { return endsAt.localDateTime().toLocalDate(); }
     }
 
     private record CityNight(String city, LocalDate night) {}

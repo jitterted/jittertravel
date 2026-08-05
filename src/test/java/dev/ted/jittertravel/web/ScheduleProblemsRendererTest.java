@@ -3,10 +3,12 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.ScheduleProblem;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -25,9 +27,9 @@ class ScheduleProblemsRendererTest {
     void missingTravelShowsCitiesAndTimes() {
         ScheduleProblem problem = new ScheduleProblem.MissingTravel(
                 "London",
-                LocalDateTime.of(2026, 7, 1, 14, 30),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 14, 30), ZoneId.of("Europe/London")),
                 "Berlin",
-                LocalDateTime.of(2026, 7, 3, 9, 0)
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 9, 0), ZoneId.of("Europe/Berlin"))
         );
 
         String html = ScheduleProblemsRenderer.render(List.of(problem));

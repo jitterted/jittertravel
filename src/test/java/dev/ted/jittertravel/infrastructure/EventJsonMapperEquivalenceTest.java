@@ -83,7 +83,8 @@ class EventJsonMapperEquivalenceTest {
     void conferenceTentativelyPlanned() {
         assertSerializesIdentically("""
                 {"conferenceId":{"id":"22222222-2222-2222-2222-222222222222"},"name":"JitterConf",\
-                "startDate":"2026-09-15T09:00:00","endDate":"2026-09-17T17:00:00",\
+                "startDate":{"utc":"2026-09-15T16:00:00Z","zone":"America/Los_Angeles"},\
+                "endDate":{"utc":"2026-09-18T00:00:00Z","zone":"America/Los_Angeles"},\
                 "venueName":"Moscone Center","venueAddress":{"street":"747 Howard St","city":"San Francisco",\
                 "region":"CA","country":"USA","postalCode":"94103","locationForMatching":"San Francisco"}}""",
                 ConferenceTentativelyPlanned.class);

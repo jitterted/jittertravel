@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
 import dev.ted.jittertravel.domain.Event;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.web.PlanTentativeConferenceRequest;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Tag;
@@ -15,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -100,8 +102,8 @@ class EventStorePerfTest extends AbstractTestcontainerIntegrationTest {
         return new ConferenceTentativelyPlanned(
                 ConferenceId.of(UUID.randomUUID()),
                 "Test Conference",
-                LocalDateTime.of(2026, 6, 1, 9, 0),
-                LocalDateTime.of(2026, 6, 3, 17, 0),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, 9, 0), ZoneId.of("UTC")),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 3, 17, 0), ZoneId.of("UTC")),
                 "Test Venue",
                 new Address("Street", "City", null, "12345", "Country", null)
         );

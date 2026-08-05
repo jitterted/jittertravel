@@ -8,8 +8,14 @@ conferences are the only event types still storing bare wall-clock times.
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done.
 
 **Gathering is done** (2026-07-27): events, commands, contexts, handlers, views, projectors, web,
-upcaster and their tests. Left for later: its renderer moves to `<time>` in phase 4. **Conference is
-untouched** — that is the next slice.
+upcaster and their tests. Left for later: its renderer moves to `<time>` in phase 4.
+
+**Conference is done** (2026-08-05): all eight steps and every ride-along below — domain event and
+command on `ZonedTimestamp`, the handler+context modernization, `ConferencePlanning` on
+`CommandExecutor` with the read-only guard moved into the executor and an architecture test to hold
+it, view/projectors/web/upcaster, and the `ScheduleGapProjector` instant sweep (master-plan bug R2).
+Full suite green (596) plus `-Pjs-tests` (5). **Still open in this slice:** tests 4 and 8 below, and
+`PlannedGatheringsRenderer`'s deferred `<time>` treatment (gathering step 9).
 
 **2026-08-05:** the review (`docs/UtcDatetimePlanReview.md`, folded into the master plan) added
 ride-along items to the conference steps below — they're mirrored in here at their anchor points,
@@ -129,17 +135,20 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
 
 ## Conference rollout steps
 
-1. `[ ]` **Domain** — `ConferenceTentativelyPlanned`: `startDate`/`endDate`
+1. `[x]` **Domain** — `ConferenceTentativelyPlanned`: `startDate`/`endDate`
    `LocalDateTime → ZonedTimestamp` (both in the venue's single zone).
-2. `[ ]` **Modernization (decision 2)** — turn `PlanTentativeConferenceCommand` into a
+2. `[x]` **Modernization (decision 2)** — turn `PlanTentativeConferenceCommand` into a
    `record … implements DomainCommand<PlanTentativeConferenceContext>`:
    - new `PlanTentativeConferenceContext(Instant now)` (mirrors `BookHotelContext`);
    - new `PlanTentativeConferenceHandler(LocationZoneResolver)` mapping request → command, resolving
      the venue zone (explicit `CommonZone` wins, else `resolve(venueAddress)`);
    - `execute(context)` keeps the existing rules on instants: start at least one day out
      (`DateRangeNotInFuture`), end on/after start (`InvalidDateRange`);
-   - *(review ride-along)* `[ ]` **decide the "one day out" semantics explicitly and reuse
-     `ZonedTimestamp.isOnDayAfter`** if the answer is "a later calendar day". The old rule is
+   - *(review ride-along)* `[x]` **decided 2026-08-05: "a later calendar day at the venue"**,
+     via `ZonedTimestamp.isOnDayAfter` — matching gatherings. This is a deliberate behavior
+     change: a conference starting tomorrow morning is now accepted even when that is under 24
+     hours away, where the old wall-clock `now.plusDays(1)` rule rejected it. Reuses
+     `ZonedTimestamp.isOnDayAfter`, if the answer is "a later calendar day". The old rule is
      `startDate.isBefore(now.plusDays(1))` on wall-clock
      (`PlanTentativeConferenceCommand.java:11`); re-deriving it as
      `now.plus(Duration.ofDays(1))` would silently change semantics ("24h out" vs "later day")
@@ -147,31 +156,41 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
      (`ZonedTimestamp.java:68`) — the gathering slice already built the sentinel-safe version;
    - the command no longer imports `PlanTentativeConferenceRequest` — the domain stops depending on
      the web package.
-3. `[ ]` **`ConferencePlanning` must go through `CommandExecutor`.** It currently injects
+3. `[x]` **`ConferencePlanning` must go through `CommandExecutor`.** It currently injects
    `EventStore` + `PostgresPersister` and calls `persister.saveCommand(...)` then
    `eventStore.append(...)` by hand — a direct violation of the architecture rule in `CLAUDE.md`
    ("Application services must never receive `EventStore`"). Rewrite it to mirror `HotelBooking`:
    `commandExecutor.execute(conferenceId, request, context, command)`, with `Instant now` passed in
    from the controller. It also drops its own `isReadOnly()` clock/read-only handling in favor of
    whatever `CommandExecutor` already enforces.
-   - *(review ride-along)* `[ ]` **Read-only parity check:** `ConferencePlanning` throws
+   - *(review ride-along)* `[x]` **Read-only guard moved into `CommandExecutor`** (2026-08-05):
+     parity did *not* hold, so `execute`/`appendEvents` now throw `ReadOnlyModeException` before
+     `saveCommand`, covered by two `CommandExecutorTest` cases. `PlanConferenceController` reads
+     the flag via `ConferencePlanning.isReadOnly()`, delegating to the executor. Original note: `ConferencePlanning` throws
      `ReadOnlyModeException` *before* saving the command — confirm `CommandExecutor` gives the
      same guarantee (no command row written in read-only mode). `PlanConferenceController` also
      calls `applicationService.isReadOnly()` directly in two places and needs a replacement
      source for that flag.
-   - *(review ride-along)* `[ ]` **Add the application-layer architecture guard in the same
-     commit.** `ConferencePlanning` is the last `EventStore`-injecting service (CLAUDE.md rule +
+   - *(review ride-along)* `[x]` **Application-layer architecture guard added** (2026-08-05):
+     `ApplicationServicesUseCommandExecutorTest`, plain reflection over `application` constructors,
+     excluding `CommandExecutor` itself. CLAUDE.md TODO deleted. Original note: `ConferencePlanning` is the last `EventStore`-injecting service (CLAUDE.md rule +
      TODO). The moment the rewrite lands, add the enforcement test so it can never regress: a
      plain reflection test over `application`-package constructors (in
      `src/test/java/.../architecture/`, styled like `NoFullyQualifiedClassReferencesTest`) — no
      ArchUnit dependency. Delete the CLAUDE.md TODO when done.
-4. `[ ]` **View** — `TentativeConferenceView` holds `ZonedTimestamp startDate/endDate`;
+4. `[x]` **View** — `TentativeConferenceView` holds `ZonedTimestamp startDate/endDate`;
    `relevantUntil()` returns `endDate.utc()`, removing its STOPGAP.
-5. `[ ]` **Projectors** — `TentativeConferenceProjector` (the single-day filter at line 48 becomes an
+5. `[x]` **Projectors** — `TentativeConferenceProjector` (the single-day filter at line 48 becomes an
    entry-zone `toLocalDate()` comparison), `ConferenceCalendarProjector`, `ConferenceItineraryEntry`
    + `ItineraryProjector`, and `ScheduleGapProjector`'s `CityOccupancy.startDate()/endDate()`.
-   - *(review ride-along — master plan bug R2)* `[ ]` **`ScheduleGapProjector` comparisons and
-     sequencing move to instants across the board**, not just `CityOccupancy`:
+   - *(review ride-along — master plan bug R2)* `[x]` **done 2026-08-05: `ScheduleGapProjector`
+     comparisons and sequencing moved to instants across the board.** `TravelLeg` and
+     `CityOccupancy` now hold `ZonedTimestamp`s; `allLegs()` sorts by `utc()`,
+     `deduplicateMissingTravel`/`nextDepartureFromCity`/`detectMissingTravelToFromConferences`
+     compare `utc()`, and `detectDifferentCityConflicts` became a true instant overlap instead of
+     a local-date range test. `ScheduleProblem.MissingTravel` carries `ZonedTimestamp`s so the
+     dedup has instants to compare; night bucketing and rendered text stay entry-zone local.
+     Original note:, not just `CityOccupancy`:
      `detectMissingTravelToFromConferences` compares leg wall-clocks with conference wall-clocks
      (`ScheduleGapProjector.java:150-188`); `allLegs()` sorts legs by wall-clock departure
      (`:274-278`); `deduplicateMissingTravel` (`:116`) and `nextDepartureFromCity` (`:269`) mix
@@ -179,16 +198,17 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
      decision 6 fixed for gathering conflicts, same fix: **sequence and compare by `utc()`; keep
      entry-zone locals only for night bucketing and messages.** The events already carry
      `ZonedTimestamp`, so don't leave `TravelLeg` on `LocalDateTime`.
-   - *(review ride-along)* `[ ]` `TentativeConferenceProjectorTest` lives in `web/` while the
+   - *(review ride-along)* `[x]` moved 2026-08-05 — `TentativeConferenceProjectorTest` lives in
+     `application/` beside its projector. Original note: while the
      projector is in `application/` — move it beside its peers while touching it.
-6. `[ ]` **Web** — `PlanTentativeConferenceRequest` keeps `startDate`/`endDate` as `LocalDateTime`
+6. `[x]` **Web** — `PlanTentativeConferenceRequest` keeps `startDate`/`endDate` as `LocalDateTime`
    and gains an optional `zone`; `events()` calls the new handler with a real `LocationZoneResolver`.
    `PlanConferenceController` gains `@ModelAttribute("commonZones")` and a `ZoneResolutionException`
    catch; `plan-conference.html` gains the selector block. `TentativeConferencesRenderer` moves to
    `ZonedTimeTag`.
-7. `[ ]` **Upcaster** — add a `"ConferenceTentativelyPlanned"` case: resolve from
+7. `[x]` **Upcaster** — add a `"ConferenceTentativelyPlanned"` case: resolve from
    `venueAddress.{city,country}`, rewrite both scalars in place (the simple hotel-style rewrite).
-8. *(review ride-along)* `[ ]` **Sentinel cleanup** — after the conference command modernizes to
+8. `[x]` **Sentinel cleanup** — done 2026-08-05: `IMPORT_BYPASS_NOW` and `IMPORT_BYPASS_DATE` had no users left once the conference command moved to `Instant`, and are deleted; only `IMPORT_BYPASS_INSTANT` remains. Original note: — after the conference command modernizes to
    `Instant now`, check whether `IMPORT_BYPASS_NOW` (`LocalDateTime.MIN`) and
    `IMPORT_BYPASS_DATE` still have any users (`ImportableCommand.java:24-25`) and delete the dead
    ones — they're exactly the kind of trap the next new command grabs.
@@ -246,8 +266,9 @@ New tests this slice must add — the gaps found reviewing the earlier slices:
    their samples were rewritten to the new shape. Keep the new-shape samples too. Writing the path
    once covers all five types, and it is the master plan's phase-5 "old golden files pass through
    the upcaster" bullet finally landing.
-   - *(review ride-along)* `[ ]` **The conference sample's path switch is still owed to this
-     slice:** `conferenceTentativelyPlannedLegacyPayloadWithStateFieldDeserializes`
+   - *(review ride-along)* `[x]` done 2026-08-05 — the conference golden sample now goes through
+     `deserializeLegacy` and asserts the venue-zone instants, with a new-shape sample
+     (`conferenceTentativelyPlannedNewShapePayloadDeserializes`) beside it. Original note: `conferenceTentativelyPlannedLegacyPayloadWithStateFieldDeserializes`
      (`GoldenEventDeserializationTest.java:97`) binds scalar `startDate`/`endDate` directly today;
      once the event holds `ZonedTimestamp`s it must go through `deserializeLegacy`, and a
      *new-shape* conference sample gets added beside it, matching the other types.
@@ -268,12 +289,12 @@ New tests this slice must add — the gaps found reviewing the earlier slices:
 7. `[~]` **`@WebMvcTest` render coverage** (templates render green in the existing tests; no explicit assertion on the `<select>` or the rejection path yet) for `plan-gathering.html`, `change-gathering.html` and
    `plan-conference.html` after they gain the `<select>` (Thymeleaf errors surface only at render
    time), plus a POST that rejects on `ZoneResolutionException` and re-renders with the field error.
-8. *(review, 2026-08-05)* `[ ]` **The four cross-zone `ScheduleGapProjector` scenarios from
-   resolved question 1 were never written**, although gathering step 6 is marked `[x]`.
-   `ScheduleGapProjectorTest` has no cross-zone case at all — every conflict test uses same-zone
-   fixtures, so the instant-based `overlapsWith` and the removal of the same-date precondition
-   (the whole point of decision 6) are unpinned. Write them (the `DifferentCityConflict` one lands
-   after the conference migrates).
+8. `[x]` **The four cross-zone `ScheduleGapProjector` scenarios from resolved question 1** —
+   written 2026-08-05 as the `CrossZoneConflictDetection` nested class, covering all four cases
+   listed there (the `DifferentCityConflict` one became writable once conferences carried zones).
+   Each fixture names its own zone rather than the file's single `ZONE`, and the offset arithmetic
+   is spelled out in comments. Verified by temporarily reverting the projector to wall-clock
+   comparisons: three of the four fail, the same-zone control still passes.
 
 `[ ]` Finish with the "All Tests" IDEA run configuration + `./mvnw test -Pjs-tests`, and stage all
 new files for review.

@@ -5,16 +5,13 @@ import dev.ted.jittertravel.application.TimeView;
 import j2html.tags.DomContent;
 import j2html.tags.specialized.TrTag;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Locale;
 
 import static j2html.TagCreator.*;
 
 public class TentativeConferencesRenderer {
 
-    private static final DateTimeFormatter DATE_TIME_FORMAT =
-            DateTimeFormatter.ofPattern("EEE, MMM d, h:mm a", Locale.ENGLISH);
+    private static final String DATE_TIME_FORMAT = "EEE, MMM d, h:mm a";
 
     private static final String CSS = """
             .conference-container { max-width: 100ch; margin: 2rem; padding: 0 1rem; }
@@ -84,8 +81,8 @@ public class TentativeConferencesRenderer {
     private static TrTag renderRow(TentativeConferenceView conf) {
         return tr(
                 td(conf.name()).withClass("conf-name"),
-                td(conf.startDate().format(DATE_TIME_FORMAT)),
-                td(conf.endDate().format(DATE_TIME_FORMAT)),
+                td(ZonedTimeTag.render(conf.startDate(), DATE_TIME_FORMAT)),
+                td(ZonedTimeTag.render(conf.endDate(), DATE_TIME_FORMAT)),
                 td(conf.city()),
                 td(conf.country())
         );

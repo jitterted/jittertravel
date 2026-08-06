@@ -56,6 +56,10 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/booked-flights", "/booked-trains", "/booked-hotels",
                                 "/tentative-conferences", "/planned-gatherings").hasRole("OWNER")
+                        // Schedule problems: conflict/gap report over the whole itinerary —
+                        // exact arrival and departure times, hotel and gathering names, and
+                        // internal ids in its clear-conflict links. Owner-only.
+                        .requestMatchers("/schedule-problems").hasRole("OWNER")
                         // Itinerary: FAMILY and OWNER may view; anonymous may not.
                         .requestMatchers("/itinerary", "/itinerary/**").hasAnyRole("FAMILY", "OWNER")
                         .anyRequest().permitAll())

@@ -6,6 +6,14 @@ done. For larger structural refactors, see `Refactoring_Opportunities.md`.
 
 ## Open
 
+- [ ] **Add a private social event type** (e.g. a dinner with friends). Today the only social
+      entry kind is GATHERING, which is treated as a *public* event — name, venue, city,
+      `infoUrl`, and times all render for anonymous viewers on `/calendar` (deliberate:
+      gatherings are public events like conferences). A private dinner modelled as a gathering
+      would therefore be fully exposed. Needs its own `EntryKind` plus a redacting branch in
+      `CalendarEntryRedactor` (anonymous should see, at most, a "Busy"-style block with day
+      granularity), tests in both redaction tiers, and a way to mark an event private at entry.
+      Important — this is a real leak waiting for the first private event Ted enters.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] Migrate the one remaining application service that still injects `EventStore` directly onto
       `CommandExecutor` (`execute`/`appendEvents`): `ConferencePlanning`. (`ChangeFlight` and

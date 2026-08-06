@@ -48,19 +48,26 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
                 startsAt.localDateTime(),
                 endsAt.localDateTime(),
                 title,
-                buildSubTitle(venueName, location),
+                buildSubTitle(venueName, location, startsAt, endsAt),
                 null,
                 null,
                 infoUrl.isBlank() ? null : infoUrl
         );
     }
 
-    private static List<SubtitleLine> buildSubTitle(String venueName, Address location) {
+    /**
+     * Venue, then city, then the start–end times. Gatherings are public events, so the times
+     * stay in the subtitle for every viewer — unlike flights, trains, and hotels, whose times
+     * are stripped for anonymous viewers by {@code CalendarEntryRedactor}.
+     */
+    private static List<SubtitleLine> buildSubTitle(String venueName, Address location,
+                                                    ZonedTimestamp startsAt, ZonedTimestamp endsAt) {
         String cityCountry = location.city()
                 + (location.country().isBlank() ? "" : ", " + location.country());
+        SubtitleLine times = new SubtitleLine.Range(startsAt, endsAt);
         return venueName.isBlank()
-                ? List.of(new SubtitleLine.Text(cityCountry))
-                : List.of(new SubtitleLine.Text(venueName), new SubtitleLine.Text(cityCountry));
+                ? List.of(new SubtitleLine.Text(cityCountry), times)
+                : List.of(new SubtitleLine.Text(venueName), new SubtitleLine.Text(cityCountry), times);
     }
 
     public List<CalendarEntry> entries() {

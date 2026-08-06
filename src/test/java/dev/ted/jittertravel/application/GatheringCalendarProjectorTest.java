@@ -47,7 +47,9 @@ class GatheringCalendarProjectorTest {
         assertThat(entry.kind()).isEqualTo(EntryKind.GATHERING);
         assertThat(entry.mainTitle()).isEqualTo("London Java Community");
         assertThat(entry.subTitle()).isEqualTo(List.of(
-                new SubtitleLine.Text("Skills Matter"), new SubtitleLine.Text("London, GB")));
+                new SubtitleLine.Text("Skills Matter"),
+                new SubtitleLine.Text("London, GB"),
+                new SubtitleLine.Range(ukTime(DATE, START), ukTime(DATE, END))));
         assertThat(entry.start()).isEqualTo(LocalDateTime.of(2026, 7, 10, 18, 0));
         assertThat(entry.end()).isEqualTo(LocalDateTime.of(2026, 7, 10, 21, 0));
         assertThat(entry.continuationTitle()).isNull();
@@ -86,7 +88,9 @@ class GatheringCalendarProjectorTest {
         projector.handle(Stream.of(stored(event)));
 
         assertThat(projector.entries().getFirst().subTitle())
-                .isEqualTo(List.of(new SubtitleLine.Text("London, GB")));
+                .isEqualTo(List.of(
+                        new SubtitleLine.Text("London, GB"),
+                        new SubtitleLine.Range(ukTime(DATE, START), ukTime(DATE, END))));
     }
 
     @Test
@@ -130,7 +134,10 @@ class GatheringCalendarProjectorTest {
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.mainTitle()).isEqualTo("New Title");
         assertThat(entry.subTitle()).isEqualTo(List.of(
-                new SubtitleLine.Text("Federation House"), new SubtitleLine.Text("Manchester, GB")));
+                new SubtitleLine.Text("Federation House"),
+                new SubtitleLine.Text("Manchester, GB"),
+                new SubtitleLine.Range(ukTime(DATE.plusWeeks(1), LocalTime.of(17, 30)),
+                                       ukTime(DATE.plusWeeks(1), LocalTime.of(20, 0)))));
         assertThat(entry.start()).isEqualTo(LocalDateTime.of(2026, 7, 17, 17, 30));
         assertThat(entry.end()).isEqualTo(LocalDateTime.of(2026, 7, 17, 20, 0));
         assertThat(entry.mapsUrl()).isEqualTo("https://new.example.com");

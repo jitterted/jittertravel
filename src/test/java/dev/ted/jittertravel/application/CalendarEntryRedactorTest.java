@@ -51,7 +51,8 @@ class CalendarEntryRedactorTest {
         CalendarEntry flight = new CalendarEntry(
                 EntryKind.FLIGHT, START, END,
                 "✈️ SFO→JFK", lines("9:00 AM → 5:00 PM"),
-                null, null, null
+                null, null, "https://maps.google.com/sfo-terminal-2",
+                "/booked-flights/abc"
         );
 
         CalendarEntry redacted = redactor.redact(flight);
@@ -59,6 +60,8 @@ class CalendarEntryRedactorTest {
         assertThat(redacted.mainTitle()).isEqualTo("✈️ SFO→JFK");
         assertThat(redacted.subTitle()).isNull();
         assertThat(redacted.continuationSubTitle()).isNull();
+        assertThat(redacted.mapsUrl()).isNull();
+        assertThat(redacted.editPath()).isNull();
     }
 
     @Test
@@ -66,7 +69,8 @@ class CalendarEntryRedactorTest {
         CalendarEntry train = new CalendarEntry(
                 EntryKind.TRAIN, START, START,
                 "🚄 London → Paris", lines("TGV123", "9:00 AM → 2:30 PM"),
-                null, null, null
+                null, null, null,
+                "/booked-trains/abc"
         );
 
         CalendarEntry redacted = redactor.redact(train);
@@ -74,29 +78,48 @@ class CalendarEntryRedactorTest {
         assertThat(redacted.mainTitle()).isEqualTo("🚄 London → Paris");
         assertThat(redacted.subTitle()).isNull();
         assertThat(redacted.continuationSubTitle()).isNull();
+        assertThat(redacted.mapsUrl()).isNull();
+        assertThat(redacted.editPath()).isNull();
     }
 
     @Test
-    void conferenceIsNotRedacted() {
+    void conferenceKeepsPublicDetailsButDropsEditPath() {
         CalendarEntry conference = new CalendarEntry(
                 EntryKind.CONFERENCE, START, END,
                 "DDD Europe 2026", lines("Frankfurt, Germany"),
                 "DDD Europe 2026 cont'd", lines("Frankfurt, Germany"),
-                null
+                "https://dddeurope.com", "/plan-conference/abc"
         );
 
-        assertThat(redactor.redact(conference)).isEqualTo(conference);
+        CalendarEntry redacted = redactor.redact(conference);
+
+        assertThat(redacted.mainTitle()).isEqualTo("DDD Europe 2026");
+        assertThat(redacted.subTitle()).isEqualTo(lines("Frankfurt, Germany"));
+        assertThat(redacted.continuationTitle()).isEqualTo("DDD Europe 2026 cont'd");
+        assertThat(redacted.continuationSubTitle()).isEqualTo(lines("Frankfurt, Germany"));
+        assertThat(redacted.mapsUrl()).isEqualTo("https://dddeurope.com");
+        assertThat(redacted.editPath()).isNull();
     }
 
+    /**
+     * Gatherings are public events, like conferences: name, venue, and times all stay visible.
+     * A future "private social event" kind will need its own, redacting branch.
+     */
     @Test
-    void gatheringIsNotRedacted() {
+    void gatheringKeepsPublicDetailsButDropsEditPath() {
         CalendarEntry gathering = new CalendarEntry(
                 EntryKind.GATHERING, START, END,
                 "London Java Community", lines("Skills Matter", "London, GB"),
-                null, null, "https://meetup.com/events/123"
+                null, null, "https://meetup.com/events/123",
+                "/planned-gatherings/abc"
         );
 
-        assertThat(redactor.redact(gathering)).isEqualTo(gathering);
+        CalendarEntry redacted = redactor.redact(gathering);
+
+        assertThat(redacted.mainTitle()).isEqualTo("London Java Community");
+        assertThat(redacted.subTitle()).isEqualTo(lines("Skills Matter", "London, GB"));
+        assertThat(redacted.mapsUrl()).isEqualTo("https://meetup.com/events/123");
+        assertThat(redacted.editPath()).isNull();
     }
 
     private static List<SubtitleLine> lines(String... values) {

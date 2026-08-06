@@ -38,6 +38,8 @@ class CalendarRedactionSecurityTest {
 
     private static final LocalDateTime CHECK_IN = LocalDateTime.of(2026, 7, 1, 15, 0);
     private static final LocalDateTime CHECK_OUT = LocalDateTime.of(2026, 7, 3, 11, 0);
+    private static final LocalDateTime DEPARTURE = LocalDateTime.of(2026, 7, 5, 9, 0);
+    private static final LocalDateTime ARRIVAL = LocalDateTime.of(2026, 7, 5, 17, 0);
 
     @Autowired
     MockMvcTester mockMvc;
@@ -86,6 +88,25 @@ class CalendarRedactionSecurityTest {
                 .hasStatusOk()
                 .bodyText()
                 .doesNotContain("href=\"/itinerary");
+    }
+
+    @Test
+    void anonymousUserSeesFlightRouteWithoutTimesOrMapsUrl() {
+        given(calendarAggregator.allEntries()).willReturn(List.of(new CalendarEntry(
+                EntryKind.FLIGHT, DEPARTURE, ARRIVAL,
+                "✈️ SFO→JFK", List.of(new SubtitleLine.Text("9:00 AM → 5:00 PM")),
+                null, null,
+                "https://maps.google.com/sfo-terminal-2",
+                "/booked-flights/abc"
+        )));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("SFO")
+                .doesNotContain("maps.google.com")
+                .doesNotContain("9:00 AM")
+                .doesNotContain("/booked-flights/abc");
     }
 
     @Test

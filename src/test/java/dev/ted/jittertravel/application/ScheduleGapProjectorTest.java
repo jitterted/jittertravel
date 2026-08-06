@@ -472,7 +472,9 @@ class ScheduleGapProjectorTest {
                     .filter(p -> p instanceof ScheduleProblem.SchedulingConflict)
                     .map(p -> (ScheduleProblem.SchedulingConflict) p)
                     .findFirst().orElseThrow();
-            assertThat(conflict.date())
+            assertThat(conflict.first().startsAt().localDateTime().toLocalDate())
+                    .isEqualTo(SEP_15);
+            assertThat(conflict.second().startsAt().localDateTime().toLocalDate())
                     .isEqualTo(SEP_15);
         }
 
@@ -558,6 +560,41 @@ class ScheduleGapProjectorTest {
                     .filteredOn(p -> p instanceof ScheduleProblem.SchedulingConflict)
                     .as("these genuinely overlap in real time and cannot both be attended")
                     .hasSize(1);
+        }
+
+        @Test
+        void eachConflictingGatheringCarriesItsOwnLocalDateAndCity() {
+            // Reporting a single shared date puts one gathering's times under the other's date:
+            // the Tokyo morning would read as happening on Oct 3, a day it never touched.
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(gatheringAt("San Francisco", "America/Los_Angeles", "SFJUG",
+                            OCT_3.atTime(18, 0), OCT_3.atTime(21, 0))),
+                    stored(gatheringAt("Tokyo", "Asia/Tokyo", "JJUG",
+                            OCT_4.atTime(9, 0), OCT_4.atTime(12, 0)))));
+
+            ScheduleProblem.SchedulingConflict conflict = projector.problems().stream()
+                    .filter(p -> p instanceof ScheduleProblem.SchedulingConflict)
+                    .map(p -> (ScheduleProblem.SchedulingConflict) p)
+                    .findFirst().orElseThrow();
+
+            ScheduleProblem.ConflictingGathering sanFrancisco =
+                    conflict.first().name().equals("SFJUG") ? conflict.first() : conflict.second();
+            ScheduleProblem.ConflictingGathering tokyo =
+                    conflict.first().name().equals("SFJUG") ? conflict.second() : conflict.first();
+
+            assertThat(sanFrancisco.city())
+                    .isEqualTo("San Francisco");
+            assertThat(sanFrancisco.startsAt().localDateTime())
+                    .isEqualTo(OCT_3.atTime(18, 0));
+            assertThat(sanFrancisco.endsAt().localDateTime())
+                    .isEqualTo(OCT_3.atTime(21, 0));
+            assertThat(tokyo.city())
+                    .isEqualTo("Tokyo");
+            assertThat(tokyo.startsAt().localDateTime())
+                    .isEqualTo(OCT_4.atTime(9, 0));
+            assertThat(tokyo.endsAt().localDateTime())
+                    .isEqualTo(OCT_4.atTime(12, 0));
         }
 
         @Test

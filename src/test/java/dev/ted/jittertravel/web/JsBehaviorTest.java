@@ -1,9 +1,13 @@
 package dev.ted.jittertravel.web;
 
 import com.microsoft.playwright.Browser;
+import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 import org.junit.jupiter.api.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Base class for the JS-behavior test tier — tests of the tiny inline scripts our
@@ -20,6 +24,7 @@ abstract class JsBehaviorTest {
     private static Playwright playwright;
     private static Browser browser;
     protected Page page;
+    private final List<BrowserContext> zonedContexts = new ArrayList<>();
 
     @BeforeAll
     static void launchBrowser() {
@@ -47,6 +52,8 @@ abstract class JsBehaviorTest {
         if (page != null) {
             page.close();
         }
+        zonedContexts.forEach(BrowserContext::close);
+        zonedContexts.clear();
     }
 
     /**
@@ -56,5 +63,19 @@ abstract class JsBehaviorTest {
      */
     protected void loadRendered(String html) {
         page.setContent(html);
+    }
+
+    /**
+     * A page whose browser reports {@code timezoneId} as its zone, for testing anything that
+     * localizes to the viewer. Pinning the zone is the whole point: the test JVM runs in UTC
+     * (see {@code pom.xml}), so an unpinned browser would prove nothing about zone handling.
+     * <p>
+     * Contexts opened this way are closed after each test.
+     */
+    protected Page pageInZone(String timezoneId) {
+        BrowserContext context = browser.newContext(
+                new Browser.NewContextOptions().setTimezoneId(timezoneId));
+        zonedContexts.add(context);
+        return context.newPage();
     }
 }

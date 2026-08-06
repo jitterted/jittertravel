@@ -5,7 +5,12 @@ import java.util.List;
 
 /**
  * A calendar entry view, pre-formatted by a projector for rendering by
- * {@code CalendarViewBuilder}. All strings are display-ready.
+ * {@code CalendarViewBuilder}. Titles are display-ready strings; subtitles are
+ * {@link SubtitleLine}s, so a line that names a moment can keep its
+ * {@link dev.ted.jittertravel.domain.ZonedTimestamp} through to the {@code <time>} element.
+ * <p>
+ * {@code start}/{@code end} stay entry-zone wall-clock: they place the segment in a day
+ * column, and that column is always the local day at the location (decision 7).
  * <p>
  * Multi-week / multi-day entries render as one segment per week. The segment that
  * contains the entry's {@code start} day uses {@code mainTitle} / {@code subTitle};
@@ -17,9 +22,9 @@ public record CalendarEntry(
         LocalDateTime start,
         LocalDateTime end,
         String mainTitle,
-        List<String> subTitle,
+        List<SubtitleLine> subTitle,
         String continuationTitle,
-        List<String> continuationSubTitle,
+        List<SubtitleLine> continuationSubTitle,
         String mapsUrl,
         String editPath
 ) {
@@ -28,8 +33,8 @@ public record CalendarEntry(
      * flights and trains). Keeps the many existing call sites that predate {@code editPath}.
      */
     public CalendarEntry(EntryKind kind, LocalDateTime start, LocalDateTime end,
-                         String mainTitle, List<String> subTitle,
-                         String continuationTitle, List<String> continuationSubTitle, String mapsUrl) {
+                         String mainTitle, List<SubtitleLine> subTitle,
+                         String continuationTitle, List<SubtitleLine> continuationSubTitle, String mapsUrl) {
         this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, null);
     }
 }

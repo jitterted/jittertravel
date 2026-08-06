@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.LocalTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,8 +35,29 @@ class ScheduleProblemsRendererTest {
 
         assertThat(html)
                 .contains("London → Berlin")
-                .contains("Arrive Jul 1, 2:30 PM")
-                .contains("next leg departs Jul 3, 9:00 AM");
+                .contains("Arrive <time")
+                .contains(">Jul 1, 2:30 PM</time> — next leg departs <time")
+                .contains(">Jul 3, 9:00 AM</time>");
+    }
+
+    @Test
+    void missingTravelTimesRenderAsTimeElementsCarryingTheUtcInstant() {
+        // Each end is in its own zone: the text is that end's wall-clock, the datetime attribute
+        // its instant (London BST 14:30 -> 13:30Z, Berlin CEST 09:00 -> 07:00Z).
+        ScheduleProblem problem = new ScheduleProblem.MissingTravel(
+                "London",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 14, 30), ZoneId.of("Europe/London")),
+                "Berlin",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 9, 0), ZoneId.of("Europe/Berlin"))
+        );
+
+        String html = ScheduleProblemsRenderer.render(List.of(problem));
+
+        assertThat(html)
+                .contains("<time datetime=\"2026-07-01T13:30:00Z\" data-fmt=\"MMM d, h:mm a\">"
+                          + "Jul 1, 2:30 PM</time>")
+                .contains("<time datetime=\"2026-07-03T07:00:00Z\" data-fmt=\"MMM d, h:mm a\">"
+                          + "Jul 3, 9:00 AM</time>");
     }
 
     @Test
@@ -76,13 +96,10 @@ class ScheduleProblemsRendererTest {
     @Test
     void schedulingConflictShowsGatheringNamesAndTimes() {
         ScheduleProblem problem = new ScheduleProblem.SchedulingConflict(
-                "Mob Session",
-                LocalTime.of(10, 0),
-                LocalTime.of(12, 0),
-                "Team Lunch",
-                LocalTime.of(11, 30),
-                LocalTime.of(13, 0),
-                LocalDate.of(2026, 7, 15)
+                gathering("Mob Session", "London", LocalDateTime.of(2026, 7, 15, 10, 0),
+                          LocalDateTime.of(2026, 7, 15, 12, 0), "Europe/London"),
+                gathering("Team Lunch", "London", LocalDateTime.of(2026, 7, 15, 11, 30),
+                          LocalDateTime.of(2026, 7, 15, 13, 0), "Europe/London")
         );
 
         String html = ScheduleProblemsRenderer.render(List.of(problem));
@@ -95,6 +112,32 @@ class ScheduleProblemsRendererTest {
                 .contains("overlaps")
                 .contains("11:30 AM")
                 .contains("1:00 PM");
+    }
+
+    @Test
+    void crossZoneSchedulingConflictShowsEachGatheringsOwnDateAndCity() {
+        // A San Francisco evening overlaps a Tokyo morning that falls on the *next* local day.
+        // Reporting one shared date would put B's times under A's date — times that never
+        // happened on that day at either venue.
+        ScheduleProblem problem = new ScheduleProblem.SchedulingConflict(
+                gathering("SF Java", "San Francisco", LocalDateTime.of(2026, 10, 3, 18, 0),
+                          LocalDateTime.of(2026, 10, 3, 21, 0), "America/Los_Angeles"),
+                gathering("Tokyo JUG", "Tokyo", LocalDateTime.of(2026, 10, 4, 9, 0),
+                          LocalDateTime.of(2026, 10, 4, 12, 0), "Asia/Tokyo")
+        );
+
+        String html = ScheduleProblemsRenderer.render(List.of(problem));
+
+        assertThat(html)
+                .contains("SF Java conflicts with Tokyo JUG")
+                .contains("<time datetime=\"2026-10-04T01:00:00Z\" data-fmt=\"EEE, MMM d, h:mm a\">"
+                          + "Sat, Oct 3, 6:00 PM</time>")
+                .contains("<time datetime=\"2026-10-04T04:00:00Z\" data-fmt=\"h:mm a\">9:00 PM</time>")
+                .contains("(San Francisco)")
+                .contains("<time datetime=\"2026-10-04T00:00:00Z\" data-fmt=\"EEE, MMM d, h:mm a\">"
+                          + "Sun, Oct 4, 9:00 AM</time>")
+                .contains("<time datetime=\"2026-10-04T03:00:00Z\" data-fmt=\"h:mm a\">12:00 PM</time>")
+                .contains("(Tokyo)");
     }
 
     @Test
@@ -129,5 +172,14 @@ class ScheduleProblemsRendererTest {
         String html = ScheduleProblemsRenderer.render(List.of(hotelOnly));
 
         assertThat(html).contains("None");
+    }
+
+    private static ScheduleProblem.ConflictingGathering gathering(
+            String name, String city, LocalDateTime start, LocalDateTime end, String zone) {
+        ZoneId zoneId = ZoneId.of(zone);
+        return new ScheduleProblem.ConflictingGathering(
+                name, city,
+                ZonedTimestamp.fromLocal(start, zoneId),
+                ZonedTimestamp.fromLocal(end, zoneId));
     }
 }

@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.CalendarEntryRedactor;
+import dev.ted.jittertravel.application.ZoneDisplay;
 
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -201,6 +202,11 @@ public class ConfirmedCalendarRenderer {
 
     public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser, boolean isOwner,
                                 LocalDate from, LocalDate to) {
+        return render(rawEntries, today, isPublicUser, isOwner, from, to, ZoneDisplay.entryOnly());
+    }
+
+    public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser, boolean isOwner,
+                                LocalDate from, LocalDate to, ZoneDisplay zoneDisplay) {
         List<CalendarEntry> entries = rawEntries.stream()
                 .sorted(Comparator.comparing(CalendarEntry::start))
                 .map(e -> isPublicUser ? REDACTOR.redact(e) : e)
@@ -239,7 +245,7 @@ public class ConfirmedCalendarRenderer {
 
         String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser, isOwner);
 
-        return "<!DOCTYPE html>\n" + html(
+        return "<!DOCTYPE html>\n" + BrowserZoneScript.markRoot(html(
                 Page.head("Confirmed Calendar", CSS),
                 body(
                         nav(
@@ -247,9 +253,11 @@ public class ConfirmedCalendarRenderer {
                                         .withHref("/")
                                         .withStyle("font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI'; color: #4f46e5;")
                         ).withStyle("margin-left: 4rem; font-size: 0.9rem;"),
+                        ZoneToggle.render(zoneDisplay),
                         rawHtml(calendarMarkup),
-                        rawHtml("<script>" + TOGGLE_SCRIPT + "</script>")
+                        rawHtml("<script>" + TOGGLE_SCRIPT + "</script>"),
+                        BrowserZoneScript.render(zoneDisplay)
                 )
-        ).withLang("en").render();
+        ), zoneDisplay).withLang("en").render();
     }
 }

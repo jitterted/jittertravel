@@ -2,10 +2,12 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.EntryKind;
+import dev.ted.jittertravel.application.SubtitleLine;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,8 +29,8 @@ class ConfirmedCalendarRendererTest {
                 EntryKind.LODGING,
                 LocalDateTime.of(2026, 7, 1, 15, 0),
                 LocalDateTime.of(2026, 7, 5, 11, 0),
-                "Grand Hotel", List.of("Berlin, Germany"),
-                "Grand Hotel cont'd", List.of("Berlin, Germany"),
+                "Grand Hotel", lines("Berlin, Germany"),
+                "Grand Hotel cont'd", lines("Berlin, Germany"),
                 "https://maps.google.com/grand"
         );
 
@@ -45,7 +47,7 @@ class ConfirmedCalendarRendererTest {
                 EntryKind.TRAIN,
                 LocalDateTime.of(2026, 7, 1, 9, 0),
                 LocalDateTime.of(2026, 7, 1, 13, 0),
-                "🚄 London → Manchester", List.of("9:00 AM → 1:00 PM"),
+                "🚄 London → Manchester", lines("9:00 AM → 1:00 PM"),
                 null, null, null, "/booked-trains/trip-123"
         );
 
@@ -60,7 +62,7 @@ class ConfirmedCalendarRendererTest {
                 EntryKind.TRAIN,
                 LocalDateTime.of(2026, 7, 1, 9, 0),
                 LocalDateTime.of(2026, 7, 1, 13, 0),
-                "🚄 London → Manchester", List.of("9:00 AM → 1:00 PM"),
+                "🚄 London → Manchester", lines("9:00 AM → 1:00 PM"),
                 null, null, null, "/booked-trains/trip-123"
         );
 
@@ -75,7 +77,7 @@ class ConfirmedCalendarRendererTest {
                 EntryKind.FLIGHT,
                 LocalDateTime.of(2026, 7, 1, 9, 0),
                 LocalDateTime.of(2026, 7, 1, 13, 0),
-                "✈️ SFO→JFK", List.of("9:00 AM → 1:00 PM"),
+                "✈️ SFO→JFK", lines("9:00 AM → 1:00 PM"),
                 null, null, null, "/booked-flights/flight-123"
         );
 
@@ -203,8 +205,8 @@ class ConfirmedCalendarRendererTest {
                 EntryKind.CONFERENCE,
                 start.atTime(9, 0),
                 end.atTime(17, 0),
-                title, List.of("subtitle for " + title),
-                title + " cont'd", List.of("continued subtitle for " + title),
+                title, lines("subtitle for " + title),
+                title + " cont'd", lines("continued subtitle for " + title),
                 null
         );
     }
@@ -215,13 +217,17 @@ class ConfirmedCalendarRendererTest {
                 EntryKind.LODGING,
                 LocalDateTime.of(2026, 7, 1, 15, 0),
                 LocalDateTime.of(2026, 7, 5, 11, 0),
-                "Grand Hotel", List.of("Berlin, Germany"),
-                "Grand Hotel cont'd", List.of("Berlin, Germany"),
+                "Grand Hotel", lines("Berlin, Germany"),
+                "Grand Hotel cont'd", lines("Berlin, Germany"),
                 "https://maps.google.com/grand"
         );
 
         String html = ConfirmedCalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), false);
 
         assertThat(html).contains("Grand Hotel");
+    }
+
+    private static List<SubtitleLine> lines(String... values) {
+        return Arrays.stream(values).<SubtitleLine>map(SubtitleLine.Text::new).toList();
     }
 }

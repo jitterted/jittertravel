@@ -6,7 +6,6 @@ import dev.ted.jittertravel.infrastructure.StoredEvent;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
@@ -131,7 +130,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         return switch (p) {
             case ScheduleProblem.MissingTravel mt -> mt.arrivedAt().localDateTime().toLocalDate();
             case ScheduleProblem.MissingHotel mh -> mh.checkIn();
-            case ScheduleProblem.SchedulingConflict sc -> sc.date();
+            case ScheduleProblem.SchedulingConflict sc -> sc.first().startsAt().localDateTime().toLocalDate();
             case ScheduleProblem.DifferentCityConflict dc -> dc.date();
         };
     }
@@ -320,9 +319,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 GatheringOccupancy b = gatherings.get(j);
                 if (a.overlapsWith(b)) {
                     problems.add(new ScheduleProblem.SchedulingConflict(
-                            a.name(), a.startTime(), a.endTime(),
-                            b.name(), b.startTime(), b.endTime(),
-                            a.date()));
+                            a.asConflicting(), b.asConflicting()));
                 }
             }
         }
@@ -369,8 +366,8 @@ public class ScheduleGapProjector implements EventStreamConsumer {
 
         LocalDate date() { return startsAt.localDateTime().toLocalDate(); }
 
-        LocalTime startTime() { return startsAt.localDateTime().toLocalTime(); }
-
-        LocalTime endTime() { return endsAt.localDateTime().toLocalTime(); }
+        ScheduleProblem.ConflictingGathering asConflicting() {
+            return new ScheduleProblem.ConflictingGathering(name, city, startsAt, endsAt);
+        }
     }
 }

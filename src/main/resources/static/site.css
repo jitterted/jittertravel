@@ -43,6 +43,33 @@ body {
     font-weight: 600;
 }
 
+/* Anonymous viewer's entry-zone/browser-zone switch (see web/ZoneToggle). Buttons, not
+   links: BrowserZoneScript swaps the times in place rather than reloading the page. */
+.zone-toggle {
+    display: inline-flex;
+    margin-top: 1rem;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+.zone-toggle button {
+    padding: 6px 16px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: var(--muted-text);
+    background-color: var(--surface, #fff);
+}
+.zone-toggle button + button {
+    border-left: 1px solid var(--border-color);
+}
+.zone-toggle button.active {
+    background-color: var(--accent-color);
+    color: #fff;
+    font-weight: 600;
+}
+
 /* Shared chrome for `.page` list/detail views (see web/Page). Each renderer's
    own <style> sets only its `.page { max-width }` plus view-specific rules. */
 .page { margin: 0 auto; padding: 1rem; }

@@ -55,12 +55,12 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
         );
     }
 
-    private static List<String> buildSubTitle(String venueName, Address location) {
+    private static List<SubtitleLine> buildSubTitle(String venueName, Address location) {
         String cityCountry = location.city()
                 + (location.country().isBlank() ? "" : ", " + location.country());
         return venueName.isBlank()
-                ? List.of(cityCountry)
-                : List.of(venueName, cityCountry);
+                ? List.of(new SubtitleLine.Text(cityCountry))
+                : List.of(new SubtitleLine.Text(venueName), new SubtitleLine.Text(cityCountry));
     }
 
     public List<CalendarEntry> entries() {

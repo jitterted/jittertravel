@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,8 +19,8 @@ class CalendarEntryRedactorTest {
     void lodgingHidesHotelNameAndMapsUrl() {
         CalendarEntry hotel = new CalendarEntry(
                 EntryKind.LODGING, START, END,
-                "Marriott Grand", List.of("Berlin, Germany"),
-                "Marriott Grand cont'd", List.of("Berlin, Germany"),
+                "Marriott Grand", lines("Berlin, Germany"),
+                "Marriott Grand cont'd", lines("Berlin, Germany"),
                 "https://maps.google.com/marriott"
         );
 
@@ -34,22 +35,22 @@ class CalendarEntryRedactorTest {
     void lodgingPreservesLocationSubTitle() {
         CalendarEntry hotel = new CalendarEntry(
                 EntryKind.LODGING, START, END,
-                "Marriott Grand", List.of("Berlin, Germany"),
-                "Marriott Grand cont'd", List.of("Berlin, Germany"),
+                "Marriott Grand", lines("Berlin, Germany"),
+                "Marriott Grand cont'd", lines("Berlin, Germany"),
                 "https://maps.google.com/marriott"
         );
 
         CalendarEntry redacted = redactor.redact(hotel);
 
-        assertThat(redacted.subTitle()).isEqualTo(List.of("Berlin, Germany"));
-        assertThat(redacted.continuationSubTitle()).isEqualTo(List.of("Berlin, Germany"));
+        assertThat(redacted.subTitle()).isEqualTo(lines("Berlin, Germany"));
+        assertThat(redacted.continuationSubTitle()).isEqualTo(lines("Berlin, Germany"));
     }
 
     @Test
     void flightHidesTimesButKeepsRoute() {
         CalendarEntry flight = new CalendarEntry(
                 EntryKind.FLIGHT, START, END,
-                "✈️ SFO→JFK", List.of("9:00 AM → 5:00 PM"),
+                "✈️ SFO→JFK", lines("9:00 AM → 5:00 PM"),
                 null, null, null
         );
 
@@ -64,7 +65,7 @@ class CalendarEntryRedactorTest {
     void trainHidesTimesAndServiceIdButKeepsRoute() {
         CalendarEntry train = new CalendarEntry(
                 EntryKind.TRAIN, START, START,
-                "🚄 London → Paris", List.of("TGV123", "9:00 AM → 2:30 PM"),
+                "🚄 London → Paris", lines("TGV123", "9:00 AM → 2:30 PM"),
                 null, null, null
         );
 
@@ -79,8 +80,8 @@ class CalendarEntryRedactorTest {
     void conferenceIsNotRedacted() {
         CalendarEntry conference = new CalendarEntry(
                 EntryKind.CONFERENCE, START, END,
-                "DDD Europe 2026", List.of("Frankfurt, Germany"),
-                "DDD Europe 2026 cont'd", List.of("Frankfurt, Germany"),
+                "DDD Europe 2026", lines("Frankfurt, Germany"),
+                "DDD Europe 2026 cont'd", lines("Frankfurt, Germany"),
                 null
         );
 
@@ -91,10 +92,14 @@ class CalendarEntryRedactorTest {
     void gatheringIsNotRedacted() {
         CalendarEntry gathering = new CalendarEntry(
                 EntryKind.GATHERING, START, END,
-                "London Java Community", List.of("Skills Matter", "London, GB"),
+                "London Java Community", lines("Skills Matter", "London, GB"),
                 null, null, "https://meetup.com/events/123"
         );
 
         assertThat(redactor.redact(gathering)).isEqualTo(gathering);
+    }
+
+    private static List<SubtitleLine> lines(String... values) {
+        return Arrays.stream(values).<SubtitleLine>map(SubtitleLine.Text::new).toList();
     }
 }

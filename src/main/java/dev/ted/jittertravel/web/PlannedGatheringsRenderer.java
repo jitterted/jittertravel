@@ -4,15 +4,14 @@ import dev.ted.jittertravel.application.PlannedGatheringView;
 import dev.ted.jittertravel.application.TimeView;
 import j2html.tags.specialized.DivTag;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import static j2html.TagCreator.*;
 
 public class PlannedGatheringsRenderer {
 
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("EEE, MMM d, yyyy");
-    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a");
+    private static final String DATE_FORMAT = "EEE, MMM d, yyyy";
+    private static final String TIME_FORMAT = "h:mm a";
 
     private static final String CSS = """
                 .page { max-width: 800px; }
@@ -67,15 +66,17 @@ public class PlannedGatheringsRenderer {
     }
 
     private static DivTag renderCard(PlannedGatheringView g) {
-        // Date and times are the venue-local wall-clock: a gathering reads in the zone it happens
-        // in. (Phase 4 swaps these for ZonedTimeTag <time> elements.)
-        String timeRange = g.startsAt().localDateTime().format(TIME_FORMAT)
-                + " – " + g.endsAt().localDateTime().format(TIME_FORMAT);
         String venueLocation = buildVenueLocation(g);
 
+        // Venue-local wall-clock as the element text; the UTC instant rides along in the
+        // datetime attribute for the browser-zone upgrade.
         DivTag dateCol = div(
-                div(g.startsAt().localDateTime().format(DATE_FORMAT)).withClass("gathering-date"),
-                div(timeRange).withClass("gathering-time")
+                div().withClass("gathering-date").with(ZonedTimeTag.render(g.startsAt(), DATE_FORMAT)),
+                div().withClass("gathering-time").with(
+                        ZonedTimeTag.render(g.startsAt(), TIME_FORMAT),
+                        rawHtml(" &ndash; "),
+                        ZonedTimeTag.render(g.endsAt(), TIME_FORMAT)
+                )
         );
 
         DivTag footer = div().withClass("gathering-footer");

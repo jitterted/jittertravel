@@ -4,15 +4,14 @@ import dev.ted.jittertravel.domain.TrainBooked;
 import dev.ted.jittertravel.domain.TrainChanged;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import dev.ted.jittertravel.web.CalendarViewBuilder;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
@@ -27,9 +26,6 @@ import java.util.stream.Stream;
  */
 public class TrainCalendarProjector implements EventStreamConsumer {
 
-    private static final DateTimeFormatter TIME_OF_DAY =
-            DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
-
     private final Map<TrainTripId, List<CalendarEntry>> entriesByTrip = new ConcurrentHashMap<>();
 
     @Override
@@ -37,11 +33,11 @@ public class TrainCalendarProjector implements EventStreamConsumer {
         eventStream.forEach(stored -> {
             switch (stored.payload()) {
                 case TrainBooked e -> entriesByTrip.put(e.tripId(), buildEntries(
-                        e.tripId(), e.departureStation(), e.departureDateTime().localDateTime(),
-                        e.arrivalStation(), e.arrivalDateTime().localDateTime(), e.serviceId()));
+                        e.tripId(), e.departureStation(), e.departureDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
                 case TrainChanged e -> entriesByTrip.put(e.tripId(), buildEntries(
-                        e.tripId(), e.departureStation(), e.departureDateTime().localDateTime(),
-                        e.arrivalStation(), e.arrivalDateTime().localDateTime(), e.serviceId()));
+                        e.tripId(), e.departureStation(), e.departureDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
                 default -> { /* not a train event */ }
             }
         });
@@ -49,30 +45,34 @@ public class TrainCalendarProjector implements EventStreamConsumer {
 
     private static List<CalendarEntry> buildEntries(TrainTripId tripId,
                                                     TrainStationAddress dep,
-                                                    LocalDateTime depDt,
+                                                    ZonedTimestamp departure,
                                                     TrainStationAddress arr,
-                                                    LocalDateTime arrDt,
+                                                    ZonedTimestamp arrival,
                                                     String serviceId) {
+        // Each end keeps its own station zone (a Frankfurt→Paris trip spans two); the day
+        // column still comes from that end's local wall-clock.
+        LocalDateTime depDt = departure.localDateTime();
+        LocalDateTime arrDt = arrival.localDateTime();
         String route = "🚄 " + dep.city() + " → " + arr.city();
-        String departs = "Departs " + depDt.format(TIME_OF_DAY);
-        String arrives = "Arrives " + arrDt.format(TIME_OF_DAY);
+        SubtitleLine departs = new SubtitleLine.At("Departs", departure);
+        SubtitleLine arrives = new SubtitleLine.At("Arrives", arrival);
         String editPath = "/booked-trains/" + tripId.id();
 
         boolean sameDay = depDt.toLocalDate().equals(arrDt.toLocalDate());
         if (sameDay) {
-            String timeRange = depDt.format(TIME_OF_DAY) + " → " + arrDt.format(TIME_OF_DAY);
-            List<String> subtitle = serviceId.isEmpty()
+            SubtitleLine timeRange = new SubtitleLine.Range(departure, arrival);
+            List<SubtitleLine> subtitle = serviceId.isEmpty()
                     ? List.of(timeRange)
-                    : List.of(serviceId, timeRange);
+                    : List.of(new SubtitleLine.Text(serviceId), timeRange);
             return List.of(new CalendarEntry(
                     EntryKind.TRAIN, depDt, arrDt,
                     route, subtitle,
                     null, null, null, editPath));
         }
 
-        List<String> depSubtitle = serviceId.isEmpty()
+        List<SubtitleLine> depSubtitle = serviceId.isEmpty()
                 ? List.of(departs)
-                : List.of(serviceId, departs);
+                : List.of(new SubtitleLine.Text(serviceId), departs);
         return List.of(
                 new CalendarEntry(EntryKind.TRAIN, depDt, depDt, route, depSubtitle, null, null, null, editPath),
                 new CalendarEntry(EntryKind.TRAIN, arrDt, arrDt, route, List.of(arrives), null, null, null, editPath)

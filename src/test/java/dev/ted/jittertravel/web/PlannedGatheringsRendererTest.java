@@ -76,6 +76,22 @@ class PlannedGatheringsRendererTest {
     }
 
     @Test
+    void dateAndTimesRenderAsTimeElementsCarryingTheUtcInstant() {
+        // Baseline of the browser-zone display: the element text is the venue-local wall-clock
+        // (London BST 18:00), the datetime attribute the same moment in UTC (17:00Z), and
+        // data-fmt the pattern a viewer-zone script would reuse.
+        String html = PlannedGatheringsRenderer.render(List.of(
+                view("Some Meetup", "Venue", "City", "US", false, "")
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<time datetime=\"2026-08-20T17:00:00Z\" data-fmt=\"EEE, MMM d, yyyy\">"
+                          + "Thu, Aug 20, 2026</time>")
+                .contains("<time datetime=\"2026-08-20T17:00:00Z\" data-fmt=\"h:mm a\">6:00 PM</time>")
+                .contains("<time datetime=\"2026-08-20T20:00:00Z\" data-fmt=\"h:mm a\">9:00 PM</time>");
+    }
+
+    @Test
     void speakingFalseOmitsSpeakingBadge() {
         String html = PlannedGatheringsRenderer.render(List.of(
                 view("Some Meetup", "Venue", "City", "US", false, "")

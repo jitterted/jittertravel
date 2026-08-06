@@ -37,9 +37,10 @@ class ConferenceCalendarProjectorTest {
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.kind()).isEqualTo(EntryKind.CONFERENCE);
         assertThat(entry.mainTitle()).isEqualTo("DDD Europe 2026");
-        assertThat(entry.subTitle()).isEqualTo(List.of("Frankfurt, Germany"));
+        assertThat(entry.subTitle()).isEqualTo(List.of(new SubtitleLine.Text("Frankfurt, Germany")));
         assertThat(entry.continuationTitle()).isEqualTo("DDD Europe 2026 cont'd");
-        assertThat(entry.continuationSubTitle()).isEqualTo(List.of("Frankfurt, Germany"));
+        assertThat(entry.continuationSubTitle())
+                .isEqualTo(List.of(new SubtitleLine.Text("Frankfurt, Germany")));
         assertThat(entry.start()).isEqualTo(LocalDateTime.of(2026, 6, 7, 11, 0));
         assertThat(entry.end()).isEqualTo(LocalDateTime.of(2026, 6, 10, 17, 0));
     }

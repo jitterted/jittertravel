@@ -38,7 +38,7 @@ public class HotelCalendarProjector implements EventStreamConsumer {
         String mapsUrl = rawMapsUrl.isBlank()
                 ? AddressRenderer.mapsUrl(hotelName, address)
                 : rawMapsUrl;
-        List<String> locationLines = List.of(location);
+        List<SubtitleLine> locationLines = List.of(new SubtitleLine.Text(location));
         entriesById.put(hotelBookingId, new CalendarEntry(
                 EntryKind.LODGING,
                 checkIn,

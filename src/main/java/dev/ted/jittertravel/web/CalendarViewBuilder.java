@@ -2,6 +2,8 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.EntryKind;
+import dev.ted.jittertravel.application.SubtitleLine;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
 import j2html.tags.specialized.DivTag;
 
@@ -27,6 +29,7 @@ public class CalendarViewBuilder {
 
     private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MMM d");
     private static final DateTimeFormatter MONTH_DAY_YEAR = DateTimeFormatter.ofPattern("MMM d, yyyy");
+    private static final String TIME_OF_DAY_FORMAT = "h:mm a";
 
     // Shared with the itinerary view: a pencil always means "edit this booking". stroke uses
     // currentColor so the icon picks up each entry kind's foreground tint.
@@ -245,7 +248,7 @@ public class CalendarViewBuilder {
         }
 
         String title = isContinuation ? entry.continuationTitle() : entry.mainTitle();
-        List<String> subtitle = isContinuation ? entry.continuationSubTitle() : entry.subTitle();
+        List<SubtitleLine> subtitle = isContinuation ? entry.continuationSubTitle() : entry.subTitle();
 
         DivTag div = div().withClass(classes).withStyle(style);
         if (title != null) {
@@ -263,11 +266,29 @@ public class CalendarViewBuilder {
             div.with(titleDiv);
         }
         if (subtitle != null) {
-            for (String line : subtitle) {
-                div.with(div(line).withClass("entry-subtitle"));
+            for (SubtitleLine line : subtitle) {
+                div.with(renderSubtitleLine(line));
             }
         }
         return div;
+    }
+
+    /**
+     * A subtitle line that names a moment renders it as a {@code <time>} element so the UTC
+     * instant travels with the wall-clock; plain lines stay plain text.
+     */
+    private static DivTag renderSubtitleLine(SubtitleLine line) {
+        DivTag lineDiv = div().withClass("entry-subtitle");
+        return switch (line) {
+            case SubtitleLine.Text(String value) -> lineDiv.withText(value);
+            case SubtitleLine.At(String label, ZonedTimestamp moment) -> lineDiv.with(
+                    text(label + " "),
+                    ZonedTimeTag.render(moment, TIME_OF_DAY_FORMAT));
+            case SubtitleLine.Range(ZonedTimestamp from, ZonedTimestamp to) -> lineDiv.with(
+                    ZonedTimeTag.render(from, TIME_OF_DAY_FORMAT),
+                    text(" → "),
+                    ZonedTimeTag.render(to, TIME_OF_DAY_FORMAT));
+        };
     }
 
     private static DomContent editPencil(String href, String label) {

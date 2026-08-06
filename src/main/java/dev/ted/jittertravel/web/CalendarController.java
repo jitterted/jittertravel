@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarAggregator;
+import dev.ted.jittertravel.application.ViewerZonePolicy;
+import dev.ted.jittertravel.application.ZoneDisplay;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,9 +20,11 @@ import java.util.List;
 public class CalendarController {
 
     private final CalendarAggregator calendarAggregator;
+    private final ViewerZonePolicy viewerZonePolicy;
 
-    public CalendarController(CalendarAggregator calendarAggregator) {
+    public CalendarController(CalendarAggregator calendarAggregator, ViewerZonePolicy viewerZonePolicy) {
         this.calendarAggregator = calendarAggregator;
+        this.viewerZonePolicy = viewerZonePolicy;
     }
 
     private static final List<DateTimeFormatter> DATE_FORMATS = List.of(
@@ -32,12 +36,15 @@ public class CalendarController {
     public ResponseEntity<String> getCalendar(
             HttpServletRequest request,
             @RequestParam(required = false) String from,
-            @RequestParam(required = false) String to) {
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) String tz) {
         boolean isPublicUser = request.getRemoteUser() == null;
         boolean isOwner = request.isUserInRole("OWNER");
+        ZoneDisplay zoneDisplay = viewerZonePolicy.forViewer(isOwner, request.isUserInRole("FAMILY"), tz);
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
-                .body(ConfirmedCalendarRenderer.render(calendarAggregator.allEntries(), LocalDate.now(), isPublicUser, isOwner, parseDate(from), parseDate(to)));
+                .body(ConfirmedCalendarRenderer.render(calendarAggregator.allEntries(), LocalDate.now(),
+                        isPublicUser, isOwner, parseDate(from), parseDate(to), zoneDisplay));
     }
 
     private static LocalDate parseDate(String value) {

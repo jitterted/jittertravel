@@ -41,7 +41,7 @@ class HotelCalendarProjectorTest {
         assertThat(entry.start()).isEqualTo(CHECK_IN);
         assertThat(entry.end()).isEqualTo(CHECK_OUT);
         assertThat(entry.mainTitle()).isEqualTo("Grand Hotel");
-        assertThat(entry.subTitle()).isEqualTo(List.of("Springfield, US"));
+        assertThat(entry.subTitle()).isEqualTo(List.of(new SubtitleLine.Text("Springfield, US")));
     }
 
     @Test
@@ -68,7 +68,7 @@ class HotelCalendarProjectorTest {
         assertThat(entry.mainTitle())
                 .isEqualTo("Seaside Resort");
         assertThat(entry.subTitle())
-                .isEqualTo(List.of("Miami, US"));
+                .isEqualTo(List.of(new SubtitleLine.Text("Miami, US")));
     }
 
     private static ZonedTimestamp zt(LocalDateTime local) {

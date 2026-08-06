@@ -6,11 +6,13 @@ import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,6 +24,10 @@ class ItineraryRendererTest {
     private static final LocalDate JUN_3 = LocalDate.of(2026, 6, 3);
     private static final LocalDate MAY_31 = LocalDate.of(2026, 5, 31);
     private static final LocalDate JUN_10 = LocalDate.of(2026, 6, 10);
+
+    private static final ZoneId SAN_FRANCISCO = ZoneId.of("America/Los_Angeles");
+    private static final ZoneId LONDON = ZoneId.of("Europe/London");
+    private static final ZoneId FRANKFURT = ZoneId.of("Europe/Berlin");
 
     // --- Date navigation ---
 
@@ -132,6 +138,18 @@ class ItineraryRendererTest {
                 .contains("5:15 PM");
     }
 
+    @Test
+    void flightTimesRenderAsTimeElementsCarryingEachAirportsOwnInstant() {
+        // The two endpoints resolve independently: SFO 9:00 AM PDT is 16:00Z and LHR 5:15 PM BST
+        // is 16:15Z — fifteen minutes apart in real time, where the bare wall-clocks read as
+        // eight hours. Only the datetime attribute can carry that.
+        String html = renderWithEntry(flight(FlightDayRole.DEPARTURE));
+
+        assertThat(html)
+                .contains("<time datetime=\"2026-06-01T16:00:00Z\" data-fmt=\"h:mm a\">9:00 AM</time>")
+                .contains("<time datetime=\"2026-06-01T16:15:00Z\" data-fmt=\"h:mm a\">5:15 PM</time>");
+    }
+
     // --- Train ---
 
     @Test
@@ -160,6 +178,16 @@ class ItineraryRendererTest {
         String html = renderWithEntry(train(TrainDayRole.DEPARTURE, "", "", ""));
 
         assertThat(html).doesNotContain("Caledonian Sleeper");
+    }
+
+    @Test
+    void trainTimesRenderAsTimeElementsCarryingTheUtcInstant() {
+        // London 9:00 AM / 11:15 AM BST are 08:00Z / 10:15Z.
+        String html = renderWithEntry(train(TrainDayRole.DEPARTURE, "", "", ""));
+
+        assertThat(html)
+                .contains("<time datetime=\"2026-06-01T08:00:00Z\" data-fmt=\"h:mm a\">9:00 AM</time>")
+                .contains("<time datetime=\"2026-06-01T10:15:00Z\" data-fmt=\"h:mm a\">11:15 AM</time>");
     }
 
     @Test
@@ -198,8 +226,8 @@ class ItineraryRendererTest {
     void trainShowsEditPencilLinkingToEditPageForOwner() {
         TrainTripId tripId = TrainTripId.random();
         TrainItineraryEntry entry = new TrainItineraryEntry(tripId, TrainDayRole.DEPARTURE, "",
-                "London Euston", "London", "", JUN_1.atTime(9, 0),
-                "Manchester Piccadilly", "Manchester", "", JUN_1.atTime(11, 15));
+                "London Euston", "London", "", zoned(JUN_1.atTime(9, 0), LONDON),
+                "Manchester Piccadilly", "Manchester", "", zoned(JUN_1.atTime(11, 15), LONDON));
 
         String html = ItineraryRenderer.render(
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
@@ -220,7 +248,8 @@ class ItineraryRendererTest {
     void flightShowsEditPencilLinkingToEditPageForOwner() {
         FlightId flightId = FlightId.random();
         FlightItineraryEntry entry = new FlightItineraryEntry(flightId, FlightDayRole.DEPARTURE,
-                "British Airways", "BA100", "SFO", JUN_1.atTime(9, 0), "LHR", JUN_1.atTime(17, 15));
+                "British Airways", "BA100", "SFO", zoned(JUN_1.atTime(9, 0), SAN_FRANCISCO),
+                "LHR", zoned(JUN_1.atTime(17, 15), LONDON));
 
         String html = ItineraryRenderer.render(
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
@@ -276,11 +305,21 @@ class ItineraryRendererTest {
     }
 
     @Test
+    void hotelCheckInTimeRendersAsTimeElementCarryingTheUtcInstant() {
+        // Frankfurt 3:00 PM CEST is 13:00Z.
+        String html = renderWithEntry(hotel(HotelDayRole.CHECK_IN, ""));
+
+        assertThat(html)
+                .contains("<time datetime=\"2026-06-01T13:00:00Z\" data-fmt=\"h:mm a\">3:00 PM</time>");
+    }
+
+    @Test
     void hotelShowsEditPencilLinkingToEditPageForOwner() {
         HotelBookingId bookingId = HotelBookingId.random();
         Address address = new Address("Kaiserstrasse 1", "Frankfurt", "Hessen", "60311", "DE", null);
         HotelItineraryEntry entry = new HotelItineraryEntry(bookingId, "Grand Hotel Frankfurt", address,
-                BookingIntent.FINAL, HotelDayRole.CHECK_IN, JUN_1.atTime(15, 0), "https://maps.example.com/hotel");
+                BookingIntent.FINAL, HotelDayRole.CHECK_IN, zoned(JUN_1.atTime(15, 0), FRANKFURT),
+                "https://maps.example.com/hotel");
 
         String html = ItineraryRenderer.render(
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
@@ -381,6 +420,16 @@ class ItineraryRendererTest {
         assertThat(html).contains("9:00 PM");
     }
 
+    @Test
+    void gatheringTimeRangeRendersAsTimeElementsCarryingTheUtcInstant() {
+        // London 6:00–9:00 PM BST is 17:00–20:00Z.
+        String html = renderWithEntry(gathering("Some Meetup", false, ""));
+
+        assertThat(html)
+                .contains("<time datetime=\"2026-06-01T17:00:00Z\" data-fmt=\"h:mm a\">6:00 PM</time>")
+                .contains("<time datetime=\"2026-06-01T20:00:00Z\" data-fmt=\"h:mm a\">9:00 PM</time>");
+    }
+
     // --- Helpers ---
 
     private static String renderEmpty() {
@@ -401,18 +450,19 @@ class ItineraryRendererTest {
     }
 
     private static FlightItineraryEntry flight(FlightDayRole role) {
+        // A genuinely cross-zone flight: each endpoint's time is that airport's wall-clock.
         return new FlightItineraryEntry(FlightId.random(), role, "British Airways", "BA100",
-                "SFO", JUN_1.atTime(9, 0),
-                "LHR", JUN_1.atTime(17, 15));
+                "SFO", zoned(JUN_1.atTime(9, 0), SAN_FRANCISCO),
+                "LHR", zoned(JUN_1.atTime(17, 15), LONDON));
     }
 
     private static TrainItineraryEntry train(TrainDayRole role, String serviceId,
                                              String departureMapsUrl, String arrivalMapsUrl) {
         return new TrainItineraryEntry(TrainTripId.random(), role, serviceId,
                 "London Euston", "London", departureMapsUrl,
-                JUN_1.atTime(9, 0),
+                zoned(JUN_1.atTime(9, 0), LONDON),
                 "Manchester Piccadilly", "Manchester", arrivalMapsUrl,
-                JUN_1.atTime(11, 15));
+                zoned(JUN_1.atTime(11, 15), LONDON));
     }
 
     private static HotelItineraryEntry hotel(HotelDayRole dayRole, String region) {
@@ -420,7 +470,8 @@ class ItineraryRendererTest {
         LocalDateTime anchorTime = dayRole == HotelDayRole.CHECK_IN
                 ? JUN_1.atTime(15, 0) : JUN_1.atTime(11, 0);
         return new HotelItineraryEntry(HotelBookingId.random(), "Grand Hotel Frankfurt", address,
-                BookingIntent.FINAL, dayRole, anchorTime, "https://maps.example.com/hotel");
+                BookingIntent.FINAL, dayRole, zoned(anchorTime, FRANKFURT),
+                "https://maps.example.com/hotel");
     }
 
     private static ConferenceItineraryEntry conference(int dayNumber, int totalDays) {
@@ -432,7 +483,11 @@ class ItineraryRendererTest {
     private static GatheringItineraryEntry gathering(String title, boolean speaking, String infoUrl) {
         return new GatheringItineraryEntry(title, "Skills Matter", "London", "GB",
                 speaking, infoUrl,
-                JUN_1.atTime(LocalTime.of(18, 0)),
-                JUN_1.atTime(LocalTime.of(21, 0)));
+                zoned(JUN_1.atTime(LocalTime.of(18, 0)), LONDON),
+                zoned(JUN_1.atTime(LocalTime.of(21, 0)), LONDON));
+    }
+
+    private static ZonedTimestamp zoned(LocalDateTime local, ZoneId zone) {
+        return ZonedTimestamp.fromLocal(local, zone);
     }
 }

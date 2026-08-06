@@ -25,6 +25,11 @@ public class EventSourcingConfig {
     }
 
     @Bean
+    public ViewerZonePolicy viewerZonePolicy() {
+        return new ViewerZonePolicy();
+    }
+
+    @Bean
     public EventPayloadUpcaster eventPayloadUpcaster(LocationZoneResolver locationZoneResolver,
                                                      AirportZoneResolver airportZoneResolver,
                                                      JsonMapper jsonMapper) {

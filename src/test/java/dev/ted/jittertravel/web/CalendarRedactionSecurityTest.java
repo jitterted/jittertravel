@@ -3,6 +3,8 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.CalendarAggregator;
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.EntryKind;
+import dev.ted.jittertravel.application.SubtitleLine;
+import dev.ted.jittertravel.application.ViewerZonePolicy;
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,7 +32,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 // The secured chain is the only chain, active by default — exactly the production security
 // path this test exercises.
 @WebMvcTest(CalendarController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, ViewerZonePolicy.class})
 @TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass"})
 class CalendarRedactionSecurityTest {
 
@@ -47,8 +49,8 @@ class CalendarRedactionSecurityTest {
     void setUp() {
         given(calendarAggregator.allEntries()).willReturn(List.of(new CalendarEntry(
                 EntryKind.LODGING, CHECK_IN, CHECK_OUT,
-                "Grand Hotel", List.of("Berlin, Germany"),
-                "Grand Hotel cont'd", List.of("Berlin, Germany"),
+                "Grand Hotel", List.of(new SubtitleLine.Text("Berlin, Germany")),
+                "Grand Hotel cont'd", List.of(new SubtitleLine.Text("Berlin, Germany")),
                 "https://maps.google.com/grand-hotel"
         )));
     }

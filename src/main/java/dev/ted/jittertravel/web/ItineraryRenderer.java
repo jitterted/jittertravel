@@ -14,7 +14,7 @@ import static j2html.TagCreator.*;
 
 public class ItineraryRenderer {
 
-    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("h:mm a");
+    private static final String TIME_FORMAT = "h:mm a";
     private static final DateTimeFormatter DAY_HEADER_FMT = DateTimeFormatter.ofPattern("EEE, MMM d");
 
     private static final String FLIGHT_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#075985\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2 16l20-7-9 13-2-6-9 0z\"/></svg>";
@@ -56,19 +56,26 @@ public class ItineraryRenderer {
             """;
 
     public static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate, LocalDate today, boolean isOwner) {
-        return "<!DOCTYPE html>\n" + html(
+        return render(days, prevDate, nextDate, today, isOwner, ZoneDisplay.entryOnly());
+    }
+
+    public static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate,
+                                LocalDate today, boolean isOwner, ZoneDisplay zoneDisplay) {
+        return "<!DOCTYPE html>\n" + BrowserZoneScript.markRoot(html(
                 Page.head("Itinerary", CSS),
                 body(
                         div().withClass("page").with(
                                 Page.navHomeAndCalendar(),
                                 h1("Itinerary"),
+                                ZoneToggle.render(zoneDisplay),
                                 renderDateNav(days, prevDate, nextDate, today),
                                 div().withClass("itinerary-grid").with(
                                         days.stream().map(day -> renderDay(day, isOwner)).toList()
                                 )
-                        )
+                        ),
+                        BrowserZoneScript.render(zoneDisplay)
                 )
-        ).withLang("en").render();
+        ), zoneDisplay).withLang("en").render();
     }
 
     private static DivTag renderDateNav(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate, LocalDate today) {
@@ -125,10 +132,12 @@ public class ItineraryRenderer {
                 title,
                 div().withClass("entry-detail").with(
                         strong(e.departureAirportCode()),
-                        span(" " + e.departureDateTime().format(TIME_FMT)),
+                        text(" "),
+                        ZonedTimeTag.render(e.departureDateTime(), TIME_FORMAT),
                         rawHtml("&nbsp;&rarr;&nbsp;"),
                         strong(e.arrivalAirportCode()),
-                        span(" " + e.arrivalDateTime().format(TIME_FMT))
+                        text(" "),
+                        ZonedTimeTag.render(e.arrivalDateTime(), TIME_FORMAT)
                 )
         );
     }
@@ -162,9 +171,9 @@ public class ItineraryRenderer {
         }
         card.with(
                 div().withClass("entry-detail").with(
-                        span(e.departureDateTime().format(TIME_FMT)),
+                        ZonedTimeTag.render(e.departureDateTime(), TIME_FORMAT),
                         rawHtml("&nbsp;&rarr;&nbsp;"),
-                        span(e.arrivalDateTime().format(TIME_FMT))
+                        ZonedTimeTag.render(e.arrivalDateTime(), TIME_FORMAT)
                 )
         );
         return card;
@@ -201,7 +210,7 @@ public class ItineraryRenderer {
                 div(addr.street()).withClass("entry-detail"),
                 div(cityLine).withClass("entry-detail entry-location"),
                 div(addr.country()).withClass("entry-detail entry-location"),
-                div(e.anchorDateTime().format(TIME_FMT)).withClass("entry-detail")
+                div().withClass("entry-detail").with(ZonedTimeTag.render(e.anchorDateTime(), TIME_FORMAT))
         );
     }
 
@@ -214,9 +223,9 @@ public class ItineraryRenderer {
                 div().withClass("entry-title").with(titleContent),
                 div(e.venueLocation()).withClass("entry-detail"),
                 div().withClass("entry-detail").with(
-                        span(e.anchorDateTime().format(TIME_FMT)),
+                        ZonedTimeTag.render(e.anchorDateTime(), TIME_FORMAT),
                         rawHtml(" &ndash; "),
-                        span(e.endDateTime().format(TIME_FMT))
+                        ZonedTimeTag.render(e.endDateTime(), TIME_FORMAT)
                 )
         );
         if (e.speaking()) {

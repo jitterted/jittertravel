@@ -14,21 +14,19 @@ tracker; the review doc is a historical record and its checkboxes are no longer 
 | 1. Value type + resolver | `[x]` | — |
 | 2. Events & commands → `ZonedTimestamp` | `[x]` | — (all five types migrated) |
 | 3. Evaluation by instant | `[x]` | — (the conference stopgap is gone) |
-| 4. Display | `[~]` | browser-zone JS upgrade, role switch, ANON toggle; `<time>` in gathering/conference/itinerary/calendar/schedule-problems renderers; cross-zone conflict message fix (bug R3) |
+| 4. Display | `[x]` | — (all five renderers on `<time>`; browser-zone script, role switch, ANON toggle and the `js` tier all landed 2026-08-05) |
 | 5. Backward compatibility | `[~]` | legacy zone-less command round-trip tests; small golden/upcaster-test gaps (see phase 5) |
-| 6. Conventions & other consumers | `[~]` | test-JVM UTC-pin audit (no iCal/GCal export exists → n/a) |
-| 7. Full test pass | `[ ]` | run at the end |
-| R. Review fixes (2026-08-05) | `[~]` | R1 **dropped as not applicable**; R2 **done**; conflict-message dates (R3); test backfill |
+| 6. Conventions & other consumers | `[x]` | — (no iCal/GCal export exists → n/a) |
+| 7. Full test pass | `[x]` | green 2026-08-05: "All Tests" (670, 0 failures) + `./mvnw test -Pjs-tests` |
+| R. Review fixes (2026-08-05) | `[x]` | R1 **dropped as not applicable**; R2 **done**; R3 **done** |
 
 **Next up:**
 
-1. ~~**Bug R1**~~ — **dropped 2026-08-05, not applicable.** See R1 below.
-2. ~~**Conference slice**~~ — **done 2026-08-05**, with every ride-along and bug R2. The original
-   bug of this whole plan is now fixed for all five event types.
-3. **Test backfill batch** (see "Test backfill" section) — mechanical, the patterns all exist. The
-   four cross-zone `ScheduleGapProjector` scenarios (item 1) are the most valuable: the
-   instant-based overlap logic they pin is now load-bearing in two places.
-4. **Phase 4 display work** as planned, picking up bug R3's renderer tweak.
+Everything in this plan is done except the phase 5 test gaps listed there (legacy zone-less
+command round-trip cases and two golden/upcaster samples). Those are proof, not mechanism: the
+import path needs no upcaster by design (see phase 5), so nothing is blocked on them.
+
+**Before the next deploy:** re-run `/admin/zone-audit` (phase 5).
 
 ## Context
 
@@ -229,16 +227,21 @@ bucketing and messages** (decision 7 covers bucketing). **Do this inside the con
 already carry `ZonedTimestamp`, so the data is there. `CityOccupancy.startDate()/endDate()` moves
 to instants in the same pass.
 
-### R3. `[ ]` Cross-zone `SchedulingConflict` reports one gathering's date with the other's times
+### R3. `[x]` Cross-zone `SchedulingConflict` reports one gathering's date with the other's times
 
-`detectGatheringConflicts` builds the problem from `a.startTime()/a.endTime()`,
-`b.startTime()/b.endTime()` and **`a.date()`** (`ScheduleGapProjector.java:317-320`). For the
-midnight-straddling case the instant-based detection exists for (SF Oct 3 evening vs Tokyo Oct 4
-morning), the message shows B's times under A's date — times that occur on a different local day.
-Cosmetic, but it reads as wrong exactly when the new detection does its job. Fix: carry each
-gathering's own date (or full `ZonedTimestamp`s) in `ScheduleProblem.SchedulingConflict` and let
-the renderer say "Oct 3 18:00–21:00 (San Francisco) overlaps Oct 4 09:00–12:00 (Tokyo)". Lands
-with phase 4's `ScheduleProblemsRenderer` work.
+**Fixed 2026-08-05** with the phase 4 renderer work. `ScheduleProblem.SchedulingConflict` now
+holds two `ConflictingGathering`s — each with its **own** name, city and start/end
+`ZonedTimestamp`s — instead of two pairs of `LocalTime`s under one shared `LocalDate`. The
+renderer emits each side as its own `<time>` pair plus its city:
+"Sat, Oct 3, 6:00 PM–9:00 PM (San Francisco) overlaps Sun, Oct 4, 9:00 AM–12:00 PM (Tokyo)".
+Pinned by `ScheduleProblemsRendererTest.crossZoneSchedulingConflictShowsEachGatheringsOwnDateAndCity`
+and `ScheduleGapProjectorTest.eachConflictingGatheringCarriesItsOwnLocalDateAndCity`, both
+mutation-verified (rebuilding side B from side A's timestamps fails them). Original analysis:
+`detectGatheringConflicts` built the problem from `a.startTime()/a.endTime()`,
+`b.startTime()/b.endTime()` and **`a.date()`**. For the midnight-straddling case the instant-based
+detection exists for (SF Oct 3 evening vs Tokyo Oct 4 morning), the message showed B's times under
+A's date — times that occur on a different local day. Cosmetic, but it read as wrong exactly when
+the new detection did its job.
 
 ## Implementation phases
 
@@ -337,19 +340,40 @@ Original spec, still authoritative for the conference type:
   bug. `TentativeConferenceProjectorTest` pins the FUTURE filter against a venue zone
   (America/Los_Angeles) rather than the UTC-pinned test JVM.
 
-### 4. Display — `[~]` server-side baseline started, browser-zone upgrade not started
+### 4. Display — `[x]` done 2026-08-05
 - `[x]` `ZonedTimeTag` helper emitting `<time datetime="…Z" data-fmt="…">`, used by
   `BookedHotelsRenderer`, `BookedTrainsRenderer`, `BookedFlightsRenderer` (`a97e96e`, `7b31d6d`).
-- `[~]` Same `<time>` treatment: `TentativeConferencesRenderer` done 2026-08-05 with the
-  conference slice. Still to do: `PlannedGatheringsRenderer` (gathering slice step 9, deferred
-  here), `ItineraryRenderer`, `CalendarViewBuilder`, `ScheduleProblemsRenderer` (the last reads
-  `MissingTravel`'s `ZonedTimestamp`s via `localDateTime()` today).
-- `[ ]` Bug R3's fix rides along with the `ScheduleProblemsRenderer` work: per-gathering dates (or
-  full `ZonedTimestamp`s) in `SchedulingConflict`, rendered as
-  "Oct 3 18:00–21:00 (San Francisco) overlaps Oct 4 09:00–12:00 (Tokyo)".
-- `[ ]` Browser-zone upgrade script, role switch (OWNER/FAMILY/ANON), `?tz=` toggle.
-- `[ ]` The two `JsBehaviorTest`s below (rendering in two pinned `timezoneId` contexts; toggle
-  interaction) — confirmed 2026-08-05 still wanted as planned.
+- `[x]` Same `<time>` treatment everywhere: `TentativeConferencesRenderer` (conference slice),
+  then `PlannedGatheringsRenderer`, `ScheduleProblemsRenderer`, `ItineraryRenderer` and
+  `CalendarViewBuilder` (2026-08-05).
+  - The itinerary needed the entry records to stop flattening to wall-clock:
+    `Flight`/`Train`/`Hotel`/`GatheringItineraryEntry` now hold `ZonedTimestamp`s and
+    `ItineraryProjector` passes them straight through, with `anchorTime()` still returning the
+    entry-zone `LocalDateTime` that does the day bucketing. `eachFlightEndpointKeepsItsOwnZoneAndInstant`
+    and its train twin pin the pass-through — a gap the renderer unit tests could not see,
+    found by mutation-testing the projector.
+  - The calendar needed structured subtitles: `CalendarEntry.subTitle()` is now a
+    `List<SubtitleLine>` (`Text` / `At` / `Range`) instead of pre-formatted strings, so the
+    flight and train lanes keep their moments through to the renderer. Rippled through all five
+    calendar projectors, `CalendarEntryRedactor` and their tests.
+- `[x]` Bug R3's fix landed with the `ScheduleProblemsRenderer` work — see R3 above.
+- `[x]` Browser-zone upgrade script (`BrowserZoneScript`), role switch (`ViewerZonePolicy` →
+  `ZoneDisplay`), and the anonymous `?tz=` toggle (`ZoneToggle`, CSS in `site.css`), wired into
+  `/itinerary` and `/calendar` — the two routes FAMILY and ANONYMOUS can reach. Booking lists are
+  OWNER-only, so they stay entry-local with no script, per decision 4.
+  - `DisplayZone` (`ENTRY`/`BROWSER`, with `fromParam`) mirrors `TimeView`.
+  - The script translates `data-fmt` (a `DateTimeFormatter` pattern — the server stays the single
+    source of the format) into `Intl.DateTimeFormat` options, formatting with `en-US` to match
+    the server's `Locale.ENGLISH`: the viewer's *zone* changes, not their locale.
+  - Precedence on load: an explicit `?tz=` beats a remembered `localStorage` choice, which beats
+    the entry-local default. Toggling rewrites `?tz=` via `history.replaceState` so a copied link
+    carries the choice.
+- `[x]` The `js`-tier tests: `BrowserZoneJsTest` (8 cases) — two pinned `timezoneId` contexts
+  showing the same instant as 1:00 PM in New York and 2:00 AM in Tokyo, OWNER shipping no script,
+  toggle there-and-back, reload persistence, fresh-URL persistence, `?tz=` precedence, and the URL
+  rewrite. `JsBehaviorTest` gained `pageInZone(timezoneId)`; the fixtures are served by Playwright
+  route interception rather than `setContent`, because `localStorage` and reloads need a real
+  origin — still no server, Spring, DB or auth.
 - `[x]` Day bucketing by entry zone for migrated types (now including gatherings):
   calendar/itinerary/gap projectors read `ZonedTimestamp.localDateTime()` (entry-zone wall-clock),
   so grouping is already entry-local; conference follows when its slice lands.
@@ -428,17 +452,21 @@ Spec (unchanged where still relevant):
   `CommandExportImportRoundTripTest`. No backfill/rewrite of stored rows (preserves old-backup
   compatibility — per the export/import-compat rule).
 
-### 6. Conventions & other consumers — `[~]`
-- `[ ]` `TimeFilterToggleConventionTest` discovers `render(List, TimeView)`; if renderer signatures
-  gain a display-mode/role param (phase 4), update the convention test accordingly. (Still green
-  after the conference renderer moved to `ZonedTimeTag` — the signature did not change.)
-- `[ ]` `pom.xml:183` pins the test JVM to UTC — audit tests that implicitly assume server==UTC; new
-  display tests must set explicit zones.
+### 6. Conventions & other consumers — `[x]`
+- `[x]` `TimeFilterToggleConventionTest` needed no change: phase 4's display-mode parameter went
+  onto `ItineraryRenderer.render` and `ConfirmedCalendarRenderer.render`, neither of which is a
+  `render(List, TimeView)` list view. The five list renderers kept their signatures, so the
+  convention still holds and the test stayed green.
+- `[x]` `pom.xml:183` pins the test JVM to UTC. Every zone-sensitive test added in this plan sets
+  an explicit zone (venue zones in the projector/renderer tests, `timezoneId`-pinned Playwright
+  contexts in the `js` tier), so none of them can pass by agreeing with a UTC server by accident —
+  which is exactly what the mutation runs confirmed.
 - `[x]` iCal / Google Calendar export / notification paths: none exist in the codebase — nothing to
   route. Revisit if one is added.
 
-### 7. Full test pass — `[ ]`
-"All Tests" IDEA run configuration + `./mvnw test -Pjs-tests`. Stage all new files for review.
+### 7. Full test pass — `[x]`
+Green 2026-08-05: "All Tests" IDEA run configuration (670 tests, 0 failures) and
+`./mvnw test -Pjs-tests`. All new files staged for review.
 
 ## Test backfill (from the 2026-08-05 review §4)
 
@@ -486,8 +514,11 @@ failure confirmed, and the code restored. Item 8 found a live bug that way.
    attribute, as `PlanGatheringController` already did. Mutation-verified: removing the selector
    block, reverting the attribute name, and swallowing the gathering's `ZoneResolutionException`
    are each caught.
-9. `[ ]` **Phase 4 `js`-tier tests** as specced in phase 4 (two pinned `timezoneId` contexts;
-   toggle interaction) — belongs with the phase 4 display work, not this backfill batch.
+9. `[x]` **Phase 4 `js`-tier tests** — done 2026-08-05 as `BrowserZoneJsTest`; see phase 4.
+   Mutation-verified: disabling the localization, giving OWNER the browser zone, dropping the
+   stored-preference read, dropping the explicit-`?tz=` precedence, and dropping the URL rewrite
+   are each caught by a distinct case. The URL-rewrite case was *added* because the first
+   mutation run showed nothing failed without it — `localStorage` alone was carrying the reload.
 
 ## Smaller design improvements (from the 2026-08-05 review §5 — non-blocking)
 
@@ -531,7 +562,7 @@ failure confirmed, and the code restored. Item 8 found a live bug that way.
 
 Status: 1 `[x]` (hotel filtering fixed in `5dab535`) · 2 `[x]` · 3 `[x]` (train) · 4 `[x]`
 (entry-zone validation done for all five types as of 2026-08-05) · 5 `[~]` (legacy goldens through
-the upcaster exist for all five; zone-less command round-trip missing) · 6 `[ ]` · 7 `[ ]` ·
+the upcaster exist for all five; zone-less command round-trip missing) · 6 `[x]` · 7 `[x]` ·
 8 ~~resume idempotence~~ (dropped with R1 — no re-import workflow).
 
 1. **Bug repro:** a hotel with checkout earlier today shows under `/booked-hotels` (FUTURE) pre-fix;

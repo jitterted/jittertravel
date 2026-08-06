@@ -9,10 +9,8 @@ import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
@@ -31,9 +29,6 @@ import java.util.stream.Stream;
  * </ul>
  */
 public class FlightCalendarProjector implements EventStreamConsumer {
-
-    private static final DateTimeFormatter TIME_OF_DAY =
-            DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
 
     private final Map<FlightId, List<CalendarEntry>> entriesByFlight = new ConcurrentHashMap<>();
 
@@ -60,20 +55,18 @@ public class FlightCalendarProjector implements EventStreamConsumer {
         LocalDateTime depLocal = departureDateTime.localDateTime();
         LocalDateTime arrLocal = arrivalDateTime.localDateTime();
         String route = "✈️ " + departureAirport.code() + "→" + arrivalAirport.code();
-        String departs = "Departs " + depLocal.format(TIME_OF_DAY);
-        String arrives = "Arrives " + arrLocal.format(TIME_OF_DAY);
         String editPath = "/booked-flights/" + flightId.id();
 
+        // Each endpoint keeps its own airport zone; the renderer formats and can re-localize it.
         boolean sameDay = depLocal.toLocalDate().equals(arrLocal.toLocalDate());
 
         if (sameDay) {
-            String timeRange = depLocal.format(TIME_OF_DAY) + " → " + arrLocal.format(TIME_OF_DAY);
             return List.of(new CalendarEntry(
                     EntryKind.FLIGHT,
                     depLocal,
                     arrLocal,
                     route,
-                    List.of(timeRange),
+                    List.of(new SubtitleLine.Range(departureDateTime, arrivalDateTime)),
                     null,
                     null,
                     null,
@@ -86,7 +79,7 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                 depLocal,
                 depLocal,
                 route,
-                List.of(departs),
+                List.of(new SubtitleLine.At("Departs", departureDateTime)),
                 null,
                 null,
                 null,
@@ -97,7 +90,7 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                 arrLocal,
                 arrLocal,
                 route,
-                List.of(arrives),
+                List.of(new SubtitleLine.At("Arrives", arrivalDateTime)),
                 null,
                 null,
                 null,

@@ -13,12 +13,11 @@ import static j2html.TagCreator.*;
 
 public class ScheduleProblemsRenderer {
 
-    private static final DateTimeFormatter DATE_TIME =
-            DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.ENGLISH);
+    private static final String DATE_TIME_FORMAT = "MMM d, h:mm a";
+    private static final String DAY_DATE_TIME_FORMAT = "EEE, MMM d, h:mm a";
+    private static final String TIME_FORMAT = "h:mm a";
     private static final DateTimeFormatter DATE =
             DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH);
-    private static final DateTimeFormatter TIME =
-            DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
 
     private static final String CSS = """
             .page { max-width: 1100px; }
@@ -107,9 +106,12 @@ public class ScheduleProblemsRenderer {
                         : div().withClass("problem-list").with(
                                 each(travel, p -> div().withClass("problem-card problem-card--missing-travel").with(
                                         div(p.fromCity() + " → " + p.toCity()).withClass("problem-title"),
-                                        div("Arrive " + p.arrivedAt().localDateTime().format(DATE_TIME)
-                                            + " — next leg departs " + p.nextDepartureAt().localDateTime().format(DATE_TIME))
-                                                .withClass("problem-detail")
+                                        div().withClass("problem-detail").with(
+                                                text("Arrive "),
+                                                ZonedTimeTag.render(p.arrivedAt(), DATE_TIME_FORMAT),
+                                                text(" — next leg departs "),
+                                                ZonedTimeTag.render(p.nextDepartureAt(), DATE_TIME_FORMAT)
+                                        )
                                 ))
                         )
         );
@@ -143,20 +145,28 @@ public class ScheduleProblemsRenderer {
                 p("Scheduling Conflicts").withClass("column-heading column-heading--scheduling"),
                 div().withClass("problem-list").with(
                         each(scheduling, p -> div().withClass("problem-card problem-card--scheduling-conflict").with(
-                                div(p.gathering1Name() + " conflicts with " + p.gathering2Name())
+                                div(p.first().name() + " conflicts with " + p.second().name())
                                         .withClass("problem-title"),
-                                div(p.date().format(DATE)
-                                    + " — "
-                                    + p.gathering1Start().format(TIME)
-                                    + "–"
-                                    + p.gathering1End().format(TIME)
-                                    + " overlaps "
-                                    + p.gathering2Start().format(TIME)
-                                    + "–"
-                                    + p.gathering2End().format(TIME))
-                                        .withClass("problem-detail")
+                                // Each side shows its OWN date: overlapping gatherings in different
+                                // zones can fall on different local days, so there is no shared date.
+                                div().withClass("problem-detail").with(
+                                        conflictSide(p.first()),
+                                        text(" overlaps "),
+                                        conflictSide(p.second())
+                                )
                         ))
                 )
+        );
+    }
+
+    private static DomContent conflictSide(ScheduleProblem.ConflictingGathering gathering) {
+        return span(
+                ZonedTimeTag.render(gathering.startsAt(), DAY_DATE_TIME_FORMAT),
+                rawHtml("&ndash;"),
+                ZonedTimeTag.render(gathering.endsAt(), TIME_FORMAT),
+                gathering.city().isBlank()
+                        ? span()
+                        : text(" (" + gathering.city() + ")")
         );
     }
 

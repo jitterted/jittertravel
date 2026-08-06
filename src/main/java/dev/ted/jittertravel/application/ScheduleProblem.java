@@ -5,7 +5,6 @@ import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 
 public sealed interface ScheduleProblem
         permits ScheduleProblem.MissingTravel, ScheduleProblem.MissingHotel,
@@ -30,15 +29,24 @@ public sealed interface ScheduleProblem
             String conferenceName
     ) implements ScheduleProblem {}
 
+    /**
+     * Two gatherings whose instants overlap. Each side carries its <em>own</em>
+     * {@link ZonedTimestamp}s and city: overlapping gatherings in different zones can fall on
+     * different local dates (a San Francisco evening and a Tokyo morning), so there is no single
+     * date to report — showing one gathering's date beside the other's times reads as wrong
+     * exactly when the instant-based detection has done its job.
+     */
     record SchedulingConflict(
-            String gathering1Name,
-            LocalTime gathering1Start,
-            LocalTime gathering1End,
-            String gathering2Name,
-            LocalTime gathering2Start,
-            LocalTime gathering2End,
-            LocalDate date
+            ConflictingGathering first,
+            ConflictingGathering second
     ) implements ScheduleProblem {}
+
+    record ConflictingGathering(
+            String name,
+            String city,
+            ZonedTimestamp startsAt,
+            ZonedTimestamp endsAt
+    ) {}
 
     record DifferentCityConflict(
             String gatheringName,

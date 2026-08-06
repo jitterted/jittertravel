@@ -2,10 +2,14 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.EntryKind;
+import dev.ted.jittertravel.application.SubtitleLine;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,9 +74,9 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 6, 2, 9, 0),
                 LocalDateTime.of(2026, 6, 4, 17, 0),
                 "DevConf",
-                List.of("(Portland, USA)"),
+                lines("(Portland, USA)"),
                 "DevConf cont'd",
-                List.of("(Portland, USA)"),
+                lines("(Portland, USA)"),
                 null
         );
 
@@ -99,9 +103,9 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 6, 6, 13, 55),
                 LocalDateTime.of(2026, 6, 7, 9, 45),
                 "✈️ SFO\u2192FRA",
-                List.of("Departs 1:55 PM"),
+                lines("Departs 1:55 PM"),
                 null,
-                List.of("Arr 9:45 AM"),
+                lines("Arr 9:45 AM"),
                 null
         );
         // Conference DDD Europe 2026: Sun 2026-06-07 11:00 -> Wed 2026-06-10 17:00.
@@ -110,9 +114,9 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 6, 7, 11, 0),
                 LocalDateTime.of(2026, 6, 10, 17, 0),
                 "DDD Europe 2026",
-                List.of("(Frankfurt, Germany)"),
+                lines("(Frankfurt, Germany)"),
                 "DDD Europe 2026 cont'd",
-                List.of("(Frankfurt, Germany)"),
+                lines("(Frankfurt, Germany)"),
                 null
         );
 
@@ -147,16 +151,16 @@ class CalendarViewBuilderTest {
                 EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 2, 9, 0),
                 LocalDateTime.of(2026, 6, 4, 17, 0),
-                "ConfA", List.of("(City, Country)"),
-                "ConfA cont'd", List.of("(City, Country)"),
+                "ConfA", lines("(City, Country)"),
+                "ConfA cont'd", lines("(City, Country)"),
                 null
         );
         CalendarEntry b = new CalendarEntry(
                 EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 3, 9, 0),
                 LocalDateTime.of(2026, 6, 5, 17, 0),
-                "ConfB", List.of("(City, Country)"),
-                "ConfB cont'd", List.of("(City, Country)"),
+                "ConfB", lines("(City, Country)"),
+                "ConfB cont'd", lines("(City, Country)"),
                 null
         );
 
@@ -181,9 +185,9 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 6, 10, 15, 0),
                 LocalDateTime.of(2026, 6, 12, 11, 0),
                 "Grand Hotel Berlin",
-                List.of("Berlin, DE"),
+                lines("Berlin, DE"),
                 "Grand Hotel Berlin cont'd",
-                List.of("Berlin, DE"),
+                lines("Berlin, DE"),
                 "https://maps.google.com/?q=Grand+Hotel+Berlin"
         );
 
@@ -207,16 +211,16 @@ class CalendarViewBuilderTest {
                 EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 8, 9, 0),
                 LocalDateTime.of(2026, 6, 8, 17, 0),
-                "Conf", List.of("(City, Country)"),
-                "Conf cont'd", List.of("(City, Country)"),
+                "Conf", lines("(City, Country)"),
+                "Conf cont'd", lines("(City, Country)"),
                 null
         );
         CalendarEntry flight = new CalendarEntry(
                 EntryKind.FLIGHT,
                 LocalDateTime.of(2026, 6, 9, 9, 0),
                 LocalDateTime.of(2026, 6, 9, 13, 0),
-                "✈️ A→B", List.of("Departs 9:00 AM"),
-                null, List.of("Arr 1:00 PM"),
+                "✈️ A→B", lines("Departs 9:00 AM"),
+                null, lines("Arr 1:00 PM"),
                 null
         );
 
@@ -290,8 +294,8 @@ class CalendarViewBuilderTest {
                 EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 1, 9, 0),
                 LocalDateTime.of(2026, 6, 3, 17, 0),
-                "PastConf", List.of("(City, Country)"),
-                "PastConf cont'd", List.of("(City, Country)"),
+                "PastConf", lines("(City, Country)"),
+                "PastConf cont'd", lines("(City, Country)"),
                 null
         );
 
@@ -320,8 +324,8 @@ class CalendarViewBuilderTest {
                 EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 16, 9, 0),
                 LocalDateTime.of(2026, 6, 16, 17, 0),
-                "FutureConf", List.of("(City, Country)"),
-                "FutureConf cont'd", List.of("(City, Country)"),
+                "FutureConf", lines("(City, Country)"),
+                "FutureConf cont'd", lines("(City, Country)"),
                 null
         );
 
@@ -345,7 +349,7 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 6, 10, 18, 0),
                 LocalDateTime.of(2026, 6, 10, 21, 0),
                 "London Java Community",
-                List.of("Skills Matter", "London, GB"),
+                lines("Skills Matter", "London, GB"),
                 null,
                 null,
                 "https://meetup.com/ljc/events/123"
@@ -364,5 +368,67 @@ class CalendarViewBuilderTest {
         assertThat(html).contains(">Skills Matter<");
         assertThat(html).contains(">London, GB<");
         assertThat(html).contains("href=\"https://meetup.com/ljc/events/123\"");
+    }
+
+    @Test
+    void subtitleTimeRangeRendersAsTimeElementsCarryingTheUtcInstant() {
+        // A same-day SFO→LAX hop: 9:00 AM PDT is 16:00Z, 10:30 AM PDT is 17:30Z. The segment
+        // still sits in its entry-zone day column; only the rendered time carries the instant.
+        ZonedTimestamp departure = zoned(LocalDateTime.of(2026, 6, 10, 9, 0), "America/Los_Angeles");
+        ZonedTimestamp arrival = zoned(LocalDateTime.of(2026, 6, 10, 10, 30), "America/Los_Angeles");
+        CalendarEntry flight = new CalendarEntry(
+                EntryKind.FLIGHT,
+                departure.localDateTime(),
+                arrival.localDateTime(),
+                "SFO to LAX",
+                List.of(new SubtitleLine.Range(departure, arrival)),
+                null, null, null
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(flight),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14),
+                TODAY,
+                false
+        );
+
+        assertThat(html).contains(
+                "<time datetime=\"2026-06-10T16:00:00Z\" data-fmt=\"h:mm a\">9:00 AM</time>"
+                + " → "
+                + "<time datetime=\"2026-06-10T17:30:00Z\" data-fmt=\"h:mm a\">10:30 AM</time>");
+    }
+
+    @Test
+    void labelledSubtitleTimeRendersAsTimeElementCarryingTheUtcInstant() {
+        // The overnight-leg shape: London 10:00 PM BST is 21:00Z.
+        ZonedTimestamp departure = zoned(LocalDateTime.of(2026, 6, 10, 22, 0), "Europe/London");
+        CalendarEntry train = new CalendarEntry(
+                EntryKind.TRAIN,
+                departure.localDateTime(),
+                departure.localDateTime(),
+                "London to Paris",
+                List.of(new SubtitleLine.At("Departs", departure)),
+                null, null, null
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(train),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14),
+                TODAY,
+                false
+        );
+
+        assertThat(html).contains(
+                "Departs <time datetime=\"2026-06-10T21:00:00Z\" data-fmt=\"h:mm a\">10:00 PM</time>");
+    }
+
+    private static ZonedTimestamp zoned(LocalDateTime local, String zone) {
+        return ZonedTimestamp.fromLocal(local, ZoneId.of(zone));
+    }
+
+    private static List<SubtitleLine> lines(String... values) {
+        return Arrays.stream(values).<SubtitleLine>map(SubtitleLine.Text::new).toList();
     }
 }

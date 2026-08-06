@@ -71,14 +71,14 @@ public class ItineraryProjector implements EventStreamConsumer {
                 .forEach(result::add);
         hotelEntries.values().stream()
                 .flatMap(List::stream)
-                .filter(e -> e.anchorDateTime().toLocalDate().equals(date))
+                .filter(e -> e.anchorTime().toLocalDate().equals(date))
                 .forEach(result::add);
         conferenceEntries.values().stream()
                 .flatMap(List::stream)
                 .filter(e -> e.anchorDateTime().toLocalDate().equals(date))
                 .forEach(result::add);
         gatheringEntries.values().stream()
-                .filter(e -> e.anchorDateTime().toLocalDate().equals(date))
+                .filter(e -> e.anchorTime().toLocalDate().equals(date))
                 .forEach(result::add);
         result.sort(Comparator.comparing(ItineraryEntry::anchorTime));
         return Collections.unmodifiableList(result);
@@ -86,24 +86,32 @@ public class ItineraryProjector implements EventStreamConsumer {
 
     private static List<FlightItineraryEntry> toFlightEntries(FlightBooked e) {
         return toFlightEntries(e.flightId(), e.airline(), e.flightNumber(),
-                e.departureAirport().code(), e.departureDateTime().localDateTime(),
-                e.arrivalAirport().code(), e.arrivalDateTime().localDateTime());
+                e.departureAirport().code(), e.departureDateTime(),
+                e.arrivalAirport().code(), e.arrivalDateTime());
     }
 
     private static List<FlightItineraryEntry> toFlightEntries(FlightChanged e) {
         return toFlightEntries(e.flightId(), e.airline(), e.flightNumber(),
-                e.departureAirport().code(), e.departureDateTime().localDateTime(),
-                e.arrivalAirport().code(), e.arrivalDateTime().localDateTime());
+                e.departureAirport().code(), e.departureDateTime(),
+                e.arrivalAirport().code(), e.arrivalDateTime());
     }
 
+    /**
+     * Each endpoint keeps its own {@link ZonedTimestamp} so the renderer can emit the UTC instant
+     * alongside the airport-local wall-clock. Day bucketing stays local (decision 7): a flight
+     * gets a second, ARRIVAL entry only when it lands on a different <em>local</em> day than it
+     * left — which is exactly the case a traveler needs to see twice.
+     */
     private static List<FlightItineraryEntry> toFlightEntries(
             FlightId flightId,
             String airline, String flightNumber,
-            String depCode, LocalDateTime depDt,
-            String arrCode, LocalDateTime arrDt) {
+            String depCode, ZonedTimestamp depDt,
+            String arrCode, ZonedTimestamp arrDt) {
         FlightItineraryEntry departure = new FlightItineraryEntry(
                 flightId, FlightDayRole.DEPARTURE, airline, flightNumber, depCode, depDt, arrCode, arrDt);
-        if (depDt.toLocalDate().equals(arrDt.toLocalDate()) && !arrDt.isBefore(depDt)) {
+        LocalDateTime depLocal = depDt.localDateTime();
+        LocalDateTime arrLocal = arrDt.localDateTime();
+        if (depLocal.toLocalDate().equals(arrLocal.toLocalDate()) && !arrLocal.isBefore(depLocal)) {
             return List.of(departure);
         }
         return List.of(departure, new FlightItineraryEntry(
@@ -112,27 +120,28 @@ public class ItineraryProjector implements EventStreamConsumer {
 
     private static List<TrainItineraryEntry> toTrainEntries(TrainBooked e) {
         // Bucket each endpoint on its own entry-zone local day (decision 7).
-        return toTrainEntries(e.tripId(), e.serviceId(), e.departureStation(), e.departureDateTime().localDateTime(),
-                e.arrivalStation(), e.arrivalDateTime().localDateTime());
+        return toTrainEntries(e.tripId(), e.serviceId(), e.departureStation(), e.departureDateTime(),
+                e.arrivalStation(), e.arrivalDateTime());
     }
 
     private static List<TrainItineraryEntry> toTrainEntries(TrainChanged e) {
-        return toTrainEntries(e.tripId(), e.serviceId(), e.departureStation(), e.departureDateTime().localDateTime(),
-                e.arrivalStation(), e.arrivalDateTime().localDateTime());
+        return toTrainEntries(e.tripId(), e.serviceId(), e.departureStation(), e.departureDateTime(),
+                e.arrivalStation(), e.arrivalDateTime());
     }
 
     private static List<TrainItineraryEntry> toTrainEntries(
             TrainTripId tripId,
             String serviceId,
-            TrainStationAddress departureStation, LocalDateTime departureDateTime,
-            TrainStationAddress arrivalStation, LocalDateTime arrivalDateTime) {
+            TrainStationAddress departureStation, ZonedTimestamp departureDateTime,
+            TrainStationAddress arrivalStation, ZonedTimestamp arrivalDateTime) {
         TrainItineraryEntry departure = new TrainItineraryEntry(
                 tripId, TrainDayRole.DEPARTURE, serviceId,
                 departureStation.name(), departureStation.city(), departureStation.mapsUrl(),
                 departureDateTime,
                 arrivalStation.name(), arrivalStation.city(), arrivalStation.mapsUrl(),
                 arrivalDateTime);
-        if (departureDateTime.toLocalDate().equals(arrivalDateTime.toLocalDate())) {
+        if (departureDateTime.localDateTime().toLocalDate()
+                .equals(arrivalDateTime.localDateTime().toLocalDate())) {
             return List.of(departure);
         }
         return List.of(departure, new TrainItineraryEntry(
@@ -145,17 +154,17 @@ public class ItineraryProjector implements EventStreamConsumer {
 
     private static List<HotelItineraryEntry> toHotelEntries(HotelBooked e) {
         return toHotelEntries(e.hotelBookingId(), e.hotelName(), e.address(), e.bookingIntent(),
-                e.checkIn().localDateTime(), e.checkOut().localDateTime(), e.mapsUrl());
+                e.checkIn(), e.checkOut(), e.mapsUrl());
     }
 
     private static List<HotelItineraryEntry> toHotelEntries(HotelChanged e) {
         return toHotelEntries(e.hotelBookingId(), e.hotelName(), e.address(), e.bookingIntent(),
-                e.checkIn().localDateTime(), e.checkOut().localDateTime(), e.mapsUrl());
+                e.checkIn(), e.checkOut(), e.mapsUrl());
     }
 
     private static List<HotelItineraryEntry> toHotelEntries(
             HotelBookingId hotelBookingId, String hotelName, Address address, BookingIntent bookingIntent,
-            LocalDateTime checkIn, LocalDateTime checkOut, String rawMapsUrl) {
+            ZonedTimestamp checkIn, ZonedTimestamp checkOut, String rawMapsUrl) {
         String mapsUrl = rawMapsUrl.isBlank()
                 ? AddressRenderer.mapsUrl(hotelName, address)
                 : rawMapsUrl;
@@ -173,14 +182,11 @@ public class ItineraryProjector implements EventStreamConsumer {
                                                             String infoUrl,
                                                             ZonedTimestamp startsAt,
                                                             ZonedTimestamp endsAt) {
-        // Itinerary days are venue-local days (see CalendarEntry), so the entry keeps the
-        // wall-clock the traveler will actually read off a clock when they get there.
         return new GatheringItineraryEntry(
                 title, venueName,
                 location.city(), location.country(),
                 speaking, infoUrl,
-                startsAt.localDateTime(),
-                endsAt.localDateTime());
+                startsAt, endsAt);
     }
 
     private static List<ConferenceItineraryEntry> toConferenceEntries(ConferenceTentativelyPlanned e) {

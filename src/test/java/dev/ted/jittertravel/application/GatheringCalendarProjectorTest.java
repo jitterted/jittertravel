@@ -46,7 +46,8 @@ class GatheringCalendarProjectorTest {
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.kind()).isEqualTo(EntryKind.GATHERING);
         assertThat(entry.mainTitle()).isEqualTo("London Java Community");
-        assertThat(entry.subTitle()).isEqualTo(List.of("Skills Matter", "London, GB"));
+        assertThat(entry.subTitle()).isEqualTo(List.of(
+                new SubtitleLine.Text("Skills Matter"), new SubtitleLine.Text("London, GB")));
         assertThat(entry.start()).isEqualTo(LocalDateTime.of(2026, 7, 10, 18, 0));
         assertThat(entry.end()).isEqualTo(LocalDateTime.of(2026, 7, 10, 21, 0));
         assertThat(entry.continuationTitle()).isNull();
@@ -84,7 +85,8 @@ class GatheringCalendarProjectorTest {
 
         projector.handle(Stream.of(stored(event)));
 
-        assertThat(projector.entries().getFirst().subTitle()).isEqualTo(List.of("London, GB"));
+        assertThat(projector.entries().getFirst().subTitle())
+                .isEqualTo(List.of(new SubtitleLine.Text("London, GB")));
     }
 
     @Test
@@ -127,7 +129,8 @@ class GatheringCalendarProjectorTest {
         assertThat(projector.entries()).hasSize(1);
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.mainTitle()).isEqualTo("New Title");
-        assertThat(entry.subTitle()).isEqualTo(List.of("Federation House", "Manchester, GB"));
+        assertThat(entry.subTitle()).isEqualTo(List.of(
+                new SubtitleLine.Text("Federation House"), new SubtitleLine.Text("Manchester, GB")));
         assertThat(entry.start()).isEqualTo(LocalDateTime.of(2026, 7, 17, 17, 30));
         assertThat(entry.end()).isEqualTo(LocalDateTime.of(2026, 7, 17, 20, 0));
         assertThat(entry.mapsUrl()).isEqualTo("https://new.example.com");

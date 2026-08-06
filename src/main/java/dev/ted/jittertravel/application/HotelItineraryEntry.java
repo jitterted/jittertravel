@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -12,9 +13,9 @@ public record HotelItineraryEntry(
         Address address,
         BookingIntent bookingIntent,
         HotelDayRole dayRole,
-        LocalDateTime anchorDateTime,
+        ZonedTimestamp anchorDateTime,
         String mapsUrl
 ) implements ItineraryEntry {
     @Override public EntryKind kind() { return EntryKind.LODGING; }
-    @Override public LocalDateTime anchorTime() { return anchorDateTime; }
+    @Override public LocalDateTime anchorTime() { return anchorDateTime.localDateTime(); }
 }

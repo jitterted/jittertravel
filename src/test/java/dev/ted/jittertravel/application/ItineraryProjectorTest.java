@@ -79,6 +79,52 @@ class ItineraryProjectorTest {
     }
 
     @Test
+    void eachFlightEndpointKeepsItsOwnZoneAndInstant() {
+        // SFO 1:55 PM PDT is 20:55Z; FRA 9:45 AM CEST the next day is 07:45Z. Collapsing both
+        // onto one zone loses whichever end it discards, and the renderer's <time datetime>
+        // would then advertise a moment the traveler is nowhere near.
+        ItineraryProjector projector = new ItineraryProjector();
+        LocalDate arrivalDate = DATE.plusDays(1);
+        FlightBooked event = new FlightBooked(
+                FlightId.random(), "United", "UA58",
+                AirportCode.of("SFO"), ZonedTimestamp.fromLocal(DATE.atTime(13, 55), ZONE),
+                AirportCode.of("FRA"), ZonedTimestamp.fromLocal(arrivalDate.atTime(9, 45),
+                                                                ZoneId.of("Europe/Berlin")));
+
+        projector.handle(Stream.of(stored(event)));
+
+        FlightItineraryEntry entry = (FlightItineraryEntry) projector.entriesForDate(DATE).getFirst();
+        assertThat(entry.departureDateTime().zone())
+                .isEqualTo(ZONE);
+        assertThat(entry.departureDateTime().utc())
+                .isEqualTo(Instant.parse("2026-09-15T20:55:00Z"));
+        assertThat(entry.arrivalDateTime().zone())
+                .isEqualTo(ZoneId.of("Europe/Berlin"));
+        assertThat(entry.arrivalDateTime().utc())
+                .isEqualTo(Instant.parse("2026-09-16T07:45:00Z"));
+    }
+
+    @Test
+    void eachTrainEndpointKeepsItsOwnZoneAndInstant() {
+        // Frankfurt 08:00 CEST is 06:00Z; London 10:30 BST is 09:30Z — a leg that crosses zones.
+        ItineraryProjector projector = new ItineraryProjector();
+        TrainStationAddress frankfurt = new TrainStationAddress("Frankfurt Hbf", "Frankfurt", "DE", "");
+        TrainStationAddress london = new TrainStationAddress("London St Pancras", "London", "UK", "");
+        TrainBooked event = new TrainBooked(
+                TrainTripId.random(),
+                frankfurt, ZonedTimestamp.fromLocal(DATE.atTime(8, 0), ZoneId.of("Europe/Berlin")),
+                london, ukTime(DATE, LocalTime.of(10, 30)), "");
+
+        projector.handle(Stream.of(stored(event)));
+
+        TrainItineraryEntry entry = (TrainItineraryEntry) projector.entriesForDate(DATE).getFirst();
+        assertThat(entry.departureDateTime().utc())
+                .isEqualTo(Instant.parse("2026-09-15T06:00:00Z"));
+        assertThat(entry.arrivalDateTime().utc())
+                .isEqualTo(Instant.parse("2026-09-15T09:30:00Z"));
+    }
+
+    @Test
     void sameDayFlightAppearsOnlyOnDepartureDate() {
         ItineraryProjector projector = new ItineraryProjector();
         FlightBooked event = new FlightBooked(
@@ -380,7 +426,7 @@ class ItineraryProjectorTest {
         projector.handle(Stream.of(stored(afternoon), stored(morning)));
 
         assertThat(projector.entriesForDate(DATE))
-                .extracting(e -> ((TrainItineraryEntry) e).departureDateTime().getHour())
+                .extracting(e -> ((TrainItineraryEntry) e).departureDateTime().localDateTime().getHour())
                 .containsExactly(9, 15);
     }
 

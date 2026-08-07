@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<!--
+  The "paste an address, press Parse" auto-fill widget, shared by every form that collects an
+  address. Markup and script live together here on purpose: this used to be copied into each
+  form, and when /api/parse-address moved to GET ?q= only one copy was updated — the others
+  went on POSTing JSON and reported the resulting 405 to the user as "Not found".
+
+  The widget writes into sibling inputs by name (street, city, region, postalCode, country,
+  locationForMatching), so it must sit inside a form carrying those fields.
+
+  Enforced by AddressPasteFragmentConventionTest; behavior covered by AddressParseJsTest.
+-->
+<body>
+<th:block th:fragment="addressPaste">
+    <div class="paste-row">
+        <textarea id="rawAddress" placeholder="Paste full address here to auto-fill fields below…"></textarea>
+        <button type="button" class="parse-btn" id="parseBtn">Parse ▶</button>
+    </div>
+    <div id="parseError" class="error" style="display:none"></div>
+    <script>
+        document.getElementById('parseBtn').addEventListener('click', async () => {
+            const raw = document.getElementById('rawAddress').value.trim();
+            if (!raw) return;
+            const btn = document.getElementById('parseBtn');
+            const errorEl = document.getElementById('parseError');
+            btn.textContent = '…';
+            btn.disabled = true;
+            errorEl.style.display = 'none';
+            errorEl.textContent = '';
+            const fail = (message) => { errorEl.textContent = message; errorEl.style.display = 'block'; };
+            try {
+                // GET with ?q= — the endpoint is read-only and deliberately outside CSRF's scope.
+                const resp = await fetch('/api/parse-address?q=' + encodeURIComponent(raw));
+                if (resp.status === 404 || resp.status === 405) {
+                    // Not a result about the address: the page and the endpoint disagree.
+                    fail('Address lookup is unavailable — this is a wiring problem, not your address.');
+                    return;
+                }
+                if (!resp.ok) {
+                    fail('Address not found — try a shorter query, or fill in the fields manually.');
+                    return;
+                }
+                const d = await resp.json();
+                const set = (name, val) => { if (val) { const el = document.querySelector('[name="' + name + '"]'); if (el) el.value = val; } };
+                set('street', d.street);
+                set('city', d.city);
+                set('region', d.region);
+                set('country', d.country);
+                set('postalCode', d.postalCode);
+                set('locationForMatching', d.locationForMatching || d.city);
+            } catch (e) {
+                fail('Parse failed — check your connection and try again.');
+            } finally {
+                btn.textContent = 'Parse ▶';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</th:block>
+</body>
+</html>

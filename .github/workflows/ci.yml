@@ -19,3 +19,22 @@ jobs:
 
       - name: Run tests
         run: ./mvnw -B -ntp test
+
+      # The default build above excludes the "js" group, so without the steps below the
+      # browser tier never runs on CI — and a page whose inline script disagrees with its
+      # endpoint would sail through. See docs/JS-Behavior-Tests.md.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pom.xml') }}
+
+      - name: Install Chromium for Playwright
+        run: >
+          ./mvnw -B -ntp org.codehaus.mojo:exec-maven-plugin:3.5.0:java
+          -Dexec.mainClass=com.microsoft.playwright.CLI
+          -Dexec.classpathScope=test
+          -Dexec.args="install --with-deps chromium"
+
+      - name: Run JS-behavior tests
+        run: ./mvnw -B -ntp test -Pjs-tests

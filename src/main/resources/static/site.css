@@ -203,3 +203,42 @@ body {
     white-space: nowrap;
 }
 .booking-form .lookup-btn:hover { opacity: 0.88; }
+
+/* The shared address paste-and-parse widget (see templates/fragments/address-paste.html).
+   Lives here rather than in each form's <style> so the markup, its script, and its styling
+   travel together — the widget was duplicated across four forms and drifted. Pages still
+   supply their own .error rule, which #parseError borrows. */
+.paste-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    align-items: flex-end;
+}
+.paste-row textarea {
+    flex: 1;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 3.5rem;
+    box-sizing: border-box;
+}
+.paste-row textarea:focus {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 1px;
+    border-color: transparent;
+}
+.parse-btn {
+    background: var(--accent-color);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.parse-btn:hover { opacity: 0.88; }

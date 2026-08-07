@@ -15,14 +15,6 @@ done. For larger structural refactors, see `Refactoring_Opportunities.md`.
       granularity), tests in both redaction tiers, and a way to mark an event private at entry.
       Important — this is a real leak waiting for the first private event Ted enters.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
-- [ ] Migrate the one remaining application service that still injects `EventStore` directly onto
-      `CommandExecutor` (`execute`/`appendEvents`): `ConferencePlanning`. (`ChangeFlight` and
-      `FlightBooking` have since been migrated; `CommandImporter` moved over with the
-      validate-then-apply import work.) **Then** add an ArchUnit test verifying no class in the `application`
-      package has a field of type `EventStore` (enforces "use CommandExecutor, never
-      EventStore directly"). Home: `src/test/java/.../architecture/`. Hard prerequisite for
-      the conditional-append work in `CommandConsistencyEventStore.md` (the consistency guard
-      lives in `CommandExecutor`; any service bypassing it bypasses the guard).
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.
       `PostgresPersister.loadTimelinePage` resets `runningMaxSeq` to `Long.MIN_VALUE` on every
@@ -44,3 +36,12 @@ done. For larger structural refactors, see `Refactoring_Opportunities.md`.
       audit as sweeping "`event_log` / `command_log`" — correct that wording too.
 
 ## Done
+
+- [x] **Every application service goes through `CommandExecutor`** (2026-08-05, with the conference
+      UTC slice). `ConferencePlanning` was the last service injecting `EventStore` directly; it now
+      uses `CommandExecutor` like the rest. The enforcement test landed in the same change as
+      `ApplicationServicesUseCommandExecutorTest` — plain reflection over `application`-package
+      constructors, **no ArchUnit dependency**, with `CommandExecutor` itself excluded as the
+      authorized holder. This unblocks the conditional-append work in
+      `CommandConsistencyEventStore.md`: no service can now bypass the guard that lives in
+      `CommandExecutor`.

@@ -17,7 +17,7 @@ public class HotelBooking {
 
     // now is captured at the boundary (controller) and passed in; the service reads no clock.
     public void bookHotel(BookHotelRequest request, Instant now) {
-        BookHotelCommand command = new BookHotelHandler(zoneResolver).handle(request);
+        BookHotelCommand command = new HotelHandler(zoneResolver).bookHotel(request);
         BookHotelContext context = new BookHotelContext(now);
         commandExecutor.execute(command.hotelBookingId().id(), request, context, command);
     }

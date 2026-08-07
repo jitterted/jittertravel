@@ -80,7 +80,7 @@ class LocationAuditProjectorTest {
     private static HotelBooked hotelBooked(Address address) {
         return new HotelBooked(HotelBookingId.random(), "Some Hotel", address,
                 ZonedTimestamp.fromLocal(SOME_TIME, ZONE),
-                ZonedTimestamp.fromLocal(SOME_TIME.plusDays(1), ZONE), BookingIntent.TENTATIVE, null);
+                ZonedTimestamp.fromLocal(SOME_TIME.plusDays(1), ZONE), BookingIntent.TENTATIVE, null, null);
     }
 
     private static TrainBooked trainBooked(TrainStationAddress departure, TrainStationAddress arrival) {

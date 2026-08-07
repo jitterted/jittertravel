@@ -45,7 +45,7 @@ class BookHotelCommandTest {
     void validFinalCommandProducesHotelBookedEventWithFinalIntent() {
         BookHotelCommand command = new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null);
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
 
         assertThat(command.execute(new BookHotelContext(at(NOW))).toList().getFirst().bookingIntent())
                 .isEqualTo(BookingIntent.FINAL);
@@ -55,7 +55,7 @@ class BookHotelCommandTest {
     void checkInInPastThrowsCheckInNotInFuture() {
         BookHotelCommand command = new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                zt(NOW.minusHours(1)), zt(CHECK_OUT), BookingIntent.TENTATIVE, null);
+                zt(NOW.minusHours(1)), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, null);
 
         assertThatThrownBy(() -> command.execute(new BookHotelContext(at(NOW))))
                 .isInstanceOf(CheckInNotInFuture.class);
@@ -65,7 +65,7 @@ class BookHotelCommandTest {
     void checkInExactlyNowIsNotAcceptedMustBeStrictlyAfter() {
         BookHotelCommand command = new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                zt(NOW), zt(CHECK_OUT), BookingIntent.TENTATIVE, null);
+                zt(NOW), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, null);
 
         assertThatThrownBy(() -> command.execute(new BookHotelContext(at(NOW))))
                 .isInstanceOf(CheckInNotInFuture.class);
@@ -75,7 +75,7 @@ class BookHotelCommandTest {
     void checkOutOnSameDayAsCheckInThrowsInvalidHotelDateRange() {
         BookHotelCommand command = new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                zt(CHECK_IN), zt(CHECK_IN.withHour(23).withMinute(59)), BookingIntent.TENTATIVE, null);
+                zt(CHECK_IN), zt(CHECK_IN.withHour(23).withMinute(59)), BookingIntent.TENTATIVE, null, null);
 
         assertThatThrownBy(() -> command.execute(new BookHotelContext(at(NOW))))
                 .isInstanceOf(InvalidHotelDateRange.class);
@@ -87,16 +87,59 @@ class BookHotelCommandTest {
         LocalDateTime checkOut = LocalDateTime.of(2026, 6, 15, 11, 0);
         BookHotelCommand command = new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                zt(checkIn), zt(checkOut), BookingIntent.TENTATIVE, null);
+                zt(checkIn), zt(checkOut), BookingIntent.TENTATIVE, null, null);
 
         assertThat(command.execute(new BookHotelContext(at(NOW))).toList())
                 .hasSize(1);
     }
 
+    @Test
+    void cancelByIsCarriedOntoTheEventWhenItPrecedesCheckIn() {
+        LocalDateTime deadline = CHECK_IN.minusDays(3);
+        BookHotelCommand command = new BookHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", ADDRESS,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, zt(deadline));
+
+        HotelBooked event = command.execute(new BookHotelContext(at(NOW))).toList().getFirst();
+
+        assertThat(event.cancelBy())
+                .isEqualTo(zt(deadline));
+    }
+
+    @Test
+    void absentCancelByStaysNullOnTheEvent() {
+        HotelBooked event = validCommand().execute(new BookHotelContext(at(NOW))).toList().getFirst();
+
+        assertThat(event.cancelBy())
+                .as("no deadline recorded must stay absent, not become a stand-in value")
+                .isNull();
+    }
+
+    @Test
+    void cancelByExactlyAtCheckInIsAccepted() {
+        BookHotelCommand command = new BookHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", ADDRESS,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, zt(CHECK_IN));
+
+        assertThat(command.execute(new BookHotelContext(at(NOW))).toList())
+                .as("cancelling right up to the moment you check in is a real hotel policy")
+                .hasSize(1);
+    }
+
+    @Test
+    void cancelByAfterCheckInThrowsInvalidCancelByDate() {
+        BookHotelCommand command = new BookHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", ADDRESS,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, zt(CHECK_IN.plusMinutes(1)));
+
+        assertThatThrownBy(() -> command.execute(new BookHotelContext(at(NOW))))
+                .isInstanceOf(InvalidCancelByDate.class);
+    }
+
     private static BookHotelCommand validCommand() {
         return new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null);
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, null);
     }
 
     private static ZonedTimestamp zt(LocalDateTime local) {

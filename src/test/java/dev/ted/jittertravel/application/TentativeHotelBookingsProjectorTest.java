@@ -53,10 +53,10 @@ class TentativeHotelBookingsProjectorTest {
         HotelBookingId id = HotelBookingId.random();
         HotelBooked booked = new HotelBooked(id, "Grand Hotel",
                 new Address("123 Main St", "Springfield", "IL", "62701", "US", null),
-                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null);
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, null);
         HotelChanged changed = new HotelChanged(id, "Seaside Resort",
                 new Address("1 Ocean Dr", "Miami", "FL", "33139", "US", null),
-                zt(CHECK_IN.plusDays(10)), zt(CHECK_OUT.plusDays(11)), BookingIntent.FINAL, null);
+                zt(CHECK_IN.plusDays(10)), zt(CHECK_OUT.plusDays(11)), BookingIntent.FINAL, null, null);
 
         projector.handle(Stream.of(stored(booked), stored(changed)));
 
@@ -84,6 +84,7 @@ class TentativeHotelBookingsProjectorTest {
                 zt(CHECK_IN),
                 zt(CHECK_OUT),
                 BookingIntent.TENTATIVE,
+                null,
                 null
         );
     }

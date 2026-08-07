@@ -1,11 +1,12 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.BookHotelHandler;
 import dev.ted.jittertravel.application.HotelBooking;
+import dev.ted.jittertravel.application.HotelHandler;
 import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.BookHotelContext;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.CheckInNotInFuture;
+import dev.ted.jittertravel.domain.InvalidCancelByDate;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
 import org.junit.jupiter.api.Test;
 import org.springframework.validation.BeanPropertyBindingResult;
@@ -66,6 +67,34 @@ class BookHotelControllerValidationTest {
                 .isFalse();
     }
 
+    @Test
+    void cancelByAfterCheckInProducesFieldErrorOnCancelBy() {
+        HotelBooking service = mockService();
+        BookHotelRequest request = validRequest();
+        request.setCancelBy(request.getCheckIn().plusHours(1));
+        BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookHotel");
+
+        invokeService(service, request, bindingResult);
+
+        assertThat(bindingResult.hasFieldErrors("cancelBy"))
+                .as("Binding result must have a field error for cancelBy")
+                .isTrue();
+    }
+
+    @Test
+    void cancelByBeforeCheckInProducesNoBindingErrors() {
+        HotelBooking service = mockService();
+        BookHotelRequest request = validRequest();
+        request.setCancelBy(request.getCheckIn().minusDays(3));
+        BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookHotel");
+
+        invokeService(service, request, bindingResult);
+
+        assertThat(bindingResult.hasErrors())
+                .as("A deadline that precedes check-in is the normal case")
+                .isFalse();
+    }
+
     private void invokeService(HotelBooking service, BookHotelRequest request, BindingResult bindingResult) {
         try {
             service.bookHotel(request, NOW_INSTANT);
@@ -73,6 +102,8 @@ class BookHotelControllerValidationTest {
             bindingResult.rejectValue("checkIn", "future", e.getMessage());
         } catch (InvalidHotelDateRange e) {
             bindingResult.rejectValue("checkOut", "minOneDay", e.getMessage());
+        } catch (InvalidCancelByDate e) {
+            bindingResult.rejectValue("cancelBy", "notAfterCheckIn", e.getMessage());
         }
     }
 
@@ -97,7 +128,7 @@ class BookHotelControllerValidationTest {
         return new HotelBooking(null, new LocationZoneResolver()) {
             @Override
             public void bookHotel(BookHotelRequest request, Instant now) {
-                new BookHotelHandler(new LocationZoneResolver()).handle(request)
+                new HotelHandler(new LocationZoneResolver()).bookHotel(request)
                         .execute(new BookHotelContext(now));
             }
         };

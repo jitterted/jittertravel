@@ -35,7 +35,8 @@ class HotelDetailsViewProjectorTest {
                 id, "Grand Hotel", BERLIN,
                 zt(LocalDateTime.of(2026, 7, 1, 15, 0)),
                 zt(LocalDateTime.of(2026, 7, 5, 11, 0)),
-                BookingIntent.TENTATIVE, "https://maps.example/grand");
+                BookingIntent.TENTATIVE, "https://maps.example/grand",
+                zt(LocalDateTime.of(2026, 6, 24, 18, 0)));
 
         projector.handle(Stream.of(stored(event)));
 
@@ -54,6 +55,9 @@ class HotelDetailsViewProjectorTest {
                 .isEqualTo(BookingIntent.TENTATIVE);
         assertThat(view.get().mapsUrl())
                 .isEqualTo("https://maps.example/grand");
+        assertThat(view.get().cancelBy())
+                .as("the deadline reaches the edit form as the wall-clock the hotel meant")
+                .isEqualTo(LocalDateTime.of(2026, 6, 24, 18, 0));
     }
 
     @Test
@@ -64,12 +68,12 @@ class HotelDetailsViewProjectorTest {
                 id, "Grand Hotel", BERLIN,
                 zt(LocalDateTime.of(2026, 7, 1, 15, 0)),
                 zt(LocalDateTime.of(2026, 7, 5, 11, 0)),
-                BookingIntent.TENTATIVE, "");
+                BookingIntent.TENTATIVE, "", zt(LocalDateTime.of(2026, 6, 24, 18, 0)));
         HotelChanged changed = new HotelChanged(
                 id, "Bavaria Inn", MUNICH,
                 zt(LocalDateTime.of(2026, 8, 2, 16, 0)),
                 zt(LocalDateTime.of(2026, 8, 6, 10, 0)),
-                BookingIntent.FINAL, "https://maps.example/bavaria");
+                BookingIntent.FINAL, "https://maps.example/bavaria", null);
 
         projector.handle(Stream.of(stored(booked), stored(changed)));
 
@@ -86,6 +90,9 @@ class HotelDetailsViewProjectorTest {
                 .isEqualTo(BookingIntent.FINAL);
         assertThat(view.mapsUrl())
                 .isEqualTo("https://maps.example/bavaria");
+        assertThat(view.cancelBy())
+                .as("the change carried no deadline, so the snapshot must clear the earlier one")
+                .isNull();
     }
 
     @Test

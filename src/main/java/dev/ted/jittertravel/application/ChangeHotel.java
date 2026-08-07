@@ -29,7 +29,7 @@ public class ChangeHotel {
     }
 
     public void changeHotel(UUID commandId, ChangeHotelRequest request, Instant now) {
-        ChangeHotelCommand command = new ChangeHotelHandler(zoneResolver).handle(request);
+        ChangeHotelCommand command = new HotelHandler(zoneResolver).changeHotel(request);
         boolean bookingExists = detailsProjector.findById(command.hotelBookingId()).isPresent();
         ChangeHotelContext context = new ChangeHotelContext(bookingExists, now);
         commandExecutor.execute(commandId, request, context, command);

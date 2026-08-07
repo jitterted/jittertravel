@@ -62,7 +62,8 @@ class ChangeHotelControllerTest {
                 LocalDateTime.of(2026, 7, 1, 15, 0),
                 LocalDateTime.of(2026, 7, 5, 11, 0),
                 BookingIntent.TENTATIVE,
-                "https://maps.example/grand");
+                "https://maps.example/grand",
+                LocalDateTime.of(2026, 6, 24, 18, 0));
         given(detailsProjector.findById(any())).willReturn(Optional.of(view));
 
         assertThat(mockMvc.get().uri("/booked-hotels/" + bookingId))

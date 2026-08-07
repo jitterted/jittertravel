@@ -212,6 +212,17 @@
 
         <div class="field" style="margin-bottom: 0.75rem;">
             <label>
+                Free cancellation until (optional)
+                <input type="datetime-local" th:field="*{cancelBy}"/>
+            </label>
+            <span class="hint">Clearing this removes the deadline. Must be on or before check-in; beyond that it's informational only — nothing else keys off it</span>
+            <span class="error"
+                  th:if="${#fields.hasErrors('cancelBy')}"
+                  th:errors="*{cancelBy}"></span>
+        </div>
+
+        <div class="field" style="margin-bottom: 0.75rem;">
+            <label>
                 Time zone
                 <select th:field="*{zone}">
                     <option value="">Derive from location (default)</option>

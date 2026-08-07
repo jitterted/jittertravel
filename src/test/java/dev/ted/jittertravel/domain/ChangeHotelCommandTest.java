@@ -53,7 +53,7 @@ class ChangeHotelCommandTest {
     void checkInInPastThrowsCheckInNotInFuture() {
         ChangeHotelCommand command = new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                zt(NOW.minusHours(1)), zt(CHECK_OUT), BookingIntent.FINAL, null);
+                zt(NOW.minusHours(1)), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
 
         assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, at(NOW))))
                 .isInstanceOf(CheckInNotInFuture.class);
@@ -63,7 +63,7 @@ class ChangeHotelCommandTest {
     void checkInExactlyNowIsNotAcceptedMustBeStrictlyAfter() {
         ChangeHotelCommand command = new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                zt(NOW), zt(CHECK_OUT), BookingIntent.FINAL, null);
+                zt(NOW), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
 
         assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, at(NOW))))
                 .isInstanceOf(CheckInNotInFuture.class);
@@ -73,7 +73,7 @@ class ChangeHotelCommandTest {
     void checkOutOnSameDayAsCheckInThrowsInvalidHotelDateRange() {
         ChangeHotelCommand command = new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                zt(CHECK_IN), zt(CHECK_IN.withHour(23).withMinute(59)), BookingIntent.FINAL, null);
+                zt(CHECK_IN), zt(CHECK_IN.withHour(23).withMinute(59)), BookingIntent.FINAL, null, null);
 
         assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, at(NOW))))
                 .isInstanceOf(InvalidHotelDateRange.class);
@@ -84,16 +84,50 @@ class ChangeHotelCommandTest {
         // A non-existent booking with otherwise-invalid dates still fails as HotelBookingNotFound first.
         ChangeHotelCommand command = new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                zt(NOW.minusHours(1)), zt(CHECK_OUT), BookingIntent.FINAL, null);
+                zt(NOW.minusHours(1)), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
 
         assertThatThrownBy(() -> command.execute(new ChangeHotelContext(false, at(NOW))))
                 .isInstanceOf(HotelBookingNotFound.class);
     }
 
+    @Test
+    void cancelByIsCarriedOntoTheChangedSnapshot() {
+        LocalDateTime deadline = CHECK_IN.minusDays(2);
+        ChangeHotelCommand command = new ChangeHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", ADDRESS,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, zt(deadline));
+
+        HotelChanged event = command.execute(new ChangeHotelContext(true, at(NOW))).toList().getFirst();
+
+        assertThat(event.cancelBy())
+                .isEqualTo(zt(deadline));
+    }
+
+    @Test
+    void changeWithoutCancelByClearsTheDeadlineBecauseTheEventIsAFullSnapshot() {
+        HotelChanged event = validCommand()
+                .execute(new ChangeHotelContext(true, at(NOW)))
+                .toList().getFirst();
+
+        assertThat(event.cancelBy())
+                .as("an omitted deadline is stored as absent — callers must resubmit it to keep it")
+                .isNull();
+    }
+
+    @Test
+    void cancelByAfterCheckInThrowsInvalidCancelByDate() {
+        ChangeHotelCommand command = new ChangeHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", ADDRESS,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, zt(CHECK_IN.plusMinutes(1)));
+
+        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, at(NOW))))
+                .isInstanceOf(InvalidCancelByDate.class);
+    }
+
     private static ChangeHotelCommand validCommand() {
         return new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null);
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
     }
 
     private static ZonedTimestamp zt(LocalDateTime local) {

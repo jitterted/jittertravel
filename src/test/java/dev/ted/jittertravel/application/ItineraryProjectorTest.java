@@ -285,7 +285,7 @@ class ItineraryProjectorTest {
         HotelBooked event = new HotelBooked(
                 HotelBookingId.random(), "Marriott Downtown",
                 new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
-                zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null);
+                zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null, null);
 
         projector.handle(Stream.of(stored(event)));
 
@@ -314,7 +314,7 @@ class ItineraryProjectorTest {
         HotelBooked event = new HotelBooked(
                 HotelBookingId.random(), "Marriott Downtown",
                 new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
-                zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null);
+                zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null, null);
 
         projector.handle(Stream.of(stored(event)));
 
@@ -335,13 +335,13 @@ class ItineraryProjectorTest {
         HotelBooked booked = new HotelBooked(
                 id, "Marriott Downtown",
                 new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
-                zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null);
+                zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null, null);
         LocalDate newCheckIn = DATE.plusDays(10);
         LocalDate newCheckOut = DATE.plusDays(12);
         HotelChanged changed = new HotelChanged(
                 id, "Hilton Union Square",
                 new Address("333 O'Farrell St", "San Francisco", "CA", "94102", "USA", null),
-                zt(newCheckIn.atTime(16, 0)), zt(newCheckOut.atTime(10, 0)), BookingIntent.FINAL, null);
+                zt(newCheckIn.atTime(16, 0)), zt(newCheckOut.atTime(10, 0)), BookingIntent.FINAL, null, null);
 
         projector.handle(Stream.of(stored(booked), stored(changed)));
 
@@ -439,7 +439,7 @@ class ItineraryProjectorTest {
         HotelBooked hotel = new HotelBooked(
                 HotelBookingId.random(), "Grand Hotel",
                 new Address("1 Main St", "Amsterdam", "", "1000", "NL", null),
-                zt(date.minusDays(3).atTime(15, 0)), zt(date.atTime(7, 0)), BookingIntent.FINAL, null);
+                zt(date.minusDays(3).atTime(15, 0)), zt(date.atTime(7, 0)), BookingIntent.FINAL, null, null);
 
         // Train departs 7:51 AM
         TrainStationAddress amsterdam = new TrainStationAddress("Amsterdam Centraal", "Amsterdam", "NL", "");

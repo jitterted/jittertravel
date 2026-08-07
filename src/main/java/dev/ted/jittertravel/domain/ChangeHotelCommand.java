@@ -9,8 +9,10 @@ import java.util.stream.Stream;
  *   <li>The booking must already exist ({@link HotelBookingNotFound} otherwise).</li>
  *   <li>The new check-in date/time must be in the future ({@link CheckInNotInFuture}).</li>
  *   <li>Check-out must be at least one calendar day after check-in ({@link InvalidHotelDateRange}).</li>
+ *   <li>An optional cancel-by deadline must not fall after check-in ({@link InvalidCancelByDate}).</li>
  * </ul>
- * Emits a single {@link HotelChanged} event carrying the full new snapshot.
+ * Emits a single {@link HotelChanged} event carrying the full new snapshot — including
+ * {@code cancelBy}, which a caller that omits it therefore clears.
  */
 public record ChangeHotelCommand(
         HotelBookingId hotelBookingId,
@@ -19,7 +21,8 @@ public record ChangeHotelCommand(
         ZonedTimestamp checkIn,
         ZonedTimestamp checkOut,
         BookingIntent bookingIntent,
-        String mapsUrl
+        String mapsUrl,
+        ZonedTimestamp cancelBy
 ) implements DomainCommand<ChangeHotelContext> {
 
     @Override
@@ -37,7 +40,10 @@ public record ChangeHotelCommand(
             throw new InvalidHotelDateRange(
                     "Check-out must be at least one calendar day after check-in");
         }
+        if (cancelBy != null && cancelBy.utc().isAfter(checkIn.utc())) {
+            throw new InvalidCancelByDate("Cancel-by deadline must not be after check-in");
+        }
         return Stream.of(new HotelChanged(hotelBookingId, hotelName, address, checkIn, checkOut,
-                bookingIntent, mapsUrl));
+                bookingIntent, mapsUrl, cancelBy));
     }
 }

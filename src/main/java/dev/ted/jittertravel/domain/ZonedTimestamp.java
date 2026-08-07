@@ -35,6 +35,15 @@ public record ZonedTimestamp(Instant utc, ZoneId zone) {
         return new ZonedTimestamp(wallClock.atZone(zone).toInstant(), zone);
     }
 
+    /**
+     * {@link #fromLocal} for an <em>optional</em> wall-clock: absent stays absent all the way down,
+     * rather than becoming a timestamp or tripping the compact constructor. Optional event fields
+     * (a hotel's free-cancellation deadline) use this so their null survives the conversion.
+     */
+    public static ZonedTimestamp fromNullableLocal(LocalDateTime wallClock, ZoneId zone) {
+        return wallClock == null ? null : fromLocal(wallClock, zone);
+    }
+
     /** The moment in the entry's own zone (the wall-clock originally entered). */
     public ZonedDateTime atEntryZone() {
         return utc.atZone(zone);

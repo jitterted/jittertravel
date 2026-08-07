@@ -76,6 +76,9 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
                 .hasAtLeastOneElementOfType(GatheringPlanned.class)
                 .hasAtLeastOneElementOfType(ConferenceCancelled.class)
                 .hasAtLeastOneElementOfType(DifferentCityConflictCleared.class);
+        assertThat(onlyEventOfType(HotelBooked.class).cancelBy())
+                .as("sanity: the booking really carries a deadline, so the comparison below tests it")
+                .isNotNull();
 
         String exported = commandImporter.exportJson();
 
@@ -147,6 +150,37 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         assertThat(conference.endDate())
                 .isEqualTo(ZonedTimestamp.fromLocal(
                         LocalDateTime.of(2026, 9, 17, 17, 0), ZoneId.of("America/Los_Angeles")));
+    }
+
+    /**
+     * The hotel cancel-by deadline was added after this backup format was already in the wild, so a
+     * file with no {@code cancelBy} key must still import — Jackson leaves the request field null
+     * and the absence travels all the way to the event.
+     */
+    @Test
+    void backupWrittenBeforeCancelByExistedImportsWithNoDeadline() {
+        String legacyBackup = """
+                [
+                  {"type": "BookHotel", "payload": {
+                    "hotelBookingId": "55555555-5555-5555-5555-555555555555",
+                    "hotelName": "Hotel Okura",
+                    "street": "2-10-4 Toranomon", "city": "Tokyo", "region": "",
+                    "postalCode": "105-0001", "country": "Japan", "locationForMatching": "Tokyo",
+                    "mapsUrl": "",
+                    "checkIn": "2026-11-02T15:00:00", "checkOut": "2026-11-05T11:00:00",
+                    "bookingIntent": "FINAL"
+                  }}
+                ]
+                """;
+
+        CommandImporter.ImportResult result = commandImporter.importJson(legacyBackup);
+
+        assertThat(result.hasErrors())
+                .as("a backup with no cancelBy key must import unchanged: %s", result.errors())
+                .isFalse();
+        assertThat(onlyEventOfType(HotelBooked.class).cancelBy())
+                .as("an absent deadline stays absent rather than being invented")
+                .isNull();
     }
 
     /**
@@ -256,6 +290,9 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         r.setMapsUrl("");
         r.setCheckIn(FUTURE.atTime(15, 0));
         r.setCheckOut(FUTURE.plusDays(2).atTime(11, 0));
+        // The change below deliberately omits cancelBy, so one hotel command carries a deadline
+        // through the round trip and the other proves an absent one stays absent.
+        r.setCancelBy(FUTURE.minusDays(2).atTime(18, 0));
         r.setBookingIntent(BookingIntent.FINAL);
         return r;
     }

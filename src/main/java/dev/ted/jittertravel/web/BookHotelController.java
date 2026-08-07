@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.HotelBooking;
 import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.CheckInNotInFuture;
 import dev.ted.jittertravel.domain.CommonZone;
+import dev.ted.jittertravel.domain.InvalidCancelByDate;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -56,6 +57,8 @@ public class BookHotelController {
             bindingResult.rejectValue("checkIn", "future", e.getMessage());
         } catch (InvalidHotelDateRange e) {
             bindingResult.rejectValue("checkOut", "minOneDay", e.getMessage());
+        } catch (InvalidCancelByDate e) {
+            bindingResult.rejectValue("cancelBy", "notAfterCheckIn", e.getMessage());
         } catch (ZoneResolutionException e) {
             bindingResult.rejectValue("zone", "zoneUnresolved",
                     "Could not determine the time zone from the location — please choose one.");

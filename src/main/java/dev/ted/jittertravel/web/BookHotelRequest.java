@@ -1,6 +1,6 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.BookHotelHandler;
+import dev.ted.jittertravel.application.HotelHandler;
 import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.BookHotelContext;
 import dev.ted.jittertravel.domain.BookingIntent;
@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-public class BookHotelRequest implements ImportableCommand {
+public class BookHotelRequest implements ImportableCommand, HotelStayRequest {
     private String hotelBookingId;
     private String hotelName;
     private String street;
@@ -29,6 +29,9 @@ public class BookHotelRequest implements ImportableCommand {
     private LocalDateTime checkIn;
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime checkOut;
+    // Optional free-cancellation deadline, read in the hotel's zone. Absent means none recorded.
+    @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
+    private LocalDateTime cancelBy;
     private BookingIntent bookingIntent;
 
     public String getHotelBookingId() { return hotelBookingId; }
@@ -65,6 +68,9 @@ public class BookHotelRequest implements ImportableCommand {
     public LocalDateTime getCheckOut() { return checkOut; }
     public void setCheckOut(LocalDateTime checkOut) { this.checkOut = checkOut; }
 
+    public LocalDateTime getCancelBy() { return cancelBy; }
+    public void setCancelBy(LocalDateTime cancelBy) { this.cancelBy = cancelBy; }
+
     public BookingIntent getBookingIntent() { return bookingIntent; }
     public void setBookingIntent(BookingIntent bookingIntent) { this.bookingIntent = bookingIntent; }
 
@@ -78,7 +84,7 @@ public class BookHotelRequest implements ImportableCommand {
 
     @Override
     public Stream<? extends Event> events() {
-        return new BookHotelHandler(new LocationZoneResolver()).handle(this)
+        return new HotelHandler(new LocationZoneResolver()).bookHotel(this)
                 .execute(new BookHotelContext(IMPORT_BYPASS_INSTANT));
     }
 }

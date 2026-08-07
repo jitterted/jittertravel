@@ -198,6 +198,9 @@ class GoldenEventDeserializationTest {
         assertThat(event.mapsUrl())
                 .as("mapsUrl absent in JSON must be empty — render-time generation applies")
                 .isEmpty();
+        assertThat(event.cancelBy())
+                .as("a payload written before cancel-by existed must read back as no deadline")
+                .isNull();
     }
 
     @Test
@@ -264,6 +267,36 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
+    void hotelBookedWithCancelByInPayloadPreservesTheDeadlineAndItsZone() {
+        String json = """
+                {
+                  "hotelBookingId": {"id": "33333333-3333-3333-3333-333333333333"},
+                  "hotelName": "Savoy",
+                  "address": {
+                    "street": "Strand",
+                    "city": "London",
+                    "region": "",
+                    "postalCode": "WC2R 0EZ",
+                    "country": "GB",
+                    "locationForMatching": "London"
+                  },
+                  "checkIn": {"utc": "2026-07-10T14:00:00Z", "zone": "Europe/London"},
+                  "checkOut": {"utc": "2026-07-12T10:00:00Z", "zone": "Europe/London"},
+                  "bookingIntent": "FINAL",
+                  "mapsUrl": "",
+                  "cancelBy": {"utc": "2026-07-08T17:00:00Z", "zone": "Europe/London"}
+                }
+                """;
+
+        HotelBooked event = deserialize(json, HotelBooked.class);
+
+        assertThat(event.cancelBy())
+                .as("the deadline is a moment in the hotel's zone, like check-in")
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 7, 8, 18, 0), ZoneId.of("Europe/London")));
+    }
+
+    @Test
     void hotelChangedPayloadWithoutMapsUrlDefaultsToEmpty() {
         String json = """
                 {
@@ -288,6 +321,9 @@ class GoldenEventDeserializationTest {
         assertThat(event.mapsUrl())
                 .as("mapsUrl absent in JSON must be empty — render-time generation applies")
                 .isEmpty();
+        assertThat(event.cancelBy())
+                .as("a snapshot written before cancel-by existed must read back as no deadline")
+                .isNull();
     }
 
     @Test

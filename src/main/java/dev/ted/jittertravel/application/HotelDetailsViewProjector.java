@@ -5,6 +5,7 @@ import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelChanged;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
@@ -30,10 +31,12 @@ public class HotelDetailsViewProjector implements EventStreamConsumer {
             switch (stored.payload()) {
                 case HotelBooked e -> viewsById.put(e.hotelBookingId(), toView(
                         e.hotelBookingId(), e.hotelName(), e.address(),
-                        e.checkIn().localDateTime(), e.checkOut().localDateTime(), e.bookingIntent(), e.mapsUrl()));
+                        e.checkIn().localDateTime(), e.checkOut().localDateTime(), e.bookingIntent(),
+                        e.mapsUrl(), localDateTime(e.cancelBy())));
                 case HotelChanged e -> viewsById.put(e.hotelBookingId(), toView(
                         e.hotelBookingId(), e.hotelName(), e.address(),
-                        e.checkIn().localDateTime(), e.checkOut().localDateTime(), e.bookingIntent(), e.mapsUrl()));
+                        e.checkIn().localDateTime(), e.checkOut().localDateTime(), e.bookingIntent(),
+                        e.mapsUrl(), localDateTime(e.cancelBy())));
                 default -> { /* not a hotel event */ }
             }
         });
@@ -45,9 +48,15 @@ public class HotelDetailsViewProjector implements EventStreamConsumer {
                                            LocalDateTime checkIn,
                                            LocalDateTime checkOut,
                                            BookingIntent bookingIntent,
-                                           String mapsUrl) {
+                                           String mapsUrl,
+                                           LocalDateTime cancelBy) {
         return new HotelDetailsView(hotelBookingId, hotelName, address,
-                checkIn, checkOut, bookingIntent, mapsUrl);
+                checkIn, checkOut, bookingIntent, mapsUrl, cancelBy);
+    }
+
+    /** The deadline is optional, so unlike check-in/check-out it survives as a null. */
+    private static LocalDateTime localDateTime(ZonedTimestamp cancelBy) {
+        return cancelBy == null ? null : cancelBy.localDateTime();
     }
 
     public Optional<HotelDetailsView> findById(HotelBookingId id) {

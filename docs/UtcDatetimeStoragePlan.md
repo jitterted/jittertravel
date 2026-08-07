@@ -1,6 +1,6 @@
 # Plan: Store datetimes as UTC + zone, evaluate by instant, display per viewer role
 
-## Status at a glance (updated 2026-08-05)
+## Status at a glance (updated 2026-08-05; checkboxes re-verified against the tree 2026-08-06)
 
 Legend: `[x]` done · `[~]` partially done · `[ ]` not started.
 
@@ -15,16 +15,21 @@ tracker; the review doc is a historical record and its checkboxes are no longer 
 | 2. Events & commands → `ZonedTimestamp` | `[x]` | — (all five types migrated) |
 | 3. Evaluation by instant | `[x]` | — (the conference stopgap is gone) |
 | 4. Display | `[x]` | — (all five renderers on `<time>`; browser-zone script, role switch, ANON toggle and the `js` tier all landed 2026-08-05) |
-| 5. Backward compatibility | `[~]` | legacy zone-less command round-trip tests; small golden/upcaster-test gaps (see phase 5) |
+| 5. Backward compatibility | `[x]` | — (round-trip and golden/upcaster gaps all landed; verified 2026-08-06) |
 | 6. Conventions & other consumers | `[x]` | — (no iCal/GCal export exists → n/a) |
 | 7. Full test pass | `[x]` | green 2026-08-05: "All Tests" (670, 0 failures) + `./mvnw test -Pjs-tests` |
 | R. Review fixes (2026-08-05) | `[x]` | R1 **dropped as not applicable**; R2 **done**; R3 **done** |
 
 **Next up:**
 
-Everything in this plan is done except the phase 5 test gaps listed there (legacy zone-less
-command round-trip cases and two golden/upcaster samples). Those are proof, not mechanism: the
-import path needs no upcaster by design (see phase 5), so nothing is blocked on them.
+Every phase is complete. The phase 5 items still shown open on 2026-08-05 were found already done
+when the plan was checked against the tree on 2026-08-06 — the flight and conference upcaster
+cases, the `GatheringChanged` legacy golden and the zone-less command round-trip all exist.
+
+What is left is *not* migration work: it is the non-blocking improvements list below. The one with
+real risk is **improvement 2, ISO alpha-2 country aliases** — `LocationZoneResolver` keys on country
+*names* (`"united kingdom"`, `"uk"`, … but no `"gb"`), while stored data is known to carry
+`"country": "GB"`, which fails strict resolution. Do it alongside the audit re-run below.
 
 **Before the next deploy:** re-run `/admin/zone-audit` (phase 5).
 
@@ -253,7 +258,7 @@ directly (per renderer/services testing convention).
 Shipped: `ZonedTimestamp`, `CommonZone`, `LocationZoneResolver`, `AirportZoneResolver`,
 `StationZone`, `FlightEndpointZone`, `ZoneResolutionException`, each with unit tests.
 
-### 2. Events & commands → `ZonedTimestamp` — `[~]` conference is the only type left
+### 2. Events & commands → `ZonedTimestamp` — `[x]` all five types migrated
 Remaining work is planned in detail in `docs/GatheringConferenceUtcRolloutPlan.md` (previous slice:
 `docs/TrainFlightUtcRolloutPlan.md`).
 
@@ -328,7 +333,7 @@ Original spec, still authoritative for the conference type:
   settled the picker behavior: prefill the entry-zone wall-clock and leave the picker on "derive
   from location", matching the hotel edit form — not "preselect the stored zone".)
 
-### 3. Evaluation — `[~]` mechanism done, one view left on the stopgap
+### 3. Evaluation — `[x]` done 2026-08-05 (the conference stopgap is gone)
 `TemporalView.relevantUntil()` returns `Instant`; views derive it from their end `ZonedTimestamp`.
 `TimeView.includes(...)` compares `Instant`s; the five list controllers pass `Instant.now()`.
 
@@ -403,7 +408,7 @@ Spec for the remaining items:
     returns to the entry-local baseline. If the toggle persists via `?tz=`/`localStorage`, assert
     the choice survives a reload. No server/Spring/DB/auth — JS only.
 
-### 5. Backward compatibility — `[~]` event path covered; import path needs no upcaster (by design)
+### 5. Backward compatibility — `[x]` event path covered; import path needs no upcaster (by design)
 
 - `[x]` Zone audit shipped (`/admin/zone-audit`, `LocationZoneAudit`) and **passed 2026-06-21**
   (17 locations, all resolved). **Must be re-run before the conference deploy:**
@@ -421,9 +426,13 @@ Spec for the remaining items:
 - `[x]` Done 2026-08-05: `conferenceTentativelyPlannedLegacyPayloadWithStateFieldDeserializes`
   now goes through `deserializeLegacy` and asserts the venue-zone instants, and
   `conferenceTentativelyPlannedNewShapePayloadDeserializes` sits beside it.
-- `[ ]` Remaining upcaster/golden test gaps: see test backfill items 2–3 (flight cases in
-  `EventPayloadUpcasterTest`; a `GatheringChanged` legacy golden sample).
-- `[ ]` Legacy zone-less command **round-trip import** cases: see test backfill item 4.
+- `[x]` Upcaster/golden test gaps closed (test backfill items 2–3, confirmed present 2026-08-06):
+  `EventPayloadUpcasterTest` covers `FlightBooked`, `FlightChanged`, a new-shape flight
+  pass-through and the conference case; the `GatheringChanged` legacy golden is
+  `GoldenEventDeserializationTest.legacyGatheringChangedWallClockTrioIsUpcastToStartsAtAndEndsAt`.
+- `[x]` Legacy zone-less command **round-trip import** (test backfill item 4, confirmed present
+  2026-08-06):
+  `CommandExportImportRoundTripTest.legacyZoneLessCommandsImportAndDeriveTheirZonesFromTheLocation`.
 
 **Import path — no command upcaster, by design** (corrected 2026-08-05; the earlier "the
 `command_log`/import path is not upcast and `CommandImporter` needs the upcaster" framing was
@@ -470,7 +479,8 @@ Green 2026-08-05: "All Tests" IDEA run configuration (670 tests, 0 failures) and
 
 ## Test backfill (from the 2026-08-05 review §4)
 
-**Complete as of 2026-08-05 except item 9, which belongs to phase 4.** Every item below was
+**Complete** — every item is done (item 6 dropped with R1), re-verified against the tree
+2026-08-06. Every item below was
 mutation-verified: the production code was temporarily broken in a way the test should catch, the
 failure confirmed, and the code restored. Item 8 found a live bug that way.
 
@@ -561,8 +571,8 @@ failure confirmed, and the code restored. Item 8 found a live bug that way.
 ## Verification
 
 Status: 1 `[x]` (hotel filtering fixed in `5dab535`) · 2 `[x]` · 3 `[x]` (train) · 4 `[x]`
-(entry-zone validation done for all five types as of 2026-08-05) · 5 `[~]` (legacy goldens through
-the upcaster exist for all five; zone-less command round-trip missing) · 6 `[x]` · 7 `[x]` ·
+(entry-zone validation done for all five types as of 2026-08-05) · 5 `[x]` (legacy goldens through
+the upcaster exist for all five, and the zone-less command round-trip landed) · 6 `[x]` · 7 `[x]` ·
 8 ~~resume idempotence~~ (dropped with R1 — no re-import workflow).
 
 1. **Bug repro:** a hotel with checkout earlier today shows under `/booked-hotels` (FUTURE) pre-fix;

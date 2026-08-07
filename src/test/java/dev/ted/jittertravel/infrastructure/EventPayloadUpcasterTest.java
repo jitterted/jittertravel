@@ -5,7 +5,6 @@ import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightChanged;
-import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.TrainBooked;

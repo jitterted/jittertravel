@@ -2,7 +2,8 @@
 
 A running list of smaller fixes, cleanups, and tech-debt items that don't warrant a
 dedicated planning doc. Add an item when you notice it; check it off (or delete it) when
-done. For larger structural refactors, see `Refactoring_Opportunities.md`.
+done. For larger structural refactors, see `Refactoring_Opportunities.md`. For an index of every
+plan doc and its status — including these items — see `Backlog.md`.
 
 ## Open
 

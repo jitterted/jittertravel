@@ -93,10 +93,11 @@ birth.
 
 ---
 
-## Phase 1 — `HotelBooked` schema change (highest backward-compat risk) — DONE (uncommitted)
+## Phase 1 — `HotelBooked` schema change (highest backward-compat risk) — DONE
 
-*Implemented in the working tree and code-reviewed 2026-08-07: no correctness defects; the
-review's three nits are in "Open follow-ups" at the end of this doc.*
+*Code-reviewed 2026-08-07 (no correctness defects) and committed as `4efccaf`, "Record a hotel's
+free-cancellation deadline". The review's three nits are in "Open follow-ups" at the end of this
+doc.*
 
 **Refreshed 2026-08-07, three deviations from the plan as first written:**
 

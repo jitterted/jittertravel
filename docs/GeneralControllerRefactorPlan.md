@@ -512,6 +512,15 @@ public enum NavArea {
 
 ## Open items before I consider this done
 
+> **Status: RESOLVED except item 3 (verified against the tree 2026-08-07).** Item 1 was settled
+> the recommended way — `AuthorizationMatrixTest` asserts the security *decision* via an
+> `Outcome` enum, not concrete status codes. Item 2 was taken: `/booked-flights/abc` is a matrix
+> row (`AuthorizationMatrixTest.java:67`). Item 3 (`data-testid` nav markers) was never done and
+> is tracked in `docs/Backlog.md`.
+>
+> The "Option 2" migration checklist above duplicates `docs/authorization_policy_centralization.md`,
+> which is the live tracker for that work. Do not maintain both.
+
 1. **Question D (matrix scope):** load the full web layer (mock many collaborators) so `OK` rows are real, **or** make the matrix assert the security *decision* only (redirect vs. not). My recommendation is the security-decision-only approach — focused on authorization, no extra mocks. Confirm and I'll finalize `AuthorizationMatrixTest` accordingly (the current draft uses concrete status codes, which needs the full layer for the `OK` rows on non-`GeneralController` routes).
 
 2. **`/booked-flights/{id}` edit row:** I dropped its dedicated anonymous test from `SecurityAuthorizationTest`. Want me to add it as a matrix row (`OWNER=OK-ish, FAMILY=DENIED_HOME, ANON=LOGIN`)? It's a good regression guard for the "list public-ish vs. edit protected" distinction.

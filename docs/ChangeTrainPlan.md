@@ -1,5 +1,9 @@
 # Plan: Change Train Trip (in-place edit)
 
+> **Status: DONE (2026-06-17, commit `8390262`).** `ChangeTrainController` /
+> `change-train.html` shipped and became the template every later in-place change slice was
+> modelled on. Kept as a design record; see `docs/Backlog.md` for what is still open.
+
 ## Context
 
 `/booked-trains` today is a read-only j2html list (with the shared FUTURE/ALL toggle) and

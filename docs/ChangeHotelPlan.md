@@ -1,5 +1,10 @@
 # Plan: Change Hotel Booking (in-place edit)
 
+> **Status: DONE (2026-06-21, commit `d98af11`).** `ChangeHotelController` /
+> `change-hotel.html` shipped with the itinerary edit-pencil. The cancel+replace model this
+> plan deliberately excluded is still open — see `docs/HotelCancelReplacePlan.md` and
+> `docs/Backlog.md`.
+
 ## Context
 
 `/booked-hotels` today is a read-only j2html list (with the shared FUTURE/ALL toggle) and no

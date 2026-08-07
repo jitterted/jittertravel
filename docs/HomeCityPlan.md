@@ -1,5 +1,9 @@
 # Home City Plan — stop reporting problems for being at home
 
+> **Status: DONE (2026-07-26, commit `26d15ac`).** `HomeCities` and the home-aware
+> `ScheduleGapProjector` guards shipped as planned. Kept as a design record; see
+> `docs/Backlog.md` for what is still open.
+
 ## Problem
 
 `ScheduleGapProjector` has no notion of a home location, so ordinary "I flew home" itineraries

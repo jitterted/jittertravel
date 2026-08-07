@@ -1,5 +1,10 @@
 # Plan: Change Gathering (in-place edit)
 
+> **Status: DONE (2026-07-25, commit `f28cb49`).** `ChangeGatheringController`,
+> `ChangeGatheringRequest` and `change-gathering.html` shipped. The out-of-scope UTC/zone
+> migration noted below landed separately (2026-07-27, commit `ddf4ba8`). Cancelling a gathering
+> is still open — see `docs/Backlog.md`.
+
 ## Context
 
 `/planned-gatherings` is a read-only j2html list (with the shared FUTURE/ALL toggle) and there is

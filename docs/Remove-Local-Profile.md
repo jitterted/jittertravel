@@ -1,5 +1,9 @@
 # Removing the `local` profile — converge on a single secured chain
 
+> **Status: DONE (2026-06-17, commit `e962915`).** `application-local.properties` is gone,
+> `SecurityConfig` has a single always-on chain, and local development runs on `prod-preview`.
+> Kept as a design record; see `docs/Backlog.md` for what is still open.
+
 ## Motivation
 
 The `local` profile activated a **second, permissive security chain** (`devFilterChain`:

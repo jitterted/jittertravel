@@ -1,5 +1,16 @@
 # j2html Migration Analysis — Read-Only View Pages
 
+> **Status: DONE (2026-06-06, commit `b0e6f11`).** Every read-only view listed here is now a
+> j2html renderer (`ConfirmedCalendarRenderer`, `ItineraryRenderer`, `ScheduleProblemsRenderer`,
+> `Booked{Flights,Hotels,Trains}Renderer`, `TentativeConferencesRenderer`,
+> `PlannedGatheringsRenderer`); the corresponding Thymeleaf templates are deleted and only forms,
+> admin pages, and the `address-paste` fragment remain on Thymeleaf.
+>
+> **Implemented differently from the plan:** the shared infrastructure in "Step 1" was not
+> extracted as proposed — only `web/Page.java` exists. There is no `TemporalFormatter`,
+> `ProblemCardRenderer`, or `EntryCardRenderer`; formatting and card markup live inside each
+> renderer. Extracting them is an open refactor, not migration work — see `docs/Backlog.md`.
+
 Analysis of converting all read-only view pages (projections) from Thymeleaf to j2html.
 Form templates (book-hotel, book-train, book-flight, plan-conference, plan-gathering) are
 explicitly excluded — they are well-served by Thymeleaf's `th:field` / `th:errors` binding and

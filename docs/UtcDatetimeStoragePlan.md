@@ -83,6 +83,27 @@ Fix: make time unambiguous end to end.
    keep their scalar wall-clock fields and gain only an optional `zone`. This is what keeps every
    pre-migration backup importable *without any command-path upcaster* (see phase 5).
 
+   **What this means for a backup file (written up 2026-08-06):** the `zone` field is the user's
+   explicit `CommonZone` **pick**, not the zone that was resolved. So:
+
+   - **`"zone": null` in an export is normal and correct**, not a defect. `command_log` stores the
+     serialized request (`PostgresPersister.saveCommand`) and export echoes that payload verbatim
+     (`CommandImporter.toExportEntry`), so a null field is written out as an explicit null. It
+     means "no pick — derive from the location", which is exactly how a *missing* key behaves
+     (`CommonZone.fromParam(null)` returns null). Pre-migration files have no `zone` key at all;
+     both import identically. Every entry showing null just means location resolution covered
+     everything and the picker was never needed.
+   - **A backup does not pin the instant.** Import re-derives the zone from the location through
+     the *current* resolver tables, so the same file can produce different instants after a
+     resolver change. That is the deliberate trade for wire-format stability, and it is what let
+     the 2026-08-06 state/province fix rescue an unimportable file — but it cuts both ways.
+     (That fix was purely additive: the region step only fires for USA/Canada/Australia, none of
+     which has a country-table entry, so every location that resolved before resolved by city and
+     still does.)
+   - **If pinning is ever wanted**, it is a real design change — store the *resolved* zone on the
+     request and have import prefer it over re-deriving — and it changes the wire format, so it
+     needs a backward-compatibility decision first. Not planned.
+
 ## Core representation
 
 ```java

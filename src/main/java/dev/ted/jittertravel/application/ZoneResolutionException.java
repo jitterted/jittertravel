@@ -14,7 +14,12 @@ public class ZoneResolutionException extends RuntimeException {
     }
 
     public ZoneResolutionException(String city, String country) {
-        super("Could not resolve a time zone from location: city='" + city + "', country='" + country + "'");
+        this(city, "", country);
+    }
+
+    public ZoneResolutionException(String city, String region, String country) {
+        super("Could not resolve a time zone from location: city='" + city + "', region='" + region
+              + "', country='" + country + "'");
     }
 
     public ZoneResolutionException(String airportCode) {
@@ -25,6 +30,7 @@ public class ZoneResolutionException extends RuntimeException {
         if (address == null) {
             return "<none>";
         }
-        return "city='" + address.city() + "', country='" + address.country() + "'";
+        return "city='" + address.city() + "', region='" + address.region()
+               + "', country='" + address.country() + "'";
     }
 }

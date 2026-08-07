@@ -62,7 +62,8 @@ public class EventPayloadUpcaster {
             return; // already a {utc, zone} object
         }
         ZoneId zone = locationZoneResolver.resolve(
-                addressField(object, "city"), addressField(object, "country"));
+                addressField(object, "city"), addressField(object, "region"),
+                addressField(object, "country"));
         object.set("checkIn", toZoned(checkIn.asText(), zone));
         object.set("checkOut", toZoned(object.get("checkOut").asText(), zone));
     }
@@ -81,6 +82,7 @@ public class EventPayloadUpcaster {
         }
         ZoneId zone = locationZoneResolver.resolve(
                 nestedText(object.get("location"), "city"),
+                nestedText(object.get("location"), "region"),
                 nestedText(object.get("location"), "country"));
         LocalDate localDate = LocalDate.parse(date.asText());
         object.set("startsAt", toZoned(localDate.atTime(localTime(object, "startTime")), zone));
@@ -102,6 +104,7 @@ public class EventPayloadUpcaster {
         }
         ZoneId zone = locationZoneResolver.resolve(
                 nestedText(object.get("venueAddress"), "city"),
+                nestedText(object.get("venueAddress"), "region"),
                 nestedText(object.get("venueAddress"), "country"));
         object.set("startDate", toZoned(startDate.asText(), zone));
         object.set("endDate", toZoned(object.get("endDate").asText(), zone));

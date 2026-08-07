@@ -16,6 +16,10 @@ class LocationZoneResolverTest {
         return new Address("", city, "", "", country, "");
     }
 
+    private static Address address(String city, String region, String country) {
+        return new Address("", city, region, "", country, "");
+    }
+
     @Test
     void resolvesSingleZoneCountryFromCountryName() {
         assertThat(resolver.resolve(address("Frankfurt", "Germany")))
@@ -60,5 +64,65 @@ class LocationZoneResolverTest {
     void throwsWhenCityCountryPairUnknown() {
         assertThatThrownBy(() -> resolver.resolve("Nowheresville", "Atlantis"))
                 .isInstanceOf(ZoneResolutionException.class);
+    }
+
+    // --- state/province resolution: the city table cannot list every small town, and for the
+    // multi-zone countries the country alone is ambiguous, so the region carries the answer.
+
+    @Test
+    void unknownUsTownResolvesFromItsStateAbbreviation() {
+        assertThat(resolver.resolve(address("Lone Tree", "CO", "USA")))
+                .as("a town the city table does not know resolves from its state")
+                .isEqualTo(ZoneId.of("America/Denver"));
+    }
+
+    @Test
+    void unknownCanadianTownResolvesFromItsSpelledOutProvince() {
+        assertThat(resolver.resolve(address("North Gower", "Ontario", "Canada")))
+                .as("stored data spells some regions out and abbreviates others; both must work")
+                .isEqualTo(ZoneId.of("America/Toronto"));
+    }
+
+    @Test
+    void stateAbbreviationAndFullNameResolveAlike() {
+        assertThat(resolver.resolve(address("Somewhere", "CA", "USA")))
+                .isEqualTo(resolver.resolve(address("Somewhere", "California", "USA")));
+    }
+
+    @Test
+    void cityStillWinsOverItsState() {
+        assertThat(resolver.resolve(address("Phoenix", "AZ", "USA")))
+                .as("the city table holds the exceptions, so it must be consulted first")
+                .isEqualTo(ZoneId.of("America/Phoenix"));
+    }
+
+    @Test
+    void regionIsScopedToItsCountry() {
+        assertThat(resolver.resolve(address("Somewhere", "WA", "USA")))
+                .isEqualTo(ZoneId.of("America/Los_Angeles"));
+        assertThat(resolver.resolve(address("Somewhere", "WA", "Australia")))
+                .as("WA is Washington in the USA and Western Australia in Australia — the same key "
+                    + "must not resolve to one zone for both")
+                .isEqualTo(ZoneId.of("Australia/Perth"));
+    }
+
+    @Test
+    void regionIsIgnoredForSingleZoneCountries() {
+        assertThat(resolver.resolve(address("Steventon", "Abingdon", "UK")))
+                .as("a non-region region ('Abingdon' is a town) must not block the country fallback")
+                .isEqualTo(ZoneId.of("Europe/London"));
+    }
+
+    @Test
+    void unknownRegionInAMultiZoneCountryStillThrows() {
+        assertThatThrownBy(() -> resolver.resolve(address("Nowheresville", "XX", "USA")))
+                .as("there is no country-level default for a multi-zone country — it must fail loudly")
+                .isInstanceOf(ZoneResolutionException.class);
+    }
+
+    @Test
+    void failureMessageNamesTheRegionItTried() {
+        assertThatThrownBy(() -> resolver.resolve(address("Nowheresville", "XX", "USA")))
+                .hasMessageContaining("region='XX'");
     }
 }

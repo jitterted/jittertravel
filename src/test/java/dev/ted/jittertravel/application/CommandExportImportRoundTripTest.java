@@ -149,6 +149,61 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
                         LocalDateTime.of(2026, 9, 17, 17, 0), ZoneId.of("America/Los_Angeles")));
     }
 
+    /**
+     * The venues that broke a real production import: small towns in multi-zone countries, where the
+     * city table has no entry and the country is ambiguous by construction. Their zone comes from the
+     * state/province the address already carries — abbreviated in one entry and spelled out in the
+     * other, because stored data uses both.
+     */
+    @Test
+    void conferencesInUnlistedTownsResolveTheirZoneFromTheStateOrProvince() {
+        String backup = """
+                [
+                  {"type": "PlanTentativeConference", "payload": {
+                    "conferenceId": "99999999-9999-9999-9999-999999999999",
+                    "name": "dev2next",
+                    "startDate": "2026-10-12T09:00:00", "endDate": "2026-10-15T16:00:00",
+                    "venueName": "Denver Marriott South at Park Meadows",
+                    "venueStreet": "10345 Park Meadows Drive",
+                    "venueCity": "Lone Tree", "venueState": "CO",
+                    "venueCountry": "USA", "venuePostalCode": "80124"
+                  }},
+                  {"type": "PlanTentativeConference", "payload": {
+                    "conferenceId": "aaaaaaaa-9999-9999-9999-999999999999",
+                    "name": "PLoP Conference",
+                    "startDate": "2026-10-19T09:00:00", "endDate": "2026-10-22T17:00:00",
+                    "venueName": "Strathmere Country Retreat",
+                    "venueStreet": "1980 Phelan Road W",
+                    "venueCity": "North Gower", "venueState": "Ontario",
+                    "venueCountry": "Canada", "venuePostalCode": "K0A 2T0"
+                  }}
+                ]
+                """;
+
+        CommandImporter.ImportResult result = commandImporter.importJson(backup);
+
+        assertThat(result.hasErrors())
+                .as("a town absent from the city table must still import: %s", result.errors())
+                .isFalse();
+        assertThat(conferenceNamed("dev2next").startDate())
+                .as("09:00 in Lone Tree is 15:00Z — Mountain, from CO")
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 10, 12, 9, 0), ZoneId.of("America/Denver")));
+        assertThat(conferenceNamed("PLoP Conference").startDate())
+                .as("09:00 in North Gower is 13:00Z — Eastern, from Ontario")
+                .isEqualTo(ZonedTimestamp.fromLocal(
+                        LocalDateTime.of(2026, 10, 19, 9, 0), ZoneId.of("America/Toronto")));
+    }
+
+    private ConferenceTentativelyPlanned conferenceNamed(String name) {
+        return currentEvents().stream()
+                .filter(ConferenceTentativelyPlanned.class::isInstance)
+                .map(ConferenceTentativelyPlanned.class::cast)
+                .filter(conference -> conference.name().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no conference named " + name + " was imported"));
+    }
+
     private <T extends Event> T onlyEventOfType(Class<T> type) {
         return currentEvents().stream()
                 .filter(type::isInstance)

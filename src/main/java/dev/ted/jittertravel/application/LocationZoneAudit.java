@@ -40,7 +40,7 @@ public class LocationZoneAudit {
         for (AuditedLocation audited : cities) {
             CityCountry location = audited.location();
             classify(Kind.LOCATION, location.label(), audited.sources(),
-                    () -> locationResolver.resolve(location.city(), location.country()),
+                    () -> locationResolver.resolve(location.city(), location.region(), location.country()),
                     resolved, unresolved);
         }
         for (AuditedAirport audited : airports) {

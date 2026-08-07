@@ -81,18 +81,18 @@ public class LocationAuditProjector implements EventStreamConsumer {
 
     private void addAddress(Address address, EventReference source) {
         if (address != null) {
-            addCity(address.city(), address.country(), source);
+            addCity(address.city(), address.region(), address.country(), source);
         }
     }
 
     private void addStation(TrainStationAddress station, EventReference source) {
         if (station != null) {
-            addCity(station.city(), station.country(), source);
+            addCity(station.city(), "", station.country(), source);
         }
     }
 
-    private void addCity(String city, String country, EventReference source) {
-        CityCountry location = new CityCountry(city, country);
+    private void addCity(String city, String region, String country, EventReference source) {
+        CityCountry location = new CityCountry(city, region, country);
         citiesByKey.computeIfAbsent(key(location), key -> new AuditedLocation(location, new ArrayList<>()))
                 .sources().add(source);
     }
@@ -106,10 +106,11 @@ public class LocationAuditProjector implements EventStreamConsumer {
 
     private String key(CityCountry location) {
         return location.city().trim().toLowerCase(Locale.ROOT)
+               + "|" + location.region().trim().toLowerCase(Locale.ROOT)
                + "|" + location.country().trim().toLowerCase(Locale.ROOT);
     }
 
-    /** A distinct city/country location plus every event that referenced it. */
+    /** A distinct city/region/country location plus every event that referenced it. */
     public record AuditedLocation(CityCountry location, List<EventReference> sources) {
     }
 

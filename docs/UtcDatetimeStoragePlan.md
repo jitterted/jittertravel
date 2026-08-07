@@ -26,10 +26,12 @@ Every phase is complete. The phase 5 items still shown open on 2026-08-05 were f
 when the plan was checked against the tree on 2026-08-06 — the flight and conference upcaster
 cases, the `GatheringChanged` legacy golden and the zone-less command round-trip all exist.
 
-What is left is *not* migration work: it is the non-blocking improvements list below. The one with
-real risk is **improvement 2, ISO alpha-2 country aliases** — `LocationZoneResolver` keys on country
-*names* (`"united kingdom"`, `"uk"`, … but no `"gb"`), while stored data is known to carry
-`"country": "GB"`, which fails strict resolution. Do it alongside the audit re-run below.
+What is left is *not* migration work: it is the non-blocking improvements list below.
+
+**2026-08-06, found in production:** importing the real command backup failed on three
+conferences — Lone Tree CO, North Kawartha ON, North Gower ON. Fixed by adding a
+**state/province step** to `LocationZoneResolver` (see improvement 2); the remaining piece of that
+item is alpha-2 aliases for *single-zone* countries (`GB`).
 
 **Before the next deploy:** re-run `/admin/zone-audit` (phase 5).
 
@@ -539,11 +541,23 @@ failure confirmed, and the code restored. Item 8 found a live bug that way.
    the ISO-code aliases below). If that happens, thread the resolver through `events(...)` (or an
    import context parameter) in one sweep — the interface change touches all eleven
    implementations. Not worth doing preemptively; written down so it's a decision, not a surprise.
-2. `[ ]` **ISO alpha-2 country aliases for single-zone countries.** The gathering slice's
-   watch-out ("a manually-typed `GB` does not resolve") already bit test fixtures, and hotel
-   golden samples store `"country": "GB"` — evidence real data can carry codes. Aliases for
-   single-zone countries only (never multi-zone) are cheap insurance and keep the strict-no-default
-   promise. Re-run `/admin/zone-audit` after (needed before the conference deploy anyway).
+2. `[~]` **Location codes and unlisted towns.**
+   - `[x]` **State/province resolution** (done 2026-08-06, prompted by a real failed production
+     import: Lone Tree CO, North Kawartha ON, North Gower ON). `LocationZoneResolver` precedence is
+     now city → **region** → country. The region table covers every US state, Canadian province and
+     Australian state under both the postal abbreviation and the spelled-out name (stored data uses
+     both), **scoped by country** so `WA` cannot mean Washington and Western Australia at once.
+     `resolve(Address)` had been discarding `address.region()` entirely — that was the actual gap.
+     Zone-split states (FL, TX, ID, …) are keyed to their predominant zone; the city table runs
+     first and is where an exception belongs. `Address`-carrying call sites now pass the region:
+     the upcaster's hotel/gathering/conference paths, and `CityCountry`/`LocationAuditProjector`/
+     `LocationZoneAudit` so the audit resolves exactly the way live entry does. Train stations have
+     no region and pass `""`.
+   - `[ ]` **ISO alpha-2 aliases for single-zone countries.** Still open. The gathering slice's
+     watch-out ("a manually-typed `GB` does not resolve") already bit test fixtures, and hotel
+     golden samples store `"country": "GB"` — evidence real data can carry codes. Single-zone
+     countries only (multi-zone ones now go through the region step above). Re-run
+     `/admin/zone-audit` after.
 3. `[x]` **`TentativeConferenceProjectorTest` moved to `application/`** 2026-08-05.
 4. `[ ]` **`EventSourcingConfig` projector wiring** repeats the subscribe-then-replay triple
    fifteen times; a small private `wire(projector)` helper would collapse it without Spring

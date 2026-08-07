@@ -17,7 +17,7 @@ Legend: `open` · `partial` · `done` · `exploration` (deliberately unbuilt des
 
 | Item | Owning doc | What's left |
 |---|---|---|
-| **Private social event kind** | `Cleanup_Tasks.md` | `open` — highest-value item here. Today a private dinner can only be modelled as a GATHERING, which renders in full to anonymous viewers on `/calendar`. Needs its own `EntryKind`, a redacting branch in `CalendarEntryRedactor`, and both tiers of redaction test. CLAUDE.md calls this out as a known leak. |
+| **Private social event kind** | `Cleanup_Tasks.md` | `open` — highest-value item here. Today a private dinner can only be modelled as a GATHERING, which renders in full to anonymous viewers on `/calendar`. Needs its own `EntryKind`, a redacting branch in `CalendarEntryRedactor`, and both tiers of redaction test. CLAUDE.md calls this out as a known leak. Anonymous view decided 2026-08-07: "Busy" + time range with zone + city/country (`Busy / 7pm–10pm EDT / Toronto, Canada`); the rest of the design is open. |
 | **Cancel Hotel + Replace Hotel** | `HotelCancelReplacePlan.md` | `partial` — Phases 0 and 1 (`cancelBy`) shipped in `4efccaf`. Phase 2 (cancel + deadline display) and Phase 3 (replace) are unbuilt; no `HotelCancelled` or `CancelHotel` exists in the tree. |
 | **`ConferenceCancelled`** | `Future_Feature_Slices.md` | `open` — also the prerequisite for any slice that retracts a booking. Gathering cancellation is the same gap (explicitly out of scope in `ChangeGatheringPlan.md`). |
 | **`infoUrl` on conferences** | `Future_Feature_Slices.md` | `open` — gatherings have one; conferences don't. |
@@ -39,12 +39,13 @@ Detail lives in `Cleanup_Tasks.md`; this is the roll-call.
 
 From the Phase 1 `cancelBy` review (bottom of `HotelCancelReplacePlan.md`):
 
-- Cancel-by hint text in `book-hotel.html` / `change-hotel.html` is wrong — it says the deadline
-  "never blocks anything", but a deadline after check-in is rejected with `InvalidCancelByDate`.
-- `cancelBy(LocalDateTime, ZoneId)` is byte-identical in `BookHotelHandler` and
-  `ChangeHotelHandler`; it will drift if the null-preserving zone rule changes.
 - Editing check-in earlier than an existing `cancelBy` fails on a field the user never touched
-  (the form prefills it). Accepted for now; the alternative is clamping rather than rejecting.
+  (the form prefills it) — `ChangeHotelCommand.java:43`. Accepted behavior, not a bug; the
+  alternative is clamping rather than rejecting.
+
+*(The other two items on that list — the wrong cancel-by hint text and the duplicated
+`cancelBy(LocalDateTime, ZoneId)` helper — were fixed inside `4efccaf` before it was committed.
+The review had been written against the pre-fix working tree.)*
 
 From `GeneralControllerRefactorPlan.md`:
 

@@ -12,9 +12,34 @@ plan doc and its status — including these items — see `Backlog.md`.
       `infoUrl`, and times all render for anonymous viewers on `/calendar` (deliberate:
       gatherings are public events like conferences). A private dinner modelled as a gathering
       would therefore be fully exposed. Needs its own `EntryKind` plus a redacting branch in
-      `CalendarEntryRedactor` (anonymous should see, at most, a "Busy"-style block with day
-      granularity), tests in both redaction tiers, and a way to mark an event private at entry.
-      Important — this is a real leak waiting for the first private event Ted enters.
+      `CalendarEntryRedactor`, tests in both redaction tiers, and a way to mark an event private
+      at entry. Important — this is a real leak waiting for the first private event Ted enters.
+
+      **Anonymous view — decided by Ted 2026-08-07.** Show "Busy", the **time range** in the
+      event's own zone, and the **city + country**. No name, no venue, no street address, no
+      `infoUrl`, no links. Shape:
+
+      ```
+      Busy
+      7pm–10pm EDT
+      Toronto, Canada
+      ```
+
+      Two things this deliberately departs from, both worth confirming when the slice is built:
+
+      - **Travel entries give anonymous viewers day granularity only** (CLAUDE.md redaction
+        rules). A private social event shows a clock time, so it is *less* redacted than a
+        flight. Ted's call: the point is to show he is unavailable, which a day-level block
+        does not convey.
+      - **`UtcDatetimeStoragePlan.md` decision 5 says "no zone label" on rendered times**, but
+        the example carries `EDT`. That is what makes the time meaningful to a viewer in
+        another zone without revealing anything the city line doesn't already give away.
+
+      Consequence for implementation: this branch is the one redacted output that *keeps* a
+      `ZonedTimestamp`, so `ZonedTimeTag`'s `datetime="<UTC instant>"` attribute is fine here
+      (the time is public by decision) — unlike on FLIGHT/TRAIN/LODGING, where it is the leak
+      the rule exists to prevent. Details beyond this — how privacy is marked at entry, whether
+      it is a new `EntryKind` or a flag — still to be worked out.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.

@@ -335,14 +335,24 @@ place, Replace keeps the cancelled stay and its reason as their own events.
      FUTURE).
   8. Export a backup after cancel and replace, wipe, re-import → same end state.
 
-## Open follow-ups (out of scope, noted)
-- **Book/Change hotel form hint is wrong** (`book-hotel.html` / `change-hotel.html`, cancel-by
-  hint): it says the deadline "never blocks anything", but a deadline after check-in is rejected
-  with `InvalidCancelByDate`. Reword to something like "must be on or before check-in; otherwise
-  informational only." *(Found by code review of the Phase 1 working tree, 2026-08-07.)*
-- **Duplicated `cancelBy(LocalDateTime, ZoneId)` helper** in `BookHotelHandler` and
-  `ChangeHotelHandler` — byte-identical; will drift if the null-preserving zone rule changes.
-- **Editing check-in earlier than an existing `cancelBy`** now fails on a field the user never
-  touched (the form prefills it). Acceptable, but if it becomes annoying the alternative is to
-  clamp `cancelBy` to the new check-in rather than reject.
+## Follow-ups
+
+*This list was written from a code review of the Phase 1 **working tree** (2026-08-07). The first
+two were fixed before `4efccaf` was committed, but the list was never updated — verified against
+the tree 2026-08-07.*
+
+**Resolved in `4efccaf`:**
+- ~~Book/Change hotel form hint is wrong~~ — both hints now read "Must be on or before check-in;
+  beyond that it's informational only — nothing else keys off it"
+  (`book-hotel.html:218`, `change-hotel.html:218`).
+- ~~Duplicated `cancelBy(LocalDateTime, ZoneId)` helper in `BookHotelHandler` /
+  `ChangeHotelHandler`~~ — both classes are gone. `HotelHandler` now builds both commands and the
+  null-preserving conversion is the shared domain factory `ZonedTimestamp.fromNullableLocal`,
+  called once from each of `bookHotel` and `changeHotel`. The class Javadoc records why.
+
+**Still open:**
+- **Editing check-in earlier than an existing `cancelBy`** fails on a field the user never touched
+  (the form prefills it) — `ChangeHotelCommand.java:43` throws `InvalidCancelByDate`. Accepted
+  behavior, not a bug; if it becomes annoying the alternative is to clamp `cancelBy` to the new
+  check-in rather than reject.
 - Private social event kind (unrelated, tracked in `docs/Cleanup_Tasks.md`).

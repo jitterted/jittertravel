@@ -44,6 +44,15 @@
             font-size: 0.85rem;
             color: #c00;
         }
+
+        .validated-note {
+            background: #f0fff4;
+            border: 1px solid #8c8;
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            color: #060;
+        }
     </style>
 </head>
 <body>
@@ -56,10 +65,15 @@
         </ul>
     </div>
 
+    <div th:if="${validatedCount != null}" class="validated-note">
+        <span th:text="'Validated: all ' + ${validatedCount} + ' entries would import. Nothing was written.'"></span>
+    </div>
+
     <form method="post" th:action="@{/admin/import}">
         <div class="toolbar">
             <label for="fileInput">Load from file:</label>
             <input type="file" id="fileInput" accept=".json"/>
+            <button type="submit" th:formaction="@{/admin/import/validate}">Validate only</button>
             <button type="submit">Import</button>
             <a href="/admin/export">Export (download)</a>
             <a href="/admin">Admin</a>

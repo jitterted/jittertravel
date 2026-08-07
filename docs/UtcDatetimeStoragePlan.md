@@ -475,8 +475,10 @@ Spec (unchanged where still relevant):
   `LocationAuditProjector` is an `EventStreamConsumer` — so it reports on data already in the
   database and **cannot pre-check an import file**. Earlier wording here claimed
   "`event_log` / `command_log`"; that was never true. A production import failed on three venues
-  the audit could not have warned about; a validate-only `CommandImporter` entry point is the
-  right instrument and is tracked in `docs/Cleanup_Tasks.md`.
+  the audit could not have warned about. **The right instrument now exists:**
+  `CommandImporter.validateJson` plus the "Validate only" button on `/admin/import` — a dry run of
+  pass one that writes nothing and reports every bad entry in the file *before* importing. Use that,
+  not the zone audit, to check a backup.
 - **Read-time JSON upcaster** keyed by type (beside `EventTypes`): a bare scalar datetime →
   resolve zone from the same payload's location → rewrite to a `ZonedTimestamp` object before
   record binding. **No default:** an unresolvable location fails loudly. New rows pass through

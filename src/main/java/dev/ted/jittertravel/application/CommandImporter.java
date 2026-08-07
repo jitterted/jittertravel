@@ -57,7 +57,7 @@ public class CommandImporter {
         try {
             root = jsonMapper.readTree(json);
         } catch (Exception e) {
-            return new ImportResult(0, 0, List.of("Failed to parse JSON: " + e.getMessage()));
+            return new ImportResult(0, 0, List.of(parseError(e)));
         }
 
         Validation validation = validate(root);
@@ -67,7 +67,38 @@ public class CommandImporter {
         return apply(validation.commands());
     }
 
+    /**
+     * Dry run: reports what {@link #importJson} would say about this file, writing nothing at all —
+     * not even for a file that would import cleanly.
+     *
+     * <p>Exists because the errors that matter are data problems in the file itself (a location
+     * whose zone doesn't resolve, a country field holding a city name), and the only other tool for
+     * finding them, {@code /admin/zone-audit}, reads {@code event_log} — data that is *already
+     * imported*. For a wipe-then-import workflow that is exactly backwards: the audit runs against
+     * an empty database at the moment it would be useful. This runs pass one of the real import,
+     * so it reports the same errors, all of them, against the file in hand.
+     */
+    public ValidationReport validateJson(String json) {
+        JsonNode root;
+        try {
+            root = jsonMapper.readTree(json);
+        } catch (Exception e) {
+            return new ValidationReport(0, List.of(parseError(e)));
+        }
+        Validation validation = validate(root);
+        return new ValidationReport(validation.commands().size(), validation.errors());
+    }
+
+    private String parseError(Exception e) {
+        return "Failed to parse JSON: " + e.getMessage();
+    }
+
     public record ImportResult(int importedCount, int skippedCount, List<String> errors) {
+        public boolean hasErrors() { return !errors.isEmpty(); }
+    }
+
+    /** Outcome of a dry run: how many entries would import, and every problem found. */
+    public record ValidationReport(int validCount, List<String> errors) {
         public boolean hasErrors() { return !errors.isEmpty(); }
     }
 

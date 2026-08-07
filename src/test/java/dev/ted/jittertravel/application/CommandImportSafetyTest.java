@@ -67,6 +67,59 @@ class CommandImportSafetyTest extends AbstractTestcontainerIntegrationTest {
     }
 
     @Test
+    void dryRunReportsEveryProblemWithoutWritingAnything() {
+        UUID goodId = UUID.randomUUID();
+        UUID badId = UUID.randomUUID();
+        String file = importFileOf(new Entry("BookHotel", bookHotel(goodId, "San Francisco", "USA")),
+                                   new Entry("BookHotel", bookHotel(badId, "Springfield", "Atlantis")));
+
+        CommandImporter.ValidationReport report = commandImporter.validateJson(file);
+
+        assertThat(report.errors())
+                .hasSize(1);
+        assertThat(report.errors().getFirst())
+                .as("a dry run must name the offending entry the same way a real import does")
+                .contains("Entry 1 (BookHotel)");
+        assertThat(report.validCount())
+                .as("the entries that would import are counted")
+                .isEqualTo(1);
+        assertThat(persister.existingCommandIds(List.of(goodId, badId)))
+                .isEmpty();
+    }
+
+    @Test
+    void dryRunOfACleanFileWritesNothingEither() {
+        UUID firstId = UUID.randomUUID();
+        UUID secondId = UUID.randomUUID();
+        String file = importFileOf(new Entry("BookHotel", bookHotel(firstId, "San Francisco", "USA")),
+                                   new Entry("BookHotel", bookHotel(secondId, "London", "UK")));
+
+        CommandImporter.ValidationReport report = commandImporter.validateJson(file);
+
+        assertThat(report.hasErrors())
+                .as("a clean file reports no problems: %s", report.errors())
+                .isFalse();
+        assertThat(report.validCount())
+                .isEqualTo(2);
+        assertThat(persister.countEvents())
+                .as("validating a file that *would* import must still write nothing — that is the "
+                    + "whole point of a dry run")
+                .isZero();
+        assertThat(persister.existingCommandIds(List.of(firstId, secondId)))
+                .isEmpty();
+    }
+
+    @Test
+    void dryRunReportsUnparseableJsonRatherThanThrowing() {
+        CommandImporter.ValidationReport report = commandImporter.validateJson("{ not json");
+
+        assertThat(report.errors())
+                .hasSize(1);
+        assertThat(report.errors().getFirst())
+                .contains("Failed to parse JSON");
+    }
+
+    @Test
     void duplicateCommandIdsWithinTheFileAreRejected() {
         UUID reusedId = UUID.randomUUID();
         String file = importFileOf(new Entry("BookHotel", bookHotel(reusedId, "San Francisco", "USA")),

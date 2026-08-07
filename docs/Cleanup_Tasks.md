@@ -25,17 +25,19 @@ done. For larger structural refactors, see `Refactoring_Opportunities.md`.
       behaviour, untouched by the newest-first paging fix (`PageWindow`), which only changed
       *which* window is fetched, not how it's scanned.
 
-- [ ] **Dry-run validation for an import file.** `/admin/zone-audit` only sweeps `event_log` via
-      `LocationAuditProjector` (an `EventStreamConsumer`), so it can only report on data that is
-      *already imported* — it cannot pre-check a backup file. That is backwards for the case it
-      was meant to protect: on 2026-08-06 a production import failed on three conference venues
-      the audit could not have warned about. `CommandImporter.importJson` already runs
-      validate-then-apply with pass one writing nothing and collecting *all* errors, so a
-      validate-only entry point (plus a page or a textarea button) would list every unresolvable
-      location in a file before touching the database. Note the plan docs currently overstate the
-      audit as sweeping "`event_log` / `command_log`" — correct that wording too.
-
 ## Done
+
+- [x] **Dry-run validation for an import file** (2026-08-06). `CommandImporter.validateJson` runs
+      pass one of the real import — deserialize every entry and recompute its events — and writes
+      nothing, returning a `ValidationReport(validCount, errors)`. A "Validate only" button on
+      `/admin/import` posts the textarea to `/admin/import/validate` (covered by the existing
+      `/admin/**` OWNER matcher, so no `SecurityConfig` change) and re-renders the same page with
+      either every problem found or "all N entries would import. Nothing was written." The
+      textarea keeps its content so the file can be fixed in place. Written because
+      `/admin/zone-audit` reads `event_log` — data that is *already imported* — which is backwards
+      for a wipe-then-import workflow; it gave no warning before the 2026-08-06 production import
+      failed on three venues. Mutation-verified: making `validateJson` call `apply` fails both
+      dry-run tests.
 
 - [x] **Every application service goes through `CommandExecutor`** (2026-08-05, with the conference
       UTC slice). `ConferencePlanning` was the last service injecting `EventStore` directly; it now

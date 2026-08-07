@@ -61,6 +61,15 @@ public class AdminController {
         return "admin-import";
     }
 
+    @PostMapping("/import/validate")
+    public String validateCommands(@RequestParam("content") String content, Model model) {
+        CommandImporter.ValidationReport report = commandImporter.validateJson(content);
+        model.addAttribute("errors", report.errors());
+        model.addAttribute("validatedCount", report.hasErrors() ? null : report.validCount());
+        model.addAttribute("content", content);
+        return "admin-import";
+    }
+
     @GetMapping("/database")
     public String database(Model model) {
         List<PostgresPersister.TableStat> stats = persister.tableStats();

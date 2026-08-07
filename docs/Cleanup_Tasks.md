@@ -33,4 +33,14 @@ done. For larger structural refactors, see `Refactoring_Opportunities.md`.
       behaviour, untouched by the newest-first paging fix (`PageWindow`), which only changed
       *which* window is fetched, not how it's scanned.
 
+- [ ] **Dry-run validation for an import file.** `/admin/zone-audit` only sweeps `event_log` via
+      `LocationAuditProjector` (an `EventStreamConsumer`), so it can only report on data that is
+      *already imported* — it cannot pre-check a backup file. That is backwards for the case it
+      was meant to protect: on 2026-08-06 a production import failed on three conference venues
+      the audit could not have warned about. `CommandImporter.importJson` already runs
+      validate-then-apply with pass one writing nothing and collecting *all* errors, so a
+      validate-only entry point (plus a page or a textarea button) would list every unresolvable
+      location in a file before touching the database. Note the plan docs currently overstate the
+      audit as sweeping "`event_log` / `command_log`" — correct that wording too.
+
 ## Done

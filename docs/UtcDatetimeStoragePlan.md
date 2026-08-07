@@ -448,9 +448,14 @@ mechanism: the round-trip tests below.
 
 Spec (unchanged where still relevant):
 - **Existing-data audit (done, re-run before each slice ships):** sweep every distinct location in
-  `event_log` / `command_log` (plus airport codes via the flight path) through `resolve`; assert
-  each succeeds. With no default, an unresolvable legacy location has nowhere to go and replay
-  would throw.
+  `event_log` (plus airport codes via the flight path) through `resolve`; assert each succeeds.
+  With no default, an unresolvable legacy location has nowhere to go and replay would throw.
+  **Scope correction (2026-08-06):** the audit reads `event_log` *only* —
+  `LocationAuditProjector` is an `EventStreamConsumer` — so it reports on data already in the
+  database and **cannot pre-check an import file**. Earlier wording here claimed
+  "`event_log` / `command_log`"; that was never true. A production import failed on three venues
+  the audit could not have warned about; a validate-only `CommandImporter` entry point is the
+  right instrument and is tracked in `docs/Cleanup_Tasks.md`.
 - **Read-time JSON upcaster** keyed by type (beside `EventTypes`): a bare scalar datetime →
   resolve zone from the same payload's location → rewrite to a `ZonedTimestamp` object before
   record binding. **No default:** an unresolvable location fails loudly. New rows pass through

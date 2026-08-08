@@ -57,13 +57,15 @@ From the Cancel Hotel slice (2026-08-07):
   the event stream via `CommandExecutor.eventsForDecision()` and is the pattern to follow. Ted
   asked for this follow-up when choosing the fold for Cancel. Low risk today (the existence check
   is not a time gate and subscribers are synchronous), but the codebase currently contradicts its
-  own rule doc.
+  own rule doc. **Now owned by `DecisionContextQueryDesign.md`**, which replaces both the projector
+  reads and `eventsForDecision()` with a tagged query — paused behind the export/import rethink.
 - **Export/import needs a wider decision before more commands need folded context.** Ted flagged
   this: `CancelHotelContext.checkIn` is nullable so import can pass "no gate", but that works only
   because the gate is skippable. A future command whose decision genuinely depends on folded event
   state has no good answer today — `ImportableCommand.events()` gets no event stream and no read
   model, so its options are carrying redundant state on the request or weakening the rule. Worth
-  designing before the first such command, not after.
+  designing before the first such command, not after. **Promoted to next-up on 2026-08-07:** the
+  decision-context query design is blocked on it (`DecisionContextQueryDesign.md`, Concerns §1).
 
 From `GeneralControllerRefactorPlan.md`:
 
@@ -91,7 +93,8 @@ explicitly in their own text.
 | Doc | What it is |
 |---|---|
 | `CommandConsistencyEventStore.md` | Conditional/fenced append for a future multi-instance deployment. Nothing built. Unblocked by the CommandExecutor migration, but not committed to. |
-| `TaggedEventStoreQueryingDesign.md` | Filtered `EventStore` queries by event type and tag, pushed into Postgres JSONB + GIN. Deferred until a second concrete caller demands it. |
+| `DecisionContextQueryDesign.md` | `paused` — replace `CommandExecutor.eventsForDecision()` and the projector-based existence checks with a tagged/typed query port. Design close to settled (recommendations + open decisions recorded); **blocked on the export/import rethink**. Owns `DecisionsToReview.md` D1 and D2. |
+| `TaggedEventStoreQueryingDesign.md` (**repo root**, not `docs/`) | Filtered `EventStore` queries by event type and tag, pushed into Postgres JSONB + GIN. Deferred until a second concrete caller demands it. Its `@EventName` proposal is now **obsolete** — `EventTypes` does that job. Its "every id is a tag" rule and multi-valued tag shape are live input to `DecisionContextQueryDesign.md`. |
 | `ReMoDeL-Specification.md` | A KDL-based read model definition language. Specification only — there is no KDL code anywhere in `src/`. |
 | `ReadModelKdlTestDslPlan.md` | Test-support DSL for the above. Its 8 implementation steps reference an acceptance test that does not exist yet. Blocked on ReMoDeL itself. |
 | `Refactoring_Opportunities.md` | 7 projection/rendering duplication findings with a priority order. Marked "do not implement without discussion". |

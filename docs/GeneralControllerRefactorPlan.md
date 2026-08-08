@@ -11,7 +11,9 @@ Let me check the new controller and matrix test for problems. I have everything 
 4. **`GeneralControllerTest`** — keep it as a clean controller test (OWNER), strengthen the OWNER nav assertion.
 5. **New `AuthorizationMatrixTest`** — parameterized role × route matrix importing `SecurityConfig` (the canonical policy statement).
 6. **`SecurityAuthorizationTest`** — slim down: keep login/redirect-specific behavior, remove nav-matrix duplication now covered by the matrix test, and add the FAMILY home-nav + anonymous calendar cases as focused home-nav tests.
-7. **New doc** — `docs/Authorization_Single_Source_Of_Truth.md` recording what Option 2 needs.
+7. **New doc** recording what Option 2 needs — shipped as `docs/authorization_policy_centralization.md`
+   (the planned name `Authorization_Single_Source_Of_Truth.md` was never used). That doc is the live
+   tracker; the draft in §7 below is a historical snapshot and is not maintained.
 
 ---
 
@@ -30,7 +32,7 @@ import org.springframework.core.env.Profiles;
         // Nav visibility is gated by ROLE, mirroring the route rules in SecurityConfig
         // (the secured "!local" chain). These two places are the source of truth for the
         // authorization policy and MUST be kept in sync; see
-        // docs/Authorization_Single_Source_Of_Truth.md for the plan to unify them.
+        // docs/authorization_policy_centralization.md for the plan to unify them.
         //
         // In the `local` profile there is no authentication (everything is permitted), so
         // every nav group is shown.
@@ -96,7 +98,7 @@ Two changes: move the booking-list view routes to OWNER-only, and add a friendly
      * <p>
      * This route table and {@code GeneralController}'s nav flags are the source of truth for the
      * authorization policy and MUST be kept in sync; see
-     * {@code docs/Authorization_Single_Source_Of_Truth.md} for the plan to unify them.
+     * {@code docs/authorization_policy_centralization.md} for the plan to unify them.
      */
     @Bean
     @Profile("!local")
@@ -398,7 +400,11 @@ I removed `anonymousIsRedirectedToLoginForAdminPages`, `anonymousIsRedirectedToL
 
 ### 7. New doc for Option 2
 
-<llm-snippet-file>docs/Authorization_Single_Source_Of_Truth.md</llm-snippet-file>
+> **Superseded.** This draft shipped as `docs/authorization_policy_centralization.md`, which is the
+> live tracker. What follows is the original snapshot, kept for history — do not edit it, and do not
+> treat divergence from the shipped doc as a defect.
+
+<llm-snippet-file>docs/authorization_policy_centralization.md</llm-snippet-file>
 ```markdown
 # Authorization: Single Source of Truth (Option 2)
 

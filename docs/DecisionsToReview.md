@@ -20,8 +20,10 @@ Roughly highest-stakes first.
 
 ### D1. `CommandExecutor.eventsForDecision()` — a read method on the write-path class
 
-**Status:** `Needs review`
+**Status:** `Needs review` — discussion in progress, see `DecisionContextQueryDesign.md`
 **Where:** `application/CommandExecutor.java`
+**Owned by:** `DecisionContextQueryDesign.md` (2026-08-07). Direction agreed — a tagged/typed query
+port replaces this method — but the slice is paused behind the export/import rethink.
 
 I added a method that exposes the whole event stream to application services:
 
@@ -54,8 +56,11 @@ staleness the projectors already handle properly.
 
 ### D2. The fold reads the entire event log on every cancellation
 
-**Status:** `Needs review`
+**Status:** `Needs review` — discussion in progress, see `DecisionContextQueryDesign.md`
 **Where:** `application/CancelHotel.java`
+**Owned by:** `DecisionContextQueryDesign.md` (2026-08-07). The "second concrete caller" question
+below is answered there — converting the three projector-reading services alongside Cancel gives
+four callers at once.
 
 `eventsForDecision()` streams *all* events and the fold filters for one `HotelBookingId`. There is
 no tagged or filtered query — `TaggedEventStoreQueryingDesign.md` describes one and is explicitly

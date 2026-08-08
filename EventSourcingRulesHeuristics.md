@@ -111,9 +111,21 @@ type — that always requires human judgment).
 - *`@EventSchema(version = N)` + upcaster chain.* Each event carries an
   explicit schema version. The persister stores `(eventName, version)`;
   the deserializer routes pre-current-version rows through registered
-  upcasters. This is the right destination if/when we adopt the
-  `@EventName` discriminator from `TaggedEventStoreQueryingDesign.md`;
-  it gives a runtime guarantee, not just a CI guarantee.
+  upcasters. Unlike the options above, this gives a **runtime** guarantee,
+  not just a CI one.
+
+  **Half of this already exists.** The stable-name half — decoupling the
+  `event_log.type` discriminator from Java class identity, so an event
+  class can be moved or renamed without breaking replay — shipped as
+  `infrastructure/EventTypes.java`, a logical-name registry with an
+  append-only alias log. (`TaggedEventStoreQueryingDesign.md` proposed an
+  `@EventName` annotation for this; the registry does the same job, so that
+  proposal is obsolete — do not add a second discriminator mechanism.)
+
+  What remains is the **version** half: a per-event schema version written
+  alongside the type, and an upcaster chain keyed on `(logicalName,
+  version)`. That is a smaller step than this entry originally implied,
+  and `EventTypes` is where the version would hang.
 
 - *PR template checklist.* A line in `PULL_REQUEST_TEMPLATE.md`: *"If
   this PR changes an existing event record, the migration plan is in the

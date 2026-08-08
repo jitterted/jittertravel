@@ -2,6 +2,15 @@
 
 **Status:** Exploration / feasibility for a future multi-instance deployment. Nothing here
 is built yet. This is a design record, not a commitment.
+**Code claims last verified:** 2026-08-08.
+
+**Companion docs — read together, they overlap:**
+
+- `TaggedEventStoreQueryingDesign.md` (repo root) — the **first half** of DCB: query-then-fold.
+  Written earlier and independently; §3 below re-derives part of it. Where the two disagree, see
+  "Conflicts with `TaggedEventStoreQueryingDesign.md`" at the end of §3.
+- `docs/DecisionContextQueryDesign.md` — the near-term slice that would land the query half against
+  the *current* single-instance store. Paused behind the export/import rethink.
 
 ## Why this exists
 
@@ -35,23 +44,21 @@ cannot enforce anything across instances; only the database can, atomically, at 
 So `sequence` must become DB-owned (`GENERATED ALWAYS AS IDENTITY` or a sequence), and the
 conflict check must be a DB operation.
 
-### Prerequisite: every append must funnel through `CommandExecutor`
+### Prerequisite: every append must funnel through `CommandExecutor` — **done**
 
 The conditional append is enforced in exactly one place. That only works if **all** event
-appends already route through `CommandExecutor` — which is the existing architecture rule in
-`CLAUDE.md` ("Application services must never receive `EventStore` as a constructor
-dependency"). As of this writing the rule is violated in three application services that
-still hold `EventStore` directly:
+appends already route through `CommandExecutor` — the architecture rule in `CLAUDE.md`
+("Application services must never receive `EventStore` as a constructor dependency").
 
-- `application/ChangeFlight.java`
-- `application/ConferencePlanning.java`
-- `application/FlightBooking.java`
+**This prerequisite is satisfied.** `ChangeFlight`, `ConferencePlanning`, and `FlightBooking`
+— the three services this doc originally listed as violations — have all been migrated onto
+`commandExecutor.execute(...)` / `appendEvents(...)`, and the rule is now enforced by
+`ApplicationServicesUseCommandExecutorTest`. That test is **plain reflection over `application`
+constructors**, not ArchUnit (the doc previously proposed an ArchUnit test; adding the dependency
+for one rule was judged not worth it), and it exempts exactly one class: `CommandExecutor` itself.
 
-These must be migrated onto `commandExecutor.execute(...)` / `appendEvents(...)` **before**
-the conditional-append work, otherwise those paths bypass the consistency guard entirely.
-The existing `CLAUDE.md` TODO — an ArchUnit test asserting no `application`-package class has
-an `EventStore` field — should land alongside the migration so the rule can't silently
-regress again. Tracked in `docs/Cleanup_Tasks.md`.
+Consequence for this design: there is no migration to do first. The conditional append has a
+single chokepoint to land in.
 
 ## 2. Conditional append, and why it also fixes staleness
 
@@ -135,6 +142,30 @@ type = ANY(:queryTypes) AND tags @> :queryTags::jsonb
 
 Start with the single JSONB column. Only reach for a normalized `event_tags(sequence, key,
 value)` table if we later need OR-across-tag-sets queries or per-tag unique constraints.
+
+### Conflicts with `TaggedEventStoreQueryingDesign.md`
+
+That doc (repo root) covers the same ground from the query side and reaches **different**
+conclusions in three places. Neither is built, so these are open, not decided:
+
+| Question | This doc | `TaggedEventStoreQueryingDesign.md` |
+|---|---|---|
+| Tag shape | `Map<String, String>` — single value per name | `Map<String, List<String>>` — **multi-valued**, "cheap to add up front and annoying to retrofit" |
+| Which fields become tags | unstated; the example tags one id by hand | a **rule**: every field whose type is an identity value object is a tag, automatically. Removes the "should I tag this?" judgment call and kills the tag-set-evolution/backfill problem |
+| Type discriminator | `type = ANY(:queryTypes)` over whatever `event_log.type` holds | proposes an `@EventName` annotation so renames don't break queries |
+
+Two of the three are worth resolving in that doc's favor:
+
+- **Multi-valued tags** — the retrofit argument is right, and it is the shape a future
+  "this event concerns hotel X *and* replaces booking Y" event needs (Phase 3 of
+  `HotelCancelReplacePlan.md` is exactly that: `replacesHotelBookingId`).
+- **"Every id is a tag"** — a plain rule beats per-event judgment, and it is what makes a
+  tags column safe to add without a backfill decision per event type.
+
+The third is **already solved**: `infrastructure/EventTypes.java` now exists and maps stable
+logical names ↔ event classes, which is precisely what `@EventName` was proposed for. Any query
+pushed into SQL should translate through `EventTypes.logicalNameFor()` rather than introduce a
+second discriminator mechanism.
 
 ## 4. Postgres enforcement — and the trap
 
@@ -232,12 +263,19 @@ public record EventQuery(Set<String> types, Map<String, String> tags) {
 ### Building the context at the boundary (controller/service)
 
 The read that builds the context also returns the position it observed — captured at the
-boundary, like `now`/UUIDs already are:
+boundary, like `now`/UUIDs already are.
+
+> **Caveat added 2026-08-08:** the sketch below reads existence from `detailsProjector`, which
+> is what `ChangeHotel` does today but is what R1 in `EventSourcingRulesHeuristics.md` forbids
+> ("never use a projection to make an automated decision"). Read it as *illustrating the
+> `afterPosition` threading*, not as endorsing the projector read. `docs/DecisionContextQueryDesign.md`
+> replaces that read with a query against the event stream; the `AppendCondition` plumbing shown
+> here is unaffected either way — the query becomes the source of both the state and the position.
 
 ```java
 public void changeHotel(UUID commandId, ChangeHotelRequest request, Instant now) {
-    ChangeHotelCommand command = new ChangeHotelHandler(zoneResolver).handle(request);
-    UUID bookingId = command.hotelBookingId();
+    ChangeHotelCommand command = new HotelHandler(zoneResolver).changeHotel(request);
+    HotelBookingId bookingId = command.hotelBookingId();
 
     // Read model returns BOTH the state and the log position it reflects.
     ReadResult<Boolean> exists = detailsProjector.existsAsOf(bookingId);

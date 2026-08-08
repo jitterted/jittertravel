@@ -48,6 +48,10 @@ public class BookedHotelsRenderer {
             .action-row a:hover { text-decoration: underline; }
             .hotel-edit-link { color: var(--accent-color); text-decoration: none; font-size: 0.85rem; }
             .hotel-edit-link:hover { text-decoration: underline; }
+            .no-deadline { color: var(--muted-text); }
+            /* Neutral, not alarming: a passed deadline costs nothing here, it just means free
+               cancellation is over. The stay is still cancellable until check-in. */
+            .deadline-passed { color: var(--muted-text); text-decoration: line-through; }
             """;
 
     public static String render(List<BookedHotelView> hotels, TimeView activeFilter) {
@@ -84,6 +88,7 @@ public class BookedHotelsRenderer {
                                 th("Location"),
                                 th("Check-In"),
                                 th("Check-Out"),
+                                th("Cancel By"),
                                 th("Status"),
                                 th()
                         )
@@ -101,10 +106,26 @@ public class BookedHotelsRenderer {
                 td(hotel.city() + ", " + hotel.country()),
                 td(ZonedTimeTag.render(hotel.checkIn(), DATE_DISPLAY_PATTERN)),
                 td(ZonedTimeTag.render(hotel.checkOut(), DATE_DISPLAY_PATTERN)),
+                cancelByCell(hotel),
                 td(statusBadge(hotel.status())),
                 td(a("Edit").withClass("hotel-edit-link")
                         .withHref("/booked-hotels/" + hotel.hotelBookingId().id()))
         );
+    }
+
+    /**
+     * ZonedTimeTag is safe here: {@code /booked-hotels} is OWNER-only, so the UTC instant it writes
+     * into the {@code datetime} attribute is not a redaction concern. The deadline must never reach
+     * {@code CalendarEntry}, which anonymous visitors can see.
+     */
+    private static DomContent cancelByCell(BookedHotelView hotel) {
+        if (hotel.cancelBy() == null) {
+            return td(rawHtml("&mdash;")).withClass("no-deadline");
+        }
+        DomContent deadline = ZonedTimeTag.render(hotel.cancelBy(), DATE_DISPLAY_PATTERN);
+        return hotel.cancelDeadlinePassed()
+                ? td(deadline).withClass("deadline-passed").withTitle("Free cancellation has ended")
+                : td(deadline);
     }
 
     private static DomContent statusBadge(BookingIntent status) {

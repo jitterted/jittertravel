@@ -199,6 +199,15 @@ public class EventSourcingConfig {
         return new ChangeHotel(commandExecutor, hotelDetailsViewProjector, locationZoneResolver);
     }
 
+    /**
+     * No projector dependency: {@link CancelHotel} folds its decision facts from the event stream
+     * (R1), so the executor is all it needs.
+     */
+    @Bean
+    public CancelHotel cancelHotelApplicationService(CommandExecutor commandExecutor) {
+        return new CancelHotel(commandExecutor);
+    }
+
     @Bean
     public BookedTrainsProjector bookedTrainsProjector(EventStore eventStore) {
         BookedTrainsProjector projector = new BookedTrainsProjector();

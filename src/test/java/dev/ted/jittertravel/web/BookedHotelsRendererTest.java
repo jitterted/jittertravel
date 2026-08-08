@@ -21,6 +21,8 @@ class BookedHotelsRendererTest {
             ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 15, 0), ZONE);
     private static final ZonedTimestamp CHECK_OUT =
             ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 5, 11, 0), ZONE);
+    private static final ZonedTimestamp CANCEL_BY =
+            ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 24, 12, 0), ZONE);
 
     @Test
     void emptyAllListRendersBookedYetMessage() {
@@ -50,7 +52,8 @@ class BookedHotelsRendererTest {
         HotelBookingId id = HotelBookingId.random();
         BookedHotelView view = new BookedHotelView(
                 id, "Grand Hotel", "Berlin", "Germany",
-                CHECK_IN, CHECK_OUT, BookingIntent.FINAL, "https://maps.google.com/");
+                CHECK_IN, CHECK_OUT, BookingIntent.FINAL, "https://maps.google.com/",
+                null, false);
 
         String html = BookedHotelsRenderer.render(List.of(view), TimeView.FUTURE);
 
@@ -122,14 +125,56 @@ class BookedHotelsRendererTest {
                 .contains("Final");
     }
 
+    @Test
+    void cancelByColumnRendersDeadlineAsTimeElement() {
+        String html = BookedHotelsRenderer.render(
+                List.of(hotelView("Any Hotel", "https://maps.google.com/", BookingIntent.FINAL,
+                        CANCEL_BY, false)), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<th>Cancel By</th>")
+                .contains("<time datetime=\"2026-06-24T10:00:00Z\" data-fmt=\"EEE, MMM d, h:mm a\">"
+                        + "Wed, Jun 24, 12:00 PM</time>");
+    }
+
+    @Test
+    void absentDeadlineRendersEmDashInsteadOfATime() {
+        String html = BookedHotelsRenderer.render(
+                List.of(hotelView("Any Hotel", "https://maps.google.com/", BookingIntent.FINAL,
+                        null, false)), TimeView.FUTURE);
+
+        // Note the cell, not the bare class name — the stylesheet always defines .deadline-passed.
+        assertThat(html)
+                .contains("<td class=\"no-deadline\">&mdash;</td>")
+                .doesNotContain("<td class=\"deadline-passed\"");
+    }
+
+    @Test
+    void passedDeadlineIsStyledButStillShown() {
+        String html = BookedHotelsRenderer.render(
+                List.of(hotelView("Any Hotel", "https://maps.google.com/", BookingIntent.FINAL,
+                        CANCEL_BY, true)), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<td class=\"deadline-passed\"")
+                .contains("Wed, Jun 24, 12:00 PM");
+    }
+
     private static BookedHotelView hotelView(String name, String mapsUrl, BookingIntent status) {
+        return hotelView(name, mapsUrl, status, null, false);
+    }
+
+    private static BookedHotelView hotelView(String name, String mapsUrl, BookingIntent status,
+                                             ZonedTimestamp cancelBy, boolean deadlinePassed) {
         return new BookedHotelView(
                 HotelBookingId.random(),
                 name,
                 "Berlin", "Germany",
                 CHECK_IN, CHECK_OUT,
                 status,
-                mapsUrl
+                mapsUrl,
+                cancelBy,
+                deadlinePassed
         );
     }
 }

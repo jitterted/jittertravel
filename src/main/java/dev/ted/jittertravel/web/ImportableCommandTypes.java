@@ -29,6 +29,7 @@ public final class ImportableCommandTypes {
         register("ChangeFlight", ChangeFlightRequest.class);
         register("BookHotel", BookHotelRequest.class);
         register("ChangeHotel", ChangeHotelRequest.class);
+        register("CancelHotel", CancelHotelRequest.class);
         register("BookTrain", BookTrainRequest.class);
         register("ChangeTrain", ChangeTrainRequest.class);
         register("PlanTentativeConference", PlanTentativeConferenceRequest.class);

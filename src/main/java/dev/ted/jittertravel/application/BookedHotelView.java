@@ -6,6 +6,15 @@ import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.Instant;
 
+/**
+ * A booked hotel as shown on {@code /booked-hotels}.
+ * <p>
+ * {@code cancelBy} is the free-cancellation deadline ({@code null} when none was recorded), and
+ * {@code cancelDeadlinePassed} says whether it is behind us. The flag is resolved in
+ * {@link BookedHotelsProjector#views} rather than by the renderer because {@code now} enters at the
+ * controller boundary and renderers take no clock. Both are display-only: a stay stays cancellable
+ * until check-in no matter what the deadline says.
+ */
 public record BookedHotelView(
         HotelBookingId hotelBookingId,
         String hotelName,
@@ -14,7 +23,9 @@ public record BookedHotelView(
         ZonedTimestamp checkIn,
         ZonedTimestamp checkOut,
         BookingIntent status,
-        String mapsUrl
+        String mapsUrl,
+        ZonedTimestamp cancelBy,
+        boolean cancelDeadlinePassed
 ) implements TemporalView {
 
     /**
@@ -26,5 +37,12 @@ public record BookedHotelView(
     @Override
     public Instant relevantUntil() {
         return checkOut.utc();
+    }
+
+    /** A copy with the advisory deadline evaluated against {@code now}. */
+    BookedHotelView withDeadlineEvaluatedAt(Instant now) {
+        return new BookedHotelView(hotelBookingId, hotelName, city, country, checkIn, checkOut,
+                status, mapsUrl, cancelBy,
+                cancelBy != null && !now.isBefore(cancelBy.utc()));
     }
 }

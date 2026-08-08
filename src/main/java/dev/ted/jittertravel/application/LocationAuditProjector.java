@@ -66,6 +66,11 @@ public class LocationAuditProjector implements EventStreamConsumer {
                     addAirport(e.departureAirport(), source);
                     addAirport(e.arrivalAirport(), source);
                 }
+                // HotelBookingCancelled is deliberately NOT handled here. Cancelling removes the
+                // booking from every *view*, but the HotelBooked/HotelChanged rows stay in the log
+                // forever and the read-time upcaster still resolves their zone on every replay — so
+                // the audit must keep reporting that location. Dropping it would hide exactly the
+                // unresolvable location that breaks startup.
                 default -> { /* event carries no location */ }
             }
         });

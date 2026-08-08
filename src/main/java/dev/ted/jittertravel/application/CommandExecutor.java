@@ -5,6 +5,7 @@ import dev.ted.jittertravel.domain.DomainCommand;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.infrastructure.EventStore;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
+import dev.ted.jittertravel.infrastructure.StoredEvent;
 
 import java.util.List;
 import java.util.UUID;
@@ -19,7 +20,8 @@ public class CommandExecutor {
         this.eventStore = eventStore;
     }
 
-    public <C extends DecisionContext> void execute(UUID commandId, Object request, C context, DomainCommand<C> command) {
+    public <C extends DecisionContext> void execute(UUID commandId, Object request, C context,
+                                                    DomainCommand<C> command) {
         refuseWhenReadOnly(request);
         persister.saveCommand(commandId, request); // write-ahead: command persisted as PENDING
 
@@ -36,6 +38,20 @@ public class CommandExecutor {
 
     public boolean isReadOnly() {
         return eventStore.isReadOnly();
+    }
+
+    /**
+     * The authoritative event stream, for a service to fold the decision facts a command needs
+     * (R4 step 3). Named for that single purpose: R1 forbids deciding from a projection, but
+     * application services cannot take an {@link EventStore} of their own — that is the rule
+     * {@code ApplicationServicesUseCommandExecutorTest} enforces — so the read arrives through the
+     * one class already authorized to hold it.
+     * <p>
+     * Not for building views. Projectors subscribe to the store and are replayed by
+     * {@code EventSourcingConfig}; nothing on the read path should come through here.
+     */
+    public Stream<StoredEvent> eventsForDecision() {
+        return eventStore.findAll();
     }
 
     public void appendEvents(UUID commandId, Object commandRecord, Stream<? extends Event> events) {

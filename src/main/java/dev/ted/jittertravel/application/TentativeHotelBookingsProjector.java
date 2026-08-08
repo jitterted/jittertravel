@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.HotelBooked;
+import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
@@ -26,6 +27,7 @@ public class TentativeHotelBookingsProjector implements EventStreamConsumer {
                         e.checkIn().localDateTime(), e.checkOut().localDateTime());
                 case HotelChanged e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
                         e.checkIn().localDateTime(), e.checkOut().localDateTime());
+                case HotelBookingCancelled e -> viewsById.remove(e.hotelBookingId());
                 default -> { /* not a hotel event */ }
             }
         });

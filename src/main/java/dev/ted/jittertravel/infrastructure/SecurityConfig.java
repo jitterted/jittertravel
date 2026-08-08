@@ -49,8 +49,11 @@ public class SecurityConfig {
                                 "/clear-conflict", "/clear-conflict/**",
                                 "/api/parse-address").hasRole("OWNER")
                         // Per-item edit pages must be ordered before the list matchers below.
+                        // A single * matches one path segment only, so per-item *actions* need
+                        // their own entry alongside the page (as /booked-flights/*/lookup does).
                         .requestMatchers("/booked-flights/*", "/booked-flights/*/lookup",
                                 "/booked-trains/*", "/booked-hotels/*",
+                                "/booked-hotels/*/cancel",
                                 "/planned-gatherings/*").hasRole("OWNER")
                         // Booking lists: OWNER-only (FAMILY cannot view booking details).
                         .requestMatchers(

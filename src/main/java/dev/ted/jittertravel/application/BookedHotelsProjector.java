@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.HotelBooked;
+import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -26,16 +27,18 @@ public class BookedHotelsProjector implements EventStreamConsumer {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
                 case HotelBooked e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
-                        e.checkIn(), e.checkOut(), e.mapsUrl());
+                        e.checkIn(), e.checkOut(), e.mapsUrl(), e.cancelBy());
                 case HotelChanged e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
-                        e.checkIn(), e.checkOut(), e.mapsUrl());
+                        e.checkIn(), e.checkOut(), e.mapsUrl(), e.cancelBy());
+                case HotelBookingCancelled e -> viewsById.remove(e.hotelBookingId());
                 default -> { /* not a hotel event */ }
             }
         });
     }
 
     private void put(HotelBookingId hotelBookingId, String hotelName, Address address,
-                     ZonedTimestamp checkIn, ZonedTimestamp checkOut, String rawMapsUrl) {
+                     ZonedTimestamp checkIn, ZonedTimestamp checkOut, String rawMapsUrl,
+                     ZonedTimestamp cancelBy) {
         String mapsUrl = rawMapsUrl.isBlank()
                 ? AddressRenderer.mapsUrl(hotelName, address)
                 : rawMapsUrl;
@@ -47,13 +50,16 @@ public class BookedHotelsProjector implements EventStreamConsumer {
                 checkIn,
                 checkOut,
                 BookingIntent.TENTATIVE,
-                mapsUrl
+                mapsUrl,
+                cancelBy,
+                false  // resolved against `now` in views(...), which is where the clock arrives
         ));
     }
 
     public List<BookedHotelView> views(TimeView timeView, Instant now) {
         return viewsById.values().stream()
                 .filter(view -> timeView.includes(view, now))
+                .map(view -> view.withDeadlineEvaluatedAt(now))
                 .sorted(Comparator.comparing((BookedHotelView view) -> view.checkIn().utc()))
                 .toList();
     }

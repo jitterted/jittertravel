@@ -111,6 +111,28 @@
         }
 
         button[type=submit]:hover { opacity: 0.88; }
+
+        .danger-zone {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .danger-zone h2 {
+            margin: 0 0 0.25rem;
+            font-size: 1rem;
+            color: var(--text-color);
+        }
+
+        .danger-zone .hint { margin-bottom: 0.75rem; }
+
+        button.danger {
+            background: none;
+            color: #b00;
+            border: 1px solid #b00;
+        }
+
+        button.danger:hover { background: #b00; color: #fff; opacity: 1; }
     </style>
 </head>
 <body>
@@ -250,6 +272,28 @@
 
         <button type="submit">Save changes</button>
     </form>
+
+    <!-- Outside the edit form on purpose: HTML forbids nested forms, and this posts elsewhere. -->
+    <section class="danger-zone">
+        <h2>Cancel this booking</h2>
+        <p class="hint">
+            Removes the stay from every view — calendar, itinerary, schedule problems and this
+            list. The event log keeps the record. This cannot be undone from the app, and is
+            only possible until check-in.
+        </p>
+        <form th:action="@{|/booked-hotels/${changeHotel.hotelBookingId}/cancel|}" method="post">
+            <div class="field">
+                <label>
+                    Reason (optional)
+                    <input type="text" name="reason" placeholder="Trip cancelled, found somewhere better…"/>
+                </label>
+            </div>
+            <button type="submit" class="danger"
+                    onclick="return confirm('Cancel this hotel booking? It will disappear from every view.')">
+                Cancel booking
+            </button>
+        </form>
+    </section>
 
 </div>
 </body>

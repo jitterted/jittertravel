@@ -173,7 +173,50 @@ Phase 1.
 
 ---
 
-## Phase 2 — `cancelBy` display + Cancel Hotel (FUTURE/ALL filter already done)
+## Phase 2 — `cancelBy` display + Cancel Hotel (FUTURE/ALL filter already done) — DONE
+
+*Shipped 2026-08-07. Full suite green (717 tests) plus the `js` tier. Five deviations from the plan
+as written below, each decided during implementation:*
+
+1. **Decision facts are folded from the event stream, not read from a projector** (Ted's call,
+   2026-08-07). The plan said to mirror `ChangeHotel` and read `HotelDetailsViewProjector`, but
+   `EventSourcingRulesHeuristics.md` R1 forbids deciding from a projection and R4 step 3 says to
+   fold — and cancelling is a *time-based authorization gate*, not the existence check that made
+   the departure feel harmless in `ChangeHotel`. `CancelHotel` folds `HotelBooked` /
+   `HotelChanged` / `HotelBookingCancelled` itself and takes no projector. Bringing `ChangeHotel`
+   and `ChangeFlight` back in line is tracked in `docs/Backlog.md`.
+2. **The plan called `ChangeFlight` the legacy stream-folding path. It isn't** — `ChangeFlight` also
+   reads a details projector and goes through `CommandExecutor`. There was no fold precedent left
+   in the tree, so this slice establishes one.
+3. **`CommandExecutor.eventsForDecision()` is the route to the stream.**
+   `ApplicationServicesUseCommandExecutorTest` forbids an `EventStore` constructor parameter
+   anywhere in `application`, so the fold arrives through the one authorized holder.
+4. **`CancelHotelContext.checkIn` is nullable, meaning "no check-in gate"** (Ted's call), instead of
+   carrying a redundant `checkIn` on `CancelHotelRequest` as the plan's open question suggested.
+   Import passes `null`: there is no stream to fold there, and `IMPORT_BYPASS_INSTANT`
+   (`Instant.MIN`) could not trip the gate anyway. Nothing inert lands in the backup file.
+5. **`LocationAuditProjector` deliberately does *not* drop a cancelled booking.** Its `HotelBooked`
+   row stays in the log forever and the read-time upcaster resolves that location on every replay,
+   so removing it would hide exactly the unresolvable location that breaks startup. Pinned by a
+   test in `HotelCancellationPropagationTest` so it reads as a decision, not an omission.
+
+*Also: `BookedHotelView` gained a resolved `cancelDeadlinePassed` flag rather than the renderer
+computing it, because `TimeFilterToggleConventionTest` reflectively invokes every
+`render(List, TimeView)` and an extra `Instant` parameter would break it. The flag is set in
+`BookedHotelsProjector.views(TimeView, Instant)`, which is where the clock already arrives.*
+
+### What landed
+
+- `HotelBookingCancelled` (+ `EventTypes` registration), `CancelHotelCommand`,
+  `CancelHotelContext`, `CannotCancelAfterCheckIn`.
+- `CancelHotel` application service (stream fold), `CancelHotelRequest` (+ `ImportableCommandTypes`
+  registration and a round-trip case), `CancelHotelController`.
+- Removal handled in all seven view projectors; `LocationAuditProjector` documented as exempt.
+- `cancelBy` column on `/booked-hotels` with an em-dash when absent and a neutral passed style.
+- Cancel form on `change-hotel.html` outside the edit form, `/booked-hotels/*/cancel` in
+  `SecurityConfig`, and a matching `AuthorizationMatrixTest` row.
+
+### Original plan text
 
 ### 2a. FUTURE/ALL filter — DONE (arrived via the shared `TimeFilterToggle` convention)
 `BookedHotelView implements TemporalView` (`relevantUntil()` = `checkOut.utc()`),

@@ -36,6 +36,7 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
     @Autowired ChangeFlight changeFlight;
     @Autowired HotelBooking hotelBooking;
     @Autowired ChangeHotel changeHotel;
+    @Autowired CancelHotel cancelHotel;
     @Autowired TrainBooking trainBooking;
     @Autowired ChangeTrain changeTrain;
     @Autowired GatheringPlanning gatheringPlanning;
@@ -53,6 +54,11 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
         String hotelBookingId = UUID.randomUUID().toString();
         hotelBooking.bookHotel(bookHotel(hotelBookingId), Instant.now());
         changeHotel.changeHotel(UUID.randomUUID(), changeHotel(hotelBookingId), Instant.now());
+        // Cancel the same booking rather than a second one, so onlyEventOfType(HotelBooked) below
+        // still finds exactly one.
+        cancelHotel.cancelHotel(UUID.randomUUID(),
+                new CancelHotelRequest(UUID.fromString(hotelBookingId), "Plans changed"),
+                Instant.now());
         String trainTripId = UUID.randomUUID().toString();
         trainBooking.bookTrain(bookTrain(trainTripId), Instant.now());
         changeTrain.changeTrain(UUID.randomUUID(), changeTrain(trainTripId), Instant.now());
@@ -75,6 +81,7 @@ class CommandExportImportRoundTripTest extends AbstractTestcontainerIntegrationT
                 .as("sanity: the bug-relevant events were produced")
                 .hasAtLeastOneElementOfType(GatheringPlanned.class)
                 .hasAtLeastOneElementOfType(ConferenceCancelled.class)
+                .hasAtLeastOneElementOfType(HotelBookingCancelled.class)
                 .hasAtLeastOneElementOfType(DifferentCityConflictCleared.class);
         assertThat(onlyEventOfType(HotelBooked.class).cancelBy())
                 .as("sanity: the booking really carries a deadline, so the comparison below tests it")

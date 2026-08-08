@@ -5,6 +5,8 @@ the "What's left" column exists only so you can tell, without opening twenty fil
 something is still live. When work lands, update the owning doc first and this table second.
 
 Small cleanups keep living in `Cleanup_Tasks.md` — they are summarized here but not duplicated.
+Decisions made during implementation that still need Ted's eye live in `DecisionsToReview.md` —
+a review queue, not a backlog; work through it one entry at a time.
 
 Status verified against the tree on **2026-08-07** (`4efccaf`).
 
@@ -18,7 +20,7 @@ Legend: `open` · `partial` · `done` · `exploration` (deliberately unbuilt des
 | Item | Owning doc | What's left |
 |---|---|---|
 | **Private social event kind** | `Cleanup_Tasks.md` | `open` — highest-value item here. Today a private dinner can only be modelled as a GATHERING, which renders in full to anonymous viewers on `/calendar`. Needs its own `EntryKind`, a redacting branch in `CalendarEntryRedactor`, and both tiers of redaction test. CLAUDE.md calls this out as a known leak. Anonymous view decided 2026-08-07: "Busy" + time range with zone + city/country (`Busy / 7pm–10pm EDT / Toronto, Canada`); the rest of the design is open. |
-| **Cancel Hotel + Replace Hotel** | `HotelCancelReplacePlan.md` | `partial` — Phases 0 and 1 (`cancelBy`) shipped in `4efccaf`. Phase 2 (cancel + deadline display) and Phase 3 (replace) are unbuilt; no `HotelCancelled` or `CancelHotel` exists in the tree. |
+| **Replace Hotel** | `HotelCancelReplacePlan.md` | `partial` — Phases 0, 1 (`cancelBy`) and 2 (Cancel Hotel + deadline column) are done. Phase 3 (Replace: cancel the old booking and book a new one linked by `replacesHotelBookingId`) is unbuilt and needs a second `HotelBooked` schema bump. |
 | **`ConferenceCancelled`** | `Future_Feature_Slices.md` | `open` — also the prerequisite for any slice that retracts a booking. Gathering cancellation is the same gap (explicitly out of scope in `ChangeGatheringPlan.md`). |
 | **`infoUrl` on conferences** | `Future_Feature_Slices.md` | `open` — gatherings have one; conferences don't. |
 | **`mapsUrl` on conferences** | `Future_Feature_Slices.md` | `open` — auto-computed from venue + address, as hotels do. |
@@ -46,6 +48,22 @@ From the Phase 1 `cancelBy` review (bottom of `HotelCancelReplacePlan.md`):
 *(The other two items on that list — the wrong cancel-by hint text and the duplicated
 `cancelBy(LocalDateTime, ZoneId)` helper — were fixed inside `4efccaf` before it was committed.
 The review had been written against the pre-fix working tree.)*
+
+From the Cancel Hotel slice (2026-08-07):
+
+- **`ChangeHotel` and `ChangeFlight` still decide from a projector**, which R1 in
+  `EventSourcingRulesHeuristics.md` forbids ("never use a projection to make an automated
+  decision"). Both read a details projector for an existence check; `CancelHotel` now folds from
+  the event stream via `CommandExecutor.eventsForDecision()` and is the pattern to follow. Ted
+  asked for this follow-up when choosing the fold for Cancel. Low risk today (the existence check
+  is not a time gate and subscribers are synchronous), but the codebase currently contradicts its
+  own rule doc.
+- **Export/import needs a wider decision before more commands need folded context.** Ted flagged
+  this: `CancelHotelContext.checkIn` is nullable so import can pass "no gate", but that works only
+  because the gate is skippable. A future command whose decision genuinely depends on folded event
+  state has no good answer today — `ImportableCommand.events()` gets no event stream and no read
+  model, so its options are carrying redundant state on the request or weakening the rule. Worth
+  designing before the first such command, not after.
 
 From `GeneralControllerRefactorPlan.md`:
 

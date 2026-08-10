@@ -1,14 +1,16 @@
 # Decision Context Queries — replacing `eventsForDecision()` with a tagged query
 
-**Status:** `paused — blocked on the export/import rethink`
-**Opened:** 2026-08-07 · **Owns:** `DecisionsToReview.md` D1 and D2, and the
-"ChangeHotel/ChangeFlight still decide from a projector" follow-up in `Backlog.md`
+**Status:** `unblocked — ready to build (was: blocked on the export/import rethink)`
+**Opened:** 2026-08-07 · **Unblocked:** 2026-08-10 · **Owns:** `DecisionsToReview.md` D1 and D2,
+and the "ChangeHotel/ChangeFlight still decide from a projector" follow-up in `Backlog.md`
 
 This is a discussion record, captured mid-conversation so it can be picked up later. Nothing here
-is built. The design is close to settled; what stopped it is **item 1 under "Concerns"** — every
-command gaining a real context query forces the export/import question that `Backlog.md` already
-flagged as needing "a wider decision before more commands need folded context." That rethink now
-comes first.
+is built, but the blocker is gone. The design is close to settled; what stopped it was **item 1
+under "Concerns"** — every command gaining a real context query forced the export/import question
+that `Backlog.md` flagged as needing "a wider decision before more commands need folded context."
+**That rethink is now resolved by `EventOrientedBackupRestorePlan.md`**: backup/restore moves to
+event-verbatim, so restore no longer re-executes commands and no command has a decision context to
+fake on import. This slice can proceed. See Concern §1 for the detail.
 
 ---
 
@@ -75,8 +77,8 @@ it with four callers.
 | `EventStore` exposes only `findAll()` — no filtered query | `infrastructure/EventStore.java` |
 | `EventTypes` already maps stable **logical names** ↔ event classes, so classes can move/rename without breaking replay | `infrastructure/EventTypes.java` |
 | The arch test forbids an `EventStore` **constructor parameter type** in `application` — not "any read" | `ApplicationServicesUseCommandExecutorTest.java` |
-| Export/import round-trips `ImportableCommand` records, **not events** | `web/ImportableCommand.java` |
-| `ImportableCommand.events()` gets no stream and no read model, so `CancelHotelRequest` hardcodes `new CancelHotelContext(true, null, IMPORT_BYPASS_INSTANT)` | `web/CancelHotelRequest.java:36-41` |
+| Export/import round-trips `ImportableCommand` records, **not events** — *being retired by `EventOrientedBackupRestorePlan.md` (event-verbatim restore)* | `web/ImportableCommand.java` |
+| `ImportableCommand.events()` gets no stream and no read model, so `CancelHotelRequest` hardcodes `new CancelHotelContext(true, null, IMPORT_BYPASS_INSTANT)` — *the fake disappears with command replay* | `web/CancelHotelRequest.java:36-41` |
 
 **Where the prior art lives:** `TaggedEventStoreQueryingDesign.md` is at the **repo root**, not in
 `docs/`. It is the earlier, query-side treatment of this exact problem and it must be read before
@@ -169,26 +171,22 @@ append actually has to run in the database.
 
 ## Concerns
 
-### 1. Import is the blocker — this is why the slice is paused
+### 1. Import was the blocker — now RESOLVED (2026-08-10)
 
-`ImportableCommand.events()` has no event stream and no read model, so each command fakes its own
-context. `CancelHotelRequest` hardcodes `new CancelHotelContext(true, null, IMPORT_BYPASS_INSTANT)`.
-Every fake is a silent divergence between live behavior and import behavior, and if *every* command
-gains a real context query, every importable command needs an answer.
+`ImportableCommand.events()` had no event stream and no read model, so each command faked its own
+context. `CancelHotelRequest` hardcoded `new CancelHotelContext(true, null, IMPORT_BYPASS_INSTANT)`.
+Every fake was a silent divergence between live behavior and import behavior, and if *every* command
+gained a real context query, every importable command would have needed an answer.
 
-The options, none of them free:
+The options weighed at the time — keep faking per command; give the importer a real query over a
+virtual not-yet-applied stream; or export events instead of commands — resolved to the last one.
 
-- **Keep faking per command.** Scales badly; each fake is an untested behavioral fork.
-- **Give the importer a real query.** Tempting, because pass two applies entries in order, so by the
-  time entry *N* is applied the events from 1..*N-1* are genuinely in the store — a real query would
-  work, and import would *validate* the backup instead of trusting it. But pass **one** validates
-  while writing nothing, so it would have to fold over a *virtual* stream of already-computed but
-  not-yet-applied events. That is a real design problem, not a refactor.
-- **Export events instead of commands.** The wider rethink Ted flagged. Changes the backup format,
-  which is the one thing that must not break silently.
-
-**Decision taken 2026-08-07:** stop here and do the export/import rethink first. Until then, no
-*new* hardcoded import context gets added without deciding the import story for it.
+**Resolution: `EventOrientedBackupRestorePlan.md`.** Backup/restore becomes **event-verbatim** —
+restore inserts stored events directly and **never re-executes commands**. `ImportableCommand`,
+`events()`, and the whole command-replay path are retired. With no command replay on the restore
+path, there is **no decision context to fake**: a command whose decision depends on folded event
+state simply has its events restored as data. The blocker this Concern described is gone, and this
+slice can build a real `DecisionStream` query without an import story to reconcile.
 
 ### 2. Two traps in the tdd-game reference implementation — do not copy
 

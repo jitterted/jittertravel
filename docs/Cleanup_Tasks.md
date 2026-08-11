@@ -63,7 +63,10 @@ plan doc and its status — including these items — see `Backlog.md`.
       `/admin/zone-audit` reads `event_log` — data that is *already imported* — which is backwards
       for a wipe-then-import workflow; it gave no warning before the 2026-08-06 production import
       failed on three venues. Mutation-verified: making `validateJson` call `apply` fails both
-      dry-run tests.
+      dry-run tests. *(2026-08-11: `CommandImporter` was retired with the event-oriented
+      backup/restore rework; this dry run now lives in `BackupService.validateJson`, posted from
+      `/admin/restore` to `/admin/restore/validate`, and validates event payloads rather than
+      recomputed command events.)*
 
 - [x] **Every application service goes through `CommandExecutor`** (2026-08-05, with the conference
       UTC slice). `ConferencePlanning` was the last service injecting `EventStore` directly; it now

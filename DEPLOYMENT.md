@@ -178,7 +178,7 @@ Prerequisites: Railway CLI (logged in + linked), Docker running, `jq`. `BACKUP_D
 `./backups`, which is **gitignored** — these dumps are real data, so keep them out of the repo and
 copy them somewhere off this machine (the whole point of a backup is surviving the laptop).
 
-Good moments to run it: before pushing a schema or event-shape change, before an `/admin/import`,
+Good moments to run it: before pushing a schema or event-shape change, before an `/admin/restore`,
 and on whatever regular cadence you'll actually keep.
 
 ### Restoring
@@ -203,15 +203,17 @@ for `Replayed N events from persistent store` and confirm `N` matches expectatio
 
 ### Second layer: the app's JSON export
 
-`/admin/export` downloads `commands.json` — every row of `command_log`, and `/admin/import` replays
-them. Useful as a portable, human-readable snapshot, but it is **not** a substitute for `pg_dump`:
+`/admin/backup` downloads `jittertravel-backup.json` — every row of `command_log` **and**
+`event_log` — and `/admin/restore` inserts them back **verbatim**. Unlike the old command-replay
+export, events are restored byte-for-byte (same event ids, sequences and timestamps); commands are
+kept as opaque history and never re-executed. Still **not** a substitute for `pg_dump`:
 
-- It covers **commands only**. `event_log` is *re-derived* by re-executing each command on import,
-  so event ids, sequences and timestamps are new rather than restored byte-for-byte.
-- Its format is a compatibility contract — old export files must stay importable, so treat any
-  change to it carefully.
+- After a restore (or a truncate), **restart the app** — the read models are rebuilt by the boot
+  replay, not live.
+- Its format is a versioned compatibility contract (`version: 2`); the old command-only export
+  files are no longer restorable.
 
-Use `pg_dump` as the real backup; use the JSON export when you want a readable snapshot or to move
+Use `pg_dump` as the real backup; use the JSON backup when you want a readable snapshot or to move
 data into a scratch instance.
 
 ## Quick start

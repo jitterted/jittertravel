@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.CommandImporter;
+import dev.ted.jittertravel.application.BackupService;
+import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.ConferenceMigrationService;
 import dev.ted.jittertravel.application.TentativeConferenceProjector;
 import dev.ted.jittertravel.domain.ConferenceId;
@@ -18,24 +19,31 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.Clock;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Controller
 @RequestMapping("/admin")
 public class AdminController {
-    private final CommandImporter commandImporter;
+    private final BackupService backupService;
     private final PostgresPersister persister;
     private final TentativeConferenceProjector tentativeConferenceProjector;
     private final ConferenceMigrationService conferenceMigrationService;
+    private final BackupSource backupSource;
+    private final Clock clock;
 
-    public AdminController(CommandImporter commandImporter, PostgresPersister persister,
+    public AdminController(BackupService backupService, PostgresPersister persister,
                            TentativeConferenceProjector tentativeConferenceProjector,
-                           ConferenceMigrationService conferenceMigrationService) {
-        this.commandImporter = commandImporter;
+                           ConferenceMigrationService conferenceMigrationService,
+                           BackupSource backupSource, Clock clock) {
+        this.backupService = backupService;
         this.persister = persister;
         this.tentativeConferenceProjector = tentativeConferenceProjector;
         this.conferenceMigrationService = conferenceMigrationService;
+        this.backupSource = backupSource;
+        this.clock = clock;
     }
 
     @GetMapping("")
@@ -43,31 +51,34 @@ public class AdminController {
         return "admin-home";
     }
 
-    @GetMapping("/import")
-    public String importForm() {
-        return "admin-import";
+    @GetMapping("/restore")
+    public String restoreForm() {
+        return "admin-restore";
     }
 
-    @PostMapping("/import")
-    public String importCommands(@RequestParam("content") String content, Model model) {
-        CommandImporter.ImportResult result = commandImporter.importJson(content);
+    @PostMapping("/restore")
+    public String restore(@RequestParam("content") String content, Model model) {
+        BackupService.RestoreResult result = backupService.restoreJson(content);
         if (!result.hasErrors()) {
-            model.addAttribute("importedCount", result.importedCount());
-            model.addAttribute("skippedCount", result.skippedCount());
-            return "admin-import-success";
+            model.addAttribute("restoredCommands", result.restoredCommands());
+            model.addAttribute("restoredEvents", result.restoredEvents());
+            model.addAttribute("skippedCommands", result.skippedCommands());
+            model.addAttribute("skippedEvents", result.skippedEvents());
+            return "admin-restore-success";
         }
         model.addAttribute("errors", result.errors());
         model.addAttribute("content", content);
-        return "admin-import";
+        return "admin-restore";
     }
 
-    @PostMapping("/import/validate")
-    public String validateCommands(@RequestParam("content") String content, Model model) {
-        CommandImporter.ValidationReport report = commandImporter.validateJson(content);
+    @PostMapping("/restore/validate")
+    public String validateBackup(@RequestParam("content") String content, Model model) {
+        BackupService.ValidationReport report = backupService.validateJson(content);
         model.addAttribute("errors", report.errors());
-        model.addAttribute("validatedCount", report.hasErrors() ? null : report.validCount());
+        model.addAttribute("validatedCommands", report.hasErrors() ? null : report.validCommandCount());
+        model.addAttribute("validatedEvents", report.hasErrors() ? null : report.validEventCount());
         model.addAttribute("content", content);
-        return "admin-import";
+        return "admin-restore";
     }
 
     @GetMapping("/database")
@@ -111,13 +122,14 @@ public class AdminController {
         return "redirect:/admin/migrate-conferences";
     }
 
-    @GetMapping("/export")
-    public ResponseEntity<String> exportCommands() {
-        String json = commandImporter.exportJson();
+    @GetMapping("/backup")
+    public ResponseEntity<String> backup() {
+        BackupService.Backup backup =
+                backupService.createBackup(OffsetDateTime.now(clock), backupSource.label());
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment().filename("commands.json").build().toString())
+                        ContentDisposition.attachment().filename(backup.filename()).build().toString())
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(json);
+                .body(backup.json());
     }
 }

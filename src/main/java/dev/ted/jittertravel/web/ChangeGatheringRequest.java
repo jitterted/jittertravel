@@ -1,19 +1,12 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.ChangeGatheringHandler;
-import dev.ted.jittertravel.application.LocationZoneResolver;
-import dev.ted.jittertravel.application.VenueZone;
 import dev.ted.jittertravel.domain.Address;
-import dev.ted.jittertravel.domain.ChangeGatheringContext;
-import dev.ted.jittertravel.domain.Event;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.UUID;
-import java.util.stream.Stream;
 
-public class ChangeGatheringRequest implements ImportableCommand {
+public class ChangeGatheringRequest {
     private String gatheringId;
     private String title;
     private String venueName;
@@ -85,20 +78,5 @@ public class ChangeGatheringRequest implements ImportableCommand {
 
     public Address getLocation() {
         return new Address(street, city, region, postalCode, country, locationForMatching);
-    }
-
-    @Override
-    public UUID commandId() {
-        // A gathering may be changed many times; each change is a distinct command, so the id is
-        // not derived from gatheringId (the aggregate id). Import keeps it random, matching live
-        // behavior.
-        return UUID.randomUUID();
-    }
-
-    @Override
-    public Stream<? extends Event> events() {
-        // On import the gathering is assumed to already exist (its planning imported earlier).
-        return new ChangeGatheringHandler(new LocationZoneResolver()).handle(this)
-                .execute(new ChangeGatheringContext(true, IMPORT_BYPASS_INSTANT));
     }
 }

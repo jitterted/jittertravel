@@ -7,6 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.sql.Array;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -343,18 +345,144 @@ public class PostgresPersister {
         jdbcClient.sql("TRUNCATE TABLE event_log, command_log").update();
     }
 
-    public List<CommandPayloadRow> findAllCommandsForExport() {
+    /**
+     * Every command_log row — all statuses (SUCCEEDED, FAILED_DOMAIN, FAILED_PERSIST, PENDING,
+     * ABANDONED), all columns — for an event-oriented backup (see
+     * docs/EventOrientedBackupRestorePlan.md). Carries event_ids/status/error so the
+     * command-to-event linkage survives verbatim. {@code type} and {@code payloadJson} are
+     * opaque here — restore never resolves or re-runs a command.
+     */
+    public List<BackupCommandRow> findAllCommandsForBackup() {
         return jdbcClient.sql("""
-                        SELECT type, payload::text AS payloadJson
+                        SELECT command_id    AS commandId,
+                               timestamp,
+                               type,
+                               payload::text AS payloadJson,
+                               event_ids     AS eventIds,
+                               status,
+                               error
                         FROM command_log
-                        WHERE status = 'SUCCEEDED'
                         ORDER BY timestamp ASC, command_id ASC
                         """)
-                .query(CommandPayloadRow.class)
+                .query((rs, _) -> new BackupCommandRow(
+                        (UUID) rs.getObject("commandId"),
+                        rs.getObject("timestamp", OffsetDateTime.class),
+                        rs.getString("type"),
+                        rs.getString("payloadJson"),
+                        uuidList(rs.getArray("eventIds")),
+                        rs.getString("status"),
+                        rs.getString("error")
+                ))
                 .list();
     }
 
-    public record CommandPayloadRow(String type, String payloadJson) {}
+    /**
+     * Every event_log row for a backup, verbatim: reused sequence, event_id, command_id,
+     * timestamp, the stored logical {@code type}, and the raw payload JSON (no deserialize
+     * — a backup is written from the bytes on disk). Ordered by sequence.
+     */
+    public List<BackupEventRow> findAllEventsForBackup() {
+        return jdbcClient.sql("""
+                        SELECT sequence,
+                               event_id      AS eventId,
+                               command_id    AS commandId,
+                               timestamp,
+                               type,
+                               payload::text AS payloadJson
+                        FROM event_log
+                        ORDER BY sequence
+                        """)
+                .query((rs, _) -> new BackupEventRow(
+                        rs.getLong("sequence"),
+                        (UUID) rs.getObject("eventId"),
+                        (UUID) rs.getObject("commandId"),
+                        rs.getObject("timestamp", OffsetDateTime.class),
+                        rs.getString("type"),
+                        rs.getString("payloadJson")
+                ))
+                .list();
+    }
+
+    private List<UUID> uuidList(Array sqlArray) throws SQLException {
+        if (sqlArray == null) {
+            return null;  // preserve SQL NULL: a command with no events has no event_ids
+        }
+        return List.of((UUID[]) sqlArray.getArray());
+    }
+
+    /**
+     * Restores commands then events — in that order, so event_log's FK to command_log never
+     * fails — as verbatim inserts in one transaction. Idempotent: a command_id already in
+     * command_log or a sequence already in event_log is skipped (ON CONFLICT DO NOTHING), so a
+     * partially-applied restore resumes by re-running the same file. This does not go through
+     * CommandExecutor by design: it is a bulk load of already-durable events, not new events
+     * appended from a command (see docs/EventOrientedBackupRestorePlan.md).
+     *
+     * <p>Returns how many rows were actually inserted; a restore that skipped everything
+     * (all ids already present) returns zeros, so a caller can report restored-vs-skipped.
+     */
+    @Transactional
+    public RestoreCounts restoreCommandsAndEvents(List<BackupCommandRow> commands, List<BackupEventRow> events) {
+        int commandsInserted = 0;
+        for (BackupCommandRow command : commands) {
+            commandsInserted += jdbcClient.sql("""
+                            INSERT INTO command_log (command_id, timestamp, type, payload, event_ids, status, error)
+                            VALUES (:commandId, :timestamp, :type, CAST(:payload AS jsonb), CAST(:eventIds AS uuid[]), :status, :error)
+                            ON CONFLICT (command_id) DO NOTHING
+                            """)
+                    .param("commandId", command.commandId())
+                    .param("timestamp", command.timestamp())
+                    .param("type", command.type())
+                    .param("payload", command.payloadJson())
+                    .param("eventIds", command.eventIds() == null ? null : command.eventIds().toArray(new UUID[0]))
+                    .param("status", command.status())
+                    .param("error", command.error())
+                    .update();
+        }
+        int eventsInserted = 0;
+        for (BackupEventRow event : events) {
+            eventsInserted += jdbcClient.sql("""
+                            INSERT INTO event_log (sequence, event_id, command_id, timestamp, type, payload)
+                            VALUES (:sequence, :eventId, :commandId, :timestamp, :type, CAST(:payload AS jsonb))
+                            ON CONFLICT (sequence) DO NOTHING
+                            """)
+                    .param("sequence", event.sequence())
+                    .param("eventId", event.eventId())
+                    .param("commandId", event.commandId())
+                    .param("timestamp", event.timestamp())
+                    .param("type", event.type())
+                    .param("payload", event.payloadJson())
+                    .update();
+        }
+        return new RestoreCounts(commandsInserted, eventsInserted);
+    }
+
+    /** How many rows a restore actually inserted (the rest were skipped as already present). */
+    public record RestoreCounts(int commandsInserted, int eventsInserted) {}
+
+    /**
+     * A command_log row for backup/restore, verbatim. {@code eventIds} is null when the
+     * command produced no events (a failed, pending, or abandoned command).
+     */
+    public record BackupCommandRow(
+            UUID commandId,
+            OffsetDateTime timestamp,
+            String type,
+            String payloadJson,
+            List<UUID> eventIds,
+            String status,
+            String error
+    ) {}
+
+    /** An event_log row for backup/restore, verbatim. {@code type} is the stored logical name. */
+    public record BackupEventRow(
+            long sequence,
+            UUID eventId,
+            UUID commandId,
+            OffsetDateTime timestamp,
+            String type,
+            String payloadJson
+    ) {}
 
     /**
      * Of the given command ids, those already present in {@code command_log}. Lets import skip

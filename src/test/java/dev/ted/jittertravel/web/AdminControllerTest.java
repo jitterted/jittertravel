@@ -1,20 +1,27 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.CommandImporter;
+import dev.ted.jittertravel.application.BackupService;
+import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.ConferenceMigrationService;
 import dev.ted.jittertravel.application.TentativeConferenceProjector;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -25,11 +32,24 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 @WithMockUser(roles = "OWNER")
 class AdminControllerTest {
 
+    @TestConfiguration
+    static class TestBeans {
+        @Bean
+        Clock clock() {
+            return Clock.fixed(Instant.parse("2026-05-31T10:00:00Z"), ZoneOffset.UTC);
+        }
+
+        @Bean
+        BackupSource backupSource() {
+            return new BackupSource("");   // empty marker -> "local"
+        }
+    }
+
     @Autowired
     MockMvcTester mockMvc;
 
     @MockitoBean
-    CommandImporter commandImporter;
+    BackupService backupService;
     @MockitoBean
     PostgresPersister persister;
     @MockitoBean
@@ -45,10 +65,23 @@ class AdminControllerTest {
     }
 
     @Test
-    void importFormMapsToOkWithHtmlContentType() {
-        assertThat(mockMvc.get().uri("/admin/import"))
+    void restoreFormMapsToOkWithHtmlContentType() {
+        assertThat(mockMvc.get().uri("/admin/restore"))
                 .hasStatusOk()
                 .hasContentTypeCompatibleWith(MediaType.TEXT_HTML);
+    }
+
+    @Test
+    void backupDownloadsJsonAsAnAttachment() {
+        given(backupService.createBackup(any(), anyString()))
+                .willReturn(new BackupService.Backup(
+                        "jittertravel-backup-local-2026-05-31T100000Z.json", "{\"version\": 2}"));
+
+        assertThat(mockMvc.get().uri("/admin/backup"))
+                .hasStatusOk()
+                .hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                .hasHeader("Content-Disposition",
+                        "attachment; filename=\"jittertravel-backup-local-2026-05-31T100000Z.json\"");
     }
 
     @Test
@@ -74,80 +107,80 @@ class AdminControllerTest {
     }
 
     @Test
-    void importSuccessRendersSuccessView() {
-        given(commandImporter.importJson(anyString()))
-                .willReturn(new CommandImporter.ImportResult(3, 0, List.of()));
+    void restoreSuccessRendersSuccessViewWithRestoredCounts() {
+        given(backupService.restoreJson(anyString()))
+                .willReturn(new BackupService.RestoreResult(3, 0, 5, 0, List.of()));
 
-        assertThat(mockMvc.post().uri("/admin/import")
+        assertThat(mockMvc.post().uri("/admin/restore")
                 .with(csrf())
-                .param("content", "[]"))
+                .param("content", "{}"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("3");
+                .contains("Restored 3 command(s) and 5 event(s).");
     }
 
     @Test
-    void importSuccessViewReportsSkippedAlreadyImportedCommands() {
-        given(commandImporter.importJson(anyString()))
-                .willReturn(new CommandImporter.ImportResult(1, 2, List.of()));
+    void restoreSuccessViewReportsSkippedRowsAlreadyPresent() {
+        given(backupService.restoreJson(anyString()))
+                .willReturn(new BackupService.RestoreResult(1, 2, 4, 3, List.of()));
 
-        assertThat(mockMvc.post().uri("/admin/import")
+        assertThat(mockMvc.post().uri("/admin/restore")
                 .with(csrf())
-                .param("content", "[]"))
+                .param("content", "{}"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("Skipped 2 commands already in the log.");
+                .contains("Skipped 2 command(s) and 3 event(s) already present.");
     }
 
     @Test
-    void importWithErrorsRedisplaysFormWithErrors() {
-        given(commandImporter.importJson(anyString()))
-                .willReturn(new CommandImporter.ImportResult(0, 0, List.of("Failed to import Foo: boom")));
+    void restoreWithErrorsRedisplaysFormWithErrors() {
+        given(backupService.restoreJson(anyString()))
+                .willReturn(new BackupService.RestoreResult(0, 0, 0, 0, List.of("Event 5 (HotelBooked) payload cannot be restored: boom")));
 
-        assertThat(mockMvc.post().uri("/admin/import")
+        assertThat(mockMvc.post().uri("/admin/restore")
                 .with(csrf())
                 .param("content", "bad json"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("Failed to import Foo: boom");
+                .contains("Event 5 (HotelBooked) payload cannot be restored: boom");
     }
 
     @Test
-    void validateOnlyReportsProblemsAndNeverCallsImport() {
-        given(commandImporter.validateJson(anyString()))
-                .willReturn(new CommandImporter.ValidationReport(0, List.of("Entry 47: no zone for Lone Tree")));
+    void validateOnlyReportsProblemsAndNeverCallsRestore() {
+        given(backupService.validateJson(anyString()))
+                .willReturn(new BackupService.ValidationReport(0, 0, List.of("Event 47 references command X, which is not in the backup")));
 
-        assertThat(mockMvc.post().uri("/admin/import/validate")
+        assertThat(mockMvc.post().uri("/admin/restore/validate")
                 .with(csrf())
-                .param("content", "[]"))
+                .param("content", "{}"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("Entry 47: no zone for Lone Tree");
-        verify(commandImporter, never()).importJson(anyString());
+                .contains("Event 47 references command X, which is not in the backup");
+        verify(backupService, never()).restoreJson(anyString());
     }
 
     @Test
     void validateOnlyOfACleanFileSaysNothingWasWritten() {
-        given(commandImporter.validateJson(anyString()))
-                .willReturn(new CommandImporter.ValidationReport(12, List.of()));
+        given(backupService.validateJson(anyString()))
+                .willReturn(new BackupService.ValidationReport(12, 7, List.of()));
 
-        assertThat(mockMvc.post().uri("/admin/import/validate")
+        assertThat(mockMvc.post().uri("/admin/restore/validate")
                 .with(csrf())
-                .param("content", "[]"))
+                .param("content", "{}"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("all 12 entries would import", "Nothing was written");
-        verify(commandImporter, never()).importJson(anyString());
+                .contains("12 command(s) and 7 event(s) would restore", "Nothing was written");
+        verify(backupService, never()).restoreJson(anyString());
     }
 
     @Test
     void validateOnlyKeepsTheSubmittedContentInTheTextarea() {
-        given(commandImporter.validateJson(anyString()))
-                .willReturn(new CommandImporter.ValidationReport(0, List.of("boom")));
+        given(backupService.validateJson(anyString()))
+                .willReturn(new BackupService.ValidationReport(0, 0, List.of("boom")));
 
-        assertThat(mockMvc.post().uri("/admin/import/validate")
+        assertThat(mockMvc.post().uri("/admin/restore/validate")
                 .with(csrf())
-                .param("content", "[{\"type\": \"MarkerForTheTextarea\"}]"))
+                .param("content", "{\"marker\": \"MarkerForTheTextarea\"}"))
                 .hasStatusOk()
                 .bodyText()
                 .as("the file must survive the round trip so it can be fixed in place")

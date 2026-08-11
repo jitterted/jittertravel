@@ -24,8 +24,8 @@ import java.util.Map;
  * names, so an event class can be moved between packages or renamed without breaking replay of
  * previously stored rows.
  *
- * <p>This mirrors {@code ImportableCommandTypes}, which does the same for commands in the backup
- * format. Where that registry keys on the wire id read from {@code command_log}, the event write
+ * <p>There is no command-side equivalent: the event-oriented backup restores events verbatim, so a
+ * command's {@code type} is stored opaquely and never resolved back to a class. The event write
  * path holds the {@link Class} directly, so {@link #logicalNameFor(Class)} takes a class.
  *
  * <p>Maintenance rules:

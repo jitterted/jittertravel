@@ -1,6 +1,9 @@
 # Event-Oriented Backup / Restore
 
-**Status:** `open — design settled with Ted 2026-08-10, not started`
+**Status:** `implemented 2026-08-11` — persister backup/restore, `BackupService` (backup +
+validate + verbatim restore + read-only guard), retirement of the command-replay machinery, and the
+backup/restore rename all landed. Rebuild-on-restart (decision 5) is the boot replay; no live
+rebuild was added.
 **Supersedes:** the command-replay export/import (`CommandImporter`, `ImportableCommand`,
 `ImportableCommandTypes`) in its entirety.
 **Unblocks:** `DecisionContextQueryDesign.md` (its Concern §1 dissolves — see "Ripple effects").
@@ -69,6 +72,10 @@ restore does not rely on array order for events (it sorts by `sequence`).
 ```json
 {
   "version": 2,
+  "metadata": {
+    "createdAt": "2026-08-11T14:30:00Z",
+    "source": "production"
+  },
   "commands": [
     {
       "commandId": "…-uuid",
@@ -95,6 +102,12 @@ restore does not rely on array order for events (it sorts by `sequence`).
 
 Field-by-field:
 
+- **`metadata` is an informational header** (added 2026-08-11). `createdAt` is the backup instant in
+  UTC; `source` is `"production"` when the app runs on Railway (env var `RAILWAY_ENVIRONMENT_NAME`
+  is present) or `"local"` otherwise, resolved once at the config boundary by `BackupSource`. It is
+  **written on backup and ignored on restore** — it never touches `command_log`/`event_log`, and a
+  `version: 2` file without it still restores. Both `createdAt` and the filename stamp are
+  normalized to UTC. Purely additive, so it did not bump the format version.
 - **Commands are opaque.** `type` is stored **verbatim** as it appears in `command_log.type`
   (today an FQCN). Restore never resolves it to a class — commands are historical rows, not
   something to deserialize or run. This is what lets us delete `ImportableCommandTypes` and the
@@ -114,13 +127,16 @@ Field-by-field:
 
 ### Backup (write path)
 
-`BackupService.backupJson()` (renamed from `CommandImporter.exportJson`):
+`BackupService.createBackup(createdAt, source)` — returns a `Backup(filename, json)` pair; the
+controller captures `createdAt` (via the `Clock` bean) and `source` (via `BackupSource`) at the
+boundary and names the download from them. `backupJson(createdAt, source)` builds the document
+(renamed from `CommandImporter.exportJson`):
 
 1. `persister.findAllCommandsForBackup()` — **all** rows now, ordered by `timestamp, command_id`.
    Drop the `WHERE status = 'SUCCEEDED'` filter currently in `findAllCommandsForExport`.
 2. `persister.findAllEventsForBackup()` — every `event_log` row, ordered by `sequence`, carrying
    the raw payload JSON (no deserialize needed to write a backup).
-3. Serialize the combined `{version, commands, events}` document, pretty-printed.
+3. Serialize the combined `{version, metadata, commands, events}` document, pretty-printed.
 
 ### Restore (read path) — validate-then-apply, preserved
 
@@ -237,16 +253,23 @@ when the first DB-backed projection lands.
 - `application/CommandImporter.java` — replaced by `BackupService` (below).
 - Tests: `CommandExportImportRoundTripTest`, `CommandImportSafetyTest` (rewritten against the new
   path, see "Tests"), `ImportableCommandTypesTest`.
-- **The `events()` override on all 12 request/command types**: `BookFlightRequest`,
-  `ChangeFlightRequest`, `BookHotelRequest`, `ChangeHotelRequest`, `CancelHotelRequest`,
-  `BookTrainRequest`, `ChangeTrainRequest`, `PlanTentativeConferenceRequest`,
-  `PlanGatheringRequest`, `ChangeGatheringRequest`, `MigrateConferenceToGathering`,
-  `ClearDifferentCityConflict`.
+- **The `events()` override — on 10 of the 12, not all 12.** The verify-first check (below) found
+  that **2 are called on the live path** and must keep `events()`:
+  - **Deleted `events()` (importer-only, 10):** `BookFlightRequest`, `ChangeFlightRequest`,
+    `BookHotelRequest`, `ChangeHotelRequest`, `CancelHotelRequest`, `BookTrainRequest`,
+    `ChangeTrainRequest`, `PlanTentativeConferenceRequest`, `PlanGatheringRequest`,
+    `ChangeGatheringRequest`. Each also shed `implements ImportableCommand`, `commandId()`, and its
+    now-unused handler/context imports. `CancelHotelRequest` dropped its hardcoded
+    `CancelHotelContext` fake.
+  - **Kept `events()` (2):** `MigrateConferenceToGathering` and `ClearDifferentCityConflict` are
+    internal-action commands whose `events()` **is** the live source, applied via
+    `CommandExecutor.appendEvents(commandId, command, command.events())` in
+    `ConferenceMigrationService` / `GatheringPlanning`. They only dropped `implements
+    ImportableCommand` and `commandId()` (both import-only); `events()` stays.
   **Verify first (one grep per type):** confirm each `events()` is called *only* from the importer,
-  not from the live controller path, before deleting it. The interface Javadoc says events are
-  "recomputed deterministically from its payload" for replay — import-only by design — but confirm,
-  because the live path builds events through `DomainCommand.execute(context)`, a different method.
-  This also lets `CancelHotelRequest` drop its hardcoded `CancelHotelContext` fake.
+  not the live path, before deleting it — exactly the check that surfaced the 2 above. The live
+  booking path builds events through `DomainCommand.execute(context)`, a different method; the two
+  internal commands instead expose `events()` directly to `appendEvents`.
 
 ### Rename (backup/restore terminology)
 
@@ -257,7 +280,9 @@ when the first DB-backed projection lands.
   `AuthorizationMatrixTest`'s `policy()` matrix in the same change (deny-by-default rule).
 - Templates: `admin-import.html→admin-restore.html`, `admin-import-success.html→
   admin-restore-success.html`; nav/labels on `admin-home.html`, `index.html`.
-- Downloaded filename: `commands.json` → `jittertravel-backup.json`.
+- Downloaded filename: `commands.json` → `jittertravel-backup-<source>-<utc-timestamp>.json`
+  (e.g. `jittertravel-backup-production-2026-08-11T143000Z.json`; added 2026-08-11 — was
+  `jittertravel-backup.json`).
 
 ### New / changed persister methods
 

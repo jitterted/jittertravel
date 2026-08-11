@@ -171,7 +171,7 @@ append actually has to run in the database.
 
 ## Concerns
 
-### 1. Import was the blocker — now RESOLVED (2026-08-10)
+### 1. Import was the blocker — RESOLVED (2026-08-10), retirement shipped (2026-08-11)
 
 `ImportableCommand.events()` had no event stream and no read model, so each command faked its own
 context. `CancelHotelRequest` hardcoded `new CancelHotelContext(true, null, IMPORT_BYPASS_INSTANT)`.
@@ -187,6 +187,11 @@ restore inserts stored events directly and **never re-executes commands**. `Impo
 path, there is **no decision context to fake**: a command whose decision depends on folded event
 state simply has its events restored as data. The blocker this Concern described is gone, and this
 slice can build a real `DecisionStream` query without an import story to reconcile.
+
+As of 2026-08-11 this is no longer just planned: `ImportableCommand`, `ImportableCommandTypes`, and
+`CommandImporter` are deleted and `BackupService` restores events verbatim. The 10 request DTOs lost
+`events()`; the 2 internal-action commands kept it (their `events()` is the live source, not an
+import fake). So there is nothing left to reconcile here.
 
 ### 2. Two traps in the tdd-game reference implementation — do not copy
 

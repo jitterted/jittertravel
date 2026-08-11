@@ -2,10 +2,10 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <meta charset="UTF-8"/>
-    <title>Import / Export Commands</title>
+    <title>Backup / Restore</title>
     <link rel="stylesheet" href="/site.css"/>
     <style>
-        .import-container {
+        .restore-container {
             max-width: 90ch;
             margin: 1.5rem auto;
             padding: 0 1rem;
@@ -56,8 +56,8 @@
     </style>
 </head>
 <body>
-<div class="import-container">
-    <h1>Import / Export Commands</h1>
+<div class="restore-container">
+    <h1>Backup / Restore</h1>
 
     <div th:if="${errors != null and not #lists.isEmpty(errors)}">
         <ul class="error-list">
@@ -65,21 +65,21 @@
         </ul>
     </div>
 
-    <div th:if="${validatedCount != null}" class="validated-note">
-        <span th:text="'Validated: all ' + ${validatedCount} + ' entries would import. Nothing was written.'"></span>
+    <div th:if="${validatedCommands != null}" class="validated-note">
+        <span th:text="'Validated: ' + ${validatedCommands} + ' command(s) and ' + ${validatedEvents} + ' event(s) would restore. Nothing was written.'"></span>
     </div>
 
-    <form method="post" th:action="@{/admin/import}">
+    <form method="post" th:action="@{/admin/restore}">
         <div class="toolbar">
             <label for="fileInput">Load from file:</label>
             <input type="file" id="fileInput" accept=".json"/>
-            <button type="submit" th:formaction="@{/admin/import/validate}">Validate only</button>
-            <button type="submit">Import</button>
-            <a href="/admin/export">Export (download)</a>
+            <button type="submit" th:formaction="@{/admin/restore/validate}">Validate only</button>
+            <button type="submit">Restore</button>
+            <a href="/admin/backup">Backup (download)</a>
             <a href="/admin">Admin</a>
         </div>
         <textarea id="content" name="content" rows="35"
-                  placeholder="Paste exported JSON here, or load a file above..."
+                  placeholder="Paste backup JSON here, or load a file above..."
                   th:text="${content}"></textarea>
     </form>
 </div>

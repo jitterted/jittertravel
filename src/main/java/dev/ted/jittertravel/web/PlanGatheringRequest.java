@@ -1,19 +1,12 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.LocationZoneResolver;
-import dev.ted.jittertravel.application.PlanGatheringHandler;
-import dev.ted.jittertravel.application.VenueZone;
 import dev.ted.jittertravel.domain.Address;
-import dev.ted.jittertravel.domain.Event;
-import dev.ted.jittertravel.domain.GatheringPlanningContext;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.UUID;
-import java.util.stream.Stream;
 
-public class PlanGatheringRequest implements ImportableCommand {
+public class PlanGatheringRequest {
     private String gatheringId;
     private String title;
     private String venueName;
@@ -89,17 +82,5 @@ public class PlanGatheringRequest implements ImportableCommand {
 
     public Address getLocation() {
         return new Address(street, city, region, postalCode, country, locationForMatching);
-    }
-
-    @Override
-    public UUID commandId() {
-        return UUID.fromString(gatheringId);
-    }
-
-    @Override
-    public Stream<? extends Event> events() {
-        return new PlanGatheringHandler(new LocationZoneResolver())
-                .handle(this)
-                .execute(new GatheringPlanningContext(IMPORT_BYPASS_INSTANT));
     }
 }

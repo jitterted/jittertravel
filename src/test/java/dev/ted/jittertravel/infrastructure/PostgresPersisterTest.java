@@ -153,34 +153,6 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
     }
 
     @Test
-    void exportExcludesFailedAndPendingCommands() {
-        // succeeded — appendEvents flips status to SUCCEEDED
-        UUID succeeded = UUID.randomUUID();
-        PlanTentativeConferenceRequest succeededReq = newRequest(succeeded, "Succeeded Conf");
-        persister.saveCommand(succeeded, succeededReq);
-        persister.appendEvents(List.of(storedEvent(1L, succeeded, "Succeeded Conf", succeededReq)), succeeded);
-
-        // domain failure — saved then marked FAILED_DOMAIN, no events
-        UUID failed = UUID.randomUUID();
-        persister.saveCommand(failed, newRequest(failed, "Failed Conf"));
-        persister.markCommandFailed(failed, "FAILED_DOMAIN", "rejected by domain");
-
-        // still pending — saved but never completed
-        UUID pending = UUID.randomUUID();
-        persister.saveCommand(pending, newRequest(pending, "Pending Conf"));
-
-        List<PostgresPersister.CommandPayloadRow> exported = persister.findAllCommandsForExport();
-
-        assertThat(exported)
-                .as("only SUCCEEDED commands are exported")
-                .hasSize(1);
-        assertThat(exported.getFirst().payloadJson())
-                .contains("Succeeded Conf")
-                .doesNotContain("Failed Conf")
-                .doesNotContain("Pending Conf");
-    }
-
-    @Test
     void pendingCommandsAreCountedListedAndCanBeAbandoned() {
         // a still-pending command (saved, no events)
         UUID pending = UUID.randomUUID();
@@ -214,9 +186,12 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
 
         // abandon is guarded on status='PENDING': a succeeded command is untouched
         persister.abandonCommand(succeeded);
-        assertThat(persister.findAllCommandsForExport())
-                .as("succeeded command remains exportable after a guarded abandon attempt")
-                .hasSize(1);
+        assertThat(persister.findAllCommandsForBackup())
+                .filteredOn(c -> c.commandId().equals(succeeded))
+                .singleElement()
+                .satisfies(c -> assertThat(c.status())
+                        .as("a guarded abandon leaves a SUCCEEDED command's status untouched")
+                        .isEqualTo("SUCCEEDED"));
     }
 
     @Test
@@ -262,5 +237,105 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
 
         assertThat(persister.getMaxSequence())
                 .isEqualTo(1L);
+    }
+
+    @Test
+    void backupCapturesEveryCommandStatusWithAllColumns() {
+        // succeeded — has events, event_ids populated, status SUCCEEDED
+        UUID succeeded = UUID.randomUUID();
+        PlanTentativeConferenceRequest succeededReq = newRequest(succeeded, "Succeeded Conf");
+        persister.saveCommand(succeeded, succeededReq);
+        StoredEvent event = storedEvent(1L, succeeded, "Succeeded Conf", succeededReq);
+        persister.appendEvents(List.of(event), succeeded);
+
+        // domain failure — no events, error recorded
+        UUID failed = UUID.randomUUID();
+        persister.saveCommand(failed, newRequest(failed, "Failed Conf"));
+        persister.markCommandFailed(failed, "FAILED_DOMAIN", "rejected by domain");
+
+        // still pending — no events, no error
+        UUID pending = UUID.randomUUID();
+        persister.saveCommand(pending, newRequest(pending, "Pending Conf"));
+
+        List<PostgresPersister.BackupCommandRow> commands = persister.findAllCommandsForBackup();
+
+        assertThat(commands)
+                .as("backup keeps all statuses, not only SUCCEEDED")
+                .hasSize(3);
+
+        PostgresPersister.BackupCommandRow succeededRow = rowFor(commands, succeeded);
+        assertThat(succeededRow.status()).isEqualTo("SUCCEEDED");
+        assertThat(succeededRow.error()).isNull();
+        assertThat(succeededRow.eventIds())
+                .as("succeeded command carries its event ids")
+                .containsExactly(event.eventId());
+        assertThat(succeededRow.type()).isEqualTo(succeededReq.getClass().getName());
+        assertThat(succeededRow.payloadJson()).contains("Succeeded Conf");
+
+        PostgresPersister.BackupCommandRow failedRow = rowFor(commands, failed);
+        assertThat(failedRow.status()).isEqualTo("FAILED_DOMAIN");
+        assertThat(failedRow.error()).isEqualTo("rejected by domain");
+        assertThat(failedRow.eventIds())
+                .as("a command with no events has null event_ids")
+                .isNull();
+
+        PostgresPersister.BackupCommandRow pendingRow = rowFor(commands, pending);
+        assertThat(pendingRow.status()).isEqualTo("PENDING");
+        assertThat(pendingRow.eventIds()).isNull();
+
+        List<PostgresPersister.BackupEventRow> events = persister.findAllEventsForBackup();
+        assertThat(events).singleElement().satisfies(e -> {
+            assertThat(e.sequence()).isEqualTo(1L);
+            assertThat(e.eventId()).isEqualTo(event.eventId());
+            assertThat(e.commandId()).isEqualTo(succeeded);
+            assertThat(e.payloadJson()).contains("Succeeded Conf");
+        });
+    }
+
+    @Test
+    void restoreReinsertsCommandsAndEventsVerbatimAndIsIdempotent() {
+        UUID succeeded = UUID.randomUUID();
+        PlanTentativeConferenceRequest succeededReq = newRequest(succeeded, "Succeeded Conf");
+        persister.saveCommand(succeeded, succeededReq);
+        persister.appendEvents(
+                List.of(storedEvent(1L, succeeded, "Succeeded Conf", succeededReq),
+                        storedEvent(2L, succeeded, "Succeeded Conf", succeededReq)),
+                succeeded);
+
+        UUID failed = UUID.randomUUID();
+        persister.saveCommand(failed, newRequest(failed, "Failed Conf"));
+        persister.markCommandFailed(failed, "FAILED_DOMAIN", "rejected by domain");
+
+        List<PostgresPersister.BackupCommandRow> commands = persister.findAllCommandsForBackup();
+        List<PostgresPersister.BackupEventRow> events = persister.findAllEventsForBackup();
+
+        persister.truncateAllTables();
+        assertThat(persister.findAllCommandsForBackup()).isEmpty();
+        assertThat(persister.findAllEventsForBackup()).isEmpty();
+
+        persister.restoreCommandsAndEvents(commands, events);
+
+        assertThat(persister.findAllCommandsForBackup())
+                .as("commands come back byte-for-byte, including status/error/event_ids")
+                .containsExactlyElementsOf(commands);
+        assertThat(persister.findAllEventsForBackup())
+                .as("events come back verbatim: same sequence, event_id, timestamp, payload")
+                .containsExactlyElementsOf(events);
+
+        // re-running the same file is a no-op (ON CONFLICT DO NOTHING) — resumable restore
+        persister.restoreCommandsAndEvents(commands, events);
+
+        assertThat(persister.findAllCommandsForBackup())
+                .as("a second restore of the same file adds nothing")
+                .containsExactlyElementsOf(commands);
+        assertThat(persister.findAllEventsForBackup())
+                .containsExactlyElementsOf(events);
+    }
+
+    private PostgresPersister.BackupCommandRow rowFor(List<PostgresPersister.BackupCommandRow> commands, UUID commandId) {
+        return commands.stream()
+                .filter(c -> c.commandId().equals(commandId))
+                .findFirst()
+                .orElseThrow();
     }
 }

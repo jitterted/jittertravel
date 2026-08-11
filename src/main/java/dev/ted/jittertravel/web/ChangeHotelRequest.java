@@ -1,17 +1,11 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.HotelHandler;
-import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.BookingIntent;
-import dev.ted.jittertravel.domain.ChangeHotelContext;
-import dev.ted.jittertravel.domain.Event;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
-import java.util.stream.Stream;
 
-public class ChangeHotelRequest implements ImportableCommand, HotelStayRequest {
+public class ChangeHotelRequest implements HotelStayRequest {
     private String hotelBookingId;
     private String hotelName;
     private String street;
@@ -77,20 +71,4 @@ public class ChangeHotelRequest implements ImportableCommand, HotelStayRequest {
 
     public String getZone() { return zone; }
     public void setZone(String zone) { this.zone = zone; }
-
-    @Override
-    public UUID commandId() {
-        // A booking may be changed many times; each change is a distinct command, so the id is not
-        // derived from hotelBookingId (the aggregate id). Import keeps it random, matching live
-        // behavior. This is the one deliberate divergence from BookHotelRequest, which reuses the
-        // bookingId.
-        return UUID.randomUUID();
-    }
-
-    @Override
-    public Stream<? extends Event> events() {
-        // On import the booking is assumed to already exist (its booking imported earlier).
-        return new HotelHandler(new LocationZoneResolver()).changeHotel(this)
-                .execute(new ChangeHotelContext(true, IMPORT_BYPASS_INSTANT));
-    }
 }

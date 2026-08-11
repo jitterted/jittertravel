@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Import Complete — Admin — JitterTravel</title>
+    <title>Restore Complete — Admin — JitterTravel</title>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -36,7 +36,7 @@
             border-radius: var(--radius);
             padding: 2.5rem 3rem;
             text-align: center;
-            max-width: 40ch;
+            max-width: 44ch;
         }
 
         .checkmark {
@@ -54,6 +54,16 @@
         p {
             font-size: 1rem;
             color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .restart-note {
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
             margin-bottom: 1.75rem;
         }
 
@@ -88,10 +98,14 @@
 
 <div class="card">
     <div class="checkmark">✓</div>
-    <h1>Import complete</h1>
-    <p th:text="'Successfully imported ' + ${importedCount} + ' command' + (${importedCount} != 1 ? 's' : '') + '.'"></p>
-    <p th:if="${skippedCount > 0}"
-       th:text="'Skipped ' + ${skippedCount} + ' command' + (${skippedCount} != 1 ? 's' : '') + ' already in the log.'"></p>
+    <h1>Restore complete</h1>
+    <p th:text="'Restored ' + ${restoredCommands} + ' command(s) and ' + ${restoredEvents} + ' event(s).'"></p>
+    <p th:if="${skippedCommands > 0 or skippedEvents > 0}"
+       th:text="'Skipped ' + ${skippedCommands} + ' command(s) and ' + ${skippedEvents} + ' event(s) already present.'"></p>
+    <div class="restart-note">
+        Restart the application to rebuild the read models — the boot replay folds the restored
+        events into fresh projectors. Until then, pages still show the pre-restore data.
+    </div>
     <div class="links">
         <a class="btn btn-primary" href="/admin/commandlog">View command log</a>
         <a class="btn btn-secondary" href="/admin">Admin</a>

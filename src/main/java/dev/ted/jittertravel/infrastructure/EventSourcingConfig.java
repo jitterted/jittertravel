@@ -131,9 +131,19 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public CommandImporter commandImporter(PostgresPersister persister, CommandExecutor commandExecutor,
-                                           JsonMapper jsonMapper) {
-        return new CommandImporter(persister, commandExecutor, jsonMapper);
+    public BackupService backupService(PostgresPersister persister, CommandExecutor commandExecutor,
+                                       EventPayloadUpcaster eventPayloadUpcaster, JsonMapper jsonMapper) {
+        return new BackupService(persister, commandExecutor, eventPayloadUpcaster, jsonMapper);
+    }
+
+    /**
+     * Labels backups as {@code production} or {@code local}. Railway injects
+     * {@code RAILWAY_ENVIRONMENT_NAME} on the hosted service; locally it is absent, so the marker
+     * defaults to empty and {@link BackupSource} resolves to {@code local}.
+     */
+    @Bean
+    public BackupSource backupSource(@Value("${RAILWAY_ENVIRONMENT_NAME:}") String railwayEnvironmentName) {
+        return new BackupSource(railwayEnvironmentName);
     }
 
     @Bean

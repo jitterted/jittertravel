@@ -9,22 +9,16 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 /**
- * Command record for clearing a different-city conflict between a gathering and a conference.
- * Carries everything needed to re-emit its event on import (see {@link #events()}), so it
- * round-trips through export/import.
+ * Internal-action command for clearing a different-city conflict between a gathering and a
+ * conference. {@link #events()} is the single source of its event, applied on the live path via
+ * {@code CommandExecutor.appendEvents}.
  */
 public record ClearDifferentCityConflict(
         UUID gatheringId,
         UUID conferenceId,
         String reason
-) implements ImportableCommand {
+) {
 
-    @Override
-    public UUID commandId() {
-        return UUID.randomUUID();
-    }
-
-    @Override
     public Stream<? extends Event> events() {
         return Stream.of(new DifferentCityConflictCleared(
                 GatheringId.of(gatheringId), ConferenceId.of(conferenceId), reason));

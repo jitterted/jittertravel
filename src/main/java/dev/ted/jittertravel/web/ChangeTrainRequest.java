@@ -1,16 +1,10 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.ChangeTrainHandler;
-import dev.ted.jittertravel.application.LocationZoneResolver;
-import dev.ted.jittertravel.domain.ChangeTrainContext;
-import dev.ted.jittertravel.domain.Event;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
-import java.util.stream.Stream;
 
-public class ChangeTrainRequest implements ImportableCommand {
+public class ChangeTrainRequest {
     private String trainTripId;
     private String serviceId;
 
@@ -77,18 +71,4 @@ public class ChangeTrainRequest implements ImportableCommand {
 
     public LocalDateTime getArrivalDateTime() { return arrivalDateTime; }
     public void setArrivalDateTime(LocalDateTime arrivalDateTime) { this.arrivalDateTime = arrivalDateTime; }
-
-    @Override
-    public UUID commandId() {
-        // A trip may be changed many times; each change is a distinct command, so the id is not
-        // derived from trainTripId (the aggregate id). Import keeps it random, matching live behavior.
-        return UUID.randomUUID();
-    }
-
-    @Override
-    public Stream<? extends Event> events() {
-        // On import the trip is assumed to already exist (its booking imported earlier).
-        return new ChangeTrainHandler(new LocationZoneResolver()).handle(this)
-                .execute(new ChangeTrainContext(true, IMPORT_BYPASS_INSTANT));
-    }
 }

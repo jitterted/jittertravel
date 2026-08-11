@@ -1,17 +1,11 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.HotelHandler;
-import dev.ted.jittertravel.application.LocationZoneResolver;
-import dev.ted.jittertravel.domain.BookHotelContext;
 import dev.ted.jittertravel.domain.BookingIntent;
-import dev.ted.jittertravel.domain.Event;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
-import java.util.stream.Stream;
 
-public class BookHotelRequest implements ImportableCommand, HotelStayRequest {
+public class BookHotelRequest implements HotelStayRequest {
     private String hotelBookingId;
     private String hotelName;
     private String street;
@@ -76,15 +70,4 @@ public class BookHotelRequest implements ImportableCommand, HotelStayRequest {
 
     public String getZone() { return zone; }
     public void setZone(String zone) { this.zone = zone; }
-
-    @Override
-    public UUID commandId() {
-        return UUID.fromString(hotelBookingId);
-    }
-
-    @Override
-    public Stream<? extends Event> events() {
-        return new HotelHandler(new LocationZoneResolver()).bookHotel(this)
-                .execute(new BookHotelContext(IMPORT_BYPASS_INSTANT));
-    }
 }

@@ -11,15 +11,11 @@ import java.util.stream.Stream;
 
 /**
  * Command record for migrating a tentative conference to a gathering. It is the durable,
- * exportable representation of that action: it captures everything needed to deterministically
- * re-emit its events on import (notably the generated {@code gatheringId}), so it round-trips
- * through export/import. Use {@link #events()} as the single source of the emitted events for
- * both the live action and import replay.
+ * self-contained representation of that action, capturing everything needed to emit its events
+ * (notably the generated {@code gatheringId}). {@link #events()} is the single source of those
+ * events, applied on the live path via {@code CommandExecutor.appendEvents}.
  * <p>
- * The record keeps its wall-clock {@code date}/{@code startTime}/{@code endTime} fields even though
- * {@link GatheringPlanned} now stores instants: that is what lets backups written before the
- * migration replay unchanged. The venue zone is re-derived from {@link #location()} in
- * {@link #events()} — during import that runs in the validation pass, where an unresolvable
+ * The venue zone is derived from {@link #location()} in {@link #events()}, so an unresolvable
  * location fails loudly before anything is written.
  */
 public record MigrateConferenceToGathering(
@@ -34,14 +30,8 @@ public record MigrateConferenceToGathering(
         boolean speaking,
         String infoUrl,
         String cancellationReason
-) implements ImportableCommand {
+) {
 
-    @Override
-    public UUID commandId() {
-        return UUID.randomUUID();
-    }
-
-    @Override
     public Stream<? extends Event> events() {
         ZoneId zone = new LocationZoneResolver().resolve(location);
         return Stream.of(

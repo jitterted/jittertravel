@@ -1,17 +1,11 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.LocationZoneResolver;
-import dev.ted.jittertravel.application.PlanTentativeConferenceHandler;
 import dev.ted.jittertravel.domain.Address;
-import dev.ted.jittertravel.domain.Event;
-import dev.ted.jittertravel.domain.PlanTentativeConferenceContext;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
-import java.util.stream.Stream;
 
-public class PlanTentativeConferenceRequest implements ImportableCommand {
+public class PlanTentativeConferenceRequest {
     private String conferenceId;
     private String name;
     // The @DateTimeFormat for start and end dates are required to match browser's <input type="datetime-local" /> format
@@ -122,17 +116,6 @@ public class PlanTentativeConferenceRequest implements ImportableCommand {
 
     public Address getVenueAddress() {
         return new Address(venueStreet, venueCity, venueState, venuePostalCode, venueCountry, null);
-    }
-
-    @Override
-    public UUID commandId() {
-        return UUID.fromString(conferenceId);
-    }
-
-    @Override
-    public Stream<? extends Event> events() {
-        return new PlanTentativeConferenceHandler(new LocationZoneResolver()).handle(this)
-                .execute(new PlanTentativeConferenceContext(IMPORT_BYPASS_INSTANT));
     }
 
     @Override

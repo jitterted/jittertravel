@@ -34,6 +34,7 @@ for the undo feature, but are never re-executed.
 | 2 | Keep the ability to rebuild events by re-executing commands? | **Retire it entirely.** Restore inserts events verbatim and never runs command logic. `ImportableCommand`, `events()`, and the round-trip convention go away. |
 | 3 | File layout | **One combined file** — a single JSON document with `commands` and `events` sections (format `version: 2`). |
 | 4 | Which `command_log` rows to include | **All statuses** — `SUCCEEDED`, `PENDING`, `FAILED_DOMAIN`, `FAILED_PERSIST`, `ABANDONED`. Full `command_log` fidelity. |
+| 5 | Rebuild read models after a restore/truncate live, or restart? | **Restart.** No live rebuild. After a restore or a truncate, restart the app; the existing boot replay rebuilds every projector from persistence. A live `reset()`+refold was designed and then rejected — see "Why not a live rebuild" below. Decided with Ted 2026-08-10. |
 
 **Terminology:** the feature is **backup / restore**, not export / import. Rename accordingly
 (routes, classes, templates — see "Rename & retire inventory").
@@ -158,49 +159,74 @@ explicitly, because they normally live in `CommandExecutor`:
   `BackupService` checks read-only up front and refuses before writing anything. (Cheapest wiring:
   keep a reference to the existing read-only signal — `CommandExecutor.isReadOnly()` delegates to
   `EventStore` — without taking `EventStore` as a field.)
-- **Persist-before-notify** is satisfied by construction: the command+event insert transaction
-  commits *first*, and only then does `BackupService` trigger `EventStore.rebuildFromPersistence()`
-  (see next). Projectors never see an event that isn't already durable.
+- **Persist-before-notify** is satisfied by construction, and by restart: the command+event insert
+  transaction commits *first*, and the projectors are only rebuilt on the **next boot** replay (see
+  below). Projectors never see an event that isn't already durable.
 
-### Rebuilding read models after a restore — live rebuild (no restart)
+### Rebuilding read models after a restore/truncate — RESTART, not a live rebuild
 
-Restored events must reach the projectors, **without restarting the app**. Today the only way a
-projector gets built is at boot: `EventSourcingConfig` constructs each of the ~19 projectors empty
-and folds it with `projector.handle(eventStore.findAll())`. There is no reset primitive, so we add
-one and re-run that same replay on demand.
+**Decision (with Ted, 2026-08-10): restore and truncate require an app restart to take effect in
+the read models. There is no live rebuild.** After writing the backup verbatim (restore) or
+emptying the tables (truncate), restart the app; `EventSourcingConfig`'s boot replay already
+constructs each of the ~19 projectors empty and folds `projector.handle(eventStore.findAll())`
+against the current database. That is the whole rebuild — no new code. This fits the established
+wipe-then-restore-once workflow, where an operator is already at the console.
 
-**Three pieces:**
+Concretely, this means:
 
-1. **`reset()` on `EventStreamConsumer`.** Each projector clears its own state field(s) — one line
-   for most, five `Map.clear()` calls for `ItineraryProjector`. The interface gains:
-   ```java
-   public interface EventStreamConsumer {
-       void handle(Stream<StoredEvent> eventStream);
-       void reset();            // clear all projected state
-   }
-   ```
-2. **`EventStore.rebuildFromPersistence()`.** Under the existing `transactionLock`: clear the
-   in-memory `events` list, reload via `persister.loadAllEvents()`, reset
-   `nextSequence = maxSeq+1`, then for **each** subscriber `reset()` then `handle(findAll())`.
-   ~15 lines — it is the boot replay, re-run.
-3. **Restore calls it** after the transaction that wrote commands + events commits.
+- Restore does **not** call back into `EventStore` after committing. `BackupService` needs no
+  `EventStore` seam at all — only the read-only check (which it can read without holding
+  `EventStore`).
+- `/admin/database/truncate` keeps its **known, pre-existing** staleness: it empties the DB but the
+  in-memory `EventStore` list and every projector stay populated until the next restart. This plan
+  does **not** fix that; the restart that a restore needs also clears a truncate. If the staleness
+  ever needs closing without the danger below, it is a separate, deliberate piece of work.
 
-**The correctness trap that makes `reset()` mandatory:** the folds are **not idempotent**, so you
-cannot re-`handle()` on top of live state. `BookedFlightsProjector.apply()` *appends* to a
-per-flight change-history list; re-running the stream without clearing would double every history.
-`reset()` (clear-then-refold) is the only safe rebuild. A **completeness guard test** protects it:
-reflect over each projector's fields and assert every `Collection`/`Map` is empty immediately after
-`reset()`, so a forgotten `.clear()` fails a test instead of silently leaking stale rows into a view.
+#### Why not a live rebuild (the rejected `reset()` design)
 
-**Bonus — this also fixes a latent truncate bug.** `/admin/database/truncate` today empties the DB
-but leaves the in-memory projectors and the `EventStore` list populated until the next restart.
-Route truncate through the same `rebuildFromPersistence()` and it rebuilds against the now-empty DB,
-so the views go empty immediately. Same primitive, one existing rough edge closed.
+A live "no-restart" rebuild was designed and **built, then reverted**. It added `reset()` to
+`EventStreamConsumer` (each projector clears its own state fields), an
+`EventStore.rebuildFromPersistence()` that reloads the events and, for each subscriber, calls
+`reset()` then `handle(findAll())`, and routed truncate through it. It worked and was fully tested.
+It was rejected because putting `reset()` on the shared consumer interface bakes in a hazard:
 
-**Wiring note (arch rule).** `rebuildFromPersistence()` lives on `EventStore` and iterates the
-subscribers it already holds — no application service gains an `EventStore` field, so
-`ApplicationServicesUseCommandExecutorTest` is unaffected. `BackupService` triggers the rebuild
-through the same non-`EventStore` seam it uses for the read-only check.
+1. **It is unsafe for any future *side-effecting* subscriber.** `rebuildFromPersistence()`
+   re-delivers the **entire** event stream to **every** subscriber. That is safe *only* because
+   every subscriber today is a pure projection. The day someone subscribes a consumer with side
+   effects — the motivating example is an **email sender** — a rebuild would **re-fire those side
+   effects** (re-send every email), and `reset()` cannot undo them. The interface would still
+   *force* that consumer to implement `reset()`, so the danger is not even visible at the call site;
+   it would ship as a silent no-op that re-emails the world on the next restore. We would then have
+   to refactor the seam (split a `RebuildableProjection` from a side-effecting `EventListener`)
+   precisely to remove what we had just added. Better not to add it.
+2. **Transient empty-window for concurrent readers.** Projector reads (`views()`, `entries()`) do
+   not hold `transactionLock`, so between `reset()` and the end of the refold a concurrent request
+   (e.g. `/calendar`) can render an **empty or half-built** projection. Acceptable for a single-user
+   manual action, but a real sharp edge a restart simply doesn't have.
+3. **The correctness trap that made `reset()` mandatory in the first place.** The folds are **not**
+   idempotent — `BookedFlightsProjector` *appends* to a per-flight change-history list, so
+   re-`handle()`-ing on top of live state doubles every history. `reset()` (clear-then-refold) was
+   the only safe in-place rebuild, which is exactly why every projector was *obligated* to implement
+   it correctly, and why a completeness guard test was needed. A restart sidesteps the whole trap:
+   boot always folds into freshly-constructed, empty projectors.
+
+**If a live rebuild is ever revisited**, do it without a shared `reset()`: either a shadow-state
+swap (`AtomicReference<State>` built fresh then swapped atomically, which also closes the
+empty-window), or a distinct marker interface so only pure, rebuildable projections are ever
+replayed. And note this whole calculus changes again for **DB-backed projections** — see
+"Future: DB-backed projections" below.
+
+#### Future: DB-backed projections
+
+If a projection ever moves from an in-memory `Map` to its own database table, the restart-based
+rebuild still works (boot re-folds into the table), but a *live* rebuild would need more than a
+`reset()`: the `DELETE`/`TRUNCATE` + full re-insert must be **one transaction** (else a crash
+mid-rebuild leaves a durably partial view), a full re-fold on every restore/truncate is likely too
+expensive (DB projectors want **incremental** catch-up via a last-applied `sequence`, with full
+rebuild as the rare path), the field-reflection completeness guard cannot check "am I empty?"
+(needs a `COUNT(*)`), and atomicity pushes toward a **shadow-table swap**. In short: `reset()`
+does not generalise to DB projections; treat the rebuild contract as an open question to reopen
+when the first DB-backed projection lands.
 
 ## Rename & retire inventory
 
@@ -241,16 +267,12 @@ through the same non-`EventStore` seam it uses for the read-only check.
 - `restoreCommandsAndEvents(commands, events)` — one `@Transactional` method, commands then events,
   verbatim inserts, idempotent on `command_id` / `sequence`.
 
-### New / changed for live rebuild
+### New / changed for rebuild
 
-- `EventStreamConsumer.reset()` — new interface method; implemented by **every** projector
-  (~19: `LocationAuditProjector`, `TentativeConferenceProjector`, the five `*CalendarProjector`s,
-  `Booked*`/`Tentative*`/`*DetailsViewProjector`s, `ItineraryProjector`, `ScheduleGapProjector`,
-  `PlannedGatheringsProjector`, …). Each clears its own `Map`/collection fields.
-- `EventStore.rebuildFromPersistence()` — clear in-memory events, reload from persister, reset
-  `nextSequence`, then `reset()`+`handle(findAll())` each subscriber, under `transactionLock`.
-- `AdminController` truncate path routes through `rebuildFromPersistence()` (fixes the stale
-  in-memory state after `/admin/database/truncate`).
+**None.** Per decision 5, rebuild is the existing boot replay — restore and truncate take effect on
+the next app restart. No `EventStreamConsumer.reset()`, no `EventStore.rebuildFromPersistence()`, no
+truncate rewiring. (An earlier draft added all three; it was reverted — see "Why not a live
+rebuild".)
 
 ## Tests
 
@@ -264,14 +286,8 @@ through the same non-`EventStore` seam it uses for the read-only check.
   `commands` is rejected in pass one (never an FK error in pass two); re-running a partially-applied
   file resumes by skipping present `sequence`s.
 - **Read-only guard test:** restore in read-only mode writes nothing.
-- **Live-rebuild test:** after a restore (no restart), a projector-backed view reflects the
-  restored data; and a restore over pre-existing in-memory state does **not** double-count
-  (guards the non-idempotent fold — e.g. `BookedFlightsProjector` change-history length).
-- **Reset-completeness guard:** reflect over each projector's fields and assert every
-  `Collection`/`Map` is empty right after `reset()`. Fails when a new field is added without a
-  matching `.clear()`.
-- **Truncate test:** `/admin/database/truncate` leaves every projector-backed view empty
-  *without a restart*.
+- *(No rebuild/reset/truncate-staleness tests — rebuild is the boot replay, already covered by the
+  app starting. See decision 5.)*
 - **`@WebMvcTest` for the renamed admin endpoints** (Thymeleaf render + mapping/status), with
   `@WithMockUser` and `.with(csrf())` on the POSTs.
 - **`AuthorizationMatrixTest`** updated for the renamed routes.
@@ -292,19 +308,18 @@ through the same non-`EventStore` seam it uses for the read-only check.
 
 ## Suggested implementation order
 
-1. **Live rebuild first, on its own.** `EventStreamConsumer.reset()` + the ~19 projector
-   implementations + the reset-completeness guard test; `EventStore.rebuildFromPersistence()`;
-   route `/admin/database/truncate` through it. This slice stands alone (it fixes the truncate
-   staleness bug) and de-risks the rest — restore just calls a method proven here.
-2. **Persister**: `findAllCommandsForBackup`, `findAllEventsForBackup`,
-   `restoreCommandsAndEvents` (+ their tests). Pure data, no wiring churn.
-3. **`BackupService`**: backup + validate + restore two-pass, read-only guard, triggers the
-   rebuild from step 1. Round-trip and safety tests green here, before any UI rename.
-4. **Retire** `ImportableCommand`, `ImportableCommandTypes`, the 12 `events()` overrides,
+1. **Persister**: `findAllCommandsForBackup`, `findAllEventsForBackup`,
+   `restoreCommandsAndEvents` (+ their tests). Pure data, no wiring churn. (The former step 1, a
+   live rebuild, is dropped — decision 5: rebuild is the boot replay, restore/truncate need a
+   restart.)
+2. **`BackupService`**: backup + validate + restore two-pass, read-only guard. After a successful
+   restore, tell the operator to **restart** so the boot replay rebuilds the projectors. Round-trip
+   and safety tests green here, before any UI rename.
+3. **Retire** `ImportableCommand`, `ImportableCommandTypes`, the 12 `events()` overrides,
    old tests (verify no live `events()` callers first).
-5. **Rename** routes/templates/labels; update `SecurityConfig` + `AuthorizationMatrixTest`
+4. **Rename** routes/templates/labels; update `SecurityConfig` + `AuthorizationMatrixTest`
    together; new `@WebMvcTest`s.
-6. Run the **All Tests** run configuration.
+5. Run the **All Tests** run configuration.
 
 ## Open decisions for Ted
 

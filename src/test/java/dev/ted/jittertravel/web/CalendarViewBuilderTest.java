@@ -56,24 +56,28 @@ class CalendarViewBuilderTest {
 
     @Test
     void ownerFutureDayRendersDisclosureMenuWithDatedCreateLinks() {
-        // today = Mon 2026-06-15; June 17 is a strictly-future day in range.
+        // today = Fri 2026-06-19, range = the single day Sat 2026-06-20. The grid still
+        // expands to the whole week (Sun 14 .. Sat 20), but June 20 is the *only* strictly-
+        // future day in it, so exactly one menu renders. That makes each dated assertion
+        // strict: the date can only come from June 20's cell, so a one-day arithmetic slip
+        // in the link date has nowhere else to surface the expected value from.
         String html = CalendarViewBuilder.render(
                 List.of(),
-                LocalDate.of(2026, 6, 16),
                 LocalDate.of(2026, 6, 20),
-                LocalDate.of(2026, 6, 15),
+                LocalDate.of(2026, 6, 20),
+                LocalDate.of(2026, 6, 19),
                 false,
                 true
         );
 
         assertThat(html)
-                .contains("<details class=\"day-menu\"")
-                .contains("href=\"/itinerary?date=2026-06-17\"")
-                .contains("href=\"/book-flight?date=2026-06-17\"")
-                .contains("href=\"/book-train?date=2026-06-17\"")
-                .contains("href=\"/book-hotel?date=2026-06-17\"")
-                .contains("href=\"/plan-gathering?date=2026-06-17\"")
-                .contains("href=\"/plan-conference?date=2026-06-17\"");
+                .containsOnlyOnce("<details class=\"day-menu\"")
+                .contains("href=\"/itinerary?date=2026-06-20\"")
+                .contains("href=\"/book-flight?date=2026-06-20\"")
+                .contains("href=\"/book-train?date=2026-06-20\"")
+                .contains("href=\"/book-hotel?date=2026-06-20\"")
+                .contains("href=\"/plan-gathering?date=2026-06-20\"")
+                .contains("href=\"/plan-conference?date=2026-06-20\"");
     }
 
     @Test

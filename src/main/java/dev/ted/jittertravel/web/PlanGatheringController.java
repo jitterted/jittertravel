@@ -5,12 +5,14 @@ import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.GatheringDateNotInFuture;
 import dev.ted.jittertravel.domain.InvalidGatheringTimeRange;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -34,10 +36,13 @@ public class PlanGatheringController {
     }
 
     @GetMapping("/plan-gathering")
-    public String planGatheringForm(Model model) {
+    public String planGatheringForm(Model model,
+                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         PlanGatheringRequest request = new PlanGatheringRequest();
         request.setGatheringId(UUID.randomUUID().toString());
-        request.setDate(LocalDate.now(clock).plusWeeks(1));
+        // ?date= from the calendar day-menu seeds the gathering day; the default (one week
+        // out) stands when absent so the index nav card is unaffected.
+        request.setDate(date != null ? date : LocalDate.now(clock).plusWeeks(1));
         request.setStartTime(LocalTime.of(18, 0));
         request.setEndTime(LocalTime.of(21, 0));
         request.setSpeaking(true);

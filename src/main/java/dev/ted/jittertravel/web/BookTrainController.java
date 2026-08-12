@@ -5,12 +5,14 @@ import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -35,10 +37,14 @@ public class BookTrainController {
     }
 
     @GetMapping("/book-train")
-    public String bookTrainForm(Model model) {
+    public String bookTrainForm(Model model,
+                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         BookTrainRequest request = new BookTrainRequest();
         request.setTrainTripId(UUID.randomUUID().toString());
-        LocalDateTime departure = LocalDate.now(clock).plusWeeks(1).atStartOfDay().plusHours(9);
+        // ?date= from the calendar day-menu seeds the departure day; the default (one week
+        // out) stands when absent so the index nav card is unaffected.
+        LocalDate day = date != null ? date : LocalDate.now(clock).plusWeeks(1);
+        LocalDateTime departure = day.atStartOfDay().plusHours(9);
         request.setDepartureDateTime(departure);
         request.setArrivalDateTime(departure.plusHours(4));
         model.addAttribute("bookTrain", request);

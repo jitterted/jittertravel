@@ -117,4 +117,65 @@ class CalendarRedactionSecurityTest {
                 .bodyText()
                 .contains("href=\"/itinerary");
     }
+
+    // The owner day-menu only renders on strictly-future days. The controller reads the real
+    // clock, so these three tests use a far-future entry to keep the future-day path live
+    // regardless of when the suite runs.
+    private static final LocalDateTime FUTURE_CHECK_IN = LocalDateTime.of(2099, 7, 1, 15, 0);
+    private static final LocalDateTime FUTURE_CHECK_OUT = LocalDateTime.of(2099, 7, 3, 11, 0);
+
+    @Test
+    @WithMockUser(username = "ted", roles = "OWNER")
+    void ownerSeesDatedCreateMenuForFutureDay() {
+        given(calendarAggregator.allEntries()).willReturn(List.of(new CalendarEntry(
+                EntryKind.LODGING, FUTURE_CHECK_IN, FUTURE_CHECK_OUT,
+                "Grand Hotel", List.of(new SubtitleLine.Text("Berlin, Germany")),
+                "Grand Hotel cont'd", List.of(new SubtitleLine.Text("Berlin, Germany")),
+                "https://maps.google.com/grand-hotel"
+        )));
+
+        assertThat(mockMvc.get().uri("/calendar"))
+                .hasStatusOk()
+                .bodyText()
+                // Assert on the actual disclosure markup + dated link, not the ".day-menu"
+                // CSS selector (which is inlined on every calendar page regardless of viewer).
+                .contains("<details class=\"day-menu\"")
+                .contains("href=\"/book-flight?date=2099-");
+    }
+
+    @Test
+    void anonymousUserSeesNoCreateLinksEvenForFutureDays() {
+        given(calendarAggregator.allEntries()).willReturn(List.of(new CalendarEntry(
+                EntryKind.LODGING, FUTURE_CHECK_IN, FUTURE_CHECK_OUT,
+                "Grand Hotel", List.of(new SubtitleLine.Text("Berlin, Germany")),
+                "Grand Hotel cont'd", List.of(new SubtitleLine.Text("Berlin, Germany")),
+                "https://maps.google.com/grand-hotel"
+        )));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("<details class=\"day-menu\"")
+                .doesNotContain("href=\"/book-flight")
+                .doesNotContain("href=\"/plan-gathering")
+                .doesNotContain("href=\"/plan-conference");
+    }
+
+    @Test
+    @WithMockUser(username = "family", roles = "FAMILY")
+    void familyUserSeesNoCreateLinksEvenForFutureDays() {
+        given(calendarAggregator.allEntries()).willReturn(List.of(new CalendarEntry(
+                EntryKind.LODGING, FUTURE_CHECK_IN, FUTURE_CHECK_OUT,
+                "Grand Hotel", List.of(new SubtitleLine.Text("Berlin, Germany")),
+                "Grand Hotel cont'd", List.of(new SubtitleLine.Text("Berlin, Germany")),
+                "https://maps.google.com/grand-hotel"
+        )));
+
+        assertThat(mockMvc.get().uri("/calendar"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("<details class=\"day-menu\"")
+                .doesNotContain("href=\"/book-flight")
+                .doesNotContain("href=\"/plan-gathering");
+    }
 }

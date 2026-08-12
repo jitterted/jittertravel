@@ -10,6 +10,7 @@ import dev.ted.jittertravel.domain.DateRangeNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -50,13 +51,17 @@ public class PlanConferenceController {
     }
 
     @GetMapping("/plan-conference")
-    public String planConferenceForm(Model model) {
+    public String planConferenceForm(Model model,
+                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         if (applicationService.isReadOnly()) {
             return "redirect:/read-only";
         }
         PlanTentativeConferenceRequest request = new PlanTentativeConferenceRequest();
         request.setConferenceId(UUID.randomUUID().toString());
-        LocalDateTime startDateTime = LocalDate.now(clock).plusWeeks(1).atStartOfDay().plusHours(9);
+        // ?date= from the calendar day-menu seeds the start day; the default (one week out)
+        // stands when absent so the index nav card is unaffected.
+        LocalDate day = date != null ? date : LocalDate.now(clock).plusWeeks(1);
+        LocalDateTime startDateTime = day.atStartOfDay().plusHours(9);
         request.setStartDate(startDateTime);
         request.setEndDate(startDateTime.plusDays(2).plusHours(8));
 

@@ -28,6 +28,7 @@ public class ConfirmedCalendarRenderer {
                 --calendar-month-start-border-width: 3px;
                 --calendar-past-hatch: rgba(0, 0, 0, 0.1);
                 --calendar-today-tint: #eef2ff;
+                --calendar-empty-band-min-height: 120px;
                 --entry-conference-bg: #e0e7ff; --entry-conference-fg: #4f46e5;
                 --entry-gathering-bg: #f5f3ff;  --entry-gathering-fg: #7c3aed;
                 --entry-flight-bg: #cfeafd;     --entry-flight-fg: #075985;
@@ -80,6 +81,27 @@ public class ConfirmedCalendarRenderer {
             }
             .day-number:hover { text-decoration: underline; }
             .day-label-cell.is-past .day-number { font-weight: 500; }
+            /* Owner future-day disclosure menu. Native <details>/<summary>, so a tap toggles
+               it — no hover, which matters on touch (iPad). The list overlays neighbouring
+               cells (absolute + z-index) instead of reflowing the grid when it opens. */
+            .day-menu { position: relative; }
+            .day-menu > summary { display: block; list-style: none; cursor: pointer; }
+            .day-menu > summary::-webkit-details-marker { display: none; }
+            .day-menu-list {
+                position: absolute; top: 100%; left: 0; z-index: 50;
+                min-width: 160px; margin-top: 2px; padding: 4px;
+                display: flex; flex-direction: column;
+                background-color: var(--calendar-surface);
+                border: 1px solid var(--calendar-border-strong);
+                border-radius: 8px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+            }
+            .day-menu-item {
+                padding: 8px 10px; border-radius: 6px;
+                font-size: 0.85rem; font-weight: 500;
+                color: var(--calendar-text-secondary);
+                text-decoration: none; white-space: nowrap;
+            }
+            .day-menu-item:hover { background-color: var(--calendar-header-bg); }
             .day-number.is-month-start {
                 font-size: 1.25rem; font-weight: 700;
                 color: var(--calendar-month-start-color); letter-spacing: 0.02em;
@@ -87,6 +109,9 @@ public class ConfirmedCalendarRenderer {
             .lane-cell { border-right: 1px solid var(--calendar-border); min-height: 64px; box-sizing: border-box; }
             .lane-cell.month-tint-even { background-color: var(--calendar-tint-even-lane); }
             .lane-cell.month-tint-odd  { background-color: var(--calendar-tint-odd); }
+            /* An otherwise-empty (non-collapsed) week's single filler band: taller than a
+               normal lane so a free week reads as open vertical space, not a thin strip. */
+            .lane-cell--empty { min-height: var(--calendar-empty-band-min-height); }
             /* Past days: diagonal hatch layered over the month tint. */
             .day-label-cell.is-past, .lane-cell.is-past {
                 background-image: repeating-linear-gradient(

@@ -164,19 +164,27 @@ public class CalendarViewBuilder {
         // collapsed weeks, where they are the sole hint of hidden entries.
         for (int i = 0; i < 7; i++) {
             int badgeCount = collapsed ? dayCounts[i] : 0;
-            cells.add(renderDayLabelCell(sunday.plusDays(i), gridStart, today, isPublicUser, badgeCount));
+            cells.add(renderDayLabelCell(sunday.plusDays(i), gridStart, today, isPublicUser, isOwner, badgeCount));
         }
+
+        // A non-collapsed week with no entries still gets one lane band so the day
+        // borders and month tint extend down and the empty week reads as open space
+        // rather than a thin strip of date labels. Collapsed (past) empty weeks stay
+        // as their day-label row only.
+        boolean emptyBand = !collapsed && totalSubRows == 0;
+        int bandRows = emptyBand ? 1 : totalSubRows;
 
         // Per-day lane filler cells, one per (column × lane sub-row), so that the
         // calendar day-borders and month-tint background extend down through the
         // entire week. Entries are rendered after, so they stack on top and cover
         // any cells they occupy.
-        for (int subRow = 0; subRow < totalSubRows; subRow++) {
+        for (int subRow = 0; subRow < bandRows; subRow++) {
             int gridRow = 2 + subRow;
             for (int col = 1; col <= 7; col++) {
                 LocalDate d = sunday.plusDays(col - 1);
                 String tint = (d.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
-                cells.add(div().withClass("lane-cell " + tint + dayStateClass(d, today))
+                String emptyClass = emptyBand ? " lane-cell--empty" : "";
+                cells.add(div().withClass("lane-cell " + tint + dayStateClass(d, today) + emptyClass)
                         .withStyle("grid-column: " + col + "; grid-row: " + gridRow + ";"));
             }
         }
@@ -192,24 +200,32 @@ public class CalendarViewBuilder {
             cells.add(renderEntrySegment(entry, startCol, span, gridRow, isContinuation, isFinalSegment, isOwner));
         }
 
-        String rowsStyle = totalSubRows == 0
+        String rowsStyle = bandRows == 0
                 ? "grid-template-rows: auto;"
-                : "grid-template-rows: auto repeat(" + totalSubRows + ", auto);";
+                : "grid-template-rows: auto repeat(" + bandRows + ", auto);";
 
         String weekClass = "calendar-week" + (collapsed ? " calendar-week--collapsed" : "");
         return div().withClass(weekClass).withStyle(rowsStyle).with(cells);
     }
 
-    private static DomContent renderDayLabelCell(LocalDate date, LocalDate gridStart, LocalDate today, boolean isPublicUser, int entryCount) {
+    private static DomContent renderDayLabelCell(LocalDate date, LocalDate gridStart, LocalDate today, boolean isPublicUser, boolean isOwner, int entryCount) {
         boolean isFirstCellOfGrid = date.equals(gridStart);
         boolean isMonthStart = date.getDayOfMonth() == 1 || isFirstCellOfGrid;
         String monthTint = (date.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
         String labelClass = "day-label-cell " + monthTint + (isMonthStart ? " is-month-start" : "") + dayStateClass(date, today);
         String dayNumberClass = "day-number" + (isMonthStart ? " is-month-start" : "");
         String label = formatDayLabel(date, isMonthStart, isFirstCellOfGrid);
-        DomContent dayNumber = isPublicUser
-                ? span(label).withClass(dayNumberClass)
-                : a(label).withHref("/itinerary?date=" + date).withClass(dayNumberClass);
+        // OWNER on a strictly-future day gets a tap-to-open disclosure menu (Open day + Add …);
+        // everyone else keeps the plain behavior — an itinerary link for signed-in viewers
+        // (OWNER on past/today, FAMILY on any day), a plain number for anonymous visitors.
+        DomContent dayNumber;
+        if (isOwner && date.isAfter(today)) {
+            dayNumber = dayMenu(date, label, dayNumberClass);
+        } else if (isPublicUser) {
+            dayNumber = span(label).withClass(dayNumberClass);
+        } else {
+            dayNumber = a(label).withHref("/itinerary?date=" + date).withClass(dayNumberClass);
+        }
         DivTag cell = div().withClass(labelClass).with(dayNumber);
         // Only emitted when the day has entries; CSS reveals it only in collapsed weeks.
         if (entryCount > 0) {
@@ -218,6 +234,31 @@ public class CalendarViewBuilder {
                     .withTitle(entryCount + (entryCount == 1 ? " item" : " items")));
         }
         return cell;
+    }
+
+    /**
+     * The day number rendered as a native {@code <details>} disclosure: tapping the number
+     * opens a small menu with the itinerary link plus one "Add …" link per bookable kind,
+     * each carrying {@code ?date=} so the create form opens on this day. Native disclosure is
+     * used deliberately — it is touch-first (a tap toggles it) with no hover dependency.
+     */
+    private static DomContent dayMenu(LocalDate date, String label, String dayNumberClass) {
+        String iso = date.toString();
+        return details().withClass("day-menu").with(
+                summary(label).withClass(dayNumberClass),
+                div().withClass("day-menu-list").with(
+                        dayMenuItem("Open day", "/itinerary?date=" + iso),
+                        dayMenuItem("Add flight", "/book-flight?date=" + iso),
+                        dayMenuItem("Add train", "/book-train?date=" + iso),
+                        dayMenuItem("Add hotel", "/book-hotel?date=" + iso),
+                        dayMenuItem("Add gathering", "/plan-gathering?date=" + iso),
+                        dayMenuItem("Add conference", "/plan-conference?date=" + iso)
+                )
+        );
+    }
+
+    private static DomContent dayMenuItem(String label, String href) {
+        return a(label).withHref(href).withClass("day-menu-item");
     }
 
     private static DomContent renderEntrySegment(CalendarEntry entry,

@@ -21,7 +21,7 @@ class CalendarViewBuilderTest {
     private static final LocalDate TODAY = LocalDate.of(2020, 1, 1);
 
     @Test
-    void emptyRangeRendersDayLabelsAndNoLaneRows() {
+    void emptyNonCollapsedWeekRendersOneEmptyLaneBandForBreathingRoom() {
         String html = CalendarViewBuilder.render(
                 List.of(),
                 LocalDate.of(2026, 5, 28),
@@ -30,11 +30,108 @@ class CalendarViewBuilderTest {
                 false
         );
 
-        // No entries means every week collapses to its day-label row only.
+        // No entries, but these weeks are in the future (TODAY is 2020), so they are not
+        // collapsed: each gets a single empty lane band so the week reads as open space.
         assertThat(html).contains("day-label-cell");
         assertThat(html).doesNotContain("class=\"entry");
-        // Collapsed weeks use only the auto header row.
+        assertThat(html).contains("lane-cell--empty");
+        assertThat(html).contains("grid-template-rows: auto repeat(1, auto);");
+    }
+
+    @Test
+    void collapsedEmptyPastWeeksStayAsDayLabelRowOnly() {
+        // today = Mon 2026-06-15; the weeks before its week are empty and collapse to the
+        // day-label row only (no empty band — that is reserved for non-collapsed weeks).
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 6, 1),
+                LocalDate.of(2026, 6, 20),
+                LocalDate.of(2026, 6, 15),
+                false
+        );
+
+        assertThat(html).contains("calendar-week--collapsed");
         assertThat(html).contains("grid-template-rows: auto;");
+    }
+
+    @Test
+    void ownerFutureDayRendersDisclosureMenuWithDatedCreateLinks() {
+        // today = Mon 2026-06-15; June 17 is a strictly-future day in range.
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 6, 16),
+                LocalDate.of(2026, 6, 20),
+                LocalDate.of(2026, 6, 15),
+                false,
+                true
+        );
+
+        assertThat(html)
+                .contains("<details class=\"day-menu\"")
+                .contains("href=\"/itinerary?date=2026-06-17\"")
+                .contains("href=\"/book-flight?date=2026-06-17\"")
+                .contains("href=\"/book-train?date=2026-06-17\"")
+                .contains("href=\"/book-hotel?date=2026-06-17\"")
+                .contains("href=\"/plan-gathering?date=2026-06-17\"")
+                .contains("href=\"/plan-conference?date=2026-06-17\"");
+    }
+
+    @Test
+    void ownerTodayAndPastDaysKeepPlainItineraryLinkWithoutMenu() {
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 6, 14),
+                LocalDate.of(2026, 6, 20),
+                LocalDate.of(2026, 6, 15),
+                false,
+                true
+        );
+
+        // Today (June 15) is a plain itinerary link, and carries no create links.
+        assertThat(html)
+                .contains("href=\"/itinerary?date=2026-06-15\"")
+                .doesNotContain("book-flight?date=2026-06-15")
+                .doesNotContain("plan-gathering?date=2026-06-15");
+        // Yesterday (June 14) likewise: a plain link, not a menu.
+        assertThat(html).doesNotContain("book-flight?date=2026-06-14");
+    }
+
+    @Test
+    void familyViewerGetsItineraryLinkButNeverTheMenuOrCreateLinks() {
+        // Signed-in but not owner: isPublicUser=false, isOwner=false.
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 6, 16),
+                LocalDate.of(2026, 6, 20),
+                LocalDate.of(2026, 6, 15),
+                false,
+                false
+        );
+
+        assertThat(html)
+                .contains("href=\"/itinerary?date=2026-06-17\"")
+                .doesNotContain("day-menu")
+                .doesNotContain("book-flight")
+                .doesNotContain("plan-gathering")
+                .doesNotContain("plan-conference");
+    }
+
+    @Test
+    void anonymousViewerGetsPlainNumberWithNoLinksAtAll() {
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 6, 16),
+                LocalDate.of(2026, 6, 20),
+                LocalDate.of(2026, 6, 15),
+                true,
+                false
+        );
+
+        assertThat(html)
+                .doesNotContain("day-menu")
+                .doesNotContain("href=\"/itinerary")
+                .doesNotContain("book-flight")
+                .doesNotContain("plan-gathering");
     }
 
     @Test

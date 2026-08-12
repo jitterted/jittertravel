@@ -49,13 +49,17 @@ public class BookFlightController {
     }
 
     @GetMapping("/book-flight")
-    public String bookFlightForm(Model model) {
+    public String bookFlightForm(Model model,
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         if (applicationService.isReadOnly()) {
             return "redirect:/read-only";
         }
         BookFlightRequest request = new BookFlightRequest();
         request.setFlightId(UUID.randomUUID().toString());
-        LocalDateTime departure = LocalDate.now(clock).plusWeeks(1).atStartOfDay().plusHours(9);
+        // ?date= from the calendar day-menu seeds the departure day; without it, the default
+        // stands (one week out) so the index nav card keeps working unchanged.
+        LocalDate day = date != null ? date : LocalDate.now(clock).plusWeeks(1);
+        LocalDateTime departure = day.atStartOfDay().plusHours(9);
         request.setDepartureDateTime(departure);
         request.setArrivalDateTime(departure.plusHours(3));
 

@@ -5,6 +5,7 @@ import org.springframework.ui.ConcurrentModel;
 import org.springframework.ui.Model;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
@@ -23,7 +24,7 @@ class BookTrainControllerTest {
         BookTrainController controller = new BookTrainController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookTrainForm(model);
+        controller.bookTrainForm(model, null);
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
         assertThat(request.getDepartureDateTime())
@@ -31,11 +32,25 @@ class BookTrainControllerTest {
     }
 
     @Test
+    void getBookTrainFormWithDateSeedsDepartureOnThatDayAtNineAm() {
+        BookTrainController controller = new BookTrainController(null, FIXED_CLOCK);
+        Model model = new ConcurrentModel();
+
+        controller.bookTrainForm(model, LocalDate.of(2026, 7, 15));
+
+        BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
+        assertThat(request.getDepartureDateTime())
+                .isEqualTo(LocalDateTime.of(2026, 7, 15, 9, 0));
+        assertThat(request.getArrivalDateTime())
+                .isEqualTo(LocalDateTime.of(2026, 7, 15, 13, 0));
+    }
+
+    @Test
     void getBookTrainFormSetsArrivalSameDayAsDeparture() {
         BookTrainController controller = new BookTrainController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookTrainForm(model);
+        controller.bookTrainForm(model, null);
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
         assertThat(request.getArrivalDateTime().toLocalDate())
@@ -48,8 +63,8 @@ class BookTrainControllerTest {
 
         Model model1 = new ConcurrentModel();
         Model model2 = new ConcurrentModel();
-        controller.bookTrainForm(model1);
-        controller.bookTrainForm(model2);
+        controller.bookTrainForm(model1, null);
+        controller.bookTrainForm(model2, null);
 
         BookTrainRequest r1 = (BookTrainRequest) model1.getAttribute("bookTrain");
         BookTrainRequest r2 = (BookTrainRequest) model2.getAttribute("bookTrain");

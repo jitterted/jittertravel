@@ -6,12 +6,14 @@ import dev.ted.jittertravel.domain.CheckInNotInFuture;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.InvalidCancelByDate;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -34,10 +36,14 @@ public class BookHotelController {
     }
 
     @GetMapping("/book-hotel")
-    public String bookHotelForm(Model model) {
+    public String bookHotelForm(Model model,
+                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         BookHotelRequest request = new BookHotelRequest();
         request.setHotelBookingId(UUID.randomUUID().toString());
-        var checkIn = LocalDate.now(clock).plusWeeks(2).atTime(15, 0);
+        // ?date= from the calendar day-menu seeds the check-in day; without it the default
+        // (two weeks out) stands so the index nav card is unaffected.
+        LocalDate day = date != null ? date : LocalDate.now(clock).plusWeeks(2);
+        var checkIn = day.atTime(15, 0);
         request.setCheckIn(checkIn);
         request.setCheckOut(checkIn.toLocalDate().plusDays(1).atTime(11, 0));
         model.addAttribute("bookHotel", request);

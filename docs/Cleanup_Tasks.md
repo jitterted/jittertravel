@@ -7,6 +7,14 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Open
 
+- [ ] **Make the "Schedule problems" nav card state-aware** (`index.html`, OWNER Admin group).
+      Today the card is always amber (`background: #fef3c7; border-color: #d97706`) with a static
+      "Missing travel & hotels" subtitle. Instead: amber **only when there are actual problems**,
+      otherwise a light-green tint; and the subtitle should show the problem *count* (e.g.
+      "3 problems") or "No problems" when clear. Needs a problem count surfaced to the home model —
+      `GeneralController` would read it (same source as `/schedule-problems`) and pass it in, so the
+      home page can style/label the card. Keep it OWNER-only; the `/schedule-problems` report stays
+      OWNER-gated per the redaction rules.
 - [ ] **Add a private social event type** (e.g. a dinner with friends). Promoted to its own
       plan doc — see `PrivateSocialEventPlan.md`. Modeling decided 2026-08-12 (own entry kind,
       own slice); anonymous view decided 2026-08-07 (`Busy` / time range with zone / city+country).

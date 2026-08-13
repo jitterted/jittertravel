@@ -5,6 +5,7 @@ import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
+import j2html.tags.specialized.SpanTag;
 
 import java.util.List;
 
@@ -48,6 +49,11 @@ public class BookedHotelsRenderer {
             }
             .status-tentative { background: #fef3c7; color: #92400e; }
             .status-final { background: #dcfce7; color: #166534; }
+            .status-canceled { background: #f1f1f1; color: #6b7280; }
+            /* A cancelled stay stays on the list as a record, muted so it reads as inactive: no
+               hotel link, no row actions, nothing left to click. */
+            .hotel-table tr.cancelled td { color: var(--muted-text); }
+            .hotel-table tr.cancelled:hover td { background: transparent; }
             .action-row { margin-top: 1rem; }
             .action-row a { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
             .action-row a:hover { text-decoration: underline; }
@@ -59,7 +65,7 @@ public class BookedHotelsRenderer {
             .hotel-cancel-link { color: #b00; }
             .no-deadline { color: var(--muted-text); }
             /* Neutral, not alarming: a passed deadline costs nothing here, it just means free
-               cancellation is over. The stay is still cancellable until check-in. */
+               cancellation is over. The stay stays cancellable regardless. */
             .deadline-passed { color: var(--muted-text); text-decoration: line-through; }
             """;
 
@@ -109,6 +115,12 @@ public class BookedHotelsRenderer {
     }
 
     private static DomContent renderRow(BookedHotelView hotel) {
+        return hotel.cancelled()
+                ? renderCancelledRow(hotel)
+                : renderLiveRow(hotel);
+    }
+
+    private static DomContent renderLiveRow(BookedHotelView hotel) {
         String base = "/booked-hotels/" + hotel.hotelBookingId().id();
         return tr(
                 td(a(hotel.hotelName()).withHref(hotel.mapsUrl())
@@ -123,6 +135,25 @@ public class BookedHotelsRenderer {
                         a("Cancel").withClass("hotel-cancel-link").withHref(base + "/cancel")
                 ).withClass("row-actions")
         );
+    }
+
+    /**
+     * A cancelled stay is a record, not something to act on: the name is plain text (the maps link
+     * would invite a click on a hotel you are not staying at), and the actions cell is empty —
+     * there is nothing to edit, and the edit page 404s anyway because
+     * {@code HotelDetailsViewProjector} drops cancelled bookings. Undo Cancel, when it exists, is
+     * the one action that belongs here (see {@code docs/Backlog.md}).
+     */
+    private static DomContent renderCancelledRow(BookedHotelView hotel) {
+        return tr(
+                td(hotel.hotelName()),
+                locationCell(hotel),
+                td(dateTime(hotel.checkIn())),
+                td(dateTime(hotel.checkOut())),
+                cancelByCell(hotel),
+                td(cancelledBadge(hotel.cancellationReason())),
+                td()
+        ).withClass("cancelled");
     }
 
     /** City and country as separate no-break units so a narrow cell stacks them onto two lines. */
@@ -158,5 +189,14 @@ public class BookedHotelsRenderer {
             return span("Tentative").withClass("status-badge status-tentative");
         }
         return span("Final").withClass("status-badge status-final");
+    }
+
+    /**
+     * Replaces the Tentative/Final badge outright — once cancelled, which of the two it had been is
+     * no longer the interesting fact. The reason rides along as a tooltip when one was given.
+     */
+    private static DomContent cancelledBadge(String reason) {
+        SpanTag badge = span("Canceled").withClass("status-badge status-canceled");
+        return reason.isBlank() ? badge : badge.withTitle(reason);
     }
 }

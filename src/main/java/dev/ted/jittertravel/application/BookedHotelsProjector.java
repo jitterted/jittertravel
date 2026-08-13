@@ -30,7 +30,10 @@ public class BookedHotelsProjector implements EventStreamConsumer {
                         e.checkIn(), e.checkOut(), e.mapsUrl(), e.cancelBy());
                 case HotelChanged e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
                         e.checkIn(), e.checkOut(), e.mapsUrl(), e.cancelBy());
-                case HotelBookingCancelled e -> viewsById.remove(e.hotelBookingId());
+                // Alone among the hotel read models, this one keeps a tombstone instead of
+                // removing: /booked-hotels is where you go to see that the cancellation landed.
+                case HotelBookingCancelled e -> viewsById.computeIfPresent(e.hotelBookingId(),
+                        (id, view) -> view.cancelledWith(e.reason()));
                 default -> { /* not a hotel event */ }
             }
         });
@@ -52,7 +55,9 @@ public class BookedHotelsProjector implements EventStreamConsumer {
                 BookingIntent.TENTATIVE,
                 mapsUrl,
                 cancelBy,
-                false  // resolved against `now` in views(...), which is where the clock arrives
+                false,  // resolved against `now` in views(...), which is where the clock arrives
+                false,
+                ""
         ));
     }
 

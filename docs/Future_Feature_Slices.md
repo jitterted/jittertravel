@@ -4,6 +4,40 @@ Deferred slices and features, captured here so they aren't forgotten.
 
 ---
 
+## Undo Cancel Hotel Booking
+
+**Event:** `HotelBookingCancellationUndone(hotelBookingId)` (name TBD), reinstating the stay.
+
+Cancelling a hotel has no time gate (removed 2026-08-13 — see `HotelCancelReplacePlan.md`), on the
+reasoning that the real-world cancellation happens with the hotel and telling JitterTravel is a
+manual step that lags. What makes that safe is that a mistaken cancel must be *cheap to reverse*,
+and today it isn't: you have to re-enter the booking by hand, which mints a new `HotelBookingId` and
+loses the original's history.
+
+Cancelled stays now survive on `/booked-hotels` as a greyed-out "Canceled" row with no actions —
+that row is where the **Undo** link belongs, and the reason it renders no other action is that Undo
+is the only one that makes sense on a cancelled booking.
+
+**Shape to work out when building:**
+
+- The event has to reinstate into *every* read model that dropped the booking — the calendar, the
+  itinerary, the schedule-problems report, both tentative-hotel projectors, and the hotel details
+  view that backs the edit page. `HotelCancellationPropagationTest` is the natural place to mirror
+  each of those cases in reverse.
+- Cancel already replays state from the event stream (`CancelHotel.contextFor`), so the undo
+  context is the same fold with the answer inverted: refuse unless the booking exists *and* is
+  currently cancelled.
+- The reinstated stay is the booking as it stood at cancellation, not a fresh one — same
+  `HotelBookingId`, so the history stays in one place.
+- Needs the usual round-trip coverage: an import branch plus a case in
+  `CommandExportImportRoundTripTest`, and a golden sample in `GoldenEventDeserializationTest`.
+
+**When to build:** When a mis-entered cancellation actually costs Ted a re-entry — or alongside
+Phase 3 (Replace Hotel) of `HotelCancelReplacePlan.md`, which needs the same reinstate-a-booking
+machinery.
+
+---
+
 ## ConferenceCancelled
 
 **Event:** `ConferenceCancelled(conferenceId, reason: String)`

@@ -115,6 +115,39 @@ class BookedHotelsProjectorTest {
                 .isEqualTo(CHECK_OUT.plusDays(11));
     }
 
+    @Test
+    void cancellationFlagsTheRowAndCarriesTheReasonInsteadOfRemovingIt() {
+        BookedHotelsProjector projector = new BookedHotelsProjector();
+        HotelBooked booked = sampleHotelBooked(BookingIntent.FINAL);
+
+        projector.handle(Stream.of(stored(booked),
+                stored(new HotelBookingCancelled(booked.hotelBookingId(), "Trip called off"))));
+
+        assertThat(projector.views(TimeView.ALL, NOW))
+                .singleElement()
+                .satisfies(view -> {
+                    assertThat(view.cancelled())
+                            .as("the tombstone row is flagged, not dropped")
+                            .isTrue();
+                    assertThat(view.cancellationReason())
+                            .isEqualTo("Trip called off");
+                    assertThat(view.hotelName())
+                            .as("the booking's details survive so the row can still be read")
+                            .isEqualTo("Grand Hotel");
+                });
+    }
+
+    @Test
+    void cancellingAnUnknownBookingAddsNoRow() {
+        BookedHotelsProjector projector = new BookedHotelsProjector();
+
+        projector.handle(Stream.of(
+                stored(new HotelBookingCancelled(HotelBookingId.random(), "Never booked"))));
+
+        assertThat(projector.views(TimeView.ALL, NOW))
+                .isEmpty();
+    }
+
     private static HotelBooked hotelBooked(String name, LocalDateTime checkIn, LocalDateTime checkOut) {
         return new HotelBooked(
                 HotelBookingId.random(),

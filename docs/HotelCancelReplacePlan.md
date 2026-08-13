@@ -1,5 +1,34 @@
 # Plan: Cancel Hotel, Replace Hotel, cancel-by deadline, FUTURE/ALL filter
 
+> ## ⚠️ Superseded in part — read this first (2026-08-13)
+>
+> **This document is kept as the historical record of how the slice was designed. Two of its
+> "hard rules confirmed with the user" were later reversed. The rest of the document, including
+> all of Phase 3, is deliberately left as written — do not read it as current design.**
+>
+> **1. The check-in gate is gone.** Cancelling a hotel has *no* time gate. The reasoning: the
+> cancellation happens with the hotel in the real world, and telling JitterTravel is a separate
+> manual step that routinely lags, so "check-in has passed" only ever meant the data entry was
+> late, never that the cancellation was wrong. What the code looks like now:
+> `CancelHotelContext` is `bookingExists` alone (no `checkIn`, no `now`); `CannotCancelAfterCheckIn`,
+> the controller's catch branch, its injected `Clock` and the template's error banner are all
+> deleted. `InvalidCancelByDate` — the Phase 1 *input* validation that a `cancelBy` cannot fall
+> after check-in — is untouched and still applies.
+>
+> **2. Cancel no longer hard-removes everywhere.** `/booked-hotels` keeps a greyed-out "Canceled"
+> tombstone row (no maps link, no actions, reason as a tooltip), visible under FUTURE as well as
+> ALL. Every other hotel read model still drops the booking, exactly as the plan says.
+>
+> **What this means for Phase 3 (Replace Hotel, still unbuilt).** Its `ReplaceHotelContext` design
+> below carries the old booking's `checkIn` and a `now` "for the cancel gate" — that half no longer
+> applies, and the context needs re-deriving before Phase 3 is built. Its manual test step 5
+> ("attempt to cancel a past-check-in booking → blocked with message") now describes behavior that
+> does not exist. The plan's note that `replacesHotelBookingId` points at a booking renderable
+> nowhere is now only partly true — the replaced stay does render on `/booked-hotels`.
+>
+> Settled rationale for both reversals lives in `docs/DecisionsToReview.md` (S3 and S5). The
+> follow-on **Undo Cancel Hotel Booking** item is in `docs/Future_Feature_Slices.md`.
+
 ## Context
 
 `/booked-hotels` today is a read-only j2html list with no way to act on a booking — no
@@ -14,7 +43,8 @@ cancel, no edit, and it shows every hotel including past stays. We want to:
    toggle, mirroring `/booked-trains`.
 
 Hard rules confirmed with the user:
-- The hard action gate is **check-in time**: once check-in has passed you can neither
+- ⚠️ *(Reversed 2026-08-13 — see the banner at the top. There is no check-in gate.)*
+  The hard action gate is **check-in time**: once check-in has passed you can neither
   cancel nor replace. `cancelBy` is purely advisory/informational — no fee concept anywhere,
   not recorded on the cancellation event. (One exception, added in Phase 1: a `cancelBy`
   *after* check-in is rejected at entry as nonsense — see `InvalidCancelByDate`. That is
@@ -26,7 +56,10 @@ Hard rules confirmed with the user:
   on end-of-item, and hotels follow it.)*
 
 Decisions confirmed 2026-08-07 (drive Phases 2–3 below):
-- **Cancel hard-removes the booking from every read model.** No tombstone, no "Cancelled"
+- ⚠️ *(Reversed for `/booked-hotels` on 2026-08-13 — see the banner at the top. That list keeps a
+  greyed-out "Canceled" tombstone row, under FUTURE as well as ALL; every other read model still
+  hard-removes, and the replaced booking is now renderable there.)*
+  **Cancel hard-removes the booking from every read model.** No tombstone, no "Cancelled"
   row in the ALL view; the event log is the only record. Consequence for Phase 3: the old
   booking a replacement points at is not renderable anywhere, so `replacesHotelBookingId`
   stays a data-only link (see Phase 3).
@@ -305,6 +338,12 @@ already links here, as does the itinerary edit pencil.
 
 ## Phase 3 — Replace Hotel
 
+> ⚠️ **Historical design, unbuilt, and partly invalidated — see the banner at the top of this
+> document before building it.** The cancel-gate half of `ReplaceHotelContext` below (old `checkIn`
+> + `now`) no longer applies, and the "renderable nowhere" note about `replacesHotelBookingId` is
+> now only partly true. Kept as written rather than rewritten, per Ted (2026-08-13): the reasoning
+> is still worth reading, the specifics need re-deriving.
+
 Confirmed still in scope (2026-08-07) despite Edit Hotel shipping: Edit rewrites a booking in
 place, Replace keeps the cancelled stay and its reason as their own events.
 
@@ -377,7 +416,10 @@ place, Replace keeps the cancelled stay and its reason as their own events.
   3. Edit the booking without touching `cancelBy` → the deadline survives (the full-snapshot trap).
   4. Cancel with a reason → disappears from `/booked-hotels` (**including ALL**), calendar,
      itinerary, schedule-gap.
-  5. Attempt to cancel a past-check-in booking (use ALL view) → blocked with message.
+  5. ⚠️ *(No longer valid as of 2026-08-13 — the gate is gone. The replacement check is: cancel a
+     past-check-in booking from the ALL view → it succeeds, and the row stays put, greyed out and
+     badged "Canceled".)* Attempt to cancel a past-check-in booking (use ALL view) → blocked with
+     message.
   6. Replace a future booking → old gone, new present; verify atomicity (both events or neither)
      and the `replacesHotelBookingId` link in the event log / timeline.
   7. Toggle FUTURE/ALL and confirm filtering is by **check-out** (a stay in progress stays under

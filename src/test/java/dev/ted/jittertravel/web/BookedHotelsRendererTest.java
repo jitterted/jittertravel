@@ -53,7 +53,7 @@ class BookedHotelsRendererTest {
         BookedHotelView view = new BookedHotelView(
                 id, "Grand Hotel", "Berlin", "Germany",
                 CHECK_IN, CHECK_OUT, BookingIntent.FINAL, "https://maps.google.com/",
-                null, false);
+                null, false, false, "");
 
         String html = BookedHotelsRenderer.render(List.of(view), TimeView.FUTURE);
 
@@ -68,7 +68,7 @@ class BookedHotelsRendererTest {
         BookedHotelView view = new BookedHotelView(
                 id, "Grand Hotel", "Berlin", "Germany",
                 CHECK_IN, CHECK_OUT, BookingIntent.FINAL, "https://maps.google.com/",
-                null, false);
+                null, false, false, "");
 
         String html = BookedHotelsRenderer.render(List.of(view), TimeView.FUTURE);
 
@@ -179,6 +179,71 @@ class BookedHotelsRendererTest {
                 .contains("Wed, Jun 24").contains("12:00 PM");
     }
 
+    @Test
+    void cancelledRowIsMarkedCancelledAndBadgedCanceled() {
+        String html = BookedHotelsRenderer.render(
+                List.of(cancelledView("Grand Hotel", "")), TimeView.FUTURE);
+
+        // Match the rendered badge, not the bare class name — the stylesheet always defines
+        // .status-final and .status-tentative, so those strings are in every page.
+        assertThat(html)
+                .contains("<tr class=\"cancelled\">")
+                .contains("<span class=\"status-badge status-canceled\">Canceled</span>")
+                .doesNotContain("<span class=\"status-badge status-final\">")
+                .doesNotContain("<span class=\"status-badge status-tentative\">");
+    }
+
+    @Test
+    void cancelledRowRendersHotelNameAsPlainTextNotALink() {
+        String html = BookedHotelsRenderer.render(
+                List.of(cancelledView("Grand Hotel", "")), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("Grand Hotel")
+                .doesNotContain("https://maps.google.com/grand");
+    }
+
+    @Test
+    void cancelledRowOffersNoEditOrCancelAction() {
+        String html = BookedHotelsRenderer.render(
+                List.of(cancelledView("Grand Hotel", "")), TimeView.FUTURE);
+
+        assertThat(html)
+                .doesNotContain(">Edit</a>")
+                .doesNotContain(">Cancel</a>")
+                .doesNotContain("row-actions\">");
+    }
+
+    @Test
+    void cancellationReasonRidesAlongAsATooltipOnTheBadge() {
+        String html = BookedHotelsRenderer.render(
+                List.of(cancelledView("Grand Hotel", "Trip called off")), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("title=\"Trip called off\"");
+    }
+
+    @Test
+    void absentCancellationReasonLeavesTheBadgeWithoutATooltip() {
+        String html = BookedHotelsRenderer.render(
+                List.of(cancelledView("Grand Hotel", "")), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<span class=\"status-badge status-canceled\">Canceled</span>");
+    }
+
+    @Test
+    void cancelledAndLiveRowsRenderSideBySide() {
+        String html = BookedHotelsRenderer.render(
+                List.of(hotelView("Still Booked", "https://maps.google.com/still", BookingIntent.FINAL),
+                        cancelledView("Grand Hotel", "")), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<span class=\"status-badge status-final\">").contains(">Edit</a>")
+                .contains("<span class=\"status-badge status-canceled\">")
+                .contains("Still Booked").contains("Grand Hotel");
+    }
+
     private static BookedHotelView hotelView(String name, String mapsUrl, BookingIntent status) {
         return hotelView(name, mapsUrl, status, null, false);
     }
@@ -193,7 +258,24 @@ class BookedHotelsRendererTest {
                 status,
                 mapsUrl,
                 cancelBy,
-                deadlinePassed
+                deadlinePassed,
+                false,
+                ""
+        );
+    }
+
+    private static BookedHotelView cancelledView(String name, String reason) {
+        return new BookedHotelView(
+                HotelBookingId.random(),
+                name,
+                "Berlin", "Germany",
+                CHECK_IN, CHECK_OUT,
+                BookingIntent.FINAL,
+                "https://maps.google.com/grand",
+                null,
+                false,
+                true,
+                reason
         );
     }
 }

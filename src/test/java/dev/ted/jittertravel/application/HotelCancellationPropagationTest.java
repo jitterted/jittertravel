@@ -23,12 +23,14 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Lifecycle guard: a cancelled hotel booking must disappear from <em>every</em> read model.
+ * Lifecycle guard: every read model must react to a cancellation, one case per projector.
  * <p>
- * Cancellation is a hard removal — no tombstone, no "cancelled" row even under the ALL filter — so
- * a projector that handles {@code HotelBooked} but forgets {@code HotelBookingCancelled} keeps
- * showing a stay that no longer exists. That silent gap is exactly what this book-then-cancel
- * scenario catches, one case per projector.
+ * A projector that handles {@code HotelBooked} but forgets {@code HotelBookingCancelled} keeps
+ * showing a stay that is no longer happening, and that silent gap is what this book-then-cancel
+ * scenario catches. Reacting means <em>removal</em> everywhere except two deliberate exceptions:
+ * {@link BookedHotelsProjector} keeps a greyed-out "Canceled" tombstone row (the owner list is
+ * where you confirm the cancellation landed), and {@link LocationAuditProjector} keeps reporting
+ * the location (see its case below).
  */
 class HotelCancellationPropagationTest {
 
@@ -43,14 +45,23 @@ class HotelCancellationPropagationTest {
     private final AtomicLong sequence = new AtomicLong();
 
     @Test
-    void bookedHotelsListDropsTheCancelledStay() {
+    void bookedHotelsListKeepsTheCancelledStayAsATombstone() {
+        // Deliberately NOT a removal — the one read model that keeps cancelled stays, so the owner
+        // can see the cancellation was recorded. FUTURE, not just ALL: an upcoming stay you cancel
+        // must still be visible in the default view.
         BookedHotelsProjector projector = new BookedHotelsProjector();
 
         projector.handle(bookThenCancel());
 
-        assertThat(projector.views(TimeView.ALL, BEFORE_THE_STAY))
-                .as("ALL must not resurrect a cancelled booking — there is no tombstone row")
-                .isEmpty();
+        assertThat(projector.views(TimeView.FUTURE, BEFORE_THE_STAY))
+                .singleElement()
+                .satisfies(view -> {
+                    assertThat(view.cancelled())
+                            .as("the row survives, flagged cancelled")
+                            .isTrue();
+                    assertThat(view.cancellationReason())
+                            .isEqualTo("Trip called off");
+                });
     }
 
     @Test

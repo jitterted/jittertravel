@@ -17,6 +17,21 @@ plan doc and its status — including these items — see `Backlog.md`.
       re-render the `clear-conflict` form with the message (never redirect the error to the
       view-only `/schedule-problems` page), per the rule that form-post errors render on the
       form's own page. Add a `@WebMvcTest` proving the error renders on re-render, mutation-verified.
+- [ ] **`/booked-hotels` always badges "Tentative" — the booking's real `bookingIntent` is
+      discarded.** `BookedHotelsProjector.put` hardcodes `BookingIntent.TENTATIVE` into every
+      `BookedHotelView` (`BookedHotelsProjector.java:52`); its parameter list doesn't even accept
+      the intent, so `HotelBooked.bookingIntent()` / `HotelChanged.bookingIntent()` are dropped on
+      the floor. **This is wrong on screen today, not latent:** both `book-hotel.html` and
+      `change-hotel.html` offer a TENTATIVE/FINAL radio, the event records the choice faithfully,
+      and `HotelDetailsViewProjector` reads it back correctly — so the edit form shows FINAL while
+      the list next to it says "Tentative". `BookedHotelsRenderer.statusBadge`'s `status-final`
+      branch is consequently unreachable for live rows, which is why no test caught it: every
+      renderer test constructs its own view record, and `BookedHotelsProjectorTest`'s status
+      assertion happens to pass TENTATIVE in. Fix: thread the intent through `put` from both
+      events. Add a projector test that books a **FINAL** hotel and asserts the view's status
+      (mutation-verify by flipping the hardcode back), and note that
+      `hotelChangedOverwritesBookingUnderSameId` already changes intent to FINAL without asserting
+      it — that's the case to extend. Found 2026-08-13 while adding the cancelled tombstone row.
 - [ ] **GET stale-link not-found drops its flash on a view-only list.** The four edit-page GET
       handlers (`ChangeHotel`/`ChangeFlight`/`ChangeTrain`/`ChangeGathering`) redirect a not-found
       id to their view-only j2html list (`/booked-hotels`, `/booked-flights`, `/booked-trains`,

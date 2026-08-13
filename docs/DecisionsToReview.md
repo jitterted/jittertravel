@@ -75,33 +75,6 @@ cheaper to decide now than after three more folds exist.
 
 ---
 
-### D3. `CancelHotelContext.checkIn` is nullable, meaning "no check-in gate"
-
-**Status:** `Needs review` (you chose the approach; the *shape* is what needs a look)
-**Where:** `domain/CancelHotelContext.java`, `domain/CancelHotelCommand.java`
-
-You picked "make the gate's checkIn optional" over carrying a redundant `checkIn` on the request.
-The result is a domain command with a null-means-something branch:
-
-```java
-if (context.checkIn() != null && !context.now().isBefore(context.checkIn().utc())) {
-    throw new CannotCancelAfterCheckIn(...);
-}
-```
-
-**What to push on.** `null` here means two different things depending on the caller: "the booking
-does not exist" (live path, where `bookingExists` is also false) and "do not apply this gate"
-(import). The Javadoc explains it, but a reader hitting the `if` first has to go look.
-
-A more explicit shape would be a small sealed type — `CheckInGate.At(ZonedTimestamp)` vs
-`CheckInGate.None` — which names the import case instead of encoding it as absence. More
-ceremony for one branch; your call whether it earns it.
-
-**Related:** you asked to revisit export/import more broadly before another command needs folded
-context. That is tracked in `Backlog.md` and is the bigger version of this question.
-
----
-
 ### D4. `LocationAuditProjector` deliberately does *not* drop a cancelled booking
 
 **Status:** `Needs review`
@@ -120,31 +93,15 @@ it is right, since the test now locks it in.
 
 ---
 
-### D5. Hard removal — no tombstone, no "Cancelled" row, no undo
-
-**Status:** `Needs review` (recorded as decided 2026-08-07 in the plan; confirming the consequences)
-**Where:** all seven view projectors
-
-A cancelled booking vanishes from every view, including `/booked-hotels?filter=all`.
-
-**What to push on, concretely:**
-- There is no way to see what you cancelled without reading `/admin/eventlog`.
-- There is no undo. Cancelling by mistake means re-entering the booking by hand, with a new id.
-- Phase 3's `replacesHotelBookingId` will point at a booking that is not renderable anywhere, so
-  the link is data-only — the plan already notes this, but it is a real consequence of D5.
-
-A "Cancelled" row under the ALL filter would cost one branch per projector and a `status` on the
-view. You decided against it; I want to be sure the undo point was part of that.
-
----
-
 ### D6. `BookedHotelView` carries a pre-resolved `cancelDeadlinePassed` flag
 
 **Status:** `Needs review`
 **Where:** `application/BookedHotelView.java`, `application/BookedHotelsProjector.java`
 
 The record gained a tenth component plus a `withDeadlineEvaluatedAt(Instant)` copy method, set in
-`views(TimeView, Instant)`.
+`views(TimeView, Instant)`. (It is up to twelve components and two copy methods as of 2026-08-13,
+when `cancelled` / `cancellationReason` arrived with the tombstone row — see S5, which makes the
+"clunky" concern below worse rather than better.)
 
 **Why.** The renderer needs "has the deadline passed?" but cannot take an `Instant`:
 `TimeFilterToggleConventionTest` discovers every static `render(List, TimeView)` and invokes it
@@ -183,9 +140,10 @@ uniformly true, and the plan had suggested a *stored* id here specifically to av
 - **`/booked-hotels/*/cancel` added explicitly** to `SecurityConfig` rather than widening to
   `/booked-hotels/*/**`. Explicit means every future per-item action needs its own line (and its own
   `AuthorizationMatrixTest` row) — deliberate, but it is a recurring small tax.
-- **Confirmation is an inline `onclick="return confirm(...)"`** on the cancel button. Not covered by
-  the `js` tier, and it is the only thing standing between a stray click and an unrecoverable
-  cancellation (see D5).
+- ~~**Confirmation is an inline `onclick="return confirm(...)"`** on the cancel button.~~ Overtaken
+  by events: Cancel Hotel moved to its own confirmation page (`cancel-hotel.html`), so there is no
+  inline JS left to test. The stray-click concern now rests on that page plus S5's Undo backlog
+  item.
 - **`reason` is a free-text input with no length limit or validation**, normalised `null` → `""`.
 - **`HotelBookingCancelled` carries only the id and the reason** — no `cancelBy`, no check-in, no
   timestamp of its own beyond the event's. Per the plan; means the event alone cannot tell you
@@ -195,4 +153,51 @@ uniformly true, and the plan had suggested a *stored* id here specifically to av
 
 ## Settled
 
-*(nothing yet)*
+### S3 (was D3). `CancelHotelContext.checkIn` is nullable, meaning "no check-in gate"
+
+**Status:** `Changed` — settled 2026-08-13
+**Where:** `domain/CancelHotelContext.java`, `domain/CancelHotelCommand.java`
+
+**Outcome: moot — the gate itself was removed, so there is no nullable `checkIn` left to shape.**
+Ted's reasoning: the gate protected against a harmless action. Cancelling happens *with the hotel*,
+in the real world; entering it in JitterTravel is a separate manual step that routinely lags behind,
+so "check-in has passed" was never evidence that the cancellation was wrong — only that the
+data entry was late. Refusing it blocked recording something that had already happened. (The
+eventual fix is piping booking emails in automatically; until then the lag is expected.)
+
+`CancelHotelContext` is now `bookingExists` alone — no `checkIn`, no `now` — which retires both the
+null-means-two-things problem and the proposed `CheckInGate` sealed type in one move. Deleted:
+`CannotCancelAfterCheckIn`, the controller's catch branch and the `Clock` it injected, and the
+template's error banner. The no-gate property is now structural rather than tested: there is
+nothing time-shaped in the context for the command to consult.
+
+The safety argument for removing it depends on a mistaken cancel being cheap to reverse, which is
+why S5's Undo item exists.
+
+---
+
+### S5 (was D5). Hard removal — no tombstone, no "Cancelled" row, no undo
+
+**Status:** `Changed` — settled 2026-08-13
+**Where:** `application/BookedHotelsProjector.java`, `web/BookedHotelsRenderer.java`
+
+**Outcome: reversed for `/booked-hotels`, unchanged everywhere else, and undo is backlogged.**
+The undo point was indeed the crux — it is what made removing the check-in gate (S3) safe to
+reason about, and it turned out not to hold.
+
+- `BookedHotelsProjector` now keeps a **tombstone** instead of removing: a greyed-out row, hotel
+  name as plain text (no maps link), a "Canceled" badge replacing Tentative/Final, the cancellation
+  reason as a tooltip, and no actions. It is the only hotel read model that does — calendar,
+  itinerary, schedule problems, both tentative-hotel projectors and the hotel details view still
+  drop the booking, so `/booked-hotels` is now the one surface where a cancellation is visible.
+  Tombstones show under **FUTURE**, not only ALL, so a cancellation you just made appears where you
+  are already looking.
+- The row is deliberately action-free because **Undo Cancel** is the action that belongs there.
+  That is now a tracked backlog item (`Future_Feature_Slices.md`, indexed in `Backlog.md`) rather
+  than an accepted gap: re-entry by hand still mints a new `HotelBookingId` and loses the
+  original's history.
+- Phase 3's `replacesHotelBookingId` consequence is **partly resolved**: the replaced booking is
+  now renderable on `/booked-hotels`, though still nowhere else.
+- D4 (`LocationAuditProjector` keeping cancelled locations) is no longer the *only* asymmetry, so
+  its "surprising exception" framing is weaker than when it was written — the rule is now
+  "cancellation removes, except where a surface exists to show it".

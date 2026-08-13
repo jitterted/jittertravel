@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Plan Private Event</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        fieldset {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        legend {
+            font-weight: 600;
+            padding: 0 0.4em;
+            color: var(--muted-text);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .field { margin-bottom: 0.5rem; }
+        .field:last-child { margin-bottom: 0; }
+
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+
+        .hint {
+            font-size: 0.75rem;
+            color: var(--muted-text);
+            margin-top: 2px;
+        }
+
+        .field input[type=text],
+        .field input[type=date],
+        .field input[type=time] {
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+
+        .field-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .field-row .field { flex: 1; margin-bottom: 0; }
+
+        .error {
+            display: block;
+            margin-top: 2px;
+            font-size: 0.8rem;
+            color: #b00;
+        }
+
+        button[type=submit] {
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        button[type=submit]:hover { opacity: 0.88; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/calendar">Calendar</a>
+    </nav>
+
+    <h1>Plan Private Event</h1>
+
+    <p class="hint" style="margin-bottom: 1rem;">
+        A private social event (dinner with friends, an evening out). Anonymous calendar visitors
+        see only that you're &ldquo;Busy&rdquo; at this time in this city — never the title or venue.
+    </p>
+
+    <form th:action="@{/plan-private-event}" th:object="${planPrivateEvent}" method="post">
+        <input type="hidden" th:field="*{privateEventId}"/>
+
+        <div class="field" style="margin-bottom: 0.5rem;">
+            <label>
+                Title
+                <input type="text" th:field="*{title}"/>
+            </label>
+        </div>
+
+        <div class="field" style="margin-bottom: 0.75rem;">
+            <label>
+                Venue Name
+                <input type="text" th:field="*{venueName}"/>
+            </label>
+        </div>
+
+        <fieldset>
+            <legend>Venue</legend>
+
+            <div th:replace="~{fragments/address-paste :: addressPaste}"></div>
+
+            <div class="field">
+                <label>
+                    Street
+                    <input type="text" th:field="*{street}"/>
+                </label>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>
+                        City
+                        <input type="text" th:field="*{city}"/>
+                    </label>
+                </div>
+                <div class="field">
+                    <label>
+                        Region
+                        <input type="text" th:field="*{region}"/>
+                    </label>
+                </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>
+                        Country
+                        <input type="text" th:field="*{country}"/>
+                    </label>
+                </div>
+                <div class="field">
+                    <label>
+                        Postal Code
+                        <input type="text" th:field="*{postalCode}"/>
+                    </label>
+                </div>
+            </div>
+            <div class="field">
+                <label>
+                    Location for matching
+                    <input type="text" th:field="*{locationForMatching}"/>
+                </label>
+                <span class="hint">City name used to match with conferences and travel — edit if auto-fill picks the wrong level</span>
+            </div>
+        </fieldset>
+
+        <div class="field-row" style="margin-bottom: 0.75rem;">
+            <div class="field">
+                <label>
+                    Date
+                    <input type="date" th:field="*{date}"/>
+                </label>
+                <span class="error"
+                      th:if="${#fields.hasErrors('date')}"
+                      th:errors="*{date}"></span>
+            </div>
+            <div class="field">
+                <label>
+                    Start time
+                    <input type="time" th:field="*{startTime}"/>
+                </label>
+            </div>
+            <div class="field">
+                <label>
+                    End time
+                    <input type="time" th:field="*{endTime}"/>
+                </label>
+                <span class="error"
+                      th:if="${#fields.hasErrors('endTime')}"
+                      th:errors="*{endTime}"></span>
+            </div>
+        </div>
+
+        <div class="field" style="margin-bottom: 0.75rem;">
+            <label>
+                Time zone
+                <select th:field="*{zone}">
+                    <option value="">Derive from location (default)</option>
+                    <option th:each="cz : ${commonZones}"
+                            th:value="${cz.name()}"
+                            th:text="${cz.label()}"></option>
+                </select>
+            </label>
+            <span class="hint">Leave on "derive" unless the location can't be matched — then pick the zone of the venue</span>
+            <span class="error"
+                  th:if="${#fields.hasErrors('zone')}"
+                  th:errors="*{zone}"></span>
+        </div>
+
+        <button type="submit">Plan Private Event</button>
+    </form>
+
+</div>
+</body>
+</html>

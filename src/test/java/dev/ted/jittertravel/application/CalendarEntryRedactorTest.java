@@ -1,8 +1,10 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 
@@ -12,6 +14,7 @@ class CalendarEntryRedactorTest {
 
     private static final LocalDateTime START = LocalDateTime.of(2026, 7, 1, 14, 0);
     private static final LocalDateTime END = LocalDateTime.of(2026, 7, 3, 11, 0);
+    private static final ZoneId TORONTO = ZoneId.of("America/Toronto");
 
     private final CalendarEntryRedactor redactor = new CalendarEntryRedactor();
 
@@ -120,6 +123,45 @@ class CalendarEntryRedactorTest {
         assertThat(redacted.subTitle()).isEqualTo(lines("Skills Matter", "London, GB"));
         assertThat(redacted.mapsUrl()).isEqualTo("https://meetup.com/events/123");
         assertThat(redacted.editPath()).isNull();
+    }
+
+    /**
+     * A private social event is the one entry kind that IS redacted for anonymous viewers: the
+     * title becomes "Busy", the venue name is dropped, and the owner's re-localizing time
+     * {@link SubtitleLine.Range} becomes a fixed, zone-labelled {@link SubtitleLine.FixedRange}.
+     * Only the city and the time survive. (See docs/PrivateSocialEventPlan.md and CLAUDE.md.)
+     */
+    @Test
+    void privateEventBecomesBusyDroppingTitleAndVenue() {
+        ZonedTimestamp start = torontoTime(19, 0);
+        ZonedTimestamp end = torontoTime(22, 0);
+        CalendarEntry privateEvent = new CalendarEntry(
+                EntryKind.PRIVATE_EVENT, START, END,
+                "Dinner with the Smiths", List.of(
+                        new SubtitleLine.Text("Alo"),
+                        new SubtitleLine.Text("Toronto, Canada"),
+                        new SubtitleLine.Range(start, end)),
+                null, null, null,
+                "/planned-private-events/abc"
+        );
+
+        CalendarEntry redacted = redactor.redact(privateEvent);
+
+        assertThat(redacted.mainTitle()).isEqualTo("Busy");
+        assertThat(redacted.subTitle()).isEqualTo(List.of(
+                new SubtitleLine.FixedRange(start, end),
+                new SubtitleLine.Text("Toronto, Canada")));
+        // Title and venue are gone — asserting on their absence, per the redaction rules.
+        assertThat(redacted.subTitle())
+                .doesNotContain(new SubtitleLine.Text("Alo"));
+        assertThat(redacted.continuationTitle()).isNull();
+        assertThat(redacted.continuationSubTitle()).isNull();
+        assertThat(redacted.mapsUrl()).isNull();
+        assertThat(redacted.editPath()).isNull();
+    }
+
+    private static ZonedTimestamp torontoTime(int hour, int minute) {
+        return ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, hour, minute), TORONTO);
     }
 
     private static List<SubtitleLine> lines(String... values) {

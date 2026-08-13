@@ -329,7 +329,19 @@ public class CalendarViewBuilder {
                     ZonedTimeTag.render(from, TIME_OF_DAY_FORMAT),
                     text(" → "),
                     ZonedTimeTag.render(to, TIME_OF_DAY_FORMAT));
+            // Redacted private-event time: fixed in the event's own zone with a zone label, as
+            // plain text so the browser-zone script leaves it alone (it only rewrites
+            // <time data-fmt>). Public in that zone by decision — see docs/PrivateSocialEventPlan.md.
+            case SubtitleLine.FixedRange(ZonedTimestamp from, ZonedTimestamp to) ->
+                    lineDiv.withText(fixedRangeText(from, to));
         };
+    }
+
+    private static String fixedRangeText(ZonedTimestamp from, ZonedTimestamp to) {
+        DateTimeFormatter time = DateTimeFormatter.ofPattern(TIME_OF_DAY_FORMAT, Locale.ENGLISH);
+        DateTimeFormatter zoneAbbrev = DateTimeFormatter.ofPattern("z", Locale.ENGLISH);
+        return time.format(from.atEntryZone()) + " → " + time.format(to.atEntryZone())
+                + " " + zoneAbbrev.format(from.atEntryZone());
     }
 
     private static DomContent editPencil(String href, String label) {

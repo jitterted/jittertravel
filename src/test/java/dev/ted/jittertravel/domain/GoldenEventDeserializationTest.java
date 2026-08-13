@@ -464,6 +464,44 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
+    void privateEventPlannedSampleDeserializes() {
+        // A private social event has no speaking flag and no infoUrl — those are public-event
+        // concepts. venueName normalizes to "" when absent (no-null-Strings rule).
+        String json = """
+                {
+                  "privateEventId": {"id": "88888888-8888-8888-8888-888888888888"},
+                  "title": "Dinner with the Smiths",
+                  "venueName": "Alo",
+                  "location": {
+                    "street": "163 Spadina Ave",
+                    "city": "Toronto",
+                    "region": "ON",
+                    "postalCode": "M5V 2L6",
+                    "country": "Canada",
+                    "locationForMatching": "Toronto"
+                  },
+                  "startsAt": {"utc": "2026-09-15T23:00:00Z", "zone": "America/Toronto"},
+                  "endsAt": {"utc": "2026-09-16T02:00:00Z", "zone": "America/Toronto"}
+                }
+                """;
+
+        PrivateEventPlanned event = deserialize(json, PrivateEventPlanned.class);
+
+        assertThat(event.privateEventId().id())
+                .isEqualTo(UUID.fromString("88888888-8888-8888-8888-888888888888"));
+        assertThat(event.title())
+                .isEqualTo("Dinner with the Smiths");
+        assertThat(event.venueName())
+                .isEqualTo("Alo");
+        assertThat(event.location().city())
+                .isEqualTo("Toronto");
+        assertThat(event.startsAt().localDateTime().toString())
+                .isEqualTo("2026-09-15T19:00");
+        assertThat(event.endsAt().localDateTime().toString())
+                .isEqualTo("2026-09-15T22:00");
+    }
+
+    @Test
     void legacyGatheringPlannedWallClockTrioIsUpcastToStartsAtAndEndsAt() {
         // Written before gatherings stored instants: a date plus two times, no zone anywhere. The
         // zone comes from the payload's own location, so the upcast lands on the same moment the

@@ -37,6 +37,7 @@ public class ItineraryRenderer {
                 .entry-card--train      { border-left-color: #9a3412; background: #ffedd5; }
                 .entry-card--lodging    { border-left-color: #166534; background: #dcfce7; }
                 .entry-card--gathering  { border-left-color: #7c3aed; background: #f5f3ff; }
+                .entry-card--private-event { border-left-color: #475569; background: #f1f5f9; }
                 .entry-header { display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.2rem; }
                 .entry-header svg { width: 13px; height: 13px; flex-shrink: 0; }
                 .entry-kind { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
@@ -45,6 +46,7 @@ public class ItineraryRenderer {
                 .entry-kind--train      { color: #9a3412; }
                 .entry-kind--lodging    { color: #166534; }
                 .entry-kind--gathering  { color: #7c3aed; }
+                .entry-kind--private-event { color: #475569; }
                 .entry-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; line-height: 1.3; }
                 .entry-detail { font-size: 0.82rem; color: #374151; line-height: 1.4; }
                 .entry-detail a { color: inherit; text-decoration: underline; }
@@ -115,6 +117,7 @@ public class ItineraryRenderer {
             case HotelItineraryEntry e -> renderHotel(e, isOwner);
             case GatheringItineraryEntry e -> renderGathering(e);
             case ConferenceItineraryEntry e -> renderConference(e);
+            case PrivateEventItineraryEntry e -> renderPrivateEvent(e);
         };
     }
 
@@ -244,6 +247,21 @@ public class ItineraryRenderer {
                 div(e.name()).withClass("entry-title"),
                 div(e.venueName()).withClass("entry-detail"),
                 div(location).withClass("entry-detail entry-location")
+        );
+    }
+
+    private static DivTag renderPrivateEvent(PrivateEventItineraryEntry e) {
+        // Itinerary is OWNER/FAMILY only, so full detail is fine here — redaction is an
+        // anonymous-calendar concern. No title link: a private event has no public info URL.
+        return div().withClass("entry-card entry-card--private-event").with(
+                div("Private").withClass("entry-kind entry-kind--private-event"),
+                div().withClass("entry-title").with(span(e.title())),
+                div(e.venueLocation()).withClass("entry-detail"),
+                div().withClass("entry-detail").with(
+                        ZonedTimeTag.render(e.anchorDateTime(), TIME_FORMAT),
+                        rawHtml(" &ndash; "),
+                        ZonedTimeTag.render(e.endDateTime(), TIME_FORMAT)
+                )
         );
     }
 }

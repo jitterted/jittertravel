@@ -5,6 +5,7 @@ import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.EntryKind;
 import dev.ted.jittertravel.application.SubtitleLine;
 import dev.ted.jittertravel.application.ViewerZonePolicy;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -107,6 +109,52 @@ class CalendarRedactionSecurityTest {
                 .doesNotContain("maps.google.com")
                 .doesNotContain("9:00 AM")
                 .doesNotContain("/booked-flights/abc");
+    }
+
+    private static final ZoneId TORONTO = ZoneId.of("America/Toronto");
+    private static final LocalDateTime PE_DATE = LocalDateTime.of(2026, 7, 10, 19, 0);
+
+    @Test
+    @WithMockUser(username = "ted", roles = "OWNER")
+    void ownerSeesFullPrivateEventDetail() {
+        given(calendarAggregator.allEntries()).willReturn(List.of(privateEvent()));
+
+        assertThat(mockMvc.get().uri("/calendar"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("Dinner with the Smiths")
+                .contains("Alo");
+    }
+
+    @Test
+    void anonymousUserSeesBusyWithoutTitleOrVenue() {
+        given(calendarAggregator.allEntries()).willReturn(List.of(privateEvent()));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                // Public by decision: "Busy", the city, and the time in the event's own zone.
+                .contains("Busy")
+                .contains("Toronto, Canada")
+                .contains("7:00 PM")
+                .contains("EDT")
+                // Private: the title, the venue, and any owner edit link never reach anonymous eyes.
+                .doesNotContain("Dinner with the Smiths")
+                .doesNotContain("Alo")
+                .doesNotContain("/planned-private-events");
+    }
+
+    private static CalendarEntry privateEvent() {
+        return new CalendarEntry(
+                EntryKind.PRIVATE_EVENT, PE_DATE, PE_DATE.plusHours(3),
+                "Dinner with the Smiths", List.of(
+                        new SubtitleLine.Text("Alo"),
+                        new SubtitleLine.Text("Toronto, Canada"),
+                        new SubtitleLine.Range(
+                                ZonedTimestamp.fromLocal(PE_DATE, TORONTO),
+                                ZonedTimestamp.fromLocal(PE_DATE.plusHours(3), TORONTO))),
+                null, null, null,
+                "/planned-private-events/abc");
     }
 
     @Test

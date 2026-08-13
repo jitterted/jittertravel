@@ -27,4 +27,14 @@ public sealed interface SubtitleLine {
      * (a Frankfurt→Paris train), so each is rendered in its own.
      */
     record Range(ZonedTimestamp from, ZonedTimestamp to) implements SubtitleLine {}
+
+    /**
+     * A start–end range shown in the event's own zone with a zone-abbreviation label
+     * (e.g. {@code 7:00 PM → 10:00 PM EDT}), rendered as plain text so the browser-zone script
+     * (which only rewrites {@code <time data-fmt>}) never re-localizes it. Used only for the
+     * redacted private-event time, which is public in the event's own zone by decision — unlike
+     * {@link Range}, whose {@code <time>} elements re-localize to the viewer's zone. See
+     * {@code docs/PrivateSocialEventPlan.md}.
+     */
+    record FixedRange(ZonedTimestamp from, ZonedTimestamp to) implements SubtitleLine {}
 }

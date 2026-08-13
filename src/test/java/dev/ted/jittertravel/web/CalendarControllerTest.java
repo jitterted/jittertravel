@@ -7,6 +7,7 @@ import dev.ted.jittertravel.application.EntryKind;
 import dev.ted.jittertravel.application.FlightCalendarProjector;
 import dev.ted.jittertravel.application.GatheringCalendarProjector;
 import dev.ted.jittertravel.application.HotelCalendarProjector;
+import dev.ted.jittertravel.application.PrivateEventCalendarProjector;
 import dev.ted.jittertravel.application.SubtitleLine;
 import dev.ted.jittertravel.application.TrainCalendarProjector;
 import dev.ted.jittertravel.application.ViewerZonePolicy;
@@ -36,6 +37,7 @@ class CalendarControllerTest {
     @Mock TrainCalendarProjector trainProjector;
     @Mock HotelCalendarProjector hotelProjector;
     @Mock GatheringCalendarProjector gatheringProjector;
+    @Mock PrivateEventCalendarProjector privateEventProjector;
 
     @Test
     void isoDateRangeParamsLimitRenderedEntriesToThatRange() {
@@ -148,9 +150,10 @@ class CalendarControllerTest {
         given(trainProjector.entries()).willReturn(List.of());
         given(hotelProjector.entries()).willReturn(List.of());
         given(gatheringProjector.entries()).willReturn(List.of());
+        given(privateEventProjector.entries()).willReturn(List.of());
         return new CalendarController(
                 new CalendarAggregator(conferenceProjector, flightProjector, trainProjector,
-                                       hotelProjector, gatheringProjector),
+                                       hotelProjector, gatheringProjector, privateEventProjector),
                 new ViewerZonePolicy());
     }
 

@@ -11,6 +11,7 @@ import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelChanged;
+import dev.ted.jittertravel.domain.PrivateEventPlanned;
 import dev.ted.jittertravel.domain.TrainBooked;
 import dev.ted.jittertravel.domain.TrainChanged;
 
@@ -56,6 +57,7 @@ public final class EventTypes {
         register("ConferenceCancelled", ConferenceCancelled.class);
         register("GatheringPlanned", GatheringPlanned.class);
         register("GatheringChanged", GatheringChanged.class);
+        register("PrivateEventPlanned", PrivateEventPlanned.class);
         register("DifferentCityConflictCleared", DifferentCityConflictCleared.class);
     }
 

@@ -532,6 +532,44 @@ class ItineraryProjectorTest {
         assertThat(entry.anchorTime()).isEqualTo(DATE.plusDays(1).atTime(17, 30));
     }
 
+    @Test
+    void privateEventPlannedAppearsOnItsDate() {
+        ItineraryProjector projector = new ItineraryProjector();
+        PrivateEventPlanned event = new PrivateEventPlanned(
+                PrivateEventId.random(), "Dinner with the Smiths", "Alo",
+                new Address("163 Spadina Ave", "Toronto", "ON", "M5V 2L6", "Canada", null),
+                ukTime(DATE, LocalTime.of(19, 0)), ukTime(DATE, LocalTime.of(22, 0)));
+
+        projector.handle(Stream.of(stored(event)));
+
+        List<ItineraryEntry> entries = projector.entriesForDate(DATE);
+        assertThat(entries).hasSize(1);
+        PrivateEventItineraryEntry entry = (PrivateEventItineraryEntry) entries.getFirst();
+        assertThat(entry.title()).isEqualTo("Dinner with the Smiths");
+        assertThat(entry.venueName()).isEqualTo("Alo");
+        assertThat(entry.city()).isEqualTo("Toronto");
+        assertThat(entry.country()).isEqualTo("Canada");
+        assertThat(entry.anchorTime()).isEqualTo(DATE.atTime(19, 0));
+    }
+
+    @Test
+    void privateEventDoesNotAppearOnOtherDates() {
+        ItineraryProjector projector = new ItineraryProjector();
+        PrivateEventPlanned event = new PrivateEventPlanned(
+                PrivateEventId.random(), "Evening out", "",
+                new Address("1 St", "Toronto", "ON", "M5V 2L6", "Canada", null),
+                ukTime(DATE, LocalTime.of(19, 0)), ukTime(DATE, LocalTime.of(22, 0)));
+
+        projector.handle(Stream.of(stored(event)));
+
+        assertThat(projector.entriesForDate(DATE.minusDays(1)))
+                .as("private event must not appear before its date")
+                .isEmpty();
+        assertThat(projector.entriesForDate(DATE.plusDays(1)))
+                .as("private event must not appear after its date")
+                .isEmpty();
+    }
+
     private static ZonedTimestamp zt(LocalDateTime local) {
         return ZonedTimestamp.fromLocal(local, ZONE);
     }

@@ -265,6 +265,17 @@ public class EventSourcingConfig {
     }
 
     @Bean
+    public PrivateEventPlanning privateEventPlanningApplicationService(CommandExecutor commandExecutor,
+                                                                       LocationZoneResolver locationZoneResolver) {
+        return new PrivateEventPlanning(commandExecutor, locationZoneResolver);
+    }
+
+    @Bean
+    public PrivateEventCalendarProjector privateEventCalendarProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new PrivateEventCalendarProjector());
+    }
+
+    @Bean
     public ConferenceMigrationService conferenceMigrationService(
             TentativeConferenceProjector tentativeConferenceProjector, CommandExecutor commandExecutor) {
         return new ConferenceMigrationService(tentativeConferenceProjector, commandExecutor);
@@ -275,8 +286,10 @@ public class EventSourcingConfig {
                                                  FlightCalendarProjector flightCalendarProjector,
                                                  TrainCalendarProjector trainCalendarProjector,
                                                  HotelCalendarProjector hotelCalendarProjector,
-                                                 GatheringCalendarProjector gatheringCalendarProjector) {
+                                                 GatheringCalendarProjector gatheringCalendarProjector,
+                                                 PrivateEventCalendarProjector privateEventCalendarProjector) {
         return new CalendarAggregator(conferenceCalendarProjector, flightCalendarProjector,
-                trainCalendarProjector, hotelCalendarProjector, gatheringCalendarProjector);
+                trainCalendarProjector, hotelCalendarProjector, gatheringCalendarProjector,
+                privateEventCalendarProjector);
     }
 }

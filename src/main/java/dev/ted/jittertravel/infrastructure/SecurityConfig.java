@@ -46,6 +46,7 @@ public class SecurityConfig {
                                 "/book-train", "/book-train/**",
                                 "/plan-conference", "/plan-conference/**",
                                 "/plan-gathering", "/plan-gathering/**",
+                                "/plan-private-event", "/plan-private-event/**",
                                 "/clear-conflict", "/clear-conflict/**",
                                 "/api/parse-address").hasRole("OWNER")
                         // Per-item edit pages must be ordered before the list matchers below.

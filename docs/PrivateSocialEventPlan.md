@@ -1,9 +1,13 @@
 # Private Social Event — Plan
 
-**Status:** `open` — planned 2026-08-12. Modeling decided (own entry kind, own slice); scope
-decided (**MVP + itinerary entry**: plan form + `/calendar` with redaction + an `/itinerary`
-entry; Change and planned-list deferred); A+B+C refactoring folded in. Two rendering details
-still to resolve while coding (zone label on redacted time; owner-view format).
+**Status:** `done 2026-08-13` — built + tested. Scope shipped as decided (**MVP + itinerary
+entry**: plan form + `/calendar` with redaction + an `/itinerary` entry; Change and planned-list
+deferred). A+B+C refactoring landed earlier (2026-08-12). Both rendering details resolved while
+coding: the redacted time is a plain-text zone-labelled `SubtitleLine.FixedRange` (option (a),
+zone-abbrev variant, but rendered as text so the browser-zone script can't re-localize it and no
+`<time datetime>` is emitted); the owner view reuses the shared `EventCalendarSubtitle` `Range`
+(no zone label), so the zone label is anonymous-only. Full suite green (790). One cosmetic
+follow-up: the nav card's Font Awesome Pro icon is a placeholder pending Ted.
 
 Moved out of `Cleanup_Tasks.md` (it is a full vertical slice, not a small fix). The
 anonymous-view decision recorded there (2026-08-07) is carried forward verbatim below.
@@ -186,9 +190,17 @@ fragments. Revisit separately; none block the private-event slice.
    **reverted** (domain/presentation mix); `ConferenceCalendarProjector` keeps its inline format.
 3. **C** `HotelHandler` → `VenueZone` — **done 2026-08-12.** `VenueEventRequest` was tried and
    **reverted** (single user, no present dedup) — deferred to step 4.
-4. The private-event slice itself, composing 1–3 — **not started.** Consumes `EventCalendarSubtitle`
-   (its second user, justifying the extraction) and, if warranted, introduces `VenueEventRequest`
-   then. Scope: MVP + itinerary entry.
+4. The private-event slice itself, composing 1–3 — **done 2026-08-13.** Consumes
+   `EventCalendarSubtitle` (its second user, justifying the extraction). Scope shipped: MVP +
+   itinerary entry. `VenueEventRequest` was **not** reintroduced — `PlanPrivateEventRequest`
+   duplicates only `getLocation()`, and per the no-abstraction-before-a-real-dedup rule that one
+   method wasn't enough to justify the shared interface; a `NOTE` on the request class flags it if
+   a third user appears. Tests: `PlanPrivateEventCommandTest`, `PrivateEventCalendarProjectorTest`,
+   the `PRIVATE_EVENT` cases in `CalendarEntryRedactorTest` + `CalendarRedactionSecurityTest`
+   (both mutation-verified), the `/plan-private-event` row in `AuthorizationMatrixTest`,
+   `PlanPrivateEventControllerTest` + `PlanPrivateEventWebIntegrationTest`, itinerary coverage in
+   `ItineraryProjectorTest` + `ItineraryRendererTest`, and a golden sample in
+   `GoldenEventDeserializationTest`.
 
 **Verification after 1–3:** full suite green, 768 tests, 0 failures (baseline 765 + 3 new
 `EventCalendarSubtitleTest` cases). Kept: `ProjectorBootstrapper`, `HotelHandler`→`VenueZone`,

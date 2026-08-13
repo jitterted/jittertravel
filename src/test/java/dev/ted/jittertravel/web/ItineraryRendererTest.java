@@ -430,6 +430,60 @@ class ItineraryRendererTest {
                 .contains("<time datetime=\"2026-06-01T20:00:00Z\" data-fmt=\"h:mm a\">9:00 PM</time>");
     }
 
+    // --- Private event ---
+
+    @Test
+    void privateEventShowsPrivateLabel() {
+        String html = renderWithEntry(privateEvent("Dinner with the Smiths", "Chez Moi"));
+
+        assertThat(html).contains("entry-kind--private-event");
+        assertThat(html).contains(">Private<");
+    }
+
+    @Test
+    void privateEventShowsTitleAsPlainTextWithNoLink() {
+        String html = renderWithEntry(privateEvent("Dinner with the Smiths", "Chez Moi"));
+
+        assertThat(html).contains("Dinner with the Smiths");
+        // A private event has no public info URL, so the title is never a link.
+        assertThat(html).doesNotContain("<a href=\"http");
+    }
+
+    @Test
+    void privateEventShowsVenueAndLocation() {
+        String html = renderWithEntry(privateEvent("Dinner with the Smiths", "Chez Moi"));
+
+        assertThat(html)
+                .contains("Chez Moi")
+                .contains("London, GB");
+    }
+
+    @Test
+    void privateEventWithBlankVenueShowsOnlyLocation() {
+        String html = renderWithEntry(privateEvent("Evening out", ""));
+
+        assertThat(html).contains("London, GB");
+        assertThat(html).doesNotContain(" · ");
+    }
+
+    @Test
+    void privateEventShowsTimeRange() {
+        String html = renderWithEntry(privateEvent("Dinner with the Smiths", "Chez Moi"));
+
+        assertThat(html).contains("7:00 PM");
+        assertThat(html).contains("10:00 PM");
+    }
+
+    @Test
+    void privateEventTimeRangeRendersAsTimeElementsCarryingTheUtcInstant() {
+        // London 7:00–10:00 PM BST is 18:00–21:00Z.
+        String html = renderWithEntry(privateEvent("Dinner with the Smiths", "Chez Moi"));
+
+        assertThat(html)
+                .contains("<time datetime=\"2026-06-01T18:00:00Z\" data-fmt=\"h:mm a\">7:00 PM</time>")
+                .contains("<time datetime=\"2026-06-01T21:00:00Z\" data-fmt=\"h:mm a\">10:00 PM</time>");
+    }
+
     // --- Helpers ---
 
     private static String renderEmpty() {
@@ -485,6 +539,12 @@ class ItineraryRendererTest {
                 speaking, infoUrl,
                 zoned(JUN_1.atTime(LocalTime.of(18, 0)), LONDON),
                 zoned(JUN_1.atTime(LocalTime.of(21, 0)), LONDON));
+    }
+
+    private static PrivateEventItineraryEntry privateEvent(String title, String venueName) {
+        return new PrivateEventItineraryEntry(title, venueName, "London", "GB",
+                zoned(JUN_1.atTime(LocalTime.of(19, 0)), LONDON),
+                zoned(JUN_1.atTime(LocalTime.of(22, 0)), LONDON));
     }
 
     private static ZonedTimestamp zoned(LocalDateTime local, ZoneId zone) {

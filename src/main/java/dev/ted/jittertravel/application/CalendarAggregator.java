@@ -10,17 +10,20 @@ public class CalendarAggregator {
     private final TrainCalendarProjector trainCalendarProjector;
     private final HotelCalendarProjector hotelCalendarProjector;
     private final GatheringCalendarProjector gatheringCalendarProjector;
+    private final PrivateEventCalendarProjector privateEventCalendarProjector;
 
     public CalendarAggregator(ConferenceCalendarProjector conferenceCalendarProjector,
                               FlightCalendarProjector flightCalendarProjector,
                               TrainCalendarProjector trainCalendarProjector,
                               HotelCalendarProjector hotelCalendarProjector,
-                              GatheringCalendarProjector gatheringCalendarProjector) {
+                              GatheringCalendarProjector gatheringCalendarProjector,
+                              PrivateEventCalendarProjector privateEventCalendarProjector) {
         this.conferenceCalendarProjector = conferenceCalendarProjector;
         this.flightCalendarProjector = flightCalendarProjector;
         this.trainCalendarProjector = trainCalendarProjector;
         this.hotelCalendarProjector = hotelCalendarProjector;
         this.gatheringCalendarProjector = gatheringCalendarProjector;
+        this.privateEventCalendarProjector = privateEventCalendarProjector;
     }
 
     public List<CalendarEntry> allEntries() {
@@ -30,6 +33,7 @@ public class CalendarAggregator {
         entries.addAll(trainCalendarProjector.entries());
         entries.addAll(hotelCalendarProjector.entries());
         entries.addAll(gatheringCalendarProjector.entries());
+        entries.addAll(privateEventCalendarProjector.entries());
         return entries;
     }
 }

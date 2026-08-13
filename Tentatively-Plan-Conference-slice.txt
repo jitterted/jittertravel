@@ -1,3 +1,18 @@
+// STALE as to the confirmation step, as of 2026-08-12.
+//
+// The "Choose Conference to Confirm -> Confirm Conference -> ConferenceConfirmed" flow below was a
+// placeholder and was never built. It is superseded by docs/ConferenceSubmissionTrackingPlan.md,
+// which splits conferences into two dimensions instead of one confirm step:
+//   attendance commitment  WATCHING / GOING / NOT_GOING
+//   speaking pipeline      per-submission: CFP pending -> submitted -> accepted / waitlisted /
+//                          rejected / withdrawn, plus invited
+// A single "confirm" cannot express "submitted, waiting to hear" or "rejected, deciding whether to
+// go anyway", which is what Ted actually needs to track.
+//
+// The Plan Tentative Conference flow below is accurate and shipped, except that the schema shows
+// bare LocalDateTime: startDate/endDate are ZonedTimestamp as of 67a47af (see
+// docs/GatheringConferenceUtcRolloutPlan.md).
+
 [flows]
 ui:Enter Tentative Conference
 
@@ -9,14 +24,15 @@ rm:Tentative Conferences
 
 Enter Tentative Conference -> Plan Tentative Conference -> Conference Tentatively Planned -> Tentative Conferences
 
+// superseded — see header
 Tentative Conferences -> ui:Choose Conference to Confirm -> cmd:Confirm Conference -> evt:ConferenceConfirmed
 
 [schemas]
 Plan Tentative Conference(
   conferenceId: UUID
   name: string
-  startDate: LocalDateTime
-  endDate: LocalDateTime
+  startDate: ZonedTimestamp
+  endDate: ZonedTimestamp
   venue_name: string
   venue_address: Address
 )

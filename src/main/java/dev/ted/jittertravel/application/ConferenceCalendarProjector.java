@@ -17,8 +17,14 @@ import java.util.stream.Stream;
  * {@link CalendarEntry} views ready for the calendar swimlane renderer.
  * <p>
  * For now, the calendar treats tentative conferences as the only source of
- * conference entries. A future {@code ConfirmedConferenceProjector} will replace
- * (or supplement) this once the confirmation slice exists.
+ * conference entries, and every conference renders identically whether Ted is
+ * committed to it or merely holding the slot.
+ * <p>
+ * A planned change makes this projector fold attendance-commitment events as well and
+ * stamp a commitment level onto each {@link CalendarEntry} — not a separate
+ * {@code ConfirmedConferenceProjector}, since commitment is a property of one
+ * conference rather than a second source of conferences. Commitment is public;
+ * submission/speaking status is not. See {@code docs/ConferenceSubmissionTrackingPlan.md}.
  */
 public class ConferenceCalendarProjector implements EventStreamConsumer {
     private final Map<ConferenceId, CalendarEntry> entries = new ConcurrentHashMap<>();

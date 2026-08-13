@@ -18,6 +18,7 @@ import java.util.stream.Stream;
 public class GatheringCalendarProjector implements EventStreamConsumer {
 
     private final Map<GatheringId, CalendarEntry> entries = new ConcurrentHashMap<>();
+    private final EventCalendarSubtitle subtitle = new EventCalendarSubtitle();
 
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
@@ -35,39 +36,26 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
         });
     }
 
-    private static CalendarEntry toEntry(String title,
-                                         String venueName,
-                                         Address location,
-                                         ZonedTimestamp startsAt,
-                                         ZonedTimestamp endsAt,
-                                         String infoUrl) {
+    private CalendarEntry toEntry(String title,
+                                  String venueName,
+                                  Address location,
+                                  ZonedTimestamp startsAt,
+                                  ZonedTimestamp endsAt,
+                                  String infoUrl) {
         // The calendar buckets by the day the gathering happens *at its venue*, so an evening
-        // event never slides onto the neighbouring day for a viewer in another zone.
+        // event never slides onto the neighbouring day for a viewer in another zone. The times
+        // stay in the subtitle for every viewer — gatherings are public; the redactor's GATHERING
+        // branch lets them through — unlike flights/trains/hotels, whose times it strips.
         return new CalendarEntry(
                 EntryKind.GATHERING,
                 startsAt.localDateTime(),
                 endsAt.localDateTime(),
                 title,
-                buildSubTitle(venueName, location, startsAt, endsAt),
+                subtitle.venueLocationAndTime(venueName, location, startsAt, endsAt),
                 null,
                 null,
                 infoUrl.isBlank() ? null : infoUrl
         );
-    }
-
-    /**
-     * Venue, then city, then the start–end times. Gatherings are public events, so the times
-     * stay in the subtitle for every viewer — unlike flights, trains, and hotels, whose times
-     * are stripped for anonymous viewers by {@code CalendarEntryRedactor}.
-     */
-    private static List<SubtitleLine> buildSubTitle(String venueName, Address location,
-                                                    ZonedTimestamp startsAt, ZonedTimestamp endsAt) {
-        String cityCountry = location.city()
-                + (location.country().isBlank() ? "" : ", " + location.country());
-        SubtitleLine times = new SubtitleLine.Range(startsAt, endsAt);
-        return venueName.isBlank()
-                ? List.of(new SubtitleLine.Text(cityCountry), times)
-                : List.of(new SubtitleLine.Text(venueName), new SubtitleLine.Text(cityCountry), times);
     }
 
     public List<CalendarEntry> entries() {

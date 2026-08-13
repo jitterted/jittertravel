@@ -36,12 +36,19 @@ public class EventSourcingConfig {
         return new EventPayloadUpcaster(locationZoneResolver, airportZoneResolver, jsonMapper);
     }
 
+    /**
+     * Subscribes a projector to the {@link EventStore} and replays history into it before it is
+     * returned as a bean. Every projector bean below is one {@code bootstrapper.register(...)} call
+     * instead of the old {@code new / subscribe / handle(findAll())} triple.
+     */
     @Bean
-    public LocationAuditProjector locationAuditProjector(EventStore eventStore) {
-        LocationAuditProjector projector = new LocationAuditProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public ProjectorBootstrapper projectorBootstrapper(EventStore eventStore) {
+        return new ProjectorBootstrapper(eventStore);
+    }
+
+    @Bean
+    public LocationAuditProjector locationAuditProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new LocationAuditProjector());
     }
 
     @Bean
@@ -67,11 +74,8 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public TentativeConferenceProjector tentativeConferenceProjector(EventStore eventStore) {
-        TentativeConferenceProjector projector = new TentativeConferenceProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public TentativeConferenceProjector tentativeConferenceProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new TentativeConferenceProjector());
     }
 
     @Bean
@@ -92,35 +96,23 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public ConferenceCalendarProjector conferenceCalendarProjector(EventStore eventStore) {
-        ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public ConferenceCalendarProjector conferenceCalendarProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new ConferenceCalendarProjector());
     }
 
     @Bean
-    public FlightCalendarProjector flightCalendarProjector(EventStore eventStore) {
-        FlightCalendarProjector projector = new FlightCalendarProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public FlightCalendarProjector flightCalendarProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new FlightCalendarProjector());
     }
 
     @Bean
-    public BookedFlightsProjector bookedFlightsProjector(EventStore eventStore) {
-        BookedFlightsProjector projector = new BookedFlightsProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public BookedFlightsProjector bookedFlightsProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new BookedFlightsProjector());
     }
 
     @Bean
-    public FlightDetailsViewProjector flightDetailsViewProjector(EventStore eventStore) {
-        FlightDetailsViewProjector projector = new FlightDetailsViewProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public FlightDetailsViewProjector flightDetailsViewProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new FlightDetailsViewProjector());
     }
 
     @Bean
@@ -163,43 +155,28 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public BookedHotelsProjector bookedHotelsProjector(EventStore eventStore) {
-        BookedHotelsProjector projector = new BookedHotelsProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public BookedHotelsProjector bookedHotelsProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new BookedHotelsProjector());
     }
 
     @Bean
-    public TentativeHotelBookingsProjector tentativeHotelBookingsProjector(EventStore eventStore) {
-        TentativeHotelBookingsProjector projector = new TentativeHotelBookingsProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public TentativeHotelBookingsProjector tentativeHotelBookingsProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new TentativeHotelBookingsProjector());
     }
 
     @Bean
-    public TentativeHotelBookingProjector tentativeHotelBookingProjector(EventStore eventStore) {
-        TentativeHotelBookingProjector projector = new TentativeHotelBookingProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public TentativeHotelBookingProjector tentativeHotelBookingProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new TentativeHotelBookingProjector());
     }
 
     @Bean
-    public HotelCalendarProjector hotelCalendarProjector(EventStore eventStore) {
-        HotelCalendarProjector projector = new HotelCalendarProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public HotelCalendarProjector hotelCalendarProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new HotelCalendarProjector());
     }
 
     @Bean
-    public HotelDetailsViewProjector hotelDetailsViewProjector(EventStore eventStore) {
-        HotelDetailsViewProjector projector = new HotelDetailsViewProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public HotelDetailsViewProjector hotelDetailsViewProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new HotelDetailsViewProjector());
     }
 
     @Bean
@@ -219,27 +196,18 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public BookedTrainsProjector bookedTrainsProjector(EventStore eventStore) {
-        BookedTrainsProjector projector = new BookedTrainsProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public BookedTrainsProjector bookedTrainsProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new BookedTrainsProjector());
     }
 
     @Bean
-    public TrainCalendarProjector trainCalendarProjector(EventStore eventStore) {
-        TrainCalendarProjector projector = new TrainCalendarProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public TrainCalendarProjector trainCalendarProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new TrainCalendarProjector());
     }
 
     @Bean
-    public TrainDetailsViewProjector trainDetailsViewProjector(EventStore eventStore) {
-        TrainDetailsViewProjector projector = new TrainDetailsViewProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public TrainDetailsViewProjector trainDetailsViewProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new TrainDetailsViewProjector());
     }
 
     @Bean
@@ -256,21 +224,15 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public ItineraryProjector itineraryProjector(EventStore eventStore) {
-        ItineraryProjector projector = new ItineraryProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public ItineraryProjector itineraryProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new ItineraryProjector());
     }
 
     @Bean
-    public ScheduleGapProjector scheduleGapProjector(EventStore eventStore,
+    public ScheduleGapProjector scheduleGapProjector(ProjectorBootstrapper bootstrapper,
                                                      @Value("${jittertravel.home-cities:}") List<String> homeCityNames) {
-        ScheduleGapProjector projector = new ScheduleGapProjector(new StaticAirportCityResolver(),
-                                                                 new HomeCities(homeCityNames));
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+        return bootstrapper.register(new ScheduleGapProjector(new StaticAirportCityResolver(),
+                                                              new HomeCities(homeCityNames)));
     }
 
     @Bean
@@ -280,19 +242,13 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public PlannedGatheringsProjector plannedGatheringsProjector(EventStore eventStore) {
-        PlannedGatheringsProjector projector = new PlannedGatheringsProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public PlannedGatheringsProjector plannedGatheringsProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new PlannedGatheringsProjector());
     }
 
     @Bean
-    public GatheringDetailsViewProjector gatheringDetailsViewProjector(EventStore eventStore) {
-        GatheringDetailsViewProjector projector = new GatheringDetailsViewProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public GatheringDetailsViewProjector gatheringDetailsViewProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new GatheringDetailsViewProjector());
     }
 
     @Bean
@@ -304,11 +260,8 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public GatheringCalendarProjector gatheringCalendarProjector(EventStore eventStore) {
-        GatheringCalendarProjector projector = new GatheringCalendarProjector();
-        eventStore.subscribe(projector);
-        projector.handle(eventStore.findAll());
-        return projector;
+    public GatheringCalendarProjector gatheringCalendarProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new GatheringCalendarProjector());
     }
 
     @Bean

@@ -95,6 +95,21 @@ event kind is a planned feature (`docs/Cleanup_Tasks.md`); until it exists, any 
 6. **When in doubt, redact and ask.** A missing detail on a public calendar is a papercut;
    a leaked one is unrecoverable.
 
+### Presentation formatting stays out of the domain
+
+Display strings are presentation, not domain. A domain type (`Address`, `ZonedTimestamp`, an
+`Event`) must not carry methods that format how it is *shown* — no `cityCountry()`, no
+`asLabel()`, no `formatTime()`. Formatting belongs in the presentation layer: the projectors that
+pre-format `CalendarEntry`/view records, and the j2html/Thymeleaf renderers. Domain types expose
+their data (`city()`, `country()`); the presentation layer decides that a calendar cell reads
+`"London, GB"`.
+
+This codebase hasn't always been strict about it, so you will find counter-examples; do not add
+new ones, and prefer moving formatting toward a renderer when you touch it. A shared formatting
+concern across two presentation sites goes in a presentation-layer collaborator (e.g. a projector
+helper), never pushed down onto the domain type to "share" it — and mind the standing preference
+against single-method utility classes when you place it.
+
 ## Testing
 
 ### List views: future/all toggle is a shared, enforced convention

@@ -3,7 +3,6 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.BookHotelCommand;
 import dev.ted.jittertravel.domain.ChangeHotelCommand;
-import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.web.BookHotelRequest;
@@ -24,10 +23,10 @@ import java.util.UUID;
  */
 public class HotelHandler {
 
-    private final LocationZoneResolver zoneResolver;
+    private final VenueZone venueZone;
 
     public HotelHandler(LocationZoneResolver zoneResolver) {
-        this.zoneResolver = zoneResolver;
+        this.venueZone = new VenueZone(zoneResolver);
     }
 
     public BookHotelCommand bookHotel(BookHotelRequest request) {
@@ -73,13 +72,10 @@ public class HotelHandler {
     /**
      * An explicit zone pick wins; otherwise the address must resolve or the command is rejected
      * ({@link ZoneResolutionException}) — the form then requires a CommonZone pick. Check-in,
-     * check-out and the cancellation deadline all share the hotel's single zone.
+     * check-out and the cancellation deadline all share the hotel's single zone. Same contract as
+     * the gathering and conference forms, so it reads through the shared {@link VenueZone}.
      */
     private ZoneId resolveZone(HotelStayRequest request) {
-        CommonZone picked = CommonZone.fromParam(request.getZone());
-        if (picked != null) {
-            return picked.zoneId();
-        }
-        return zoneResolver.resolve(address(request));
+        return venueZone.resolve(request.getZone(), address(request));
     }
 }

@@ -143,11 +143,14 @@ in, inheritance-based base classes are out.
 - `HotelHandler` — book + change folded into one handler reading through the interface.
 
 **A — Composable calendar primitives:**
-- `Address.cityCountry()` — one method on the `Address` record; removes the city/country
-  formatting copied in `GatheringCalendarProjector`, `ConferenceCalendarProjector`, and the new
-  projector. Zero new type, zero coupling.
-- A small `EventCalendarSubtitle` collaborator building `[venue?, city, Range(times)]`, used by
-  the gathering **and** private-event projectors (gathering refactored onto it, mutation-verified).
+- `EventCalendarSubtitle` collaborator building `[venue?, city, Range(times)]`, with the
+  blank-aware "City, Country" formatting **inside it** (presentation layer). `GatheringCalendarProjector`
+  refactored onto it; the private-event projector becomes its second user. Covered by
+  `EventCalendarSubtitleTest` (mutation-verified blank-country branch).
+- **NOT `Address.cityCountry()`** — rejected on review (Ted, 2026-08-12): a display string on a
+  domain type mixes domain with presentation. Formatting lives in the presentation layer. New
+  guideline in CLAUDE.md ("Presentation formatting stays out of the domain"); `ConferenceCalendarProjector`
+  keeps its own inline city/country.
 - **Redactor untouched:** these build only the *owner* (unredacted) subtitle. `CalendarEntryRedactor`
   stays per-kind, deny-by-default. A shared builder must never become a path redaction flows through.
 
@@ -156,12 +159,14 @@ in, inheritance-based base classes are out.
   `EventSourcingConfig`) into one `register(...)` call. Touches only `EventSourcingConfig`; no slice
   coupling; unrelated to redaction. Can land as its own commit before or after the slice.
 
-**C — Shared plan-form pipeline** (web-only, medium coupling):
-- First fold `HotelHandler.resolveZone` onto `VenueZone` (kills the inline re-implementation).
-- A `VenueEventRequest` read-only interface (the `HotelStayRequest` analog) for the plan-event
-  request beans: address fields + `zone` + `getLocation()`. Concrete beans keep setters.
-- Settle `Address` construction in **one** place (`getLocation()` on the interface's default, or a
-  single handler helper) rather than three.
+**C — Shared plan-form pipeline** (web-only):
+- Fold `HotelHandler.resolveZone` onto `VenueZone` (kills the inline re-implementation). **Kept** —
+  this removed duplication that exists *now*.
+- **`VenueEventRequest` interface — deferred to the slice** (Ted, 2026-08-12). With only
+  `PlanGatheringRequest` implementing it, a default `getLocation()` dedups nothing yet; it was
+  preparation for the second implementer. Reintroduce it in the slice **if** `PlanPrivateEventRequest`
+  makes a shared `getLocation()` a real dedup — not before. (See CLAUDE.md / memory: don't extract
+  an abstraction before the second real user exists.)
 
 **Rejected (too much coupling — Ted's caveat):** `BaseCalendarProjector<E,ID>` template-method
 base class (`Refactoring_Opportunities.md` #2) and any shared base plan-command or base request
@@ -173,11 +178,21 @@ fragments. Revisit separately; none block the private-event slice.
 
 ### Build order
 
-1. **B** `ProjectorBootstrapper` (isolated, its own commit).
-2. **A** `Address.cityCountry()` + `EventCalendarSubtitle`, refactor gathering + conference
-   projectors onto them (proves reuse before the new slice consumes them).
-3. **C** `HotelHandler` → `VenueZone`; introduce `VenueEventRequest`.
-4. The private-event slice itself, composing 1–3.
+1. **B** `ProjectorBootstrapper` — **done 2026-08-12.** All ~19 projector beans in
+   `EventSourcingConfig` now call `bootstrapper.register(...)`.
+2. **A** `EventCalendarSubtitle` (with blank-aware city/country formatting inside it) — **done
+   2026-08-12, revised on review.** `GatheringCalendarProjector` refactored onto it;
+   `EventCalendarSubtitleTest` added and mutation-verified. `Address.cityCountry()` was tried and
+   **reverted** (domain/presentation mix); `ConferenceCalendarProjector` keeps its inline format.
+3. **C** `HotelHandler` → `VenueZone` — **done 2026-08-12.** `VenueEventRequest` was tried and
+   **reverted** (single user, no present dedup) — deferred to step 4.
+4. The private-event slice itself, composing 1–3 — **not started.** Consumes `EventCalendarSubtitle`
+   (its second user, justifying the extraction) and, if warranted, introduces `VenueEventRequest`
+   then. Scope: MVP + itinerary entry.
+
+**Verification after 1–3:** full suite green, 768 tests, 0 failures (baseline 765 + 3 new
+`EventCalendarSubtitleTest` cases). Kept: `ProjectorBootstrapper`, `HotelHandler`→`VenueZone`,
+`EventCalendarSubtitle`. Reverted on review: `Address.cityCountry()`, `VenueEventRequest`.
 
 ## Deferred to follow-ups (NOT in this slice unless Ted says so)
 

@@ -107,10 +107,12 @@ class ChangeGatheringWebIntegrationTest {
     }
 
     @Test
-    void postOnUnknownGatheringIdRedirectsToPlannedGatherings() {
+    void postOnUnknownGatheringIdReRendersFormWithError() {
         willThrow(new GatheringNotFound("No gathering exists with that gatheringId"))
                 .given(changeGathering).changeGathering(any(), any(), any());
 
+        // The gathering vanished between GET and POST; the error must render on the form, never be
+        // handed to the view-only /planned-gatherings list, which silently drops flash messages.
         assertThat(mockMvc.post().uri("/planned-gatherings/" + UUID.randomUUID())
                 .with(csrf())
                 .param("title", "Whatever")
@@ -118,8 +120,9 @@ class ChangeGatheringWebIntegrationTest {
                 .param("date", "2026-07-15")
                 .param("startTime", "18:00")
                 .param("endTime", "21:00"))
-                .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/planned-gatherings");
+                .hasStatusOk()
+                .bodyText()
+                .contains("No gathering exists with that gatheringId");
     }
 
     @Test

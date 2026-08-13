@@ -32,7 +32,13 @@ Decisions confirmed 2026-08-07 (drive Phases 2–3 below):
   stays a data-only link (see Phase 3).
 - **Replace stays in scope** even though Edit Hotel shipped: Edit overwrites history in
   place, Replace preserves the cancelled stay and its reason as separate events.
-- **Cancel is a form on the existing edit page**, not a new details page.
+- ~~**Cancel is a form on the existing edit page**, not a new details page.~~ **Superseded
+  2026-08-13:** Cancel moved to its own dedicated page (`GET /booked-hotels/{id}/cancel` →
+  `cancel-hotel.html`; POST re-renders it with an error banner on `CannotCancelAfterCheckIn`),
+  reached by a "Cancel" link on the `/booked-hotels` list row and on the edit page. The edit page
+  keeps only the link. Reasons: discoverability (no scrolling to find it) and error visibility
+  (a failed cancel shows at the top of its own page instead of buried in the edit page's
+  danger-zone).
 - **`cancelBy` gets a column in `/booked-hotels`** in addition to the deadline display on
   the edit page.
 

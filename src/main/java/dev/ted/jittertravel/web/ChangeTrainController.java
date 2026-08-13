@@ -61,8 +61,7 @@ public class ChangeTrainController {
     @PostMapping("/booked-trains/{tripId}")
     public String changeTrainSubmit(@PathVariable("tripId") String tripIdString,
                                     @ModelAttribute("changeTrain") ChangeTrainRequest command,
-                                    BindingResult bindingResult,
-                                    RedirectAttributes redirectAttributes) {
+                                    BindingResult bindingResult) {
         // Path is the source of truth for tripId; it is not user-editable.
         command.setTrainTripId(tripIdString);
 
@@ -70,8 +69,9 @@ public class ChangeTrainController {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
             applicationService.changeTrain(UUID.randomUUID(), command, Instant.now(clock));
         } catch (TrainNotFound e) {
-            redirectAttributes.addFlashAttribute("notFoundMessage", e.getMessage());
-            return "redirect:/booked-trains";
+            // The trip vanished between GET and POST (e.g. removed in another tab). Report it on the
+            // form itself — never by redirecting to the view-only list, which drops the flash.
+            bindingResult.reject("notFound", e.getMessage());
         } catch (DepartureNotInFuture e) {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {

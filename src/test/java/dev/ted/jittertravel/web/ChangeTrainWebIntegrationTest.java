@@ -97,10 +97,12 @@ class ChangeTrainWebIntegrationTest {
     }
 
     @Test
-    void postOnUnknownTripIdRedirectsToBookedTrains() {
+    void postOnUnknownTripIdReRendersFormWithError() {
         willThrow(new TrainNotFound("No train exists with that tripId"))
                 .given(changeTrain).changeTrain(any(), any(), any());
 
+        // The trip vanished between GET and POST; the error must render on the form, never be
+        // handed to the view-only /booked-trains list, which silently drops flash messages.
         assertThat(mockMvc.post().uri("/booked-trains/" + UUID.randomUUID())
                 .with(csrf())
                 .param("departureStationName", "London")
@@ -111,8 +113,9 @@ class ChangeTrainWebIntegrationTest {
                 .param("arrivalCityName", "Manchester")
                 .param("arrivalCountry", "UK")
                 .param("arrivalDateTime", "2026-07-01T13:00"))
-                .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/booked-trains");
+                .hasStatusOk()
+                .bodyText()
+                .contains("No train exists with that tripId");
     }
 
     @Test

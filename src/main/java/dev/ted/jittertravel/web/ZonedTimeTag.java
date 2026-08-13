@@ -6,6 +6,8 @@ import j2html.tags.DomContent;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
+import static j2html.TagCreator.rawHtml;
+import static j2html.TagCreator.span;
 import static j2html.TagCreator.time;
 
 /**
@@ -31,5 +33,24 @@ public final class ZonedTimeTag {
         return time(entryLocalText)
                 .attr("datetime", timestamp.utc().toString())
                 .attr("data-fmt", displayPattern);
+    }
+
+    /**
+     * Like {@link #render} but splits the date and the time into two {@code .nowrap} spans within
+     * the single {@code <time>} element, so a narrow table cell drops the time onto its own line
+     * (breaking only <em>between</em> date and time, never mid-value) while a wide cell keeps them
+     * on one line. The UTC {@code datetime} and combined {@code data-fmt} are preserved.
+     */
+    public static DomContent renderDateTimeStacking(ZonedTimestamp timestamp,
+                                                    String datePattern, String timePattern) {
+        var entryZoned = timestamp.atEntryZone();
+        String date = DateTimeFormatter.ofPattern(datePattern, Locale.ENGLISH).format(entryZoned);
+        String clock = DateTimeFormatter.ofPattern(timePattern, Locale.ENGLISH).format(entryZoned);
+        return time(
+                span(date).withClass("nowrap"),
+                rawHtml(" "),
+                span(clock).withClass("nowrap"))
+                .attr("datetime", timestamp.utc().toString())
+                .attr("data-fmt", datePattern + " " + timePattern);
     }
 }

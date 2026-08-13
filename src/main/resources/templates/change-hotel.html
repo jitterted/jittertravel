@@ -126,13 +126,18 @@
 
         .danger-zone .hint { margin-bottom: 0.75rem; }
 
-        button.danger {
-            background: none;
+        .danger-link {
+            display: inline-block;
             color: #b00;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding: 0.35rem 0.9rem;
             border: 1px solid #b00;
+            border-radius: 6px;
         }
 
-        button.danger:hover { background: #b00; color: #fff; opacity: 1; }
+        .danger-link:hover { background: #b00; color: #fff; }
     </style>
 </head>
 <body>
@@ -270,10 +275,15 @@
             </label>
         </div>
 
+        <ul class="global-errors" th:if="${#fields.hasGlobalErrors()}">
+            <li th:each="err : ${#fields.globalErrors()}" th:text="${err}"></li>
+        </ul>
+
         <button type="submit">Save changes</button>
     </form>
 
-    <!-- Outside the edit form on purpose: HTML forbids nested forms, and this posts elsewhere. -->
+    <!-- Cancel lives on its own page (GET /booked-hotels/{id}/cancel): a dedicated confirm step
+         where a failed cancel can show its error without scrolling. This is just the entry link. -->
     <section class="danger-zone">
         <h2>Cancel this booking</h2>
         <p class="hint">
@@ -281,18 +291,7 @@
             list. The event log keeps the record. This cannot be undone from the app, and is
             only possible until check-in.
         </p>
-        <form th:action="@{|/booked-hotels/${changeHotel.hotelBookingId}/cancel|}" method="post">
-            <div class="field">
-                <label>
-                    Reason (optional)
-                    <input type="text" name="reason" placeholder="Trip cancelled, found somewhere better…"/>
-                </label>
-            </div>
-            <button type="submit" class="danger"
-                    onclick="return confirm('Cancel this hotel booking? It will disappear from every view.')">
-                Cancel booking
-            </button>
-        </form>
+        <a class="danger-link" th:href="@{|/booked-hotels/${changeHotel.hotelBookingId}/cancel|}">Cancel this booking…</a>
     </section>
 
 </div>

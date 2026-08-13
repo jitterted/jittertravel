@@ -82,6 +82,11 @@ body {
 /* Empty-state message shared by the booked/planned list views. */
 .empty-state { margin-top: 1rem; color: var(--muted-text); }
 
+/* Utility: a value that must never break mid-word. Used to keep the parts of a stacked
+   date/time (ZonedTimeTag.renderDateTimeStacking) or a City/Country pair intact while still
+   allowing the cell to wrap *between* those parts on a narrow viewport — never a horizontal scroll. */
+.nowrap { white-space: nowrap; }
+
 /* Booking forms (book-flight, change-flight): a lookup box plus the two-column
    departure/arrival fieldsets. Pages add class="booking-form" to their .page. */
 .booking-form { max-width: 920px; }

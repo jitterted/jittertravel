@@ -71,8 +71,7 @@ public class ChangeFlightController {
     @PostMapping("/booked-flights/{flightId}")
     public String changeFlightSubmit(@PathVariable("flightId") String flightIdString,
                                      @ModelAttribute("changeFlight") ChangeFlightRequest command,
-                                     BindingResult bindingResult,
-                                     RedirectAttributes redirectAttributes) {
+                                     BindingResult bindingResult) {
         if (applicationService.isReadOnly()) {
             return "redirect:/read-only";
         }
@@ -84,8 +83,9 @@ public class ChangeFlightController {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
             applicationService.changeFlight(UUID.randomUUID(), command, Instant.now(clock));
         } catch (FlightNotFound e) {
-            redirectAttributes.addFlashAttribute("notFoundMessage", e.getMessage());
-            return "redirect:/booked-flights";
+            // The flight vanished between GET and POST (e.g. removed in another tab). Report it on
+            // the form itself — never by redirecting to the view-only list, which drops the flash.
+            bindingResult.reject("notFound", e.getMessage());
         } catch (DepartureNotInFuture e) {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {

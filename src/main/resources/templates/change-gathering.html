@@ -247,6 +247,10 @@
             <span class="hint">Link to the specific event page for this gathering</span>
         </div>
 
+        <ul class="global-errors" th:if="${#fields.hasGlobalErrors()}">
+            <li th:each="err : ${#fields.globalErrors()}" th:text="${err}"></li>
+        </ul>
+
         <button type="submit">Save changes</button>
     </form>
 

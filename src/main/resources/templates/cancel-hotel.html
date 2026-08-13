@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Cancel Hotel Booking</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        /* The whole reason this page exists: a failed cancel shows its error here, at the top,
+           with nothing to scroll past. */
+        .error-banner {
+            background: #fee2e2;
+            border-left: 4px solid #dc2626;
+            border-radius: 0 6px 6px 0;
+            padding: 0.7rem 0.9rem;
+            margin-bottom: 1.25rem;
+            font-size: 0.95rem;
+            color: #7f1d1d;
+        }
+
+        .summary {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.9rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }
+        .summary .name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .summary .line { font-size: 0.9rem; color: var(--muted-text); margin-top: 0.15rem; }
+
+        p.warning { font-size: 0.9rem; color: var(--text-color); margin: 0 0 1rem; }
+
+        .field { margin-bottom: 1rem; }
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+        .field input[type=text] {
+            padding: 0.35rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+
+        .actions { display: flex; align-items: center; gap: 1.25rem; }
+
+        button.danger {
+            background: #b00;
+            color: #fff;
+            border: 1px solid #b00;
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        button.danger:hover { opacity: 0.88; }
+
+        .keep-link { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
+        .keep-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/booked-hotels">Booked Hotels</a>
+    </nav>
+
+    <h1>Cancel Hotel Booking</h1>
+
+    <div class="error-banner" th:if="${cancelError}" th:text="${cancelError}"></div>
+
+    <div class="summary">
+        <div class="name" th:text="${booking.hotelName()}">Hotel Name</div>
+        <div class="line" th:text="${booking.address().city() + ', ' + booking.address().country()}">City, Country</div>
+        <div class="line">
+            Check-in: <span th:text="${#temporals.format(booking.checkIn(), 'EEE, MMM d, yyyy, h:mm a')}">date</span>
+        </div>
+        <div class="line">
+            Check-out: <span th:text="${#temporals.format(booking.checkOut(), 'EEE, MMM d, yyyy, h:mm a')}">date</span>
+        </div>
+    </div>
+
+    <p class="warning">
+        Cancelling removes the stay from every view — calendar, itinerary, schedule problems and the
+        booked-hotels list. The event log keeps the record. This cannot be undone from the app, and
+        is only possible until check-in.
+    </p>
+
+    <form th:action="@{|/booked-hotels/${booking.hotelBookingId().id()}/cancel|}" method="post">
+        <div class="field">
+            <label>
+                Reason (optional)
+                <input type="text" name="reason" th:value="${reason}"
+                       placeholder="Trip cancelled, found somewhere better…"/>
+            </label>
+        </div>
+
+        <div class="actions">
+            <button type="submit" class="danger">Cancel this booking</button>
+            <a class="keep-link" th:href="@{|/booked-hotels/${booking.hotelBookingId().id()}|}">Keep it — back to edit</a>
+        </div>
+    </form>
+
+</div>
+</body>
+</html>

@@ -61,8 +61,7 @@ public class ChangeGatheringController {
     @PostMapping("/planned-gatherings/{gatheringId}")
     public String changeGatheringSubmit(@PathVariable("gatheringId") String gatheringIdString,
                                         @ModelAttribute("changeGathering") ChangeGatheringRequest command,
-                                        BindingResult bindingResult,
-                                        RedirectAttributes redirectAttributes) {
+                                        BindingResult bindingResult) {
         // Path is the source of truth for gatheringId; it is not user-editable.
         command.setGatheringId(gatheringIdString);
 
@@ -70,8 +69,9 @@ public class ChangeGatheringController {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
             applicationService.changeGathering(UUID.randomUUID(), command, Instant.now(clock));
         } catch (GatheringNotFound e) {
-            redirectAttributes.addFlashAttribute("notFoundMessage", e.getMessage());
-            return "redirect:/planned-gatherings";
+            // The gathering vanished between GET and POST (e.g. removed in another tab). Report it on
+            // the form itself — never by redirecting to the view-only list, which drops the flash.
+            bindingResult.reject("notFound", e.getMessage());
         } catch (GatheringDateNotInFuture e) {
             bindingResult.rejectValue("date", "future", e.getMessage());
         } catch (InvalidGatheringTimeRange e) {

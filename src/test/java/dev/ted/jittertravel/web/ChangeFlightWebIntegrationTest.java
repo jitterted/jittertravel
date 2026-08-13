@@ -97,9 +97,11 @@ class ChangeFlightWebIntegrationTest {
     }
 
     @Test
-    void postOnUnknownFlightIdRedirectsToBookedFlights() {
+    void postOnUnknownFlightIdReRendersFormWithError() {
         willThrow(new FlightNotFound("Flight not found")).given(changeFlight).changeFlight(any(), any(), any());
 
+        // The flight vanished between GET and POST; the error must render on the form, never be
+        // handed to the view-only /booked-flights list, which silently drops flash messages.
         assertThat(mockMvc.post().uri("/booked-flights/" + UUID.randomUUID())
                 .with(csrf())
                 .param("airline", "X")
@@ -108,7 +110,8 @@ class ChangeFlightWebIntegrationTest {
                 .param("departureDateTime", "2026-07-01T09:00")
                 .param("arrivalAirport", "LAX")
                 .param("arrivalDateTime", "2026-07-01T12:00"))
-                .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/booked-flights");
+                .hasStatusOk()
+                .bodyText()
+                .contains("Flight not found");
     }
 }

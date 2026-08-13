@@ -1,7 +1,12 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CancelHotel;
+import dev.ted.jittertravel.application.HotelDetailsView;
+import dev.ted.jittertravel.application.HotelDetailsViewProjector;
+import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.CannotCancelAfterCheckIn;
+import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelBookingNotFound;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,7 +18,9 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,12 +44,48 @@ class CancelHotelControllerTest {
     CancelHotel cancelHotel;
 
     @MockitoBean
+    HotelDetailsViewProjector detailsProjector;
+
+    @MockitoBean
     Clock clock;
 
     @BeforeEach
     void setUp() {
         given(clock.instant()).willReturn(NOW);
         given(clock.getZone()).willReturn(ZoneId.systemDefault());
+    }
+
+    private static HotelDetailsView viewFor(UUID bookingId) {
+        return new HotelDetailsView(
+                HotelBookingId.of(bookingId),
+                "Grand Hotel",
+                new Address("123 Unter den Linden", "Berlin", "", "10117", "Germany", "Berlin"),
+                LocalDateTime.of(2026, 7, 1, 15, 0),
+                LocalDateTime.of(2026, 7, 5, 11, 0),
+                BookingIntent.TENTATIVE,
+                "https://maps.example/grand",
+                LocalDateTime.of(2026, 6, 24, 18, 0));
+    }
+
+    @Test
+    void getRendersCancelConfirmationPageForKnownBooking() {
+        UUID bookingId = UUID.randomUUID();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(viewFor(bookingId)));
+
+        assertThat(mockMvc.get().uri("/booked-hotels/" + bookingId + "/cancel"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("Grand Hotel")
+                .contains("Berlin, Germany");
+    }
+
+    @Test
+    void getOnUnknownBookingRedirectsToList() {
+        given(detailsProjector.findById(any())).willReturn(Optional.empty());
+
+        assertThat(mockMvc.get().uri("/booked-hotels/" + UUID.randomUUID() + "/cancel"))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/booked-hotels");
     }
 
     @Test
@@ -92,15 +135,19 @@ class CancelHotelControllerTest {
     }
 
     @Test
-    void cancellingAfterCheckInRedirectsWithAFlashMessage() {
-        willThrow(new CannotCancelAfterCheckIn("Check-in has passed"))
+    void cancellingAfterCheckInReRendersTheCancelPageWithTheError() {
+        UUID bookingId = UUID.randomUUID();
+        willThrow(new CannotCancelAfterCheckIn("Check-in has passed; this stay can no longer be cancelled"))
                 .given(cancelHotel).cancelHotel(any(), any(), any());
+        given(detailsProjector.findById(any())).willReturn(Optional.of(viewFor(bookingId)));
 
-        assertThat(mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID() + "/cancel")
+        // The failure must land on the cancel page itself, error at the top — never on the
+        // view-only /booked-hotels list, which silently drops flash messages.
+        assertThat(mockMvc.post().uri("/booked-hotels/" + bookingId + "/cancel")
                 .with(csrf()))
-                .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/booked-hotels")
-                .flash().containsKey("cancelFailedMessage");
+                .hasStatusOk()
+                .bodyText()
+                .contains("Check-in has passed; this stay can no longer be cancelled");
     }
 
     @Test

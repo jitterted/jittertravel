@@ -62,8 +62,7 @@ public class ChangeHotelController {
     @PostMapping("/booked-hotels/{hotelBookingId}")
     public String changeHotelSubmit(@PathVariable("hotelBookingId") String hotelBookingIdString,
                                     @ModelAttribute("changeHotel") ChangeHotelRequest command,
-                                    BindingResult bindingResult,
-                                    RedirectAttributes redirectAttributes) {
+                                    BindingResult bindingResult) {
         // Path is the source of truth for hotelBookingId; it is not user-editable.
         command.setHotelBookingId(hotelBookingIdString);
 
@@ -74,8 +73,9 @@ public class ChangeHotelController {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
             applicationService.changeHotel(UUID.randomUUID(), command, Instant.now(clock));
         } catch (HotelBookingNotFound e) {
-            redirectAttributes.addFlashAttribute("notFoundMessage", e.getMessage());
-            return "redirect:/booked-hotels";
+            // The booking vanished between GET and POST (e.g. cancelled in another tab). Report it
+            // on the form itself — never by redirecting to the view-only list, which drops the flash.
+            bindingResult.reject("notFound", e.getMessage());
         } catch (CheckInNotInFuture e) {
             bindingResult.rejectValue("checkIn", "future", e.getMessage());
         } catch (InvalidHotelDateRange e) {

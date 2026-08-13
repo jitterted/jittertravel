@@ -7,6 +7,34 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Open
 
+- [ ] **[HIGH PRIORITY] `ClearConflictController` POST has no error handling.**
+      `clearConflictSubmit` (`web/ClearConflictController.java`) parses two UUIDs and calls
+      `gatheringPlanning.clearConflict(...)`, then unconditionally `redirect:/schedule-problems`
+      — with no `try/catch`. A malformed id or any domain/`ReadOnlyModeException` becomes an
+      unhandled 500 with nothing rendered for the user. It's the only form controller with zero
+      error path (all others re-render their form via `bindingResult`; the four Change* edit
+      controllers were brought into line 2026-08-13). Fix: catch the expected failures and
+      re-render the `clear-conflict` form with the message (never redirect the error to the
+      view-only `/schedule-problems` page), per the rule that form-post errors render on the
+      form's own page. Add a `@WebMvcTest` proving the error renders on re-render, mutation-verified.
+- [ ] **GET stale-link not-found drops its flash on a view-only list.** The four edit-page GET
+      handlers (`ChangeHotel`/`ChangeFlight`/`ChangeTrain`/`ChangeGathering`) redirect a not-found
+      id to their view-only j2html list (`/booked-hotels`, `/booked-flights`, `/booked-trains`,
+      `/planned-gatherings`) with a `notFoundMessage` flash those pages can't render, so it's
+      silently dropped. Not a form-post error (it's following a stale edit link for something
+      already gone), so left as-is 2026-08-13 — but the dead flash is pointless. Either drop the
+      flash and navigate to the list silently, or give "this booking no longer exists" a real page.
+- [ ] **Give the other list views the same responsive, no-horizontal-scroll treatment as
+      `/booked-hotels`.** `booked-flights`, `booked-trains`, `planned-gatherings` and
+      `tentative-conferences` renderers still use the old pattern — a `.page` `max-width` cap plus
+      `white-space: nowrap` cells — so on a narrow viewport (iPad portrait) their tables can
+      overflow and force a horizontal scrollbar. No page may ever scroll horizontally. Apply the
+      `BookedHotelsRenderer` fix to each: drop the `.page` max-width (let it fill the centered
+      space), remove the blanket cell `nowrap`, and split wide cells into no-break units that stack
+      when squeezed — City/Country as two `.nowrap` spans, date/time via
+      `ZonedTimeTag.renderDateTimeStacking` (date + time as two `.nowrap` spans in one `<time>`),
+      and row actions as inline links that wrap. `.nowrap` is already a shared utility in
+      `site.css`. Update each renderer's exact-markup tests and mutation-verify.
 - [ ] **Make the "Schedule problems" nav card state-aware** (`index.html`, OWNER Admin group).
       Today the card is always amber (`background: #fef3c7; border-color: #d97706`) with a static
       "Missing travel & hotels" subtitle. Instead: amber **only when there are actual problems**,

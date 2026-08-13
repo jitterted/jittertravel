@@ -101,10 +101,12 @@ class ChangeHotelControllerTest {
     }
 
     @Test
-    void postOnUnknownBookingIdRedirectsToBookedHotels() {
+    void postOnUnknownBookingIdReRendersFormWithError() {
         willThrow(new HotelBookingNotFound("No hotel booking exists with that id"))
                 .given(changeHotel).changeHotel(any(), any(), any());
 
+        // The booking vanished between GET and POST; the error must render on the form, never be
+        // handed to the view-only /booked-hotels list, which silently drops flash messages.
         assertThat(mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
                 .with(csrf())
                 .param("hotelName", "Grand Hotel")
@@ -113,8 +115,9 @@ class ChangeHotelControllerTest {
                 .param("checkIn", "2026-08-02T16:00")
                 .param("checkOut", "2026-08-06T10:00")
                 .param("bookingIntent", "FINAL"))
-                .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/booked-hotels");
+                .hasStatusOk()
+                .bodyText()
+                .contains("No hotel booking exists with that id");
     }
 
     @Test

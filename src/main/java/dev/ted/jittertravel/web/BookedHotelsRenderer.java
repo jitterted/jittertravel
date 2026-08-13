@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.BookedHotelView;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.BookingIntent;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
 
 import java.util.List;
@@ -11,10 +12,14 @@ import static j2html.TagCreator.*;
 
 public class BookedHotelsRenderer {
 
-    private static final String DATE_DISPLAY_PATTERN = "EEE, MMM d, h:mm a";
+    private static final String DATE_PATTERN = "EEE, MMM d";
+    private static final String TIME_PATTERN = "h:mm a";
 
+    // No .page max-width: the page fills the available space and is never wider than it. Cells wrap
+    // at controlled points instead (City/Country, date/time, Edit/Cancel are each two no-break
+    // units with a break allowed between them), so a narrow viewport — e.g. iPad portrait — stacks
+    // them onto two lines rather than forcing a horizontal scrollbar. The table is never scrolled.
     private static final String CSS = """
-            .page { max-width: 900px; }
             .hotel-table {
                 width: 100%; border-collapse: collapse;
                 background: var(--surface, #fff);
@@ -32,7 +37,7 @@ public class BookedHotelsRenderer {
                 padding: 10px 16px;
                 border-bottom: 1px solid var(--border-color);
                 font-size: 0.9rem;
-                text-wrap-mode: nowrap;
+                vertical-align: top;
             }
             .hotel-table tr:last-child td { border-bottom: none; }
             .hotel-table tr:hover td { background: var(--hover-bg); }
@@ -46,8 +51,12 @@ public class BookedHotelsRenderer {
             .action-row { margin-top: 1rem; }
             .action-row a { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
             .action-row a:hover { text-decoration: underline; }
-            .hotel-edit-link { color: var(--accent-color); text-decoration: none; font-size: 0.85rem; }
-            .hotel-edit-link:hover { text-decoration: underline; }
+            /* Edit and Cancel are each a no-break word with a space between, so a narrow Actions
+               column drops Cancel onto its own line. */
+            .row-actions a { display: inline-block; font-size: 0.85rem; text-decoration: none; }
+            .row-actions a:hover { text-decoration: underline; }
+            .hotel-edit-link { color: var(--accent-color); margin-right: 0.85rem; }
+            .hotel-cancel-link { color: #b00; }
             .no-deadline { color: var(--muted-text); }
             /* Neutral, not alarming: a passed deadline costs nothing here, it just means free
                cancellation is over. The stay is still cancellable until check-in. */
@@ -100,17 +109,33 @@ public class BookedHotelsRenderer {
     }
 
     private static DomContent renderRow(BookedHotelView hotel) {
+        String base = "/booked-hotels/" + hotel.hotelBookingId().id();
         return tr(
                 td(a(hotel.hotelName()).withHref(hotel.mapsUrl())
                         .withTarget("_blank").withRel("noopener")),
-                td(hotel.city() + ", " + hotel.country()),
-                td(ZonedTimeTag.render(hotel.checkIn(), DATE_DISPLAY_PATTERN)),
-                td(ZonedTimeTag.render(hotel.checkOut(), DATE_DISPLAY_PATTERN)),
+                locationCell(hotel),
+                td(dateTime(hotel.checkIn())),
+                td(dateTime(hotel.checkOut())),
                 cancelByCell(hotel),
                 td(statusBadge(hotel.status())),
-                td(a("Edit").withClass("hotel-edit-link")
-                        .withHref("/booked-hotels/" + hotel.hotelBookingId().id()))
+                td(
+                        a("Edit").withClass("hotel-edit-link").withHref(base),
+                        a("Cancel").withClass("hotel-cancel-link").withHref(base + "/cancel")
+                ).withClass("row-actions")
         );
+    }
+
+    /** City and country as separate no-break units so a narrow cell stacks them onto two lines. */
+    private static DomContent locationCell(BookedHotelView hotel) {
+        return td(
+                span(hotel.city()).withClass("nowrap"),
+                rawHtml(", "),
+                span(hotel.country()).withClass("nowrap")
+        );
+    }
+
+    private static DomContent dateTime(ZonedTimestamp when) {
+        return ZonedTimeTag.renderDateTimeStacking(when, DATE_PATTERN, TIME_PATTERN);
     }
 
     /**
@@ -122,7 +147,7 @@ public class BookedHotelsRenderer {
         if (hotel.cancelBy() == null) {
             return td(rawHtml("&mdash;")).withClass("no-deadline");
         }
-        DomContent deadline = ZonedTimeTag.render(hotel.cancelBy(), DATE_DISPLAY_PATTERN);
+        DomContent deadline = dateTime(hotel.cancelBy());
         return hotel.cancelDeadlinePassed()
                 ? td(deadline).withClass("deadline-passed").withTitle("Free cancellation has ended")
                 : td(deadline);

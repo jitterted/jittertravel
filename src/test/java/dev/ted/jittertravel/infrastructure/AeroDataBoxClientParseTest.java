@@ -4,10 +4,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 class AeroDataBoxClientParseTest {
 
@@ -29,6 +30,22 @@ class AeroDataBoxClientParseTest {
              "airline":{"name":"United Airlines","iata":"UA","icao":"UAL"}}]
             """;
 
+    // One flight number, two chained legs on the same day — what UA 1604 (RDU-DEN-RNO) looks like.
+    private static final String TWO_LEG_RESPONSE = """
+            [
+              {"number":"AA 1","airline":{"name":"American Airlines"},
+               "departure":{"airport":{"iata":"SFO"},
+                            "scheduledTime":{"local":"2026-06-28 06:00-07:00"}},
+               "arrival":{"airport":{"iata":"DFW"},
+                          "scheduledTime":{"local":"2026-06-28 11:30-05:00"}}},
+              {"number":"AA 1","airline":{"name":"American Airlines"},
+               "departure":{"airport":{"iata":"DFW"},
+                            "scheduledTime":{"local":"2026-06-28 12:30-05:00"}},
+               "arrival":{"airport":{"iata":"JFK"},
+                          "scheduledTime":{"local":"2026-06-28 16:45-04:00"}}}
+            ]
+            """;
+
     private final AeroDataBoxClient client = new AeroDataBoxClient(
             RestClient.builder(),
             JsonMapper.builder().build(),
@@ -39,10 +56,12 @@ class AeroDataBoxClientParseTest {
 
     @Test
     void parsesSampleResponseIntoFlightLookupResult() {
-        Optional<FlightLookupResult> result = client.parse(SAMPLE_RESPONSE);
+        FlightLookupCandidates candidates = client.parse(SAMPLE_RESPONSE);
 
-        assertThat(result).isPresent();
-        FlightLookupResult lookup = result.get();
+        assertThat(candidates.requiresChoice())
+                .as("a single-segment response needs no choice from the user")
+                .isFalse();
+        FlightLookupResult lookup = candidates.single();
         assertThat(lookup.airline()).isEqualTo("United Airlines");
         assertThat(lookup.flightNumber()).isEqualTo("UA195");
         assertThat(lookup.departureAirport()).isEqualTo("MUC");
@@ -54,28 +73,106 @@ class AeroDataBoxClientParseTest {
     }
 
     @Test
-    void emptyJsonArrayReturnsEmpty() {
-        assertThat(client.parse("[]")).isEmpty();
+    void emptyJsonArrayReturnsNoCandidates() {
+        assertThat(client.parse("[]").isEmpty())
+                .as("an empty array yields no candidates")
+                .isTrue();
     }
 
     @Test
-    void blankResponseReturnsEmpty() {
-        assertThat(client.parse("")).isEmpty();
-        assertThat(client.parse(null)).isEmpty();
+    void blankResponseReturnsNoCandidates() {
+        assertThat(client.parse("").segments()).isEmpty();
+        assertThat(client.parse(null).segments()).isEmpty();
     }
 
     @Test
-    void malformedResponseReturnsEmpty() {
-        assertThat(client.parse("not json")).isEmpty();
+    void malformedResponseReturnsNoCandidates() {
+        assertThat(client.parse("not json").segments()).isEmpty();
     }
 
     @Test
-    void multiSegmentTakesFirstDepartureAndLastArrival() {
-        String multiSegment = """
+    void multiSegmentKeepsEveryLegSeparately() {
+        FlightLookupCandidates candidates = client.parse(TWO_LEG_RESPONSE);
+
+        assertThat(candidates.requiresChoice())
+                .as("two segments means the user must pick which leg they are on")
+                .isTrue();
+        assertThat(candidates.segments())
+                .extracting(FlightLookupResult::departureAirport,
+                            FlightLookupResult::departureDateTime,
+                            FlightLookupResult::arrivalAirport,
+                            FlightLookupResult::arrivalDateTime)
+                .containsExactly(
+                        tuple("SFO", LocalDateTime.of(2026, 6, 28, 6, 0),
+                              "DFW", LocalDateTime.of(2026, 6, 28, 11, 30)),
+                        tuple("DFW", LocalDateTime.of(2026, 6, 28, 12, 30),
+                              "JFK", LocalDateTime.of(2026, 6, 28, 16, 45)));
+    }
+
+    @Test
+    void chainingSegmentsAlsoOfferTheWholeTripAsOneOption() {
+        FlightLookupCandidates candidates = client.parse(TWO_LEG_RESPONSE);
+
+        assertThat(candidates.throughFlight()).isPresent();
+        FlightLookupResult through = candidates.throughFlight().get();
+        assertThat(through.departureAirport()).isEqualTo("SFO");
+        assertThat(through.departureDateTime())
+                .isEqualTo(LocalDateTime.of(2026, 6, 28, 6, 0));
+        assertThat(through.arrivalAirport()).isEqualTo("JFK");
+        assertThat(through.arrivalDateTime())
+                .isEqualTo(LocalDateTime.of(2026, 6, 28, 16, 45));
+    }
+
+    @Test
+    void unrelatedFlightsSharingANumberOfferNoWholeTripOption() {
+        // Second segment does not start where the first one ends: these are not legs of one
+        // journey, so collapsing them would invent a route nobody flies.
+        String unrelated = """
                 [
                   {"number":"AA 1","airline":{"name":"American Airlines"},
                    "departure":{"airport":{"iata":"SFO"},
                                 "scheduledTime":{"local":"2026-06-28 06:00-07:00"}},
+                   "arrival":{"airport":{"iata":"DFW"},
+                              "scheduledTime":{"local":"2026-06-28 11:30-05:00"}}},
+                  {"number":"AA 1","airline":{"name":"American Airlines"},
+                   "departure":{"airport":{"iata":"ORD"},
+                                "scheduledTime":{"local":"2026-06-28 12:30-05:00"}},
+                   "arrival":{"airport":{"iata":"JFK"},
+                              "scheduledTime":{"local":"2026-06-28 16:45-04:00"}}}
+                ]
+                """;
+
+        assertThat(client.parse(unrelated).throughFlight()).isEmpty();
+    }
+
+    @Test
+    void segmentsAreOrderedByDepartureTimeRegardlessOfResponseOrder() {
+        String reversed = """
+                [
+                  {"number":"AA 1","airline":{"name":"American Airlines"},
+                   "departure":{"airport":{"iata":"DFW"},
+                                "scheduledTime":{"local":"2026-06-28 12:30-05:00"}},
+                   "arrival":{"airport":{"iata":"JFK"},
+                              "scheduledTime":{"local":"2026-06-28 16:45-04:00"}}},
+                  {"number":"AA 1","airline":{"name":"American Airlines"},
+                   "departure":{"airport":{"iata":"SFO"},
+                                "scheduledTime":{"local":"2026-06-28 06:00-07:00"}},
+                   "arrival":{"airport":{"iata":"DFW"},
+                              "scheduledTime":{"local":"2026-06-28 11:30-05:00"}}}
+                ]
+                """;
+
+        assertThat(client.parse(reversed).segments())
+                .extracting(FlightLookupResult::departureAirport)
+                .containsExactly("SFO", "DFW");
+    }
+
+    @Test
+    void segmentMissingRequiredFieldsIsDroppedWithoutLosingTheOthers() {
+        String oneBadSegment = """
+                [
+                  {"number":"AA 1","airline":{"name":"American Airlines"},
+                   "departure":{"airport":{"iata":"SFO"}},
                    "arrival":{"airport":{"iata":"DFW"},
                               "scheduledTime":{"local":"2026-06-28 11:30-05:00"}}},
                   {"number":"AA 1","airline":{"name":"American Airlines"},
@@ -86,19 +183,15 @@ class AeroDataBoxClientParseTest {
                 ]
                 """;
 
-        Optional<FlightLookupResult> result = client.parse(multiSegment);
+        FlightLookupCandidates candidates = client.parse(oneBadSegment);
 
-        assertThat(result).isPresent();
-        assertThat(result.get().departureAirport()).isEqualTo("SFO");
-        assertThat(result.get().departureDateTime())
-                .isEqualTo(LocalDateTime.of(2026, 6, 28, 6, 0));
-        assertThat(result.get().arrivalAirport()).isEqualTo("JFK");
-        assertThat(result.get().arrivalDateTime())
-                .isEqualTo(LocalDateTime.of(2026, 6, 28, 16, 45));
+        assertThat(candidates.single().departureAirport()).isEqualTo("DFW");
     }
 
     @Test
-    void lookupWithBlankApiKeyReturnsEmptyWithoutCallingApi() {
-        assertThat(client.lookup("UA195", java.time.LocalDate.of(2026, 6, 28))).isEmpty();
+    void lookupWithBlankApiKeyReturnsNoCandidatesWithoutCallingApi() {
+        assertThat(client.lookup("UA195", LocalDate.of(2026, 6, 28)).isEmpty())
+                .as("a blank API key short-circuits before any HTTP call")
+                .isTrue();
     }
 }

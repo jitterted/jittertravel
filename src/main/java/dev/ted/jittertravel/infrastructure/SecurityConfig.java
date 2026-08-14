@@ -53,6 +53,7 @@ public class SecurityConfig {
                         // A single * matches one path segment only, so per-item *actions* need
                         // their own entry alongside the page (as /booked-flights/*/lookup does).
                         .requestMatchers("/booked-flights/*", "/booked-flights/*/lookup",
+                                "/booked-flights/*/lookup/select",
                                 "/booked-trains/*", "/booked-hotels/*",
                                 "/booked-hotels/*/cancel",
                                 "/planned-gatherings/*").hasRole("OWNER")

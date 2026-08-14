@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<!--
+  The "which leg are you on?" chooser, shared by book-flight and change-flight.
+
+  A flight number can cover several segments on one day (the legs of a direct-but-not-nonstop
+  service such as RDU-DEN-RNO, or unrelated flights sharing the number). Nothing in the flight
+  number and date says which one the traveller booked, so the lookup offers them all instead of
+  guessing — collapsing them to "first departure, last arrival" used to invent a route nobody
+  flies.
+
+  Each option carries the chosen segment in hidden inputs and posts it straight back into the
+  booking form's own field names, so picking a leg costs no second API call.
+
+  Reads legChoices / throughFlight / lookupFlightNumber / lookupDepartureDate from the model.
+  The th:block wrappers around each th:replace are load-bearing: th:replace outranks th:each and
+  th:if in Thymeleaf's attribute precedence, so on a single element the inclusion would win and
+  the iteration/condition would never run.
+-->
+<body>
+
+<th:block th:fragment="flightLegChooser(actionUrl, flightId)" th:if="${legChoices}">
+    <fieldset class="lookup leg-choice">
+        <legend>Which flight?</legend>
+        <p>This flight number covers more than one segment that day — pick the one you are on.
+            The form below is filled in from your choice.</p>
+        <ul class="leg-options">
+            <th:block th:each="leg, iter : ${legChoices}">
+                <li th:replace="~{fragments/flight-leg-chooser :: legOption(${actionUrl}, ${flightId}, ${leg}, 'Leg ' + ${iter.count})}"></li>
+            </th:block>
+            <th:block th:if="${throughFlight}">
+                <li th:replace="~{fragments/flight-leg-chooser :: legOption(${actionUrl}, ${flightId}, ${throughFlight}, 'Whole trip')}"></li>
+            </th:block>
+        </ul>
+    </fieldset>
+</th:block>
+
+<ul>
+    <li th:fragment="legOption(actionUrl, flightId, leg, caption)">
+        <form th:action="${actionUrl}" method="post">
+            <input type="hidden" name="flightId" th:value="${flightId}"/>
+            <input type="hidden" name="airline" th:value="${leg.airline}"/>
+            <input type="hidden" name="flightNumber" th:value="${leg.flightNumber}"/>
+            <input type="hidden" name="departureAirport" th:value="${leg.departureAirport}"/>
+            <input type="hidden" name="departureDateTime" th:value="${leg.departureDateTime}"/>
+            <input type="hidden" name="departureZone" th:value="${leg.departureZoneId}"/>
+            <input type="hidden" name="arrivalAirport" th:value="${leg.arrivalAirport}"/>
+            <input type="hidden" name="arrivalDateTime" th:value="${leg.arrivalDateTime}"/>
+            <input type="hidden" name="arrivalZone" th:value="${leg.arrivalZoneId}"/>
+            <input type="hidden" name="lookupFlightNumber" th:value="${lookupFlightNumber}"/>
+            <input type="hidden" name="lookupDepartureDate" th:value="${lookupDepartureDate}"/>
+            <button type="submit" class="leg-btn">
+                <span class="leg-caption" th:text="${caption}">Leg 1</span>
+                <span class="leg-endpoint">
+                    <span class="leg-airport" th:text="${leg.departureAirport}">RDU</span>
+                    <span class="leg-time"
+                          th:text="${#temporals.format(leg.departureDateTime, 'MMM d, h:mm a')}">Sep 21, 8:15 AM</span>
+                </span>
+                <span class="leg-arrow">&rarr;</span>
+                <span class="leg-endpoint">
+                    <span class="leg-airport" th:text="${leg.arrivalAirport}">RNO</span>
+                    <span class="leg-time"
+                          th:text="${#temporals.format(leg.arrivalDateTime, 'MMM d, h:mm a')}">Sep 21, 12:35 PM</span>
+                </span>
+            </button>
+        </form>
+    </li>
+</ul>
+
+</body>
+</html>

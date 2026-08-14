@@ -177,9 +177,9 @@ body {
     color: #b00;
 }
 
-/* The main form submit ("Book Flight" / "Save changes"); excludes the lookup
-   button, which is also type=submit but styled separately below. */
-.booking-form button[type=submit]:not(.lookup-btn) {
+/* The main form submit ("Book Flight" / "Save changes"); excludes the lookup and
+   leg-choice buttons, which are also type=submit but styled separately below. */
+.booking-form button[type=submit]:not(.lookup-btn):not(.leg-btn) {
     background: var(--accent-color);
     color: #fff;
     border: none;
@@ -189,7 +189,48 @@ body {
     font-family: inherit;
     cursor: pointer;
 }
-.booking-form button[type=submit]:not(.lookup-btn):hover { opacity: 0.88; }
+.booking-form button[type=submit]:not(.lookup-btn):not(.leg-btn):hover { opacity: 0.88; }
+
+/* Leg chooser: one full-width button per segment the lookup returned. Each part of
+   the route (airport + time) is its own nowrap unit and the button is a wrapping
+   flex row, so a narrow viewport stacks the parts instead of scrolling sideways. */
+.booking-form .leg-options {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+.booking-form .leg-btn {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.15rem 0.5rem;
+    width: 100%;
+    text-align: left;
+    background: var(--header-bg);
+    color: inherit;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.9rem;
+    font-family: inherit;
+    cursor: pointer;
+}
+.booking-form .leg-btn:hover { border-color: var(--accent-color); }
+.booking-form .leg-caption {
+    min-width: 5.5rem;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-text);
+}
+.booking-form .leg-endpoint { white-space: nowrap; }
+.booking-form .leg-airport { font-weight: 600; }
+.booking-form .leg-time { color: var(--muted-text); }
+.booking-form .leg-arrow { color: var(--muted-text); }
 
 /* Lookup button: its own style (it is type=submit but excluded from the main
    submit rule above). The margin-bottom lifts it off the row's flex-end bottom

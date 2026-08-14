@@ -7,6 +7,7 @@ import dev.ted.jittertravel.application.ReadOnlyModeException;
 import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.*;
 import dev.ted.jittertravel.infrastructure.AeroDataBoxClient;
+import dev.ted.jittertravel.infrastructure.FlightLookupCandidates;
 import dev.ted.jittertravel.infrastructure.FlightLookupResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,7 +65,14 @@ public class ChangeFlightController {
             return "redirect:/booked-flights";
         }
 
-        model.addAttribute("changeFlight", toRequest(maybe.get()));
+        FlightDetailsView view = maybe.get();
+        // Seed the lookup box from the booking itself, so re-fetching this flight from
+        // AeroDataBox doesn't mean retyping what the form already shows. The departure day is
+        // taken in the airport's own zone, which is the date the API's dateLocalRole=Departure
+        // expects.
+        model.addAttribute("lookupFlightNumber", view.flightNumber());
+        model.addAttribute("lookupDepartureDate", view.departureDateTime().localDateTime().toLocalDate());
+        model.addAttribute("changeFlight", toRequest(view));
         return "change-flight";
     }
 
@@ -118,33 +126,65 @@ public class ChangeFlightController {
             return "redirect:/read-only";
         }
 
-        Optional<FlightLookupResult> result = aeroDataBoxClient.lookup(flightNumber, departureDate);
+        FlightLookupCandidates candidates = aeroDataBoxClient.lookup(flightNumber, departureDate);
 
         ChangeFlightRequest request = new ChangeFlightRequest();
         request.setFlightId(flightIdString);
 
-        if (result.isPresent()) {
-            FlightLookupResult lookup = result.get();
-            request.setAirline(lookup.airline());
-            request.setFlightNumber(lookup.flightNumber());
-            request.setDepartureAirport(lookup.departureAirport());
-            request.setDepartureDateTime(lookup.departureDateTime());
-            request.setDepartureZone(lookup.departureZoneId());
-            request.setArrivalAirport(lookup.arrivalAirport());
-            request.setArrivalDateTime(lookup.arrivalDateTime());
-            request.setArrivalZone(lookup.arrivalZoneId());
-        } else {
+        if (candidates.requiresChoice()) {
+            // The flight number covers several segments that day; only the traveller knows which
+            // one they are on, so offer them and leave the form otherwise untouched.
+            request.setFlightNumber(flightNumber);
+            request.setDepartureDateTime(departureDate.atStartOfDay().plusHours(9));
+            model.addAttribute("legChoices", candidates.segments());
+            model.addAttribute("throughFlight", candidates.throughFlight().orElse(null));
+        } else if (candidates.isEmpty()) {
             request.setFlightNumber(flightNumber);
             request.setDepartureDateTime(departureDate.atStartOfDay().plusHours(9));
             model.addAttribute("lookupError",
                     "No flight found for " + flightNumber + " on " + departureDate
                             + " (or the API key is not configured). Edit the fields manually.");
+        } else {
+            applyLookup(request, candidates.single());
         }
 
         model.addAttribute("lookupFlightNumber", flightNumber);
         model.addAttribute("lookupDepartureDate", departureDate);
         model.addAttribute("changeFlight", request);
         return "change-flight";
+    }
+
+    /**
+     * Fills the form from the leg the user picked out of a multi-segment lookup. The chosen leg's
+     * fields arrive as hidden inputs, so no second API call is made.
+     */
+    @PostMapping("/booked-flights/{flightId}/lookup/select")
+    public String selectLeg(@PathVariable("flightId") String flightIdString,
+                            @ModelAttribute("changeFlight") ChangeFlightRequest request,
+                            @RequestParam("lookupFlightNumber") String lookupFlightNumber,
+                            @RequestParam("lookupDepartureDate")
+                            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate lookupDepartureDate,
+                            Model model) {
+        if (applicationService.isReadOnly()) {
+            return "redirect:/read-only";
+        }
+
+        // Path is the source of truth for flightId; it is not user-editable.
+        request.setFlightId(flightIdString);
+        model.addAttribute("lookupFlightNumber", lookupFlightNumber);
+        model.addAttribute("lookupDepartureDate", lookupDepartureDate);
+        return "change-flight";
+    }
+
+    private void applyLookup(ChangeFlightRequest request, FlightLookupResult lookup) {
+        request.setAirline(lookup.airline());
+        request.setFlightNumber(lookup.flightNumber());
+        request.setDepartureAirport(lookup.departureAirport());
+        request.setDepartureDateTime(lookup.departureDateTime());
+        request.setDepartureZone(lookup.departureZoneId());
+        request.setArrivalAirport(lookup.arrivalAirport());
+        request.setArrivalDateTime(lookup.arrivalDateTime());
+        request.setArrivalZone(lookup.arrivalZoneId());
     }
 
     private Optional<FlightDetailsView> lookup(String flightIdString) {

@@ -38,6 +38,8 @@
         </form>
     </fieldset>
 
+    <th:block th:replace="~{fragments/flight-leg-chooser :: flightLegChooser(@{|/booked-flights/${changeFlight.flightId}/lookup/select|}, ${changeFlight.flightId})}"></th:block>
+
     <form th:action="@{|/booked-flights/${changeFlight.flightId}|}" th:object="${changeFlight}" method="post">
         <input type="hidden" th:field="*{flightId}"/>
 

@@ -45,6 +45,17 @@ class BookFlightControllerTest {
         assertThat(request.getArrivalDateTime()).isEqualTo(LocalDateTime.of(2026, 7, 20, 12, 0));
     }
 
+    @Test
+    void getBookFlightFormSeedsLookupDateWithTheSameDayAsTheDepartureDefault() {
+        BookFlightController controller = new BookFlightController(writableService(), null, FIXED_CLOCK);
+        Model model = new ConcurrentModel();
+
+        controller.bookFlightForm(model, LocalDate.of(2026, 7, 20));
+
+        assertThat(model.getAttribute("lookupDepartureDate"))
+                .isEqualTo(LocalDate.of(2026, 7, 20));
+    }
+
     // The form GET only reads isReadOnly() and the clock; the AeroDataBoxClient is unused here.
     private FlightBooking writableService() {
         return new FlightBooking(null, null) {

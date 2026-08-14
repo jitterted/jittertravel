@@ -22,14 +22,23 @@ definition that both the security chain and the home navigation are derived from
 
 ## Confirmed current policy (the thing to centralize)
 
+Transcribed from `SecurityConfig.securedFilterChain` on **2026-08-14** (`a2b1845`). This table
+goes stale every time a route is added; `AuthorizationMatrixTest` is the canonical, executable
+statement — read it, not this, when the two disagree.
+
 | Route(s)                                                                 | OWNER | FAMILY | Anonymous |
 |--------------------------------------------------------------------------|:-----:|:------:|:---------:|
 | `/` (home)                                                               |  ✅   |  ✅    |    ✅     |
 | `/calendar` (redacted for anonymous via `CalendarEntryRedactor`)         |  ✅   |  ✅    |    ✅     |
 | `/itinerary`, `/itinerary/**`                                            |  ✅   |  ✅    |   login   |
 | Bookings lists: `/booked-flights`, `/booked-trains`, `/booked-hotels`, `/tentative-conferences`, `/planned-gatherings` |  ✅   | denied |   login   |
-| Data entry: `/book-*`, `/plan-*`, `/clear-conflict`, `/api/parse-address`, per-flight edit `/booked-flights/*` |  ✅   | denied |   login   |
+| Data entry: `/book-*`, `/plan-conference`, `/plan-gathering`, `/plan-private-event`, `/clear-conflict` (each with `/**`), `/api/parse-address` |  ✅   | denied |   login   |
+| Per-item edit pages: `/booked-flights/*`, `/booked-trains/*`, `/booked-hotels/*`, `/planned-gatherings/*` |  ✅   | denied |   login   |
+| Per-item actions (one matcher each — `*` spans one segment): `/booked-flights/*/lookup`, `/booked-flights/*/lookup/select`, `/booked-hotels/*/cancel` |  ✅   | denied |   login   |
+| `/schedule-problems` (conflict/gap report — times, names, internal ids)   |  ✅   | denied |   login   |
 | Admin: `/admin`, `/admin/**`                                             |  ✅   | denied |   login   |
+| `/actuator/health`, `/actuator/health/**` (Railway health check)         |  ✅   |  ✅    |    ✅     |
+| `/actuator/**` (everything else)                                         |  ✅   | denied |   login   |
 
 - **denied** = authenticated-but-unauthorized → friendly redirect to `/?denied`.
 - **login** = anonymous → redirect to `/login`.
@@ -48,14 +57,21 @@ public enum NavSection {
                     "/book-train", "/book-train/**",
                     "/plan-conference", "/plan-conference/**",
                     "/plan-gathering", "/plan-gathering/**",
+                    "/plan-private-event", "/plan-private-event/**",
                     "/clear-conflict", "/clear-conflict/**",
                     "/api/parse-address",
-                    "/booked-flights/*", "/booked-flights/*/lookup")),
+                    "/booked-flights/*", "/booked-flights/*/lookup",
+                    "/booked-flights/*/lookup/select",
+                    "/booked-trains/*", "/booked-hotels/*",
+                    "/booked-hotels/*/cancel",
+                    "/planned-gatherings/*")),
     BOOKINGS(Set.of("OWNER"),
             List.of("/booked-flights", "/booked-trains", "/booked-hotels",
                     "/tentative-conferences", "/planned-gatherings")),
     ITINERARY(Set.of("OWNER", "FAMILY"),
             List.of("/itinerary", "/itinerary/**")),
+    SCHEDULE_PROBLEMS(Set.of("OWNER"),
+            List.of("/schedule-problems")),
     ADMIN(Set.of("OWNER"),
             List.of("/admin", "/admin/**"));
 

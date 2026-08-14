@@ -8,7 +8,7 @@ Small cleanups keep living in `Cleanup_Tasks.md` — they are summarized here bu
 Decisions made during implementation that still need Ted's eye live in `DecisionsToReview.md` —
 a review queue, not a backlog; work through it one entry at a time.
 
-Status verified against the tree on **2026-08-07** (`4efccaf`).
+Status verified against the tree on **2026-08-14** (`a2b1845`).
 
 Legend: `open` · `partial` · `done` · `exploration` (deliberately unbuilt design record)
 · `decision` (waiting on Ted, not on code)
@@ -123,6 +123,17 @@ Kept as design records. Each has a status banner at the top of the file.
 | `Remove-Local-Profile.md` | `e962915`, 2026-06-17 |
 | `j2html_Migration_Analysis.md` | `b0e6f11`, 2026-06-06 — views migrated, shared infrastructure not extracted (see loose follow-ups) |
 | `GeneralControllerRefactorPlan.md` | Shipped; its "open items" 1 and 2 are resolved, item 3 moved here |
+
+## Shipped without an owning plan doc
+
+Small-to-medium slices that went straight from conversation to code, so no plan doc names them.
+Recorded here only so this index matches the tree — none of them has open work unless a row says so.
+
+| What shipped | Landed |
+|---|---|
+| **Multi-segment flight lookup offers each leg.** AeroDataBox returns one entry per segment for a flight number; the client used to collapse them into leg 1's departure and leg N's arrival, inventing a route no leg flies (UA 1604 → `RDU → RNO`). `FlightLookupCandidates` now carries every segment and reports whether a choice is needed; `book-flight` / `change-flight` render a shared "Which flight?" fragment and post the chosen segment back to `.../lookup/select` (no second API call). The whole trip is offered as an extra option only when the segments chain end to end. Also seeds the lookup date from `?date=` or the booking's own departure-zone day. **New route `/booked-flights/*/lookup/select`** — two segments past the id, so no existing matcher covered it; it has its own `SecurityConfig` line and `AuthorizationMatrixTest` row. | `a2b1845`, 2026-08-14 |
+| **Owner home page redesign** — two-column viewing/editing layout for OWNER. The nav-card items in `Cleanup_Tasks.md` (state-aware "Schedule problems" card) still apply to it. | `5277366`, 2026-08-13 |
+| **Owner future-day create menu on the calendar** — clicking a future day offers "Add flight / gathering / conference…", seeding each form via `?date=`. | `93a78ad`, 2026-08-12 |
 
 ## Not a task list
 

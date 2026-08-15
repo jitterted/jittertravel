@@ -22,12 +22,19 @@ public class BookedFlightsRenderer {
     // unit). No page ever scrolls sideways.
     //
     // ONE grid owns the columns. .flight-cards defines the seven tracks; the header and every row
-    // (and the history summary, nested inside its <details>) inherit them with
-    // grid-template-columns: subgrid, so all columns are sized once from every row's content
-    // together and line up across rows. (Giving each row its own grid instead makes each size its
-    // fr tracks from just its own content, so the columns drift out of alignment — worst when the
-    // window is narrow and the leftover space that hides the difference is gone.) The tracks keep
-    // min-content minimums, so the unbreakable Route/Airline/Flight Number tokens never overflow.
+    // inherit them with grid-template-columns: subgrid, so all columns are sized once from every
+    // row's content together and line up across rows. (Giving each row its own grid instead makes
+    // each size its fr tracks from just its own content, so the columns drift out of alignment —
+    // worst when the window is narrow and the leftover space that hides the difference is gone.)
+    // The tracks keep min-content minimums, so the unbreakable Route/Airline/Flight Number tokens
+    // never overflow.
+    //
+    // A history flight is a <details>; it is display: contents so its <summary> and its change list
+    // become DIRECT children of .flight-cards. The summary then subgrids one level (aligning like a
+    // plain row) and the list spans 1 / -1 at the top level. Nesting a subgrid inside the <details>
+    // instead left the list stuck in the first column in some browsers. Because display: contents
+    // removes the <details> box, its tint/border move onto the summary and list, and the list is
+    // explicitly hidden while closed (display: contents can otherwise leave it showing).
     private static final String CSS = """
             .conference-container { margin: 2rem; padding: 0 1rem; }
             .flight-cards {
@@ -54,15 +61,15 @@ public class BookedFlightsRenderer {
             }
             .flight-card { grid-column: 1 / -1; border-bottom: 1px solid var(--border-color); }
             .flight-card:last-child { border-bottom: none; }
-            .flight-card-has-history {
-                grid-column: 1 / -1;
-                display: grid; grid-template-columns: subgrid;
+            .flight-card-has-history { display: contents; }
+            div.flight-card-row:hover { background-color: var(--hover-bg); }
+            .flight-card-has-history > summary {
+                cursor: pointer; list-style: none;
                 background-color: rgb(255 200 200 / 0.05);
             }
-            div.flight-card-row:hover { background-color: var(--hover-bg); }
-            .flight-card-has-history > summary { cursor: pointer; list-style: none; }
             .flight-card-has-history > summary::-webkit-details-marker { display: none; }
             .flight-card-has-history > summary:hover { background-color: var(--hover-bg); }
+            .flight-card-has-history:not([open]) > summary { border-bottom: 1px solid var(--border-color); }
             .flight-card-chevron::before {
                 content: "⚡️"; color: var(--muted-text);
                 transition: transform 0.15s ease; display: inline-block;
@@ -71,7 +78,13 @@ public class BookedFlightsRenderer {
             div.flight-card-row > .flight-card-chevron::before,
             .flight-card-header > .flight-card-chevron::before { content: ""; }
             .flight-departure { font-weight: 500; }
-            .flight-history-list { grid-column: 1 / -1; margin: 0; padding: 0 16px 12px 3rem; list-style: disc; color: var(--muted-text); font-size: 0.9rem; }
+            .flight-history-list {
+                grid-column: 1 / -1;
+                background-color: rgb(255 200 200 / 0.05);
+                border-bottom: 1px solid var(--border-color);
+                margin: 0; padding: 0 16px 12px 3rem; list-style: disc; color: var(--muted-text); font-size: 0.9rem;
+            }
+            .flight-card-has-history:not([open]) > .flight-history-list { display: none; }
             .flight-history-list li { margin: 0.15rem 0; }
             .empty-state p { margin: 0.5rem 0; }
             /* Per-leg labels: hidden while the header row is visible, shown once the grid stacks. */
@@ -83,7 +96,7 @@ public class BookedFlightsRenderer {
             @media (max-width: 640px) {
                 .flight-cards { grid-template-columns: 1fr; }
                 .flight-card-header { display: none; }
-                .flight-card-row, .flight-card-has-history {
+                .flight-card-row {
                     grid-template-columns: 1fr;
                     align-items: start; gap: 0.15rem;
                 }

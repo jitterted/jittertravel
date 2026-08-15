@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.PlannedGatheringView;
 import dev.ted.jittertravel.application.TimeView;
+import j2html.tags.DomContent;
 import j2html.tags.specialized.DivTag;
 
 import java.util.List;
@@ -13,38 +14,62 @@ public class PlannedGatheringsRenderer {
     private static final String DATE_FORMAT = "EEE, MMM d, yyyy";
     private static final String TIME_FORMAT = "h:mm a";
 
-    // No .page max-width: the list fills the centered page width like the other list views. Each
-    // card is a two-column grid (a fixed date column beside the details); below 640px that would
-    // squeeze the details into a sliver, so the card collapses to a single column with the date
-    // stacked above the details. Nothing is capped and nothing scrolls sideways.
+    // A columned table like the other list views (When / Gathering / Venue / Location / actions).
+    // ONE grid owns the columns: .gathering-list defines the five tracks and the header and every
+    // row inherit them via grid-template-columns: subgrid, so the columns line up across rows with
+    // min-content floors (aligned, no overflow). No .page max-width — it fills the centered page
+    // width. Below 640px the grid collapses to a single stacked column, the header hides, and each
+    // cell shows its own leg label. Nothing is capped and nothing scrolls sideways.
     private static final String CSS = """
-                .gathering-list { display: flex; flex-direction: column; gap: 0.75rem; }
-                .gathering-card {
-                    border-left: 4px solid #7c3aed;
-                    border-radius: 0 8px 8px 0;
-                    background: #f5f3ff;
-                    padding: 0.75rem 1rem;
+                .gathering-list {
                     display: grid;
-                    grid-template-columns: 10rem 1fr;
-                    gap: 0 1rem;
-                    align-items: start;
+                    grid-template-columns: auto 2fr 1.5fr 1fr auto;
+                    column-gap: 0.75rem;
+                    margin-top: 1rem;
+                    background: var(--surface, #fff);
+                    border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;
                 }
-                @media (max-width: 640px) {
-                    .gathering-card { grid-template-columns: 1fr; gap: 0.35rem 0; }
+                .gathering-header, .gathering-row {
+                    grid-column: 1 / -1;
+                    display: grid;
+                    grid-template-columns: subgrid;
+                    align-items: start; padding: 10px 16px;
                 }
-                .gathering-date { font-size: 0.8rem; font-weight: 700; color: #5b21b6; }
-                .gathering-time { font-size: 0.8rem; color: #6d28d9; margin-top: 0.1rem; }
-                .gathering-title { font-weight: 700; font-size: 1rem; color: var(--text-color); margin-bottom: 0.15rem; }
-                .gathering-venue { font-size: 0.85rem; color: var(--muted-text); margin-bottom: 0.3rem; }
-                .gathering-footer { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem; }
+                .gathering-header {
+                    background: var(--header-bg); color: var(--muted-text);
+                    font-weight: 600; text-transform: uppercase;
+                    font-size: 0.75rem; letter-spacing: 0.5px;
+                    border-bottom: 1px solid var(--border-color);
+                }
+                .gathering-row { border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+                .gathering-row:last-child { border-bottom: none; }
+                .gathering-row:hover { background: var(--hover-bg); }
+                .gathering-when-date { font-weight: 700; color: #5b21b6; white-space: nowrap; }
+                .gathering-when-time { color: #6d28d9; font-size: 0.85rem; white-space: nowrap; margin-top: 0.1rem; }
+                .gathering-title-cell { display: flex; flex-direction: column; gap: 0.25rem; align-items: start; }
+                .gathering-title { font-weight: 700; }
+                .gathering-venue, .gathering-location { color: var(--muted-text); }
                 .badge-speaking {
+                    display: inline-block;
                     font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
                     letter-spacing: 0.06em; background: #7c3aed; color: #fff;
                     border-radius: 4px; padding: 0.15rem 0.45rem;
                 }
-                .info-link { font-size: 0.82rem; color: #6d28d9; text-decoration: underline; }
-                .gathering-edit-link { font-size: 0.82rem; color: #6d28d9; text-decoration: underline; }
+                .gathering-actions { display: flex; flex-direction: column; gap: 0.3rem; align-items: start; }
+                .info-link, .gathering-edit-link { font-size: 0.85rem; color: #6d28d9; text-decoration: underline; }
                 .empty-state { font-style: italic; font-size: 0.9rem; }
+                /* Per-column labels: hidden while the header row is visible, shown once the grid stacks. */
+                .leg-label {
+                    display: none;
+                    font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+                    letter-spacing: 0.5px; color: var(--muted-text);
+                }
+                @media (max-width: 640px) {
+                    .gathering-list { grid-template-columns: 1fr; }
+                    .gathering-header { display: none; }
+                    .gathering-row { grid-template-columns: 1fr; gap: 0.3rem 0; }
+                    .leg-label { display: block; margin-top: 0.5rem; }
+                }
             """;
 
     public static String render(List<PlannedGatheringView> gatherings, TimeView activeFilter) {
@@ -57,9 +82,7 @@ public class PlannedGatheringsRenderer {
                                 TimeFilterToggle.render("/planned-gatherings", activeFilter),
                                 gatherings.isEmpty()
                                         ? div(emptyStateMessage(activeFilter)).withClass("empty-state")
-                                        : div().withClass("gathering-list").with(
-                                                gatherings.stream().map(PlannedGatheringsRenderer::renderCard).toList()
-                                        )
+                                        : renderList(gatherings)
                         )
                 )
         ).withLang("en").render();
@@ -71,60 +94,72 @@ public class PlannedGatheringsRenderer {
                 : "No gatherings planned yet.";
     }
 
-    private static DivTag renderCard(PlannedGatheringView g) {
-        String venueLocation = buildVenueLocation(g);
+    private static DomContent renderList(List<PlannedGatheringView> gatherings) {
+        return div().withClass("gathering-list").with(
+                div().withClass("gathering-header").with(
+                        span("When"), span("Gathering"), span("Venue"), span("Location"), span()
+                ),
+                each(gatherings, PlannedGatheringsRenderer::renderRow)
+        );
+    }
 
-        // Venue-local wall-clock as the element text; the UTC instant rides along in the
-        // datetime attribute for the browser-zone upgrade.
-        DivTag dateCol = div(
-                div().withClass("gathering-date").with(ZonedTimeTag.render(g.startsAt(), DATE_FORMAT)),
-                div().withClass("gathering-time").with(
+    private static DomContent renderRow(PlannedGatheringView g) {
+        return div().withClass("gathering-row").with(
+                whenCell(g),
+                titleCell(g),
+                div().withClass("gathering-venue").with(legLabel("Venue"), text(g.venueName())),
+                div().withClass("gathering-location").with(legLabel("Location"), text(location(g))),
+                actionsCell(g)
+        );
+    }
+
+    // Venue-local wall-clock as the element text; the UTC instant rides along in the datetime
+    // attribute for the browser-zone upgrade.
+    private static DomContent whenCell(PlannedGatheringView g) {
+        return div().with(
+                legLabel("When"),
+                div().withClass("gathering-when-date").with(ZonedTimeTag.render(g.startsAt(), DATE_FORMAT)),
+                div().withClass("gathering-when-time").with(
                         ZonedTimeTag.render(g.startsAt(), TIME_FORMAT),
                         rawHtml(" &ndash; "),
                         ZonedTimeTag.render(g.endsAt(), TIME_FORMAT)
                 )
         );
+    }
 
-        DivTag footer = div().withClass("gathering-footer");
+    private static DomContent titleCell(PlannedGatheringView g) {
+        DivTag cell = div().withClass("gathering-title-cell").with(
+                legLabel("Gathering"),
+                div(g.title()).withClass("gathering-title")
+        );
         if (g.speaking()) {
-            footer.with(span("Speaking").withClass("badge-speaking"));
+            cell.with(span("Speaking").withClass("badge-speaking"));
         }
+        return cell;
+    }
+
+    private static DomContent actionsCell(PlannedGatheringView g) {
+        DivTag cell = div().withClass("gathering-actions");
         if (!g.infoUrl().isBlank()) {
-            footer.with(a("Event page →").withHref(g.infoUrl())
+            cell.with(a("Event page →").withHref(g.infoUrl())
                     .withClass("info-link")
                     .withTarget("_blank")
                     .withRel("noopener"));
         }
-        footer.with(a("Edit").withClass("gathering-edit-link")
+        cell.with(a("Edit").withClass("gathering-edit-link")
                 .withHref("/planned-gatherings/" + g.gatheringId().id()));
-
-        DivTag contentCol = div(
-                div(g.title()).withClass("gathering-title"),
-                div(venueLocation).withClass("gathering-venue"),
-                footer
-        );
-
-        return div().withClass("gathering-card").with(dateCol, contentCol);
+        return cell;
     }
 
-    private static String buildVenueLocation(PlannedGatheringView g) {
-        StringBuilder sb = new StringBuilder();
-        if (!g.venueName().isBlank()) {
-            sb.append(g.venueName()).append(" · ");
-        }
-        if (!g.street().isBlank()) {
-            sb.append(g.street()).append(", ");
-        }
-        sb.append(g.city());
-        if (!g.region().isBlank()) {
-            sb.append(", ").append(g.region());
-        }
-        if (!g.postalCode().isBlank()) {
-            sb.append(" ").append(g.postalCode());
-        }
-        if (!g.country().isBlank()) {
-            sb.append(", ").append(g.country());
-        }
-        return sb.toString();
+    private static String location(PlannedGatheringView g) {
+        return g.country().isBlank()
+                ? g.city()
+                : g.city() + ", " + g.country();
+    }
+
+    // Shown only once the grid stacks (see the media query); on a wide viewport the column header
+    // carries these labels instead.
+    private static DomContent legLabel(String text) {
+        return span(text).withClass("leg-label");
     }
 }

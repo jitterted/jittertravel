@@ -38,7 +38,8 @@ Detail lives in `Cleanup_Tasks.md`; this is the roll-call.
 
 | Item | What's left |
 |---|---|
-| `/booked-hotels` ignores `bookingIntent` | `open` — the list hardcodes "Tentative" for every row, so a FINAL booking is mislabelled on screen while its own edit form shows FINAL. Found 2026-08-13. |
+| `/booked-hotels` ignores `bookingIntent` | `done 2026-08-15` (`6df5f63`) — `BookedHotelsProjector` now threads the real intent from `HotelBooked`/`HotelChanged` into the view; FINAL bookings read FINAL. Promoted to `EventSourcingRulesHeuristics.md` R8. |
+| `ClearConflictController` POST error handling | `done 2026-08-15` (`6df5f63`) — malformed id / generic failure re-render the form via `bindingResult`; `ReadOnlyModeException` redirects to `/read-only`; summary rides as hidden inputs. Three mutation-verified `@WebMvcTest` cases. |
 | Mockito replacement | `open` — replace with better test doubles. |
 | Event-type filter on `/admin/eventlog` | `open` — the command-log filter is already done. |
 | `/admin/commandlog` "Out of order" badge | `open` — only detects divergence *within* a page; `PostgresPersister.loadTimelinePage` resets `runningMaxSeq` per call (`PostgresPersister.java:288`), so the first entry of any page can never be flagged. |

@@ -7,31 +7,6 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Open
 
-- [ ] **[HIGH PRIORITY] `ClearConflictController` POST has no error handling.**
-      `clearConflictSubmit` (`web/ClearConflictController.java`) parses two UUIDs and calls
-      `gatheringPlanning.clearConflict(...)`, then unconditionally `redirect:/schedule-problems`
-      — with no `try/catch`. A malformed id or any domain/`ReadOnlyModeException` becomes an
-      unhandled 500 with nothing rendered for the user. It's the only form controller with zero
-      error path (all others re-render their form via `bindingResult`; the four Change* edit
-      controllers were brought into line 2026-08-13). Fix: catch the expected failures and
-      re-render the `clear-conflict` form with the message (never redirect the error to the
-      view-only `/schedule-problems` page), per the rule that form-post errors render on the
-      form's own page. Add a `@WebMvcTest` proving the error renders on re-render, mutation-verified.
-- [ ] **`/booked-hotels` always badges "Tentative" — the booking's real `bookingIntent` is
-      discarded.** `BookedHotelsProjector.put` hardcodes `BookingIntent.TENTATIVE` into every
-      `BookedHotelView` (`BookedHotelsProjector.java:52`); its parameter list doesn't even accept
-      the intent, so `HotelBooked.bookingIntent()` / `HotelChanged.bookingIntent()` are dropped on
-      the floor. **This is wrong on screen today, not latent:** both `book-hotel.html` and
-      `change-hotel.html` offer a TENTATIVE/FINAL radio, the event records the choice faithfully,
-      and `HotelDetailsViewProjector` reads it back correctly — so the edit form shows FINAL while
-      the list next to it says "Tentative". `BookedHotelsRenderer.statusBadge`'s `status-final`
-      branch is consequently unreachable for live rows, which is why no test caught it: every
-      renderer test constructs its own view record, and `BookedHotelsProjectorTest`'s status
-      assertion happens to pass TENTATIVE in. Fix: thread the intent through `put` from both
-      events. Add a projector test that books a **FINAL** hotel and asserts the view's status
-      (mutation-verify by flipping the hardcode back), and note that
-      `hotelChangedOverwritesBookingUnderSameId` already changes intent to FINAL without asserting
-      it — that's the case to extend. Found 2026-08-13 while adding the cancelled tombstone row.
 - [ ] **GET stale-link not-found drops its flash on a view-only list.** The four edit-page GET
       handlers (`ChangeHotel`/`ChangeFlight`/`ChangeTrain`/`ChangeGathering`) redirect a not-found
       id to their view-only j2html list (`/booked-hotels`, `/booked-flights`, `/booked-trains`,
@@ -76,6 +51,24 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Done
 
+- [x] **`ClearConflictController` POST now has error handling** (2026-08-15, `6df5f63`).
+      `clearConflictSubmit` wraps the parse + `clearConflict(...)` in a `try/catch`: a malformed id
+      or generic append failure re-renders the `clear-conflict` form with a global error via
+      `bindingResult` (never redirecting the error to the view-only `/schedule-problems`), and
+      `ReadOnlyModeException` redirects to `/read-only`. The conflict-summary fields ride the POST as
+      hidden inputs so a rejected submit re-renders the summary intact. Three `@WebMvcTest` cases
+      (malformed id, service failure, read-only), all mutation-verified — including a hardened
+      assertion matching the visible `<strong>` summary markup, since the value also rides a hidden
+      input's `value=` and a bare substring check passed even with the visible summary broken.
+- [x] **`/booked-hotels` now shows the booking's real `bookingIntent`** (2026-08-15, `6df5f63`).
+      `BookedHotelsProjector.put` takes a `BookingIntent` and threads it from both
+      `HotelBooked.bookingIntent()` and `HotelChanged.bookingIntent()` into the view instead of
+      hardcoding `TENTATIVE`, so a FINAL booking no longer reads "Tentative" next to its own FINAL
+      edit form. New projector test books a FINAL hotel and asserts the view status;
+      `hotelChangedOverwritesBookingUnderSameId` was extended to assert the change to FINAL lands.
+      Both mutation-verified by reinstating the hardcode. Promoted to a rule in
+      `EventSourcingRulesHeuristics.md` (**R8**: a projector that derives a field must derive it
+      from the events, never ignore relevant data the events carry).
 - [x] **Dry-run validation for an import file** (2026-08-06). `CommandImporter.validateJson` runs
       pass one of the real import — deserialize every entry and recompute its events — and writes
       nothing, returning a `ValidationReport(validCount, errors)`. A "Validate only" button on

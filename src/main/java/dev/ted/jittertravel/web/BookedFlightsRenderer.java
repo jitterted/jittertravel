@@ -21,35 +21,28 @@ public class BookedFlightsRenderer {
     // history rows as their expand affordance. Times break between date and time (each a .nowrap
     // unit). No page ever scrolls sideways.
     //
-    // ONE grid owns the columns. .flight-cards defines the seven tracks; the header and every row
-    // inherit them with grid-template-columns: subgrid, so all columns are sized once from every
-    // row's content together and line up across rows. (Giving each row its own grid instead makes
-    // each size its fr tracks from just its own content, so the columns drift out of alignment —
-    // worst when the window is narrow and the leftover space that hides the difference is gone.)
-    // The tracks keep min-content minimums, so the unbreakable Route/Airline/Flight Number tokens
-    // never overflow.
-    //
-    // A history flight is a <details>; it is display: contents so its <summary> and its change list
-    // become DIRECT children of .flight-cards. The summary then subgrids one level (aligning like a
-    // plain row) and the list spans 1 / -1 at the top level. Nesting a subgrid inside the <details>
-    // instead left the list stuck in the first column in some browsers. Because display: contents
-    // removes the <details> box, its tint/border move onto the summary and list, and the list is
-    // explicitly hidden while closed (display: contents can otherwise leave it showing).
+    // Each row (and the header) is its own grid, but the column template is content-INDEPENDENT:
+    // minmax(<fixed>, <fr>) gives every track a fixed floor plus a flexible share, so all rows
+    // resolve to identical tracks and the columns line up across rows. (Plain fr tracks take an
+    // auto/min-content floor that differs per row, so their columns drift out of alignment — worst
+    // when the window narrows and the slack that hides the difference is gone.) The fixed floors are
+    // chosen to hold each column's widest value, so the unbreakable Route/Airline/Flight Number
+    // tokens never shrink below their text and overlap the next column; the floors total ~580px, so
+    // nothing overflows above the 640px collapse point either. .flight-cards stays a flex column, so
+    // a history flight's change list is just an ordinary full-width block under its summary.
     private static final String CSS = """
             .conference-container { margin: 2rem; padding: 0 1rem; }
             .flight-cards {
-                display: grid;
-                grid-template-columns: 2fr 2fr 1fr 2fr 1fr 28px auto;
-                column-gap: 0.75rem;
-                margin-top: 1rem;
+                display: flex; flex-direction: column; margin-top: 1rem;
                 background-color: var(--surface, #fff);
                 border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;
             }
             .flight-card-header, .flight-card-row {
-                grid-column: 1 / -1;
                 display: grid;
-                grid-template-columns: subgrid;
-                align-items: center; padding: 10px 16px;
+                grid-template-columns:
+                    minmax(5rem, 2fr) minmax(5rem, 2fr) minmax(4.5rem, 1fr)
+                    minmax(6rem, 2fr) minmax(4rem, 1fr) 28px 3.5rem;
+                align-items: center; gap: 0.75rem; padding: 10px 16px;
             }
             .flight-edit-link { font-size: 0.85rem; color: var(--accent-color); text-decoration: none; }
             .flight-edit-link:hover { text-decoration: underline; }
@@ -59,17 +52,13 @@ public class BookedFlightsRenderer {
                 font-size: 0.75rem; letter-spacing: 0.5px;
                 border-bottom: 1px solid var(--border-color);
             }
-            .flight-card { grid-column: 1 / -1; border-bottom: 1px solid var(--border-color); }
+            .flight-card { border-bottom: 1px solid var(--border-color); }
             .flight-card:last-child { border-bottom: none; }
-            .flight-card-has-history { display: contents; }
+            .flight-card-has-history { background-color: rgb(255 200 200 / 0.05); }
             div.flight-card-row:hover { background-color: var(--hover-bg); }
-            .flight-card-has-history > summary {
-                cursor: pointer; list-style: none;
-                background-color: rgb(255 200 200 / 0.05);
-            }
+            .flight-card-has-history > summary { cursor: pointer; list-style: none; }
             .flight-card-has-history > summary::-webkit-details-marker { display: none; }
             .flight-card-has-history > summary:hover { background-color: var(--hover-bg); }
-            .flight-card-has-history:not([open]) > summary { border-bottom: 1px solid var(--border-color); }
             .flight-card-chevron::before {
                 content: "⚡️"; color: var(--muted-text);
                 transition: transform 0.15s ease; display: inline-block;
@@ -78,13 +67,7 @@ public class BookedFlightsRenderer {
             div.flight-card-row > .flight-card-chevron::before,
             .flight-card-header > .flight-card-chevron::before { content: ""; }
             .flight-departure { font-weight: 500; }
-            .flight-history-list {
-                grid-column: 1 / -1;
-                background-color: rgb(255 200 200 / 0.05);
-                border-bottom: 1px solid var(--border-color);
-                margin: 0; padding: 0 16px 12px 3rem; list-style: disc; color: var(--muted-text); font-size: 0.9rem;
-            }
-            .flight-card-has-history:not([open]) > .flight-history-list { display: none; }
+            .flight-history-list { margin: 0; padding: 0 16px 12px 3rem; list-style: disc; color: var(--muted-text); font-size: 0.9rem; }
             .flight-history-list li { margin: 0.15rem 0; }
             .empty-state p { margin: 0.5rem 0; }
             /* Per-leg labels: hidden while the header row is visible, shown once the grid stacks. */
@@ -94,7 +77,6 @@ public class BookedFlightsRenderer {
                 letter-spacing: 0.5px; color: var(--muted-text);
             }
             @media (max-width: 640px) {
-                .flight-cards { grid-template-columns: 1fr; }
                 .flight-card-header { display: none; }
                 .flight-card-row {
                     grid-template-columns: 1fr;

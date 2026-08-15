@@ -74,12 +74,15 @@ public class BookedFlightsRenderer {
             .flight-card-header > .flight-card-chevron::before { content: ""; }
             .flight-departure { font-weight: 500; }
             /* Inside the summary's subgrid row; grid-column: 1 / -1 spans all seven columns, with
-               the entries stacking in its single implicit column. */
+               the entries stacking in its single implicit column. It lives in the summary (not as a
+               sibling) so it spans, but is hidden while the <details> is closed so the chevron still
+               shows/hides it — the summary click toggles [open] as usual. */
             .flight-history-list {
                 grid-column: 1 / -1;
                 display: grid;
                 margin: 0; padding: 4px 16px 12px 3rem; color: var(--muted-text); font-size: 0.9rem;
             }
+            .flight-card-has-history:not([open]) .flight-history-list { display: none; }
             .flight-history-list li { list-style: none; margin: 0.15rem 0; }
             .flight-history-list li::before { content: "\\2022"; margin-right: 0.6rem; color: var(--muted-text); }
             .empty-state p { margin: 0.5rem 0; }

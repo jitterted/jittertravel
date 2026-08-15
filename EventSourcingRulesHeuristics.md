@@ -249,3 +249,34 @@ flight number, conference name, etc.) rather than relying on global counts.
 All "concepts" are Entities with IDs, e.g., `flightId`, `trainId`, `conferenceId`, but are not further grouped into larger sets such as Aggregates.
 In event-sourcing as we prefer to dynamically combine events into pieces of state specifically needed to execute domain logic inside command's `execute` method.
 All queries are done without entities, making the rigid grouping that Aggregates provide unnecessary.
+
+### H8. Projecting a read model and filtering one are different operations — keep them apart.
+
+Two things a projector does that are easy to conflate (this is the working
+distinction behind R9):
+
+- **Projecting** *builds* the read model from events. It runs in `handle(...)`,
+  once per handled batch, and depends only on the events. What it maintains is the
+  **whole** model — every booked hotel, every schedule problem.
+- **Filtering / selecting** *narrows* that maintained model at read time, using
+  **select criteria supplied by the caller**. Most often the criterion is the
+  current time (`views(TimeView, now)`), but not always: it can be the viewer's
+  identity, a requested date (`ItineraryProjector.entriesForDate(date)`), or a
+  standing predicate over the view records' own fields
+  (`TentativeConferenceProjector.migratableViews()` = the single-day conferences).
+  A filter reads the already-projected records; it never re-derives them from events.
+
+The test for which one you are looking at: **does the read method run the domain
+logic that *produces* the records, or does it just *choose among* records already
+produced?** Choosing among them — by time, viewer, date, or a predicate on their
+fields — is a legitimate query on the read model. Re-running the production logic
+on read is the R9 violation `ScheduleGapProjector.problems()` committed: the gap /
+conflict / missing-hotel detection is *projection* work (it belongs in `handle`),
+not a filter.
+
+Practical consequence, and why the two never blur in the code: a filter's select
+criteria are **not events**, so per R4/R9 they enter at the boundary and are passed
+in on read (`now`, viewer, date) — never folded from the stream. If a "filter"
+needs no such caller-supplied criterion and instead recomputes from the
+event-shaped state, it is projection wearing a filter's clothes — move it into
+`handle`.

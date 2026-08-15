@@ -14,13 +14,17 @@ write path. Even when subscribers are synchronous today (as in this codebase),
 that is an implementation detail — replays, retries, async transports, or
 multi-node deployments can introduce staleness. Read-side state must never be
 the source of truth for "should this command be allowed / what events should
-I emit?". To decide, fold from the authoritative event stream.
+I emit?". To decide, fold from the authoritative event stream using a
+"strongly-consistent decision query".
 
 ### R2. Events are immutable, in the domain, and implement `Event`.
 
-Domain events live in `dev.ted.jittertravel.domain` as Java `record`s that
+Events live in `dev.ted.jittertravel.domain` as Java `record`s that
 implement the `Event` marker interface. Once written, an event is never edited
 or deleted — corrections happen by emitting a new compensating event.
+Note that these are not *Domain Events* in the sense of Domain-Driven Design,
+but are private to this Bounded Context and are not to be accessed from,
+nor published to, any external module or process.
 
 ### R3. Commands are pure domain functions.
 
@@ -135,16 +139,25 @@ type — that always requires human judgment).
 
 ## Heuristics (prefer, with reason)
 
-### H1. Prefer full-snapshot events over deltas when feasible.
+### H1. Prefer the smallest delta events over full-snapshot deltas when feasible.
 
-A "FlightChanged" carrying the complete new field set lets every consumer
-overwrite the row keyed by the aggregate id — no merge logic in projections,
-no order-sensitivity, easier to reason about replay.
+While a "FlightChanged" carrying the complete new field set lets every consumer
+overwrite the row keyed by the flight's ID, it unnecessarily increases the cost
+of storage and applying of events (fold). It also makes it more difficult to see
+the actual change that the event represents.
+
+While the current implementation of JitterTravel has used large events,
+which are very CRUD-like, this is due to the edit screens being generic,
+allowing any kind of change (e.g., FlightChanged instead of FlightDepartureTimeChanged)
+and not because it represents a best-practice for Event-Sourcing.
+
+Therefore, more events that are more fine-grained are preferred over larger
+CRUD-like events.
 
 ### H2. One projector per web view.
 
 Don't share a projector across views. Each projector shapes / pre-formats data
-for exactly one view, so the web layer stays presentation-only and projectors
+for exactly one view, so the web layer stays presentation-only, and projectors
 can evolve independently.
 
 ### H3. DTOs in `web`, view records in `application`.
@@ -154,9 +167,9 @@ Read-model / view records (`BookedFlightView`, `CalendarEntry`) live in
 `dev.ted.jittertravel.application`. View records carry pre-formatted strings
 ready for the template — no formatting logic in templates or controllers.
 
-### H4. Use the aggregate id as the command id.
+### H4. Use the entity id as the command id.
 
-The aggregate id (e.g., `flightId`, `conferenceId`) is also the command id
+The entity id (e.g., `flightId`, `conferenceId`) is also the command id
 recorded in the WAL. This gives natural idempotency on re-submission and ties
 the command back to the entity it acts on.
 
@@ -172,3 +185,9 @@ is just a special case of "events happened".
 Only the DB is truncated between tests; the in-process `EventStore` is reused.
 Write integration-test assertions to be **specific** (filter by a unique
 flight number, conference name, etc.) rather than relying on global counts.
+
+### H7. There are no aggregates in this application
+
+All "concepts" are Entities with IDs, e.g., `flightId`, `trainId`, `conferenceId`, but are not further grouped into larger sets such as Aggregates.
+In event-sourcing as we prefer to dynamically combine events into pieces of state specifically needed to execute domain logic inside command's `execute` method.
+All queries are done without entities, making the rigid grouping that Aggregates provide unnecessary.

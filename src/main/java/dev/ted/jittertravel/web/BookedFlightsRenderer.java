@@ -26,9 +26,10 @@ public class BookedFlightsRenderer {
     // grid-template-columns: subgrid, so all columns are sized once from every row's content
     // together and line up across rows — with min-content floors, so no cell overflows into the
     // next. (Separate per-row grids drift out of alignment; fixed floors instead let wide content
-    // overflow and overlap.) The change list must span every column: a plain block spanning
-    // 1 / -1 stayed stuck in the first column, but a grid item does span (the summary row proves
-    // it), so the list is display: grid and spans reliably.
+    // overflow and overlap.) A history flight's change list lives INSIDE its <summary> (the grid
+    // row that already spans all seven columns), so the list — grid-column: 1 / -1 within that same
+    // subgrid row — spans every column too. As a sibling of the summary it stayed in the first
+    // column instead.
     private static final String CSS = """
             .conference-container { margin: 2rem; padding: 0 1rem; }
             .flight-cards {
@@ -72,8 +73,8 @@ public class BookedFlightsRenderer {
             div.flight-card-row > .flight-card-chevron::before,
             .flight-card-header > .flight-card-chevron::before { content: ""; }
             .flight-departure { font-weight: 500; }
-            /* display: grid (not a plain block) so grid-column: 1 / -1 actually spans every column,
-               the way the summary row does; the entries stack in its single implicit column. */
+            /* Inside the summary's subgrid row; grid-column: 1 / -1 spans all seven columns, with
+               the entries stacking in its single implicit column. */
             .flight-history-list {
                 grid-column: 1 / -1;
                 display: grid;
@@ -149,11 +150,16 @@ public class BookedFlightsRenderer {
     private static DomContent renderFlightCard(BookedFlightView flight) {
         String changeUrl = "/booked-flights/" + flight.flightId().id();
         if (flight.hasChanges()) {
+            // The change list lives inside the <summary> — the grid row that already spans and
+            // aligns the seven columns — so the list (grid-column: 1 / -1 within that same subgrid
+            // row) spans every column too. As a sibling of the summary it stayed stuck in the first
+            // column.
             return details().withClass("flight-card flight-card-has-history").with(
-                    summary().withClass("flight-card-row").with(rowCells(flight, changeUrl)),
-                    ul().withClass("flight-history-list").with(
-                            each(flight.history(), entry -> li(entry.displayText()))
-                    )
+                    summary().withClass("flight-card-row")
+                            .with(rowCells(flight, changeUrl))
+                            .with(ul().withClass("flight-history-list").with(
+                                    each(flight.history(), entry -> li(entry.displayText()))
+                            ))
             );
         }
         return div().withClass("flight-card flight-card-row").with(rowCells(flight, changeUrl));

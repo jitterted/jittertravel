@@ -97,9 +97,31 @@ class BookedTrainsRendererTest {
 
         String html = BookedTrainsRenderer.render(List.of(train), TimeView.FUTURE);
 
+        // Date and time are separate .nowrap spans so a narrow cell breaks only between them
+        // (never mid-value); there is no longer a comma joining date and time.
         assertThat(html)
-                .contains("Tue, Jun 9, 9:00 AM")
-                .contains("Tue, Jun 9, 1:00 PM");
+                .contains("<span class=\"nowrap\">Tue, Jun 9</span>")
+                .contains("<span class=\"nowrap\">9:00 AM</span>")
+                .contains("<span class=\"nowrap\">1:00 PM</span>");
+    }
+
+    @Test
+    void narrowViewportCollapsesTheGridWithoutHorizontalScroll() {
+        BookedTrainView train = trainView("London Euston", "London", "",
+                "Manchester Piccadilly", "Manchester", "");
+
+        String html = BookedTrainsRenderer.render(List.of(train), TimeView.FUTURE);
+
+        // No page may ever scroll sideways: the width cap is gone and the grid collapses to a
+        // single stacked column under a media query, revealing per-leg labels (hidden on desktop,
+        // where the column header carries them) so the stacked cells stay unambiguous.
+        assertThat(html)
+                .doesNotContain("max-width: 140ch")
+                .contains("grid-template-columns: 1fr")
+                .contains("<span class=\"leg-label\">Departure</span>")
+                .contains("<span class=\"leg-label\">Departs</span>")
+                .contains("<span class=\"leg-label\">Arrival</span>")
+                .contains("<span class=\"leg-label\">Arrives</span>");
     }
 
     @Test

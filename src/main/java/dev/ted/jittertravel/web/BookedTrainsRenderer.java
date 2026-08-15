@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedTrainView;
 import dev.ted.jittertravel.application.TimeView;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
 
 import java.util.List;
@@ -10,10 +11,16 @@ import static j2html.TagCreator.*;
 
 public class BookedTrainsRenderer {
 
-    private static final String DATE_DISPLAY_PATTERN = "EEE, MMM d, h:mm a";
+    private static final String DATE_PATTERN = "EEE, MMM d";
+    private static final String TIME_PATTERN = "h:mm a";
 
+    // No container max-width, and the grid collapses instead of scrolling. On a wide viewport the
+    // five columns sit side by side; below 640px they stack into one column (min-width: 0 lets each
+    // cell shrink and wrap rather than force the row wide), the column header is hidden, and each
+    // stacked cell shows its own leg label so Departure/Departs/Arrival/Arrives stay unambiguous.
+    // The times break between date and time (each a .nowrap unit). No page ever scrolls sideways.
     private static final String CSS = """
-            .trains-container { max-width: 140ch; margin: 2rem; }
+            .trains-container { margin: 2rem; padding: 0 1rem; }
             .train-cards {
                 display: flex; flex-direction: column; margin-top: 1rem;
                 background-color: var(--surface, #fff);
@@ -24,6 +31,7 @@ public class BookedTrainsRenderer {
                 grid-template-columns: 2fr 1fr 2fr 1fr auto;
                 align-items: center; gap: 0.75rem; padding: 10px 16px;
             }
+            .train-card-row > * { min-width: 0; }
             .train-edit-link { font-size: 0.85rem; color: var(--accent-color, #0a58ca); text-decoration: none; }
             .train-edit-link:hover { text-decoration: underline; }
             .train-card-header {
@@ -37,6 +45,21 @@ public class BookedTrainsRenderer {
             .train-card-row:hover { background-color: var(--hover-bg, #f8f9fa); }
             .station-name { font-weight: 500; }
             .station-city { font-size: 0.85rem; color: var(--muted-text, #6c757d); }
+            /* Per-leg labels: hidden while the header row is visible, shown once the grid stacks. */
+            .leg-label {
+                display: none;
+                font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+                letter-spacing: 0.5px; color: var(--muted-text, #6c757d);
+            }
+            @media (max-width: 640px) {
+                .train-card-header { display: none; }
+                .train-card-row {
+                    grid-template-columns: 1fr;
+                    align-items: start; gap: 0.15rem;
+                }
+                .leg-label { display: block; margin-top: 0.5rem; }
+                .train-card-row > .train-edit-link { justify-self: start; margin-top: 0.6rem; }
+            }
             """;
 
     public static String render(List<BookedTrainView> trains, TimeView activeFilter) {
@@ -81,22 +104,40 @@ public class BookedTrainsRenderer {
         return div().withClass("train-card").with(
                 div().withClass("train-card-row").with(
                         div().with(
+                                legLabel("Departure"),
                                 stationNameElement(train.departureStationName(), train.departureMapsUrl()),
                                 div(train.departureCity()).withClass("station-city"),
                                 train.serviceId().isEmpty()
                                         ? span()
                                         : div(train.serviceId()).withClass("station-city")
                         ),
-                        div(ZonedTimeTag.render(train.departureDateTime(), DATE_DISPLAY_PATTERN)),
                         div().with(
+                                legLabel("Departs"),
+                                dateTime(train.departureDateTime())
+                        ),
+                        div().with(
+                                legLabel("Arrival"),
                                 stationNameElement(train.arrivalStationName(), train.arrivalMapsUrl()),
                                 div(train.arrivalCity()).withClass("station-city")
                         ),
-                        div(ZonedTimeTag.render(train.arrivalDateTime(), DATE_DISPLAY_PATTERN)),
+                        div().with(
+                                legLabel("Arrives"),
+                                dateTime(train.arrivalDateTime())
+                        ),
                         a("Edit").withClass("train-edit-link")
                                 .withHref("/booked-trains/" + train.tripId().id())
                 )
         );
+    }
+
+    // Shown only once the grid stacks (see the media query); on a wide viewport the column header
+    // carries these labels instead.
+    private static DomContent legLabel(String text) {
+        return span(text).withClass("leg-label");
+    }
+
+    private static DomContent dateTime(ZonedTimestamp when) {
+        return ZonedTimeTag.renderDateTimeStacking(when, DATE_PATTERN, TIME_PATTERN);
     }
 
     private static DomContent stationNameElement(String name, String mapsUrl) {

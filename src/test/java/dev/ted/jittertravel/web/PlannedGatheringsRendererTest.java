@@ -119,6 +119,19 @@ class PlannedGatheringsRendererTest {
     }
 
     @Test
+    void cardsFillTheWidthAndCollapseOnNarrowViewportsWithoutHorizontalScroll() {
+        String html = PlannedGatheringsRenderer.render(List.of(
+                view("Some Meetup", "Venue", "City", "US", false, "")
+        ), TimeView.FUTURE);
+
+        // No width cap, and the fixed date column collapses to a single stacked column on narrow
+        // screens so the details never get squeezed into a sliver (which would risk overflow).
+        assertThat(html)
+                .doesNotContain("max-width: 800px")
+                .contains("grid-template-columns: 1fr");
+    }
+
+    @Test
     void eachCardLinksToItsEditPage() {
         GatheringId gatheringId = GatheringId.random();
         PlannedGatheringView gathering = new PlannedGatheringView(

@@ -13,8 +13,11 @@ public class PlannedGatheringsRenderer {
     private static final String DATE_FORMAT = "EEE, MMM d, yyyy";
     private static final String TIME_FORMAT = "h:mm a";
 
+    // No .page max-width: the list fills the centered page width like the other list views. Each
+    // card is a two-column grid (a fixed date column beside the details); below 640px that would
+    // squeeze the details into a sliver, so the card collapses to a single column with the date
+    // stacked above the details. Nothing is capped and nothing scrolls sideways.
     private static final String CSS = """
-                .page { max-width: 800px; }
                 .gathering-list { display: flex; flex-direction: column; gap: 0.75rem; }
                 .gathering-card {
                     border-left: 4px solid #7c3aed;
@@ -25,6 +28,9 @@ public class PlannedGatheringsRenderer {
                     grid-template-columns: 10rem 1fr;
                     gap: 0 1rem;
                     align-items: start;
+                }
+                @media (max-width: 640px) {
+                    .gathering-card { grid-template-columns: 1fr; gap: 0.35rem 0; }
                 }
                 .gathering-date { font-size: 0.8rem; font-weight: 700; color: #5b21b6; }
                 .gathering-time { font-size: 0.8rem; color: #6d28d9; margin-top: 0.1rem; }

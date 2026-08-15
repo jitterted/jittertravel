@@ -44,9 +44,13 @@ class BookedFlightsRendererTest {
                 viewWithoutChanges("Sat, Jun 6, 1:55 PM", "SFO→FRA", "United", "UA59")
         ), TimeView.FUTURE);
 
+        // Date and time are separate .nowrap spans so a narrow cell breaks only between them
+        // (never mid-value); there is no longer a comma joining date and time.
         assertThat(html)
-                .contains("Sat, Jun 6, 1:55 PM")
-                .contains("Sun, Jun 7, 9:45 AM")
+                .contains("<span class=\"nowrap\">Sat, Jun 6</span>")
+                .contains("<span class=\"nowrap\">1:55 PM</span>")
+                .contains("<span class=\"nowrap\">Sun, Jun 7</span>")
+                .contains("<span class=\"nowrap\">9:45 AM</span>")
                 .contains("SFO→FRA")
                 .contains("United")
                 .contains("UA59");
@@ -60,8 +64,28 @@ class BookedFlightsRendererTest {
         ), TimeView.FUTURE);
 
         assertThat(html)
-                .contains("Sun, Jun 7, 9:45 AM")
+                .contains("<span class=\"nowrap\">Sun, Jun 7</span>")
                 .contains("<a class=\"flight-edit-link\" href=\"/booked-flights/" + flightId.id() + "\">Edit</a>");
+    }
+
+    @Test
+    void narrowViewportCollapsesTheGridWithoutHorizontalScroll() {
+        String html = BookedFlightsRenderer.render(List.of(
+                viewWithoutChanges("Sat, Jun 6, 1:55 PM", "SFO→FRA", "United", "UA59")
+        ), TimeView.FUTURE);
+
+        // No page may ever scroll sideways: the width cap is gone and the seven-column grid
+        // collapses to a single stacked column under a media query, revealing per-leg labels
+        // (hidden on desktop, where the column header carries them) so the stacked cells stay
+        // unambiguous.
+        assertThat(html)
+                .doesNotContain("max-width: 100ch")
+                .contains("grid-template-columns: 1fr")
+                .contains("<span class=\"leg-label\">Departure</span>")
+                .contains("<span class=\"leg-label\">Arrival</span>")
+                .contains("<span class=\"leg-label\">Route</span>")
+                .contains("<span class=\"leg-label\">Airline</span>")
+                .contains("<span class=\"leg-label\">Flight Number</span>");
     }
 
     @Test

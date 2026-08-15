@@ -14,7 +14,7 @@ public class PlannedGatheringsRenderer {
     private static final String DATE_FORMAT = "EEE, MMM d, yyyy";
     private static final String TIME_FORMAT = "h:mm a";
 
-    // A columned table like the other list views (When / Gathering / Venue / Location / actions).
+    // A columned table like the other list views: When / Speaking / Gathering / Venue / actions.
     // ONE grid owns the columns: .gathering-list defines the five tracks and the header and every
     // row inherit them via grid-template-columns: subgrid, so the columns line up across rows with
     // min-content floors (aligned, no overflow). No .page max-width — it fills the centered page
@@ -23,7 +23,7 @@ public class PlannedGatheringsRenderer {
     private static final String CSS = """
                 .gathering-list {
                     display: grid;
-                    grid-template-columns: auto 2fr 1.5fr 1fr auto;
+                    grid-template-columns: auto auto 2fr 2fr auto;
                     column-gap: 0.75rem;
                     margin-top: 1rem;
                     background: var(--surface, #fff);
@@ -46,9 +46,8 @@ public class PlannedGatheringsRenderer {
                 .gathering-row:hover { background: var(--hover-bg); }
                 .gathering-when-date { font-weight: 700; color: #5b21b6; white-space: nowrap; }
                 .gathering-when-time { color: #6d28d9; font-size: 0.85rem; white-space: nowrap; margin-top: 0.1rem; }
-                .gathering-title-cell { display: flex; flex-direction: column; gap: 0.25rem; align-items: start; }
                 .gathering-title { font-weight: 700; }
-                .gathering-venue, .gathering-location { color: var(--muted-text); }
+                .gathering-venue-address { font-size: 0.82rem; color: var(--muted-text); margin-top: 0.1rem; }
                 .badge-speaking {
                     display: inline-block;
                     font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
@@ -97,7 +96,7 @@ public class PlannedGatheringsRenderer {
     private static DomContent renderList(List<PlannedGatheringView> gatherings) {
         return div().withClass("gathering-list").with(
                 div().withClass("gathering-header").with(
-                        span("When"), span("Gathering"), span("Venue"), span("Location"), span()
+                        span("When"), span("Speaking"), span("Gathering"), span("Venue"), span()
                 ),
                 each(gatherings, PlannedGatheringsRenderer::renderRow)
         );
@@ -106,9 +105,9 @@ public class PlannedGatheringsRenderer {
     private static DomContent renderRow(PlannedGatheringView g) {
         return div().withClass("gathering-row").with(
                 whenCell(g),
+                speakingCell(g),
                 titleCell(g),
-                div().withClass("gathering-venue").with(legLabel("Venue"), text(g.venueName())),
-                div().withClass("gathering-location").with(legLabel("Location"), text(location(g))),
+                venueCell(g),
                 actionsCell(g)
         );
     }
@@ -127,13 +126,30 @@ public class PlannedGatheringsRenderer {
         );
     }
 
+    // Its own column; empty when Ted is only attending, so the badge alone reads as "Speaking".
+    private static DomContent speakingCell(PlannedGatheringView g) {
+        DivTag cell = div();
+        if (g.speaking()) {
+            cell.with(span("Speaking").withClass("badge-speaking"));
+        }
+        return cell;
+    }
+
     private static DomContent titleCell(PlannedGatheringView g) {
-        DivTag cell = div().withClass("gathering-title-cell").with(
+        return div().with(
                 legLabel("Gathering"),
                 div(g.title()).withClass("gathering-title")
         );
-        if (g.speaking()) {
-            cell.with(span("Speaking").withClass("badge-speaking"));
+    }
+
+    private static DomContent venueCell(PlannedGatheringView g) {
+        DivTag cell = div().with(legLabel("Venue"));
+        if (!g.venueName().isBlank()) {
+            cell.with(div(g.venueName()).withClass("gathering-venue-name"));
+        }
+        String address = buildAddress(g);
+        if (!address.isBlank()) {
+            cell.with(div(address).withClass("gathering-venue-address"));
         }
         return cell;
     }
@@ -151,10 +167,23 @@ public class PlannedGatheringsRenderer {
         return cell;
     }
 
-    private static String location(PlannedGatheringView g) {
-        return g.country().isBlank()
-                ? g.city()
-                : g.city() + ", " + g.country();
+    // Everything below the venue name: street, city, region, postal, country — blanks skipped.
+    private static String buildAddress(PlannedGatheringView g) {
+        StringBuilder sb = new StringBuilder();
+        if (!g.street().isBlank()) {
+            sb.append(g.street()).append(", ");
+        }
+        sb.append(g.city());
+        if (!g.region().isBlank()) {
+            sb.append(", ").append(g.region());
+        }
+        if (!g.postalCode().isBlank()) {
+            sb.append(" ").append(g.postalCode());
+        }
+        if (!g.country().isBlank()) {
+            sb.append(", ").append(g.country());
+        }
+        return sb.toString();
     }
 
     // Shown only once the grid stacks (see the media query); on a wide viewport the column header

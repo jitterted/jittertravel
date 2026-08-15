@@ -72,7 +72,9 @@ class PlannedGatheringsRendererTest {
                 view("Some Meetup", "Venue", "City", "US", true, "")
         ), TimeView.FUTURE);
 
-        assertThat(html).contains("Speaking");
+        // Assert on the badge itself, not the bare word: the column header is labelled "Speaking"
+        // too, so the word alone is always present.
+        assertThat(html).contains("<span class=\"badge-speaking\">Speaking</span>");
     }
 
     @Test
@@ -97,7 +99,9 @@ class PlannedGatheringsRendererTest {
                 view("Some Meetup", "Venue", "City", "US", false, "")
         ), TimeView.FUTURE);
 
-        assertThat(html).doesNotContain("Speaking");
+        // The column header still says "Speaking" and the CSS defines .badge-speaking, so match the
+        // badge ELEMENT: it must be absent.
+        assertThat(html).doesNotContain("<span class=\"badge-speaking\">");
     }
 
     @Test

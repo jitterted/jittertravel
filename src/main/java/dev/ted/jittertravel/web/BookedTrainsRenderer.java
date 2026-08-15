@@ -20,21 +20,26 @@ public class BookedTrainsRenderer {
     // stay unambiguous. The times break between date and time (each a .nowrap unit). No page ever
     // scrolls sideways.
     //
-    // Tracks keep their default min-width: auto (min-content): a station name can be a single
-    // unbreakable word, so forcing min-width: 0 would let a squeezed track shrink narrower than its
-    // text and spill it into the next column. Left at min-content the row still fits above the 640px
-    // collapse point, so nothing overlaps and nothing scrolls in the band between.
+    // ONE grid owns the columns: .train-cards defines the five tracks and the header and every row
+    // inherit them with grid-template-columns: subgrid, so all columns are sized once from every
+    // row's content together and line up across rows — with min-content floors, so a long station
+    // name never overflows into the next column. (Separate per-row grids size their tracks from
+    // their own content and drift out of alignment.)
     private static final String CSS = """
             .trains-container { margin: 2rem; padding: 0 1rem; }
             .train-cards {
-                display: flex; flex-direction: column; margin-top: 1rem;
+                display: grid;
+                grid-template-columns: 2fr 1fr 2fr 1fr auto;
+                column-gap: 0.75rem;
+                margin-top: 1rem;
                 background-color: var(--surface, #fff);
                 border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;
             }
             .train-card-header, .train-card-row {
+                grid-column: 1 / -1;
                 display: grid;
-                grid-template-columns: 2fr 1fr 2fr 1fr auto;
-                align-items: center; gap: 0.75rem; padding: 10px 16px;
+                grid-template-columns: subgrid;
+                align-items: center; padding: 10px 16px;
             }
             .train-edit-link { font-size: 0.85rem; color: var(--accent-color, #0a58ca); text-decoration: none; }
             .train-edit-link:hover { text-decoration: underline; }
@@ -44,7 +49,7 @@ public class BookedTrainsRenderer {
                 font-size: 0.75rem; letter-spacing: 0.5px;
                 border-bottom: 1px solid var(--border-color, #dee2e6);
             }
-            .train-card { border-bottom: 1px solid var(--border-color, #dee2e6); }
+            .train-card { grid-column: 1 / -1; border-bottom: 1px solid var(--border-color, #dee2e6); }
             .train-card:last-child { border-bottom: none; }
             .train-card-row:hover { background-color: var(--hover-bg, #f8f9fa); }
             .station-name { font-weight: 500; }
@@ -56,6 +61,7 @@ public class BookedTrainsRenderer {
                 letter-spacing: 0.5px; color: var(--muted-text, #6c757d);
             }
             @media (max-width: 640px) {
+                .train-cards { grid-template-columns: 1fr; }
                 .train-card-header { display: none; }
                 .train-card-row {
                     grid-template-columns: 1fr;
@@ -104,33 +110,34 @@ public class BookedTrainsRenderer {
         );
     }
 
+    // .train-card and .train-card-row are the same element: the row is a direct child of the
+    // .train-cards grid so it can inherit the columns via subgrid, and .train-card gives it the
+    // separating border.
     private static DomContent renderTrainCard(BookedTrainView train) {
-        return div().withClass("train-card").with(
-                div().withClass("train-card-row").with(
-                        div().with(
-                                legLabel("Departure"),
-                                stationNameElement(train.departureStationName(), train.departureMapsUrl()),
-                                div(train.departureCity()).withClass("station-city"),
-                                train.serviceId().isEmpty()
-                                        ? span()
-                                        : div(train.serviceId()).withClass("station-city")
-                        ),
-                        div().with(
-                                legLabel("Departs"),
-                                dateTime(train.departureDateTime())
-                        ),
-                        div().with(
-                                legLabel("Arrival"),
-                                stationNameElement(train.arrivalStationName(), train.arrivalMapsUrl()),
-                                div(train.arrivalCity()).withClass("station-city")
-                        ),
-                        div().with(
-                                legLabel("Arrives"),
-                                dateTime(train.arrivalDateTime())
-                        ),
-                        a("Edit").withClass("train-edit-link")
-                                .withHref("/booked-trains/" + train.tripId().id())
-                )
+        return div().withClass("train-card train-card-row").with(
+                div().with(
+                        legLabel("Departure"),
+                        stationNameElement(train.departureStationName(), train.departureMapsUrl()),
+                        div(train.departureCity()).withClass("station-city"),
+                        train.serviceId().isEmpty()
+                                ? span()
+                                : div(train.serviceId()).withClass("station-city")
+                ),
+                div().with(
+                        legLabel("Departs"),
+                        dateTime(train.departureDateTime())
+                ),
+                div().with(
+                        legLabel("Arrival"),
+                        stationNameElement(train.arrivalStationName(), train.arrivalMapsUrl()),
+                        div(train.arrivalCity()).withClass("station-city")
+                ),
+                div().with(
+                        legLabel("Arrives"),
+                        dateTime(train.arrivalDateTime())
+                ),
+                a("Edit").withClass("train-edit-link")
+                        .withHref("/booked-trains/" + train.tripId().id())
         );
     }
 

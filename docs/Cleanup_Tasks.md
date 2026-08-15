@@ -14,17 +14,6 @@ plan doc and its status — including these items — see `Backlog.md`.
       silently dropped. Not a form-post error (it's following a stale edit link for something
       already gone), so left as-is 2026-08-13 — but the dead flash is pointless. Either drop the
       flash and navigate to the list silently, or give "this booking no longer exists" a real page.
-- [ ] **Give the other list views the same responsive, no-horizontal-scroll treatment as
-      `/booked-hotels`.** `booked-flights`, `booked-trains`, `planned-gatherings` and
-      `tentative-conferences` renderers still use the old pattern — a `.page` `max-width` cap plus
-      `white-space: nowrap` cells — so on a narrow viewport (iPad portrait) their tables can
-      overflow and force a horizontal scrollbar. No page may ever scroll horizontally. Apply the
-      `BookedHotelsRenderer` fix to each: drop the `.page` max-width (let it fill the centered
-      space), remove the blanket cell `nowrap`, and split wide cells into no-break units that stack
-      when squeezed — City/Country as two `.nowrap` spans, date/time via
-      `ZonedTimeTag.renderDateTimeStacking` (date + time as two `.nowrap` spans in one `<time>`),
-      and row actions as inline links that wrap. `.nowrap` is already a shared utility in
-      `site.css`. Update each renderer's exact-markup tests and mutation-verify.
 - [ ] **Make the "Schedule problems" nav card state-aware** (`index.html`, OWNER Admin group).
       Today the card is always amber (`background: #fef3c7; border-color: #d97706`) with a static
       "Missing travel & hotels" subtitle. Instead: amber **only when there are actual problems**,
@@ -51,6 +40,20 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Done
 
+- [x] **Responsive, no-horizontal-scroll treatment on the other list views** (2026-08-15).
+      `/tentative-conferences` (`995caab`), `/booked-trains` (`86af549`, `9bb5245`, `bebf6e6`),
+      `/booked-flights` (`b6c5f92`, `9bb5245`, `370c33a`, `c67444f`, `1027144`, `46e39e6` superseded)
+      and `/planned-gatherings` (`375761e`, `8c558ac`, `0755edd`). Dropped every `.page`/container
+      `max-width` cap and the `overflow-x` scroller; date/time uses
+      `ZonedTimeTag.renderDateTimeStacking`. The grid views (flights, trains, conferences,
+      gatherings) were unified on **one grid + `grid-template-columns: subgrid`** so columns align
+      across rows with min-content floors (no drift, no overlap), collapsing to a single stacked
+      column with per-column leg labels below 640px. Flights keep the change-history disclosure by
+      putting the list inside the `<summary>` (so it spans all columns) and hiding it while closed.
+      `/planned-gatherings` was additionally reshaped from cards into a
+      When/Speaking/Gathering/Venue/actions table. Each renderer's exact-markup tests updated and
+      mutation-verified. Note: the `minmax(fixed, fr)` and plain-`min-width:0` attempts were tried
+      and rejected (overlap / drift) — subgrid is the chosen approach.
 - [x] **`ClearConflictController` POST now has error handling** (2026-08-15, `6df5f63`).
       `clearConflictSubmit` wraps the parse + `clearConflict(...)` in a `try/catch`: a malformed id
       or generic append failure re-renders the `clear-conflict` form with a global error via

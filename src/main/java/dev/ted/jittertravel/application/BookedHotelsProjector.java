@@ -27,9 +27,9 @@ public class BookedHotelsProjector implements EventStreamConsumer {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
                 case HotelBooked e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
-                        e.checkIn(), e.checkOut(), e.mapsUrl(), e.cancelBy());
+                        e.checkIn(), e.checkOut(), e.bookingIntent(), e.mapsUrl(), e.cancelBy());
                 case HotelChanged e -> put(e.hotelBookingId(), e.hotelName(), e.address(),
-                        e.checkIn(), e.checkOut(), e.mapsUrl(), e.cancelBy());
+                        e.checkIn(), e.checkOut(), e.bookingIntent(), e.mapsUrl(), e.cancelBy());
                 // Alone among the hotel read models, this one keeps a tombstone instead of
                 // removing: /booked-hotels is where you go to see that the cancellation landed.
                 case HotelBookingCancelled e -> viewsById.computeIfPresent(e.hotelBookingId(),
@@ -40,8 +40,8 @@ public class BookedHotelsProjector implements EventStreamConsumer {
     }
 
     private void put(HotelBookingId hotelBookingId, String hotelName, Address address,
-                     ZonedTimestamp checkIn, ZonedTimestamp checkOut, String rawMapsUrl,
-                     ZonedTimestamp cancelBy) {
+                     ZonedTimestamp checkIn, ZonedTimestamp checkOut, BookingIntent bookingIntent,
+                     String rawMapsUrl, ZonedTimestamp cancelBy) {
         String mapsUrl = rawMapsUrl.isBlank()
                 ? AddressRenderer.mapsUrl(hotelName, address)
                 : rawMapsUrl;
@@ -52,7 +52,7 @@ public class BookedHotelsProjector implements EventStreamConsumer {
                 address.country(),
                 checkIn,
                 checkOut,
-                BookingIntent.TENTATIVE,
+                bookingIntent,
                 mapsUrl,
                 cancelBy,
                 false,  // resolved against `now` in views(...), which is where the clock arrives

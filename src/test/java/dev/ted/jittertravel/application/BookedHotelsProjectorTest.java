@@ -41,6 +41,18 @@ class BookedHotelsProjectorTest {
     }
 
     @Test
+    void hotelBookedAsFinalKeepsFinalStatus() {
+        BookedHotelsProjector projector = new BookedHotelsProjector();
+
+        projector.handle(Stream.of(stored(sampleHotelBooked(BookingIntent.FINAL))));
+
+        assertThat(projector.views(TimeView.ALL, NOW))
+                .singleElement()
+                .extracting(BookedHotelView::status)
+                .isEqualTo(BookingIntent.FINAL);
+    }
+
+    @Test
     void futureFilterKeepsInProgressStayButDropsCheckedOutStay() {
         BookedHotelsProjector projector = new BookedHotelsProjector();
         LocalDateTime now = LocalDateTime.of(2026, 6, 15, 12, 0);
@@ -113,6 +125,9 @@ class BookedHotelsProjectorTest {
                 .isEqualTo(CHECK_IN.plusDays(10));
         assertThat(view.checkOut().localDateTime())
                 .isEqualTo(CHECK_OUT.plusDays(11));
+        assertThat(view.status())
+                .as("the change finalized the booking, so the list must stop saying Tentative")
+                .isEqualTo(BookingIntent.FINAL);
     }
 
     @Test

@@ -56,6 +56,13 @@
         }
         .hint { font-size: 0.75rem; color: var(--muted-text); margin-top: 2px; }
 
+        .global-errors {
+            margin: 0 0 1rem;
+            padding-left: 1.2rem;
+            font-size: 0.8rem;
+            color: #b00;
+        }
+
         button[type=submit] {
             background: var(--accent-color);
             color: #fff;
@@ -81,15 +88,18 @@
     <h1>Clear City Conflict</h1>
 
     <div class="conflict-summary">
-        <div class="label">Conflict on <span th:text="${#temporals.format(date, 'EEE, MMM d')}"></span></div>
+        <div class="label">Conflict on
+            <span th:text="${clearConflictRequest.date != null
+                             ? #temporals.format(clearConflictRequest.date, 'EEE, MMM d')
+                             : ''}"></span></div>
         <div class="conflict-row">
             <div class="item">
-                <strong th:text="${gatheringName}"></strong>
-                <span th:text="${gatheringCity}"></span>
+                <strong th:text="${clearConflictRequest.gatheringName}"></strong>
+                <span th:text="${clearConflictRequest.gatheringCity}"></span>
             </div>
             <div class="item">
-                <strong th:text="${conferenceName}"></strong>
-                <span th:text="${conferenceCity}"></span>
+                <strong th:text="${clearConflictRequest.conferenceName}"></strong>
+                <span th:text="${clearConflictRequest.conferenceCity}"></span>
             </div>
         </div>
     </div>
@@ -97,6 +107,17 @@
     <form th:action="@{/clear-conflict}" th:object="${clearConflictRequest}" method="post">
         <input type="hidden" th:field="*{gatheringId}"/>
         <input type="hidden" th:field="*{conferenceId}"/>
+        <!-- Display-only, but carried through the post so a rejected submit re-renders the
+             summary above instead of an empty box. -->
+        <input type="hidden" th:field="*{gatheringName}"/>
+        <input type="hidden" th:field="*{gatheringCity}"/>
+        <input type="hidden" th:field="*{conferenceName}"/>
+        <input type="hidden" th:field="*{conferenceCity}"/>
+        <input type="hidden" th:field="*{date}"/>
+
+        <ul class="global-errors" th:if="${#fields.hasGlobalErrors()}">
+            <li th:each="err : ${#fields.globalErrors()}" th:text="${err}"></li>
+        </ul>
 
         <div class="field">
             <label>

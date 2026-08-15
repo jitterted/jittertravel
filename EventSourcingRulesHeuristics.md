@@ -137,6 +137,33 @@ type — that always requires human judgment).
 
 ---
 
+### R8. A projector that derives a field must derive it from the events — it may not ignore relevant data the events carry.
+
+A projection's only job is to reproduce state from the events. If a projector
+puts a field on its view, that field's value must come from the folded events.
+Hardcoding a literal for a field the matched event actually carries — or dropping
+a field the event provides — is prohibited: the view then reports a constant
+instead of the recorded truth, and nothing breaks at compile time.
+
+Concretely: `HotelBooked`/`HotelChanged` carry a `bookingIntent`
+(`TENTATIVE`/`FINAL`), but `BookedHotelsProjector` had been building its view row
+with a hardcoded `BookingIntent.TENTATIVE`, so `/booked-hotels` showed "Tentative"
+even for a stay that was booked or later changed to `FINAL`. The fix threads
+`e.bookingIntent()` from the event through the fold into the view.
+
+This is the field-level twin of the event-exhaustiveness hazard (a projector can
+silently miss an *event* it should handle): a projector can just as silently
+ignore a *field* on an event it does handle. The failure mode is invisible
+because the literal is a valid value of the right type.
+
+**Enforcement.** Guard each derived field with a fold scenario test that
+records the *non-default* value (book/change an entity to `FINAL`, not just the
+default) and asserts the view reflects it. When you add a field to an existing
+event, walk every projector that folds that event and thread the new field
+through rather than defaulting it.
+
+---
+
 ## Heuristics (prefer, with reason)
 
 ### H1. Prefer the smallest delta events over full-snapshot deltas when feasible.

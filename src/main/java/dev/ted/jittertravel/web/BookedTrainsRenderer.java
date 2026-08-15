@@ -15,10 +15,15 @@ public class BookedTrainsRenderer {
     private static final String TIME_PATTERN = "h:mm a";
 
     // No container max-width, and the grid collapses instead of scrolling. On a wide viewport the
-    // five columns sit side by side; below 640px they stack into one column (min-width: 0 lets each
-    // cell shrink and wrap rather than force the row wide), the column header is hidden, and each
-    // stacked cell shows its own leg label so Departure/Departs/Arrival/Arrives stay unambiguous.
-    // The times break between date and time (each a .nowrap unit). No page ever scrolls sideways.
+    // five columns sit side by side; below 640px they stack into one column, the column header is
+    // hidden, and each stacked cell shows its own leg label so Departure/Departs/Arrival/Arrives
+    // stay unambiguous. The times break between date and time (each a .nowrap unit). No page ever
+    // scrolls sideways.
+    //
+    // Tracks keep their default min-width: auto (min-content): a station name can be a single
+    // unbreakable word, so forcing min-width: 0 would let a squeezed track shrink narrower than its
+    // text and spill it into the next column. Left at min-content the row still fits above the 640px
+    // collapse point, so nothing overlaps and nothing scrolls in the band between.
     private static final String CSS = """
             .trains-container { margin: 2rem; padding: 0 1rem; }
             .train-cards {
@@ -31,7 +36,6 @@ public class BookedTrainsRenderer {
                 grid-template-columns: 2fr 1fr 2fr 1fr auto;
                 align-items: center; gap: 0.75rem; padding: 10px 16px;
             }
-            .train-card-row > * { min-width: 0; }
             .train-edit-link { font-size: 0.85rem; color: var(--accent-color, #0a58ca); text-decoration: none; }
             .train-edit-link:hover { text-decoration: underline; }
             .train-card-header {

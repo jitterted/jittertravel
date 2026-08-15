@@ -15,11 +15,17 @@ public class BookedFlightsRenderer {
     private static final String TIME_PATTERN = "h:mm a";
 
     // No container max-width, and the grid collapses instead of scrolling. Wide, the seven columns
-    // sit side by side; below 640px they stack into one column (min-width: 0 lets each cell shrink
-    // and wrap), the column header hides, and each info cell shows its own leg label so
-    // Departure/Arrival/Route/Airline/Flight Number stay unambiguous. The empty chevron slot is
-    // dropped from plain rows when stacked, but kept on history rows as their expand affordance.
-    // Times break between date and time (each a .nowrap unit). No page ever scrolls sideways.
+    // sit side by side; below 640px they stack into one column, the column header hides, and each
+    // info cell shows its own leg label so Departure/Arrival/Route/Airline/Flight Number stay
+    // unambiguous. The empty chevron slot is dropped from plain rows when stacked, but kept on
+    // history rows as their expand affordance. Times break between date and time (each a .nowrap
+    // unit). No page ever scrolls sideways.
+    //
+    // Tracks keep their default min-width: auto (min-content) on purpose: Route ("SFO→FRA"), Airline
+    // and Flight Number are single unbreakable tokens, so forcing min-width: 0 would let a squeezed
+    // 1fr track shrink narrower than its text and spill it into the next column. Left at min-content
+    // the row's total (~520px) still fits above the 640px collapse point, so nothing overlaps and
+    // nothing scrolls in the band between.
     private static final String CSS = """
             .conference-container { margin: 2rem; padding: 0 1rem; }
             .flight-cards {
@@ -32,7 +38,6 @@ public class BookedFlightsRenderer {
                 grid-template-columns: 2fr 2fr 1fr 2fr 1fr 28px auto;
                 align-items: center; gap: 0.75rem; padding: 10px 16px;
             }
-            .flight-card-row > * { min-width: 0; }
             .flight-edit-link { font-size: 0.85rem; color: var(--accent-color); text-decoration: none; }
             .flight-edit-link:hover { text-decoration: underline; }
             .flight-card-header {

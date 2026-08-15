@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +19,8 @@ import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import java.util.List;
+
 import static org.mockito.Mockito.lenient;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
@@ -40,9 +43,13 @@ class SecurityAuthorizationTest {
     @MockitoBean
     BuildProperties buildProperties;
 
+    @MockitoBean
+    ScheduleGapProjector scheduleGapProjector;
+
     @BeforeEach
     void setUp() {
         lenient().when(buildProperties.getTime()).thenReturn(Instant.EPOCH);
+        lenient().when(scheduleGapProjector.problems()).thenReturn(List.of());
     }
 
     @Test

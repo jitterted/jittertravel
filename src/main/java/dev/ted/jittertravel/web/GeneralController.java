@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import jakarta.annotation.Nullable;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,14 +21,17 @@ class GeneralController {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.of("America/New_York"));
 
     private final PostgresPersister persister;
+    private final ScheduleGapProjector scheduleGapProjector;
     private final Environment environment;
     @Nullable
     private final BuildProperties buildProperties;
 
     GeneralController(PostgresPersister persister,
+                      ScheduleGapProjector scheduleGapProjector,
                       Environment environment,
                       @Nullable BuildProperties buildProperties) {
         this.persister = persister;
+        this.scheduleGapProjector = scheduleGapProjector;
         this.environment = environment;
         this.buildProperties = buildProperties;
     }
@@ -48,6 +52,11 @@ class GeneralController {
         model.addAttribute("showDataEntryNav", isOwner);
         model.addAttribute("showBookingsNav", isOwner);
         model.addAttribute("showItineraryNav", showItineraryNav);
+        // OWNER-only, like the card that reads it (the /schedule-problems report is OWNER-gated).
+        // problems() is an O(1) read of the maintained read model.
+        if (isOwner) {
+            model.addAttribute("scheduleProblemCount", scheduleGapProjector.problems().size());
+        }
         model.addAttribute("pendingCount", persister.countPendingCommands());
         model.addAttribute("buildTime", BUILD_TIME_FORMATTER.format(buildProperties.getTime()));
         return "index";

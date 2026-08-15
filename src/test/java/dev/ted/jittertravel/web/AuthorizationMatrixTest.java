@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +18,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,10 +52,14 @@ class AuthorizationMatrixTest {
     @MockitoBean
     BuildProperties buildProperties;
 
+    @MockitoBean
+    ScheduleGapProjector scheduleGapProjector;
+
     @BeforeEach
     void setUp() {
         lenient().when(buildProperties.getTime()).thenReturn(Instant.EPOCH);
         lenient().when(persister.countPendingCommands()).thenReturn(0);
+        lenient().when(scheduleGapProjector.problems()).thenReturn(List.of());
     }
 
     static Stream<Arguments> policy() {

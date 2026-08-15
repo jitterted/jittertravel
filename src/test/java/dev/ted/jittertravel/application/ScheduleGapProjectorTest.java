@@ -1075,6 +1075,35 @@ class ScheduleGapProjectorTest {
     }
 
     // -------------------------------------------------------------------------
+    // Time filtering (problems(now) drops the ones already past)
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class TimeFiltering {
+
+        @Test
+        void problemsWithNowKeepOnlyStillActionableOnesWhileTheModelKeepsThemAll() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            // Two conferences away from home, each implying a missing hotel: one long past, one ahead.
+            projector.handle(Stream.of(
+                    stored(conference("Oslo", LocalDate.of(2026, 1, 10), LocalDate.of(2026, 1, 12))),
+                    stored(conference("Lima", LocalDate.of(2026, 12, 10), LocalDate.of(2026, 12, 12)))));
+
+            Instant june = Instant.parse("2026-06-01T00:00:00Z");
+
+            // The whole read model keeps both — handle() maintains every detected problem.
+            assertThat(projector.problems())
+                    .extracting(p -> ((ScheduleProblem.MissingHotel) p).city())
+                    .contains("Oslo", "Lima");
+
+            // The time-filtered read drops the Oslo stay whose checkout is already behind us.
+            assertThat(projector.problems(june))
+                    .extracting(p -> ((ScheduleProblem.MissingHotel) p).city())
+                    .containsExactly("Lima");
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 

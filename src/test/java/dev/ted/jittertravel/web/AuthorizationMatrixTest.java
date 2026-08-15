@@ -17,12 +17,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 
 /**
@@ -55,11 +57,15 @@ class AuthorizationMatrixTest {
     @MockitoBean
     ScheduleGapProjector scheduleGapProjector;
 
+    @MockitoBean
+    Clock clock;
+
     @BeforeEach
     void setUp() {
         lenient().when(buildProperties.getTime()).thenReturn(Instant.EPOCH);
+        lenient().when(clock.instant()).thenReturn(Instant.EPOCH);
         lenient().when(persister.countPendingCommands()).thenReturn(0);
-        lenient().when(scheduleGapProjector.problems()).thenReturn(List.of());
+        lenient().when(scheduleGapProjector.problems(any())).thenReturn(List.of());
     }
 
     static Stream<Arguments> policy() {

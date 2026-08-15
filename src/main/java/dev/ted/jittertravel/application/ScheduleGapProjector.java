@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.*;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -76,8 +77,21 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         cachedProblems = computeProblems();
     }
 
+    /** The whole read model: every detected problem, past ones included. */
     public List<ScheduleProblem> problems() {
         return cachedProblems;
+    }
+
+    /**
+     * The still-actionable problems as of {@code now}: the read model filtered to those not yet
+     * past. {@code now} is a caller-supplied criterion (not an event), applied here on read — see
+     * H8 in EventSourcingRulesHeuristics.md. This is what the views want; a problem whose window
+     * has closed can no longer be fixed.
+     */
+    public List<ScheduleProblem> problems(Instant now) {
+        return cachedProblems.stream()
+                .filter(problem -> TimeView.FUTURE.includes(problem, now))
+                .toList();
     }
 
     private List<ScheduleProblem> computeProblems() {

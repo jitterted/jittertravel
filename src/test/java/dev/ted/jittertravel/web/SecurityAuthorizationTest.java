@@ -19,8 +19,10 @@ import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import java.time.Clock;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
@@ -46,10 +48,14 @@ class SecurityAuthorizationTest {
     @MockitoBean
     ScheduleGapProjector scheduleGapProjector;
 
+    @MockitoBean
+    Clock clock;
+
     @BeforeEach
     void setUp() {
         lenient().when(buildProperties.getTime()).thenReturn(Instant.EPOCH);
-        lenient().when(scheduleGapProjector.problems()).thenReturn(List.of());
+        lenient().when(clock.instant()).thenReturn(Instant.EPOCH);
+        lenient().when(scheduleGapProjector.problems(any())).thenReturn(List.of());
     }
 
     @Test

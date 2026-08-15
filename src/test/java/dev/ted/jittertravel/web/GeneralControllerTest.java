@@ -13,12 +13,14 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 
@@ -38,10 +40,14 @@ class GeneralControllerTest {
     @MockitoBean
     ScheduleGapProjector scheduleGapProjector;
 
+    @MockitoBean
+    Clock clock;
+
     @BeforeEach
     void setUp() {
         lenient().when(buildProperties.getTime()).thenReturn(Instant.EPOCH);
-        lenient().when(scheduleGapProjector.problems()).thenReturn(List.of());
+        lenient().when(clock.instant()).thenReturn(Instant.EPOCH);
+        lenient().when(scheduleGapProjector.problems(any())).thenReturn(List.of());
     }
 
     @Test
@@ -110,7 +116,7 @@ class GeneralControllerTest {
     @Test
     void scheduleProblemsCardIsAmberAndCountedWhenProblemsExist() {
         given(persister.countPendingCommands()).willReturn(0);
-        given(scheduleGapProjector.problems()).willReturn(problems(3));
+        given(scheduleGapProjector.problems(any())).willReturn(problems(3));
 
         assertThat(mockMvc.get().uri("/"))
                 .hasStatusOk()
@@ -122,7 +128,7 @@ class GeneralControllerTest {
     @Test
     void scheduleProblemsCardIsGreenAndSaysNoProblemsWhenClear() {
         given(persister.countPendingCommands()).willReturn(0);
-        given(scheduleGapProjector.problems()).willReturn(List.of());
+        given(scheduleGapProjector.problems(any())).willReturn(List.of());
 
         assertThat(mockMvc.get().uri("/"))
                 .hasStatusOk()
@@ -135,7 +141,7 @@ class GeneralControllerTest {
     @Test
     void scheduleProblemsCardUsesSingularForOneProblem() {
         given(persister.countPendingCommands()).willReturn(0);
-        given(scheduleGapProjector.problems()).willReturn(problems(1));
+        given(scheduleGapProjector.problems(any())).willReturn(problems(1));
 
         assertThat(mockMvc.get().uri("/"))
                 .hasStatusOk()

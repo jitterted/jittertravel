@@ -11,6 +11,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
@@ -22,16 +24,19 @@ class GeneralController {
 
     private final PostgresPersister persister;
     private final ScheduleGapProjector scheduleGapProjector;
+    private final Clock clock;
     private final Environment environment;
     @Nullable
     private final BuildProperties buildProperties;
 
     GeneralController(PostgresPersister persister,
                       ScheduleGapProjector scheduleGapProjector,
+                      Clock clock,
                       Environment environment,
                       @Nullable BuildProperties buildProperties) {
         this.persister = persister;
         this.scheduleGapProjector = scheduleGapProjector;
+        this.clock = clock;
         this.environment = environment;
         this.buildProperties = buildProperties;
     }
@@ -53,9 +58,10 @@ class GeneralController {
         model.addAttribute("showBookingsNav", isOwner);
         model.addAttribute("showItineraryNav", showItineraryNav);
         // OWNER-only, like the card that reads it (the /schedule-problems report is OWNER-gated).
-        // problems() is an O(1) read of the maintained read model.
+        // Count only the still-actionable problems (past ones dropped); now captured at the boundary.
         if (isOwner) {
-            model.addAttribute("scheduleProblemCount", scheduleGapProjector.problems().size());
+            model.addAttribute("scheduleProblemCount",
+                    scheduleGapProjector.problems(Instant.now(clock)).size());
         }
         model.addAttribute("pendingCount", persister.countPendingCommands());
         model.addAttribute("buildTime", BUILD_TIME_FORMATTER.format(buildProperties.getTime()));

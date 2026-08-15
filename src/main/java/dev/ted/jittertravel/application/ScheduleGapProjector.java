@@ -21,6 +21,11 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     private final Map<GatheringId, GatheringOccupancy> gatheringOccupancies = new ConcurrentHashMap<>();
     private final Set<ClearedConflict> clearedConflicts = new HashSet<>();
 
+    // The read model. Problem detection depends only on event-derived state (no clock, no viewer),
+    // so it is computed while events are handled and served from here — never re-derived on read.
+    // volatile: handle() runs on the append/replay thread, problems() on a web thread.
+    private volatile List<ScheduleProblem> cachedProblems = List.of();
+
     public ScheduleGapProjector(AirportCityResolver cityResolver) {
         this(cityResolver, new HomeCities(List.of()));
     }
@@ -66,9 +71,16 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 default -> {}
             }
         });
+        // Recompute the read model once per handled batch (replay: once; runtime: once per append),
+        // so reads are O(1) and never re-derive from the event-shaped state.
+        cachedProblems = computeProblems();
     }
 
     public List<ScheduleProblem> problems() {
+        return cachedProblems;
+    }
+
+    private List<ScheduleProblem> computeProblems() {
         List<TravelLeg> legs = allLegs();
         Set<ScheduleProblem> rawProblems = new LinkedHashSet<>();
         detectMissingTravel(legs, rawProblems);

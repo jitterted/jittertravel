@@ -164,6 +164,37 @@ through rather than defaulting it.
 
 ---
 
+### R9. A projector computes its read model while handling events; reads return that maintained state.
+
+A projection's read model is built up in the event-handling path and served
+as-is. A read method returns the state maintained during `handle(...)` — it must
+**never re-derive that state from the event-shaped fold on each call**. Anything
+derived purely from the events is computed *as the events are handled* (once per
+handled batch — a single pass at startup replay, once per append at runtime) and
+stored; the read method just hands it back.
+
+The one thing a read method may apply is an input that is **not an event**: the
+current time, or the viewer's identity. So `views(TimeView, now)` is compliant —
+it applies `now` (a runtime input, not an event) to rows already folded in
+`handle(...)`. `ScheduleGapProjector.problems()` originally *violated* this: it
+re-ran the entire gap / conflict / missing-hotel detection over its folded maps
+on every call. It now recomputes once at the end of `handle(...)` into a cached
+list and returns that.
+
+**Why:** it is what "projection / read model" means — the write path maintains
+the model, the read path serves it. Re-deriving on read blurs that line, silently
+moves real work onto every request, and (for anything O(n²) like conflict
+detection) turns a cheap read into a scaling hazard. Consistent with R1
+(projections serve views, not the write path) and H5 (one code path at replay and
+append).
+
+**Enforcement.** A scenario test that handles one batch, reads, handles a
+*resolving* event, then reads again: the second read must reflect the change —
+proving the model refreshed on the later batch rather than being computed once or
+lazily on read. (`ScheduleGapProjectorTest.readModelRefreshesAfterEachHandledBatchNotJustTheFirst`.)
+
+---
+
 ## Heuristics (prefer, with reason)
 
 ### H1. Prefer the smallest delta events over full-snapshot deltas when feasible.

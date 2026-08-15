@@ -134,6 +134,35 @@ class ScheduleGapProjectorTest {
         }
 
         @Test
+        void readModelRefreshesAfterEachHandledBatchNotJustTheFirst() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            FlightId secondLeg = FlightId.random();
+
+            // Batch 1: LON→AMS then BRU→PRG leaves an AMS→BRU gap.
+            projector.handle(Stream.of(
+                    stored(flight(LON, SEP_15.atTime(7, 0), AMS, SEP_15.atTime(9, 0))),
+                    stored(new FlightBooked(secondLeg, "Air", "A2",
+                            AirportCode.of(BRU), zt(SEP_16.atTime(10, 0)),
+                            AirportCode.of(PRG), zt(SEP_16.atTime(12, 0))))));
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
+                    .as("the gap is in the read model after the first batch")
+                    .hasSize(1);
+
+            // Batch 2: change the second leg to depart from AMS — the gap is gone. If problems were
+            // computed only on the first batch (or re-derived lazily on read), this later event
+            // would not refresh the read model.
+            projector.handle(Stream.of(
+                    stored(new FlightChanged(secondLeg, "Air", "A2",
+                            AirportCode.of(AMS), zt(SEP_16.atTime(10, 0)),
+                            AirportCode.of(PRG), zt(SEP_16.atTime(12, 0)), null))));
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
+                    .as("handling the change refreshed the read model, clearing the gap")
+                    .isEmpty();
+        }
+
+        @Test
         void airportCodesResolvedToCityNamesForConnectivityCheck() {
             // LHR → "London" via StaticAirportCityResolver; train departs from "London"
             ScheduleGapProjector projector = new ScheduleGapProjector(new StaticAirportCityResolver());

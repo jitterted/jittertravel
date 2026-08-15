@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -45,12 +44,11 @@ public class ChangeTrainController {
 
     @GetMapping("/booked-trains/{tripId}")
     public String changeTrainForm(@PathVariable("tripId") String tripIdString,
-                                  Model model,
-                                  RedirectAttributes redirectAttributes) {
+                                  Model model) {
         Optional<TrainDetailsView> maybe = lookup(tripIdString);
         if (maybe.isEmpty()) {
-            redirectAttributes.addFlashAttribute("notFoundMessage",
-                    "No booked train found with id " + tripIdString);
+            // Stale edit link for a train that's already gone: the view-only list can't render a
+            // flash, so navigate there silently rather than attach a message that gets dropped.
             return "redirect:/booked-trains";
         }
 

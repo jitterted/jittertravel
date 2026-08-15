@@ -16,7 +16,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -52,16 +51,15 @@ public class ChangeFlightController {
 
     @GetMapping("/booked-flights/{flightId}")
     public String changeFlightForm(@PathVariable("flightId") String flightIdString,
-                                   Model model,
-                                   RedirectAttributes redirectAttributes) {
+                                   Model model) {
         if (applicationService.isReadOnly()) {
             return "redirect:/read-only";
         }
 
         Optional<FlightDetailsView> maybe = lookup(flightIdString);
         if (maybe.isEmpty()) {
-            redirectAttributes.addFlashAttribute("notFoundMessage",
-                    "No booked flight found with id " + flightIdString);
+            // Stale edit link for a flight that's already gone: the view-only list can't render a
+            // flash, so navigate there silently rather than attach a message that gets dropped.
             return "redirect:/booked-flights";
         }
 

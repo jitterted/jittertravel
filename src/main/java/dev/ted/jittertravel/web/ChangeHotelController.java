@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -46,12 +45,11 @@ public class ChangeHotelController {
 
     @GetMapping("/booked-hotels/{hotelBookingId}")
     public String changeHotelForm(@PathVariable("hotelBookingId") String hotelBookingIdString,
-                                  Model model,
-                                  RedirectAttributes redirectAttributes) {
+                                  Model model) {
         Optional<HotelDetailsView> maybe = lookup(hotelBookingIdString);
         if (maybe.isEmpty()) {
-            redirectAttributes.addFlashAttribute("notFoundMessage",
-                    "No booked hotel found with id " + hotelBookingIdString);
+            // Stale edit link for a booking that's already gone: the view-only list can't render a
+            // flash, so navigate there silently rather than attach a message that gets dropped.
             return "redirect:/booked-hotels";
         }
 

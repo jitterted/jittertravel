@@ -7,13 +7,6 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Open
 
-- [ ] **GET stale-link not-found drops its flash on a view-only list.** The four edit-page GET
-      handlers (`ChangeHotel`/`ChangeFlight`/`ChangeTrain`/`ChangeGathering`) redirect a not-found
-      id to their view-only j2html list (`/booked-hotels`, `/booked-flights`, `/booked-trains`,
-      `/planned-gatherings`) with a `notFoundMessage` flash those pages can't render, so it's
-      silently dropped. Not a form-post error (it's following a stale edit link for something
-      already gone), so left as-is 2026-08-13 — but the dead flash is pointless. Either drop the
-      flash and navigate to the list silently, or give "this booking no longer exists" a real page.
 - [ ] **Make the "Schedule problems" nav card state-aware** (`index.html`, OWNER Admin group).
       Today the card is always amber (`background: #fef3c7; border-color: #d97706`) with a static
       "Missing travel & hotels" subtitle. Instead: amber **only when there are actual problems**,
@@ -40,6 +33,12 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Done
 
+- [x] **GET stale-link not-found no longer attaches a dead flash** (2026-08-15). The four edit-page
+      GET handlers (`ChangeHotel`/`ChangeFlight`/`ChangeTrain`/`ChangeGathering`) redirected a
+      not-found id to their view-only j2html list with a `notFoundMessage` flash the list can't
+      render. Dropped the flash (and the now-unused `RedirectAttributes` param/import) so they
+      navigate to the list silently. `CancelHotelController` has the same dead-flash pattern but is
+      out of scope here and has a test asserting the flash — left as a separate item.
 - [x] **Responsive, no-horizontal-scroll treatment on the other list views** (2026-08-15).
       `/tentative-conferences` (`995caab`), `/booked-trains` (`86af549`, `9bb5245`, `bebf6e6`),
       `/booked-flights` (`b6c5f92`, `9bb5245`, `370c33a`, `c67444f`, `1027144`, `46e39e6` superseded)

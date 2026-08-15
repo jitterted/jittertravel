@@ -62,9 +62,27 @@ class TentativeConferencesRendererTest {
                 view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "City", "Country")
         ), TimeView.FUTURE);
 
+        // Date and time are separate .nowrap spans so a narrow cell breaks only between them
+        // (never mid-value); there is no longer a comma joining date and time.
         assertThat(html)
-                .contains("Sun, Jun 7, 11:00 AM")
-                .contains("Wed, Jun 10, 5:00 PM");
+                .contains("<span class=\"nowrap\">Sun, Jun 7</span>")
+                .contains("<span class=\"nowrap\">11:00 AM</span>")
+                .contains("<span class=\"nowrap\">Wed, Jun 10</span>")
+                .contains("<span class=\"nowrap\">5:00 PM</span>");
+    }
+
+    @Test
+    void tableIsNotWrappedInAHorizontalScroller() {
+        String html = TentativeConferencesRenderer.render(List.of(
+                view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "City", "Country")
+        ), TimeView.FUTURE);
+
+        // No page may ever scroll sideways: the fix removed both the overflow-x scroller and the
+        // container width cap in favour of content that stacks.
+        assertThat(html)
+                .doesNotContain("overflow-x")
+                .doesNotContain("table-responsive")
+                .doesNotContain("max-width: 100ch");
     }
 
     @Test

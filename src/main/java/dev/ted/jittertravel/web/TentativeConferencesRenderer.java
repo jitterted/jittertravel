@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.TentativeConferenceView;
 import dev.ted.jittertravel.application.TimeView;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
 import j2html.tags.specialized.TrTag;
 
@@ -11,10 +12,16 @@ import static j2html.TagCreator.*;
 
 public class TentativeConferencesRenderer {
 
-    private static final String DATE_TIME_FORMAT = "EEE, MMM d, h:mm a";
+    private static final String DATE_PATTERN = "EEE, MMM d";
+    private static final String TIME_PATTERN = "h:mm a";
 
+    // No container max-width and no overflow-x scroller: the table fills the available space and
+    // is never wider than it. The two date columns break between date and time (each a .nowrap
+    // unit), and City/Country are single-value columns that wrap on their own, so a narrow viewport
+    // — e.g. iPad portrait — stacks the content onto more lines rather than forcing a horizontal
+    // scrollbar. The table is never scrolled.
     private static final String CSS = """
-            .conference-container { max-width: 100ch; margin: 2rem; padding: 0 1rem; }
+            .conference-container { margin: 2rem; padding: 0 1rem; }
             .conference-table {
                 width: 100%; border-collapse: collapse; text-align: left;
                 margin-top: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -22,6 +29,7 @@ public class TentativeConferencesRenderer {
             }
             .conference-table th, .conference-table td {
                 padding: 10px 16px; border-bottom: 1px solid var(--border-color);
+                vertical-align: top;
             }
             .conference-table th {
                 background-color: var(--header-bg); color: var(--muted-text);
@@ -31,7 +39,6 @@ public class TentativeConferencesRenderer {
             .conference-table tbody tr:last-child td { border-bottom: none; }
             .conference-table tbody tr:hover { background-color: var(--hover-bg); }
             .conf-name { font-weight: 500; color: var(--accent-color); }
-            .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
             """;
 
     public static String render(List<TentativeConferenceView> conferences, TimeView activeFilter) {
@@ -60,20 +67,18 @@ public class TentativeConferencesRenderer {
     }
 
     private static DomContent renderTable(List<TentativeConferenceView> conferences) {
-        return div().withClass("table-responsive").with(
-                table().withClass("conference-table").with(
-                        thead(tr(
-                                th("Name"),
-                                th("Start Date"),
-                                th("End Date"),
-                                th("City"),
-                                th("Country")
-                        )),
-                        tbody().with(
-                                conferences.stream()
-                                           .map(TentativeConferencesRenderer::renderRow)
-                                           .toList()
-                        )
+        return table().withClass("conference-table").with(
+                thead(tr(
+                        th("Name"),
+                        th("Start Date"),
+                        th("End Date"),
+                        th("City"),
+                        th("Country")
+                )),
+                tbody().with(
+                        conferences.stream()
+                                   .map(TentativeConferencesRenderer::renderRow)
+                                   .toList()
                 )
         );
     }
@@ -81,10 +86,14 @@ public class TentativeConferencesRenderer {
     private static TrTag renderRow(TentativeConferenceView conf) {
         return tr(
                 td(conf.name()).withClass("conf-name"),
-                td(ZonedTimeTag.render(conf.startDate(), DATE_TIME_FORMAT)),
-                td(ZonedTimeTag.render(conf.endDate(), DATE_TIME_FORMAT)),
+                td(dateTime(conf.startDate())),
+                td(dateTime(conf.endDate())),
                 td(conf.city()),
                 td(conf.country())
         );
+    }
+
+    private static DomContent dateTime(ZonedTimestamp when) {
+        return ZonedTimeTag.renderDateTimeStacking(when, DATE_PATTERN, TIME_PATTERN);
     }
 }

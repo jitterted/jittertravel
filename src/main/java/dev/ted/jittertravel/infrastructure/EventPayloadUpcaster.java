@@ -21,10 +21,11 @@ import java.time.ZoneId;
  * moment a freshly-booked one would.
  *
  * <p>Idempotent: a payload already in the new shape (the datetime field is an object, not a scalar)
- * is returned untouched, so new rows pass straight through. Keyed by the stable logical event type
- * (see {@link EventTypes}); add a case here when a new event type migrates a datetime field to
- * {@link ZonedTimestamp}. The pre-migration zone audit ({@code /admin/zone-audit}) guarantees every
- * legacy location resolves, so this never throws for stored data.
+ * is returned untouched, so new rows pass straight through. The stored {@code type} is normalized to
+ * the stable logical name (see {@link EventTypes}) before dispatch, so both new logical-name rows
+ * and legacy FQCN rows reach the same case; add a case here when a new event type migrates a
+ * datetime field to {@link ZonedTimestamp}. The pre-migration zone audit ({@code /admin/zone-audit})
+ * guarantees every legacy location resolves, so this never throws for stored data.
  */
 public class EventPayloadUpcaster {
 
@@ -40,10 +41,15 @@ public class EventPayloadUpcaster {
         this.jsonMapper = jsonMapper;
     }
 
-    public JsonNode upcast(String logicalType, JsonNode payload) {
+    public JsonNode upcast(String wireType, JsonNode payload) {
         if (!(payload instanceof ObjectNode object)) {
             return payload;
         }
+        // The stored type can be a logical name (new rows) or a legacy FQCN (rows written before
+        // logical names). Normalize to the logical name first: the cases below are keyed by it, so a
+        // legacy FQCN row — which is also exactly the shape that still holds bare-scalar datetimes —
+        // must not slip through the switch unmigrated.
+        String logicalType = EventTypes.logicalNameFor(EventTypes.classFor(wireType));
         switch (logicalType) {
             case "HotelBooked", "HotelChanged" -> upcastHotelStay(object);
             case "TrainBooked", "TrainChanged" -> upcastTrainTrip(object);

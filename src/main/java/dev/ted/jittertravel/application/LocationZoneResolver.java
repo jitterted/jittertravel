@@ -133,6 +133,10 @@ public class LocationZoneResolver {
         // Australia (multi-zone)
         put(table, "Australia/Sydney", "sydney", "melbourne", "canberra", "brisbane");
         put(table, "Australia/Perth", "perth");
+        // Single-zone-country cities whose stored country field is unreliable: an Antwerp hotel was
+        // entered with country "Brussels" (a city, not a country), which resolves nowhere. The city
+        // step runs first, so naming Antwerp here lands it in Belgium's zone regardless.
+        put(table, "Europe/Brussels", "antwerp");
         return table;
     }
 
@@ -237,6 +241,7 @@ public class LocationZoneResolver {
         put(table, "Asia/Singapore", "singapore");
         put(table, "Asia/Kolkata", "india");
         put(table, "Atlantic/Reykjavik", "iceland");
+        put(table, "Africa/Casablanca", "morocco");
         put(table, "Pacific/Auckland", "new zealand");
         return table;
     }

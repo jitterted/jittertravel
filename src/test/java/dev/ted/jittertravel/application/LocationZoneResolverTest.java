@@ -27,6 +27,21 @@ class LocationZoneResolverTest {
     }
 
     @Test
+    void resolvesMoroccoFromItsCountryName() {
+        assertThat(resolver.resolve(address("Casablanca", "Morocco")))
+                .isEqualTo(ZoneId.of("Africa/Casablanca"));
+    }
+
+    @Test
+    void resolvesAntwerpFromTheCityEvenWhenTheCountryFieldIsMisfiled() {
+        // Real stored data: an Antwerp hotel whose country field holds "Brussels" (a city, not a
+        // country) and so resolves nowhere on its own. The city step runs first, landing Antwerp in
+        // Belgium's zone regardless of the unusable country.
+        assertThat(resolver.resolve(address("Antwerp", "Brussels")))
+                .isEqualTo(ZoneId.of("Europe/Brussels"));
+    }
+
+    @Test
     void cityTakesPrecedenceForMultiZoneCountry() {
         assertThat(resolver.resolve(address("Chicago", "USA")))
                 .as("a US city must resolve to its own zone, not a country default")

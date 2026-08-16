@@ -54,6 +54,11 @@ plan doc and its status — including these items — see `Backlog.md`.
       some entry types show an edit icon/link and others don't. Every editable entry kind should
       expose the same edit affordance from both surfaces (OWNER view only — never in the redacted
       anonymous calendar). Related to the standardized header/footer nav item above.
+- [ ] **Split every page that combines an Edit and a Cancel form into separate pages.** Cancel Hotel
+      was already split out (`f5971ef`); apply the same treatment to the remaining entry kinds so no
+      page hosts both an edit form and a cancel/delete form together. Keeps each form's errors
+      rendering on its own page (see the "errors render on the form page" convention) and avoids one
+      form's submit clobbering the other's state.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.

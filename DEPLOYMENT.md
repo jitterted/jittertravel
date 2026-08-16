@@ -183,23 +183,34 @@ and on whatever regular cadence you'll actually keep.
 
 ### Restoring
 
-Deliberately **not** scripted — a restore overwrites live family data, so it stays a hands-on,
-read-the-command-before-you-run-it operation. Restore into a *fresh* database first and look at it:
+A restore overwrites live family data, so `scripts/restore-db.sh` makes the *safe* thing the default
+and the destructive thing deliberate. It runs `pg_restore` in a version-matched Docker container over
+the public proxy, exactly like the backup script — nothing to install locally.
 
 ```
-# 1. Get the proxy URL (contains the password — don't paste it anywhere shared):
-railway variables list --service Postgres --kv | grep DATABASE_PUBLIC_URL
+# Inspect first (SAFE — real database untouched): restores into a throwaway scratch DB
+# on the same server, prints command_log / event_log / max_seq counts, then drops it.
+scripts/restore-db.sh backups/jittertravel-<stamp>.dump
+#   --keep-scratch  keeps the scratch DB (jt_restore_check) so you can psql into it.
 
-# 2. Restore into a NEW database and inspect it (safe — touches nothing live):
-docker run --rm -i -e U="<proxy-url-with-/scratch-db-name>" postgres:18-alpine \
-  sh -c 'pg_restore -d "$U" --no-owner --no-privileges' < backups/jittertravel-<stamp>.dump
-
-# 3. Only once that looks right, restore over the real database, adding --clean
-#    to drop existing objects first. This DESTROYS current production data.
+# Only once that looks right — restore OVER the real database (DESTROYS current prod data):
+scripts/restore-db.sh backups/jittertravel-<stamp>.dump --to=prod
 ```
 
-Then redeploy (or restart) the app so it replays `event_log` into its in-memory projections; watch
-for `Replayed N events from persistent store` and confirm `N` matches expectations.
+`--to=prod` is guarded: it prints the current prod row counts, refuses unless you type
+`restore over production`, and **takes a fresh safety dump of the current prod DB first**
+(via `backup-db.sh`) so even a bad restore leaves you a dump. It then runs
+`pg_restore --clean --if-exists`.
+
+After **any** restore over prod, redeploy (or restart) the app so it replays `event_log` into its
+in-memory projections; watch for `Replayed N events from persistent store` and confirm `N` matches
+expectations. (The script reminds you of this.)
+
+Prefer a hands-on `pg_restore` instead? The manual equivalent: pull `DATABASE_PUBLIC_URL`
+(`railway variables list --service Postgres --kv | grep DATABASE_PUBLIC_URL` — it contains the
+password, so don't paste it anywhere shared), `pg_restore -d "<proxy-url-with-/scratch-db-name>"
+--no-owner --no-privileges` into a fresh DB to inspect, then re-run over the real database adding
+`--clean`.
 
 ### Second layer: the app's JSON export
 

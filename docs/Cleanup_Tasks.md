@@ -22,6 +22,32 @@ plan doc and its status — including these items — see `Backlog.md`.
 - [ ] **Standardize headers/footers for navigation.** Give pages a consistent header/footer with
       shared nav so you can move around the app directly instead of returning to the home page
       every time. Currently many pages are dead-ends that force a trip back to `/`.
+- [ ] **Boot-replay preflight (pre-deploy).** A check that replays *every* stored event through the
+      real read path — `EventPayloadUpcaster.upcast` → `EventTypes.classFor` → `treeToValue`,
+      including zone resolution — and fails if any row cannot upcast/bind, run against a copy of
+      production *before* deploying. This is what caught the Morocco/Antwerp zone failures on
+      2026-08-16 (a throwaway test over the 69 prod rows); without it they would have been a second
+      failed deploy. `/admin/zone-audit` is not a substitute: it only sweeps already-imported
+      `event_log` at runtime and went stale (it passed in June yet two unresolvable locations slipped
+      in after). Options: a JUnit tier that loads a dump into a scratch DB and asserts a clean
+      replay, or a CLI/`--dry-run` boot mode that replays and exits non-zero on any failure. Wire it
+      into the deploy step so a bad legacy row blocks the push, not the boot.
+- [ ] **Eager-migrate legacy bare-scalar datetime events to `{utc, zone}` (retire read-time zone
+      resolution during replay).** Today legacy events (written before zones were captured) store a
+      bare wall-clock scalar and are upcast *lazily* — `EventPayloadUpcaster` re-resolves their zone
+      from the curated `LocationZoneResolver` on **every boot**, forever. That permanently couples
+      replay to the resolver's coverage and makes every legacy data-entry error a permanent resolver
+      entry (see the `Europe/Brussels → "antwerp"` city-table hack added 2026-08-16 for a hotel whose
+      country field says "Brussels"; it cannot be removed while that original event exists, because
+      editing the hotel appends a *new* corrected event but never rewrites the bad original).
+      Fix: a one-time migration that reads each legacy bare-scalar event, resolves its zone **once**,
+      and rewrites the `event_log` payload to the current `{utc, zone}` shape. Afterwards no
+      bare-scalar rows remain, the upcaster's legacy branches become dead (eventually retire them),
+      the resolver leaves the replay path entirely, and the per-error special entries (Antwerp) can
+      be deleted. Caveat: this mutates stored payloads (a controlled event-shape migration that
+      *materializes* the zone already being derived — meaning preserved), and old bare-scalar backup
+      files would still need the read-time upcaster on restore, so keep the upcaster until no
+      old-shape backup can be restored. May warrant its own plan doc.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.

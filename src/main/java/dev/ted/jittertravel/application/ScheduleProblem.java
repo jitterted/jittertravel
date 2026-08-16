@@ -19,6 +19,21 @@ public sealed interface ScheduleProblem extends TemporalView
                 ScheduleProblem.SchedulingConflict, ScheduleProblem.DifferentCityConflict {
 
     /**
+     * "Anywhere on Earth" (UTC-12) — the westmost civil offset. Day-granularity problems
+     * ({@link MissingHotel}, {@link DifferentCityConflict}) carry a bare {@link LocalDate} with no
+     * zone, so their {@link #relevantUntil()} has to pick one. Anchoring the boundary here means the
+     * problem stays surfaced until that date has passed <em>everywhere the owner could be</em> —
+     * at home in SFO or on the road anywhere on the planet. These reports are the owner's safety
+     * net (a missing bed for tonight is unrecoverable; a row that lingers a few extra hours is a
+     * papercut), so the boundary errs west on purpose.
+     * <p>
+     * Relative to anchoring at UTC, this only ever pushes the boundary <em>later</em> (by up to
+     * 12h), never earlier: it cannot drop a problem sooner than a UTC anchor would, so it cannot
+     * hide an actionable one. The only cost is a moot problem lingering a little longer.
+     */
+    ZoneOffset ANYWHERE_ON_EARTH = ZoneOffset.ofHours(-12);
+
+    /**
      * The two endpoints are in different cities and therefore usually different zones, so they are
      * {@link ZonedTimestamp}s: the gap between them is only meaningful as a comparison of instants.
      * Renderers show {@code localDateTime()} — the wall-clock at each end.
@@ -42,12 +57,14 @@ public sealed interface ScheduleProblem extends TemporalView
             LocalDate checkOut,
             String conferenceName
     ) implements ScheduleProblem {
-        // No zone survives the night-bucketing, so checkout is read at start-of-day UTC — a
-        // documented day-granularity stopgap (see TemporalView). Once checkout has passed, every
-        // night the stay would have covered is behind us.
+        // No zone survives the night-bucketing, so checkout is read at start-of-day Anywhere on
+        // Earth (see ANYWHERE_ON_EARTH). The last night of the stay is checkOut-1 -> checkOut, so
+        // it is over once checkout morning has arrived; anchoring at UTC-12 keeps the problem live
+        // until that morning has arrived even at the westmost point on Earth — never dropping it
+        // while the owner, wherever they are, still has that last night ahead of them.
         @Override
         public Instant relevantUntil() {
-            return checkOut.atStartOfDay(ZoneOffset.UTC).toInstant();
+            return checkOut.atStartOfDay(ANYWHERE_ON_EARTH).toInstant();
         }
     }
 
@@ -87,11 +104,12 @@ public sealed interface ScheduleProblem extends TemporalView
             GatheringId gatheringId,
             ConferenceId conferenceId
     ) implements ScheduleProblem {
-        // Only the conflict date is carried; keep it through the end of that day (start-of-next-day
-        // UTC — the same day-granularity stopgap as MissingHotel).
+        // Only the conflict date is carried; keep it through the end of that day, read at
+        // Anywhere on Earth (see ANYWHERE_ON_EARTH) — start of the next day at UTC-12, so the
+        // conflict stays live until its own date has ended everywhere the owner could be.
         @Override
         public Instant relevantUntil() {
-            return date.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+            return date.plusDays(1).atStartOfDay(ANYWHERE_ON_EARTH).toInstant();
         }
     }
 }

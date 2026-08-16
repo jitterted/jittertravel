@@ -45,6 +45,20 @@ plan doc and its status — including these items — see `Backlog.md`.
       (`unknownBookingRedirectsWithAFlashMessage`) was renamed to
       `alreadyGoneBookingRedirectsToListInsteadOfThrowing` and now asserts only the redirect;
       mutation-verified. All 7 controller-slice tests green.
+- [x] **Schedule-problem day-boundary anchored to "Anywhere on Earth" instead of UTC** (2026-08-16).
+      The two `LocalDate`-only `ScheduleProblem` variants (`MissingHotel`, `DifferentCityConflict`)
+      anchored `relevantUntil()` at `ZoneOffset.UTC`, so west of UTC — the owner's whole realistic
+      range (SFO home is UTC-7/-8, all US travel) — a problem dropped off FUTURE during the *previous*
+      local afternoon: a missing hotel with checkout tomorrow vanished right as the owner arrived for
+      the last night. Now both anchor at `ANYWHERE_ON_EARTH` (`ZoneOffset.ofHours(-12)`), keeping a
+      day-granularity problem live until its date has passed everywhere the owner could be. The
+      boundary only ever moves *later* (12h) than a UTC anchor, never earlier, so the fix is strictly
+      surfacing-safe — it cannot hide a problem the old code showed; the only cost is a moot problem
+      lingering up to ~12h longer (accepted papercut for a safety-net view). Deep boundary coverage in
+      new `ScheduleProblemTest` (exact instants, never-earlier-than-UTC guard, SFO/Hawaii last-night
+      surfacing, inclusive-boundary + one-second-past exclusion, east-of-UTC lingering, and guards
+      that the two instant-backed variants stay anchored to their endpoint instant). Both mutants
+      (AoE→UTC per record) verified; full suite green at 814.
 - [x] **Responsive, no-horizontal-scroll treatment on the other list views** (2026-08-15).
       `/tentative-conferences` (`995caab`), `/booked-trains` (`86af549`, `9bb5245`, `bebf6e6`),
       `/booked-flights` (`b6c5f92`, `9bb5245`, `370c33a`, `c67444f`, `1027144`, `46e39e6` superseded)

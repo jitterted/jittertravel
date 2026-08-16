@@ -107,15 +107,14 @@ class CancelHotelControllerTest {
     }
 
     @Test
-    void unknownBookingRedirectsWithAFlashMessage() {
+    void alreadyGoneBookingRedirectsToListInsteadOfThrowing() {
         willThrow(new HotelBookingNotFound("No hotel booking found to cancel"))
                 .given(cancelHotel).cancelHotel(any(), any());
 
         assertThat(mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID() + "/cancel")
                 .with(csrf()))
                 .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/booked-hotels")
-                .flash().containsKey("notFoundMessage");
+                .hasRedirectedUrl("/booked-hotels");
     }
 
     @Test

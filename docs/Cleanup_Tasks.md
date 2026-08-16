@@ -37,6 +37,14 @@ plan doc and its status — including these items — see `Backlog.md`.
       render. Dropped the flash (and the now-unused `RedirectAttributes` param/import) so they
       navigate to the list silently. `CancelHotelController` has the same dead-flash pattern but is
       out of scope here and has a test asserting the flash — left as a separate item.
+- [x] **`CancelHotelController` dead flash removed** (2026-08-16). The follow-up to the item above.
+      All three `notFoundMessage` flashes (GET stale link, POST malformed id, POST already-cancelled)
+      redirected to the view-only `/booked-hotels` j2html list, which can't render a flash, so each
+      was silently dropped. Removed all three (and the now-unused `RedirectAttributes` param/import
+      from both handlers) so they navigate silently. The one test asserting the flash
+      (`unknownBookingRedirectsWithAFlashMessage`) was renamed to
+      `alreadyGoneBookingRedirectsToListInsteadOfThrowing` and now asserts only the redirect;
+      mutation-verified. All 7 controller-slice tests green.
 - [x] **Responsive, no-horizontal-scroll treatment on the other list views** (2026-08-15).
       `/tentative-conferences` (`995caab`), `/booked-trains` (`86af549`, `9bb5245`, `bebf6e6`),
       `/booked-flights` (`b6c5f92`, `9bb5245`, `370c33a`, `c67444f`, `1027144`, `46e39e6` superseded)

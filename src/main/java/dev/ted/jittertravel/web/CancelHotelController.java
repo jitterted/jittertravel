@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -39,12 +38,11 @@ public class CancelHotelController {
 
     @GetMapping("/booked-hotels/{hotelBookingId}/cancel")
     public String cancelHotelForm(@PathVariable("hotelBookingId") String hotelBookingIdString,
-                                  Model model,
-                                  RedirectAttributes redirectAttributes) {
+                                  Model model) {
         Optional<HotelDetailsView> maybe = lookup(hotelBookingIdString);
         if (maybe.isEmpty()) {
-            redirectAttributes.addFlashAttribute("notFoundMessage",
-                    "No booked hotel found with id " + hotelBookingIdString);
+            // Stale cancel link for a booking that's already gone: the view-only list can't render a
+            // flash, so navigate there silently rather than attach a message that gets dropped.
             return "redirect:/booked-hotels";
         }
         model.addAttribute("booking", maybe.get());
@@ -54,14 +52,13 @@ public class CancelHotelController {
 
     @PostMapping("/booked-hotels/{hotelBookingId}/cancel")
     public String cancelHotel(@PathVariable("hotelBookingId") String hotelBookingIdString,
-                              @RequestParam(value = "reason", required = false) String reason,
-                              RedirectAttributes redirectAttributes) {
+                              @RequestParam(value = "reason", required = false) String reason) {
         UUID hotelBookingId;
         try {
             hotelBookingId = UUID.fromString(hotelBookingIdString);
         } catch (IllegalArgumentException malformedUuid) {
-            redirectAttributes.addFlashAttribute("notFoundMessage",
-                    "No booked hotel found with id " + hotelBookingIdString);
+            // Malformed id in the path: nothing to cancel, and the view-only list can't render a
+            // flash, so navigate there silently.
             return "redirect:/booked-hotels";
         }
 
@@ -71,8 +68,7 @@ public class CancelHotelController {
                     new CancelHotelRequest(hotelBookingId, reason));
         } catch (HotelBookingNotFound e) {
             // The booking is already gone (e.g. cancelled in another tab); there is nothing left to
-            // render a cancel page for, so fall back to the list.
-            redirectAttributes.addFlashAttribute("notFoundMessage", e.getMessage());
+            // cancel, and the view-only list can't render a flash, so fall back to it silently.
             return "redirect:/booked-hotels";
         }
 

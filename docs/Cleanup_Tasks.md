@@ -48,6 +48,12 @@ plan doc and its status — including these items — see `Backlog.md`.
       *materializes* the zone already being derived — meaning preserved), and old bare-scalar backup
       files would still need the read-time upcaster on restore, so keep the upcaster until no
       old-shape backup can be restored. May warrant its own plan doc.
+- [ ] **Consistent edit affordances on calendar and itinerary entries.** Make it easy to jump from
+      a calendar cell or an itinerary entry straight to the edit form for that hotel/flight/train/
+      conference/gathering, and do it *uniformly* across all entry kinds. Today it's haphazard —
+      some entry types show an edit icon/link and others don't. Every editable entry kind should
+      expose the same edit affordance from both surfaces (OWNER view only — never in the redacted
+      anonymous calendar). Related to the standardized header/footer nav item above.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.

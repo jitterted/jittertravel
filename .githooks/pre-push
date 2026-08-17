@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# MUST-PASS gate (Ted): block `git push` unless BOTH test suites are green.
+#
+# This is a native git pre-push hook, tracked in the repo under .githooks/ and wired up via
+#   git config core.hooksPath .githooks
+# so it survives fresh clones (each clone must run that one config command once — see README).
+# It runs on the real push no matter how it's invoked — Claude Code, the IDE, or the shell —
+# and does NOT depend on Claude Code's PreToolUse hooks or the permission allow-list.
+#
+# "All tests" is both tiers because the js tier is opt-in and excluded from the default build:
+# commit 0435623 broke ConfirmedCalendarToggleJsTest and shipped because the js tier is not in
+# `./mvnw test`. A green default build is NOT proof the push is safe.
+#
+# git passes <remote> <url> as $1 $2 and the ref updates on stdin; we gate every push, so we
+# ignore them. Exit non-zero aborts the push.
+set -uo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)" || exit 1
+cd "$ROOT" || exit 1
+
+echo "MUST-PASS gate: running all tests (default + js) before push..."
+if ./mvnw -q test && ./mvnw -q test -Pjs-tests; then
+  echo "MUST-PASS gate: all green — allowing push."
+  exit 0
+fi
+
+echo "MUST-PASS gate: tests FAILED — push blocked. Run './mvnw test' AND './mvnw test -Pjs-tests', fix every failure, then push again." >&2
+exit 1

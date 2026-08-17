@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# MUST-PASS gate (Ted): block `git push` unless BOTH test suites are green.
+# MUST-PASS gate (Ted): block `git push` unless BOTH test suites are green AND any code change
+# is accompanied by a backlog/cleanup doc update (so the tracking docs stop going stale).
 #
 # This is a native git pre-push hook, tracked in the repo under .githooks/ and wired up via
 #   git config core.hooksPath .githooks
@@ -11,12 +12,41 @@
 # commit 0435623 broke ConfirmedCalendarToggleJsTest and shipped because the js tier is not in
 # `./mvnw test`. A green default build is NOT proof the push is safe.
 #
-# git passes <remote> <url> as $1 $2 and the ref updates on stdin; we gate every push, so we
-# ignore them. Exit non-zero aborts the push.
+# git passes <remote> <url> as $1 $2 and the ref updates on stdin as
+#   <local ref> <local sha> <remote ref> <remote sha>
+# The docs gate below consumes stdin to see which files the pushed commits changed; the test
+# gate ignores it. Exit non-zero aborts the push.
 set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)" || exit 1
 cd "$ROOT" || exit 1
+
+# --- Docs-freshness gate (Ted, 2026-08-17): keep Backlog/Cleanup_Tasks from going stale. -------
+# If the commits being pushed change code under src/ but touch NEITHER docs/Backlog.md NOR
+# docs/Cleanup_Tasks.md, block: a completed or advanced tracked item almost certainly needs
+# recording, and "done" includes the doc update. Escape hatch for a genuinely doc-irrelevant
+# push (a pure bug fix, a rename, tooling): re-run as  DOCS_OK=1 git push
+# Runs BEFORE the tests so it fails fast. Fails open on any git error (empty file list ⇒ no block).
+if [[ "${DOCS_OK:-}" != "1" ]]; then
+  changed=""
+  while read -r _localref localsha _remoteref remotesha; do
+    [[ -z "${localsha:-}" ]] && continue
+    [[ "$localsha" =~ ^0+$ ]] && continue          # branch delete — nothing to inspect
+    if [[ "$remotesha" =~ ^0+$ ]]; then            # new ref: no base to bound a range, inspect the tip
+      changed+=$'\n'"$(git diff-tree --no-commit-id --name-only -r "$localsha" 2>/dev/null)"
+    else
+      changed+=$'\n'"$(git diff --name-only "$remotesha..$localsha" 2>/dev/null)"
+    fi
+  done
+  if grep -qE '^src/' <<<"$changed" \
+     && ! grep -qE '^docs/(Backlog|Cleanup_Tasks)\.md$' <<<"$changed"; then
+    echo "Docs gate: BLOCKED — pushing code changes under src/ but neither docs/Backlog.md nor" >&2
+    echo "docs/Cleanup_Tasks.md was updated. Did you complete or advance a tracked item? If so," >&2
+    echo "record it there (marking an item done is part of \"done\"). If nothing tracked changed," >&2
+    echo "re-run:  DOCS_OK=1 git push" >&2
+    exit 1
+  fi
+fi
 
 echo "MUST-PASS gate: running all tests (default + js) before push..."
 if ./mvnw -q test && ./mvnw -q test -Pjs-tests; then

@@ -16,11 +16,6 @@ plan doc and its status — including these items — see `Backlog.md`.
       some entry types show an edit icon/link and others don't. Every editable entry kind should
       expose the same edit affordance from both surfaces (OWNER view only — never in the redacted
       anonymous calendar). Related to the standardized header/footer nav item above.
-- [ ] **Split every page that combines an Edit and a Cancel form into separate pages.** Cancel Hotel
-      was already split out (`f5971ef`); apply the same treatment to the remaining entry kinds so no
-      page hosts both an edit form and a cancel/delete form together. Keeps each form's errors
-      rendering on its own page (see the "errors render on the form page" convention) and avoids one
-      form's submit clobbering the other's state.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.
@@ -34,6 +29,17 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Done
 
+- [x] **Split every page combining an Edit and a Cancel form** (2026-08-17). Verified nothing is
+      left to split: a full sweep of the templates found the only entry cancel/delete form in the
+      app is `cancel-hotel.html`, which is already its own page (`f5971ef`) — `change-hotel.html`
+      merely *links* to it. Every other edit page hosts a single edit form: `change-flight.html`'s
+      second form is the flight-number **lookup** (not a cancel), and `change-train.html` /
+      `change-gathering.html` have one form each; there is no `change-private-event` page. The
+      remaining entry kinds (flight, train, gathering, conference, private event) have **no cancel
+      action at all** yet — those are separate, still-open features (`ConferenceCancelled` organizer
+      cancel; gathering cancellation, explicitly out of scope in `ChangeGatheringPlan.md`), and when
+      each is built it must land on its own page from the start, per the "errors render on the form
+      page" convention. No code change was needed.
 - [x] **Calendar day-number popup now dismisses** (2026-08-17). The owner future-day disclosure
       menu on `/calendar` is a native `<details class="day-menu">`, which on its own never
       dismisses — clicking away left it open, Escape did nothing, and opening a second day left the

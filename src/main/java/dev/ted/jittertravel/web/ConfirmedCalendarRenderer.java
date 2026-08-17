@@ -217,6 +217,39 @@ public class ConfirmedCalendarRenderer {
             }
             """;
 
+    // The owner future-day disclosure menus are native <details>, which on their own never
+    // dismiss: clicking away leaves them open, Escape does nothing, and opening a second day
+    // leaves the first open so the absolutely-positioned menus stack and overlap. This adds the
+    // three behaviors a popup is expected to have — only one open at a time, close on
+    // outside-click, close on Escape. Harmless when no day menus are present (owner-only render).
+    private static final String DAY_MENU_SCRIPT = """
+            var dayMenus = document.querySelectorAll('.day-menu');
+            function closeDayMenus(except) {
+                dayMenus.forEach(function (menu) {
+                    if (menu !== except) {
+                        menu.open = false;
+                    }
+                });
+            }
+            dayMenus.forEach(function (menu) {
+                menu.addEventListener('toggle', function () {
+                    if (menu.open) {
+                        closeDayMenus(menu);  // opening one closes the rest — no stacking
+                    }
+                });
+            });
+            document.addEventListener('click', function (event) {
+                if (!event.target.closest('.day-menu')) {
+                    closeDayMenus(null);
+                }
+            });
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    closeDayMenus(null);
+                }
+            });
+            """;
+
     public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser) {
         return render(rawEntries, today, isPublicUser, false, null, null);
     }
@@ -279,7 +312,7 @@ public class ConfirmedCalendarRenderer {
                         ).withStyle("margin-left: 4rem; font-size: 0.9rem;"),
                         ZoneToggle.render(zoneDisplay),
                         rawHtml(calendarMarkup),
-                        rawHtml("<script>" + TOGGLE_SCRIPT + "</script>"),
+                        rawHtml("<script>" + TOGGLE_SCRIPT + DAY_MENU_SCRIPT + "</script>"),
                         BrowserZoneScript.render(zoneDisplay)
                 )
         ), zoneDisplay).withLang("en").render();

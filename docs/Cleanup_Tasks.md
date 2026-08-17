@@ -21,12 +21,6 @@ plan doc and its status — including these items — see `Backlog.md`.
       page hosts both an edit form and a cancel/delete form together. Keeps each form's errors
       rendering on its own page (see the "errors render on the form page" convention) and avoids one
       form's submit clobbering the other's state.
-- [ ] **Calendar day-number popup is broken.** Clicking a day number on `/calendar` opens the
-      day-menu popup, but it doesn't dismiss: clicking elsewhere on the page doesn't close it, nor
-      does pressing Escape, and every click on the number opens *another* stacked popup instead of
-      toggling the existing one. Fix: close on outside-click and on Escape, and make a repeat click
-      toggle (or reuse) the single popup rather than spawn duplicates. JS-behavior fix — cover with a
-      `@Tag("js")` Playwright test (`page.setContent`, no server) per `docs/JS-Behavior-Tests.md`.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.
@@ -40,6 +34,21 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Done
 
+- [x] **Calendar day-number popup now dismisses** (2026-08-17). The owner future-day disclosure
+      menu on `/calendar` is a native `<details class="day-menu">`, which on its own never
+      dismisses — clicking away left it open, Escape did nothing, and opening a second day left the
+      first open so the absolutely-positioned menus stacked and overlapped. Added `DAY_MENU_SCRIPT`
+      in `ConfirmedCalendarRenderer` giving the three behaviors a popup is expected to have: only
+      one open at a time (a `toggle` listener closes the others when one opens), close on
+      outside-click (document `click` where the target isn't inside a `.day-menu`), and close on
+      Escape (document `keydown`). Harmless when no day menus are present (owner-only render).
+      Covered by `ConfirmedCalendarDayMenuJsTest` (`@Tag("js")`, `page.setContent`, no server) —
+      three cases (outside-click, Escape, no-stacking), each mutation-verified. **Note:** while
+      doing this I found `ConfirmedCalendarToggleJsTest` is **pre-existing broken** (fails without
+      any of my changes) — the 2026-08-16 "default `from` = one week before today" change
+      (`0435623`) shrank the rendered range so the tests' expected collapsed-week counts no longer
+      hold; the `js` tier is opt-in (excluded from the default build), so it shipped invisibly. Not
+      fixed here — flagged for a separate pass.
 - [x] **Add a private social event type** (2026-08-13). Shipped as its own entry kind — see
       `PrivateSocialEventPlan.md` (done) and the Backlog row. `EntryKind.PRIVATE_EVENT` with a
       `PlanPrivateEvent` command / `PrivateEventPlanned` event / context, `PrivateEventCalendarProjector`,

@@ -28,6 +28,13 @@ class ConfirmedCalendarToggleJsTest extends JsBehaviorTest {
     // Monday. Weeks whose Saturday falls before this week's Sunday (Jun 14) collapse.
     private static final LocalDate TODAY = LocalDate.of(2026, 6, 15);
 
+    // Pin the window's start two weeks back so the grid always contains the two past weeks these
+    // tests exercise (May 31-Jun 6 empty, Jun 7-13 with the entry). Passing `from` explicitly keeps
+    // the scenario independent of the default window, which since 0435623 opens one week before
+    // today (that shrank the default to a single past week and silently broke these tests, because
+    // the js tier is excluded from the default build).
+    private static final LocalDate WINDOW_START = LocalDate.of(2026, 6, 1);
+
     /**
      * One conference in a past week (Jun 8 → collapsed week of Jun 7–13) and one in the
      * current week (Jun 16). The past entry makes the renderer emit the global toggle,
@@ -49,12 +56,12 @@ class ConfirmedCalendarToggleJsTest extends JsBehaviorTest {
 
     /** Public render: day labels are spans, so a collapsed week is clickable anywhere. */
     private String publicCalendarHtml() {
-        return ConfirmedCalendarRenderer.render(twoConferences(), TODAY, true);
+        return ConfirmedCalendarRenderer.render(twoConferences(), TODAY, true, false, WINDOW_START, null);
     }
 
     /** OWNER render: day labels are {@code <a>} links to the day's itinerary. */
     private String ownerCalendarHtml() {
-        return ConfirmedCalendarRenderer.render(twoConferences(), TODAY, false);
+        return ConfirmedCalendarRenderer.render(twoConferences(), TODAY, false, false, WINDOW_START, null);
     }
 
     private Locator toggleAll() {

@@ -4,7 +4,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -69,10 +68,16 @@ public class SecurityConfig {
                         // Itinerary: FAMILY and OWNER may view; anonymous may not.
                         .requestMatchers("/itinerary", "/itinerary/**").hasAnyRole("FAMILY", "OWNER")
                         .anyRequest().permitAll())
-                // Standard form login: a failed login goes to /login?error and the login page
-                // shows the error. Do NOT set failureUrl("/") — that makes
-                // DefaultLoginPageGeneratingFilter render the login form at "/" on every visit.
-                .formLogin(Customizer.withDefaults())
+                // Custom form login at /login (LoginController + templates/login.html). We replace
+                // Spring's generated page so the form can carry a hidden browserZone field, letting
+                // ZoneCapturingAuthenticationSuccessHandler set the viewerZone cookie on the very
+                // response that redirects to the originally-requested page — so a deep link that
+                // bounced through login renders the correct "today" on first paint. A failed login
+                // still goes to /login?error, which the template shows. Do NOT set failureUrl("/").
+                .formLogin(form -> form
+                        .loginPage("/login")
+                        .successHandler(new ZoneCapturingAuthenticationSuccessHandler())
+                        .permitAll())
                 .logout(logout -> logout.logoutSuccessUrl("/"))
                 // Authenticated-but-unauthorized users are redirected to the home page instead
                 // of seeing a bare 403. Anonymous users still go to /login via the entry point.

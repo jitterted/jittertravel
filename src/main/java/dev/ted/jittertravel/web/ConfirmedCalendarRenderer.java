@@ -237,22 +237,21 @@ public class ConfirmedCalendarRenderer {
                 .map(e -> isPublicUser ? REDACTOR.redact(e) : e)
                 .toList();
 
-        LocalDate rangeStart;
-        LocalDate rangeEnd;
-        if (entries.isEmpty()) {
-            rangeStart = today.minusWeeks(2);
-            rangeEnd = today.plusWeeks(2);
-        } else {
-            rangeStart = entries.stream()
-                    .map(e -> e.start().toLocalDate())
-                    .min(LocalDate::compareTo)
-                    .orElseThrow()
-                    .minusDays(5);
-            rangeEnd = entries.stream()
+        // Default window: from one week before today (so the calendar always opens near "now",
+        // never scrolled back to the earliest historical entry) through at least two weeks out,
+        // extended to cover the last entry when trips run further ahead. Past entries before the
+        // start are reached via an explicit ?from=.
+        LocalDate rangeStart = today.minusWeeks(1);
+        LocalDate rangeEnd = today.plusWeeks(2);
+        if (!entries.isEmpty()) {
+            LocalDate lastEntryEnd = entries.stream()
                     .map(e -> e.end().toLocalDate())
                     .max(LocalDate::compareTo)
                     .orElseThrow()
                     .plusDays(5);
+            if (lastEntryEnd.isAfter(rangeEnd)) {
+                rangeEnd = lastEntryEnd;
+            }
         }
         // When both endpoints are given explicitly but reversed, swap them so the viewer
         // sees the intended window regardless of param order (a reversed range renders empty).

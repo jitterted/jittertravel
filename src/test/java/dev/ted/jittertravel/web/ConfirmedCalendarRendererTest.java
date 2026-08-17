@@ -200,6 +200,21 @@ class ConfirmedCalendarRendererTest {
                 .doesNotContain("AfterTo");
     }
 
+    @Test
+    void defaultRangeStartsAtTheSundayOfTheWeekBeforeToday() {
+        LocalDate today = LocalDate.of(2026, 6, 11); // Thursday
+        // One week before today is 2026-06-04, whose grid week starts Sunday 2026-05-31.
+
+        String html = ConfirmedCalendarRenderer.render(List.of(), today, false);
+
+        assertThat(html)
+                .as("default window opens at the week containing today minus one week")
+                .contains("/itinerary?date=2026-05-31")
+                .doesNotContain("/itinerary?date=2026-05-30")
+                // ...and specifically one week back, not two (which would open Sunday 2026-05-24).
+                .doesNotContain("/itinerary?date=2026-05-24");
+    }
+
     private static CalendarEntry conference(String title, LocalDate start, LocalDate end) {
         return new CalendarEntry(
                 EntryKind.CONFERENCE,

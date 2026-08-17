@@ -34,7 +34,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 // The secured chain is the only chain, active by default — exactly the production security
 // path this test exercises.
 @WebMvcTest(CalendarController.class)
-@Import({SecurityConfig.class, ViewerZonePolicy.class})
+@Import({SecurityConfig.class, ViewerZonePolicy.class, WebTodayTestConfig.class})
 @TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass"})
 class CalendarRedactionSecurityTest {
 
@@ -166,11 +166,11 @@ class CalendarRedactionSecurityTest {
                 .contains("href=\"/itinerary");
     }
 
-    // The owner day-menu only renders on strictly-future days. The controller reads the real
-    // clock, so these three tests use a far-future entry to keep the future-day path live
-    // regardless of when the suite runs.
-    private static final LocalDateTime FUTURE_CHECK_IN = LocalDateTime.of(2099, 7, 1, 15, 0);
-    private static final LocalDateTime FUTURE_CHECK_OUT = LocalDateTime.of(2099, 7, 3, 11, 0);
+    // The owner day-menu only renders on strictly-future days. The slice pins the clock (via
+    // WebTodayTestConfig) to 2026-06-25, so a few days out is both future and inside the default
+    // window — a far-future entry would instead stretch that window across decades.
+    private static final LocalDateTime FUTURE_CHECK_IN = LocalDateTime.of(2026, 7, 1, 15, 0);
+    private static final LocalDateTime FUTURE_CHECK_OUT = LocalDateTime.of(2026, 7, 3, 11, 0);
 
     @Test
     @WithMockUser(username = "ted", roles = "OWNER")
@@ -188,7 +188,7 @@ class CalendarRedactionSecurityTest {
                 // Assert on the actual disclosure markup + dated link, not the ".day-menu"
                 // CSS selector (which is inlined on every calendar page regardless of viewer).
                 .contains("<details class=\"day-menu\"")
-                .contains("href=\"/book-flight?date=2099-");
+                .contains("href=\"/book-flight?date=2026-07-");
     }
 
     @Test

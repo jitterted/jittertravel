@@ -15,10 +15,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import dev.ted.jittertravel.application.ViewerTodayZone;
+import jakarta.servlet.http.Cookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,30 +96,34 @@ class CalendarControllerTest {
     }
 
     @Test
-    void missingRangeParamsRenderAllEntries() {
+    void missingRangeParamsDefaultToWeekBeforeTodayThroughLastEntry() {
+        // today = 2026-06-11, so the default window starts 2026-06-04: the pre-today entry drops
+        // out of the default view (reachable via ?from=), later entries render through the last.
         CalendarController controller = controllerWith(
-                conference("EarliestEntry", LocalDate.of(2026, 5, 4), LocalDate.of(2026, 5, 6)),
+                conference("BeforeWindow", LocalDate.of(2026, 5, 4), LocalDate.of(2026, 5, 6)),
                 conference("MiddleEntry", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8)),
                 conference("LatestEntry", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 16)));
 
         ResponseEntity<String> response = controller.getCalendar(publicRequest(), null, null, null);
 
         assertThat(response.getBody())
-                .contains("EarliestEntry")
+                .doesNotContain("BeforeWindow")
                 .contains("MiddleEntry")
                 .contains("LatestEntry");
     }
 
     @Test
-    void unparseableRangeParamsAreIgnoredAndAllEntriesRender() {
+    void unparseableRangeParamsAreIgnoredAndDefaultWindowApplies() {
+        // Unparseable params behave as if absent: the default window (from one week before today)
+        // applies, so the pre-window entry is dropped while a later one still renders.
         CalendarController controller = controllerWith(
-                conference("EarliestEntry", LocalDate.of(2026, 5, 4), LocalDate.of(2026, 5, 6)),
+                conference("BeforeWindow", LocalDate.of(2026, 5, 4), LocalDate.of(2026, 5, 6)),
                 conference("LatestEntry", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 16)));
 
         ResponseEntity<String> response = controller.getCalendar(publicRequest(), "not-a-date", "07/31/2026", null);
 
         assertThat(response.getBody())
-                .contains("EarliestEntry")
+                .doesNotContain("BeforeWindow")
                 .contains("LatestEntry");
     }
 
@@ -144,7 +153,30 @@ class CalendarControllerTest {
                 .doesNotContain("AfterTo");
     }
 
+    @Test
+    void viewerZoneCookieDeterminesWhichDayIsMarkedToday() {
+        // 2026-08-17T01:00Z is still Sunday 2026-08-16 (18:00) in America/Los_Angeles — exactly
+        // the reported bug: the server's UTC clock has already ticked to Monday. With no cookie,
+        // the fallback zone keeps today on Sunday; a UTC viewerZone cookie moves it to Monday.
+        Clock nearMidnightUtc = Clock.fixed(Instant.parse("2026-08-17T01:00:00Z"), ZoneId.of("UTC"));
+        CalendarController controller = controllerWith(nearMidnightUtc);
+
+        String pacific = controller.getCalendar(familyRequest(null), null, null, null).getBody();
+        String utc = controller.getCalendar(familyRequest("UTC"), null, null, null).getBody();
+
+        assertThat(pacific)
+                .as("No cookie: the America/Los_Angeles fallback keeps today on Sunday 2026-08-16")
+                .contains("is-today\"><a href=\"/itinerary?date=2026-08-16\"");
+        assertThat(utc)
+                .as("A UTC viewerZone cookie shifts today to Monday 2026-08-17")
+                .contains("is-today\"><a href=\"/itinerary?date=2026-08-17\"");
+    }
+
     private CalendarController controllerWith(CalendarEntry... entries) {
+        return controllerWith(FIXED_CLOCK, entries);
+    }
+
+    private CalendarController controllerWith(Clock clock, CalendarEntry... entries) {
         given(conferenceProjector.entries()).willReturn(List.of(entries));
         given(flightProjector.entries()).willReturn(List.of());
         given(trainProjector.entries()).willReturn(List.of());
@@ -154,8 +186,25 @@ class CalendarControllerTest {
         return new CalendarController(
                 new CalendarAggregator(conferenceProjector, flightProjector, trainProjector,
                                        hotelProjector, gatheringProjector, privateEventProjector),
-                new ViewerZonePolicy());
+                new ViewerZonePolicy(), clock, new ViewerTodayZone(FALLBACK_ZONE));
     }
+
+    private static MockHttpServletRequest familyRequest(String viewerZoneCookie) {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteUser("family");
+        request.addUserRole("FAMILY");
+        if (viewerZoneCookie != null) {
+            request.setCookies(new Cookie(ViewerTodayZone.COOKIE_NAME, viewerZoneCookie));
+        }
+        return request;
+    }
+
+    // No viewerZone cookie on publicRequest(), so "today" resolves in the fallback zone: midday
+    // UTC on 2026-06-11 is still 2026-06-11 in America/Los_Angeles, making today = 2026-06-11 and
+    // the default calendar start (one week before today) = 2026-06-04.
+    private static final ZoneId FALLBACK_ZONE = ZoneId.of("America/Los_Angeles");
+    private static final Clock FIXED_CLOCK =
+            Clock.fixed(Instant.parse("2026-06-11T12:00:00Z"), ZoneId.of("UTC"));
 
     private static MockHttpServletRequest publicRequest() {
         return new MockHttpServletRequest();

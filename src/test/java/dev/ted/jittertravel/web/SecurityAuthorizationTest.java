@@ -14,7 +14,9 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
+import jakarta.servlet.http.Cookie;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -112,5 +114,40 @@ class SecurityAuthorizationTest {
                 .with(csrf()))
                 .hasStatus3xxRedirection()
                 .hasHeader("Location", "/login?error");
+    }
+
+    @Test
+    @WithAnonymousUser
+    void successfulLoginCapturesReportedBrowserZoneAsCookie() {
+        MvcTestResult result = mockMvc.post().uri("/login")
+                .param("username", "ted")
+                .param("password", "testpass")
+                .param("browserZone", "Europe/Berlin")
+                .with(csrf())
+                .exchange();
+
+        assertThat(result).hasStatus3xxRedirection();
+        Cookie zoneCookie = result.getResponse().getCookie("viewerZone");
+        assertThat(zoneCookie)
+                .as("a valid browserZone from the login form is stored so the first "
+                    + "authenticated render already knows the viewer's zone")
+                .isNotNull();
+        assertThat(zoneCookie.getValue()).isEqualTo("Europe/Berlin");
+    }
+
+    @Test
+    @WithAnonymousUser
+    void successfulLoginWithUnrecognizedBrowserZoneSetsNoCookie() {
+        MvcTestResult result = mockMvc.post().uri("/login")
+                .param("username", "ted")
+                .param("password", "testpass")
+                .param("browserZone", "Not/AZone")
+                .with(csrf())
+                .exchange();
+
+        assertThat(result).hasStatus3xxRedirection();
+        assertThat(result.getResponse().getCookie("viewerZone"))
+                .as("a bad zone is dropped rather than stored; the reader then falls back")
+                .isNull();
     }
 }

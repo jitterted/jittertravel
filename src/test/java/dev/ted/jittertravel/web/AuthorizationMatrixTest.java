@@ -72,6 +72,7 @@ class AuthorizationMatrixTest {
         return Stream.of(
                 // route,                          OWNER,            FAMILY,               ANONYMOUS
                 arguments("/",                     Outcome.OK,       Outcome.OK,           Outcome.OK),
+                arguments("/login",                Outcome.OK,       Outcome.OK,           Outcome.OK),
                 arguments("/calendar",             Outcome.OK,       Outcome.OK,           Outcome.OK),
                 arguments("/itinerary",            Outcome.OK,       Outcome.OK,           Outcome.LOGIN),
                 arguments("/book-flight",          Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),

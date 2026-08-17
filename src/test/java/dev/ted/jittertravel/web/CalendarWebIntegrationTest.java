@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
 @WebMvcTest(CalendarController.class)
-@Import(ViewerZonePolicy.class)
+@Import({ViewerZonePolicy.class, WebTodayTestConfig.class})
 @WithMockUser(roles = "FAMILY")
 class CalendarWebIntegrationTest {
 

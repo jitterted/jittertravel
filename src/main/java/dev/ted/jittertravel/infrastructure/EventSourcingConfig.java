@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
+import java.time.ZoneId;
 import java.util.List;
 
 @Configuration
@@ -27,6 +28,12 @@ public class EventSourcingConfig {
     @Bean
     public ViewerZonePolicy viewerZonePolicy() {
         return new ViewerZonePolicy();
+    }
+
+    @Bean
+    public ViewerTodayZone viewerTodayZone(
+            @Value("${jittertravel.today.fallback-zone:America/Los_Angeles}") String fallbackZone) {
+        return new ViewerTodayZone(ZoneId.of(fallbackZone));
     }
 
     @Bean

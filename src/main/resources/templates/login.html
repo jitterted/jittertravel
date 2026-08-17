@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Sign In</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 360px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .notice {
+            border-radius: 6px;
+            padding: 0.55rem 0.8rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        .notice.error { border: 1px solid #b00; color: #b00; }
+        .notice.info { border: 1px solid var(--border-color); color: var(--muted-text); }
+
+        .field { margin-bottom: 1rem; }
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+        .field input {
+            padding: 0.4rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+
+        button.primary {
+            background: var(--accent-color);
+            color: #fff;
+            border: 1px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 0.5rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+            width: 100%;
+        }
+        button.primary:hover { opacity: 0.9; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/" th:href="@{/}">JitterTravel</a>
+    </nav>
+
+    <h1>Sign In</h1>
+
+    <div class="notice error" th:if="${param.error}">
+        Incorrect username or password.
+    </div>
+    <div class="notice info" th:if="${param.logout}">
+        You have been signed out.
+    </div>
+
+    <form th:action="@{/login}" method="post">
+        <div class="field">
+            <label>
+                Username
+                <input type="text" name="username" autocomplete="username" autofocus/>
+            </label>
+        </div>
+        <div class="field">
+            <label>
+                Password
+                <input type="password" name="password" autocomplete="current-password"/>
+            </label>
+        </div>
+        <!-- Reports the browser's own zone so the calendar/itinerary can compute "today" in it.
+             Blank with JavaScript off: the server then falls back to the configured home zone. -->
+        <input type="hidden" name="browserZone" id="browserZone"/>
+        <button type="submit" class="primary">Sign In</button>
+    </form>
+
+</div>
+
+<script>
+    (function () {
+        try {
+            var zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (zone) {
+                document.getElementById('browserZone').value = zone;
+            }
+        } catch (ignored) {
+            // No Intl support: leave browserZone blank; the server uses the home-zone fallback.
+        }
+    })();
+</script>
+</body>
+</html>

@@ -1,17 +1,22 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarAggregator;
+import dev.ted.jittertravel.application.ViewerTodayZone;
 import dev.ted.jittertravel.application.ViewerZonePolicy;
 import dev.ted.jittertravel.application.ZoneDisplay;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.util.WebUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -21,10 +26,15 @@ public class CalendarController {
 
     private final CalendarAggregator calendarAggregator;
     private final ViewerZonePolicy viewerZonePolicy;
+    private final Clock clock;
+    private final ViewerTodayZone viewerTodayZone;
 
-    public CalendarController(CalendarAggregator calendarAggregator, ViewerZonePolicy viewerZonePolicy) {
+    public CalendarController(CalendarAggregator calendarAggregator, ViewerZonePolicy viewerZonePolicy,
+                             Clock clock, ViewerTodayZone viewerTodayZone) {
         this.calendarAggregator = calendarAggregator;
         this.viewerZonePolicy = viewerZonePolicy;
+        this.clock = clock;
+        this.viewerTodayZone = viewerTodayZone;
     }
 
     private static final List<DateTimeFormatter> DATE_FORMATS = List.of(
@@ -41,10 +51,16 @@ public class CalendarController {
         boolean isPublicUser = request.getRemoteUser() == null;
         boolean isOwner = request.isUserInRole("OWNER");
         ZoneDisplay zoneDisplay = viewerZonePolicy.forViewer(isOwner, request.isUserInRole("FAMILY"), tz);
+        LocalDate today = LocalDate.ofInstant(clock.instant(), todayZone(request));
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
-                .body(ConfirmedCalendarRenderer.render(calendarAggregator.allEntries(), LocalDate.now(),
+                .body(ConfirmedCalendarRenderer.render(calendarAggregator.allEntries(), today,
                         isPublicUser, isOwner, parseDate(from), parseDate(to), zoneDisplay));
+    }
+
+    private ZoneId todayZone(HttpServletRequest request) {
+        Cookie zoneCookie = WebUtils.getCookie(request, ViewerTodayZone.COOKIE_NAME);
+        return viewerTodayZone.resolve(zoneCookie == null ? null : zoneCookie.getValue());
     }
 
     private static LocalDate parseDate(String value) {

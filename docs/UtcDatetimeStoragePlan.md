@@ -104,6 +104,32 @@ Fix: make time unambiguous end to end.
      request and have import prefer it over re-deriving — and it changes the wire format, so it
      needs a backward-compatibility decision first. Not planned.
 
+10. **(2026-08-16) "Today" is viewer-zoned, separately from display.** Decisions 4 and 7 govern
+    how *entry* times are shown and bucketed; they were silent on the calendar/itinerary's notion
+    of **today** — which day is highlighted, which past weeks collapse, and the default calendar
+    range. That "today" was being computed in the server's JVM zone (UTC on Railway), so it flipped
+    a day early each evening in the Pacific. It is now computed in the **viewer's** zone:
+
+    - `ViewerTodayZone` resolves a `ZoneId` from a `viewerZone` cookie, else a configured fallback
+      (`jittertravel.today.fallback-zone`, default `America/Los_Angeles`). Controllers compute
+      `LocalDate.ofInstant(clock.instant(), resolvedZone)`.
+    - The server cannot read a browser's zone on its own (the browser-zone display upgrade of
+      decision 4/8 is client-side only). So a **custom login page** (replacing Spring's generated
+      one) carries a hidden `browserZone` field that JS fills; on login success,
+      `ZoneCapturingAuthenticationSuccessHandler` writes the `viewerZone` cookie on the very
+      response that redirects to the originally-requested page — so a deep link bounced through
+      login shows the correct today on first paint. The cookie is written **only** on an
+      authenticated response, so anonymous visitors never receive one (no cookie-consent surface);
+      they get the fallback zone, and since they are redacted to day granularity this is
+      inconsequential. OWNER, who ships no browser-zone *display* script (decision 8), still gets
+      this one hidden field at login — the two mechanisms are independent.
+    - **Consequence to keep in mind:** today is now viewer-zoned while day *bucketing* stays
+      entry-zoned (decision 7 is unchanged). Near a midnight boundary the highlighted "today" can
+      therefore sit one column away from an entry's own entry-zone day. Accepted, like the
+      decision-5 mixed-zone ambiguity.
+    - Same change: the calendar's default `from` is now **one week before today** (was: anchored to
+      the earliest entry), so the calendar opens near now rather than scrolled back into history.
+
 ## Core representation
 
 ```java

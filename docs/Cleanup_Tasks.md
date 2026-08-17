@@ -39,17 +39,23 @@ plan doc and its status — including these items — see `Backlog.md`.
       there is nothing to link to; when each edit page ships it should set `editPath` / take `isOwner`
       the same way and inherit the affordance. Projector + renderer + both-tier redaction tests, all
       mutation-verified.
-- [x] **Split every page combining an Edit and a Cancel form** (2026-08-17). Verified nothing is
-      left to split: a full sweep of the templates found the only entry cancel/delete form in the
-      app is `cancel-hotel.html`, which is already its own page (`f5971ef`) — `change-hotel.html`
-      merely *links* to it. Every other edit page hosts a single edit form: `change-flight.html`'s
-      second form is the flight-number **lookup** (not a cancel), and `change-train.html` /
-      `change-gathering.html` have one form each; there is no `change-private-event` page. The
-      remaining entry kinds (flight, train, gathering, conference, private event) have **no cancel
-      action at all** yet — those are separate, still-open features (`ConferenceCancelled` organizer
-      cancel; gathering cancellation, explicitly out of scope in `ChangeGatheringPlan.md`), and when
-      each is built it must land on its own page from the start, per the "errors render on the form
-      page" convention. No code change was needed.
+- [x] **Split every page combining an Edit and a Cancel form** (2026-08-17). No page hosts a
+      second cancel *form* — the only entry cancel form, `cancel-hotel.html`, has been its own page
+      since `f5971ef`, and every other edit page hosts a single edit form (`change-flight.html`'s
+      second form is the flight-number **lookup**, not a cancel; `change-train.html` /
+      `change-gathering.html` have one form each; there is no `change-private-event` page). The
+      other entry kinds (flight, train, gathering, conference, private event) have **no cancel
+      action at all** yet — separate, still-open features (`ConferenceCancelled` organizer cancel;
+      gathering cancellation, out of scope in `ChangeGatheringPlan.md`) — and when each ships it
+      must land on its own page from the start, per the "errors render on the form page" convention.
+      **Correction (same day):** the first pass called this done on the form-vs-link technicality
+      and left the "Cancel this booking" **section** (a `.danger-zone` heading + hint + link to the
+      cancel page) sitting on the `change-hotel` edit page — which still reads as edit-and-cancel
+      combined. Removed that whole section (and its now-dead `.danger-zone`/`.danger-link` CSS), so
+      the change page is genuinely edit-only; cancel is reached from the per-row **Cancel** link on
+      `/booked-hotels` (which already exists next to Edit). `ChangeHotelControllerTest`'s GET render
+      test now asserts the page `doesNotContain` "Cancel this booking" or "/cancel" (mutation-verified),
+      and the explanatory note on the template is a Thymeleaf parser comment so it isn't rendered.
 - [x] **Calendar day-number popup now dismisses** (2026-08-17). The owner future-day disclosure
       menu on `/calendar` is a native `<details class="day-menu">`, which on its own never
       dismisses — clicking away left it open, Escape did nothing, and opening a second day left the

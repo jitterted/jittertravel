@@ -111,33 +111,6 @@
         }
 
         button[type=submit]:hover { opacity: 0.88; }
-
-        .danger-zone {
-            margin-top: 2rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .danger-zone h2 {
-            margin: 0 0 0.25rem;
-            font-size: 1rem;
-            color: var(--text-color);
-        }
-
-        .danger-zone .hint { margin-bottom: 0.75rem; }
-
-        .danger-link {
-            display: inline-block;
-            color: #b00;
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 600;
-            padding: 0.35rem 0.9rem;
-            border: 1px solid #b00;
-            border-radius: 6px;
-        }
-
-        .danger-link:hover { background: #b00; color: #fff; }
     </style>
 </head>
 <body>
@@ -282,17 +255,9 @@
         <button type="submit">Save changes</button>
     </form>
 
-    <!-- Cancel lives on its own page (GET /booked-hotels/{id}/cancel): a dedicated confirm step
-         where a failed cancel can show its error without scrolling. This is just the entry link. -->
-    <section class="danger-zone">
-        <h2>Cancel this booking</h2>
-        <p class="hint">
-            Removes the stay from every view — calendar, itinerary, schedule problems and this
-            list. The event log keeps the record. This cannot be undone from the app, and is
-            only possible until check-in.
-        </p>
-        <a class="danger-link" th:href="@{|/booked-hotels/${changeHotel.hotelBookingId}/cancel|}">Cancel this booking…</a>
-    </section>
+    <!--/* This page is edit-only: cancelling a booking is a separate action, reached from the
+           per-row "Cancel" link on /booked-hotels (its own confirm page). Keeping cancel off the
+           edit page means neither form clobbers the other. Thymeleaf parser comment: not rendered. */-->
 
 </div>
 </body>

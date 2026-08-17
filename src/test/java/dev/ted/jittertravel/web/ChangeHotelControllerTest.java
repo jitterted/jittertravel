@@ -67,7 +67,12 @@ class ChangeHotelControllerTest {
         given(detailsProjector.findById(any())).willReturn(Optional.of(view));
 
         assertThat(mockMvc.get().uri("/booked-hotels/" + bookingId))
-                .hasStatusOk();
+                .hasStatusOk()
+                .bodyText()
+                // The change page is edit-only: cancelling is a separate action reached from the
+                // /booked-hotels list, so this page hosts no cancel affordance of its own.
+                .doesNotContain("Cancel this booking")
+                .doesNotContain("/cancel");
     }
 
     @Test

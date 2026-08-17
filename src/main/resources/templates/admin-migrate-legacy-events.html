@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Migrate legacy events — Admin — JitterTravel</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #faf9f7;
+            --surface: #ffffff;
+            --text-primary: #1a1916;
+            --text-secondary: #6b6860;
+            --text-muted: #b0aea8;
+            --border: rgba(0, 0, 0, 0.10);
+            --danger: #c0392b;
+            --danger-bg: #fdf2f2;
+            --danger-border: #f5c6c6;
+            --success: #1a7a3f;
+            --success-bg: #f0faf4;
+            --success-border: #b2dfc4;
+            --warning: #9a6b00;
+            --warning-text: #6e4d00;
+            --warning-bg: #fdf3d8;
+            --warning-border: #e6c66b;
+            --radius: 10px;
+        }
+
+        body {
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .container { max-width: 60ch; margin: 3rem auto; padding: 0 1.5rem; }
+
+        nav { margin-bottom: 2rem; font-size: 0.9rem; color: var(--text-muted); }
+        nav a { color: var(--text-secondary); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+
+        h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 1rem; }
+        p.lead { color: var(--text-secondary); line-height: 1.55; margin-bottom: 1.5rem; }
+
+        .banner { border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1.5rem; line-height: 1.5; }
+        .banner strong { display: block; font-size: 1rem; margin-bottom: 0.35rem; }
+        .banner.success { background: var(--success-bg); border: 1px solid var(--success-border); color: var(--success); }
+        .banner.error   { background: var(--danger-bg);  border: 1px solid var(--danger-border);  color: var(--danger); }
+
+        .banner.success .restart-note {
+            display: block; font-size: 0.9rem; font-weight: 700; color: var(--warning-text);
+            background: var(--warning-bg); border: 1px solid var(--warning-border);
+            border-radius: 6px; padding: 0.6rem 0.85rem; margin-top: 0.5rem;
+        }
+
+        .banner.error ul { margin: 0.35rem 0 0 1.1rem; font-weight: 400; }
+
+        table {
+            width: 100%; border-collapse: collapse; background: var(--surface);
+            border: 1px solid var(--border); border-radius: var(--radius);
+            overflow: hidden; margin-bottom: 1.5rem;
+        }
+        th, td { padding: 0.6rem 1rem; text-align: left; }
+        td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+        tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+        td.zero { color: var(--text-muted); }
+
+        .backup-note {
+            font-size: 0.85rem; color: var(--warning-text); background: var(--warning-bg);
+            border: 1px solid var(--warning-border); border-radius: 6px;
+            padding: 0.6rem 0.85rem; margin-bottom: 1.5rem; line-height: 1.45;
+        }
+
+        form { display: flex; gap: 0.75rem; align-items: center; }
+        button {
+            padding: 0.5rem 1.15rem; background: var(--text-primary); color: #fff; border: none;
+            border-radius: 6px; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+        }
+        button:not(:disabled):hover { opacity: 0.88; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .hint { font-size: 0.85rem; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <nav><a href="/admin">← Admin</a></nav>
+
+    <h1>Migrate legacy events</h1>
+
+    <p class="lead">
+        Bakes the current payload shape and the per-type schema-version stamp into every
+        <code>event_log</code> row, once, so read-time zone resolution leaves the boot-replay path.
+        Safe to run repeatedly — an already-current, correctly-stamped row is skipped.
+    </p>
+
+    <!-- Applied-run outcome -->
+    <div class="banner success" th:if="${result != null and !result.hasErrors()}">
+        <strong>✓ Migration complete.</strong>
+        <span th:text="${result.rewritten()} + ' payload' + (${result.rewritten()} == 1 ? '' : 's') + ' rewritten, '
+                       + ${result.stamped()} + ' stamp' + (${result.stamped()} == 1 ? '' : 's') + ' added.'">
+            0 payloads rewritten, 0 stamps added.</span>
+        <span class="restart-note"><span aria-hidden="true">⚠</span>
+            Take a fresh backup now — it becomes your new floor. A restart re-verifies a clean replay
+            from the now-eager store.</span>
+    </div>
+
+    <div class="banner error" th:if="${result != null and result.hasErrors()}">
+        <strong th:text="${result.refusedReadOnly()} ? 'Migration refused.' : 'Migration failed — nothing was written.'">
+            Migration failed.</strong>
+        <ul>
+            <li th:each="err : ${result.errors()}" th:text="${err}"></li>
+        </ul>
+    </div>
+
+    <table>
+        <tbody>
+            <tr>
+                <td>Events scanned</td>
+                <td th:text="${report.scanned()}">0</td>
+            </tr>
+            <tr>
+                <td>Payloads to rewrite</td>
+                <td th:text="${report.toRewrite()}" th:classappend="${report.toRewrite()} == 0 ? ' zero' : ''">0</td>
+            </tr>
+            <tr>
+                <td>Stamps to add</td>
+                <td th:text="${report.toStamp()}" th:classappend="${report.toStamp()} == 0 ? ' zero' : ''">0</td>
+            </tr>
+            <tr>
+                <td>Already current</td>
+                <td th:text="${report.alreadyCurrent()}">0</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="backup-note" th:if="${report.totalToMigrate() > 0}">
+        This rewrites real rows. Download a backup from <a href="/admin/backup">Admin → Backup</a>
+        (or run <code>scripts/backup-db.sh</code>) before you run it.
+    </div>
+
+    <form method="post" th:action="@{/admin/migrate-legacy-events}" th:if="${!report.hasErrors()}">
+        <button type="submit" th:disabled="${report.totalToMigrate() == 0}"
+                th:text="${report.totalToMigrate() == 0} ? 'Nothing to migrate' : 'Run migration'">
+            Run migration</button>
+        <span class="hint" th:if="${report.totalToMigrate() == 0}">Every row is already current-shape and stamped.</span>
+    </form>
+
+    <div class="banner error" th:if="${report.hasErrors()}">
+        <strong>Cannot migrate — these rows would not bind:</strong>
+        <ul>
+            <li th:each="err : ${report.errors()}" th:text="${err}"></li>
+        </ul>
+    </div>
+
+</div>
+</body>
+</html>

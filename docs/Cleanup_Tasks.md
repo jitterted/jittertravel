@@ -15,32 +15,6 @@ plan doc and its status — including these items — see `Backlog.md`.
 - [ ] **Standardize headers/footers for navigation.** Give pages a consistent header/footer with
       shared nav so you can move around the app directly instead of returning to the home page
       every time. Currently many pages are dead-ends that force a trip back to `/`.
-- [ ] **Boot-replay preflight (pre-deploy).** A check that replays *every* stored event through the
-      real read path — `EventPayloadUpcaster.upcast` → `EventTypes.classFor` → `treeToValue`,
-      including zone resolution — and fails if any row cannot upcast/bind, run against a copy of
-      production *before* deploying. This is what caught the Morocco/Antwerp zone failures on
-      2026-08-16 (a throwaway test over the 69 prod rows); without it they would have been a second
-      failed deploy. `/admin/zone-audit` is not a substitute: it only sweeps already-imported
-      `event_log` at runtime and went stale (it passed in June yet two unresolvable locations slipped
-      in after). Options: a JUnit tier that loads a dump into a scratch DB and asserts a clean
-      replay, or a CLI/`--dry-run` boot mode that replays and exits non-zero on any failure. Wire it
-      into the deploy step so a bad legacy row blocks the push, not the boot.
-- [ ] **Eager-migrate legacy bare-scalar datetime events to `{utc, zone}` (retire read-time zone
-      resolution during replay).** Today legacy events (written before zones were captured) store a
-      bare wall-clock scalar and are upcast *lazily* — `EventPayloadUpcaster` re-resolves their zone
-      from the curated `LocationZoneResolver` on **every boot**, forever. That permanently couples
-      replay to the resolver's coverage and makes every legacy data-entry error a permanent resolver
-      entry (see the `Europe/Brussels → "antwerp"` city-table hack added 2026-08-16 for a hotel whose
-      country field says "Brussels"; it cannot be removed while that original event exists, because
-      editing the hotel appends a *new* corrected event but never rewrites the bad original).
-      Fix: a one-time migration that reads each legacy bare-scalar event, resolves its zone **once**,
-      and rewrites the `event_log` payload to the current `{utc, zone}` shape. Afterwards no
-      bare-scalar rows remain, the upcaster's legacy branches become dead (eventually retire them),
-      the resolver leaves the replay path entirely, and the per-error special entries (Antwerp) can
-      be deleted. Caveat: this mutates stored payloads (a controlled event-shape migration that
-      *materializes* the zone already being derived — meaning preserved), and old bare-scalar backup
-      files would still need the read-time upcaster on restore, so keep the upcaster until no
-      old-shape backup can be restored. May warrant its own plan doc.
 - [ ] **Consistent edit affordances on calendar and itinerary entries.** Make it easy to jump from
       a calendar cell or an itinerary entry straight to the edit form for that hotel/flight/train/
       conference/gathering, and do it *uniformly* across all entry kinds. Today it's haphazard —
@@ -71,6 +45,29 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Done
 
+- [x] **Eager-migrate legacy events + per-event schema-version stamp** (2026-08-16). Owning doc
+      `LegacyEventEagerMigrationPlan.md` (now `built`). Added an `event_log.schema_version` column
+      (nullable; per-type version in `EventTypes`, the nine `ZonedTimestamp` types = 2, others = 1);
+      the append path stamps new rows, restore carries it verbatim, backup format bumped to **v3**
+      (restores v2 and v3, so old backups aren't orphaned). `LegacyEventMigration` +
+      `PostgresPersister.migrateEventPayloads` rewrite each stale row's payload and stamp in one
+      transaction (identity columns untouched); idempotent (already-current rows skipped),
+      validate-then-apply (one unbindable/unresolvable row aborts with zero writes), read-only-guarded.
+      OWNER-only `/admin/migrate-legacy-events` (GET preview + POST run) with an `AuthorizationMatrixTest`
+      row and an admin nav card. Decided with Ted: **column not payload-key**, accept the backup bump,
+      in-place admin UPDATE, FQCN→logical `type` normalization **deferred**, versioning *framework*
+      deferred (stamp only for now). Every new/changed test mutation-verified. Retirements still gated
+      on old backups leaving rotation: the upcaster's legacy branches, the FQCN mapping, and the
+      Antwerp-style resolver hacks.
+- [x] **Boot-replay preflight (pre-deploy)** (2026-08-16). `BootReplayPreflightTest`, a
+      `@Tag("replay-preflight")` tier excluded from the default build (`mvn test -Preplay-preflight
+      -Dpreflight.dump=/path/to/backup.json`; no dump ⇒ skips). Restores a production backup into a
+      scratch Testcontainer DB — whose validate pass runs the exact `upcast → classFor → bind` boot
+      uses, incl. zone resolution — then drives `loadAllEvents()` over the loaded rows, failing with
+      the offending row named on anything that would abort boot. Verified end-to-end against a clean
+      dump (passes) and a bad one (fails, naming the unresolvable row) — the 2026-08-16 Morocco/Antwerp
+      failure mode. This is the tool that certifies each retirement the eager migration unlocks;
+      `/admin/zone-audit` is not a substitute (runtime-only, went stale).
 - [x] **Startup-failure (read-only) warning banner on the home page** (2026-08-16). When
       `EventStore.isReadOnly()` is true — a failed boot replay or a failed save flipped the app to
       read-only — the home page renders a prominent red `role="alert"` banner across the top

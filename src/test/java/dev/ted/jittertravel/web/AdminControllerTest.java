@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.BackupService;
 import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.ConferenceMigrationService;
+import dev.ted.jittertravel.application.LegacyEventMigration;
 import dev.ted.jittertravel.application.TentativeConferenceProjector;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import org.junit.jupiter.api.Test;
@@ -56,6 +57,8 @@ class AdminControllerTest {
     TentativeConferenceProjector tentativeConferenceProjector;
     @MockitoBean
     ConferenceMigrationService conferenceMigrationService;
+    @MockitoBean
+    LegacyEventMigration legacyEventMigration;
 
     @Test
     void databasePageRendersTableStats() {
@@ -135,6 +138,49 @@ class AdminControllerTest {
         assertThat(mockMvc.get().uri("/admin/migrate-conferences"))
                 .hasStatusOk()
                 .hasContentTypeCompatibleWith(MediaType.TEXT_HTML);
+    }
+
+    @Test
+    void migrateLegacyEventsFormRendersThePreviewCounts() {
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 5, List.of()));
+
+        assertThat(mockMvc.get().uri("/admin/migrate-legacy-events"))
+                .hasStatusOk()
+                .hasContentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .bodyText()
+                .contains("Events scanned")
+                .contains("Run migration");
+    }
+
+    @Test
+    void migrateLegacyEventsPostRunsMigrationAndShowsResult() {
+        given(legacyEventMigration.migrate()).willReturn(
+                new LegacyEventMigration.MigrationResult(false, 3, 2, List.of()));
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 0, 0, 10, List.of()));
+
+        assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("Migration complete")
+                .contains("3 payloads rewritten, 2 stamps added");
+        verify(legacyEventMigration).migrate();
+    }
+
+    @Test
+    void migrateLegacyEventsPostRefusedInReadOnlyShowsRefusal() {
+        given(legacyEventMigration.migrate()).willReturn(
+                new LegacyEventMigration.MigrationResult(true, 0, 0,
+                        List.of("Migration refused: the application is in read-only mode, so nothing was written.")));
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 5, List.of()));
+
+        assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("Migration refused")
+                .contains("read-only");
     }
 
     @Test

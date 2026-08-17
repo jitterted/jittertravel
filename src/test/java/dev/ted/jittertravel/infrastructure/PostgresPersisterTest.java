@@ -293,6 +293,21 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
     }
 
     @Test
+    void appendStampsTheEventTypesCurrentSchemaVersion() {
+        UUID commandId = UUID.randomUUID();
+        PlanTentativeConferenceRequest req = newRequest(commandId, "Stamped Conf");
+        persister.saveCommand(commandId, req);
+        // ConferenceTentativelyPlanned is one of the datetime-bearing types (current schema version 2).
+        persister.appendEvents(List.of(storedEvent(1L, commandId, "Stamped Conf", req)), commandId);
+
+        assertThat(persister.findAllEventsForBackup())
+                .singleElement()
+                .satisfies(e -> assertThat(e.schemaVersion())
+                        .as("a freshly appended event carries its type's current schema version")
+                        .isEqualTo(2));
+    }
+
+    @Test
     void restoreReinsertsCommandsAndEventsVerbatimAndIsIdempotent() {
         UUID succeeded = UUID.randomUUID();
         PlanTentativeConferenceRequest succeededReq = newRequest(succeeded, "Succeeded Conf");

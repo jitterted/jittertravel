@@ -38,27 +38,44 @@ import java.util.Map;
  *       the logical name stays put, so old {@code event_log} rows keep resolving.</li>
  *   <li><b>Read a row whose class has since moved/renamed:</b> add an {@link #alias} line. Aliases
  *       are an append-only migration log — never edit or remove one.</li>
+ *   <li><b>Migrate an event's payload schema:</b> bump its {@code currentSchemaVersion} here (the
+ *       third {@code register} argument) so new appends and the eager migration stamp the new
+ *       number. See {@code docs/LegacyEventEagerMigrationPlan.md}.</li>
  * </ul>
+ *
+ * <p><b>Schema versions are per type, not global.</b> A type's version counts <em>its own</em>
+ * schema changes: the nine datetime-bearing types moved bare-scalar → {@link
+ * dev.ted.jittertravel.domain.ZonedTimestamp} (version 2), while a type born after that change has
+ * only ever had one shape (version 1). So {@code HotelBooked}=2 and {@code
+ * ConferenceAttendanceDeclined}=1 are each "current for that type" — the numbers are not comparable
+ * across types.
  */
 public final class EventTypes {
+
+    /** A type registered without an explicit version has only ever had one payload shape. */
+    private static final int INITIAL_SCHEMA_VERSION = 1;
+
+    /** The current schema version of the nine types that migrated to {@code ZonedTimestamp}. */
+    private static final int ZONED_TIMESTAMP_SCHEMA_VERSION = 2;
 
     private static final Map<String, Class<? extends Event>> LOGICAL_TO_CLASS = new LinkedHashMap<>();
     private static final Map<Class<? extends Event>, String> CLASS_TO_LOGICAL = new LinkedHashMap<>();
     private static final Map<String, String> WIRE_ID_TO_LOGICAL = new LinkedHashMap<>();
+    private static final Map<String, Integer> LOGICAL_TO_VERSION = new LinkedHashMap<>();
 
     static {
-        register("FlightBooked", FlightBooked.class);
-        register("FlightChanged", FlightChanged.class);
-        register("TrainBooked", TrainBooked.class);
-        register("TrainChanged", TrainChanged.class);
-        register("HotelBooked", HotelBooked.class);
-        register("HotelChanged", HotelChanged.class);
+        register("FlightBooked", FlightBooked.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
+        register("FlightChanged", FlightChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
+        register("TrainBooked", TrainBooked.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
+        register("TrainChanged", TrainChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
+        register("HotelBooked", HotelBooked.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
+        register("HotelChanged", HotelChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("HotelBookingCancelled", HotelBookingCancelled.class);
-        register("ConferenceTentativelyPlanned", ConferenceTentativelyPlanned.class);
+        register("ConferenceTentativelyPlanned", ConferenceTentativelyPlanned.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("ConferenceCancelled", ConferenceCancelled.class);
         register("ConferenceAttendanceDeclined", ConferenceAttendanceDeclined.class);
-        register("GatheringPlanned", GatheringPlanned.class);
-        register("GatheringChanged", GatheringChanged.class);
+        register("GatheringPlanned", GatheringPlanned.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
+        register("GatheringChanged", GatheringChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("PrivateEventPlanned", PrivateEventPlanned.class);
         register("DifferentCityConflictCleared", DifferentCityConflictCleared.class);
     }
@@ -85,15 +102,38 @@ public final class EventTypes {
         return type;
     }
 
+    /** Current schema version stamped onto new appends and rewritten rows, for the given event class. */
+    public static int currentSchemaVersion(Class<? extends Event> eventClass) {
+        return LOGICAL_TO_VERSION.get(logicalNameFor(eventClass));
+    }
+
+    /**
+     * Current schema version for a {@code type} read from {@code event_log} (logical name or legacy
+     * FQCN) — what the eager migration stamps a row of this type with.
+     */
+    public static int currentSchemaVersion(String wireTypeId) {
+        String logical = WIRE_ID_TO_LOGICAL.get(wireTypeId);
+        Integer version = logical == null ? null : LOGICAL_TO_VERSION.get(logical);
+        if (version == null) {
+            throw new IllegalArgumentException("Unknown event type: " + wireTypeId);
+        }
+        return version;
+    }
+
     public static boolean isRegistered(Class<? extends Event> type) {
         return CLASS_TO_LOGICAL.containsKey(type);
     }
 
     private static void register(String logicalName, Class<? extends Event> type) {
+        register(logicalName, type, INITIAL_SCHEMA_VERSION);
+    }
+
+    private static void register(String logicalName, Class<? extends Event> type, int currentSchemaVersion) {
         if (LOGICAL_TO_CLASS.putIfAbsent(logicalName, type) != null) {
             throw new IllegalStateException("Duplicate logical event name: " + logicalName);
         }
         CLASS_TO_LOGICAL.put(type, logicalName);
+        LOGICAL_TO_VERSION.put(logicalName, currentSchemaVersion);
         mapWireId(logicalName, logicalName);     // a logical name resolves to itself on read
         mapWireId(type.getName(), logicalName);  // current FQCN resolves too (rows written before logical names)
     }

@@ -91,8 +91,8 @@ public class PostgresPersister {
                 StoredEventRow row = StoredEventRow.fromStoredEvent(event, jsonMapper);
 
                 jdbcClient.sql("""
-                                INSERT INTO event_log (sequence, event_id, command_id, timestamp, type, payload)
-                                VALUES (:sequence, :eventId, :commandId, :timestamp, :type, CAST(:payloadJson AS jsonb))
+                                INSERT INTO event_log (sequence, event_id, command_id, timestamp, type, payload, schema_version)
+                                VALUES (:sequence, :eventId, :commandId, :timestamp, :type, CAST(:payloadJson AS jsonb), :schemaVersion)
                                 """)
                         .param("sequence", row.sequence())
                         .param("eventId", row.eventId())
@@ -100,6 +100,7 @@ public class PostgresPersister {
                         .param("timestamp", row.timestamp())
                         .param("type", row.type())
                         .param("payloadJson", row.payloadJson())
+                        .param("schemaVersion", row.schemaVersion())
                         .update();
             }
             currentEvent = null;
@@ -384,11 +385,12 @@ public class PostgresPersister {
     public List<BackupEventRow> findAllEventsForBackup() {
         return jdbcClient.sql("""
                         SELECT sequence,
-                               event_id      AS eventId,
-                               command_id    AS commandId,
+                               event_id       AS eventId,
+                               command_id     AS commandId,
                                timestamp,
                                type,
-                               payload::text AS payloadJson
+                               payload::text  AS payloadJson,
+                               schema_version AS schemaVersion
                         FROM event_log
                         ORDER BY sequence
                         """)
@@ -398,7 +400,8 @@ public class PostgresPersister {
                         (UUID) rs.getObject("commandId"),
                         rs.getObject("timestamp", OffsetDateTime.class),
                         rs.getString("type"),
-                        rs.getString("payloadJson")
+                        rs.getString("payloadJson"),
+                        (Integer) rs.getObject("schemaVersion")
                 ))
                 .list();
     }
@@ -442,8 +445,8 @@ public class PostgresPersister {
         int eventsInserted = 0;
         for (BackupEventRow event : events) {
             eventsInserted += jdbcClient.sql("""
-                            INSERT INTO event_log (sequence, event_id, command_id, timestamp, type, payload)
-                            VALUES (:sequence, :eventId, :commandId, :timestamp, :type, CAST(:payload AS jsonb))
+                            INSERT INTO event_log (sequence, event_id, command_id, timestamp, type, payload, schema_version)
+                            VALUES (:sequence, :eventId, :commandId, :timestamp, :type, CAST(:payload AS jsonb), :schemaVersion)
                             ON CONFLICT (sequence) DO NOTHING
                             """)
                     .param("sequence", event.sequence())
@@ -452,6 +455,7 @@ public class PostgresPersister {
                     .param("timestamp", event.timestamp())
                     .param("type", event.type())
                     .param("payload", event.payloadJson())
+                    .param("schemaVersion", event.schemaVersion())
                     .update();
         }
         return new RestoreCounts(commandsInserted, eventsInserted);
@@ -459,6 +463,36 @@ public class PostgresPersister {
 
     /** How many rows a restore actually inserted (the rest were skipped as already present). */
     public record RestoreCounts(int commandsInserted, int eventsInserted) {}
+
+    /**
+     * Rewrites the {@code payload} and {@code schema_version} of the given {@code event_log} rows in
+     * one transaction, matched by {@code sequence}. Only those two columns change — {@code sequence},
+     * {@code event_id}, {@code command_id} and {@code timestamp} are untouched — so events keep their
+     * verbatim identity. Used by the eager legacy migration (see
+     * {@code docs/LegacyEventEagerMigrationPlan.md}); never on the append path, which stamps at write
+     * time. Returns the number of rows updated. Not routed through {@code CommandExecutor}: it appends
+     * no new events, it rewrites existing ones — the orchestrating service performs the read-only
+     * check up front, mirroring restore.
+     */
+    @Transactional
+    public int migrateEventPayloads(List<MigratedEventRow> rows) {
+        int updated = 0;
+        for (MigratedEventRow row : rows) {
+            updated += jdbcClient.sql("""
+                            UPDATE event_log
+                            SET payload = CAST(:payload AS jsonb), schema_version = :schemaVersion
+                            WHERE sequence = :sequence
+                            """)
+                    .param("payload", row.payloadJson())
+                    .param("schemaVersion", row.schemaVersion())
+                    .param("sequence", row.sequence())
+                    .update();
+        }
+        return updated;
+    }
+
+    /** A single event_log row's post-migration payload and schema-version stamp, matched by sequence. */
+    public record MigratedEventRow(long sequence, String payloadJson, int schemaVersion) {}
 
     /**
      * A command_log row for backup/restore, verbatim. {@code eventIds} is null when the
@@ -474,14 +508,19 @@ public class PostgresPersister {
             String error
     ) {}
 
-    /** An event_log row for backup/restore, verbatim. {@code type} is the stored logical name. */
+    /**
+     * An event_log row for backup/restore, verbatim. {@code type} is the stored logical name.
+     * {@code schemaVersion} is null for rows written before the stamp existed (and for events read
+     * from a pre-stamp backup); a stamped restore carries it through unchanged.
+     */
     public record BackupEventRow(
             long sequence,
             UUID eventId,
             UUID commandId,
             OffsetDateTime timestamp,
             String type,
-            String payloadJson
+            String payloadJson,
+            Integer schemaVersion
     ) {}
 
     /**
@@ -513,7 +552,8 @@ public class PostgresPersister {
                                command_id AS commandId,
                                timestamp,
                                type,
-                               payload::text AS payloadJson
+                               payload::text AS payloadJson,
+                               schema_version AS schemaVersion
                         FROM event_log
                         ORDER BY sequence
                         """)
@@ -530,7 +570,11 @@ public class PostgresPersister {
             UUID commandId,
             OffsetDateTime timestamp,
             String type,
-            String payloadJson
+            String payloadJson,
+            // Non-null on write (fromStoredEvent stamps the current version); nullable on read, since
+            // legacy rows predate the column. toStoredEvent still upcasts structurally, so a null read
+            // here is harmless — the stamp is the forward anchor, not this replay path's discriminator.
+            Integer schemaVersion
     ) {
         static StoredEventRow fromStoredEvent(StoredEvent event, JsonMapper jsonMapper) {
             try {
@@ -540,7 +584,8 @@ public class PostgresPersister {
                         event.commandId(),
                         event.timestamp().atOffset(ZoneOffset.UTC),
                         EventTypes.logicalNameFor(event.type()),
-                        jsonMapper.writeValueAsString(event.payload())
+                        jsonMapper.writeValueAsString(event.payload()),
+                        EventTypes.currentSchemaVersion(event.type())
                 );
             } catch (Exception e) {
                 throw new RuntimeException("Failed to convert StoredEvent to a database StoredEventRow object", e);

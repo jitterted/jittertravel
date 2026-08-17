@@ -171,13 +171,14 @@
           </execution>
         </executions>
       </plugin>
-      <!-- The default build skips JS-behavior tests so it stays fast and needs no
-           browser binaries. Run them explicitly with `mvn test -Pjs-tests`. -->
+      <!-- The default build skips JS-behavior tests (browser binaries) and the boot-replay
+           preflight (needs a production dump to hand). Run them explicitly with `mvn test -Pjs-tests`
+           / `mvn test -Preplay-preflight -Dpreflight.dump=…`. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
-          <excludedGroups>js</excludedGroups>
+          <excludedGroups>js,replay-preflight</excludedGroups>
           <!-- Pin the test JVM to UTC so timezone-dependent tests behave the same
                on every machine and on CI, regardless of the host's default zone. -->
           <argLine>-Duser.timezone=UTC</argLine>
@@ -198,6 +199,24 @@
             <configuration>
               <excludedGroups combine.self="override"></excludedGroups>
               <groups>js</groups>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <!-- Runs ONLY the boot-replay preflight. Point it at a backup dump:
+           `mvn test -Preplay-preflight -Dpreflight.dump=/path/to/backup.json`.
+           With no dump the single test skips. -->
+      <id>replay-preflight</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <excludedGroups combine.self="override"></excludedGroups>
+              <groups>replay-preflight</groups>
             </configuration>
           </plugin>
         </plugins>

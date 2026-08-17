@@ -66,6 +66,11 @@ Two facts drive the restore algorithm:
 
 ### Backup file format (`version: 2`)
 
+> **Superseded 2026-08-16:** the current format is **`version: 3`** — each event additionally carries
+> a `schemaVersion` stamp (see `LegacyEventEagerMigrationPlan.md`). Restore reads **both v2 and v3**
+> (a v2 event just has no stamp), so this section still describes the v2 shape faithfully; only the
+> `version` number and the per-event `schemaVersion` field changed.
+
 A single JSON object. `commands` precedes `events` for readability and to mirror restore order;
 restore does not rely on array order for events (it sorts by `sequence`).
 

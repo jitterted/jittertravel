@@ -103,6 +103,7 @@ class AuthorizationMatrixTest {
                 arguments("/admin",                Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/admin/backup",         Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/admin/restore",        Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
+                arguments("/admin/migrate-legacy-events", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/actuator/health",      Outcome.OK,       Outcome.OK,           Outcome.OK),
                 arguments("/actuator/metrics",     Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN)
         );

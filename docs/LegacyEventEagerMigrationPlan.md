@@ -1,10 +1,51 @@
 # Legacy Event Eager Migration — bake the zone in, get the resolver out of replay
 
-**Status:** `planned 2026-08-16` — nothing built. Drafted after the 2026-08-16 production
-incident (see "Why this exists"). Decisions below are **proposals for Ted**, not settled.
-**Related:** `UtcDatetimeStoragePlan.md` (introduced read-time zone resolution),
-`EventOrientedBackupRestorePlan.md` (verbatim backup writes the raw payload, so it never heals a
-legacy row), `LocationZoneResolver`, `EventPayloadUpcaster`.
+**Status:** `built 2026-08-16` — shipped as an OWNER-only admin action plus a per-event schema-version
+stamp and a boot-replay preflight (see "What shipped" below). Drafted after the 2026-08-16 production
+incident (see "Why this exists"). **Related:** `UtcDatetimeStoragePlan.md` (introduced read-time zone
+resolution), `EventOrientedBackupRestorePlan.md` (verbatim backup writes the raw payload, so it never
+heals a legacy row), `LocationZoneResolver`, `EventPayloadUpcaster`.
+
+## What shipped (2026-08-16)
+
+Built together in one session; full suite green at 880.
+
+- **Per-event schema-version stamp.** New `event_log.schema_version` column (nullable, no default —
+  legacy rows are a per-type mix, so no single backfill value is right). Versions are **per type**:
+  `EventTypes` now carries each type's `currentSchemaVersion` (the nine `ZonedTimestamp` types = 2,
+  everything else = 1) via an overloaded `register`. The append path stamps every new row; restore
+  carries the stamp verbatim. Decided with Ted: **column, not a payload key** (keeps domain payloads
+  pure, so golden samples are untouched), at the cost of a **backup-format bump to version 3**.
+  This is the *stamp* half of event-schema versioning; the *framework* half (a per-type upcaster
+  chain driven by the stamp) is deliberately **deferred** until a second real migration shapes it
+  (no-abstraction-before-second-user). Recorded here so that later work has an anchor.
+- **Backup format v3.** `BackupService` writes v3 (events carry `schemaVersion`) and **restores both
+  v2 and v3** — a v2 event simply has no stamp (null), exactly like a pre-migration row — so Ted's
+  existing backups are never orphaned. `BackupRestoreRoundTripTest` covers the v2 backward-compat path.
+- **The migration itself:** `LegacyEventMigration` (application) + `PostgresPersister.migrateEventPayloads`
+  (transactional `UPDATE payload, schema_version WHERE sequence`, identity columns untouched). A row is
+  rewritten iff its payload changes under upcast **or** its stamp is missing/wrong; already-current,
+  correctly-stamped rows are skipped, so the whole thing is idempotent. Validate-then-apply: one bad
+  row (unresolvable zone / unbindable) is reported and aborts the whole run with zero writes. Refuses
+  in read-only mode (checked up front, like restore — it appends no new events, so it does not route
+  through `CommandExecutor`).
+- **Trigger:** OWNER-only `/admin/migrate-legacy-events` (GET preview with counts + POST to run),
+  under the existing `/admin/**` matcher, with its own `AuthorizationMatrixTest` row and a nav card
+  on the admin home. The page warns to take a backup first and, on success, to take a fresh one and
+  restart to re-verify a clean eager replay.
+- **Boot-replay preflight** (its own Cleanup-Tasks item, built here): `BootReplayPreflightTest`, a
+  `@Tag("replay-preflight")` tier excluded from the default build. Point it at a production backup
+  (`./mvnw test -Preplay-preflight -Dpreflight.dump=…`); it restores into a scratch Testcontainer DB
+  — whose validate pass runs the exact upcast→classFor→bind boot uses — and then drives
+  `loadAllEvents()` over the loaded rows, failing (with the offending row named) on anything that
+  would abort boot. No dump ⇒ it skips.
+
+**Decisions resolved with Ted (the "Open decisions" below are now settled):** (1) trigger = in-place
+admin UPDATE, not a backup-file transform; (2) `type` FQCN→logical normalization = **deferred** (kept
+out of this pass — orthogonal cleanup the stamp does not need); (3)/(4) retirement schedule unchanged
+— the upcaster legacy branches, FQCN mapping and Antwerp-style resolver hacks stay until no
+pre-migration backup can be restored, each retirement gated on the new preflight. Plus the
+schema-version stamp above, which the original plan did not include.
 
 ## Why this exists
 

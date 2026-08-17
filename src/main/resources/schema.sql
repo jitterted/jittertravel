@@ -22,3 +22,10 @@ CREATE TABLE IF NOT EXISTS event_log (
     type TEXT NOT NULL,
     payload JSONB NOT NULL
 );
+
+-- Per-row event-schema version stamp (see docs/LegacyEventEagerMigrationPlan.md). NULL means
+-- "unstamped" — a row written before this column existed, whose payload may be legacy- or
+-- current-shape; the eager migration stamps every such row with its type's current version. New
+-- appends stamp it explicitly, so only pre-migration rows are ever NULL. Deliberately no DEFAULT:
+-- legacy event_log rows are a *mix* of versions per type, so no single backfill value is correct.
+ALTER TABLE event_log ADD COLUMN IF NOT EXISTS schema_version INTEGER;

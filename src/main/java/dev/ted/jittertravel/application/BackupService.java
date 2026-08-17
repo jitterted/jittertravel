@@ -21,10 +21,16 @@ import java.util.UUID;
 
 /**
  * Event-oriented backup and restore (see {@code docs/EventOrientedBackupRestorePlan.md}). Writes a
- * single {@code version: 2} JSON document holding the whole {@code command_log} and
+ * single {@code version: 3} JSON document holding the whole {@code command_log} and
  * {@code event_log}, and restores those rows <em>verbatim</em> — same event ids, sequences and
  * timestamps. This supersedes the command-replay import: commands are opaque history here, never
  * re-executed, so nothing has to fake a decision context.
+ *
+ * <p><strong>Format versions.</strong> {@code version 3} adds the per-event {@code schemaVersion}
+ * stamp (see {@code docs/LegacyEventEagerMigrationPlan.md}); {@code version 2} is the pre-stamp
+ * event-oriented format. Both restore — a v2 event simply carries no stamp (null), exactly like a
+ * pre-migration {@code event_log} row — so an older backup is never orphaned by upgrading. Only the
+ * long-dead {@code version 1} command-only format is unrestorable.
  *
  * <p><strong>Restore is validate-then-apply.</strong> Pass one reads the whole file and, writing
  * nothing, deserializes every event payload and checks referential integrity; if anything is wrong
@@ -44,7 +50,11 @@ import java.util.UUID;
  */
 public class BackupService {
 
-    static final int VERSION = 2;
+    /** The format this instance writes. */
+    static final int VERSION = 3;
+
+    /** Formats this instance can restore: the current stamped format and the pre-stamp one. */
+    static final Set<Integer> RESTORABLE_VERSIONS = Set.of(2, 3);
 
     /** Filename stamp: the backup instant in UTC, colon-free so it is safe on every filesystem. */
     private static final DateTimeFormatter FILENAME_TIMESTAMP =
@@ -140,8 +150,8 @@ public class BackupService {
         List<String> errors = new ArrayList<>();
 
         JsonNode versionNode = root.get("version");
-        if (versionNode == null || !versionNode.isNumber() || versionNode.asInt() != VERSION) {
-            errors.add("Unsupported or missing backup version: expected " + VERSION
+        if (versionNode == null || !versionNode.isNumber() || !RESTORABLE_VERSIONS.contains(versionNode.asInt())) {
+            errors.add("Unsupported or missing backup version: expected one of " + RESTORABLE_VERSIONS
                     + " (command-only backups are no longer restorable)");
             return new Validation(List.of(), List.of(), errors);  // can't trust the rest of the file
         }
@@ -150,7 +160,7 @@ public class BackupService {
         try {
             file = jsonMapper.treeToValue(root, BackupFile.class);
         } catch (Exception e) {
-            errors.add("Backup file is not readable as version " + VERSION + ": " + e.getMessage());
+            errors.add("Backup file is not readable as version " + versionNode.asInt() + ": " + e.getMessage());
             return new Validation(List.of(), List.of(), errors);
         }
 
@@ -228,7 +238,7 @@ public class BackupService {
 
     private BackupEvent toBackupEvent(BackupEventRow row) {
         return new BackupEvent(row.sequence(), row.eventId(), row.commandId(), row.timestamp(),
-                row.type(), jsonMapper.readTree(row.payloadJson()));
+                row.type(), jsonMapper.readTree(row.payloadJson()), row.schemaVersion());
     }
 
     private BackupCommandRow toCommandRow(BackupCommand command) {
@@ -238,7 +248,7 @@ public class BackupService {
 
     private BackupEventRow toEventRow(BackupEvent event) {
         return new BackupEventRow(event.sequence(), event.eventId(), event.commandId(),
-                event.timestamp(), event.type(), event.payload().toString());
+                event.timestamp(), event.type(), event.payload().toString(), event.schemaVersion());
     }
 
     /** A ready-to-download backup: the JSON document and the filename to offer it under. */
@@ -259,9 +269,13 @@ public class BackupService {
     record BackupCommand(UUID commandId, OffsetDateTime timestamp, String type, JsonNode payload,
                          List<UUID> eventIds, String status, String error) {}
 
-    /** An event row on the wire, restored verbatim; {@code type} is the stable logical name. */
+    /**
+     * An event row on the wire, restored verbatim; {@code type} is the stable logical name.
+     * {@code schemaVersion} is the per-event stamp — present in version-3 files, null in a version-2
+     * file (which predates the stamp), restored as-is either way.
+     */
     record BackupEvent(long sequence, UUID eventId, UUID commandId, OffsetDateTime timestamp,
-                       String type, JsonNode payload) {}
+                       String type, JsonNode payload, Integer schemaVersion) {}
 
     /** Outcome of a dry run: how many commands/events would restore, and every problem found. */
     public record ValidationReport(int validCommandCount, int validEventCount, List<String> errors) {

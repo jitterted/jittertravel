@@ -145,6 +145,13 @@ public class EventSourcingConfig {
         return new BackupService(persister, commandExecutor, eventPayloadUpcaster, jsonMapper);
     }
 
+    @Bean
+    public LegacyEventMigration legacyEventMigration(PostgresPersister persister,
+                                                     EventPayloadUpcaster eventPayloadUpcaster,
+                                                     JsonMapper jsonMapper, CommandExecutor commandExecutor) {
+        return new LegacyEventMigration(persister, eventPayloadUpcaster, jsonMapper, commandExecutor);
+    }
+
     /**
      * Labels backups as {@code production} or {@code local}. Railway injects
      * {@code RAILWAY_ENVIRONMENT_NAME} on the hosted service; locally it is absent, so the marker

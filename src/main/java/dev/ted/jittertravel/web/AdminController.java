@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.BackupService;
 import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.ConferenceMigrationService;
+import dev.ted.jittertravel.application.LegacyEventMigration;
 import dev.ted.jittertravel.application.TentativeConferenceProjector;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceSpansMultipleDays;
@@ -31,17 +32,20 @@ public class AdminController {
     private final PostgresPersister persister;
     private final TentativeConferenceProjector tentativeConferenceProjector;
     private final ConferenceMigrationService conferenceMigrationService;
+    private final LegacyEventMigration legacyEventMigration;
     private final BackupSource backupSource;
     private final Clock clock;
 
     public AdminController(BackupService backupService, PostgresPersister persister,
                            TentativeConferenceProjector tentativeConferenceProjector,
                            ConferenceMigrationService conferenceMigrationService,
+                           LegacyEventMigration legacyEventMigration,
                            BackupSource backupSource, Clock clock) {
         this.backupService = backupService;
         this.persister = persister;
         this.tentativeConferenceProjector = tentativeConferenceProjector;
         this.conferenceMigrationService = conferenceMigrationService;
+        this.legacyEventMigration = legacyEventMigration;
         this.backupSource = backupSource;
         this.clock = clock;
     }
@@ -120,6 +124,21 @@ public class AdminController {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
         }
         return "redirect:/admin/migrate-conferences";
+    }
+
+    @GetMapping("/migrate-legacy-events")
+    public String migrateLegacyEventsForm(Model model) {
+        model.addAttribute("report", legacyEventMigration.preview());
+        return "admin-migrate-legacy-events";
+    }
+
+    @PostMapping("/migrate-legacy-events")
+    public String migrateLegacyEvents(Model model) {
+        LegacyEventMigration.MigrationResult result = legacyEventMigration.migrate();
+        model.addAttribute("result", result);
+        // Re-preview so the page shows the (now-settled) state whether the run applied or was refused.
+        model.addAttribute("report", legacyEventMigration.preview());
+        return "admin-migrate-legacy-events";
     }
 
     @GetMapping("/backup")

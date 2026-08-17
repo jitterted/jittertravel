@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.Event;
+import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.TrainBooked;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
@@ -46,5 +48,27 @@ class EventTypesTest {
     void legacyFullyQualifiedClassNameStillResolves() {
         assertThat(EventTypes.classFor("dev.ted.jittertravel.domain.TrainBooked"))
                 .isEqualTo(TrainBooked.class);
+    }
+
+    @Test
+    void datetimeBearingTypeIsAtSchemaVersionTwo() {
+        // HotelBooked migrated bare-scalar -> ZonedTimestamp, so its current schema version is 2.
+        assertThat(EventTypes.currentSchemaVersion(HotelBooked.class))
+                .isEqualTo(2);
+        assertThat(EventTypes.currentSchemaVersion("HotelBooked"))
+                .as("by logical wire id")
+                .isEqualTo(2);
+        assertThat(EventTypes.currentSchemaVersion("dev.ted.jittertravel.domain.HotelBooked"))
+                .as("legacy FQCN wire id resolves to the same version")
+                .isEqualTo(2);
+    }
+
+    @Test
+    void typeBornAfterTheZonedTimestampChangeIsAtSchemaVersionOne() {
+        // ConferenceAttendanceDeclined has only ever had one shape, so it stays at version 1.
+        assertThat(EventTypes.currentSchemaVersion(ConferenceAttendanceDeclined.class))
+                .isEqualTo(1);
+        assertThat(EventTypes.currentSchemaVersion("ConferenceAttendanceDeclined"))
+                .isEqualTo(1);
     }
 }

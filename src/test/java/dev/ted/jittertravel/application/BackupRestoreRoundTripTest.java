@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.infrastructure.AbstractTestcontainerIntegrationTest;
+import dev.ted.jittertravel.infrastructure.EventJsonMapperFactory;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.infrastructure.PostgresPersister.BackupCommandRow;
 import dev.ted.jittertravel.infrastructure.PostgresPersister.BackupEventRow;
@@ -10,6 +11,9 @@ import dev.ted.jittertravel.web.BookHotelRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -83,6 +87,38 @@ class BackupRestoreRoundTripTest extends AbstractTestcontainerIntegrationTest {
         assertThat(persister.findAllCommandsForBackup())
                 .as("command_log restored verbatim across all statuses, with event_ids/status/error")
                 .isEqualTo(commandsBefore);
+    }
+
+    @Test
+    void restoresAPreStampVersion2BackupLeavingSchemaVersionNull() {
+        persister.truncateAllTables();
+        flightBooking.bookFlight(bookFlight(UUID.randomUUID().toString()), Instant.now());
+
+        // Simulate an old backup file taken before the schemaVersion stamp existed: version 2, and no
+        // schemaVersion key on any event. New code must still restore it (the stamp is simply absent).
+        String v3Backup = backupService.backupJson(OffsetDateTime.parse("2026-08-11T14:30:00Z"), "local");
+        String v2Backup = downgradeToPreStampVersion2(v3Backup);
+
+        persister.truncateAllTables();
+        BackupService.RestoreResult result = backupService.restoreJson(v2Backup);
+
+        assertThat(result.hasErrors())
+                .as("restore errors: %s", result.errors())
+                .isFalse();
+        assertThat(persister.findAllEventsForBackup())
+                .as("a pre-stamp backup restores with a null schema_version, exactly like a legacy row")
+                .isNotEmpty()
+                .allSatisfy(e -> assertThat(e.schemaVersion()).isNull());
+    }
+
+    private String downgradeToPreStampVersion2(String v3Backup) {
+        JsonMapper mapper = EventJsonMapperFactory.create();
+        ObjectNode root = (ObjectNode) mapper.readTree(v3Backup);
+        root.put("version", 2);
+        for (JsonNode event : root.get("events")) {
+            ((ObjectNode) event).remove("schemaVersion");
+        }
+        return root.toString();
     }
 
     private void markStatus(String status) {

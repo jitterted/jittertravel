@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.infrastructure.EventJsonMapperFactory;
 import dev.ted.jittertravel.infrastructure.EventPayloadUpcaster;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
+import dev.ted.jittertravel.infrastructure.PostgresPersister.BackupEventRow;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -10,6 +11,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
@@ -63,5 +65,22 @@ class BackupServiceTest {
 
         assertThat(backup.filename())
                 .isEqualTo("jittertravel-backup-local-2026-08-11T143000Z.json");
+    }
+
+    @Test
+    void writesVersion3AndCarriesEachEventSchemaVersionStamp() {
+        given(persister.findAllEventsForBackup()).willReturn(List.of(new BackupEventRow(
+                1L, UUID.randomUUID(), UUID.randomUUID(),
+                OffsetDateTime.parse("2026-08-11T14:30:00Z"), "HotelBooked", "{}", 2)));
+
+        JsonNode root = jsonMapper.readTree(
+                backupService.backupJson(OffsetDateTime.parse("2026-08-11T14:30:00Z"), "local"));
+
+        assertThat(root.get("version").asInt())
+                .as("current backup format is version 3")
+                .isEqualTo(3);
+        assertThat(root.get("events").get(0).get("schemaVersion").asInt())
+                .as("each event carries its per-type schema-version stamp")
+                .isEqualTo(2);
     }
 }

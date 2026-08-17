@@ -88,6 +88,28 @@
             font-weight: 700;
         }
 
+        /* Read-only banner: louder than the amber pending banner because it means the app is
+           degraded (failed boot replay or a failed save), not merely behind on work. */
+        .readonly-banner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            width: 100%;
+            padding: 0.8rem 1.5rem;
+            background: #fee2e2;
+            color: #991b1b;
+            border-bottom: 2px solid #dc2626;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .readonly-banner-label {
+            font-weight: 800;
+            letter-spacing: 0.3px;
+        }
+
         .hero {
             flex: 1;
             display: flex;
@@ -286,6 +308,11 @@
     </style>
 </head>
 <body>
+
+<div th:if="${readOnly}" class="readonly-banner" role="alert">
+    <span class="readonly-banner-label">Read-only mode</span>
+    <span>A startup or save error occurred, so changes are disabled and some data may be missing. Check the server logs.</span>
+</div>
 
 <div th:if="${runningLocally}" class="local-badge" role="status">JitterTravel Running Locally</div>
 

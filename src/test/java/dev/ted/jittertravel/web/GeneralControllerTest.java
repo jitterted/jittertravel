@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.ScheduleProblem;
+import dev.ted.jittertravel.infrastructure.EventStore;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,9 @@ class GeneralControllerTest {
     ScheduleGapProjector scheduleGapProjector;
 
     @MockitoBean
+    EventStore eventStore;
+
+    @MockitoBean
     Clock clock;
 
     @BeforeEach
@@ -48,6 +52,7 @@ class GeneralControllerTest {
         lenient().when(buildProperties.getTime()).thenReturn(Instant.EPOCH);
         lenient().when(clock.instant()).thenReturn(Instant.EPOCH);
         lenient().when(scheduleGapProjector.problems(any())).thenReturn(List.of());
+        lenient().when(eventStore.isReadOnly()).thenReturn(false);
     }
 
     @Test
@@ -155,6 +160,29 @@ class GeneralControllerTest {
                         new ScheduleProblem.MissingHotel("Berlin", LocalDate.now(), LocalDate.now().plusDays(1), ""))
                 .limit(count)
                 .toList();
+    }
+
+    @Test
+    void homeShowsReadOnlyBannerWhenEventStoreIsReadOnly() {
+        given(persister.countPendingCommands()).willReturn(0);
+        given(eventStore.isReadOnly()).willReturn(true);
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("Read-only mode")
+                .contains("changes are disabled");
+    }
+
+    @Test
+    void homeHidesReadOnlyBannerWhenEventStoreIsWritable() {
+        given(persister.countPendingCommands()).willReturn(0);
+        given(eventStore.isReadOnly()).willReturn(false);
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("Read-only mode");
     }
 
     @Test

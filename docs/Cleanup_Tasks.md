@@ -12,13 +12,6 @@ plan doc and its status — including these items — see `Backlog.md`.
       own slice); anonymous view decided 2026-08-07 (`Busy` / time range with zone / city+country).
       Still a real leak until built: today a private dinner can only be modelled as a public
       GATHERING.
-- [ ] **Startup-failure warning banner on the home page.** When the app enters read-only mode
-      (or any startup/replay failure occurs), show a prominent warning banner across the top of the
-      home page so the operator sees it immediately instead of discovering an empty, silently
-      read-only site. Motivated by the 2026-08-16 deploy, where a replay bug dropped the app to
-      read-only with empty projections and nothing on the page said so — it was only visible in the
-      logs. `EventStore` already tracks read-only state; surface it to the index view (and consider
-      covering other boot failures the same way).
 - [ ] **Standardize headers/footers for navigation.** Give pages a consistent header/footer with
       shared nav so you can move around the app directly instead of returning to the home page
       every time. Currently many pages are dead-ends that force a trip back to `/`.
@@ -78,6 +71,18 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Done
 
+- [x] **Startup-failure (read-only) warning banner on the home page** (2026-08-16). When
+      `EventStore.isReadOnly()` is true — a failed boot replay or a failed save flipped the app to
+      read-only — the home page renders a prominent red `role="alert"` banner across the top
+      ("Read-only mode — a startup or save error occurred, so changes are disabled and some data may
+      be missing"), shown to **every** viewer (the banner reveals no travel detail, and an anonymous
+      visitor seeing a degraded site is honest). `GeneralController` now injects `EventStore` and
+      exposes a `readOnly` model flag; the banner sits above the local badge and pending banner in
+      `index.html`. Two `@WebMvcTest` cases (shown when read-only, hidden when writable),
+      mutation-verified by hardcoding the flag to `false`. `EventStore` mock also fed to the two
+      `GeneralController` auth slices (`AuthorizationMatrixTest`, `SecurityAuthorizationTest`).
+      Motivated by the 2026-08-16 deploy, where a replay bug dropped the app to read-only with empty
+      projections and nothing on the page said so.
 - [x] **"Schedule problems" nav card is state-aware** (2026-08-15). `GeneralController` surfaces
       `scheduleProblemCount` (OWNER-only) from `ScheduleGapProjector.problems().size()`; the card in
       `index.html` is amber only when there are problems, a green tint otherwise, and its subtitle

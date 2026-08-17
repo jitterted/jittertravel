@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleGapProjector;
+import dev.ted.jittertravel.infrastructure.EventStore;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,6 +57,9 @@ class AuthorizationMatrixTest {
 
     @MockitoBean
     ScheduleGapProjector scheduleGapProjector;
+
+    @MockitoBean
+    EventStore eventStore;
 
     @MockitoBean
     Clock clock;

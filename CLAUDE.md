@@ -44,7 +44,8 @@ half-populated database that has to be wiped. Pass two also skips events already
 `event_log`, so a partially applied restore resumes on re-run instead of colliding on the primary key.
 
 Backup format is at **v3** (per-event `schema_version`); restore still reads v2 (unstamped)
-files, so older backups aren't orphaned. Covered by `RestoreSafetyTest`.
+files, so older backups aren't orphaned.
+Covered by `RestoreSafetyTest`.
 
 ### Redaction: anonymous viewers are a first-class threat model
 

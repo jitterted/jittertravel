@@ -27,19 +27,24 @@ durable. If persistence fails, the exception propagates and subscribers are neve
 
 Covered by `EventStoreTest.subscribersNotNotifiedWhenPersistenceFails()`.
 
-### Import is validate-then-apply, and resumable
+### Restore is validate-then-apply, and resumable
 
-`CommandImporter.importJson` runs two passes: pass one deserializes every entry and recomputes
-its events **writing nothing**, pass two applies them (via `CommandExecutor`, per the rule above).
-Any validation error means zero writes, and *all* bad entries are reported together.
+Backup/restore is **event-oriented**: `BackupService` writes every `event_log` row verbatim
+(same ids, sequences, timestamps, `schema_version` stamp) and restores them verbatim — it does
+**not** re-execute commands (commands ride along as opaque history for a future undo; see
+`docs/EventOrientedBackupRestorePlan.md`). `BackupService.restoreJson` runs two passes: pass one
+deserializes, upcasts, and **bind-checks** every event **writing nothing**, pass two applies them
+(via `CommandExecutor`, per the rule above). Any validation error means zero writes, and *all* bad
+entries are reported together. `validateJson` exposes pass one on its own as a dry run for
+`/admin/restore/validate`.
 
-**Why:** import failures are usually data problems in a few entries (an address whose zone
-doesn't resolve). Applying entries as they are read leaves a half-populated database that has to
-be wiped. Pass two also skips commands whose id is already in `command_log`, so re-running a
-fixed file resumes instead of colliding on the primary key.
+**Why:** restore failures are usually data problems in a few events (an address whose zone
+doesn't resolve, a schema-incompatible payload). Applying events as they are read leaves a
+half-populated database that has to be wiped. Pass two also skips events already present in
+`event_log`, so a partly-applied restore resumes on re-run instead of colliding on the primary key.
 
-Keep new work in `events()` — it runs during validation, where throwing is safe and cheap.
-Covered by `CommandImportSafetyTest`.
+Backup format is at **v3** (per-event `schema_version`); restore still reads v2 (unstamped)
+files, so older backups aren't orphaned. Covered by `RestoreSafetyTest`.
 
 ### Redaction: anonymous viewers are a first-class threat model
 
@@ -62,10 +67,12 @@ happening on a given day, airport codes and city names for flights/trains/hotels
 **conferences and gatherings in full** — name, venue, city, `infoUrl`, and start/end times.
 Both are public events Ted speaks at or attends publicly.
 
-**Known gap:** there is no entry kind for a *private* social event (a dinner with friends).
-Such an event modelled as a gathering today would be fully public. Adding a private social
-event kind is a planned feature (`docs/Cleanup_Tasks.md`); until it exists, any new
-"private-ish" entry kind must get its own redacting branch, never reuse GATHERING.
+**Private social events are their own kind (shipped 2026-08-13).** `EntryKind.PRIVATE_EVENT`
+(a dinner with friends) has its own redacting branch: an anonymous viewer sees `Busy`, a
+zone-labelled time range, and city/country, and nothing else — never the title. Do **not** model
+a private-ish event as a GATHERING to reuse its rendering (gatherings are fully public). Any *new*
+private-ish entry kind must likewise get its own redacting branch, never reuse GATHERING —
+`PRIVATE_EVENT` is the pattern to copy. See `docs/PrivateSocialEventPlan.md`.
 
 **Rules for writing the code:**
 

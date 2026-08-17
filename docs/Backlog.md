@@ -8,7 +8,7 @@ Small cleanups keep living in `Cleanup_Tasks.md` — they are summarized here bu
 Decisions made during implementation that still need Ted's eye live in `DecisionsToReview.md` —
 a review queue, not a backlog; work through it one entry at a time.
 
-Status verified against the tree on **2026-08-16** (`0435623`).
+Status verified against the tree on **2026-08-17** (`eab23d5`).
 
 Legend: `open` · `partial` · `done` · `exploration` (deliberately unbuilt design record)
 · `decision` (waiting on Ted, not on code)
@@ -45,7 +45,7 @@ Detail lives in `Cleanup_Tasks.md`; this is the roll-call.
 | Boot-replay preflight (pre-deploy) | `done 2026-08-16` — `BootReplayPreflightTest`, a `@Tag("replay-preflight")` tier excluded from the default build (`mvn test -Preplay-preflight -Dpreflight.dump=…`; no dump ⇒ skips). Restores a prod backup into a scratch Testcontainer DB (validate pass = the exact upcast→classFor→bind boot uses) then drives `loadAllEvents()`, failing with the offending row named. Verified against clean + bad dumps (the 2026-08-16 Morocco/Antwerp failure mode). Certifies each retirement the eager migration unlocks; `/admin/zone-audit` is not a substitute. |
 | Mockito replacement | `open` — replace with better test doubles. |
 | Event-type filter on `/admin/eventlog` | `open` — the command-log filter is already done. |
-| `/admin/commandlog` "Out of order" badge | `open` — only detects divergence *within* a page; `PostgresPersister.loadTimelinePage` resets `runningMaxSeq` per call (`PostgresPersister.java:288`), so the first entry of any page can never be flagged. |
+| `/admin/commandlog` "Out of order" badge | `open` — only detects divergence *within* a page; `PostgresPersister.loadTimelinePage` resets `runningMaxSeq` per call (`PostgresPersister.java:291`), so the first entry of any page can never be flagged. |
 
 ### Loose follow-ups not tracked anywhere else
 

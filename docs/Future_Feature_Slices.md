@@ -29,8 +29,10 @@ is the only one that makes sense on a cancelled booking.
   currently cancelled.
 - The reinstated stay is the booking as it stood at cancellation, not a fresh one — same
   `HotelBookingId`, so the history stays in one place.
-- Needs the usual round-trip coverage: an import branch plus a case in
-  `CommandExportImportRoundTripTest`, and a golden sample in `GoldenEventDeserializationTest`.
+- Needs a golden sample in `GoldenEventDeserializationTest` for the new event (standard practice
+  for every new event). No import/round-trip branch: backup/restore is event-oriented now
+  (`EventOrientedBackupRestorePlan.md`), so a new event is stored and restored verbatim — the old
+  `CommandExportImportRoundTripTest` and per-command import branches were retired with it.
 
 **When to build:** When a mis-entered cancellation actually costs Ted a re-entry — or alongside
 Phase 3 (Replace Hotel) of `HotelCancelReplacePlan.md`, which needs the same reinstate-a-booking
@@ -42,9 +44,14 @@ machinery.
 
 **Event:** `ConferenceCancelled(conferenceId, reason: String)`
 
-Conferences (and eventually gatherings) need a cancellation mechanism. Deferred because the immediate need (re-entering a handful of gatherings-as-conferences) was resolved by waiting them out — they all expire within the current month.
+**Partly built.** The `ConferenceCancelled` event record and the projector branches that drop the
+conference already exist — `MigrateConferenceToGathering` emits it. What's missing is an
+**owner-facing cancel action** (a route + form to raise it directly). Note this means *the
+organizers cancelled the conference*, which is a different fact from Ted deciding not to attend —
+that decline slice shipped 2026-08-16 (`ConferenceAttendanceDeclined`, `c08896a`).
 
-**When to build:** When the first real cancelled conference arises, or as a prerequisite to any slice that needs to remove/retract a booking.
+**When to build:** When the first conference the organizers cancel needs recording, or as a
+prerequisite to any slice that needs to remove/retract a booking.
 
 ---
 

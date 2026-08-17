@@ -7,11 +7,6 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Open
 
-- [ ] **Add a private social event type** (e.g. a dinner with friends). Promoted to its own
-      plan doc — see `PrivateSocialEventPlan.md`. Modeling decided 2026-08-12 (own entry kind,
-      own slice); anonymous view decided 2026-08-07 (`Busy` / time range with zone / city+country).
-      Still a real leak until built: today a private dinner can only be modelled as a public
-      GATHERING.
 - [ ] **Standardize headers/footers for navigation.** Give pages a consistent header/footer with
       shared nav so you can move around the app directly instead of returning to the home page
       every time. Currently many pages are dead-ends that force a trip back to `/`.
@@ -36,7 +31,7 @@ plan doc and its status — including these items — see `Backlog.md`.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.
       `PostgresPersister.loadTimelinePage` resets `runningMaxSeq` to `Long.MIN_VALUE` on every
-      call (`PostgresPersister.java:288`), so a command whose event sequence numbers interleave
+      call (`PostgresPersister.java:291`), so a command whose event sequence numbers interleave
       with those of a command on the *previous* page is silently unflagged — the first entry of
       any page can never be marked. Fix means seeding `runningMaxSeq` from the max event
       sequence of all commands before the page's window rather than starting fresh. Pre-existing
@@ -45,6 +40,15 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Done
 
+- [x] **Add a private social event type** (2026-08-13). Shipped as its own entry kind — see
+      `PrivateSocialEventPlan.md` (done) and the Backlog row. `EntryKind.PRIVATE_EVENT` with a
+      `PlanPrivateEvent` command / `PrivateEventPlanned` event / context, `PrivateEventCalendarProjector`,
+      a plan form + controller + nav card, and a `PrivateEventItineraryEntry` on `/itinerary`. The
+      redactor gets its own `PRIVATE_EVENT` branch: an anonymous viewer sees `Busy`, a zone-labelled
+      time range, and city+country — never the title — via the plain-text `SubtitleLine.FixedRange`
+      (no `<time datetime>` leak). Both tiers of redaction test plus command/projector/controller/golden.
+      Retires the "private dinner can only be a public GATHERING" leak. Follow-ups still open (edit
+      flow, `/planned-private-events` list) live in the plan doc.
 - [x] **Eager-migrate legacy events + per-event schema-version stamp** (2026-08-16). Owning doc
       `LegacyEventEagerMigrationPlan.md` (now `built`). Added an `event_log.schema_version` column
       (nullable; per-type version in `EventTypes`, the nine `ZonedTimestamp` types = 2, others = 1);

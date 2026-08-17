@@ -115,21 +115,6 @@ tolerate extra parameters — which weakens a guard you deliberately made strict
 
 ---
 
-### D7. `CancelHotelRequest.commandId()` returns a fresh random UUID
-
-**Status:** `Needs review`
-**Where:** `web/CancelHotelRequest.java`
-
-Follows `ChangeHotelRequest` and `ClearDifferentCityConflict`.
-
-**What to push on.** Import resumability works by skipping commands whose id is already in
-`command_log`. A random id means re-importing the same backup re-applies this command under a new
-id rather than being skipped. That is already true of change and clear-conflict commands, and per
-your wipe-then-import workflow it does not bite you — but it does mean "resumable import" is not
-uniformly true, and the plan had suggested a *stored* id here specifically to avoid that.
-
----
-
 ### D8. Smaller calls, listed for completeness
 
 **Status:** `Needs review`
@@ -152,6 +137,22 @@ uniformly true, and the plan had suggested a *stored* id here specifically to av
 ---
 
 ## Settled
+
+### S7 (was D7). `CancelHotelRequest.commandId()` returns a fresh random UUID
+
+**Status:** `Accepted` — the concern it raised is now moot (2026-08-11).
+**Where:** `web/CancelHotelRequest.java`
+
+Follows `ChangeHotelRequest` and `ClearDifferentCityConflict`.
+
+**Original concern (obsolete):** it was framed around command-replay *import* resumability —
+re-importing a backup would re-apply this command under a new id rather than skip it. That model no
+longer exists: backup/restore is event-oriented (`EventOrientedBackupRestorePlan.md`, 2026-08-11),
+restoring stored **events** verbatim and never re-executing commands, so a request's `commandId()`
+is minted once at the boundary and never replayed from a backup. There is nothing left to review
+here — a fresh random command id at the controller boundary is the correct, uniform pattern.
+
+---
 
 ### S3 (was D3). `CancelHotelContext.checkIn` is nullable, meaning "no check-in gate"
 

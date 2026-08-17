@@ -41,7 +41,7 @@ entries are reported together. `validateJson` exposes pass one on its own as a d
 **Why:** restore failures are usually data problems in a few events (an address whose zone
 doesn't resolve, a schema-incompatible payload). Applying events as they are read leaves a
 half-populated database that has to be wiped. Pass two also skips events already present in
-`event_log`, so a partly-applied restore resumes on re-run instead of colliding on the primary key.
+`event_log`, so a partially applied restore resumes on re-run instead of colliding on the primary key.
 
 Backup format is at **v3** (per-event `schema_version`); restore still reads v2 (unstamped)
 files, so older backups aren't orphaned. Covered by `RestoreSafetyTest`.

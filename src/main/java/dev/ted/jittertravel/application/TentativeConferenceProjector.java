@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
@@ -31,6 +32,7 @@ public class TentativeConferenceProjector implements EventStreamConsumer {
                                 event.endDate()
                         ));
                 case ConferenceCancelled event -> conferences.remove(event.conferenceId());
+                case ConferenceAttendanceDeclined event -> conferences.remove(event.conferenceId());
                 default -> {}
             }
         });

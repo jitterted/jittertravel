@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
 import dev.ted.jittertravel.domain.DifferentCityConflictCleared;
@@ -55,6 +56,7 @@ public final class EventTypes {
         register("HotelBookingCancelled", HotelBookingCancelled.class);
         register("ConferenceTentativelyPlanned", ConferenceTentativelyPlanned.class);
         register("ConferenceCancelled", ConferenceCancelled.class);
+        register("ConferenceAttendanceDeclined", ConferenceAttendanceDeclined.class);
         register("GatheringPlanned", GatheringPlanned.class);
         register("GatheringChanged", GatheringChanged.class);
         register("PrivateEventPlanned", PrivateEventPlanned.class);

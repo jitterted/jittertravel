@@ -35,6 +35,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                 case HotelBookingCancelled(HotelBookingId hotelBookingId, String _) -> hotelEntries.remove(hotelBookingId);
                 case ConferenceTentativelyPlanned e -> conferenceEntries.put(e.conferenceId(), toConferenceEntries(e));
                 case ConferenceCancelled(ConferenceId conferenceId, String _) -> conferenceEntries.remove(conferenceId);
+                case ConferenceAttendanceDeclined e -> conferenceEntries.remove(e.conferenceId());
                 case GatheringPlanned e -> gatheringEntries.put(e.gatheringId(), toGatheringEntry(
                         e.title(), e.venueName(), e.location(),
                         e.speaking(), e.infoUrl(), e.startsAt(), e.endsAt()));

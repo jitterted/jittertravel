@@ -59,6 +59,12 @@ plan doc and its status — including these items — see `Backlog.md`.
       page hosts both an edit form and a cancel/delete form together. Keeps each form's errors
       rendering on its own page (see the "errors render on the form page" convention) and avoids one
       form's submit clobbering the other's state.
+- [ ] **Calendar day-number popup is broken.** Clicking a day number on `/calendar` opens the
+      day-menu popup, but it doesn't dismiss: clicking elsewhere on the page doesn't close it, nor
+      does pressing Escape, and every click on the number opens *another* stacked popup instead of
+      toggling the existing one. Fix: close on outside-click and on Escape, and make a repeat click
+      toggle (or reuse) the single popup rather than spawn duplicates. JS-behavior fix — cover with a
+      `@Tag("js")` Playwright test (`page.setContent`, no server) per `docs/JS-Behavior-Tests.md`.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.

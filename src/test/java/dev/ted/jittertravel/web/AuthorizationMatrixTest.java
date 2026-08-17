@@ -87,6 +87,11 @@ class AuthorizationMatrixTest {
                 // A per-item action needs its own matcher: "/booked-hotels/*" matches one segment
                 // only, so without this entry the cancel endpoint would fall through to permitAll.
                 arguments("/booked-hotels/abc/cancel", Outcome.OK,   Outcome.DENIED_HOME,  Outcome.LOGIN),
+                arguments("/tentative-conferences", Outcome.OK,      Outcome.DENIED_HOME,  Outcome.LOGIN),
+                arguments("/tentative-conferences/abc", Outcome.OK,   Outcome.DENIED_HOME,  Outcome.LOGIN),
+                // A per-item action needs its own matcher: "/tentative-conferences/*" matches one
+                // segment only, so without this entry the decline endpoint would fall through to permitAll.
+                arguments("/tentative-conferences/abc/decline", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/planned-gatherings",   Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/planned-gatherings/abc", Outcome.OK,     Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/schedule-problems",    Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),

@@ -61,6 +61,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                         new CityOccupancy(e.venueAddress().locationForMatching(),
                                 e.startDate(), e.endDate(), e.name()));  // now ZonedTimestamps
                 case ConferenceCancelled e -> conferenceOccupancies.remove(e.conferenceId());
+                case ConferenceAttendanceDeclined e -> conferenceOccupancies.remove(e.conferenceId());
                 case GatheringPlanned e -> gatheringOccupancies.put(e.gatheringId(),
                         new GatheringOccupancy(e.title(), e.location().locationForMatching(),
                                 e.startsAt(), e.endsAt()));

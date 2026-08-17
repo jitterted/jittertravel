@@ -362,6 +362,25 @@ class ScheduleGapProjectorTest {
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
                     .containsExactly(new ScheduleProblem.MissingHotel("AMS", SEP_15, SEP_17, "Conf"));
         }
+
+        @Test
+        void decliningAConferenceClearsItsMissingHotelProblem() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            ConferenceId conferenceId = ConferenceId.random();
+            projector.handle(Stream.of(stored(conferenceWithId(conferenceId, "Marrakesh", SEP_15, SEP_17))));
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                    .as("a conference away from home with no hotel raises a missing-hotel problem")
+                    .isNotEmpty();
+
+            projector.handle(Stream.of(stored(new ConferenceAttendanceDeclined(
+                    conferenceId, "Schedule clash", Instant.parse("2026-08-16T18:30:00Z")))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                    .as("declining the conference clears its schedule problems, like a cancellation")
+                    .isEmpty();
+        }
     }
 
     // -------------------------------------------------------------------------

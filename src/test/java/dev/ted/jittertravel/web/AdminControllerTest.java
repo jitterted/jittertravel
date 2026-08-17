@@ -58,6 +58,37 @@ class AdminControllerTest {
     ConferenceMigrationService conferenceMigrationService;
 
     @Test
+    void databasePageRendersTableStats() {
+        given(persister.tableStats()).willReturn(List.of(
+                new PostgresPersister.TableStat("event_log", 42),
+                new PostgresPersister.TableStat("command_log", 7)));
+
+        assertThat(mockMvc.get().uri("/admin/database"))
+                .hasStatusOk()
+                .hasContentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .bodyText()
+                .contains("event_log")
+                .contains("command_log");
+    }
+
+    @Test
+    void truncationRestartWarningIsAmberNotGreen() {
+        given(persister.tableStats()).willReturn(List.of(
+                new PostgresPersister.TableStat("event_log", 0)));
+
+        assertThat(mockMvc.get().uri("/admin/database").flashAttr("truncated", true))
+                .hasStatusOk()
+                .bodyText()
+                // The post-truncate restart warning keeps its icon and its instruction …
+                .contains("⚠")
+                .contains("Restart the application before importing")
+                // … and is now amber. --warning-bg is used only by that warning's rule, and no
+                // green background remains on it (the old style was background: var(--success)).
+                .contains("var(--warning-bg)")
+                .doesNotContain("background: var(--success);");
+    }
+
+    @Test
     void adminHomeMapsToOkWithHtmlContentType() {
         assertThat(mockMvc.get().uri("/admin"))
                 .hasStatusOk()
@@ -117,6 +148,25 @@ class AdminControllerTest {
                 .hasStatusOk()
                 .bodyText()
                 .contains("Restored 3 command(s) and 5 event(s).");
+    }
+
+    @Test
+    void restoreSuccessShowsRestartWarningAndNoNavigationLinks() {
+        given(backupService.restoreJson(anyString()))
+                .willReturn(new BackupService.RestoreResult(3, 0, 5, 0, List.of()));
+
+        assertThat(mockMvc.post().uri("/admin/restore")
+                .with(csrf())
+                .param("content", "{}"))
+                .hasStatusOk()
+                .bodyText()
+                // The restart instruction is the whole point of the page, so it carries a warning icon.
+                .contains("⚠")
+                .contains("Restart the application")
+                // Navigation off the page is deliberately removed so the warning can't be skipped past.
+                .doesNotContain("/admin/commandlog")
+                .doesNotContain("View command log")
+                .doesNotContain("class=\"btn");
     }
 
     @Test

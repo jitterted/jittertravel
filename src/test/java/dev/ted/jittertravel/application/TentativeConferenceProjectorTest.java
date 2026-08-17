@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -144,6 +145,30 @@ class TentativeConferenceProjectorTest {
         assertThat(projector.views(TimeView.ALL, nowInstant))
                 .extracting(TentativeConferenceView::name)
                 .containsExactlyInAnyOrder("In Progress", "Finished");
+    }
+
+    @Test
+    void decliningAttendanceRemovesTheConferenceFromTheList() {
+        TentativeConferenceProjector projector = new TentativeConferenceProjector();
+        Address address = new Address("Street", "City", "State", "Postal", "Country", null);
+        ConferenceId conferenceId = ConferenceId.random();
+        ConferenceTentativelyPlanned planned = new ConferenceTentativelyPlanned(
+                conferenceId, "Devoxx Morocco",
+                zt(LocalDateTime.of(2026, 10, 7, 9, 0)), zt(LocalDateTime.of(2026, 10, 9, 17, 0)),
+                "Venue", address);
+        projector.handle(Stream.of(new StoredEvent(
+                1, planned.getClass(), UUID.randomUUID(), Instant.now(), planned, UUID.randomUUID())));
+        assertThat(projector.views(TimeView.ALL, NOW))
+                .hasSize(1);
+
+        ConferenceAttendanceDeclined declined = new ConferenceAttendanceDeclined(
+                conferenceId, "Schedule clash", Instant.parse("2026-08-16T18:30:00Z"));
+        projector.handle(Stream.of(new StoredEvent(
+                2, declined.getClass(), UUID.randomUUID(), Instant.now(), declined, UUID.randomUUID())));
+
+        assertThat(projector.views(TimeView.ALL, NOW))
+                .as("a declined conference leaves the tentative list, like a cancelled one")
+                .isEmpty();
     }
 
     private static ZonedTimestamp zt(LocalDateTime local) {

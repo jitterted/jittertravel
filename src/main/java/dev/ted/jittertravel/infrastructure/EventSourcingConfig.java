@@ -84,6 +84,16 @@ public class EventSourcingConfig {
         return new ConferencePlanning(commandExecutor, locationZoneResolver);
     }
 
+    /**
+     * No projector dependency for the write path: {@link DeclineConference} folds its decision fact
+     * from the event stream (R1), so the executor is all it needs. (The controller separately reads
+     * {@link TentativeConferenceProjector} to render the confirmation page.)
+     */
+    @Bean
+    public DeclineConference declineConferenceApplicationService(CommandExecutor commandExecutor) {
+        return new DeclineConference(commandExecutor);
+    }
+
     @Bean
     public FlightBooking flightBookingApplicationService(CommandExecutor commandExecutor,
                                                          AirportZoneResolver airportZoneResolver) {

@@ -21,6 +21,10 @@
             --success: #1a7a3f;
             --success-bg: #f0faf4;
             --success-border: #b2dfc4;
+            --warning: #9a6b00;
+            --warning-text: #6e4d00;
+            --warning-bg: #fdf3d8;
+            --warning-border: #e6c66b;
             --radius: 10px;
         }
 
@@ -63,14 +67,20 @@
         }
 
         .banner.success .restart-warning {
+            display: block;
             font-size: 0.9rem;
             font-weight: 700;
-            background: var(--success);
-            color: #fff;
-            display: inline-block;
-            padding: 0.2rem 0.6rem;
-            border-radius: 4px;
-            margin-top: 0.4rem;
+            color: var(--warning-text);
+            background: var(--warning-bg);
+            border: 1px solid var(--warning-border);
+            border-radius: 6px;
+            padding: 0.6rem 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        .banner.success .restart-warning .icon {
+            color: var(--warning);
+            margin-right: 0.35rem;
         }
 
         table {
@@ -187,7 +197,7 @@
 
     <div class="banner success" th:if="${truncated}">
         <strong>✓ Database truncated successfully.</strong>
-        <span class="restart-warning">⚠ Restart the application before importing to reset in-memory projectors.</span>
+        <span class="restart-warning"><span class="icon" aria-hidden="true">⚠</span>Restart the application before importing to reset in-memory projectors.</span>
     </div>
 
     <table>

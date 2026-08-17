@@ -86,6 +86,18 @@ class TentativeConferencesRendererTest {
     }
 
     @Test
+    void eachConferenceRowHasADeclineLinkToItsDeclinePage() {
+        TentativeConferenceView conf = view("Devoxx Morocco", "2026-10-07T09:00", "2026-10-09T17:00",
+                "Marrakesh", "Morocco");
+
+        String html = TentativeConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("/tentative-conferences/" + conf.conferenceId().id() + "/decline")
+                .contains(">Decline</a>");
+    }
+
+    @Test
     void planConferenceLinkIsPresent() {
         String html = TentativeConferencesRenderer.render(List.of(), TimeView.ALL);
 

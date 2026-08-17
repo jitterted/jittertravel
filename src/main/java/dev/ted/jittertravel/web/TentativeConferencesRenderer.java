@@ -39,6 +39,8 @@ public class TentativeConferencesRenderer {
             .conference-table tbody tr:last-child td { border-bottom: none; }
             .conference-table tbody tr:hover { background-color: var(--hover-bg); }
             .conf-name { font-weight: 500; color: var(--accent-color); }
+            .conf-decline { color: #b00; text-decoration: none; white-space: nowrap; font-size: 0.9rem; }
+            .conf-decline:hover { text-decoration: underline; }
             """;
 
     public static String render(List<TentativeConferenceView> conferences, TimeView activeFilter) {
@@ -73,7 +75,8 @@ public class TentativeConferencesRenderer {
                         th("Start Date"),
                         th("End Date"),
                         th("City"),
-                        th("Country")
+                        th("Country"),
+                        th("Actions")
                 )),
                 tbody().with(
                         conferences.stream()
@@ -89,7 +92,9 @@ public class TentativeConferencesRenderer {
                 td(dateTime(conf.startDate())),
                 td(dateTime(conf.endDate())),
                 td(conf.city()),
-                td(conf.country())
+                td(conf.country()),
+                td(a("Decline").withClass("conf-decline")
+                        .withHref("/tentative-conferences/" + conf.conferenceId().id() + "/decline"))
         );
     }
 

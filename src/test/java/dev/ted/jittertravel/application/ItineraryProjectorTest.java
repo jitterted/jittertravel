@@ -414,6 +414,32 @@ class ItineraryProjectorTest {
     }
 
     @Test
+    void decliningAttendanceRemovesConferenceFromItinerary() {
+        ItineraryProjector projector = new ItineraryProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        ConferenceTentativelyPlanned planned = new ConferenceTentativelyPlanned(
+                conferenceId, "Devoxx Morocco",
+                zt(DATE.atStartOfDay()), zt(DATE.plusDays(2).atStartOfDay()),
+                "Palais des Congrès",
+                new Address("Avenue de France", "Marrakesh", "", "40000", "Morocco", null));
+
+        projector.handle(Stream.of(stored(planned)));
+        assertThat(projector.entriesForDate(DATE))
+                .as("conference appears on the itinerary before it is declined")
+                .hasSize(1);
+
+        projector.handle(Stream.of(stored(new ConferenceAttendanceDeclined(
+                conferenceId, "Schedule clash", Instant.parse("2026-08-16T18:30:00Z")))));
+
+        assertThat(projector.entriesForDate(DATE))
+                .as("a declined conference must not appear on the itinerary")
+                .isEmpty();
+        assertThat(projector.entriesForDate(DATE.plusDays(1)))
+                .as("a declined conference must not appear on any of its days")
+                .isEmpty();
+    }
+
+    @Test
     void entriesForDateAreSortedByAnchorTime() {
         ItineraryProjector projector = new ItineraryProjector();
         TrainStationAddress london = new TrainStationAddress("London Euston", "London", "UK", "");

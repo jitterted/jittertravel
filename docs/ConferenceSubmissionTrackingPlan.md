@@ -216,6 +216,22 @@ Accepted / Waitlisted / Rejected / Withdraw; `REJECTED` → Go anyway / Drop). K
 `TemporalView.relevantUntil()` + `TimeView` + `TimeFilterToggle.render(...)` trio — the FUTURE/ALL
 convention is enforced by `TimeFilterToggleConventionTest`.
 
+## Backfilling existing conferences (OPEN QUESTION — Ted, 2026-08-16)
+
+Distinct from the Schengen "nothing to backfill" note above (which is only about the *day count*):
+once the two status dimensions exist, every conference already in the app is a bare
+`ConferenceTentativelyPlanned` with **no** commitment or speaking status. Figure out how to backfill
+that — i.e. how the existing conferences get their real `attendance`/`speaking` state instead of all
+defaulting to `WATCHING`/`NOT_SPEAKING`. Options to weigh when the time comes: a one-off admin
+back-entry pass (append the commitment/submission events by hand from memory), a small guided
+"catch up" UI on the radar view, or accept the default and only enrich going forward. Decide before
+step 2 ships so the calendar doesn't briefly mislabel conferences Ted is actually committed to.
+
+The `DeclineConferenceAttendance` slice shipped 2026-08-16 (the `ConferenceAttendanceDeclined` event,
+its command/handler/projectors/controller and a Decline affordance on `/tentative-conferences`) is a
+thin, forward-compatible first piece of this plan — it uses this plan's own event name and needs no
+rework here.
+
 ## Build order
 
 1. `datesConfirmed` on `ConferenceTentativelyPlanned` + the plan-conference form. Small, and the

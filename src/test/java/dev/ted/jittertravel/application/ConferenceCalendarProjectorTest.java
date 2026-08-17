@@ -1,8 +1,10 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
@@ -69,6 +71,28 @@ class ConferenceCalendarProjectorTest {
                 .containsExactly("Earlier", "Later");
     }
 
+    @Test
+    void decliningAttendanceRemovesTheConferenceFromTheCalendar() {
+        ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        ConferenceTentativelyPlanned planned = sampleConference("Devoxx Morocco", LocalDateTime.of(2026, 10, 7, 9, 0));
+        // rebind planned to a known id so the decline targets it
+        ConferenceTentativelyPlanned withId = new ConferenceTentativelyPlanned(
+                conferenceId, planned.name(), planned.startDate(), planned.endDate(),
+                planned.venueName(), planned.venueAddress());
+
+        projector.handle(Stream.of(stored(withId)));
+        assertThat(projector.entries()).hasSize(1);
+
+        projector.handle(Stream.of(storedEvent(2,
+                new ConferenceAttendanceDeclined(conferenceId, "Schedule clash",
+                        Instant.parse("2026-08-16T18:30:00Z")))));
+
+        assertThat(projector.entries())
+                .as("a declined conference leaves the calendar, like a cancelled one")
+                .isEmpty();
+    }
+
     private static ConferenceTentativelyPlanned sampleConference(String name, LocalDateTime start) {
         return new ConferenceTentativelyPlanned(
                 ConferenceId.random(),
@@ -87,5 +111,9 @@ class ConferenceCalendarProjectorTest {
 
     private static StoredEvent stored(ConferenceTentativelyPlanned event) {
         return new StoredEvent(1, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID());
+    }
+
+    private static StoredEvent storedEvent(long sequence, Event event) {
+        return new StoredEvent(sequence, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID());
     }
 }

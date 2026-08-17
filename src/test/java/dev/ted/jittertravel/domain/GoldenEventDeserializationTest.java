@@ -168,6 +168,45 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
+    void conferenceAttendanceDeclinedSampleDeserializes() {
+        // Ted's own decision not to attend — distinct from ConferenceCancelled (organizers). declinedOn
+        // is a plain audit instant (a moment, not a venue wall-clock), serialized as an ISO instant.
+        String json = """
+                {
+                  "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "reason": "Schedule clash",
+                  "declinedOn": "2026-08-16T18:30:00Z"
+                }
+                """;
+
+        ConferenceAttendanceDeclined event = deserialize(json, ConferenceAttendanceDeclined.class);
+
+        assertThat(event.conferenceId().id())
+                .isEqualTo(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        assertThat(event.reason())
+                .isEqualTo("Schedule clash");
+        assertThat(event.declinedOn())
+                .isEqualTo(Instant.parse("2026-08-16T18:30:00Z"));
+    }
+
+    @Test
+    void conferenceAttendanceDeclinedWithoutReasonReadsBackAsEmpty() {
+        // A payload written with no reason must read back as "" (no-null-Strings rule), not null.
+        String json = """
+                {
+                  "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "declinedOn": "2026-08-16T18:30:00Z"
+                }
+                """;
+
+        ConferenceAttendanceDeclined event = deserialize(json, ConferenceAttendanceDeclined.class);
+
+        assertThat(event.reason())
+                .as("absent reason must be empty string, not null")
+                .isEmpty();
+    }
+
+    @Test
     void hotelBookedCurrentPayloadDeserializes() {
         String json = """
                 {

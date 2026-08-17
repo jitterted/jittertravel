@@ -54,6 +54,50 @@ class GatheringCalendarProjectorTest {
         assertThat(entry.end()).isEqualTo(LocalDateTime.of(2026, 7, 10, 21, 0));
         assertThat(entry.continuationTitle()).isNull();
         assertThat(entry.continuationSubTitle()).isNull();
+        assertThat(entry.speaking())
+                .as("speaking gathering keeps its speaking flag on the calendar entry")
+                .isTrue();
+    }
+
+    @Test
+    void nonSpeakingGatheringHasSpeakingFalse() {
+        GatheringCalendarProjector projector = new GatheringCalendarProjector();
+        GatheringPlanned event = new GatheringPlanned(
+                GatheringId.random(),
+                "London Java Community",
+                "Skills Matter",
+                new Address("1 Example St", "London", "", "EC1A 1BB", "GB", null),
+                ukTime(DATE, START), ukTime(DATE, END),
+                false,
+                "https://meetup.com/ljc/events/123"
+        );
+
+        projector.handle(Stream.of(stored(event)));
+
+        assertThat(projector.entries().getFirst().speaking())
+                .as("a gathering Ted only attends is not marked speaking")
+                .isFalse();
+    }
+
+    @Test
+    void gatheringChangedUpdatesTheSpeakingFlag() {
+        GatheringCalendarProjector projector = new GatheringCalendarProjector();
+        GatheringId gatheringId = GatheringId.random();
+        // Planned as speaking, then edited down to merely attending.
+        GatheringPlanned planned = new GatheringPlanned(
+                gatheringId, "LJC", "Skills Matter",
+                new Address("1 Example St", "London", "", "EC1A 1BB", "GB", null),
+                ukTime(DATE, START), ukTime(DATE, END), true, "");
+        GatheringChanged changed = new GatheringChanged(
+                gatheringId, "LJC", "Skills Matter",
+                new Address("1 Example St", "London", "", "EC1A 1BB", "GB", null),
+                ukTime(DATE, START), ukTime(DATE, END), false, "");
+
+        projector.handle(Stream.of(stored(planned), stored(changed)));
+
+        assertThat(projector.entries().getFirst().speaking())
+                .as("editing a gathering overwrites its speaking flag")
+                .isFalse();
     }
 
     @Test

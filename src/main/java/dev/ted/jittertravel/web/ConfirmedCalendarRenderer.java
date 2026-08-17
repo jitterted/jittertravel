@@ -132,6 +132,13 @@ public class ConfirmedCalendarRenderer {
             }
             .entry-title { font-weight: 700; font-size: 0.95rem; letter-spacing: 0.01em; }
             .entry-subtitle { font-size: 0.8rem; font-weight: 500; opacity: 0.95; margin-top: 2px; }
+            /* Public "speaking" chip on a gathering: a solid high-contrast pill (near-black
+               background, white text) so it stands out sharply against the gathering tint. */
+            .entry-speaking-badge {
+                align-self: flex-start; margin-top: 3px;
+                font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+                padding: 2px 6px; border-radius: 4px; background: #111827; color: #ffffff;
+            }
             .edit-pencil { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
             .edit-pencil:hover { opacity: 1; }
             .edit-pencil svg { width: 12px; height: 12px; }

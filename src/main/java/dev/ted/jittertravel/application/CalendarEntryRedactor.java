@@ -7,10 +7,10 @@ import java.util.List;
  * Strips private details from calendar entries before they reach an anonymous viewer.
  * <p>
  * Deny-by-default: no branch may return {@code entry} unchanged. Every branch constructs a
- * new {@link CalendarEntry} naming each field explicitly, so adding a field to
- * {@code CalendarEntry} breaks compilation here — forcing a redaction decision — instead of
- * silently publishing the new field. All branches use the 8-argument constructor, which
- * drops {@code editPath}: owner edit links are never public.
+ * new {@link CalendarEntry} via the full canonical constructor, naming each field explicitly
+ * (including {@code speaking} and {@code editPath}), so adding a field to {@code CalendarEntry}
+ * breaks compilation here — forcing a redaction decision — instead of silently publishing the
+ * new field. {@code editPath} is always {@code null}: owner edit links are never public.
  * <p>
  * See "Redaction: anonymous viewers are a first-class threat model" in CLAUDE.md.
  */
@@ -22,30 +22,40 @@ public class CalendarEntryRedactor {
                     entry.kind(), entry.start(), entry.end(),
                     "Hotel", entry.subTitle(),
                     "Hotel cont'd", entry.continuationSubTitle(),
-                    null
+                    null, false, null
             );
             case FLIGHT -> new CalendarEntry(
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), null,
                     entry.continuationTitle(), null,
-                    null
+                    null, false, null
             );
             case TRAIN -> new CalendarEntry(
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), null,
                     entry.continuationTitle(), null,
-                    null
+                    null, false, null
             );
-            // Conferences and gatherings are public events: name, venue, location, and
-            // times are all visible by decision (Ted speaks at or attends them publicly).
-            // Fields are still named one by one rather than returning `entry`, so a new
-            // field cannot ride along unnoticed. Private social events are the separate,
-            // redacted PRIVATE_EVENT kind below — never fold them in here.
-            case CONFERENCE, GATHERING -> new CalendarEntry(
+            // Conferences are public events: name, venue, location, and times are all visible by
+            // decision (Ted attends them publicly). They carry no `speaking` marker today, so it
+            // is dropped; when conference submission tracking lands (docs/ConferenceSubmission-
+            // TrackingPlan.md) this branch gains its own `entry.speaking()` pass-through.
+            case CONFERENCE -> new CalendarEntry(
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), entry.subTitle(),
                     entry.continuationTitle(), entry.continuationSubTitle(),
-                    entry.mapsUrl()
+                    entry.mapsUrl(), false, null
+            );
+            // Gatherings are public events too, and that Ted is *speaking* at one is public by
+            // decision (the venue and time are already public) — so `speaking` passes through to
+            // the anonymous calendar. Fields are still named one by one rather than returning
+            // `entry`, so a new field cannot ride along unnoticed. Private social events are the
+            // separate, redacted PRIVATE_EVENT kind below — never fold them in here.
+            case GATHERING -> new CalendarEntry(
+                    entry.kind(), entry.start(), entry.end(),
+                    entry.mainTitle(), entry.subTitle(),
+                    entry.continuationTitle(), entry.continuationSubTitle(),
+                    entry.mapsUrl(), entry.speaking(), null
             );
             // A private social event: anonymous viewers see only that Ted is "Busy", when
             // (the time in the event's own zone, via FixedRange), and the city/country — never
@@ -77,7 +87,7 @@ public class CalendarEntryRedactor {
                 entry.kind(), entry.start(), entry.end(),
                 "Busy", List.copyOf(redacted),
                 null, null,
-                null
+                null, false, null
         );
     }
 }

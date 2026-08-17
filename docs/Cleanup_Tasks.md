@@ -44,11 +44,12 @@ plan doc and its status — including these items — see `Backlog.md`.
       Escape (document `keydown`). Harmless when no day menus are present (owner-only render).
       Covered by `ConfirmedCalendarDayMenuJsTest` (`@Tag("js")`, `page.setContent`, no server) —
       three cases (outside-click, Escape, no-stacking), each mutation-verified. **Note:** while
-      doing this I found `ConfirmedCalendarToggleJsTest` is **pre-existing broken** (fails without
+      doing this I found `ConfirmedCalendarToggleJsTest` was **pre-existing broken** (failed without
       any of my changes) — the 2026-08-16 "default `from` = one week before today" change
       (`0435623`) shrank the rendered range so the tests' expected collapsed-week counts no longer
-      hold; the `js` tier is opt-in (excluded from the default build), so it shipped invisibly. Not
-      fixed here — flagged for a separate pass.
+      held; the `js` tier is opt-in (excluded from the default build), so it shipped invisibly.
+      **Fixed 2026-08-17** (green, 5/5), and the native pre-push MUST-PASS gate now runs the `js`
+      tier too so a broken js test can no longer ship unseen.
 - [x] **Add a private social event type** (2026-08-13). Shipped as its own entry kind — see
       `PrivateSocialEventPlan.md` (done) and the Backlog row. `EntryKind.PRIVATE_EVENT` with a
       `PlanPrivateEvent` command / `PrivateEventPlanned` event / context, `PrivateEventCalendarProjector`,

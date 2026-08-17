@@ -469,6 +469,36 @@ class CalendarViewBuilderTest {
         assertThat(html).contains(">Skills Matter<");
         assertThat(html).contains(">London, GB<");
         assertThat(html).contains("href=\"https://meetup.com/ljc/events/123\"");
+        assertThat(html)
+                .as("a gathering Ted only attends shows no speaking badge")
+                .doesNotContain("entry-speaking-badge");
+    }
+
+    @Test
+    void speakingGatheringRendersSpeakingBadge() {
+        CalendarEntry gathering = new CalendarEntry(
+                EntryKind.GATHERING,
+                LocalDateTime.of(2026, 6, 10, 18, 0),
+                LocalDateTime.of(2026, 6, 10, 21, 0),
+                "London Java Community",
+                lines("Skills Matter", "London, GB"),
+                null,
+                null,
+                "https://meetup.com/ljc/events/123",
+                true,
+                null
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(gathering),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14),
+                TODAY,
+                false
+        );
+
+        assertThat(html).contains("class=\"entry-speaking-badge\"");
+        assertThat(html).contains(">A Ted Talk<");
     }
 
     @Test

@@ -27,10 +27,10 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
                 // Both events are full snapshots, so a change overwrites the planned entry.
                 case GatheringPlanned e -> entries.put(e.gatheringId(), toEntry(
                         e.title(), e.venueName(), e.location(),
-                        e.startsAt(), e.endsAt(), e.infoUrl()));
+                        e.startsAt(), e.endsAt(), e.speaking(), e.infoUrl()));
                 case GatheringChanged e -> entries.put(e.gatheringId(), toEntry(
                         e.title(), e.venueName(), e.location(),
-                        e.startsAt(), e.endsAt(), e.infoUrl()));
+                        e.startsAt(), e.endsAt(), e.speaking(), e.infoUrl()));
                 default -> { /* not a gathering event */ }
             }
         });
@@ -41,11 +41,13 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
                                   Address location,
                                   ZonedTimestamp startsAt,
                                   ZonedTimestamp endsAt,
+                                  boolean speaking,
                                   String infoUrl) {
         // The calendar buckets by the day the gathering happens *at its venue*, so an evening
         // event never slides onto the neighbouring day for a viewer in another zone. The times
         // stay in the subtitle for every viewer — gatherings are public; the redactor's GATHERING
         // branch lets them through — unlike flights/trains/hotels, whose times it strips.
+        // `speaking` is public by decision too, so it rides through to the anonymous calendar.
         return new CalendarEntry(
                 EntryKind.GATHERING,
                 startsAt.localDateTime(),
@@ -54,7 +56,9 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
                 subtitle.venueLocationAndTime(venueName, location, startsAt, endsAt),
                 null,
                 null,
-                infoUrl.isBlank() ? null : infoUrl
+                infoUrl.isBlank() ? null : infoUrl,
+                speaking,
+                null
         );
     }
 

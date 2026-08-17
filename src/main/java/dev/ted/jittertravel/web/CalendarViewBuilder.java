@@ -311,6 +311,13 @@ public class CalendarViewBuilder {
                 div.with(renderSubtitleLine(line));
             }
         }
+        // Public "speaking" marker: that Ted speaks at a gathering is public by decision (the
+        // venue and time already are), so it renders for every viewer — the redactor keeps
+        // `speaking` on the GATHERING branch. Only on the entry's own (non-continuation) segment,
+        // like the title and pencil.
+        if (entry.speaking() && !isContinuation) {
+            div.with(span("A Ted Talk").withClass("entry-speaking-badge"));
+        }
         return div;
     }
 

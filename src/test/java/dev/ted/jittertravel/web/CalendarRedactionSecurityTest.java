@@ -157,6 +157,28 @@ class CalendarRedactionSecurityTest {
                 "/planned-private-events/abc");
     }
 
+    private static final LocalDateTime GATHERING_START = LocalDateTime.of(2026, 7, 5, 18, 0);
+    private static final LocalDateTime GATHERING_END = LocalDateTime.of(2026, 7, 5, 21, 0);
+
+    @Test
+    void anonymousUserSeesSpeakingBadgeOnPublicGathering() {
+        // That Ted is speaking at a gathering is public by decision, so redaction must keep the
+        // badge for anonymous viewers — assert it survives the real security chain.
+        given(calendarAggregator.allEntries()).willReturn(List.of(new CalendarEntry(
+                EntryKind.GATHERING, GATHERING_START, GATHERING_END,
+                "London Java Community", List.of(new SubtitleLine.Text("London, GB")),
+                null, null, "https://meetup.com/ljc/events/123",
+                true, "/planned-gatherings/abc"
+        )));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("A Ted Talk")
+                // The owner edit link is still never public.
+                .doesNotContain("/planned-gatherings/abc");
+    }
+
     @Test
     @WithMockUser(username = "family", roles = "FAMILY")
     void authenticatedUserSeesItineraryLinks() {

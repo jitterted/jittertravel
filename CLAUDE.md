@@ -66,7 +66,13 @@ Treat it as security code, not formatting code.
 **Public by decision** (do not "fix" these without asking Ted): the fact that travel is
 happening on a given day, airport codes and city names for flights/trains/hotels, and
 **conferences and gatherings in full** — name, venue, city, `infoUrl`, and start/end times.
-Both are public events Ted speaks at or attends publicly.
+Both are public events Ted speaks at or attends publicly. That Ted is **speaking** at a
+gathering is public too (shipped 2026-08-17): `CalendarEntry.speaking` rides through the
+redactor's GATHERING branch and renders as a "Speaking" badge on the anonymous `/calendar`
+(the venue and time are already public, so the badge reveals nothing new). The conference
+half of the speaking badge waits on submission tracking; a **private** talk at a company is
+neither — it has no public venue/time and must get its own redacted `EntryKind`, never be
+modelled as a gathering to earn the badge.
 
 **Private social events are their own kind (shipped 2026-08-13).** `EntryKind.PRIVATE_EVENT`
 (a dinner with friends) has its own redacting branch: an anonymous viewer sees `Busy`, a

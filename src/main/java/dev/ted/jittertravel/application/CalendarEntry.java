@@ -26,15 +26,28 @@ public record CalendarEntry(
         String continuationTitle,
         List<SubtitleLine> continuationSubTitle,
         String mapsUrl,
+        boolean speaking,
         String editPath
 ) {
     /**
-     * Convenience constructor for entries with no owner edit link (everything except booked
-     * flights and trains). Keeps the many existing call sites that predate {@code editPath}.
+     * Convenience constructor for entries with no owner edit link and no public "speaking"
+     * marker (hotels, flights sharing a day, conferences, private events, and non-speaking
+     * gatherings). Keeps the many call sites that predate {@code editPath} and {@code speaking}.
      */
     public CalendarEntry(EntryKind kind, LocalDateTime start, LocalDateTime end,
                          String mainTitle, List<SubtitleLine> subTitle,
                          String continuationTitle, List<SubtitleLine> continuationSubTitle, String mapsUrl) {
-        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, null);
+        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, null);
+    }
+
+    /**
+     * Convenience constructor for entries that carry an owner edit link (booked flights and
+     * trains) but are not speaking events. {@code speaking} defaults to {@code false}.
+     */
+    public CalendarEntry(EntryKind kind, LocalDateTime start, LocalDateTime end,
+                         String mainTitle, List<SubtitleLine> subTitle,
+                         String continuationTitle, List<SubtitleLine> continuationSubTitle,
+                         String mapsUrl, String editPath) {
+        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, editPath);
     }
 }

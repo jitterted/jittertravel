@@ -126,6 +126,48 @@ class CalendarEntryRedactorTest {
     }
 
     /**
+     * That Ted is speaking at a gathering is public by decision (the venue and time are already
+     * public), so the {@code speaking} flag must survive redaction and reach the anonymous
+     * calendar. This is the field the calendar renders as a "Speaking" badge.
+     */
+    @Test
+    void gatheringSpeakingFlagSurvivesRedaction() {
+        CalendarEntry gathering = new CalendarEntry(
+                EntryKind.GATHERING, START, END,
+                "London Java Community", lines("Skills Matter", "London, GB"),
+                null, null, "https://meetup.com/events/123",
+                true, "/planned-gatherings/abc"
+        );
+
+        CalendarEntry redacted = redactor.redact(gathering);
+
+        assertThat(redacted.speaking())
+                .as("speaking is public, so it survives redaction for anonymous viewers")
+                .isTrue();
+        assertThat(redacted.editPath()).isNull();
+    }
+
+    /**
+     * Conferences carry no speaking marker today, and the branch drops it explicitly (rather than
+     * defaulting), so a conference never renders a speaking badge until submission tracking lands.
+     */
+    @Test
+    void conferenceSpeakingIsDropped() {
+        CalendarEntry conference = new CalendarEntry(
+                EntryKind.CONFERENCE, START, END,
+                "DDD Europe 2026", lines("Frankfurt, Germany"),
+                null, null, "https://dddeurope.com",
+                true, "/plan-conference/abc"
+        );
+
+        CalendarEntry redacted = redactor.redact(conference);
+
+        assertThat(redacted.speaking())
+                .as("conferences drop speaking until submission tracking exists")
+                .isFalse();
+    }
+
+    /**
      * A private social event is the one entry kind that IS redacted for anonymous viewers: the
      * title becomes "Busy", the venue name is dropped, and the owner's re-localizing time
      * {@link SubtitleLine.Range} becomes a fixed, zone-labelled {@link SubtitleLine.FixedRange}.

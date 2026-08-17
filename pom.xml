@@ -184,6 +184,33 @@
           <argLine>-Duser.timezone=UTC</argLine>
         </configuration>
       </plugin>
+      <!-- Bootstrap the tracked git hooks: point core.hooksPath at .githooks so the
+           pre-push MUST-PASS gate runs after a fresh clone without the manual
+           `git config core.hooksPath .githooks` (see README). Idempotent, so it's safe
+           to re-run every build; failOnError=false keeps builds from a non-git checkout
+           (release tarball, Docker source copy) working. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>install-git-hooks-path</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>git</executable>
+              <arguments>
+                <argument>config</argument>
+                <argument>core.hooksPath</argument>
+                <argument>.githooks</argument>
+              </arguments>
+              <failOnError>false</failOnError>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 

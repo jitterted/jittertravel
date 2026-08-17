@@ -6,7 +6,10 @@ Developed as an experiment in aggregate-free Event Sourcing, using Event Modelin
 
 ## Development setup
 
-After cloning, enable the tracked git hooks once:
+The tracked git hooks live in `.githooks/` and are wired up by `core.hooksPath`. The first
+Maven build does this for you automatically (an `initialize`-phase step runs
+`git config core.hooksPath .githooks`), so a plain `./mvnw test` after cloning is enough. To
+enable them immediately without a build, run it yourself:
 
 ```sh
 git config core.hooksPath .githooks
@@ -20,4 +23,5 @@ unless **both** test tiers pass:
 ./mvnw test -Pjs-tests   # the @Tag("js") Playwright tier (opt-in, excluded from the default build)
 ```
 
-`core.hooksPath` is local git config, not tracked, so each clone runs the command above once.
+`core.hooksPath` is local git config, not tracked — so it's per-clone, which is why the Maven
+bootstrap (or the command above) sets it.

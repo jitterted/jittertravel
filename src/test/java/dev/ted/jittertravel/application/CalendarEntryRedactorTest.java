@@ -19,12 +19,13 @@ class CalendarEntryRedactorTest {
     private final CalendarEntryRedactor redactor = new CalendarEntryRedactor();
 
     @Test
-    void lodgingHidesHotelNameAndMapsUrl() {
+    void lodgingHidesHotelNameMapsUrlAndEditPath() {
         CalendarEntry hotel = new CalendarEntry(
                 EntryKind.LODGING, START, END,
                 "Marriott Grand", lines("Berlin, Germany"),
                 "Marriott Grand cont'd", lines("Berlin, Germany"),
-                "https://maps.google.com/marriott"
+                "https://maps.google.com/marriott",
+                "/booked-hotels/abc"
         );
 
         CalendarEntry redacted = redactor.redact(hotel);
@@ -32,6 +33,7 @@ class CalendarEntryRedactorTest {
         assertThat(redacted.mainTitle()).isEqualTo("Hotel");
         assertThat(redacted.continuationTitle()).isEqualTo("Hotel cont'd");
         assertThat(redacted.mapsUrl()).isNull();
+        assertThat(redacted.editPath()).isNull();
     }
 
     @Test

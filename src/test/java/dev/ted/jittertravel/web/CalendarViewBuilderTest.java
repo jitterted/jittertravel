@@ -502,6 +502,55 @@ class CalendarViewBuilderTest {
     }
 
     @Test
+    void ownerEntryWithEditPathShowsEditPencil() {
+        CalendarEntry gathering = gatheringWithEditPath();
+
+        String html = CalendarViewBuilder.render(
+                List.of(gathering),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14),
+                TODAY,
+                false,   // isPublicUser
+                true     // isOwner
+        );
+
+        assertThat(html).contains("class=\"edit-pencil\" href=\"/planned-gatherings/g-123\"");
+    }
+
+    @Test
+    void nonOwnerEntryWithEditPathHasNoEditPencil() {
+        CalendarEntry gathering = gatheringWithEditPath();
+
+        String html = CalendarViewBuilder.render(
+                List.of(gathering),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14),
+                TODAY,
+                false,   // isPublicUser
+                false    // isOwner
+        );
+
+        assertThat(html)
+                .doesNotContain("edit-pencil")
+                .doesNotContain("/planned-gatherings/");
+    }
+
+    private static CalendarEntry gatheringWithEditPath() {
+        return new CalendarEntry(
+                EntryKind.GATHERING,
+                LocalDateTime.of(2026, 6, 10, 18, 0),
+                LocalDateTime.of(2026, 6, 10, 21, 0),
+                "London Java Community",
+                lines("Skills Matter", "London, GB"),
+                null,
+                null,
+                "https://meetup.com/ljc/events/123",
+                false,
+                "/planned-gatherings/g-123"
+        );
+    }
+
+    @Test
     void subtitleTimeRangeRendersAsTimeElementsCarryingTheUtcInstant() {
         // A same-day SFO→LAX hop: 9:00 AM PDT is 16:00Z, 10:30 AM PDT is 17:30Z. The segment
         // still sits in its entry-zone day column; only the rendered time carries the instant.

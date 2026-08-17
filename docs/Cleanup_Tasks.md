@@ -10,12 +10,6 @@ plan doc and its status — including these items — see `Backlog.md`.
 - [ ] **Standardize headers/footers for navigation.** Give pages a consistent header/footer with
       shared nav so you can move around the app directly instead of returning to the home page
       every time. Currently many pages are dead-ends that force a trip back to `/`.
-- [ ] **Consistent edit affordances on calendar and itinerary entries.** Make it easy to jump from
-      a calendar cell or an itinerary entry straight to the edit form for that hotel/flight/train/
-      conference/gathering, and do it *uniformly* across all entry kinds. Today it's haphazard —
-      some entry types show an edit icon/link and others don't. Every editable entry kind should
-      expose the same edit affordance from both surfaces (OWNER view only — never in the redacted
-      anonymous calendar). Related to the standardized header/footer nav item above.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.
@@ -29,6 +23,22 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Done
 
+- [x] **Consistent edit affordances on calendar and itinerary entries** (2026-08-17). Every editable
+      entry kind now exposes the same OWNER-only edit pencil from **both** surfaces. Before this,
+      the calendar showed a pencil only for flights and trains (`editPath` set), and the itinerary
+      showed one for flights/trains/hotels but not gatherings. Filled the two gaps: `HotelCalendarProjector`
+      and `GatheringCalendarProjector` now set `editPath` (`/booked-hotels/{id}`,
+      `/planned-gatherings/{id}`), so the calendar renders the pencil for hotels and gatherings too;
+      `ItineraryRenderer.renderGathering` now takes `isOwner` and appends the pencil (needed a new
+      `gatheringId` field on `GatheringItineraryEntry`, threaded from `ItineraryProjector`). The
+      pencil is OWNER-only on both surfaces — the calendar redactor drops `editPath` and the
+      renderers gate on `isOwner`; a new `CalendarRedactionSecurityTest` case plus the strengthened
+      lodging redactor test prove the hotel deep link never reaches anonymous eyes (full-stack
+      mutation-verified). **Conference and private event are intentionally excluded** — they have no
+      edit flow yet (`ChangeConference` / `ChangePrivateEvent` are separate unbuilt features), so
+      there is nothing to link to; when each edit page ships it should set `editPath` / take `isOwner`
+      the same way and inherit the affordance. Projector + renderer + both-tier redaction tests, all
+      mutation-verified.
 - [x] **Split every page combining an Edit and a Cancel form** (2026-08-17). Verified nothing is
       left to split: a full sweep of the templates found the only entry cancel/delete form in the
       app is `cancel-hotel.html`, which is already its own page (`f5971ef`) — `change-hotel.html`

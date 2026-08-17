@@ -41,6 +41,9 @@ public class HotelCalendarProjector implements EventStreamConsumer {
                 ? AddressRenderer.mapsUrl(hotelName, address)
                 : rawMapsUrl;
         List<SubtitleLine> locationLines = List.of(new SubtitleLine.Text(location));
+        // OWNER-only deep link to the booking's edit page; the renderer gates it on isOwner and
+        // the redactor drops it, so it never reaches an anonymous viewer.
+        String editPath = "/booked-hotels/" + hotelBookingId.id();
         entriesById.put(hotelBookingId, new CalendarEntry(
                 EntryKind.LODGING,
                 checkIn,
@@ -49,7 +52,8 @@ public class HotelCalendarProjector implements EventStreamConsumer {
                 locationLines,
                 hotelName + " cont'd",
                 locationLines,
-                mapsUrl
+                mapsUrl,
+                editPath
         ));
     }
 

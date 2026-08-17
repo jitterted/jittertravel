@@ -9,6 +9,7 @@ import dev.ted.jittertravel.application.ItineraryDay;
 import dev.ted.jittertravel.application.ItineraryEntry;
 import dev.ted.jittertravel.application.ViewerZonePolicy;
 import dev.ted.jittertravel.application.ZoneDisplay;
+import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
@@ -218,7 +219,7 @@ class BrowserZoneJsTest extends JsBehaviorTest {
 
     private static String itineraryHtml(ZoneDisplay zoneDisplay) {
         ItineraryEntry gathering = new GatheringItineraryEntry(
-                "London Java Community", "Skills Matter", "London", "GB", false, "",
+                GatheringId.random(), "London Java Community", "Skills Matter", "London", "GB", false, "",
                 ZonedTimestamp.fromLocal(JUN_1.atTime(18, 0), LONDON),
                 ZonedTimestamp.fromLocal(JUN_1.atTime(21, 0), LONDON));
         List<ItineraryDay> days = List.of(

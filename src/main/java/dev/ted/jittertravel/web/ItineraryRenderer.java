@@ -115,7 +115,7 @@ public class ItineraryRenderer {
             case FlightItineraryEntry e -> renderFlight(e, isOwner);
             case TrainItineraryEntry e -> renderTrain(e, isOwner);
             case HotelItineraryEntry e -> renderHotel(e, isOwner);
-            case GatheringItineraryEntry e -> renderGathering(e);
+            case GatheringItineraryEntry e -> renderGathering(e, isOwner);
             case ConferenceItineraryEntry e -> renderConference(e);
             case PrivateEventItineraryEntry e -> renderPrivateEvent(e);
         };
@@ -217,13 +217,17 @@ public class ItineraryRenderer {
         );
     }
 
-    private static DivTag renderGathering(GatheringItineraryEntry e) {
+    private static DivTag renderGathering(GatheringItineraryEntry e, boolean isOwner) {
         DomContent titleContent = e.infoUrl().isBlank()
                 ? new Text(e.title())
                 : a(e.title()).withHref(e.infoUrl()).withTarget("_blank").withRel("noopener");
+        DivTag title = div().withClass("entry-title").with(titleContent);
+        if (isOwner) {
+            title.with(editPencil("/planned-gatherings/" + e.gatheringId().id(), "Edit gathering"));
+        }
         DivTag card = div().withClass("entry-card entry-card--gathering").with(
                 div("Gathering").withClass("entry-kind entry-kind--gathering"),
-                div().withClass("entry-title").with(titleContent),
+                title,
                 div(e.venueLocation()).withClass("entry-detail"),
                 div().withClass("entry-detail").with(
                         ZonedTimeTag.render(e.anchorDateTime(), TIME_FORMAT),

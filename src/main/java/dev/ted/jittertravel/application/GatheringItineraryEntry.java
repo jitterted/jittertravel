@@ -1,10 +1,12 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.LocalDateTime;
 
 public record GatheringItineraryEntry(
+        GatheringId gatheringId,
         String title,
         String venueName,
         String city,

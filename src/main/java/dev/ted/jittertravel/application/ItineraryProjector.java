@@ -37,10 +37,10 @@ public class ItineraryProjector implements EventStreamConsumer {
                 case ConferenceCancelled(ConferenceId conferenceId, String _) -> conferenceEntries.remove(conferenceId);
                 case ConferenceAttendanceDeclined e -> conferenceEntries.remove(e.conferenceId());
                 case GatheringPlanned e -> gatheringEntries.put(e.gatheringId(), toGatheringEntry(
-                        e.title(), e.venueName(), e.location(),
+                        e.gatheringId(), e.title(), e.venueName(), e.location(),
                         e.speaking(), e.infoUrl(), e.startsAt(), e.endsAt()));
                 case GatheringChanged e -> gatheringEntries.put(e.gatheringId(), toGatheringEntry(
-                        e.title(), e.venueName(), e.location(),
+                        e.gatheringId(), e.title(), e.venueName(), e.location(),
                         e.speaking(), e.infoUrl(), e.startsAt(), e.endsAt()));
                 case PrivateEventPlanned e -> privateEventEntries.put(e.privateEventId(), toPrivateEventEntry(e));
                 default -> {}
@@ -183,7 +183,8 @@ public class ItineraryProjector implements EventStreamConsumer {
                         HotelDayRole.CHECK_OUT, checkOut, mapsUrl));
     }
 
-    private static GatheringItineraryEntry toGatheringEntry(String title,
+    private static GatheringItineraryEntry toGatheringEntry(GatheringId gatheringId,
+                                                            String title,
                                                             String venueName,
                                                             Address location,
                                                             boolean speaking,
@@ -191,6 +192,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                                                             ZonedTimestamp startsAt,
                                                             ZonedTimestamp endsAt) {
         return new GatheringItineraryEntry(
+                gatheringId,
                 title, venueName,
                 location.city(), location.country(),
                 speaking, infoUrl,

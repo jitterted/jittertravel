@@ -201,6 +201,17 @@ class GatheringCalendarProjectorTest {
         assertThat(projector.entries().getFirst().mapsUrl()).isNull();
     }
 
+    @Test
+    void calendarEntryCarriesOwnerEditPath() {
+        GatheringCalendarProjector projector = new GatheringCalendarProjector();
+        GatheringId id = GatheringId.random();
+
+        projector.handle(Stream.of(stored(gathering(id, "Meetup", DATE, ""))));
+
+        assertThat(projector.entries().getFirst().editPath())
+                .isEqualTo("/planned-gatherings/" + id.id());
+    }
+
     private static GatheringPlanned gathering(GatheringId id, String title, LocalDate date, String infoUrl) {
         return new GatheringPlanned(
                 id, title, "Some Venue",

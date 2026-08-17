@@ -301,7 +301,8 @@ public class CalendarViewBuilder {
                     : span(title);
             DivTag titleDiv = div().withClass("entry-title").with(titleText);
             if (entry.editPath() != null && isOwner && !isContinuation) {
-                // OWNER-only deep link to the booking's edit page (flights and trains).
+                // OWNER-only deep link to the entry's edit page — every editable kind
+                // (flights, trains, hotels, gatherings) sets editPath; the redactor drops it.
                 titleDiv.with(editPencil(entry.editPath(), "Edit"));
             }
             div.with(titleDiv);

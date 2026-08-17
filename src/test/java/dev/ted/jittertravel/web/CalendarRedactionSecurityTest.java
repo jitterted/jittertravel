@@ -85,6 +85,26 @@ class CalendarRedactionSecurityTest {
     }
 
     @Test
+    void anonymousUserDoesNotSeeHotelEditLink() {
+        // Hotels now carry an OWNER-only editPath; redaction must drop it so the anonymous
+        // calendar never exposes the deep link to the booking's edit page.
+        given(calendarAggregator.allEntries()).willReturn(List.of(new CalendarEntry(
+                EntryKind.LODGING, CHECK_IN, CHECK_OUT,
+                "Grand Hotel", List.of(new SubtitleLine.Text("Berlin, Germany")),
+                "Grand Hotel cont'd", List.of(new SubtitleLine.Text("Berlin, Germany")),
+                "https://maps.google.com/grand-hotel",
+                "/booked-hotels/abc"
+        )));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                // The href is the secret — the `.edit-pencil` CSS class is inlined on every
+                // calendar page, so assert on the deep link itself, not the class name.
+                .doesNotContain("/booked-hotels/");
+    }
+
+    @Test
     void anonymousUserDoesNotSeeItineraryLinks() {
         assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
                 .hasStatusOk()

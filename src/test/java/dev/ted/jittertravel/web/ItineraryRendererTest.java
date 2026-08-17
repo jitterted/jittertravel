@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.*;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -404,6 +405,30 @@ class ItineraryRendererTest {
     }
 
     @Test
+    void gatheringShowsEditPencilLinkingToEditPageForOwner() {
+        GatheringId gatheringId = GatheringId.random();
+        GatheringItineraryEntry entry = new GatheringItineraryEntry(
+                gatheringId, "London Java Community", "Skills Matter", "London", "GB",
+                false, "",
+                zoned(JUN_1.atTime(LocalTime.of(18, 0)), LONDON),
+                zoned(JUN_1.atTime(LocalTime.of(21, 0)), LONDON));
+
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains("class=\"edit-pencil\" href=\"/planned-gatherings/" + gatheringId.id() + "\"");
+    }
+
+    @Test
+    void gatheringHasNoEditPencilForNonOwner() {
+        String html = renderWithEntry(gathering("Some Meetup", false, ""));
+
+        assertThat(html)
+                .doesNotContain("href=\"/planned-gatherings/");
+    }
+
+    @Test
     void gatheringShowsVenueAndLocation() {
         String html = renderWithEntry(gathering("Some Meetup", false, ""));
 
@@ -535,7 +560,7 @@ class ItineraryRendererTest {
     }
 
     private static GatheringItineraryEntry gathering(String title, boolean speaking, String infoUrl) {
-        return new GatheringItineraryEntry(title, "Skills Matter", "London", "GB",
+        return new GatheringItineraryEntry(GatheringId.random(), title, "Skills Matter", "London", "GB",
                 speaking, infoUrl,
                 zoned(JUN_1.atTime(LocalTime.of(18, 0)), LONDON),
                 zoned(JUN_1.atTime(LocalTime.of(21, 0)), LONDON));

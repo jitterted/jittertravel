@@ -26,17 +26,18 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
             switch (storedEvent.payload()) {
                 // Both events are full snapshots, so a change overwrites the planned entry.
                 case GatheringPlanned e -> entries.put(e.gatheringId(), toEntry(
-                        e.title(), e.venueName(), e.location(),
+                        e.gatheringId(), e.title(), e.venueName(), e.location(),
                         e.startsAt(), e.endsAt(), e.speaking(), e.infoUrl()));
                 case GatheringChanged e -> entries.put(e.gatheringId(), toEntry(
-                        e.title(), e.venueName(), e.location(),
+                        e.gatheringId(), e.title(), e.venueName(), e.location(),
                         e.startsAt(), e.endsAt(), e.speaking(), e.infoUrl()));
                 default -> { /* not a gathering event */ }
             }
         });
     }
 
-    private CalendarEntry toEntry(String title,
+    private CalendarEntry toEntry(GatheringId gatheringId,
+                                  String title,
                                   String venueName,
                                   Address location,
                                   ZonedTimestamp startsAt,
@@ -48,6 +49,8 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
         // stay in the subtitle for every viewer — gatherings are public; the redactor's GATHERING
         // branch lets them through — unlike flights/trains/hotels, whose times it strips.
         // `speaking` is public by decision too, so it rides through to the anonymous calendar.
+        // `editPath` is the OWNER-only deep link to the edit page; the renderer gates it on
+        // isOwner and the redactor drops it, so it never reaches an anonymous viewer.
         return new CalendarEntry(
                 EntryKind.GATHERING,
                 startsAt.localDateTime(),
@@ -58,7 +61,7 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
                 null,
                 infoUrl.isBlank() ? null : infoUrl,
                 speaking,
-                null
+                "/planned-gatherings/" + gatheringId.id()
         );
     }
 

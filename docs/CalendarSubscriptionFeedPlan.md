@@ -15,6 +15,52 @@ its `admin-home` nav card; `SecurityConfig` `/calendar/feed/**` permitAll + `Aut
 rows + `CalendarFeedSecurityTest`; config `CALENDAR_FEED_TOKEN` / `JITTERTRAVEL_BASE_URL`. Full suite
 green (927 unit + 36 js).
 
+## Open follow-up — turn it on in prod, then run the gate (2026-08-17)
+
+Code shipped to `main` (commit `6930e94`) and Railway deploys it, **but the feed is inert until two
+env vars are set**, and it is not trusted until the on-device gate passes against prod. In order:
+
+1. **Set `CALENDAR_FEED_TOKEN` on Railway** — a long random secret (≥128 bits, e.g.
+   `openssl rand -hex 24`). **Until this is set, every feed URL 404s** — that is the safe default,
+   not a bug (see "How the token works" below).
+2. **Set `JITTERTRAVEL_BASE_URL` on Railway** — the prod origin, e.g.
+   `https://<app>.up.railway.app` (scheme + host, no trailing path). Without it the admin card
+   derives the host from the request, which is unreliable behind Railway's proxy and can print a
+   `webcal://` link that silently won't subscribe.
+3. **Run the Critical Validation Gate against prod** (below): subscribe via the real-feed
+   `webcal://` link with **"Remove Alarms" OFF**, and confirm an alert fires *from the subscription*
+   (the weekly heartbeat, or the `webcal://…/probe.ics` link). A **local** probe passing (done
+   2026-08-17) proves the mechanism, **not** this. The feed is **not "done"** until this fires on
+   Ted's phone against prod. Until then, keep the current way of tracking deadlines.
+
+## How the token works (read this when you come back to it)
+
+**The token is the entire security model.** The feed is deliberately *unredacted* OWNER data — full
+hotel names, addresses, cancel deadlines. There is no login on it (the iOS Calendar app can't submit
+a login form), so `SecurityConfig` lets `/calendar/feed/**` through as `permitAll` and the token in
+the **URL path** is the *only* thing standing between an anonymous request and Ted's travel details.
+Treat the token exactly like a password.
+
+- **Where it lives:** one configured secret, `jittertravel.calendar-feed.token`, fed from the
+  `CALENDAR_FEED_TOKEN` env var (`application.properties`:
+  `jittertravel.calendar-feed.token=${CALENDAR_FEED_TOKEN:}`). It is **not** stored in the database
+  and **not** per-user — a single shared secret for v1.
+- **How a request is checked:** `CalendarFeedController` compares the `{token}` path segment against
+  the configured secret with a **constant-time** compare (`MessageDigest.isEqual`, so a wrong token
+  can't be guessed by timing). Match ⇒ 200 with the iCal; **no match, missing, or no token
+  configured ⇒ 404 with an empty body** — it never even confirms the endpoint exists, and never
+  emits a single VEVENT without a valid token.
+- **Disabled by default:** if `CALENDAR_FEED_TOKEN` is unset/blank the feed is *off* and everything
+  404s. This is why prod shows nothing until you set it (step 1 above), and why the admin card shows
+  a "disabled" state with no links when there's no token.
+- **The URL contains the token,** so any page that shows a feed URL is OWNER-only — the
+  `admin-calendar-feed` card lives under `/admin/**`. Don't paste a real feed URL anywhere public.
+- **Rotation = the recovery path.** To revoke access (e.g. a URL leaked into a proxy access log,
+  browser history, or a `Referer`), **change `CALENDAR_FEED_TOKEN` on Railway and redeploy**: the
+  old URL instantly 404s and you re-subscribe on the device with the new one. Accepted risk: because
+  the token is in the path, it *is* logged by upstream infrastructure we don't control — rotation is
+  how we live with that.
+
 > ⚠️ **This is money-critical.** A missed free-cancellation deadline costs real money, so the
 > reminder must be *proven* to fire, not merely *believed* to. The whole design rests on one
 > unverified assumption — **that iOS fires `VALARM`s from a read-only *subscribed* calendar** — and

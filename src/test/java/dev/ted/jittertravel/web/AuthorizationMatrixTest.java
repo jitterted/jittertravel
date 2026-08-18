@@ -79,6 +79,14 @@ class AuthorizationMatrixTest {
                 arguments("/login",                Outcome.OK,       Outcome.OK,           Outcome.OK),
                 arguments("/calendar",             Outcome.OK,       Outcome.OK,           Outcome.OK),
                 arguments("/itinerary",            Outcome.OK,       Outcome.OK,           Outcome.LOGIN),
+                // Calendar feed: permitAll at the security layer for everyone (the URL token, not
+                // the session, authenticates — CalendarFeedController 404s without a valid one). No
+                // controller is loaded in this slice, so an OK row lands on 404, which is fine here:
+                // only the absence of a security redirect is asserted.
+                arguments("/calendar/feed/anytoken.ics", Outcome.OK,  Outcome.OK,           Outcome.OK),
+                arguments("/calendar/feed/anytoken/probe.ics", Outcome.OK, Outcome.OK,      Outcome.OK),
+                // The admin card that surfaces the token stays OWNER-only under /admin/**.
+                arguments("/admin/calendar-feed",  Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/book-flight",          Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/book-flight/lookup/select", Outcome.OK,  Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/plan-private-event",   Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),

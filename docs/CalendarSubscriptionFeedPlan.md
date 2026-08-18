@@ -1,16 +1,95 @@
 # Calendar Subscription Feed — Plan
 
-**Status: `planned` (2026-08-17) — nothing built.** Phase 1 is cancel-deadline reminders;
-the feed is designed to grow into a full travel-calendar subscription later.
+**Status: `built + tested (2026-08-17)`, but NOT yet validated on-device.** Phase 1
+(cancel-deadline reminders) is fully implemented and covered by both test tiers; the feed is
+designed to grow into a full travel-calendar subscription later. **The money-critical Critical
+Validation Gate below is still un-run** — no automated test can prove iOS fires a subscription
+alarm, so the feed must not be relied on until that gate passes on Ted's device.
+
+Shipped: `ICalWriter` (RFC 5545 — CRLF, 75-octet folding, escaping) + `ICalEvent`;
+`CalendarFeedAssembler` (three deadline VALARMs `-PT48H/-PT24H/-PT4H`, weekly liveness heartbeat,
+dual-mode probe event); token-gated `CalendarFeedController` at `GET /calendar/feed/{token}.ics`
+and `…/{token}/probe.ics` (constant-time compare, 404 when disabled/wrong); the OWNER-only
+`admin-calendar-feed` card (subscribe + both probe links, "Remove Alarms OFF" gate instruction) and
+its `admin-home` nav card; `SecurityConfig` `/calendar/feed/**` permitAll + `AuthorizationMatrixTest`
+rows + `CalendarFeedSecurityTest`; config `CALENDAR_FEED_TOKEN` / `JITTERTRAVEL_BASE_URL`. Full suite
+green (927 unit + 36 js).
+
+> ⚠️ **This is money-critical.** A missed free-cancellation deadline costs real money, so the
+> reminder must be *proven* to fire, not merely *believed* to. The whole design rests on one
+> unverified assumption — **that iOS fires `VALARM`s from a read-only *subscribed* calendar** — and
+> the assumption is **not the path the probe test exercises** (see the Critical Validation Gate
+> below). **Do not rely on this feed until the gate is green on Ted's actual device via the real
+> subscription.** Until then, keep whatever you do today to track deadlines.
+
+## Critical validation gate — prove it on the SUBSCRIPTION before relying on it
+
+The single point of failure is: **does iOS actually fire a local `VALARM` from a calendar Ted
+*subscribed* to (read-only `.ics` over `webcal://`/`https://`)?** This is different from firing an
+alarm on an event Ted *owns*. iOS treats the two differently:
+
+- **Owned events** (created locally, or imported one-off via "Add All") reliably fire their alarms.
+- **Subscribed calendars** are read-only and, at subscribe time, iOS offers a **"Remove Alarms"**
+  toggle; alerts from subscriptions can be suppressed by that toggle and, historically, iOS/macOS
+  have been inconsistent about honouring subscription `VALARM`s at all.
+
+**The probe's "Add All" path imports events Ted owns — so a green probe proves the writer and that
+iOS *can* fire the alarm, but it does NOT prove the subscription path that Ted will actually use.**
+Treating a green probe as proof of the whole mechanism (as an earlier draft of this plan did) is the
+exact trap that could cost money.
+
+**Gate — all must pass on Ted's real iPhone before the feed is trusted:**
+
+1. Subscribe to the **real feed** via `webcal://…/feed/{token}.ics` (not "Add All"). During the
+   subscribe sheet, confirm **"Remove Alarms" is OFF / alerts are kept**; the admin-home card must
+   spell this out as a subscribe-time instruction.
+2. Put a booking (or the built-in **liveness heartbeat event**, below) into the subscribed feed with
+   an alarm a few minutes out, force a calendar refresh, and **confirm the alert actually pops from
+   the subscription** — not from a one-off import.
+3. Only after step 2 fires does the feed count as validated.
+
+If step 2 does **not** fire, the subscription approach is invalid for money-critical use and we fall
+back (see "If the subscription path fails" below) — **do not ship a feed that looks right in `curl`
+but stays silent on the phone.**
+
+### Liveness heartbeat (built into the real feed) — ongoing proof, not one-time
+
+Because a subscription that works today can silently stop working (iOS refresh disabled, "Remove
+Alarms" flipped, calendar toggled off, token rotated and not re-subscribed), the **real feed carries
+a recurring synthetic "heartbeat" VEVENT** — e.g. one every 7 days with a normal `VALARM` — that
+Ted expects to see fire on a known cadence. A heartbeat that goes quiet is an early warning that the
+pipeline is dead *before* a real deadline is missed. This turns "did I set this up right months ago?"
+into a standing, self-checking signal. (Distinct from the probe: the probe is a one-off manual test;
+the heartbeat lives in the subscribed feed permanently. Make it clearly self-describing and
+harmless.) Confirm this is wanted before building — it is the cheapest insurance against silent
+failure.
+
+### Redundant lead times
+
+Because a single missed device-refresh window could swallow a single alarm, do not rely on one lead
+time. Phase 1 ships **at least 24h and 4h** (per the decisions below); consider adding **48h** as
+well so that even a multi-day refresh lag still leaves a warning. Each is a separate `VALARM`; iOS
+honours all, and past ones are silently skipped.
+
+### If the subscription path fails (contingency)
+
+If the gate proves iOS won't fire subscription alarms reliably, the local-alarm design is unsuitable
+for money-critical reminders on its own. Options, in order of least new machinery:
+- Import the deadline events as **owned** events (share/AirDrop the `.ics`, or "Add All") on a
+  cadence — loses the "subscribe once" convenience but keeps alarms reliable.
+- Reintroduce a server-side reminder channel (email/push) despite its scheduler cost — the thing this
+  plan set out to avoid. Flag to Ted and decide together; **do not silently downgrade to a
+  best-effort feed** for a money-critical reminder.
 
 ## Goal
 
 Publish a private **iCalendar (`.ics`) feed** that Ted subscribes to once on his iPhone/iPad
 (built-in Calendar app — no App Store install). Each booking with a free-cancellation deadline
-becomes a calendar event carrying a `VALARM` set to **24 hours before** the deadline. **iOS
-schedules and fires that alarm locally on the device**, so the reminder works even with no
+becomes a calendar event carrying a `VALARM` set to **24 hours before** the deadline. The intent is
+that **iOS schedules and fires that alarm locally on the device**, so the reminder works even with no
 connectivity — WiFi, roaming in Europe, or airplane mode — which is exactly where carrier SMS is
-unreliable.
+unreliable. **This "device fires the alarm" property is a design goal, not a proven fact for
+*subscribed* calendars — it must pass the Critical Validation Gate above before being relied on.**
 
 The decisive property: because the phone fires the alarm, **the server never "sends" anything at a
 moment in time.** The feed is a pure projection of current bookings. That erases the three hard
@@ -43,6 +122,13 @@ private, full-detail feed. Therefore:
    (Railway). **Absent ⇒ the feed is disabled and returns 404.** Safe, opt-in default.
 2. **Constant-time comparison.** Never log the token. Rotatable (change the env var ⇒ old feed dies,
    re-subscribe).
+   - **Caveat — the token is in the URL path**, so it lands in places application code doesn't
+     control: Railway/reverse-proxy **access logs**, browser history, and any `Referer`. "Never log
+     the token" only binds *our* code; the request line is logged by default upstream. For a
+     single-user, rotatable, personal feed this is an **accepted risk** — but it must be a *stated*
+     accepted risk, not an implied guarantee. Mitigations if wanted: redact the path in access logs,
+     or move the token to a header/query param and scrub it. At minimum, treat token rotation as the
+     recovery path if a log is ever exposed.
 3. An unknown / missing / disabled token returns **404 with an empty body** — do not confirm the
    endpoint exists, and never emit a single VEVENT without a valid token.
 4. `SecurityConfig`: add a `/calendar/feed/**` matcher as `permitAll` (the **token**, not the login
@@ -88,11 +174,21 @@ Per cancel-deadline event:
   the deadline" case for free: the `-PT24H` alarm is in the past and iOS silently skips it, while
   the `-PT4H` alarm still fires. Booked <4h before the deadline ⇒ neither fires; the event still
   shows on the calendar — an accepted corner.)
-- `DTSTAMP` / `LAST-MODIFIED` / `SEQUENCE` for update reconciliation.
+- `DTSTAMP` / `LAST-MODIFIED` for the writer's generation time. **`SEQUENCE` is *not* required here**
+  and an earlier draft over-specified it: a subscribed calendar refetches the whole document and
+  *replaces* its copy each cycle (unlike an iTIP invite, which needs a monotonic `SEQUENCE` to
+  supersede a prior send). A pure stateless projection has no natural source for a monotonic
+  `SEQUENCE` anyway. Emit a constant `SEQUENCE:0` (or omit it); rely on the stable `UID` +
+  full-document replace for reconciliation.
 
 RFC 5545 details the writer must get right: **CRLF** line endings, **75-octet line folding**,
 escaping of `,` `;` `\` and newlines, plus the `VCALENDAR` wrapper (`VERSION:2.0`, `PRODID`,
-`CALSCALE:GREGORIAN`).
+`CALSCALE:GREGORIAN`). Also emit **`X-WR-CALNAME`** (e.g. `JitterTravel deadlines`) so iOS shows a
+sensible calendar name instead of the raw URL.
+
+**Empty feed is valid and expected.** Token valid but zero live bookings with a future `cancelBy` ⇒
+a well-formed `VCALENDAR` with **no `VEVENT`s** (plus the heartbeat, if built). This is a normal 200,
+not an error — assert it in the tests so it isn't mistaken for a failure.
 
 ### Endpoint
 
@@ -131,15 +227,20 @@ everything vs scoped feeds like `…/deadlines.ics` vs `…/all.ics`) is deferre
 - `jittertravel.calendar-feed.token` ← `CALENDAR_FEED_TOKEN` (Railway secret). Absent ⇒ 404.
 - Generate a long random token (≥128 bits of entropy). Rotation = change the env var, then
   re-subscribe on the devices.
-- Subscribe link base URL: derive from the request host, or a configured `jittertravel.base-url`.
+- Subscribe link base URL: prefer a configured **`jittertravel.base-url`**. Deriving from the request
+  host is unreliable behind Railway's proxy — `request.getServerName()` sees the internal host unless
+  `X-Forwarded-Host` is honoured (`ForwardedHeaderFilter` / `server.forward-headers-strategy`). A
+  wrong base URL produces a `webcal://` link that silently won't subscribe, so pin it via config.
 
 ## Testing
 
 - **`ICalWriter` unit tests:** VCALENDAR/VEVENT structure, CRLF, 75-octet folding, escaping, UTC
   `DTSTART`, `VALARM` trigger, stable UID. One **inline golden sample** (<30 lines).
-- **Assembler tests:** future `cancelBy` ⇒ one VEVENT carrying **both** the `-PT24H` and `-PT4H`
-  alarms; no `cancelBy` ⇒ none; cancelled booking ⇒ none; past `cancelBy` ⇒ excluded (all via
-  injected `now`).
+- **Assembler tests:** future `cancelBy` ⇒ one VEVENT carrying the configured alarms (`-PT24H` and
+  `-PT4H`, plus `-PT48H` if adopted); no `cancelBy` ⇒ none; cancelled booking ⇒ none; past `cancelBy`
+  ⇒ excluded; **no live bookings ⇒ well-formed empty `VCALENDAR`, 200** (all via injected `now`).
+- **Heartbeat test (if built):** the real feed always contains the recurring heartbeat VEVENT with
+  its alarm, independent of bookings.
 - **Probe-feed test:** the probe endpoint emits exactly one VEVENT a few minutes out with a
   near-future alarm, and is token-gated the same way as the real feed.
 - **Controller `@WebMvcTest`:** correct token ⇒ 200 `text/calendar` with the VEVENT; wrong / missing
@@ -152,6 +253,12 @@ everything vs scoped feeds like `…/deadlines.ics` vs `…/all.ics`) is deferre
   non-owner).
 - Every new/changed test **mutation-verified**.
 
+**What the automated suite can and cannot prove.** The tests above prove the *server* emits correct
+iCal. **No automated test in this project can prove iOS fires a subscription alarm** — that is a
+device behaviour, not our code. The money-critical link (subscription → local alarm actually pops) is
+covered *only* by the manual Critical Validation Gate. Keep that distinction explicit so a green CI
+run is never mistaken for "the reminder works."
+
 ## Testing it on your device — no hotel booking, no waiting
 
 Three layers, cheapest first:
@@ -159,23 +266,28 @@ Three layers, cheapest first:
 1. **Correctness, no device.** `curl` the feed URL (or open the `.ics` on a Mac) and eyeball the
    `VCALENDAR` / `VEVENT` / two `VALARM`s. The automated tests above already assert this shape, so
    most iteration never touches a phone.
-2. **On-device alarm firing, in ~5 minutes — the answer to "without booking a hotel".** The feed
-   ships a **probe endpoint**: `GET /calendar/feed/{token}/probe.ics` returns a single synthetic
-   VEVENT ~10 minutes out, carrying a near-future alarm (`TRIGGER:-PT5M`, so it fires ~5 min after
-   the device fetches it). It runs through the **exact same iCal writer and VALARM path** as a real
-   cancel-deadline event, so a green probe proves the whole mechanism end to end — server generates
-   → device parses → **local alarm actually pops** — with no hotel and no multi-hour wait.
-   - **How you use it:** on the phone, open the probe link over **`https://`** (not `webcal://`) —
-     Safari/Mail offers **"Add All"**, which imports it as a **one-off** into your calendar (not a
-     live subscription), so it never pollutes your real subscribed feed. Wait ~5 minutes; the alert
-     pops. Delete the test event afterward. The probe event self-describes ("JitterTravel test
-     reminder — safe to delete").
+2. **On-device alarm firing (OWNED-event path), in ~5 minutes.** The feed ships a **probe endpoint**:
+   `GET /calendar/feed/{token}/probe.ics` returns a single synthetic VEVENT ~10 minutes out, carrying
+   a near-future alarm (`TRIGGER:-PT5M`, so it fires ~5 min after the device fetches it). It runs
+   through the **exact same iCal writer and VALARM path** as a real cancel-deadline event.
+   - ⚠️ **What this does and does NOT prove.** Opening the probe over **`https://`** and tapping
+     **"Add All"** imports it as a **one-off event you now OWN** — so a green probe proves the writer
+     is correct and that iOS *can* fire the alarm, but it does **NOT** prove the *subscription* path
+     (see the Critical Validation Gate). Owned-event alarms are reliable; subscription alarms are the
+     open question. **A green probe is necessary but not sufficient** to trust the feed.
+   - **How you use it:** on the phone, open the probe link over `https://`, tap "Add All" (a one-off,
+     so it never pollutes the real subscribed feed), wait ~5 minutes, confirm the alert pops, then
+     delete the test event. The probe event self-describes ("JitterTravel test reminder — safe to
+     delete").
    - Token-gated exactly like the real feed (same `/calendar/feed/**` matcher; wrong/missing token ⇒
-     404). It exposes no booking data — it is a fixed synthetic event — so it is safe to hand out
-     for a quick check, though the token is still required.
-3. **Realistic dry run (optional).** Book a throwaway hotel with a `cancelBy` a few hours out and
-   confirm the deadline event appears in the subscribed feed. Only needed to sanity-check the real
-   data path; the probe already covers the alarm-firing path.
+     404). It exposes no booking data — a fixed synthetic event — so it is safe to hand out for a
+     quick check, though the token is still required.
+3. **Subscription alarm firing (the money path — REQUIRED, not optional).** This is the Critical
+   Validation Gate: **subscribe** to the real feed via `webcal://` (keeping "Remove Alarms" OFF), put
+   a near-future alarm into the *subscribed* feed (a throwaway booking with a `cancelBy` a few hours
+   out, or the liveness heartbeat), refresh, and confirm the alert fires **from the subscription**.
+   Only this step proves what Ted will actually rely on. Do not skip it before trusting the feed with
+   a real deadline.
 
 The admin-home card (below) shows both the **Subscribe** link (`webcal://…/feed/{token}.ics`) and a
 **"Test the alarm now"** link (`https://…/feed/{token}/probe.ics`) with that one-line instruction.
@@ -183,6 +295,8 @@ The admin-home card (below) shows both the **Subscribe** link (`webcal://…/fee
 ## Decisions (confirmed 2026-08-17)
 
 1. **Lead time:** **two fixed alarms, 24h and 4h** before the deadline (two `VALARM`s per VEVENT).
+   *Open (money-driven):* consider adding **48h** so a multi-day refresh lag still leaves a warning —
+   decide with Ted.
 2. **Event shape:** a short **timed event at the deadline instant** (UTC `DTSTART`).
 3. **Booked with the 24h alarm already past:** no special logic — the **4h alarm covers it** (the
    past 24h alarm is skipped by iOS). Booked <4h out ⇒ event shows, no alarm fires (accepted corner).
@@ -190,6 +304,27 @@ The admin-home card (below) shows both the **Subscribe** link (`webcal://…/fee
    probe link below.
 5. **Token:** a single shared secret via env var for v1 (`CALENDAR_FEED_TOKEN`); a stored,
    rotatable-in-UI token is a later refinement.
+
+**Confirmed 2026-08-17 (round 2):**
+6. **Liveness heartbeat: BUILD IT.** Recurring self-test VEVENT in the real feed (see the gate
+   section). Cheap insurance against silent failure.
+7. **48h alarm: BUILD IT.** Third `VALARM` at `-PT48H` alongside `-PT24H` and `-PT4H`, so even a
+   multi-day refresh lag still leaves a warning.
+8. **No-hotel manual test: dual-mode probe.** The **one** probe endpoint is consumed **two ways**,
+   so Ted can test on-demand with no hotel booking:
+   - **`https://…/probe.ics` + "Add All"** — imports as an **owned** one-off event; tests the writer
+     and that iOS *can* fire an alarm (~5 min). Owned-event path.
+   - **`webcal://…/probe.ics` (subscribe)** — tests the **real subscription path** (the money path).
+     The probe recomputes `DTSTART = now + ~10 min` on every fetch with a **stable UID** and a
+     `TRIGGER:-PT5M` alarm, so each **pull-to-refresh** in the Calendar app reschedules the alarm
+     ~5 min out and it fires **from a subscription**. Ted unsubscribes when done. No persisted state,
+     no hotel. **This replaces the "book a throwaway hotel" dry-run** — that step is removed.
+
+   The admin-home card therefore shows **three** links: *Subscribe (real feed)*, *Test — Add All*
+   (`https` probe), and *Test — Subscribe* (`webcal` probe), each with one-line instructions.
+
+**Still gating release:** the manual Critical Validation Gate must pass on Ted's device (now testable
+via the `webcal` probe above, no hotel) — **the feed is not "done" until it has.**
 
 ## Edge cases
 

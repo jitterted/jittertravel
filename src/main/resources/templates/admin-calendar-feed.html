@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Calendar Feed — JitterTravel</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #faf9f7;
+            --surface: #ffffff;
+            --text-primary: #1a1916;
+            --text-secondary: #6b6860;
+            --text-muted: #b0aea8;
+            --border: rgba(0, 0, 0, 0.10);
+            --accent: #b45309;
+            --warn-bg: #fdf3e7;
+            --warn-border: #e9c893;
+            --radius: 14px;
+            --font: 'League Spartan', ui-sans-serif, system-ui, sans-serif;
+        }
+
+        body {
+            font-family: var(--font), sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.5;
+        }
+
+        main {
+            flex: 1;
+            width: 100%;
+            max-width: 780px;
+            margin: 0 auto;
+            padding: 3rem 1.25rem 4rem;
+        }
+
+        h1 { font-size: 2.25rem; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 0.5rem; }
+
+        .tagline { color: var(--text-secondary); margin-bottom: 2rem; }
+
+        .link-block {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem 1.4rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .link-block h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.35rem; }
+        .link-block p.help { color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 0.9rem; }
+
+        .url-row { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
+
+        .url {
+            flex: 1 1 320px;
+            min-width: 0;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.82rem;
+            background: #f4f2ee;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.6rem 0.7rem;
+            /* Long tokens must wrap, never force a horizontal scrollbar. */
+            word-break: break-all;
+            color: var(--text-primary);
+        }
+
+        .copy-btn {
+            flex: 0 0 auto;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-primary);
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        a.open-link {
+            display: inline-block;
+            margin-top: 0.7rem;
+            color: var(--accent);
+            font-weight: 600;
+            text-decoration: none;
+            font-size: 0.95rem;
+        }
+        a.open-link:hover { text-decoration: underline; }
+
+        .gate {
+            background: var(--warn-bg);
+            border: 1px solid var(--warn-border);
+            border-radius: var(--radius);
+            padding: 1.1rem 1.4rem;
+            margin-bottom: 1.75rem;
+        }
+        .gate h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--accent); }
+        .gate ol { margin: 0.4rem 0 0 1.1rem; }
+        .gate li { margin-bottom: 0.35rem; font-size: 0.92rem; }
+
+        .disabled-note {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem 1.4rem;
+            color: var(--text-secondary);
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+
+        footer {
+            padding: 1.5rem;
+            text-align: center;
+            font-size: 16px;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+        footer a { color: var(--text-secondary); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<main>
+    <h1>Calendar feed</h1>
+    <p class="tagline">Private hotel cancel-deadline reminders, delivered as local calendar alarms.</p>
+
+    <div th:if="${!feedEnabled}" class="disabled-note">
+        <p>The feed is <strong>disabled</strong>: no token is configured, so every feed URL returns
+            404.</p>
+        <p style="margin-top:0.6rem;">Set the <code>CALENDAR_FEED_TOKEN</code> environment variable
+            (a long random secret) to enable it, then reload this page.</p>
+    </div>
+
+    <div th:if="${feedEnabled}">
+        <div class="gate">
+            <h2>⚠️ Prove it before you rely on it</h2>
+            <p style="font-size:0.92rem;">A missed cancel deadline costs money, and iOS treats alarms
+                on a <em>subscribed</em> calendar differently from ones you own. Validate on your
+                actual iPhone — no hotel needed:</p>
+            <ol>
+                <li>Open <strong>Test — Subscribe</strong> below and subscribe. On the sheet, keep
+                    <strong>"Remove Alarms" OFF</strong>.</li>
+                <li>In the Calendar app, pull to refresh; an alert should pop within ~5 minutes —
+                    <em>fired from the subscription</em>. That is the real proof.</li>
+                <li>Only then subscribe to the real feed and trust it. Re-check when the weekly
+                    heartbeat alert stops arriving.</li>
+            </ol>
+        </div>
+
+        <div class="link-block">
+            <h2>Subscribe — real feed</h2>
+            <p class="help">Your live cancel-deadline reminders. Opens the iOS subscribe sheet.</p>
+            <div class="url-row">
+                <span class="url" th:text="${links.subscribeUrl}" id="subscribeUrl"></span>
+                <button class="copy-btn" type="button" data-copy-target="subscribeUrl">Copy</button>
+            </div>
+            <a class="open-link" th:href="${links.subscribeUrl}">Open subscribe sheet →</a>
+        </div>
+
+        <div class="link-block">
+            <h2>Test — Subscribe <span style="color:var(--text-muted);font-weight:400;">(the money path)</span></h2>
+            <p class="help">Subscribe to this probe to test the real subscription-alarm path. Pull to
+                refresh in Calendar; the alarm fires ~5 min later. Unsubscribe when done.</p>
+            <div class="url-row">
+                <span class="url" th:text="${links.probeSubscribeUrl}" id="probeSubscribeUrl"></span>
+                <button class="copy-btn" type="button" data-copy-target="probeSubscribeUrl">Copy</button>
+            </div>
+            <a class="open-link" th:href="${links.probeSubscribeUrl}">Open subscribe sheet →</a>
+        </div>
+
+        <div class="link-block">
+            <h2>Test — Add All <span style="color:var(--text-muted);font-weight:400;">(owned-event path)</span></h2>
+            <p class="help">Open over https on the phone and tap "Add All" to import a one-off test
+                event. Proves the writer and that iOS can fire an alarm (~5 min); does <em>not</em>
+                test the subscription path. Delete the event afterward.</p>
+            <div class="url-row">
+                <span class="url" th:text="${links.probeAddUrl}" id="probeAddUrl"></span>
+                <button class="copy-btn" type="button" data-copy-target="probeAddUrl">Copy</button>
+            </div>
+            <a class="open-link" th:href="${links.probeAddUrl}">Open probe →</a>
+        </div>
+    </div>
+</main>
+
+<footer>
+    <a href="/admin">← Admin</a>
+</footer>
+
+<script>
+    document.querySelectorAll('.copy-btn').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var target = document.getElementById(button.getAttribute('data-copy-target'));
+            if (!target) return;
+            navigator.clipboard.writeText(target.textContent).then(function () {
+                var original = button.textContent;
+                button.textContent = 'Copied';
+                setTimeout(function () { button.textContent = original; }, 1500);
+            });
+        });
+    });
+</script>
+
+</body>
+</html>

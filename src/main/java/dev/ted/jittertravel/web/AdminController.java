@@ -8,6 +8,8 @@ import dev.ted.jittertravel.application.TentativeConferenceProjector;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceSpansMultipleDays;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -35,12 +37,16 @@ public class AdminController {
     private final LegacyEventMigration legacyEventMigration;
     private final BackupSource backupSource;
     private final Clock clock;
+    private final String feedToken;
+    private final String baseUrl;
 
     public AdminController(BackupService backupService, PostgresPersister persister,
                            TentativeConferenceProjector tentativeConferenceProjector,
                            ConferenceMigrationService conferenceMigrationService,
                            LegacyEventMigration legacyEventMigration,
-                           BackupSource backupSource, Clock clock) {
+                           BackupSource backupSource, Clock clock,
+                           @Value("${jittertravel.calendar-feed.token:}") String feedToken,
+                           @Value("${jittertravel.base-url:}") String baseUrl) {
         this.backupService = backupService;
         this.persister = persister;
         this.tentativeConferenceProjector = tentativeConferenceProjector;
@@ -48,11 +54,37 @@ public class AdminController {
         this.legacyEventMigration = legacyEventMigration;
         this.backupSource = backupSource;
         this.clock = clock;
+        this.feedToken = feedToken;
+        this.baseUrl = baseUrl;
     }
 
     @GetMapping("")
     public String adminHome() {
         return "admin-home";
+    }
+
+    /**
+     * The OWNER-only calendar-feed card: shows the subscribe + probe links, each carrying the token
+     * (hence OWNER-only, under {@code /admin/**}). When no token is configured the feed is disabled
+     * and the page says so instead of showing links.
+     */
+    @GetMapping("/calendar-feed")
+    public String calendarFeed(HttpServletRequest request, Model model) {
+        boolean feedEnabled = !feedToken.isBlank();
+        model.addAttribute("feedEnabled", feedEnabled);
+        if (feedEnabled) {
+            String effectiveBaseUrl = baseUrl.isBlank() ? requestBaseUrl(request) : baseUrl;
+            model.addAttribute("links", new CalendarFeedLinks(effectiveBaseUrl, feedToken));
+        }
+        return "admin-calendar-feed";
+    }
+
+    private String requestBaseUrl(HttpServletRequest request) {
+        String scheme = request.getScheme();
+        int port = request.getServerPort();
+        boolean defaultPort = ("http".equals(scheme) && port == 80)
+                || ("https".equals(scheme) && port == 443);
+        return scheme + "://" + request.getServerName() + (defaultPort ? "" : ":" + port);
     }
 
     @GetMapping("/restore")

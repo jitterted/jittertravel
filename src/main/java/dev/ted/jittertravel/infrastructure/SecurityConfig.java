@@ -67,6 +67,12 @@ public class SecurityConfig {
                         .requestMatchers("/schedule-problems").hasRole("OWNER")
                         // Itinerary: FAMILY and OWNER may view; anonymous may not.
                         .requestMatchers("/itinerary", "/itinerary/**").hasAnyRole("FAMILY", "OWNER")
+                        // Calendar subscription feed: permitAll at the security layer because the
+                        // URL *token* authenticates, not the login session — the iOS Calendar app
+                        // cannot submit a login form. CalendarFeedController returns 404 without a
+                        // valid token, so this is gated in the controller, not here. The feed is
+                        // unredacted OWNER data; the token is the only credential (see that class).
+                        .requestMatchers("/calendar/feed/**").permitAll()
                         .anyRequest().permitAll())
                 // Custom form login at /login (LoginController + templates/login.html). We replace
                 // Spring's generated page so the form can carry a hidden browserZone field, letting

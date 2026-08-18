@@ -73,11 +73,12 @@ class AdminCalendarFeedPageTest {
     }
 
     @Test
-    void showsTheValidationGateInstructionToKeepAlarmsOn() {
+    void showsTheValidationGateInstructionToTurnRemoveAlertsOff() {
         assertThat(mockMvc.get().uri("/admin/calendar-feed"))
                 .hasStatusOk()
                 .bodyText()
-                // The money-critical instruction: subscription alarms must be kept, and tested.
-                .contains("Remove Alarms");
+                // The money-critical instruction: iOS defaults "Remove Alerts" ON (which silently
+                // suppresses the deadline alarms), so the card must tell the owner to turn it off.
+                .contains("Remove Alerts");
     }
 }

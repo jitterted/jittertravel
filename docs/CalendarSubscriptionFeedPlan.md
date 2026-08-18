@@ -1,10 +1,21 @@
 # Calendar Subscription Feed — Plan
 
-**Status: `built + tested (2026-08-17)`, but NOT yet validated on-device.** Phase 1
-(cancel-deadline reminders) is fully implemented and covered by both test tiers; the feed is
-designed to grow into a full travel-calendar subscription later. **The money-critical Critical
-Validation Gate below is still un-run** — no automated test can prove iOS fires a subscription
-alarm, so the feed must not be relied on until that gate passes on Ted's device.
+**Status: `DONE (2026-08-18)` — built, tested, and validated on-device in prod.** Phase 1
+(cancel-deadline reminders) is fully implemented, covered by both test tiers, deployed to prod
+(Railway env vars `CALENDAR_FEED_TOKEN` + `JITTERTRAVEL_BASE_URL` set), and the money-critical
+Critical Validation Gate **passed on Ted's iPhone**: an alarm fired from the real `webcal://`
+subscription. Ted is subscribed to the live feed; the weekly heartbeat is now the standing liveness
+signal.
+
+**Key operational finding (2026-08-18): iOS defaults "Remove Alerts" ON for a subscribed calendar,
+and buries the toggle** — it did **not** appear on the subscribe sheet. The event shows up and
+everything looks right, but alarms are silently suppressed. The fix is in the **subscribed
+calendar's *details*** (Calendar app → Calendars → ⓘ next to the subscription → turn "Remove Alerts"
+OFF), **not** at subscribe time. This defaults ON on every subscription (test *and* real feed), so
+it must be turned off per-subscription. This is the exact silent-failure mode that costs money;
+the admin card's gate instructions were rewritten to point at the details screen.
+
+The feed is designed to grow into a full travel-calendar subscription later (see "Extension seam").
 
 Shipped: `ICalWriter` (RFC 5545 — CRLF, 75-octet folding, escaping) + `ICalEvent`;
 `CalendarFeedAssembler` (three deadline VALARMs `-PT48H/-PT24H/-PT4H`, weekly liveness heartbeat,
@@ -15,23 +26,22 @@ its `admin-home` nav card; `SecurityConfig` `/calendar/feed/**` permitAll + `Aut
 rows + `CalendarFeedSecurityTest`; config `CALENDAR_FEED_TOKEN` / `JITTERTRAVEL_BASE_URL`. Full suite
 green (927 unit + 36 js).
 
-## Open follow-up — turn it on in prod, then run the gate (2026-08-17)
+## Rollout — DONE (2026-08-18)
 
-Code shipped to `main` (commit `6930e94`) and Railway deploys it, **but the feed is inert until two
-env vars are set**, and it is not trusted until the on-device gate passes against prod. In order:
+All three steps completed; kept here as the record of what "turning it on" took.
 
-1. **Set `CALENDAR_FEED_TOKEN` on Railway** — a long random secret (≥128 bits, e.g.
-   `openssl rand -hex 24`). **Until this is set, every feed URL 404s** — that is the safe default,
-   not a bug (see "How the token works" below).
-2. **Set `JITTERTRAVEL_BASE_URL` on Railway** — the prod origin, e.g.
-   `https://<app>.up.railway.app` (scheme + host, no trailing path). Without it the admin card
-   derives the host from the request, which is unreliable behind Railway's proxy and can print a
-   `webcal://` link that silently won't subscribe.
-3. **Run the Critical Validation Gate against prod** (below): subscribe via the real-feed
-   `webcal://` link with **"Remove Alarms" OFF**, and confirm an alert fires *from the subscription*
-   (the weekly heartbeat, or the `webcal://…/probe.ics` link). A **local** probe passing (done
-   2026-08-17) proves the mechanism, **not** this. The feed is **not "done"** until this fires on
-   Ted's phone against prod. Until then, keep the current way of tracking deadlines.
+1. ✅ **`CALENDAR_FEED_TOKEN` set on Railway** — a long random secret (`openssl rand -hex 24`). Until
+   it is set every feed URL 404s — the safe default, not a bug (see "How the token works" below).
+   Rotate it there to revoke a leaked URL.
+2. ✅ **`JITTERTRAVEL_BASE_URL` set on Railway** — the public origin (`https://jittertravel.com`,
+   scheme + host; a trailing slash is tolerated). Without it the admin card derives the host from the
+   request, which is unreliable behind Railway's proxy and can print a `webcal://` link that silently
+   won't subscribe.
+3. ✅ **Critical Validation Gate passed against prod** — subscribed via the real-feed `webcal://`
+   link, turned **"Remove Alerts" OFF in the subscribed calendar's details** (it defaulted ON and the
+   toggle was *not* on the subscribe sheet — see the gate section), pulled to refresh, and the alert
+   fired *from the subscription*. Ted is now on the live feed with the weekly heartbeat as the
+   standing liveness signal.
 
 ## How the token works (read this when you come back to it)
 
@@ -62,13 +72,20 @@ Treat the token exactly like a password.
   how we live with that.
 
 > ⚠️ **This is money-critical.** A missed free-cancellation deadline costs real money, so the
-> reminder must be *proven* to fire, not merely *believed* to. The whole design rests on one
-> unverified assumption — **that iOS fires `VALARM`s from a read-only *subscribed* calendar** — and
-> the assumption is **not the path the probe test exercises** (see the Critical Validation Gate
-> below). **Do not rely on this feed until the gate is green on Ted's actual device via the real
-> subscription.** Until then, keep whatever you do today to track deadlines.
+> reminder had to be *proven* to fire, not merely *believed* to. The whole design rested on one
+> assumption — **that iOS fires `VALARM`s from a read-only *subscribed* calendar** — which the probe
+> test could not exercise. **That assumption is now confirmed on-device (2026-08-18); see the gate
+> section.** The standing risk is no longer "does it fire" but "does it *keep* firing": if "Remove
+> Alerts" gets re-enabled, iOS refresh is disabled, or the token is rotated without re-subscribing,
+> the feed goes silent — which is what the weekly heartbeat is there to catch.
 
 ## Critical validation gate — prove it on the SUBSCRIPTION before relying on it
+
+> ✅ **GATE PASSED on-device 2026-08-18.** An alarm fired from the real `webcal://` subscription on
+> Ted's iPhone. The one gotcha, recorded for posterity: **"Remove Alerts" defaults ON and iOS did
+> not show the toggle at subscribe time** — the alarm only fired after opening the *subscribed
+> calendar's details* and turning "Remove Alerts" OFF (then pull-to-refresh). Applies to every
+> subscription, real feed included. The section below is kept as the original reasoning.
 
 The single point of failure is: **does iOS actually fire a local `VALARM` from a calendar Ted
 *subscribed* to (read-only `.ics` over `webcal://`/`https://`)?** This is different from firing an

@@ -184,37 +184,61 @@
           <argLine>-Duser.timezone=UTC</argLine>
         </configuration>
       </plugin>
-      <!-- Bootstrap the tracked git hooks: point core.hooksPath at .githooks so the
-           pre-push MUST-PASS gate runs after a fresh clone without the manual
-           `git config core.hooksPath .githooks` (see README). Idempotent, so it's safe
-           to re-run every build; failOnError=false keeps builds from a non-git checkout
-           (release tarball, Docker source copy) working. -->
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>install-git-hooks-path</id>
-            <phase>initialize</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <executable>git</executable>
-              <arguments>
-                <argument>config</argument>
-                <argument>core.hooksPath</argument>
-                <argument>.githooks</argument>
-              </arguments>
-              <failOnError>false</failOnError>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
   </build>
 
   <profiles>
+    <profile>
+      <!-- Bootstrap the tracked git hooks: point core.hooksPath at .githooks so the
+           pre-push MUST-PASS gate runs after a fresh clone without the manual
+           `git config core.hooksPath .githooks` (see README).
+
+           Two layers keep a non-git build (Railway's /app source copy, a release
+           tarball) green: (1) the profile activates ONLY when a .git directory is
+           present, so it normally doesn't run there at all; (2) the command itself
+           is `sh -c "… || true"`, so even if a .git dir does reach a git-less build
+           image the step is a harmless no-op. Both matter because the exec goal has
+           no failOnError, so invoking a missing `git` binary directly would throw
+           IOException and fail the build outright — which is what broke a deploy. -->
+      <id>install-git-hooks</id>
+      <activation>
+        <file>
+          <exists>.git</exists>
+        </file>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.3</version>
+            <executions>
+              <execution>
+                <id>install-git-hooks-path</id>
+                <phase>initialize</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <!-- Run via `sh -c … || true` rather than invoking git directly:
+                       the exec goal has no failOnError, so a missing `git` binary would
+                       otherwise throw IOException and fail the build. The `|| true`
+                       swallows a missing-git (or any) failure, so even if a .git dir
+                       reaches a git-less build image the step is a no-op instead of a
+                       hard failure. `sh` is present on every dev/CI unix host. -->
+                  <executable>sh</executable>
+                  <arguments>
+                    <argument>-c</argument>
+                    <argument>git config core.hooksPath .githooks || true</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
     <profile>
       <!-- Runs ONLY the "js" group. First run auto-downloads the Chromium binary. -->
       <id>js-tests</id>

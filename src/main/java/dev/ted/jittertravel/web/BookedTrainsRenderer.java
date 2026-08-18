@@ -76,7 +76,7 @@ public class BookedTrainsRenderer {
         return "<!DOCTYPE html>\n" + html(
                 Page.head("Booked Trains", CSS),
                 body(
-                        nav(h3(a("JitterTravel").withHref("/"))),
+                        Page.viewNav(Page.NavAudience.OWNER, "/booked-trains"),
                         div().withClass("trains-container").with(
                                 h1("Booked Trains"),
                                 TimeFilterToggle.render("/booked-trains", activeFilter),

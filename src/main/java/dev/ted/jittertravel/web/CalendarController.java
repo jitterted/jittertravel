@@ -29,7 +29,8 @@ public class CalendarController {
     private final Clock clock;
     private final ViewerTodayZone viewerTodayZone;
 
-    public CalendarController(CalendarAggregator calendarAggregator, ViewerZonePolicy viewerZonePolicy,
+    public CalendarController(CalendarAggregator calendarAggregator,
+                             ViewerZonePolicy viewerZonePolicy,
                              Clock clock, ViewerTodayZone viewerTodayZone) {
         this.calendarAggregator = calendarAggregator;
         this.viewerZonePolicy = viewerZonePolicy;

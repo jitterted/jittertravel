@@ -4,6 +4,9 @@ import dev.ted.jittertravel.domain.Event;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -14,9 +17,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class EventStoreTest {
 
+    private static final Clock FIXED_CLOCK =
+            Clock.fixed(Instant.parse("2026-06-11T12:00:00Z"), ZoneOffset.UTC);
+
     @Test
     void appendingEventsAssignsSequencesAndNotifiesSubscribers() {
-        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), mockPersister());
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), mockPersister(), FIXED_CLOCK);
         List<StoredEvent> receivedEvents = new ArrayList<>();
         eventStore.subscribe(eventStream -> receivedEvents.addAll(eventStream.toList()));
 
@@ -53,7 +59,7 @@ class EventStoreTest {
 
     @Test
     void subscribersNotNotifiedWhenPersistenceFails() {
-        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), failingPersister());
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), failingPersister(), FIXED_CLOCK);
         List<StoredEvent> receivedEvents = new ArrayList<>();
         eventStore.subscribe(eventStream -> receivedEvents.addAll(eventStream.toList()));
 
@@ -66,7 +72,7 @@ class EventStoreTest {
     }
 
     private PostgresPersister failingPersister() {
-        return new PostgresPersister(null, null, null) {
+        return new PostgresPersister(null, null, null, FIXED_CLOCK) {
             @Override public long getMaxSequence() { return 0; }
             @Override public List<StoredEvent> loadAllEvents() { return List.of(); }
             @Override public void appendEvents(List<StoredEvent> events, UUID commandId) {
@@ -76,7 +82,7 @@ class EventStoreTest {
     }
 
     private PostgresPersister mockPersister() {
-        return new PostgresPersister(null, null, null) {
+        return new PostgresPersister(null, null, null, FIXED_CLOCK) {
             @Override public long getMaxSequence() { return 0; }
             @Override public List<StoredEvent> loadAllEvents() { return List.of(); }
             @Override public void appendEvents(List<StoredEvent> events, UUID commandId) {}

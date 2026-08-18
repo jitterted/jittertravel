@@ -39,6 +39,9 @@ public class ConfirmedCalendarRenderer {
                 margin: 2rem 4rem;
                 font-family: system-ui, -apple-system, sans-serif;
             }
+            /* Align the shared view-nav with the calendar body (which sits at 4rem);
+               base .view-nav styling lives in site.css. */
+            nav.view-nav { margin: 1.5rem 4rem 0; }
             .calendar-container {
                 border-left: 1px solid var(--calendar-border-strong);
                 border-top: 1px solid var(--calendar-border-strong);
@@ -312,11 +315,7 @@ public class ConfirmedCalendarRenderer {
         return "<!DOCTYPE html>\n" + BrowserZoneScript.markRoot(html(
                 Page.head("Confirmed Calendar", CSS),
                 body(
-                        nav(
-                                a("JitterTravel")
-                                        .withHref("/")
-                                        .withStyle("font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI'; color: #4f46e5;")
-                        ).withStyle("margin-left: 4rem; font-size: 0.9rem;"),
+                        Page.viewNav(Page.NavAudience.of(isPublicUser, isOwner), "/calendar"),
                         ZoneToggle.render(zoneDisplay),
                         rawHtml(calendarMarkup),
                         rawHtml("<script>" + TOGGLE_SCRIPT + DAY_MENU_SCRIPT + "</script>"),

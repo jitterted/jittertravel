@@ -9,6 +9,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.sql.Array;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -20,11 +21,14 @@ public class PostgresPersister {
     private final JdbcClient jdbcClient;
     private final JsonMapper jsonMapper;
     private final EventPayloadUpcaster upcaster;
+    private final Clock clock;
 
-    public PostgresPersister(JdbcClient jdbcClient, JsonMapper jsonMapper, EventPayloadUpcaster upcaster) {
+    public PostgresPersister(JdbcClient jdbcClient, JsonMapper jsonMapper, EventPayloadUpcaster upcaster,
+                             Clock clock) {
         this.jdbcClient = jdbcClient;
         this.jsonMapper = jsonMapper;
         this.upcaster = upcaster;
+        this.clock = clock;
     }
 
     public void saveCommand(UUID commandId, Object dto) {
@@ -35,7 +39,7 @@ public class PostgresPersister {
                             VALUES (:commandId, :timestamp, :type, CAST(:payload AS jsonb), 'PENDING')
                             """)
                     .param("commandId", commandId)
-                    .param("timestamp", Instant.now().atOffset(ZoneOffset.UTC))
+                    .param("timestamp", Instant.now(clock).atOffset(ZoneOffset.UTC))
                     .param("type", dto.getClass().getName())
                     .param("payload", payload)
                     .update();

@@ -106,10 +106,10 @@ public class PlanConferenceController {
     public ResponseEntity<String> tentativeConferences(
             @RequestParam(required = false) String filter) {
         TimeView timeView = TimeView.fromParam(filter);
+        Instant now = Instant.now(clock);
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
-                .body(TentativeConferencesRenderer.render(
-                        projector.views(timeView, Instant.now()), timeView));
+                .body(TentativeConferencesRenderer.render(projector.views(timeView, now), timeView));
     }
 
 }

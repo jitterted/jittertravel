@@ -109,6 +109,31 @@ private-ish entry kind must likewise get its own redacting branch, never reuse G
 6. **When in doubt, redact and ask.** A missing detail on a public calendar is a papercut;
    a leaked one is unrecoverable.
 
+### Time comes from the injected Clock — never the ambient system clock
+
+Production code must **never** call `Instant.now()`, `LocalDate.now()`, `LocalDateTime.now()`,
+`System.currentTimeMillis()`, or any other no-arg "what time is it" call. They are unmockable:
+a class that reads the ambient clock cannot be tested at a chosen instant, so anything that
+depends on *when* it runs — a FUTURE/ALL filter at a day boundary, a cancellation deadline, an
+expiry, a "today" column — has no way to be pinned down in a test.
+
+Take the time from the injected `Clock` instead:
+
+- `Instant.now(clock)` or `clock.instant()` in a controller
+- capture it at the boundary and pass it inward — services, projectors, and the domain receive
+  a `now`, they never ask for one (see "external inputs from the boundary")
+
+The **only** legal source of real time is the `Clock` `@Bean` in `EventSourcingConfig`
+(`Clock.systemDefaultZone()`). Everything else — controllers, `EventStore`,
+`PostgresPersister` — takes `Clock` as a constructor dependency.
+
+Enforced by `NoAmbientClockReadsTest` (plain source scan over `src/main/java`, with
+`EventSourcingConfig` exempt). Tests may read the wall clock freely; the rule is about
+production code. Note that a `@WebMvcTest` slice has no `Clock` bean of its own — import
+`WebTodayTestConfig` (which pins one) when slicing a controller that needs time. Prefer a
+`Clock.fixed(...)`; use an advancing clock only when the behaviour under test genuinely
+depends on time passing (see `PostgresPersisterTest`, where command ordering does).
+
 ### Presentation formatting stays out of the domain
 
 Display strings are presentation, not domain. A domain type (`Address`, `ZonedTimestamp`, an

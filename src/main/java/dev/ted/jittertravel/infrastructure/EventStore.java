@@ -7,6 +7,7 @@ import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -24,17 +25,19 @@ public class EventStore {
     private final MeterRegistry meterRegistry;
     private final DistributionSummary batchSizeSummary;
     private final PostgresPersister persister;
+    private final Clock clock;
     private final AtomicBoolean isReadOnly = new AtomicBoolean(false);
 
     private static final Logger log = LoggerFactory.getLogger(EventStore.class);
     private static final Duration NOTIFICATION_WARN_THRESHOLD = Duration.ofMillis(100);
 
-    public EventStore(MeterRegistry meterRegistry, PostgresPersister persister) {
+    public EventStore(MeterRegistry meterRegistry, PostgresPersister persister, Clock clock) {
         this.meterRegistry = meterRegistry;
         this.batchSizeSummary = DistributionSummary.builder("eventstore.batch.size")
                 .description("Number of events per append batch")
                 .register(meterRegistry);
         this.persister = persister;
+        this.clock = clock;
 
         try {
             long maxSeq = persister.getMaxSequence();
@@ -58,7 +61,7 @@ public class EventStore {
                     nextSequence.getAndIncrement(),
                     payload.getClass(),
                     UUID.randomUUID(),
-                    Instant.now(),
+                    Instant.now(clock),
                     payload,
                     commandId
             )).toList();

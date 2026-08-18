@@ -67,7 +67,8 @@ public class ItineraryRenderer {
                 Page.head("Itinerary", CSS),
                 body(
                         div().withClass("page").with(
-                                Page.navHomeAndCalendar(),
+                                Page.viewNav(isOwner ? Page.NavAudience.OWNER : Page.NavAudience.FAMILY,
+                                        "/itinerary"),
                                 h1("Itinerary"),
                                 ZoneToggle.render(zoneDisplay),
                                 renderDateNav(days, prevDate, nextDate, today),

@@ -47,7 +47,7 @@ public class TentativeConferencesRenderer {
         return "<!DOCTYPE html>\n" + html(
                 Page.head("Tentative Conferences", CSS),
                 body(
-                        nav(a("JitterTravel").withHref("/")),
+                        Page.viewNav(Page.NavAudience.OWNER, "/tentative-conferences"),
                         h1("Tentative Conferences"),
                         div().withClass("conference-container").with(
                                 TimeFilterToggle.render("/tentative-conferences", activeFilter),

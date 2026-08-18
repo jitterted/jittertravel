@@ -76,7 +76,7 @@ public class PlannedGatheringsRenderer {
                 Page.head("Planned Gatherings", CSS),
                 body(
                         div().withClass("page").with(
-                                Page.navHomeAndCalendar(),
+                                Page.viewNav(Page.NavAudience.OWNER, "/planned-gatherings"),
                                 h1("Planned Gatherings"),
                                 TimeFilterToggle.render("/planned-gatherings", activeFilter),
                                 gatherings.isEmpty()

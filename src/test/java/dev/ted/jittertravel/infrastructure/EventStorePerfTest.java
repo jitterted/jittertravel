@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -34,6 +35,9 @@ class EventStorePerfTest extends AbstractTestcontainerIntegrationTest {
     private PostgresPersister realPersister;
 
     @Autowired
+    private Clock clock;
+
+    @Autowired
     private MeterRegistry meterRegistry;
 
     @Autowired
@@ -42,7 +46,7 @@ class EventStorePerfTest extends AbstractTestcontainerIntegrationTest {
     @Test
     void benchmarkSynchronousDatabaseWrites() {
         try {
-            var eventStore = new EventStore(meterRegistry, realPersister);
+            var eventStore = new EventStore(meterRegistry, realPersister, clock);
             int warmupIterations = 100;
             int measuredIterations = 1_000;
 

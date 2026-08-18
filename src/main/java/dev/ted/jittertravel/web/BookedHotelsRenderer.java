@@ -74,7 +74,7 @@ public class BookedHotelsRenderer {
                 Page.head("Booked Hotels", CSS),
                 body(
                         div().withClass("page").with(
-                                Page.navHomeAndCalendar(),
+                                Page.viewNav(Page.NavAudience.OWNER, "/booked-hotels"),
                                 h1("Booked Hotels"),
                                 TimeFilterToggle.render("/booked-hotels", activeFilter),
                                 hotels.isEmpty()

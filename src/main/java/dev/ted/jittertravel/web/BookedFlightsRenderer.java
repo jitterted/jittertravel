@@ -109,7 +109,7 @@ public class BookedFlightsRenderer {
         return "<!DOCTYPE html>\n" + html(
                 Page.head("Booked Flights", CSS),
                 body(
-                        nav(a("JitterTravel").withHref("/")),
+                        Page.viewNav(Page.NavAudience.OWNER, "/booked-flights"),
                         h1("Booked Flights"),
                         div().withClass("conference-container").with(
                                 TimeFilterToggle.render("/booked-flights", activeFilter),

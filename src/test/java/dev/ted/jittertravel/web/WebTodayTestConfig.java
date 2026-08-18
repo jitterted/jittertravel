@@ -9,10 +9,14 @@ import java.time.Instant;
 import java.time.ZoneId;
 
 /**
- * Supplies the two boundary beans the calendar/itinerary controllers gained for zone-aware
- * "today" — a fixed {@link Clock} and a {@link ViewerTodayZone} with a known fallback — to the
- * {@code @WebMvcTest} slices that exercise those controllers. The instant is a late-June midday
- * so the fallback zone (America/Los_Angeles) yields today = 2026-06-25.
+ * Supplies the boundary beans view controllers need for time — a fixed {@link Clock} and a
+ * {@link ViewerTodayZone} with a known fallback — to the {@code @WebMvcTest} slices that
+ * exercise them. The instant is a late-June midday so the fallback zone
+ * (America/Los_Angeles) yields today = 2026-06-25.
+ * <p>
+ * Every view-controller slice needs this: no production class may read the ambient system
+ * clock (see {@code NoAmbientClockReadsTest}), so each controller takes a {@code Clock}, and
+ * a {@code @WebMvcTest} slice has no {@code Clock} bean unless one is imported here.
  */
 @TestConfiguration
 public class WebTodayTestConfig {

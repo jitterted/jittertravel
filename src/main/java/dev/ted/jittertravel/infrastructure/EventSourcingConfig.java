@@ -76,8 +76,8 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public EventStore eventStore(MeterRegistry meterRegistry, PostgresPersister persister) {
-        return new EventStore(meterRegistry, persister);
+    public EventStore eventStore(MeterRegistry meterRegistry, PostgresPersister persister, Clock clock) {
+        return new EventStore(meterRegistry, persister, clock);
     }
 
     @Bean

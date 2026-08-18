@@ -65,7 +65,7 @@ public class ScheduleProblemsRenderer {
                 Page.head("Schedule Problems", CSS),
                 body(
                         div().withClass("page").with(
-                                Page.navHomeAndCalendar(),
+                                Page.viewNav(Page.NavAudience.OWNER, "/schedule-problems"),
                                 h1("Schedule Problems"),
                                 travel.isEmpty() && hotel.isEmpty() && scheduling.isEmpty() && cityConflicts.isEmpty()
                                         ? renderNoProblems()

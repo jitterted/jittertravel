@@ -109,6 +109,7 @@ explicitly in their own text.
 | `ReMoDeL-Specification.md` | A KDL-based read model definition language. Specification only — there is no KDL code anywhere in `src/`. |
 | `ReadModelKdlTestDslPlan.md` | Test-support DSL for the above. Its 8 implementation steps reference an acceptance test that does not exist yet. Blocked on ReMoDeL itself. |
 | `Refactoring_Opportunities.md` | 7 projection/rendering duplication findings with a priority order. Marked "do not implement without discussion". |
+| `RendererVsProjectorResponsibilities.md` | `discussion` — what is a renderer's job vs. a projector's, and which should a controller depend on? Opened 2026-08-18 out of the reverted state-aware nav link (seven controllers gained a `ScheduleGapProjector` for one nav fact). Four options sketched (status quo / renderer-holds-projector / renderer-as-instance / a page-model layer); nothing decided. Ted wants to pick this up later. Concrete trigger to revisit: the first time a renderer needs a real collaborator. |
 | `authorization_policy_centralization.md` | Authorization "Option 2" — derive `SecurityConfig` matchers and `GeneralController` nav flags from one `NavArea` policy type. Current Option 1 (two small hand-synced places) is judged low-risk because `AuthorizationMatrixTest` catches drift. This doc is the live tracker; the duplicate checklist inside `GeneralControllerRefactorPlan.md` is not maintained. |
 
 ## Done

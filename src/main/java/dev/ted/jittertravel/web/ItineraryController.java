@@ -29,7 +29,8 @@ public class ItineraryController {
     private final ViewerZonePolicy viewerZonePolicy;
     private final ViewerTodayZone viewerTodayZone;
 
-    public ItineraryController(ItineraryProjector itineraryProjector, Clock clock,
+    public ItineraryController(ItineraryProjector itineraryProjector,
+                               Clock clock,
                                ViewerZonePolicy viewerZonePolicy, ViewerTodayZone viewerTodayZone) {
         this.itineraryProjector = itineraryProjector;
         this.clock = clock;

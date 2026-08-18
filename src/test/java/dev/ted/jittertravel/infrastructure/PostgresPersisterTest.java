@@ -16,11 +16,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,6 +47,40 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
         EventPayloadUpcaster eventPayloadUpcaster(JsonMapper jsonMapper) {
             return new EventPayloadUpcaster(new LocationZoneResolver(),
                     new AirportZoneResolver(), jsonMapper);
+        }
+
+        /**
+         * Advances one millisecond per read, so each saved command gets a distinct
+         * {@code command_log.timestamp}. A frozen clock would tie every row and leave
+         * {@code loadTimelinePage}'s {@code ORDER BY timestamp, command_id} sorting by
+         * random UUID instead of by insertion order.
+         */
+        @Bean
+        Clock clock() {
+            return new AdvancingClock(Instant.parse("2026-06-25T12:00:00Z"));
+        }
+    }
+
+    private static class AdvancingClock extends Clock {
+        private final AtomicReference<Instant> current;
+
+        AdvancingClock(Instant start) {
+            this.current = new AtomicReference<>(start);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return current.getAndUpdate(instant -> instant.plusMillis(1));
         }
     }
 

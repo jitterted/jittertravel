@@ -7,9 +7,13 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Open
 
-- [ ] **Standardize headers/footers for navigation.** Give pages a consistent header/footer with
-      shared nav so you can move around the app directly instead of returning to the home page
-      every time. Currently many pages are dead-ends that force a trip back to `/`.
+- [ ] **Itinerary: add-entry day dropdown** (like the calendar's). The `/calendar` future-day
+      disclosure menu lets the owner add an entry for a specific day; the itinerary has no such
+      affordance. Add the same per-day "add an entry" dropdown to the itinerary so a day can be
+      populated directly from that surface (OWNER-only; reuse the `DAY_MENU` pattern).
+- [ ] **Itinerary: show current location (from hotel) when a day has no other events.** So the
+      owner can tell *where they are* on a day whose only context is an ongoing hotel stay, surface
+      the current location (derived from the active hotel booking) instead of an empty/eventless day.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.
@@ -23,6 +27,39 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Done
 
+- [x] **Lateral nav across the read-only view pages** (2026-08-17). The old "nav" was the same
+      two-link `JitterTravel · Calendar` breadcrumb on every page (and inconsistently built — the
+      calendar's was an inline-styled indigo link, trains wrapped it in `<h3>`), so from any view
+      you could only reach `/` and `/calendar` — every other view page was a lateral dead-end.
+      Replaced it with a single shared `Page.viewNav(NavAudience, activePath)`: a flex-**wrapping**
+      bar (no horizontal scroll) that links each view page to the others the viewer may reach, with
+      the current page rendered as a non-link `<span class="active" aria-current="page">`. Applied
+      to all eight j2html view renderers — `/itinerary`, `/calendar`, `/booked-flights`,
+      `/booked-trains`, `/booked-hotels`, `/planned-gatherings`, `/tentative-conferences`,
+      `/schedule-problems`. **Tier-gated (deny-by-default), matching `SecurityConfig`:** OWNER sees
+      all eight; FAMILY sees only Itinerary + Calendar (the pages it can open); anonymous on the
+      public calendar sees only the home link — a link to a page the viewer would 403 on is both a
+      papercut and a hint the page exists, so it's never rendered. `NavAudience.of(isPublicUser,
+      isOwner)` derives the tier from the flags controllers already hold. Base `.view-nav` styling
+      in `site.css`; the calendar scopes a `4rem` horizontal margin so the bar aligns with its
+      `.calendar-outer` body. New `PageTest` (link sets per tier, active-span, `NavAudience.of`) and
+      two new `CalendarRedactionSecurityTest` cases (anonymous exposes no owner/family surface;
+      owner links to the other views) — all mutation-verified (anonymous-leak, missing active-span,
+      owner-missing-links). **The Schedule Problems nav link is unconditional (OWNER only).** A
+      state-aware version was built and then **reverted on 2026-08-18**: making the link appear only
+      when `ScheduleGapProjector.problems(now)` was non-empty meant threading a
+      `hasScheduleProblems` flag through `Page.viewNav` and all eight view renderers *and* injecting
+      `ScheduleGapProjector` into seven view controllers that otherwise have no interest in it. Ted's
+      call: that's a large increase in coupling, test setup, and constructor noise for a small UX
+      gain, so the bar now reflects only the viewer's tier and the report page renders its own empty
+      state when the schedule is clean. The **home card** on `index.html` stays state-aware —
+      `GeneralController` legitimately depends on the projector for its count (see the entry below).
+      Full suite green at 936. **Deliberately scoped this session (Ted's
+      call):** *view pages only* — the Thymeleaf **form** templates keep their existing breadcrumb
+      (nav matters less there, and forms are reached from the lists / the calendar's add-entry
+      dropdown), and **no footer** (the calendar dropdown covers adding entries). Admin pages left
+      out too. This retires the "many pages are dead-ends" cleanup item as far as the view surfaces
+      are concerned.
 - [x] **Consistent edit affordances on calendar and itinerary entries** (2026-08-17). Every editable
       entry kind now exposes the same OWNER-only edit pencil from **both** surfaces. Before this,
       the calendar showed a pencil only for flights and trains (`editPath` set), and the itinerary

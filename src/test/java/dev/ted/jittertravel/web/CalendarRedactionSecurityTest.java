@@ -22,6 +22,7 @@ import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
 
@@ -110,6 +111,42 @@ class CalendarRedactionSecurityTest {
                 .hasStatusOk()
                 .bodyText()
                 .doesNotContain("href=\"/itinerary");
+    }
+
+    @Test
+    void anonymousCalendarNavExposesNoOwnerOrFamilySurfaces() {
+        // The shared view-nav collapses to the home link only for anonymous viewers —
+        // it must never link to a page an anonymous visitor would 403 on (which would
+        // also reveal the page exists).
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("href=\"/itinerary")
+                .doesNotContain("href=\"/booked-flights")
+                .doesNotContain("href=\"/booked-trains")
+                .doesNotContain("href=\"/booked-hotels")
+                .doesNotContain("href=\"/planned-gatherings")
+                .doesNotContain("href=\"/tentative-conferences")
+                .doesNotContain("href=\"/schedule-problems");
+    }
+
+    @Test
+    @WithMockUser(username = "ted", roles = "OWNER")
+    void ownerCalendarNavLinksToTheOtherViews() {
+        assertThat(mockMvc.get().uri("/calendar"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("href=\"/booked-flights")
+                .contains("href=\"/booked-hotels");
+    }
+
+    @Test
+    @WithMockUser(username = "ted", roles = "OWNER")
+    void ownerCalendarNavShowsScheduleProblemsLink() {
+        assertThat(mockMvc.get().uri("/calendar"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("href=\"/schedule-problems");
     }
 
     @Test

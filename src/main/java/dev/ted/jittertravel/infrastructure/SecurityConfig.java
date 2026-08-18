@@ -11,6 +11,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
 
 /**
  * One security chain, always on. There is no permissive/no-auth variant: local development runs
@@ -74,6 +77,16 @@ public class SecurityConfig {
                         // unredacted OWNER data; the token is the only credential (see that class).
                         .requestMatchers("/calendar/feed/**").permitAll()
                         .anyRequest().permitAll())
+                // CSRF token lives in a cookie, not the HTTP session. A session-bound token dies
+                // whenever the in-memory session does — every redeploy, every local devtools
+                // restart, every idle timeout — and a login page rendered before that death then
+                // submits a token with no session to match, which the CsrfFilter rejects (and our
+                // accessDeniedHandler used to bounce silently to "/", looking like "not logged in").
+                // A cookie outlives the session, so the very first login after a restart still
+                // validates. Kept HttpOnly: the server renders the token into the form from the
+                // request attribute, so JS never needs to read it — no weaker than a session token
+                // against XSS. Covered by SecurityAuthorizationTest.staleCsrfTokenReturnsToLogin.
+                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository()))
                 // Custom form login at /login (LoginController + templates/login.html). We replace
                 // Spring's generated page so the form can carry a hidden browserZone field, letting
                 // ZoneCapturingAuthenticationSuccessHandler set the viewerZone cookie on the very
@@ -93,12 +106,29 @@ public class SecurityConfig {
                 .exceptionHandling(exceptions -> exceptions
                         .accessDeniedHandler((request, response, accessDenied) -> {
                             if (request.getRequestURI().startsWith(request.getContextPath() + "/api/")) {
+                                // fetch() callers get a real 403, never a 302 to an HTML page.
                                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                            } else if (accessDenied instanceof CsrfException) {
+                                // A rejected CSRF token means the session that minted it is gone
+                                // (restart, timeout) — an expired login, not a permissions problem.
+                                // Send the viewer back to the login page with a message rather than
+                                // silently home, where an expired login looks identical to never
+                                // having signed in. login.html reads ?expired.
+                                response.sendRedirect(request.getContextPath() + "/login?expired");
                             } else {
+                                // Authenticated but insufficient role: friendlier than a bare 403.
                                 response.sendRedirect(request.getContextPath() + "/");
                             }
                         }))
                 .build();
+    }
+
+    private CsrfTokenRepository csrfTokenRepository() {
+        CookieCsrfTokenRepository repository = new CookieCsrfTokenRepository();
+        // Explicit rather than relying on the default: the token cookie must never be readable
+        // by page scripts (the form gets its token server-side, so JS has no need to).
+        repository.setCookieCustomizer(cookie -> cookie.httpOnly(true));
+        return repository;
     }
 
     @Bean

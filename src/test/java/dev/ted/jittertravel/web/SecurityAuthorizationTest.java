@@ -122,6 +122,20 @@ class SecurityAuthorizationTest {
 
     @Test
     @WithAnonymousUser
+    void staleCsrfTokenReturnsToLoginWithExpiredNotice() {
+        // A login POST with no valid CSRF token (the session that minted it is gone — a
+        // server restart or an idle timeout) must land back on the login page with a notice,
+        // NOT silently on the home page, where an expired login is indistinguishable from
+        // never having signed in. Omitting .with(csrf()) reproduces the missing/rejected token.
+        assertThat(mockMvc.post().uri("/login")
+                .param("username", "ted")
+                .param("password", "testpass"))
+                .hasStatus3xxRedirection()
+                .hasHeader("Location", "/login?expired");
+    }
+
+    @Test
+    @WithAnonymousUser
     void successfulLoginCapturesReportedBrowserZoneAsCookie() {
         MvcTestResult result = mockMvc.post().uri("/login")
                 .param("username", "ted")

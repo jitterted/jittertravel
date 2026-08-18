@@ -27,6 +27,24 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Done
 
+- [x] **Login "have to sign in twice"** (2026-08-18). The custom sign-in form's CSRF token was
+      session-bound (default `HttpSessionCsrfTokenRepository`), so it died whenever the in-memory
+      session did — every redeploy, every local devtools restart, every idle timeout. A login page
+      rendered before that death then submitted a token with no session to match; the `CsrfFilter`
+      rejected it and the custom `accessDeniedHandler` bounced it **silently to `/`**, looking
+      exactly like "not logged in". The retry rendered a fresh `/login` with a matching token and
+      worked — hence "log in twice, then it sticks". Two changes in `SecurityConfig`: (1) CSRF token
+      now lives in an **HttpOnly cookie** (`CookieCsrfTokenRepository`), not the session, so it
+      outlives restarts/timeouts and needs no server session — the first login after a restart
+      validates (kept HttpOnly: the form gets its token server-side, so JS never reads it, no weaker
+      than a session token against XSS); (2) a rejected CSRF token (`CsrfException`) now routes to
+      `/login?expired` with a notice instead of silently to `/`, where an expired login is
+      indistinguishable from never having signed in — authenticated-but-wrong-role denials still go
+      to `/`. `login.html` shows the `?expired` notice. New mutation-verified test
+      `SecurityAuthorizationTest.staleCsrfTokenReturnsToLoginWithExpiredNotice`; reproduced and
+      verified end-to-end against the running app; full suite green (938 + 36 js). **Single-instance
+      only fixes CSRF** — going multi-instance would also need the auth `HttpSession` externalized
+      (Spring Session JDBC on the existing Postgres), **deferred until actually scaling**.
 - [x] **Lateral nav across the read-only view pages** (2026-08-17). The old "nav" was the same
       two-link `JitterTravel · Calendar` breadcrumb on every page (and inconsistently built — the
       calendar's was an inline-styled indigo link, trains wrapped it in `<h3>`), so from any view

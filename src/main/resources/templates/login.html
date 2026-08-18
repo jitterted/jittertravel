@@ -78,6 +78,9 @@
     <div class="notice info" th:if="${param.logout}">
         You have been signed out.
     </div>
+    <div class="notice info" th:if="${param.expired}">
+        Your session expired before you signed in. Please try again.
+    </div>
 
     <form th:action="@{/login}" method="post">
         <div class="field">

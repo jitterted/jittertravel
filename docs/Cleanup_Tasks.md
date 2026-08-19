@@ -14,6 +14,12 @@ plan doc and its status — including these items — see `Backlog.md`.
 - [ ] **Itinerary: show current location (from hotel) when a day has no other events.** So the
       owner can tell *where they are* on a day whose only context is an ongoing hotel stay, surface
       the current location (derived from the active hotel booking) instead of an empty/eventless day.
+- [ ] **Rename `ConfirmedCalendar*` → `Calendar*`.** "Confirmed" no longer distinguishes anything:
+      the calendar is *the* calendar, the route is already `/calendar`, and the adjective survives
+      only in class names. Touches `ConfirmedCalendarRenderer` (+ its reference in
+      `CalendarController`) and the three tests `ConfirmedCalendarRendererTest`,
+      `ConfirmedCalendarDayMenuJsTest`, `ConfirmedCalendarToggleJsTest` — ~27 occurrences, no route,
+      template, or stored-data impact. Pure class rename; sweep the docs that name the class too.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.

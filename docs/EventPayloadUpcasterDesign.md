@@ -5,7 +5,18 @@ mechanism. **Related:** `LegacyEventEagerMigrationPlan.md` (the per-event `schem
 the admin action that permanently rewrites stored rows), `UtcDatetimeStoragePlan.md` (the first
 migration — datetimes → `ZonedTimestamp`), `ConferenceSubmissionTrackingPlan.md` (the second
 migration — conference `format` — which shaped this framework out of the original single class),
-`EventOrientedBackupRestorePlan.md` (verbatim backup, so a stored row is never healed by writing).
+`EventOrientedBackupRestorePlan.md` (verbatim backup, so a stored row is never healed by writing),
+`EventTypeColumnNormalizationPlan.md` (proposed: rewriting the `type` column, and what it costs a
+rollback).
+
+**Illustrated companion —** ["Upcasting the Event Log"](https://claude.ai/code/artifact/ce256f8a-80ab-444d-a53a-6f5474c45324),
+source in `docs/diagrams/upcasting.html` (self-contained page, plain HTML/CSS diagrams — no SVG,
+script or images; edit the file, then republish it to that same URL):
+the same mechanism drawn out for someone meeting upcasting for the first time, in five numbered
+figures — the identity-axis alias fan-in (1), the version ladder with its three entry points (2), the
+read path and the ordering trap between the two axes (3), a **stage-by-stage trace of one unstamped
+pre-v1 row** through metadata resolution and both rungs (4), and what the eager migration does and
+does not write back (5).
 
 ## What it is
 

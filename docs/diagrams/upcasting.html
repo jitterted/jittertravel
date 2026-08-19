@@ -1,0 +1,1113 @@
+<title>Upcasting the Event Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<!--
+  Source for the published artifact:
+  https://claude.ai/code/artifact/ce256f8a-80ab-444d-a53a-6f5474c45324
+
+  Every diagram here is plain HTML + CSS — no SVG, no script, no images.
+  The building blocks, all defined in the stylesheet below:
+
+    .node            a box.  .node.identity = teal (identity axis)
+                             .node.structure = ochre (structure axis)
+                             .node.plain = white ground, for code/data
+    .arrow           a standalone → or ↓ between boxes
+    .link            a labelled connector line with an arrowhead (Figure 1)
+    .fig-*           the layout grid for one figure; each is a handful of
+                     grid-template-columns lines, edit freely
+    .stage           one numbered step of the Figure 4 trace
+    .diff            the before/after pair inside a stage
+
+  Colours are CSS custom properties on :root (and redefined for dark mode) —
+  change them in one place. Figures scroll inside themselves on narrow
+  screens, so the page itself never scrolls sideways.
+-->
+
+<style>
+  :root {
+    --ground: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #eceff3;
+    --ink: #16191f;
+    --ink-2: #4d5561;
+    --rule: #d6dbe2;
+    --identity: #0f6c7b;
+    --identity-wash: #e0eff1;
+    --structure: #85610f;
+    --structure-wash: #f4ecd9;
+    --danger: #9b2f2f;
+    --danger-wash: #f7e6e6;
+    --shadow: 0 1px 2px rgba(20, 26, 34, .06), 0 8px 24px rgba(20, 26, 34, .05);
+
+    --measure: 34rem;
+    --wide: 52rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0f1216;
+      --surface: #171b21;
+      --surface-2: #1e232b;
+      --ink: #e8ebef;
+      --ink-2: #a4aeba;
+      --rule: #2c333d;
+      --identity: #5cc0ce;
+      --identity-wash: #10292e;
+      --structure: #dda647;
+      --structure-wash: #2c2415;
+      --danger: #e58a8a;
+      --danger-wash: #2d1a1a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0f1216;
+    --surface: #171b21;
+    --surface-2: #1e232b;
+    --ink: #e8ebef;
+    --ink-2: #a4aeba;
+    --rule: #2c333d;
+    --identity: #5cc0ce;
+    --identity-wash: #10292e;
+    --structure: #dda647;
+    --structure-wash: #2c2415;
+    --danger: #e58a8a;
+    --danger-wash: #2d1a1a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 18px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: var(--wide);
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.25rem;
+  }
+
+  .col {
+    max-width: var(--measure);
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+
+  h1, h2, h3, .eyebrow, .chip, th, figcaption, .note-title {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  h1 {
+    font-size: clamp(2.2rem, 5vw, 3.1rem);
+    font-weight: 700;
+    letter-spacing: -.022em;
+    line-height: 1.04;
+    text-wrap: balance;
+    margin-bottom: .1em;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -.014em;
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-size: 1.06rem;
+    font-weight: 600;
+    letter-spacing: -.006em;
+  }
+
+  .eyebrow {
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+
+  .standfirst {
+    font-size: 1.24rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+    max-width: 30rem;
+  }
+
+  header .meta {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .78rem;
+    color: var(--ink-2);
+    border-top: 1px solid var(--rule);
+    padding-top: .9rem;
+    margin-top: 1.6rem;
+  }
+
+  code, .mono {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .84em;
+  }
+
+  p code {
+    background: var(--surface-2);
+    border-radius: 3px;
+    padding: .1em .32em;
+  }
+
+  strong { font-weight: 600; }
+
+  a {
+    color: var(--identity);
+    text-underline-offset: .18em;
+  }
+
+  ul { padding-left: 1.15rem; display: flex; flex-direction: column; gap: .5rem; }
+  li::marker { color: var(--ink-2); }
+
+  /* ---- figure shell ------------------------------------------------------ */
+
+  figure {
+    margin: .5rem 0;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 1.6rem 1.4rem 1.1rem;
+    overflow-x: auto;
+  }
+
+  figcaption {
+    margin-top: 1.4rem;
+    padding-top: .85rem;
+    border-top: 1px solid var(--rule);
+    font-size: .85rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+    min-width: 30rem;
+  }
+
+  .fignum {
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    color: var(--ink);
+    display: block;
+    margin-bottom: .3rem;
+  }
+
+  .dg-title {
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    margin-bottom: 1rem;
+  }
+
+  /* ---- diagram building blocks ------------------------------------------- */
+
+  .node {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: .5rem .65rem;
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: .72rem;
+    line-height: 1.45;
+  }
+
+  .node.identity { background: var(--identity-wash); border-color: var(--identity); }
+  .node.structure { background: var(--structure-wash); border-color: var(--structure); }
+  .node.plain { background: var(--surface); }
+
+  .node .node-title {
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .8rem;
+    font-weight: 600;
+    display: block;
+    margin-bottom: .35rem;
+  }
+
+  .node .dim, .dim { color: var(--ink-2); }
+  .hi-i { color: var(--identity); }
+  .hi-s { color: var(--structure); }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+  }
+
+  .arrow {
+    font-family: "JetBrains Mono", monospace;
+    color: var(--ink-2);
+    flex: none;
+  }
+
+  .arrow.identity { color: var(--identity); }
+  .arrow.structure { color: var(--structure); }
+
+  .arrow-note {
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .68rem;
+    color: var(--ink-2);
+    line-height: 1.35;
+  }
+
+  /* a labelled connector line with an arrowhead, used by Figure 1 */
+  .link {
+    position: relative;
+    text-align: center;
+    min-height: 1.2rem;
+  }
+
+  .link::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: .5rem;
+    top: 50%;
+    border-top: 1px solid var(--identity);
+  }
+
+  .link::after {
+    content: "\25B6";
+    position: absolute;
+    right: -.1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--identity);
+    font-size: .55rem;
+  }
+
+  .link span {
+    position: relative;
+    background: var(--surface);
+    padding: 0 .4rem;
+    color: var(--identity);
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .68rem;
+    letter-spacing: .03em;
+  }
+
+  /* ---- figure 1: the fan-in ---------------------------------------------- */
+
+  .fig-fanin {
+    display: grid;
+    grid-template-columns: minmax(18rem, 1.4fr) 6.5rem minmax(11rem, 1fr);
+    gap: .7rem 0;
+    align-items: center;
+    min-width: 36rem;
+  }
+
+  .fig-fanin .target {
+    grid-column: 3;
+    grid-row: 1 / span 3;
+    align-self: center;
+    text-align: center;
+  }
+
+  .fig-fanin .foot {
+    grid-column: 1 / -1;
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .7rem;
+    color: var(--ink-2);
+    padding-top: .3rem;
+  }
+
+  /* ---- figure 2: the ladder ---------------------------------------------- */
+
+  .fig-ladder {
+    display: grid;
+    grid-template-columns: auto minmax(9rem, 1fr) auto minmax(9rem, 1fr) auto auto;
+    align-items: center;
+    gap: 1.3rem .5rem;
+    min-width: 38rem;
+  }
+
+  .vmark {
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .74rem;
+    font-weight: 600;
+    color: var(--ink-2);
+    border-left: 1px dashed var(--rule);
+    padding-left: .45rem;
+  }
+
+  .fig-ladder .entry {
+    grid-row: 2;
+    font-family: "JetBrains Mono", monospace;
+    font-size: .72rem;
+    color: var(--ink);
+    border-top: 1px dashed var(--rule);
+    padding-top: .5rem;
+  }
+
+  .fig-ladder .entry em {
+    display: block;
+    font-style: normal;
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .68rem;
+    color: var(--ink-2);
+    margin-top: .15rem;
+  }
+
+  .fig-ladder .e1 { grid-column: 1 / 3; }
+  .fig-ladder .e2 { grid-column: 3 / 5; }
+  .fig-ladder .e3 { grid-column: 5 / 7; }
+
+  /* ---- figure 3: the read path ------------------------------------------- */
+
+  .fig-path {
+    display: flex;
+    align-items: stretch;
+    gap: .5rem;
+    min-width: 40rem;
+  }
+
+  .fig-path .step { display: flex; flex-direction: column; gap: .4rem; justify-content: center; }
+  .fig-path .arrow { align-self: center; }
+  .fig-path .step-label {
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .66rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .fig-path .step-label.identity { color: var(--identity); }
+  .fig-path .step-label.structure { color: var(--structure); }
+
+  .warn {
+    margin-top: 1.2rem;
+    background: var(--danger-wash);
+    border: 1px solid var(--danger);
+    border-radius: 6px;
+    padding: .7rem .85rem;
+    min-width: 40rem;
+  }
+
+  .warn b {
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .76rem;
+    display: block;
+    margin-bottom: .25rem;
+    color: var(--danger);
+  }
+
+  .warn span {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .72rem;
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+
+  /* ---- figure 4: the trace ----------------------------------------------- */
+
+  .fig-trace { display: flex; flex-direction: column; gap: .9rem; min-width: 40rem; }
+
+  .stage { display: grid; grid-template-columns: 2rem 1fr; gap: .8rem; align-items: start; }
+
+  .stage .num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .78rem;
+    line-height: 1;
+    text-align: center;
+    padding: .45rem 0;
+    border: 1px solid var(--rule);
+    border-radius: 50%;
+    background: var(--surface-2);
+  }
+
+  .stage.identity .num { background: var(--identity-wash); border-color: var(--identity); }
+  .stage.structure .num { background: var(--structure-wash); border-color: var(--structure); }
+
+  .stage .body {
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    background: var(--surface-2);
+    padding: .85rem 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+  }
+
+  .stage.identity .body { background: var(--identity-wash); border-color: var(--identity); }
+  .stage.structure .body { background: var(--structure-wash); border-color: var(--structure); }
+
+  .stage h4 {
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .88rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .stage .lede {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .72rem;
+    color: var(--ink-2);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  pre.code {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: .7rem .85rem;
+    margin: 0;
+    overflow-x: auto;
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: .72rem;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+
+  pre.code .dim { color: var(--ink-2); }
+
+  .puts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .8rem;
+  }
+
+  .puts div {
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .7rem;
+    color: var(--ink-2);
+    line-height: 1.4;
+  }
+
+  .puts div::before {
+    content: "\2193";
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: .85rem;
+    color: var(--identity);
+    margin-bottom: .15rem;
+  }
+
+  table.map {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    font-family: "JetBrains Mono", monospace;
+    font-size: .72rem;
+  }
+
+  table.map caption {
+    caption-side: top;
+    text-align: left;
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .7rem;
+    color: var(--ink-2);
+    padding: 0 0 .35rem;
+  }
+
+  table.map td { padding: .3rem .7rem; border: 0; }
+  table.map tr:first-child td { padding-top: .55rem; }
+  table.map tr:last-child td { padding-bottom: .55rem; }
+  table.map td.k { color: var(--ink); }
+  table.map td.a { color: var(--ink-2); width: 1.5rem; text-align: center; }
+  table.map td.v { color: var(--ink); }
+  table.map tr.match td { background: var(--identity-wash); color: var(--identity); }
+  table.map tr.match td.k { border-left: 2px solid var(--identity); }
+
+  .diff {
+    display: grid;
+    grid-template-columns: 1fr 1.2rem 1fr;
+    gap: .4rem;
+    align-items: center;
+  }
+
+  .diff .lbl {
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .68rem;
+    color: var(--ink-2);
+    margin-bottom: .25rem;
+  }
+
+  .diff .side { min-width: 0; }
+  .diff .mid { text-align: center; color: var(--structure); font-family: "JetBrains Mono", monospace; }
+
+  .stage .after {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .72rem;
+    color: var(--ink-2);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .trace-foot {
+    border: 1px solid var(--rule);
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: .8rem 1rem;
+    margin-left: 2.8rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: .72rem;
+    color: var(--ink-2);
+    line-height: 1.55;
+  }
+
+  /* ---- figure 5: write and write-back ------------------------------------ */
+
+  .fig-write { display: flex; flex-direction: column; gap: 1.1rem; min-width: 38rem; }
+  .fig-write .band { display: flex; align-items: center; gap: .5rem; }
+  .fig-write .band-label {
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    width: 7rem;
+    flex: none;
+  }
+  .fig-write .stack { display: flex; flex-direction: column; gap: .35rem; }
+  .fig-write hr { border: 0; border-top: 1px dashed var(--rule); margin: 0; }
+  .fig-write .foot {
+    font-family: Archivo, Arial, sans-serif;
+    font-size: .7rem;
+    color: var(--ink-2);
+    margin-left: 7.5rem;
+  }
+
+  /* ---- axis cards, tables, callout --------------------------------------- */
+
+  .axes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem;
+  }
+
+  .axis {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 1.25rem 1.3rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+  }
+
+  .axis.identity { border-top: 3px solid var(--identity); }
+  .axis.structure { border-top: 3px solid var(--structure); }
+  .axis .eyebrow.identity { color: var(--identity); }
+  .axis .eyebrow.structure { color: var(--structure); }
+  .axis p { font-size: .95rem; line-height: 1.55; margin: 0; }
+  .axis dl { display: grid; grid-template-columns: auto 1fr; gap: .3rem .8rem; font-size: .82rem; margin: 0; }
+  .axis dt { font-family: Archivo, Arial, sans-serif; font-weight: 600; color: var(--ink-2); }
+  .axis dd { margin: 0; }
+
+  .table-wrap { overflow-x: auto; }
+
+  table.rules {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 30rem;
+    font-size: .88rem;
+  }
+
+  table.rules th, table.rules td {
+    text-align: left;
+    padding: .6rem .8rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+
+  table.rules th {
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+
+  table.rules td code { font-size: .82em; }
+
+  .note {
+    background: var(--danger-wash);
+    border-left: 3px solid var(--danger);
+    border-radius: 0 8px 8px 0;
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+  }
+
+  .note-title { font-size: .8rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--danger); }
+  .note p { margin: 0; font-size: .95rem; line-height: 1.55; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.2rem;
+    font-size: .85rem;
+    color: var(--ink-2);
+    max-width: var(--measure);
+  }
+
+  footer p { margin: 0 0 .5rem; }
+
+  :focus-visible { outline: 2px solid var(--identity); outline-offset: 3px; }
+</style>
+
+<div class="page">
+
+  <header class="col">
+    <p class="eyebrow">JitterTravel · event sourcing</p>
+    <h1>Upcasting the Event Log</h1>
+    <p class="standfirst">Stored events are facts that already happened. The code that reads them keeps
+      changing. Upcasting is how both stay true at once — along two independent axes that must be
+      travelled in order.</p>
+    <p class="meta">companion to docs/EventPayloadUpcasterDesign.md · EventTypes · EventPayloadUpcaster</p>
+  </header>
+
+  <section class="col">
+    <h2>The problem, for anyone new to it</h2>
+    <p>An event-sourced app keeps its history as an append-only log. Every row is a fact that was true
+      when it was written: <em>this conference was planned, at this venue, on these dates</em>. The log is
+      the source of truth — read models are rebuilt from it on every boot.</p>
+    <p>Which means the log outlives the code. A row written eight months ago holds JSON shaped the way
+      the record looked <em>then</em>. Since then the field became a different type, or a new non-null
+      field appeared, or the class was renamed. Deserializing that old JSON into today's record simply
+      fails.</p>
+    <p>You have three options, and only one of them is any good. Rewrite history in place, and you lose
+      the property that makes a log trustworthy — plus one bad rewrite corrupts everything. Keep every
+      old version of the class around forever, and the domain model becomes an archaeology exhibit.
+      Or <strong>translate on the way in</strong>: leave the row alone, and convert what it holds into the
+      current shape as it is read. That translation is upcasting.</p>
+  </section>
+
+  <section class="col">
+    <h2>A stored row asks two different questions</h2>
+    <p>Three columns matter on every <code>event_log</code> row: the <code>type</code> (a wire id, a
+      string), the <code>schema_version</code> (an integer, or null on the oldest rows), and the
+      <code>payload</code> (JSON). Reading it back raises two questions that have nothing to do with each
+      other — and this codebase answers them with two entirely different mechanisms, drawn in Figures 1
+      and 2.</p>
+
+    <div class="axes">
+      <div class="axis identity">
+        <p class="eyebrow identity">Axis 1 · identity</p>
+        <h3>What <em>is</em> this row?</h3>
+        <p>The stored name may be a name the code no longer uses. Resolved by an <strong>append-only alias
+          map</strong> in <code>EventTypes</code>: many retired wire ids, one current class.</p>
+        <dl>
+          <dt>Shape</dt><dd>fan-in, many → one</dd>
+          <dt>Payload</dt><dd>untouched</dd>
+          <dt>Scope</dt><dd>every row at once</dd>
+          <dt>Cost</dt><dd>one line per retired name</dd>
+        </dl>
+      </div>
+      <div class="axis structure">
+        <p class="eyebrow structure">Axis 2 · structure</p>
+        <h3>What <em>shape</em> is it in?</h3>
+        <p>The payload may be several versions behind. Resolved by a <strong>version ladder</strong>: one
+          small upcaster rung per version step, climbed in order until the row is current.</p>
+        <dl>
+          <dt>Shape</dt><dd>a walk, step by step</dd>
+          <dt>Payload</dt><dd>rewritten in memory</dd>
+          <dt>Scope</dt><dd>per row, from its stamp</dd>
+          <dt>Cost</dt><dd>one rung per change</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <figure>
+      <p class="dg-title">stored in event_log.type &#8594; resolved class</p>
+      <div class="fig-fanin">
+        <div class="node identity target">
+          <span class="node-title">the class</span>
+          ConferencePlanned.class
+        </div>
+
+        <div class="node">dev.ted.jittertravel.domain.ConferenceTentativelyPlanned</div>
+        <div class="link"><span>alias</span></div>
+
+        <div class="node">ConferenceTentativelyPlanned</div>
+        <div class="link"><span>alias</span></div>
+
+        <div class="node identity">ConferencePlanned</div>
+        <div class="link"><span>register</span></div>
+
+        <p class="foot">written by builds before logical names, before the rename, and after it &#183;
+          an alias is never edited or removed</p>
+      </div>
+      <figcaption><span class="fignum">Figure 1 · the identity axis</span><strong>The identity axis is a
+        fan-in.</strong> Every name the type was ever stored under keeps resolving to the one class the code
+        has now. Renaming a class is free; renaming the stored logical name costs exactly one
+        <code>alias</code> line per retired id.</figcaption>
+    </figure>
+  </section>
+
+  <section class="col">
+    <h2>The ladder, and why it is version-driven</h2>
+    <p>The structure axis is the part most people mean by "upcasting". Each breaking payload change adds
+      one rung: a small class that advertises the single <code>(type, version)</code> step it consumes and
+      knows how to advance a payload across it. A row climbs from the version it was stamped with to the
+      version the code is on now — no more, no less.</p>
+    <p>Crucially the composite decides <em>which rung runs</em> from the stored version, not by inspecting
+      the payload. That keeps every rung self-describing and makes a retired rung fail loudly instead of
+      silently skipping a row.</p>
+  </section>
+
+  <section>
+    <figure>
+      <p class="dg-title">one ladder &#183; three entry points</p>
+      <div class="fig-ladder">
+        <span class="vmark">v1</span>
+        <div class="node structure">
+          ConferenceTimeZoneUpcaster<br>
+          <span class="dim">scalars &#8594; {utc, zone}</span>
+        </div>
+        <span class="vmark">v2</span>
+        <div class="node structure">
+          ConferenceFormatUpcaster<br>
+          <span class="dim">inject format default</span>
+        </div>
+        <span class="vmark">v3</span>
+        <div class="node plain">binds &#8594; record</div>
+
+        <div class="entry e1">stored stamp: null &#8658; 1 <em>climbs two rungs</em></div>
+        <div class="entry e2">stored stamp: 2 <em>climbs one</em></div>
+        <div class="entry e3">stored stamp: 3 <em>does no work</em></div>
+      </div>
+      <figcaption><span class="fignum">Figure 2 · the structure axis</span><strong>One ladder, three entry
+        points.</strong> Where a row joins is decided by its stored <code>schema_version</code>, not by what
+        its payload looks like — so an unstamped legacy row climbs everything, and a row written this
+        morning climbs nothing.</figcaption>
+    </figure>
+  </section>
+
+  <section class="col">
+    <h2>The read path, in order</h2>
+    <p>Put the two axes together (Figure 3) and the whole thing is four steps. The order is not arbitrary:
+      <strong>identity resolves first, because the ladder is keyed by the logical name.</strong> Until you
+      know which type this row is, you cannot know which rungs it climbs or how far.</p>
+  </section>
+
+  <section>
+    <figure>
+      <div class="fig-path">
+        <div class="step">
+          <div class="node plain">
+            <span class="node-title">event_log row</span>
+            type<br>schema_version<br>payload
+          </div>
+        </div>
+
+        <span class="arrow">&#8594;</span>
+
+        <div class="step">
+          <span class="step-label identity">1 &#183; identity</span>
+          <div class="node identity">classFor(wireId)<br><span class="dim">the alias map</span></div>
+          <div class="node identity">logicalNameFor(class)<br>currentSchemaVersion(class)</div>
+        </div>
+
+        <span class="arrow">&#8594;</span>
+
+        <div class="step">
+          <span class="step-label structure">2 &#183; structure</span>
+          <div class="node structure">
+            while version &#60; target:<br>
+            &nbsp;&nbsp;rung(name, version)<br>
+            &nbsp;&nbsp;version++<br>
+            <span class="dim">payload mutated in memory</span>
+          </div>
+        </div>
+
+        <span class="arrow">&#8594;</span>
+
+        <div class="step">
+          <div class="node plain">bind to record<br><span class="dim">fails loud if stale</span></div>
+          <div class="node plain">projectors</div>
+        </div>
+      </div>
+
+      <div class="warn">
+        <b>If step 1 and step 2 disagree about the name</b>
+        <span>Step 1 normalizes a retired id to the current logical name. A rung still keyed on the retired
+          one is then never found &#8212; and every legacy row stops climbing, silently.</span>
+      </div>
+
+      <figcaption><span class="fignum">Figure 3 · the read path</span><strong>Identity before structure,
+        always.</strong> This is the trap a logical-name rename sets: move the name in <code>EventTypes</code>
+        and forget the rungs' <code>canHandle</code>, and the composite resolves rows perfectly, then finds no
+        rung for them.</figcaption>
+    </figure>
+  </section>
+
+  <section class="col">
+    <h2>One real row, all the way through</h2>
+    <p>Figure 4 traces the oldest kind of row this app holds: a conference written before logical names
+      existed, before datetimes carried a zone, and before the <code>format</code> field. Its
+      <code>schema_version</code> is <code>NULL</code> — it predates the stamp entirely — so it enters the
+      ladder at the bottom and climbs everything.</p>
+    <p>Stage 2 is the part that sounds mysterious and isn't: it is a map from string to class, and
+      <code>EventTypes</code> is nothing but the setup code that fills it in. <code>register</code> declares a
+      type — it adds the name the app writes today, plus that class's own package-and-name, because that is
+      what the wire id used to be. <code>alias</code> adds one more key for a name the app has stopped
+      writing but the database still holds. Reading a row is then a single lookup.</p>
+    <p>After that the metadata is fixed. From then on only the payload changes, one rung at a time —
+      stages 3 and 4 show the whole event before and after, with fields the rung didn't touch elided to
+      <code>…</code> — while a local counter tracks how far up the row has come.</p>
+  </section>
+
+  <section>
+    <figure>
+      <p class="dg-title">worked trace &#183; one pre-v1 row</p>
+      <div class="fig-trace">
+
+        <div class="stage">
+          <div class="num">1</div>
+          <div class="body">
+            <h4>As stored &#8212; the event_log row</h4>
+<pre class="code"><span class="dim">type          </span>  dev.ted.jittertravel.domain.ConferenceTentativelyPlanned
+<span class="dim">schema_version</span>  NULL
+<span class="dim">payload       </span>  {"name":"JitterConf", "startDate":"2026-09-15T09:00:00",
+                 "venueAddress":{"city":"San Francisco", …}}   <span class="dim">no "format" key</span></pre>
+          </div>
+        </div>
+
+        <div class="stage identity">
+          <div class="num">2</div>
+          <div class="body">
+            <h4>Identity &#8212; which class does this string mean?</h4>
+            <p class="lede">Three lines in EventTypes run once at startup. Each one puts entries into a map:</p>
+<pre class="code">register("ConferencePlanned", ConferencePlanned.class, 3);
+alias("ConferenceTentativelyPlanned", "ConferencePlanned");
+alias("…domain.ConferenceTentativelyPlanned", "ConferencePlanned");</pre>
+            <div class="puts">
+              <div>puts 2 entries: the name itself, and the class's own package + name</div>
+              <div>puts 1 entry each: a name no longer used</div>
+            </div>
+            <table class="map">
+              <caption>the map: every string this event has ever been stored under &#8594; the class to build</caption>
+              <tbody>
+                <tr><td class="k">"ConferencePlanned"</td><td class="a">&#8594;</td><td class="v">ConferencePlanned.class</td></tr>
+                <tr><td class="k">"…domain.ConferencePlanned"</td><td class="a">&#8594;</td><td class="v">ConferencePlanned.class</td></tr>
+                <tr><td class="k">"ConferenceTentativelyPlanned"</td><td class="a">&#8594;</td><td class="v">ConferencePlanned.class</td></tr>
+                <tr class="match"><td class="k">"…domain.ConferenceTentativelyPlanned"</td><td class="a">&#8594;</td><td class="v">ConferencePlanned.class</td></tr>
+              </tbody>
+            </table>
+            <p class="lede">our row's type string is the highlighted key, so classFor() returns
+              <span class="hi-i">ConferencePlanned.class</span> &#8212; and from the class: current version 3,
+              the target to climb to.<br>
+              version := NULL &#8658; 1 &#8212; the floor to start from: unstamped means oldest.</p>
+          </div>
+        </div>
+
+        <div class="stage structure">
+          <div class="num">3</div>
+          <div class="body">
+            <h4>Rung v1 &#8594; v2 &#183; ConferenceTimeZoneUpcaster</h4>
+            <p class="lede">reads venueAddress.city "San Francisco" &#8594; America/Los_Angeles, then rewrites
+              the two dates</p>
+            <div class="diff">
+              <div class="side">
+                <p class="lbl">the whole event, before</p>
+<pre class="code">{
+  <span class="dim">"conferenceId": …,</span>
+  <span class="dim">"name": …,</span>
+  "startDate": "2026-09-15T09:00:00",
+  "endDate":   "2026-09-17T17:00:00",
+  <span class="dim">"venueName": …,</span>
+  "venueAddress": { "city": "San Francisco",
+                    <span class="dim">… }</span>
+}
+<span class="dim">no "format" key · no zone anywhere</span></pre>
+              </div>
+              <div class="mid">&#8594;</div>
+              <div class="side">
+                <p class="lbl">the whole event, after</p>
+<pre class="code">{
+  <span class="dim">"conferenceId": …,</span>
+  <span class="dim">"name": …,</span>
+  <span class="hi-s">"startDate": { "utc": "2026-09-15T16:00:00Z",</span>
+                 <span class="hi-s">"zone": "America/Los_Angeles" },</span>
+  <span class="hi-s">"endDate":   { "utc": "2026-09-18T00:00:00Z",</span>
+                 <span class="hi-s">"zone": "America/Los_Angeles" },</span>
+  <span class="dim">"venueName": …, "venueAddress": …</span>
+}
+<span class="dim">still no "format" · version := 2, keep climbing</span></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage structure">
+          <div class="num">4</div>
+          <div class="body">
+            <h4>Rung v2 &#8594; v3 &#183; ConferenceFormatUpcaster</h4>
+            <p class="lede">payload.has("format") is false, so the safe default is added &#8212; nothing else
+              is read</p>
+            <div class="diff">
+              <div class="side">
+                <p class="lbl">the whole event, before</p>
+<pre class="code">{
+  <span class="dim">"conferenceId": …,</span>
+  <span class="dim">"name": …,</span>
+  <span class="dim">"startDate": { … },</span>
+  <span class="dim">"endDate": { … },</span>
+  <span class="dim">"venueName": …,</span>
+  <span class="dim">"venueAddress": …</span>
+}</pre>
+              </div>
+              <div class="mid">&#8594;</div>
+              <div class="side">
+                <p class="lbl">the whole event, after</p>
+<pre class="code">{
+  <span class="dim">"conferenceId": …,</span>
+  <span class="dim">"name": …,</span>
+  <span class="dim">"startDate": { … },</span>
+  <span class="dim">"endDate": { … },</span>
+  <span class="dim">"venueName": …, "venueAddress": …,</span>
+  <span class="hi-s">"format": "CALL_FOR_PAPERS"</span>
+}</pre>
+              </div>
+            </div>
+            <p class="after">the two dates are untouched &#8212; this rung is not a datetime rung &#183;
+              version := 3, which matches the target, so the climb ends</p>
+          </div>
+        </div>
+
+        <div class="stage">
+          <div class="num">5</div>
+          <div class="body">
+            <h4>Binds &#8212; the record is the last check, then the projectors</h4>
+            <p class="lede">new ConferencePlanned(…) &#8212; its compact constructor rejects a null format, so a
+              payload that skipped stage 4 fails here rather than reaching a projector as a null</p>
+          </div>
+        </div>
+
+        <p class="trace-foot">The database row never moved: type, schema_version and payload are still exactly
+          as they were at stage 1. Stages 2&#8211;4 happen in memory, on every single read.</p>
+      </div>
+
+      <figcaption><span class="fignum">Figure 4 · a pre-v1 row, stage by stage</span><strong>The oldest row
+        in the log, climbing both axes.</strong> Stage 2 is just a map: three lines of setup code fill it in
+        at startup, and the stored string is looked up in it. Stages 3 and 4 show the whole event before and
+        after each rung, with untouched fields elided to <code>…</code> — so what a rung actually changed is
+        the only thing spelled out. None of it is durable: the row on disk is unchanged until the eager
+        migration of Figure 5 writes the climbed result back.</figcaption>
+    </figure>
+  </section>
+
+  <section class="col">
+    <div class="note">
+      <p class="note-title">What "fails loud" buys you</p>
+      <p>Every gap in the ladder throws rather than passing a stale payload downstream: an unknown wire id,
+        a missing rung for a step a row still needs, two rungs both claiming the same step. The failure
+        surfaces at boot replay — where the app drops into read-only mode — instead of as a null three
+        screens away in a projector. Stage 5 of Figure 4 is the last of these guards: the record itself
+        refuses to be built from a payload that skipped a rung.</p>
+    </div>
+  </section>
+
+  <section class="col">
+    <h2>Writing, and making the translation permanent</h2>
+    <p>The write path is the mirror image and needs no cleverness: an append stamps the row with the type's
+      <em>current</em> logical name and <em>current</em> schema version, so a freshly written row is by
+      definition at the top of both axes.</p>
+    <p>Read-time translation is free but repeated — every boot replay redoes the whole of Figure 4, on every
+      row. The eager migration bakes it in: it runs the read path over the table and writes the result back,
+      so those rows arrive already current next time. Note what it does <em>not</em> rewrite today.</p>
+  </section>
+
+  <section>
+    <figure>
+      <div class="fig-write">
+        <div class="band">
+          <span class="band-label">append</span>
+          <div class="node plain">event object</div>
+          <span class="arrow">&#8594;</span>
+          <span class="arrow-note">stamps current</span>
+          <span class="arrow">&#8594;</span>
+          <div class="node">logical name + version</div>
+        </div>
+
+        <hr>
+
+        <div class="band">
+          <span class="band-label">eager migration</span>
+          <div class="node plain">stale row</div>
+          <span class="arrow">&#8594;</span>
+          <span class="arrow-note">read path</span>
+          <span class="arrow">&#8594;</span>
+          <div class="node">current shape in memory</div>
+          <span class="arrow">&#8594;</span>
+          <span class="arrow-note">writes back</span>
+          <div class="stack">
+            <div class="node structure">payload &#183; schema_version</div>
+            <div class="node"><span class="dim">type &#8212; left as stored</span></div>
+          </div>
+        </div>
+
+        <p class="foot">so a renamed type keeps both spellings in the column until that changes</p>
+      </div>
+      <figcaption><span class="fignum">Figure 5 · write and write-back</span><strong>The migration
+        materializes the structure axis only.</strong> Payload and stamp are rewritten; the <code>type</code>
+        column is left exactly as stored, which is why a logical-name rename leaves two spellings behind — and
+        why normalizing it is a decision of its own.</figcaption>
+    </figure>
+  </section>
+
+  <section class="col">
+    <h2>Rules of thumb</h2>
+    <div class="table-wrap">
+      <table class="rules">
+        <thead>
+          <tr><th>When you…</th><th>You owe…</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>rename or move an event <strong>class</strong></td>
+            <td>nothing — the logical name is what's stored, and it stays put</td>
+          </tr>
+          <tr>
+            <td>rename an event's <strong>logical name</strong></td>
+            <td>one <code>alias</code> per retired wire id, <em>and</em> every rung's <code>canHandle</code> moved to the new name</td>
+          </tr>
+          <tr>
+            <td>change a payload's <strong>shape</strong></td>
+            <td>a new rung, a bumped <code>currentSchemaVersion</code>, a fail-loud record, and a golden sample of the old shape</td>
+          </tr>
+          <tr>
+            <td>add a brand-new event</td>
+            <td>one <code>register</code> line — version 1, no rungs, nothing to climb</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <p><strong>In the code:</strong> <code>EventTypes</code> holds the identity axis (register, alias,
+      current version per type). <code>EventPayloadUpcaster</code> is the composite that normalizes the wire
+      id and drives the ladder; each rung implements <code>EventUpcaster</code>.
+      <code>LegacyEventMigration</code> is the write-back pass.</p>
+    <p>The worked example throughout is <code>ConferencePlanned</code> — the only type past version 2, and
+      the only one to have been renamed, so it exercises both axes at once.</p>
+  </footer>
+
+</div>

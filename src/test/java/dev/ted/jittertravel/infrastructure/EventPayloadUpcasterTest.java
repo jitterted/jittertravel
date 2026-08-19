@@ -149,6 +149,65 @@ class EventPayloadUpcasterTest {
                 .isEqualTo(mapper.readTree(payload));
     }
 
+    // ---- Retirement simulation: the ladder as it will look after a rung is deleted ---------------
+    //
+    // Retiring a rung is "delete the class and drop it from standard(...)", and it is safe only
+    // because a row still sitting below the deleted rung fails loud instead of binding a stale shape.
+    // These pin that safety net now, while every rung is still present: the composite takes its rung
+    // list, so a ladder can simply be assembled with one omitted. See
+    // docs/RestoreCompatibilityFloorPlan.md — this fail-loud climb is what makes restore refuse a
+    // backup that predates a retirement, writing nothing.
+
+    @Test
+    void aRetiredRungFailsLoudForARowStillBelowIt() {
+        // The conference ladder as it will look once the datetime rung (v1→v2) is retired: the format
+        // rung (v2→v3) remains. A row that never climbed to v2 cannot reach v3 — and the composite
+        // must say so rather than accept "some rung exists for this type" as good enough.
+        EventPayloadUpcaster afterRetirement = new EventPayloadUpcaster(List.of(new ConferenceFormatUpcaster()));
+
+        assertThatThrownBy(() -> afterRetirement.upcast("ConferencePlanned", legacyScalarConference(), null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No upcaster advances ConferencePlanned from schema version 1")
+                .hasMessageContaining("was a rung retired before its rows were migrated?");
+    }
+
+    @Test
+    void aRetiredRungIsInvisibleToARowAlreadyMigratedPastIt() {
+        // The property that makes retirement safe, and the reason the eager migration must run first:
+        // the climb starts at the stored version, so it never looks up the deleted rung at all. Same
+        // degraded ladder as above; this row is stamped v2, so only the surviving format rung runs.
+        EventPayloadUpcaster afterRetirement = new EventPayloadUpcaster(List.of(new ConferenceFormatUpcaster()));
+
+        JsonNode result = afterRetirement.upcast("ConferencePlanned", legacyScalarConference(), 2);
+
+        assertThat(result.get("format").asString())
+                .as("the surviving v2→v3 rung still ran")
+                .isEqualTo("CALL_FOR_PAPERS");
+        assertThat(result.get("startDate").isString())
+                .as("the retired v1→v2 rung was never looked up: startDate is untouched")
+                .isTrue();
+    }
+
+    @Test
+    void retiringOneTypesRungLeavesEveryOtherTypeClimbing() {
+        // Retirement is per (type, version), so deleting the hotel rung must not disturb the train
+        // one. A ladder with the hotel rung omitted: hotels below it fail loud, trains still climb.
+        WallClockZoning zoning = new WallClockZoning(mapper);
+        EventPayloadUpcaster hotelRungRetired = new EventPayloadUpcaster(List.of(
+                new TrainTimeZoneUpcaster(new LocationZoneResolver(), zoning),
+                new ConferenceFormatUpcaster()));
+
+        assertThatThrownBy(() -> hotelRungRetired.upcast("HotelBooked", legacyScalarHotel(), null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No upcaster advances HotelBooked from schema version 1");
+
+        JsonNode train = hotelRungRetired.upcast("TrainBooked", legacyScalarTrain(), null);
+
+        assertThat(train.get("departureDateTime").isObject())
+                .as("the surviving train rung is unaffected by the hotel retirement")
+                .isTrue();
+    }
+
     // ---- Wire-id normalization: a legacy FQCN `type` must reach the same rungs as the logical name -
     //
     // Production event_log is mixed-format: rows written before the logical-name migration store the
@@ -297,6 +356,20 @@ class EventPayloadUpcasterTest {
                   "venueAddress": {"street": "747 Howard St", "city": "San Francisco",
                     "region": "CA", "postalCode": "94103", "country": "USA",
                     "locationForMatching": "San Francisco"}
+                }
+                """);
+    }
+
+    private ObjectNode legacyScalarTrain() {
+        return (ObjectNode) mapper.readTree("""
+                {
+                  "tripId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "departureStation": {"name": "Paris Est", "city": "Paris",
+                    "country": "France", "mapsUrl": null},
+                  "departureDateTime": "2026-06-09T14:30:00",
+                  "arrivalStation": {"name": "Frankfurt Hbf", "city": "Frankfurt",
+                    "country": "Germany", "mapsUrl": null},
+                  "arrivalDateTime": "2026-06-09T18:15:00"
                 }
                 """);
     }

@@ -87,10 +87,14 @@ We pair the rule with mechanical checks. Adopted now (cheapest), with
 heavier options recorded for later.
 
 **Adopted: golden-payload deserialization tests.** For every persisted
-event type we commit one canonical JSON sample under
-`src/test/resources/event-samples/`. A test deserializes each sample with
-a `JsonMapper` configured with `FAIL_ON_UNKNOWN_PROPERTIES = true`
-(stricter than production) so that:
+event type we keep one canonical JSON sample as an inline text block in
+`GoldenEventDeserializationTest` (samples are well under the 30-line
+threshold for a separate file; there is no `event-samples/` resource
+directory). Legacy-shape samples live in the same test and are routed
+through `EventPayloadUpcaster` before binding, since the removed keys
+would otherwise trip the strict mapper. That mapper is a
+`JsonMapper` configured with `FAIL_ON_UNKNOWN_PROPERTIES = true`
+(stricter than production, which ignores unknown properties) so that:
 
 - *Adding* an optional nullable field still passes (old JSON has no such
   field; deserialization populates `null`).
@@ -112,28 +116,59 @@ type — that always requires human judgment).
   type-narrowing more sharply than the golden-payload test, at the cost
   of more cross-cutting test machinery.
 
-- *`@EventSchema(version = N)` + upcaster chain.* Each event carries an
-  explicit schema version. The persister stores `(eventName, version)`;
-  the deserializer routes pre-current-version rows through registered
-  upcasters. Unlike the options above, this gives a **runtime** guarantee,
-  not just a CI one.
-
-  **Half of this already exists.** The stable-name half — decoupling the
-  `event_log.type` discriminator from Java class identity, so an event
-  class can be moved or renamed without breaking replay — shipped as
-  `infrastructure/EventTypes.java`, a logical-name registry with an
-  append-only alias log. (`TaggedEventStoreQueryingDesign.md` proposed an
-  `@EventName` annotation for this; the registry does the same job, so that
-  proposal is obsolete — do not add a second discriminator mechanism.)
-
-  What remains is the **version** half: a per-event schema version written
-  alongside the type, and an upcaster chain keyed on `(logicalName,
-  version)`. That is a smaller step than this entry originally implied,
-  and `EventTypes` is where the version would hang.
-
 - *PR template checklist.* A line in `PULL_REQUEST_TEMPLATE.md`: *"If
   this PR changes an existing event record, the migration plan is in the
   description."* Cheap to add alongside any mechanical check.
+
+**No longer deferred — the versioned upcaster chain is built** (was listed
+here as `@EventSchema(version = N)` + upcaster chain). Both halves shipped:
+
+- *Stable name:* `infrastructure/EventTypes.java`, a logical-name registry
+  with an append-only alias log, decouples the `event_log.type`
+  discriminator from Java class identity. (`TaggedEventStoreQueryingDesign.md`
+  proposed an `@EventName` annotation for this; the registry does the same
+  job, so that proposal is obsolete — do not add a second discriminator
+  mechanism.)
+- *Version:* a per-row `event_log.schema_version` column (a column, not a
+  payload key — see `LegacyEventEagerMigrationPlan.md`), with the current
+  version per type hanging off `EventTypes.register(...)`, and
+  `EventPayloadUpcaster` climbing one `EventUpcaster` rung per version step
+  on every read path. This is the **runtime** guarantee this entry wanted.
+  Mechanism doc: `docs/EventPayloadUpcasterDesign.md`.
+
+### Corollaries of R7 (learned the hard way, 2026-06 → 2026-08)
+
+Three rules the migrations of that period paid for. Full retrospective:
+`docs/MigrationLessonsLearned.md`.
+
+**R7a. An upcaster rung is a pure function of (payload, constants).** No
+external lookup, no injected resolver, no I/O. The datetime rungs violate
+this — they re-derive a zone from `LocationZoneResolver` on every read — and
+the bill came due three ways: one unknown city (Casablanca) killed boot
+replay; one data-entry error (Antwerp filed under country "Brussels") became
+a resolver hack that cannot be removed, because fixing the hotel appends a
+new event and never rewrites the bad original; and the resolver's coverage
+became a permanent replay dependency. If a transform needs a lookup, do the
+lookup **once**, eagerly, and bake the result into the row
+(`/admin/migrate-legacy-events`). Judge a new rung by whether deleting its
+collaborators would change any decoded value.
+
+**R7b. A golden sample is a fossil: add, never edit.** A shape change adds a
+new sample of the shape being **retired**, alongside the current one. Hotels
+and trains rewrote their samples in place, so the repo carried zero coverage
+of any legacy shape until the gathering slice needed it. A legacy sample
+binds through `EventPayloadUpcaster`; a current sample binds directly.
+
+**R7c. Renaming an event's logical name spends the rollback.** Renaming the
+Java class is free (R7 / `EventTypes`). Renaming the *logical* name costs an
+`alias` for every wire id the type was ever stored under, and moves every
+`EventUpcaster.canHandle` for that type in the same commit or those rows
+silently stop climbing. Rewriting `event_log.type` afterwards is a **one-way
+door**: an alias teaches today's build yesterday's names and never the
+reverse, so an older build then fails its boot replay and lands read-only
+with empty read models. Take a backup immediately before that rewrite and
+keep it — that file restores into either build, and it is the entire safety
+story. See `docs/EventTypeColumnNormalizationPlan.md`.
 
 ---
 

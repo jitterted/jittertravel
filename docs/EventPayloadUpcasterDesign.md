@@ -136,6 +136,10 @@ When an event's stored JSON changes shape in a breaking way:
    (`EventPayloadUpcasterTest`) prove the ladder now climbs the extra step. Mutation-verify every new
    test.
 
+7. **If a read model is ever persisted, invalidate it** — a new rung changes what already-folded
+   events mean. See *Persisted read models* below. Nothing to do today: read models are rebuilt in
+   memory at boot.
+
 That's the whole framework the earlier plan deferred: adding a migration is one `register` bump + one
 small class + its test.
 
@@ -150,6 +154,45 @@ The safety net is structural: if a row is ever read that still sits *below* a de
 cannot reach the current version and the composite **fails loud** ("No upcaster advances … from schema
 version …") rather than binding a stale shape. Gate each retirement with the boot-replay preflight
 (`BootReplayPreflightTest`), which certifies nothing in the current store needs it.
+
+## Persisted read models (if/when built) must be invalidated
+
+Today every read model is rebuilt in memory at boot, so it always reflects the current ladder. That
+is the only reason none of this bites. **If a read model is ever persisted** — its own table plus a
+checkpoint holding the last `sequence` it folded — it inherits a hard constraint, because a
+checkpointed read model has *already consumed history that an upcaster is allowed to rewrite*.
+
+**Invalidate = truncate the read-model table and reset its checkpoint to 0**, then rebuild from
+sequence 1. Nothing less is safe: the divergence lives in rows below the checkpoint, which are by
+definition never read again.
+
+**Invalidate on:**
+
+1. **A new or changed rung** (and on a change to a rung's *external inputs* — a corrected
+   `LocationZoneResolver` entry feeds directly into a decoded value). This is the real hazard: the
+   rung changes what an already-folded event *means*. Events below the checkpoint keep the old
+   interpretation forever, while every fresh read gets the new one, and the two disagree silently.
+   The trigger is **shipping the rung**, not running the eager migration.
+2. **Any restore.** Restore reinserts rows verbatim at their original sequences, so a restored row
+   can land *below* the checkpoint, where the projector will never see it. Wipe-then-import must
+   truncate the read-model tables and reset every checkpoint in the same operation.
+3. **A projector logic change.** Same mechanism, same fix — give each persisted read model a version
+   stamp and rebuild automatically when the stamp changes.
+
+**Do *not* need invalidation:**
+
+- **Running the eager migration** (`/admin/migrate-legacy-events`). It writes exactly what the read
+  path already computed, so no decoded value changes. Invalidating anyway is harmless and a fine
+  conservative default, since a migration run usually follows a rung change — which *does* require it.
+- **`event_log.type` normalization.** It rewrites one column, never the decoded event. The caveat is
+  in the projector, not the read model: dispatch on the decoded event **class**, and never filter by
+  the raw type string in SQL (`WHERE type = 'ConferenceTentativelyPlanned'` breaks on the rewrite —
+  resolve the string through `EventTypes` first). See `EventTypeColumnNormalizationPlan.md`.
+
+**The eager migration helps here.** An un-migrated payload's decoded value depends on external
+resolver data, so the same event can decode differently after a resolver correction, and a persisted
+read model would freeze whichever answer was current when it folded the event. Once the store is
+eagerly migrated, decoding is deterministic and the frozen value is the final one.
 
 ## Testing convention
 

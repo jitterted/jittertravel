@@ -469,10 +469,13 @@ public class PostgresPersister {
     public record RestoreCounts(int commandsInserted, int eventsInserted) {}
 
     /**
-     * Rewrites the {@code payload} and {@code schema_version} of the given {@code event_log} rows in
-     * one transaction, matched by {@code sequence}. Only those two columns change — {@code sequence},
-     * {@code event_id}, {@code command_id} and {@code timestamp} are untouched — so events keep their
-     * verbatim identity. Used by the eager legacy migration (see
+     * Rewrites the {@code type}, {@code payload} and {@code schema_version} of the given
+     * {@code event_log} rows in one transaction, matched by {@code sequence}. Only those three columns
+     * change — {@code sequence}, {@code event_id}, {@code command_id} and {@code timestamp} are
+     * untouched — so events keep their verbatim identity. {@code type} is rewritten to the current
+     * logical name, so a row stored under a retired wire id stops needing an {@code EventTypes} alias
+     * to resolve (see {@code docs/EventTypeColumnNormalizationPlan.md}). Used by the eager legacy
+     * migration (see
      * {@code docs/LegacyEventEagerMigrationPlan.md}); never on the append path, which stamps at write
      * time. Returns the number of rows updated. Not routed through {@code CommandExecutor}: it appends
      * no new events, it rewrites existing ones — the orchestrating service performs the read-only
@@ -484,9 +487,12 @@ public class PostgresPersister {
         for (MigratedEventRow row : rows) {
             updated += jdbcClient.sql("""
                             UPDATE event_log
-                            SET payload = CAST(:payload AS jsonb), schema_version = :schemaVersion
+                            SET type = :type,
+                                payload = CAST(:payload AS jsonb),
+                                schema_version = :schemaVersion
                             WHERE sequence = :sequence
                             """)
+                    .param("type", row.type())
                     .param("payload", row.payloadJson())
                     .param("schemaVersion", row.schemaVersion())
                     .param("sequence", row.sequence())
@@ -495,8 +501,11 @@ public class PostgresPersister {
         return updated;
     }
 
-    /** A single event_log row's post-migration payload and schema-version stamp, matched by sequence. */
-    public record MigratedEventRow(long sequence, String payloadJson, int schemaVersion) {}
+    /**
+     * A single event_log row's post-migration type, payload and schema-version stamp, matched by
+     * sequence. {@code type} is the current logical name for the row's event class.
+     */
+    public record MigratedEventRow(long sequence, String type, String payloadJson, int schemaVersion) {}
 
     /**
      * A command_log row for backup/restore, verbatim. {@code eventIds} is null when the

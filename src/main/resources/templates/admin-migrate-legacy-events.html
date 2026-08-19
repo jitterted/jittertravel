@@ -90,20 +90,26 @@
     <h1>Migrate legacy events</h1>
 
     <p class="lead">
-        Bakes the current payload shape and the per-type schema-version stamp into every
-        <code>event_log</code> row, once, so read-time zone resolution leaves the boot-replay path.
-        Safe to run repeatedly — an already-current, correctly-stamped row is skipped.
+        Bakes the current payload shape, the per-type schema-version stamp and the current logical
+        type name into every <code>event_log</code> row, once, so read-time zone resolution leaves the
+        boot-replay path and the <code>type</code> column holds one spelling per event.
+        Safe to run repeatedly — an already-current, correctly-stamped, correctly-named row is skipped.
     </p>
 
     <!-- Applied-run outcome -->
     <div class="banner success" th:if="${result != null and !result.hasErrors()}">
         <strong>✓ Migration complete.</strong>
         <span th:text="${result.rewritten()} + ' payload' + (${result.rewritten()} == 1 ? '' : 's') + ' rewritten, '
-                       + ${result.stamped()} + ' stamp' + (${result.stamped()} == 1 ? '' : 's') + ' added.'">
-            0 payloads rewritten, 0 stamps added.</span>
+                       + ${result.stamped()} + ' stamp' + (${result.stamped()} == 1 ? '' : 's') + ' added, '
+                       + ${result.renamed()} + ' type' + (${result.renamed()} == 1 ? '' : 's') + ' renamed.'">
+            0 payloads rewritten, 0 stamps added, 0 types renamed.</span>
         <span class="restart-note"><span aria-hidden="true">⚠</span>
             Take a fresh backup now — it becomes your new floor. A restart re-verifies a clean replay
             from the now-eager store.</span>
+        <span class="restart-note" th:if="${result.renamed() > 0}"><span aria-hidden="true">⚠</span>
+            Renamed rows make this database new-build-only. An older build cannot resolve a logical
+            name invented after it shipped: it boots into read-only mode with empty read models. Keep
+            the backup you took before this run — it is the only fast way back.</span>
     </div>
 
     <div class="banner error" th:if="${result != null and result.hasErrors()}">
@@ -129,6 +135,14 @@
                 <td th:text="${report.toStamp()}" th:classappend="${report.toStamp()} == 0 ? ' zero' : ''">0</td>
             </tr>
             <tr>
+                <td>Types to rename <span class="hint">(may overlap the two rows above)</span></td>
+                <td th:text="${report.toRename()}" th:classappend="${report.toRename()} == 0 ? ' zero' : ''">0</td>
+            </tr>
+            <tr>
+                <td>Rows to write</td>
+                <td th:text="${report.toMigrate()}" th:classappend="${report.toMigrate()} == 0 ? ' zero' : ''">0</td>
+            </tr>
+            <tr>
                 <td>Already current</td>
                 <td th:text="${report.alreadyCurrent()}">0</td>
             </tr>
@@ -137,7 +151,14 @@
 
     <div class="backup-note" th:if="${report.totalToMigrate() > 0}">
         This rewrites real rows. Download a backup from <a href="/admin/backup">Admin → Backup</a>
-        (or run <code>scripts/backup-db.sh</code>) before you run it.
+        (or run <code>scripts/backup-db.sh</code>) before you run it — <strong>and keep that file</strong>.
+    </div>
+
+    <div class="backup-note" th:if="${report.toRename() > 0}">
+        <strong>Renaming types is one-way.</strong> A renamed row carries a logical name that only this
+        build and later ones know, so rolling the code back stops being safe: the older build fails its
+        boot replay and runs read-only with empty read models. The backup taken just before this run
+        still holds the old names and restores into either build.
     </div>
 
     <form method="post" th:action="@{/admin/migrate-legacy-events}" th:if="${!report.hasErrors()}">

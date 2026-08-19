@@ -143,38 +143,67 @@ class AdminControllerTest {
     @Test
     void migrateLegacyEventsFormRendersThePreviewCounts() {
         given(legacyEventMigration.preview()).willReturn(
-                new LegacyEventMigration.MigrationReport(10, 3, 2, 5, List.of()));
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of()));
 
         assertThat(mockMvc.get().uri("/admin/migrate-legacy-events"))
                 .hasStatusOk()
                 .hasContentTypeCompatibleWith(MediaType.TEXT_HTML)
                 .bodyText()
                 .contains("Events scanned")
+                .contains("Types to rename")
+                .contains("Rows to write")
+                .contains("Renaming types is one-way.")
                 .contains("Run migration");
+    }
+
+    @Test
+    void migrateLegacyEventsFormWithNothingToRenameOmitsTheOneWayWarning() {
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 0, 5, 5, List.of()));
+
+        assertThat(mockMvc.get().uri("/admin/migrate-legacy-events"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("Renaming types is one-way.");
     }
 
     @Test
     void migrateLegacyEventsPostRunsMigrationAndShowsResult() {
         given(legacyEventMigration.migrate()).willReturn(
-                new LegacyEventMigration.MigrationResult(false, 3, 2, List.of()));
+                new LegacyEventMigration.MigrationResult(false, 3, 2, 4, List.of()));
         given(legacyEventMigration.preview()).willReturn(
-                new LegacyEventMigration.MigrationReport(10, 0, 0, 10, List.of()));
+                new LegacyEventMigration.MigrationReport(10, 0, 0, 0, 0, 10, List.of()));
 
         assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()))
                 .hasStatusOk()
                 .bodyText()
                 .contains("Migration complete")
-                .contains("3 payloads rewritten, 2 stamps added");
+                .contains("3 payloads rewritten, 2 stamps added, 4 types renamed")
+                .contains("Renamed rows make this database new-build-only.");
         verify(legacyEventMigration).migrate();
+    }
+
+    @Test
+    void migrateLegacyEventsPostWithNoRenamesOmitsTheRollbackWarning() {
+        given(legacyEventMigration.migrate()).willReturn(
+                new LegacyEventMigration.MigrationResult(false, 3, 2, 0, List.of()));
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 0, 0, 0, 0, 10, List.of()));
+
+        assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("0 types renamed")
+                .doesNotContain("Renamed rows make this database new-build-only.");
     }
 
     @Test
     void migrateLegacyEventsPostRefusedInReadOnlyShowsRefusal() {
         given(legacyEventMigration.migrate()).willReturn(
-                new LegacyEventMigration.MigrationResult(true, 0, 0,
+                new LegacyEventMigration.MigrationResult(true, 0, 0, 0,
                         List.of("Migration refused: the application is in read-only mode, so nothing was written.")));
         given(legacyEventMigration.preview()).willReturn(
-                new LegacyEventMigration.MigrationReport(10, 3, 2, 5, List.of()));
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 0, 5, 5, List.of()));
 
         assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()))
                 .hasStatusOk()

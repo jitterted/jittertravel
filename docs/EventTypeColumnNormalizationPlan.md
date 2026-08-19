@@ -1,9 +1,10 @@
 # Normalizing the `event_log.type` column
 
-> **Status: proposed, nothing built (2026-08-19).** Written to capture the design and — the reason
-> this doc exists — the **rollback consequences**, which turn out to be the deciding factor. See
-> `docs/Backlog.md` for the status of everything else, and `EventPayloadUpcasterDesign.md` for the
-> read path this plugs into.
+> **Status: BUILT 2026-08-19, not yet run against production data.** The code ships; the *operation*
+> is a deliberate, backed-up click. Run the steps in **[Runbook](#runbook-how-to-run-it)** — step 1
+> (take and keep a backup) is not optional, because normalizing makes the database new-build-only.
+> See `docs/Backlog.md` for the status of everything else, and `EventPayloadUpcasterDesign.md` for
+> the read path this plugs into.
 
 ## Problem
 
@@ -21,26 +22,66 @@ Three wire ids point at this one type today:
 | `ConferenceTentativelyPlanned` | builds between logical names and the rename | `alias` |
 | `ConferencePlanned` | builds after 2026-08-19 | `register` |
 
-## What normalization would do
+## What normalization does (as built)
 
 Rewrite `event_log.type` to the current logical name for every row carrying a retired wire id, as a
-fourth thing the **existing** eager migration does. That pass already rewrites stored rows in place —
+third thing the **existing** eager migration does. That pass already rewrites stored rows in place —
 it upcasts the payload and re-stamps `schema_version` — so this is the same operation on one more
 column, not a new mechanism.
 
 Touch points, all small:
 
-1. `PostgresPersister.MigratedEventRow` — add `String type`.
-2. `PostgresPersister.migrateEventPayloads` — add `type = :type` to the `UPDATE`.
-3. `LegacyEventMigration.plan()` — add a `typeChanged` condition
+1. `PostgresPersister.MigratedEventRow` — gains `String type`.
+2. `PostgresPersister.migrateEventPayloads` — `UPDATE` now sets `type = :type`. Still one
+   transaction, still matched by `sequence`; `sequence`, `event_id`, `command_id` and `timestamp`
+   remain untouched, so identity is verbatim.
+3. `LegacyEventMigration.plan()` — a `typeChanged` condition
    (`!row.type().equals(EventTypes.logicalNameFor(EventTypes.classFor(row.type())))`) alongside the
    existing `payloadChanged` / `stampChanged`, so a row whose *only* staleness is its name is still
    selected.
-4. `MigrationResult` / `MigrationReport` + `admin-migrate-legacy-events` — a third counter
-   ("renamed") next to payload rewrites and stamps.
+4. `MigrationResult` / `MigrationReport` + `admin-migrate-legacy-events` — a `renamed` counter next
+   to payload rewrites and stamps, plus the one-way-door warning on the page.
 
 It stays all-or-nothing, idempotent, and resumable, exactly like the pass it joins: plan the whole
 table, refuse on any error, write nothing unless every row is good.
+
+### Counting: the three counters overlap, so the row count is the only total
+
+This is the one place the original sketch was wrong. `toRewrite` and `toStamp` were mutually
+exclusive and `totalToMigrate()` was their **sum** — which drives the "Run migration" button. A
+rename-only row (current payload, correct stamp, retired name — the *common* case after the
+2026-08-19 rename, because the eager migration had already stamped those rows) increments neither,
+so the sum would read 0 and the button would say "Nothing to migrate" while stale rows sat there.
+
+As built: `toRename` counts every row whose name changes, **overlapping** the other two (one row can
+be rewritten, stamped and renamed in a single `UPDATE`), and the report carries an explicit
+`toMigrate` — the number of rows that will actually be written — which `totalToMigrate()` returns.
+The admin table shows all four, with "Types to rename" labelled as overlapping.
+
+### Scope: FQCN rows are normalized too
+
+The condition catches *any* retired wire id, not just the conference rename — a row written before
+logical names existed (`dev.ted.jittertravel.domain.HotelBooked`) is normalized to `HotelBooked` in
+the same pass. That is the intent, and it widens the rollback statement below by exactly one class of
+build: any build older than logical names (pre-2026-08-16) also stops being able to read the store.
+
+### What was verified, not assumed
+
+- **The upcaster is not confused by the change.** `EventPayloadUpcaster.upcast` resolves the wire id
+  to a class and then to the logical name *before* choosing rungs, so a rung keyed on
+  `ConferencePlanned` already fires for a row stored as `ConferenceTentativelyPlanned`. Normalizing
+  the column changes which branch of that lookup is taken, never the outcome.
+- **Nothing else compares a stored type string.** No SQL filters `event_log.type`; `/admin/eventlog`
+  displays it (through `simpleTypeName`), the timeline displays it, and `BackupService` copies it.
+  So the write is total and there is no half-normalized read path.
+- **The write is transactional.** `migrateEventPayloads` is `@Transactional`, so an abort mid-list
+  leaves no partial rename.
+- **A persisted read model would not need invalidating for this.** Read models are rebuilt in memory
+  at boot today, so the question is hypothetical — but normalization changes only a column, never a
+  decoded event, so a checkpointed read model would stay correct. The caveat lands on the projector
+  instead: dispatch on the decoded event **class**, and never filter by the raw type string in SQL.
+  Upcaster changes and restores are the things that *would* force a rebuild — see
+  *Persisted read models* in `EventPayloadUpcasterDesign.md`.
 
 ## What it does **not** fix
 
@@ -129,25 +170,71 @@ compatibility cost, and it addresses the pain where it actually lands (the admin
 **Rejected:** it makes the one screen whose job is to show you what is in the database show you
 something else instead. If the column and the screen disagree, the screen should not be the liar.
 
-## Recommendation
+---
 
-Do it — but **not yet**, and never without step 1 above. The mechanism is small and rides an existing
-pass; the only real cost is the rollback window, and that cost is entirely manageable with a
-pre-migration backup. My earlier "before slice 2" framing was too eager: slice 2 does not care which
-spelling the column holds, so there is no reason to spend the rollback option while the rename is
-still fresh.
+# Runbook: how to run it
 
-**Trigger to revisit:** the renamed build has been in production for a week or more, *and* either the
-two spellings have actually cost debugging time or a second logical rename is being contemplated
-(two renames' worth of divergence is where this stops being cosmetic).
+Seven steps. Do them in order; **do not skip step 2.**
 
-## Test plan when it ships
+1. **Deploy the build that contains this change.** The code is inert until someone clicks the button:
+   a deploy alone changes no data.
+2. **Take a backup and keep the file.** `/admin/backup` (or `scripts/backup-db.sh`). Name it so you
+   can find it — this is the rollback artifact, and it is the *only* fast one. Every row in it still
+   carries the old names, so it restores into **either** build.
+3. **Open `/admin/migrate-legacy-events` and read the preview.** It writes nothing. Check:
+   - **Types to rename** — how many rows carry a retired wire id.
+   - **Rows to write** — the real total (renames may overlap rewrites and stamps).
+   - **errors** — if any row is listed as unmigratable, **stop**: fix the data first, because the run
+     will refuse anyway and write nothing.
+4. **Click "Run migration".** One transaction. All-or-nothing: any bad row aborts the whole pass with
+   zero writes. The page then reports `N payloads rewritten, N stamps added, N types renamed`.
+5. **Restart the app and confirm a clean replay.** Look for the *absence* of `Failed to Load and
+   Process ALL Events from persistent store. Entering read-only mode.` in the log, and check that
+   `/calendar` and `/itinerary` still show entries. An empty site plus that log line means the store
+   holds a name this build cannot resolve — go to the rollback steps.
+6. **Take a fresh backup.** It is your new floor, and the first backup file whose `type` column is
+   clean.
+7. **Re-open `/admin/migrate-legacy-events`.** It must now read "Nothing to migrate" — that is the
+   idempotence check, done against real data.
 
-- `LegacyEventMigrationTest`: a row whose *only* staleness is a retired wire id is selected, rewritten
-  to the current logical name, and its payload and stamp are left alone.
-- Idempotence: a second pass over normalized rows selects nothing.
-- All-or-nothing: an unresolvable row anywhere aborts the pass with zero writes (existing behaviour,
-  extended to the new column).
-- `PostgresPersisterTest`: the `UPDATE` actually writes `type`, matched by sequence.
-- A round-trip: normalize → back up → restore → the restored rows carry the new name and replay.
-- Mutation-verify each, per standing practice.
+## Rollback, if you need it
+
+- **Preferred:** deploy the old build, then restore the step-2 backup into it (wipe first, per the
+  standing import workflow). Old names go back in, the old build replays them.
+- **If the step-2 backup is gone:** patch the old build with a reverse alias
+  (`alias("ConferencePlanned", "ConferenceTentativelyPlanned")`) and deploy that. It works, but it is
+  a build-and-deploy, not a fast path.
+- **Symptom to recognize:** a fully-booted, read-only app with an empty calendar, itinerary and every
+  list view. That is *not* data loss — the database is intact and the new build reads it correctly
+  again.
+
+## Recommendation on timing
+
+The mechanism is small and rides an existing pass; the only real cost is the rollback window, and a
+pre-migration backup covers it. The conservative order is: let the renamed build run in production
+for about a week (a rename is the change most likely to need a rollback, and normalizing on top of it
+spends that option), then run the runbook. Running it sooner is fine **if** step 2 is done — the
+backup is what makes the timing a preference rather than a risk.
+
+## Test plan (implemented)
+
+- `LegacyEventMigrationTest.renamesARetiredWireIdToTheCurrentLogicalNameLeavingPayloadAndStampAlone`:
+  a row whose *only* staleness is a retired wire id is selected (preview counts it in both
+  `toRename` and `totalToMigrate`), renamed to the current logical name with payload, stamp and
+  identity untouched — and a second run renames nothing.
+- `LegacyEventMigrationTest.normalizesALegacyFqcnTypeInTheSameWriteAsThePayloadAndStamp`: an FQCN row
+  is normalized in the same single write as its payload rewrite and stamp.
+- `LegacyEventMigrationTest.oneUnbindableRowAbortsTheWholeMigrationLeavingEveryRowUntouched`: extended
+  with a rename-stale row, which keeps its retired wire id when the pass aborts.
+- `AdminControllerTest`: the preview renders "Types to rename" / "Rows to write" and the one-way-door
+  warning; both warnings disappear when nothing is renamed; the applied run reports the renamed count.
+- The `UPDATE` itself is covered end-to-end by `LegacyEventMigrationTest` against a real Postgres
+  (Testcontainers), which is why no separate `PostgresPersisterTest` case was added.
+- Mutation-verified: dropping `type = :type` from the `UPDATE`, dropping `typeChanged` from the skip
+  condition, and reverting `totalToMigrate()` to `toRewrite + toStamp` each turned exactly the
+  expected test red.
+
+**Not covered by a test:** a normalize → back up → restore round-trip. Restore copies `type` verbatim
+in both directions (`BackupService` maps the column straight through, unchanged by this work), and
+`BackupRestoreRoundTripTest` already exercises that path; the runbook covers the rest operationally at
+steps 6–7.

@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.infrastructure.EventPayloadUpcaster;
 import dev.ted.jittertravel.infrastructure.EventTypes;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
@@ -17,15 +18,23 @@ import java.util.List;
  * read-time upcaster — and the {@link LocationZoneResolver} it calls — leave the boot-replay path.
  *
  * <p><strong>What a row needs.</strong> For each stored event this runs the exact same
- * {@link EventPayloadUpcaster#upcast} the read path uses. A row is rewritten iff either
+ * {@link EventPayloadUpcaster#upcast} the read path uses. A row is rewritten iff any of
  * <ul>
  *   <li>its <em>payload changes</em> under upcast (a legacy bare-scalar datetime → {@code {utc,zone}}),
  *       or</li>
  *   <li>its <em>stamp is missing or wrong</em> — a row written before the {@code schema_version}
- *       column existed, whose payload may already be current-shape but carries no version.</li>
+ *       column existed, whose payload may already be current-shape but carries no version, or</li>
+ *   <li>its <em>{@code type} is a retired wire id</em> — an old logical name or a legacy FQCN that
+ *       {@link EventTypes} still aliases; it is normalized to the current logical name (see
+ *       {@code docs/EventTypeColumnNormalizationPlan.md}).</li>
  * </ul>
- * A row that is already current-shape <em>and</em> correctly stamped is skipped, which makes the whole
- * migration idempotent: a second run rewrites nothing.
+ * A row that is already current-shape, correctly stamped <em>and</em> stored under the current logical
+ * name is skipped, which makes the whole migration idempotent: a second run rewrites nothing.
+ *
+ * <p><strong>Normalizing {@code type} is a one-way door for rollback.</strong> Aliases teach today's
+ * build yesterday's names, never the reverse, so once a row carries a name invented after an older
+ * build shipped, that older build cannot replay it. Take — and keep — a backup immediately before
+ * migrating: it is the artifact that restores into either build.
  *
  * <p><strong>Validate-then-apply.</strong> {@link #preview()} and {@link #migrate()} share one pass
  * that upcasts and <em>bind-checks</em> every candidate row, writing nothing; a single row that cannot
@@ -56,7 +65,7 @@ public class LegacyEventMigration {
         Plan plan = plan();
         int alreadyCurrent = plan.scanned - plan.rows.size() - plan.errors.size();
         return new MigrationReport(plan.scanned, plan.payloadRewrites, plan.stampsOnly,
-                alreadyCurrent, plan.errors);
+                plan.renames, plan.rows.size(), alreadyCurrent, plan.errors);
     }
 
     /**
@@ -72,13 +81,14 @@ public class LegacyEventMigration {
             return MigrationResult.failed(plan.errors);  // nothing written: fix the data and re-run
         }
         persister.migrateEventPayloads(plan.rows);
-        return new MigrationResult(false, plan.payloadRewrites, plan.stampsOnly, List.of());
+        return new MigrationResult(false, plan.payloadRewrites, plan.stampsOnly, plan.renames, List.of());
     }
 
     private Plan plan() {
         int scanned = 0;
         int payloadRewrites = 0;
         int stampsOnly = 0;
+        int renames = 0;
         List<MigratedEventRow> rows = new ArrayList<>();
         List<String> errors = new ArrayList<>();
 
@@ -89,67 +99,82 @@ public class LegacyEventMigration {
             // whole migration, never thrown mid-scan. That is the 2026-08-16 boot failure turned into
             // a clean, all-or-nothing report.
             try {
-                int currentVersion = EventTypes.currentSchemaVersion(row.type());
+                Class<? extends Event> eventClass = EventTypes.classFor(row.type());
+                String currentType = EventTypes.logicalNameFor(eventClass);
+                int currentVersion = EventTypes.currentSchemaVersion(eventClass);
                 JsonNode original = jsonMapper.readTree(row.payloadJson());
                 // upcast mutates the node in place, so hand it a copy and compare against the original.
                 JsonNode upcasted = upcaster.upcast(row.type(), original.deepCopy(), row.schemaVersion());
 
                 boolean payloadChanged = !upcasted.equals(original);
                 boolean stampChanged = row.schemaVersion() == null || row.schemaVersion() != currentVersion;
-                if (!payloadChanged && !stampChanged) {
-                    continue;  // already current-shape and correctly stamped
+                boolean typeChanged = !row.type().equals(currentType);
+                if (!payloadChanged && !stampChanged && !typeChanged) {
+                    continue;  // already current-shape, correctly stamped, current name
                 }
 
-                jsonMapper.treeToValue(upcasted, EventTypes.classFor(row.type()));  // must bind
+                jsonMapper.treeToValue(upcasted, eventClass);  // must bind
 
                 String newPayload = payloadChanged ? upcasted.toString() : row.payloadJson();
-                rows.add(new MigratedEventRow(row.sequence(), newPayload, currentVersion));
+                rows.add(new MigratedEventRow(row.sequence(), currentType, newPayload, currentVersion));
+                // The three counters overlap — one row can be rewritten, stamped and renamed at once —
+                // so the number of rows actually written is rows.size(), never their sum.
                 if (payloadChanged) {
                     payloadRewrites++;
-                } else {
+                } else if (stampChanged) {
                     stampsOnly++;
+                }
+                if (typeChanged) {
+                    renames++;
                 }
             } catch (Exception e) {
                 errors.add("Event %d (%s) cannot be migrated: %s"
                         .formatted(row.sequence(), row.type(), e.getMessage()));
             }
         }
-        return new Plan(scanned, payloadRewrites, stampsOnly, rows, errors);
+        return new Plan(scanned, payloadRewrites, stampsOnly, renames, rows, errors);
     }
 
     /** What one pass found: the rows to write, and why the rest are not written. */
-    private record Plan(int scanned, int payloadRewrites, int stampsOnly,
+    private record Plan(int scanned, int payloadRewrites, int stampsOnly, int renames,
                         List<MigratedEventRow> rows, List<String> errors) {}
 
     /**
-     * A dry-run summary: how many rows would be payload-rewritten, stamp-only stamped, are already
-     * current, and every row that could not be migrated.
+     * A dry-run summary: how many rows would be payload-rewritten, stamp-only stamped, renamed to the
+     * current logical name, how many rows would be written in total, how many are already current, and
+     * every row that could not be migrated.
+     *
+     * <p>{@code toRename} <em>overlaps</em> the other two — a row can be rewritten and renamed in one
+     * write — so {@code toMigrate}, the row count, is the only true total.
      */
-    public record MigrationReport(int scanned, int toRewrite, int toStamp, int alreadyCurrent,
-                                  List<String> errors) {
+    public record MigrationReport(int scanned, int toRewrite, int toStamp, int toRename, int toMigrate,
+                                  int alreadyCurrent, List<String> errors) {
         public boolean hasErrors() {
             return !errors.isEmpty();
         }
 
         public int totalToMigrate() {
-            return toRewrite + toStamp;
+            return toMigrate;
         }
     }
 
-    /** Outcome of an applied migration: rows rewritten/stamped, or why nothing was written. */
-    public record MigrationResult(boolean refusedReadOnly, int rewritten, int stamped,
+    /**
+     * Outcome of an applied migration: rows rewritten/stamped/renamed, or why nothing was written.
+     * {@code renamed} overlaps {@code rewritten} and {@code stamped}, as in {@link MigrationReport}.
+     */
+    public record MigrationResult(boolean refusedReadOnly, int rewritten, int stamped, int renamed,
                                   List<String> errors) {
         public boolean hasErrors() {
             return !errors.isEmpty();
         }
 
         static MigrationResult readOnlyRefusal() {
-            return new MigrationResult(true, 0, 0, List.of(
+            return new MigrationResult(true, 0, 0, 0, List.of(
                     "Migration refused: the application is in read-only mode, so nothing was written."));
         }
 
         static MigrationResult failed(List<String> errors) {
-            return new MigrationResult(false, 0, 0, errors);
+            return new MigrationResult(false, 0, 0, 0, errors);
         }
     }
 }

@@ -43,7 +43,10 @@ import java.util.Map;
  *       logical name, plus its old FQCN if any row predates logical names) and leaves the log holding
  *       both spellings. Any {@link EventUpcaster} rung for the type keys on the logical name, so its
  *       {@code canHandle} must move to the new one in the same change. See {@code ConferencePlanned}
- *       (renamed 2026-08-19).</li>
+ *       (renamed 2026-08-19). Running {@code /admin/migrate-legacy-events} afterwards rewrites those
+ *       rows to the new name — and costs the ability to roll the code back, because an alias teaches
+ *       today's build yesterday's names and never the reverse. Take and keep a backup immediately
+ *       before that run; see {@code docs/EventTypeColumnNormalizationPlan.md}.</li>
  *   <li><b>Migrate an event's payload schema:</b> bump its {@code currentSchemaVersion} here (the
  *       third {@code register} argument) so new appends and the eager migration stamp the new
  *       number. See {@code docs/LegacyEventEagerMigrationPlan.md}.</li>

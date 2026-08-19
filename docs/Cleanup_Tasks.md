@@ -155,8 +155,9 @@ plan doc and its status — including these items — see `Backlog.md`.
       validate-then-apply (one unbindable/unresolvable row aborts with zero writes), read-only-guarded.
       OWNER-only `/admin/migrate-legacy-events` (GET preview + POST run) with an `AuthorizationMatrixTest`
       row and an admin nav card. Decided with Ted: **column not payload-key**, accept the backup bump,
-      in-place admin UPDATE, FQCN→logical `type` normalization **deferred**, versioning *framework*
-      deferred (stamp only for now). Every new/changed test mutation-verified. Retirements still gated
+      in-place admin UPDATE, FQCN→logical `type` normalization **deferred** (that pass is now **built**,
+      2026-08-19 — see `EventTypeColumnNormalizationPlan.md`; the same `UPDATE` now writes `type`),
+      versioning *framework* deferred (stamp only for now). Every new/changed test mutation-verified. Retirements still gated
       on old backups leaving rotation: the upcaster's legacy timezone rungs (the `*TimeZoneUpcaster`
       classes — see `EventPayloadUpcasterDesign.md`), the FQCN mapping, and the Antwerp-style resolver
       hacks.

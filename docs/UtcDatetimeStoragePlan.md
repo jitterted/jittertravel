@@ -150,7 +150,7 @@ Field changes (each `LocalDateTime` → `ZonedTimestamp`, independent zone per f
 - `TrainBooked`/`TrainChanged`: departure, arrival (independent zones). — done
 - `GatheringPlanned`/`GatheringChanged`: `date`+`startTime`/`endTime` collapsed into
   `startsAt`/`endsAt` `ZonedTimestamp`s. — done (2026-07-27)
-- `ConferenceTentativelyPlanned`: startDate, endDate. — done (2026-08-05)
+- `ConferencePlanned`: startDate, endDate. — done (2026-08-05)
 
 **DST policy:** building a `ZonedTimestamp` from a typed wall-clock uses `ZonedDateTime.of(local,
 zone)` (lenient: non-existent spring-forward times shift forward, fall-back ambiguity picks the
@@ -316,7 +316,7 @@ Remaining work is planned in detail in `docs/GatheringConferenceUtcRolloutPlan.m
 - `[x]` Gathering (2026-07-27, `ddf4ba8`): `GatheringPlanned`/`GatheringChanged` collapsed to
   `startsAt`/`endsAt`; commands, contexts, handlers, views, projectors, web forms, upcaster and
   tests all landed. Renderer `<time>` treatment deferred to phase 4 with the other list views.
-- `[x]` **Conference** (2026-08-05): `ConferenceTentativelyPlanned` on `ZonedTimestamp`,
+- `[x]` **Conference** (2026-08-05): `ConferencePlanned` on `ZonedTimestamp`,
   `PlanConferenceCommand` a `DomainCommand` record with a new context and handler, the
   `ConferencePlanning`→`CommandExecutor` rewrite, view/projectors/web/upcaster, plus every
   ride-along below. **Behavior change:** the "start at least one day out" rule is now "a later
@@ -466,7 +466,7 @@ Spec for the remaining items:
 - `[x]` `EventPayloadUpcaster` wired into the `event_log` read path via `PostgresPersister`;
   handles `HotelBooked/Changed`, `TrainBooked/Changed`, `FlightBooked/Changed`,
   `GatheringPlanned/Changed` (the key-merging gathering case); idempotent on new-shape payloads.
-- `[x]` Conference upcaster case (`ConferenceTentativelyPlanned`, simple hotel-style in-place
+- `[x]` Conference upcaster case (`ConferencePlanned`, simple hotel-style in-place
   rewrite) — done 2026-08-05, resolving from `venueAddress.{city,country}`.
 - `[x]` **Golden legacy-shape coverage exists.** `GoldenEventDeserializationTest` has the
   `deserializeLegacy` upcast-then-deserialize path and legacy samples for hotel, train, flight
@@ -624,7 +624,7 @@ failure confirmed, and the code restored. Item 8 found a live bug that way.
 - New: `domain/ZonedTimestamp.java`, `application/LocationZoneResolver.java` (+ city/country table),
   `CommonZone` enum, the JSON upcaster, a shared time-formatting helper + browser-zone toggle.
 - Events: `HotelBooked/Changed`, `FlightBooked/Changed`, `TrainBooked/Changed`,
-  `GatheringPlanned/Changed`, `ConferenceTentativelyPlanned`.
+  `GatheringPlanned/Changed`, `ConferencePlanned`.
 - Commands/contexts + web requests: `BookHotelCommand`/`ChangeHotelCommand` (+ flight/train/
   conference/gathering), `BookHotelRequest`/`ChangeHotelRequest` (+ siblings); internal commands
   `MigrateConferenceToGathering`, `ClearDifferentCityConflict`.

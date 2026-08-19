@@ -5,7 +5,7 @@ import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceNotFound;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.DecisionContext;
 import dev.ted.jittertravel.domain.DomainCommand;
 import dev.ted.jittertravel.domain.Event;
@@ -88,9 +88,9 @@ class DeclineConferenceTest {
                         new DeclineConferenceRequest(conferenceId.id(), ""), DECLINED_ON));
     }
 
-    private static ConferenceTentativelyPlanned planned(ConferenceId conferenceId) {
+    private static ConferencePlanned planned(ConferenceId conferenceId) {
         Address venue = new Address("Avenue de France", "Marrakesh", "", "40000", "Morocco", "Marrakesh");
-        return new ConferenceTentativelyPlanned(
+        return new ConferencePlanned(
                 conferenceId, "Devoxx Morocco",
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 7, 9, 0), VENUE_ZONE),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 9, 17, 0), VENUE_ZONE),

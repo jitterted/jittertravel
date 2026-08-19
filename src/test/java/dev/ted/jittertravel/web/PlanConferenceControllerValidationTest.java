@@ -5,7 +5,7 @@ import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.application.PlanConferenceHandler;
 import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.ConferenceFormat;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.DateRangeNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
 import dev.ted.jittertravel.domain.PlanConferenceContext;
@@ -98,7 +98,7 @@ class PlanConferenceControllerValidationTest {
                 LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 22, 17, 0), null);
         request.setFormat("OPEN_SPACE");
 
-        ConferenceTentativelyPlanned event =
+        ConferencePlanned event =
                 new PlanConferenceHandler(new LocationZoneResolver()).handle(request)
                         .execute(new PlanConferenceContext(NOW))
                         .toList()

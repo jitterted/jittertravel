@@ -2,7 +2,7 @@ package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.AirportZoneResolver;
 import dev.ted.jittertravel.application.LocationZoneResolver;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.GatheringPlanned;
@@ -43,7 +43,7 @@ class EventPayloadUpcasterTest {
     void climbsEveryRungFromVersionOneWhenTheStampIsAbsent() {
         // A legacy (unstamped ⇒ version 1) conference walks BOTH rungs: datetime (v1→v2) then format
         // (v2→v3). Proving both ran in one climb is the composition test the per-rung tests cannot be.
-        JsonNode result = upcaster.upcast("ConferenceTentativelyPlanned", legacyScalarConference(), null);
+        JsonNode result = upcaster.upcast("ConferencePlanned", legacyScalarConference(), null);
 
         assertThat(result.get("startDate").isObject())
                 .as("the v1→v2 datetime rung ran: startDate is now a {utc,zone} object")
@@ -58,7 +58,7 @@ class EventPayloadUpcasterTest {
         // Same legacy scalar payload, but stamped version 2: the climb must start at 2, so ONLY the
         // format rung runs. The datetime rung (v1) is skipped, leaving startDate the bare scalar it
         // came in as — the signal that the stored version, not the payload shape, drove the climb.
-        JsonNode result = upcaster.upcast("ConferenceTentativelyPlanned", legacyScalarConference(), 2);
+        JsonNode result = upcaster.upcast("ConferencePlanned", legacyScalarConference(), 2);
 
         assertThat(result.get("startDate").isString())
                 .as("the v1 datetime rung was skipped: startDate is still the bare scalar")
@@ -85,7 +85,7 @@ class EventPayloadUpcasterTest {
                 """);
         JsonNode before = current.deepCopy();
 
-        JsonNode result = upcaster.upcast("ConferenceTentativelyPlanned", current, 3);
+        JsonNode result = upcaster.upcast("ConferencePlanned", current, 3);
 
         assertThat(result)
                 .as("a row stamped at the current version is returned untouched")
@@ -187,6 +187,25 @@ class EventPayloadUpcasterTest {
                 .isEqualTo(Instant.parse("2026-06-07T13:00:00Z"));
     }
 
+    @Test
+    void aRenamedTypesRetiredWireIdsStillClimbTheirLadder() {
+        // ConferenceTentativelyPlanned was renamed to ConferencePlanned on 2026-08-19; stored rows
+        // keep both retired wire ids (the old logical name, and the older FQCN). Each must normalize
+        // to the new logical name, or those rows silently stop being upcast — bare-scalar datetimes
+        // and no format, exactly the shape that fails to bind.
+        for (String retiredWireId : List.of("ConferenceTentativelyPlanned",
+                                            "dev.ted.jittertravel.domain.ConferenceTentativelyPlanned")) {
+            JsonNode result = upcaster.upcast(retiredWireId, legacyScalarConference(), null);
+
+            assertThat(result.get("startDate").isObject())
+                    .as("%s: the datetime rung must run for the retired wire id too", retiredWireId)
+                    .isTrue();
+            assertThat(result.get("format").asString())
+                    .as("%s: and so must the format rung", retiredWireId)
+                    .isEqualTo("CALL_FOR_PAPERS");
+        }
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("migratedLegacyPayloads")
     void everyMigratedTypeUpcastsIdenticallyWhetherKeyedByLegacyFqcnOrLogicalName(
@@ -242,7 +261,7 @@ class EventPayloadUpcasterTest {
                           "arrivalDateTime": "2026-06-07T11:45:00"
                         }
                         """),
-                Arguments.of(ConferenceTentativelyPlanned.class, "startDate", """
+                Arguments.of(ConferencePlanned.class, "startDate", """
                         {
                           "conferenceId": {"id": "66666666-6666-6666-6666-666666666666"},
                           "name": "JitterConf",

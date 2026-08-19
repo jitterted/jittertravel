@@ -3,7 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.DeclineConferenceCommand;
 import dev.ted.jittertravel.domain.DeclineConferenceContext;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -49,7 +49,7 @@ public class DeclineConference {
 
     private boolean stillPlanned(boolean current, ConferenceId wanted, Object event) {
         return switch (event) {
-            case ConferenceTentativelyPlanned e when e.conferenceId().equals(wanted) -> true;
+            case ConferencePlanned e when e.conferenceId().equals(wanted) -> true;
             case ConferenceCancelled e when e.conferenceId().equals(wanted) -> false;
             case ConferenceAttendanceDeclined e when e.conferenceId().equals(wanted) -> false;
             default -> current;

@@ -34,7 +34,7 @@ are in; Ireland and Cyprus are not), so the form should determine it rather than
 
 | Source | Country available? | Where |
 |---|---|---|
-| Conference | yes | `ConferenceTentativelyPlanned.venueAddress().country()` |
+| Conference | yes | `ConferencePlanned.venueAddress().country()` |
 | Gathering | yes | `GatheringPlanned.location().country()` |
 | Hotel | yes | `HotelBooked.address().country()` |
 | Train leg | yes | `TrainStationAddress.country()` — enough to detect external crossings today |
@@ -303,7 +303,7 @@ order-independent; envelope pairing is not, so it re-derives from the sorted cro
 than being maintained incrementally as events arrive out of order.
 
 Handles the same lifecycle events the other projectors do, so a cancelled or changed item moves the
-number: `ConferenceTentativelyPlanned` / `ConferenceCancelled`, `GatheringPlanned` /
+number: `ConferencePlanned` / `ConferenceCancelled`, `GatheringPlanned` /
 `GatheringChanged`, `HotelBooked` / `HotelChanged` / `HotelBookingCancelled`, `TrainBooked` /
 `TrainChanged`, and `FlightBooked` / `FlightChanged`.
 

@@ -13,7 +13,7 @@ public record PlanConferenceCommand(
 ) implements DomainCommand<PlanConferenceContext> {
 
     @Override
-    public Stream<ConferenceTentativelyPlanned> execute(PlanConferenceContext context) {
+    public Stream<ConferencePlanned> execute(PlanConferenceContext context) {
         // "At least a day out" is a calendar-day question read in the venue's own zone, matching
         // PlanGatheringCommand. It used to be a 24-hour wall-clock comparison against the server's
         // clock, so a conference starting tomorrow morning is now accepted even when that is less
@@ -26,7 +26,7 @@ public record PlanConferenceCommand(
         if (endDate == null || endDate.utc().isBefore(startDate.utc())) {
             throw new InvalidDateRange("End date must be on or after start date");
         }
-        return Stream.of(new ConferenceTentativelyPlanned(
+        return Stream.of(new ConferencePlanned(
                 conferenceId, name, startDate, endDate, venueName, venueAddress, format));
     }
 }

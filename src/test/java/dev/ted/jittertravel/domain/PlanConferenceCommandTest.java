@@ -77,7 +77,7 @@ class PlanConferenceCommandTest {
                 conferenceId, "Successful Conference", start, end, "Moscone Center", VENUE,
                 ConferenceFormat.OPEN_SPACE);
 
-        ConferenceTentativelyPlanned event = command
+        ConferencePlanned event = command
                 .execute(new PlanConferenceContext(instantAt(LocalDateTime.of(2026, 5, 16, 10, 0))))
                 .toList()
                 .getFirst();

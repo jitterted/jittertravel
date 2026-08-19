@@ -2,7 +2,7 @@ package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceId;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.web.PlanConferenceRequest;
@@ -103,7 +103,7 @@ class EventStorePerfTest extends AbstractTestcontainerIntegrationTest {
     }
 
     private Event createSampleEvent() {
-        return new ConferenceTentativelyPlanned(
+        return new ConferencePlanned(
                 ConferenceId.of(UUID.randomUUID()),
                 "Test Conference",
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, 9, 0), ZoneId.of("UTC")),

@@ -363,7 +363,7 @@ class ItineraryProjectorTest {
     @Test
     void conferencePlannedCreatesOneEntryPerDayWithDayOfNIndicator() {
         ItineraryProjector projector = new ItineraryProjector();
-        ConferenceTentativelyPlanned event = new ConferenceTentativelyPlanned(
+        ConferencePlanned event = new ConferencePlanned(
                 ConferenceId.random(), "JitterConf 2026",
                 zt(DATE.atStartOfDay()), zt(DATE.plusDays(2).atStartOfDay()),
                 "Moscone Center",
@@ -391,7 +391,7 @@ class ItineraryProjectorTest {
     void conferenceCancelledRemovesConferenceFromItinerary() {
         ItineraryProjector projector = new ItineraryProjector();
         ConferenceId conferenceId = ConferenceId.random();
-        ConferenceTentativelyPlanned planned = new ConferenceTentativelyPlanned(
+        ConferencePlanned planned = new ConferencePlanned(
                 conferenceId, "JitterConf 2026",
                 zt(DATE.atStartOfDay()), zt(DATE.plusDays(2).atStartOfDay()),
                 "Moscone Center",
@@ -417,7 +417,7 @@ class ItineraryProjectorTest {
     void decliningAttendanceRemovesConferenceFromItinerary() {
         ItineraryProjector projector = new ItineraryProjector();
         ConferenceId conferenceId = ConferenceId.random();
-        ConferenceTentativelyPlanned planned = new ConferenceTentativelyPlanned(
+        ConferencePlanned planned = new ConferencePlanned(
                 conferenceId, "Devoxx Morocco",
                 zt(DATE.atStartOfDay()), zt(DATE.plusDays(2).atStartOfDay()),
                 "Palais des Congrès",
@@ -474,7 +474,7 @@ class ItineraryProjectorTest {
                 TrainTripId.random(), amsterdam, zt(date.atTime(7, 51)), brussels, zt(date.atTime(9, 30)), "");
 
         // Conference starts 9:00 AM
-        ConferenceTentativelyPlanned conference = new ConferenceTentativelyPlanned(
+        ConferencePlanned conference = new ConferencePlanned(
                 ConferenceId.random(), "DevConf 2026",
                 zt(date.atTime(9, 0)), zt(date.atTime(17, 0)),
                 "Conference Center",

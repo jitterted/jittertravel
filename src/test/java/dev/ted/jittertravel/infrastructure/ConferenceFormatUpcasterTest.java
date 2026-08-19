@@ -1,7 +1,7 @@
 package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.domain.ConferenceFormat;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -22,9 +22,9 @@ class ConferenceFormatUpcasterTest {
 
     @Test
     void handlesConferenceAtVersionTwoOnly() {
-        assertThat(upcaster.canHandle("ConferenceTentativelyPlanned", 2))
+        assertThat(upcaster.canHandle("ConferencePlanned", 2))
                 .isTrue();
-        assertThat(upcaster.canHandle("ConferenceTentativelyPlanned", 1))
+        assertThat(upcaster.canHandle("ConferencePlanned", 1))
                 .as("v1→v2 is the datetime rung, not this one")
                 .isFalse();
         assertThat(upcaster.canHandle("GatheringPlanned", 2))
@@ -48,8 +48,8 @@ class ConferenceFormatUpcasterTest {
                 }
                 """);
 
-        upcaster.upcast(payload, "ConferenceTentativelyPlanned");
-        ConferenceTentativelyPlanned event = mapper.treeToValue(payload, ConferenceTentativelyPlanned.class);
+        upcaster.upcast(payload, "ConferencePlanned");
+        ConferencePlanned event = mapper.treeToValue(payload, ConferencePlanned.class);
 
         assertThat(event.format())
                 .as("an absent format defaults to CALL_FOR_PAPERS")
@@ -75,8 +75,8 @@ class ConferenceFormatUpcasterTest {
                 }
                 """);
 
-        upcaster.upcast(payload, "ConferenceTentativelyPlanned");
-        ConferenceTentativelyPlanned event = mapper.treeToValue(payload, ConferenceTentativelyPlanned.class);
+        upcaster.upcast(payload, "ConferencePlanned");
+        ConferencePlanned event = mapper.treeToValue(payload, ConferencePlanned.class);
 
         assertThat(event.format())
                 .as("an explicit format is never overwritten by the default")

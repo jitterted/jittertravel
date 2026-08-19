@@ -3,7 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceId;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -21,10 +21,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ConferenceCalendarProjectorTest {
 
     @Test
-    void buildsCalendarEntryFromConferenceTentativelyPlanned() {
+    void buildsCalendarEntryFromConferencePlanned() {
         ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
         ConferenceId conferenceId = ConferenceId.random();
-        ConferenceTentativelyPlanned event = new ConferenceTentativelyPlanned(
+        ConferencePlanned event = new ConferencePlanned(
                 conferenceId,
                 "DDD Europe 2026",
                 zt(LocalDateTime.of(2026, 6, 7, 11, 0)),
@@ -50,7 +50,7 @@ class ConferenceCalendarProjectorTest {
     @Test
     void replayingTheSameEventIsIdempotent() {
         ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
-        ConferenceTentativelyPlanned event = sampleConference("Conf", LocalDateTime.of(2026, 7, 1, 9, 0));
+        ConferencePlanned event = sampleConference("Conf", LocalDateTime.of(2026, 7, 1, 9, 0));
 
         projector.handle(Stream.of(stored(event)));
         projector.handle(Stream.of(stored(event)));
@@ -61,8 +61,8 @@ class ConferenceCalendarProjectorTest {
     @Test
     void entriesAreSortedByStart() {
         ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
-        ConferenceTentativelyPlanned later = sampleConference("Later", LocalDateTime.of(2026, 8, 1, 9, 0));
-        ConferenceTentativelyPlanned earlier = sampleConference("Earlier", LocalDateTime.of(2026, 7, 1, 9, 0));
+        ConferencePlanned later = sampleConference("Later", LocalDateTime.of(2026, 8, 1, 9, 0));
+        ConferencePlanned earlier = sampleConference("Earlier", LocalDateTime.of(2026, 7, 1, 9, 0));
 
         projector.handle(Stream.of(stored(later), stored(earlier)));
 
@@ -75,9 +75,9 @@ class ConferenceCalendarProjectorTest {
     void decliningAttendanceRemovesTheConferenceFromTheCalendar() {
         ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
         ConferenceId conferenceId = ConferenceId.random();
-        ConferenceTentativelyPlanned planned = sampleConference("Devoxx Morocco", LocalDateTime.of(2026, 10, 7, 9, 0));
+        ConferencePlanned planned = sampleConference("Devoxx Morocco", LocalDateTime.of(2026, 10, 7, 9, 0));
         // rebind planned to a known id so the decline targets it
-        ConferenceTentativelyPlanned withId = new ConferenceTentativelyPlanned(
+        ConferencePlanned withId = new ConferencePlanned(
                 conferenceId, planned.name(), planned.startDate(), planned.endDate(),
                 planned.venueName(), planned.venueAddress());
 
@@ -93,8 +93,8 @@ class ConferenceCalendarProjectorTest {
                 .isEmpty();
     }
 
-    private static ConferenceTentativelyPlanned sampleConference(String name, LocalDateTime start) {
-        return new ConferenceTentativelyPlanned(
+    private static ConferencePlanned sampleConference(String name, LocalDateTime start) {
+        return new ConferencePlanned(
                 ConferenceId.random(),
                 name,
                 zt(start),
@@ -109,7 +109,7 @@ class ConferenceCalendarProjectorTest {
         return ZonedTimestamp.fromLocal(local, ZoneId.of("Europe/Berlin"));
     }
 
-    private static StoredEvent stored(ConferenceTentativelyPlanned event) {
+    private static StoredEvent stored(ConferencePlanned event) {
         return new StoredEvent(1, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID());
     }
 

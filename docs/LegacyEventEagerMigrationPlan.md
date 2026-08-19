@@ -19,7 +19,7 @@ Built together in one session; full suite green at 880.
   This is the *stamp* half of event-schema versioning; the *framework* half (a per-type upcaster
   chain driven by the stamp) was deliberately deferred until a second real migration shaped it
   (no-abstraction-before-second-user). **That framework is now built** (2026-08-18): the second
-  migration — `ConferenceTentativelyPlanned` v2→v3 adding `format` — is what shaped it. See
+  migration — `ConferencePlanned` v2→v3 adding `format` — is what shaped it. See
   `EventPayloadUpcasterDesign.md` for the version-ladder design; the summary is that
   `EventPayloadUpcaster` became a composite that climbs a payload from its stored `schema_version`
   to current by applying one small `EventUpcaster` rung per version step.
@@ -107,7 +107,7 @@ the set with a bare-scalar datetime field, per type:
 | `HotelBooked`, `HotelChanged` | `checkIn`, `checkOut` (+ optional `cancelBy`) | `{utc, zone}` objects |
 | `TrainBooked`, `TrainChanged` | `departureDateTime`, `arrivalDateTime` | `{utc, zone}` objects |
 | `FlightBooked`, `FlightChanged` | `departureDateTime`, `arrivalDateTime` | `{utc, zone}` objects |
-| `ConferenceTentativelyPlanned` | `startDate`, `endDate` | `{utc, zone}` objects |
+| `ConferencePlanned` | `startDate`, `endDate` | `{utc, zone}` objects |
 | `GatheringPlanned`, `GatheringChanged` | `date` + `startTime` + `endTime` | `startsAt` + `endsAt` (field **set** changes) |
 
 The upcaster is already **idempotent** (a new-shape payload is returned unchanged), so the migration

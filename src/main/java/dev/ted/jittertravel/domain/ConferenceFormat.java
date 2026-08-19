@@ -4,7 +4,7 @@ import java.util.Locale;
 
 /**
  * How a conference forms its program — intrinsic to the conference and known when it is entered, so
- * it rides on {@link ConferenceTentativelyPlanned} rather than a separate "what happened" event
+ * it rides on {@link ConferencePlanned} rather than a separate "what happened" event
  * (nothing happened; an open-space conference simply <em>is</em> open-space).
  *
  * <p>The value answers the one question "how do you get on the program," and the speaking pipeline

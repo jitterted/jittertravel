@@ -94,9 +94,11 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
-    void conferenceTentativelyPlannedLegacyPayloadWithStateFieldDeserializes() {
+    void conferencePlannedLegacyPayloadWithStateFieldDeserializes() {
         // Legacy events use "state" — @JsonAlias("state") on Address.region reads both old and new shape.
         // Missing locationForMatching defaults to city via compact constructor.
+        // Keyed by the retired logical name (renamed to ConferencePlanned 2026-08-19): a stored row
+        // carries the name it was written under, so the golden sample keeps it.
         String json = """
                 {
                   "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
@@ -114,8 +116,8 @@ class GoldenEventDeserializationTest {
                 }
                 """;
 
-        ConferenceTentativelyPlanned event =
-                deserializeLegacy(json, "ConferenceTentativelyPlanned", ConferenceTentativelyPlanned.class);
+        ConferencePlanned event =
+                deserializeLegacy(json, "ConferenceTentativelyPlanned", ConferencePlanned.class);
 
         assertThat(event.startDate())
                 .as("the bare wall-clock is reinterpreted in the venue's zone, not the server's")
@@ -161,7 +163,7 @@ class GoldenEventDeserializationTest {
                 }
                 """;
 
-        ConferenceTentativelyPlanned event = deserialize(json, ConferenceTentativelyPlanned.class);
+        ConferencePlanned event = deserialize(json, ConferencePlanned.class);
 
         assertThat(event.startDate())
                 .isEqualTo(ZonedTimestamp.fromLocal(

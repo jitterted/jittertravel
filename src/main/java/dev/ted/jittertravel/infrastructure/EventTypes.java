@@ -2,7 +2,7 @@ package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.DifferentCityConflictCleared;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
@@ -38,6 +38,12 @@ import java.util.Map;
  *       the logical name stays put, so old {@code event_log} rows keep resolving.</li>
  *   <li><b>Read a row whose class has since moved/renamed:</b> add an {@link #alias} line. Aliases
  *       are an append-only migration log — never edit or remove one.</li>
+ *   <li><b>Rename an event's <em>logical</em> name:</b> only when the old name states something
+ *       untrue — it costs an {@link #alias} for every wire id the type was ever stored under (the old
+ *       logical name, plus its old FQCN if any row predates logical names) and leaves the log holding
+ *       both spellings. Any {@link EventUpcaster} rung for the type keys on the logical name, so its
+ *       {@code canHandle} must move to the new one in the same change. See {@code ConferencePlanned}
+ *       (renamed 2026-08-19).</li>
  *   <li><b>Migrate an event's payload schema:</b> bump its {@code currentSchemaVersion} here (the
  *       third {@code register} argument) so new appends and the eager migration stamp the new
  *       number. See {@code docs/LegacyEventEagerMigrationPlan.md}.</li>
@@ -59,7 +65,7 @@ public final class EventTypes {
     private static final int ZONED_TIMESTAMP_SCHEMA_VERSION = 2;
 
     /**
-     * {@code ConferenceTentativelyPlanned} alone advanced past {@code ZonedTimestamp}: v3 added the
+     * {@code ConferencePlanned} alone advanced past {@code ZonedTimestamp}: v3 added the
      * {@code format} field ({@link dev.ted.jittertravel.domain.ConferenceFormat}), injected by the
      * upcaster into pre-v3 payloads.
      */
@@ -78,13 +84,20 @@ public final class EventTypes {
         register("HotelBooked", HotelBooked.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("HotelChanged", HotelChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("HotelBookingCancelled", HotelBookingCancelled.class);
-        register("ConferenceTentativelyPlanned", ConferenceTentativelyPlanned.class, CONFERENCE_FORMAT_SCHEMA_VERSION);
+        register("ConferencePlanned", ConferencePlanned.class, CONFERENCE_FORMAT_SCHEMA_VERSION);
         register("ConferenceCancelled", ConferenceCancelled.class);
         register("ConferenceAttendanceDeclined", ConferenceAttendanceDeclined.class);
         register("GatheringPlanned", GatheringPlanned.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("GatheringChanged", GatheringChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("PrivateEventPlanned", PrivateEventPlanned.class);
         register("DifferentCityConflictCleared", DifferentCityConflictCleared.class);
+
+        // Renamed 2026-08-19: ConferenceTentativelyPlanned → ConferencePlanned. "Tentative" became a
+        // *derived* attendance status (WATCHING/GOING), so the old name asserted a state the model no
+        // longer records. Stored rows are untouched, so both of its historical wire ids — the logical
+        // name, and the FQCN written before logical names existed — must keep resolving.
+        alias("ConferenceTentativelyPlanned", "ConferencePlanned");
+        alias("dev.ted.jittertravel.domain.ConferenceTentativelyPlanned", "ConferencePlanned");
     }
 
     private EventTypes() {

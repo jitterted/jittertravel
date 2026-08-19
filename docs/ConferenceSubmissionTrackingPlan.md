@@ -5,7 +5,7 @@
 > `docs/Backlog.md` for the status of everything else.
 >
 > **Slice 1 as built (2026-08-18):** `ConferenceFormat` (CALL_FOR_PAPERS / ACCEPTANCE_REQUIRED /
-> OPEN_SPACE) rides on `ConferenceTentativelyPlanned` as a **non-null** field; the plan form picks it
+> OPEN_SPACE) rides on `ConferencePlanned` as a **non-null** field; the plan form picks it
 > with **radio buttons** (Ted's UI preference), defaulting to CALL_FOR_PAPERS. **`datesConfirmed` was
 > deferred** out of slice 1 — its only consumer is the slice-5 Schengen ceiling, so it will land with
 > that slice rather than shipping a form control months ahead of its behaviour.
@@ -13,7 +13,7 @@
 > **How the default reaches legacy rows — decided this session (choice A).** An absent `format` is
 > injected as CALL_FOR_PAPERS by the **read-time upcaster** as an *independent* schema increment
 > (v2→v3), applied by its own absence check so a row written after the datetime migration but before
-> `format` existed is still brought current; `ConferenceTentativelyPlanned` is bumped to schema
+> `format` existed is still brought current; `ConferencePlanned` is bumped to schema
 > **version 3** in `EventTypes`, so the eager migration rewrites stored rows to physically carry the
 > field. The record's compact constructor **fails loud** on a null `format`, since production always
 > upcasts before binding. This was chosen over a compact-constructor null-default so the value is
@@ -37,7 +37,7 @@ rung that shaped that framework out of the previously single-class upcaster).
 
 ## Problem
 
-Every conference in the app is a `ConferenceTentativelyPlanned`, and "tentative" is now carrying
+Every conference in the app is a `ConferencePlanned`, and "tentative" is now carrying
 four unrelated meanings at once:
 
 1. accepted to speak, and going;
@@ -128,7 +128,7 @@ Two streams. Commitment events key on the existing `ConferenceId`; submissions g
 
 | Event | Notes |
 |---|---|
-| `ConferenceTentativelyPlanned` (exists) | Unchanged, name kept for backup compatibility. Reads as "on my radar" — the `WATCHING` entry point. |
+| `ConferencePlanned` (exists) | Renamed from `ConferenceTentativelyPlanned` 2026-08-19 (old wire ids aliased in `EventTypes`). Reads as "on my radar" — the `WATCHING` entry point. |
 | `CfpWindowRecorded(conferenceId, opensOn, closesOn)` | Optional; either date may be absent. Drives `CFP_PENDING` → `CFP_OPEN` and the "submit before you lose it" nudge. |
 | `ConferenceAttendanceCommitted(conferenceId, basis, committedOn)` | `basis` ∈ `SPEAKING_ACCEPTED`, `SPEAKING_INVITED`, `TICKET_PURCHASED` (`ATTENDING_ANYWAY` dropped 2026-08-19). **Owner-only.** |
 | `ConferenceAttendanceDeclined(conferenceId, reason, declinedOn)` | *Ted* decided not to go. Distinct from a rejection and from an organizer cancellation. |
@@ -146,7 +146,7 @@ Two streams. Commitment events key on the existing `ConferenceId`; submissions g
 | `SpeakingInvitationReceived(conferenceId, invitedOn)` | No CFP; organizers asked. Conference-keyed, since there is no submission. |
 
 **Why explicit events rather than a status field or one `ConferenceStatusChanged`:** a status field
-on `ConferenceTentativelyPlanned` would mean rewriting the very thing that changes after the fact,
+on `ConferencePlanned` would mean rewriting the very thing that changes after the fact,
 and would break existing backup files. A single `ConferenceStatusChanged(status, note)` would lump
 genuinely different facts ("organizers rejected me" vs. "I changed my mind"), give talk titles
 nowhere to live, and could not represent three submissions to one conference. Explicit events also
@@ -191,7 +191,7 @@ The open-space case is **not** a new `EntryKind`: SoCraTes is a fully public, mu
 name/venue/city/dates/infoUrl — publicly identical to any conference, so it shares the `CONFERENCE`
 redaction branch. A new `EntryKind` is only for something *private* (the company-internal talk, the
 private dinner). What actually varies is **how you get on the program**, which is intrinsic to the
-conference and known when it is entered — so it is a **field on `ConferenceTentativelyPlanned`**, not
+conference and known when it is entered — so it is a **field on `ConferencePlanned`**, not
 a separate "what happened" event (nothing happened; SoCraTes simply *is* open-space).
 
 A boolean `hasCfp` was rejected (Ted: "booleans eventually become enums anyway" — and PLoP proved it
@@ -216,7 +216,7 @@ get in," and the fold branches on the value.
 Existing conferences default absent→`CALL_FOR_PAPERS` via the upcaster — the safe default (offers the
 CFP action rather than silently hiding it); the backfill pass re-marks SoCraTes to `OPEN_SPACE` and
 PLoP to `ACCEPTANCE_REQUIRED` once. **Shipped 2026-08-18** as slice 1 (schema bump to v3 on
-`ConferenceTentativelyPlanned`); `datesConfirmed` was **deferred** to the slice that consumes it
+`ConferencePlanned`); `datesConfirmed` was **deferred** to the slice that consumes it
 (slice 5), so slice 1 was `ConferenceFormat` alone.
 
 ### Event names are "what happened", not CRUD (Ted, 2026-08-18)
@@ -230,7 +230,7 @@ Renamed from the original tables. See the global rule in memory / CLAUDE-adjacen
 | `SubmissionAccepted` / `SubmissionRejected` / `SubmissionWaitlisted` / `SubmissionWithdrawn` | **`TalkAccepted` / `TalkRejected` / `TalkWaitlisted` / `TalkWithdrawn`** `(conferenceId, decidedOn)` |
 | `SpeakingInvitationReceived(conferenceId, invitedOn)` | **`InvitedToSpeak(conferenceId, invitedOn)`** |
 | `ConferenceAttendanceCommitted(conferenceId, basis, committedOn)` | **`ConferenceAttendanceConfirmed(conferenceId, basis, confirmedOn)`** — pairs with the shipped `ConferenceAttendanceDeclined` |
-| `ConferenceTentativelyPlanned` (unchanged name for backup compat) | gains `datesConfirmed` **and** `format` fields |
+| `ConferenceTentativelyPlanned` | **`ConferencePlanned`** (2026-08-19; retired wire ids aliased), gaining `datesConfirmed` **and** `format` fields |
 
 `ConferenceCancelled` (organizers cancelled) and `ConferenceAttendanceDeclined` (Ted's own decision —
 **distinct** from a `TalkRejected`, which is the organizers' decision) are unchanged.
@@ -300,29 +300,50 @@ already know the convention, and muted conventionally reads as *cancelled*.
 ### The `tentative` → `conferences` realignment (Ted, 2026-08-19)
 
 Once commitment is its own derived dimension, "tentative" is precisely the concept being *removed*
-from the model — so a `GOING` conference living in a class called `ConferenceProjector` is
+from the model — so a `GOING` conference living in a class called `TentativeConferenceProjector` is
 an active lie. The app-layer vocabulary is realigned to plain "conferences" as a **separate rename
 commit landing before slice 2**, so the rename diff stays reviewable at a glance instead of hiding
 inside a behavioural change. (Both touch `SecurityConfig` and `AuthorizationMatrixTest`; renaming
 first makes slice 2's change there a single added row.)
 
-**Renamed:** `ConferenceProjector` → `ConferenceProjector`, `ConferenceView` →
-`ConferenceView`, `ConferencesRenderer` → `ConferencesRenderer`, the route
+**Renamed:** `TentativeConferenceProjector` → `ConferenceProjector`, `TentativeConferenceView` →
+`ConferenceView`, `TentativeConferencesRenderer` → `ConferencesRenderer`, the route
 `/tentative-conferences` → **`/conferences`**, and the command side
 `PlanTentativeConference{Command,Handler,Context,Request}` → `PlanConference*` (already inconsistent
 with its own `PlanConferenceController`, which never carried "Tentative").
 
-**Not renamed, deliberately:**
+**The event too — decided the same day, after a second look.** The first pass deliberately left
+`ConferenceTentativelyPlanned` alone; on review that was reversed and it is now **`ConferencePlanned`**
+(class *and* `EventTypes` logical name). Three things settled it:
 
-- **The event class `ConferenceTentativelyPlanned`.** `EventTypes` decouples the logical name from
-  the class, so the rename would be free at the persistence layer — but the logical name
-  `"ConferenceTentativelyPlanned"` would stay in `event_log` and in backup JSON either way, and a
-  permanent divergence between what you read in the database and what you read in code is a
-  debugging tax on exactly the artifact you inspect when something is wrong. The name is also still
-  *true*: "a conference was tentatively planned" is precisely the `WATCHING` entry point. Commitment
-  events are what add `GOING`.
-- **`TentativeHotelBooking*`, `status-tentative`, "Tentative/Final".** A second, unrelated meaning of
-  "tentative" — hotel booking status. Out of scope; a blanket rename would have hit these.
+- **The rename made the command/event pair asymmetric.** `PlanConference` emitting
+  `ConferenceTentativelyPlanned` is the only place in the model where a command and its event do not
+  share a stem — every other family reads `Plan X` → `XPlanned` (`GatheringPlanned`,
+  `PrivateEventPlanned`).
+- **The old name encoded a status the model no longer stores.** "Tentatively" is an assessment of
+  commitment, and this whole plan makes commitment *derived* (`WATCHING`/`GOING`, folded from later
+  events). Per the "events are what happened" rule, the fact is that a conference went on the
+  schedule; the state assertion does not belong in its name.
+- **Slice 2 adds siblings** (`TalkSubmitted`, `TalkRejected`, `ConferenceAttendanceConfirmed`), and a
+  `Conference*` family whose entry point alone says "Tentatively" reads as a leftover. Cheaper before
+  those land than after.
+
+The cost, paid in full in the rename commit: `EventTypes` gains an `alias` line for **each** wire id
+the type was ever stored under — the retired logical name `"ConferenceTentativelyPlanned"` *and* the
+FQCN from before logical names existed — so stored rows and older backup files keep resolving,
+untouched. Both upcaster rungs (`ConferenceTimeZoneUpcaster`, `ConferenceFormatUpcaster`) key on the
+logical name, so their `canHandle` moved to the new one in the same change. The golden legacy sample
+in `GoldenEventDeserializationTest` deliberately **keeps** the old wire id: a stored row carries the
+name it was written under, so that is what the sample must exercise.
+
+What this does *not* fix is the divergence that motivated the original decision: `event_log` and any
+backup taken before today still say `ConferenceTentativelyPlanned`, so the log holds both spellings.
+Normalizing the `type` column (an eager-migration-style rewrite, the way `schema_version` is stamped)
+was **considered and not done** — it is available later if the two names become a real nuisance.
+
+**Not renamed, deliberately:** `TentativeHotelBooking*`, `status-tentative`, "Tentative/Final" — a
+second, unrelated meaning of "tentative" (hotel booking status). Out of scope; a blanket rename would
+have hit these.
 
 Command class names are safe to change: per `EventTypes`' javadoc a command's `type` is stored
 opaquely and never resolved back to a class. The only consequence is `/admin/commandlog` showing two
@@ -366,7 +387,7 @@ No "watch for the CFP to open" reminder yet (Ted, 2026-08-18) — closing deadli
 
 The original bottom-up order is re-cut so the CFP-season payoff and the backfill land together:
 
-1. **`ConferenceFormat`** on `ConferenceTentativelyPlanned` + the plan-conference form (schema bump to
+1. **`ConferenceFormat`** on `ConferencePlanned` + the plan-conference form (schema bump to
    v3; upcaster injects absent format→`CALL_FOR_PAPERS` as an independent increment). **SHIPPED
    2026-08-18.** `datesConfirmed` was split out and deferred to slice 5 (its only consumer is the
    Schengen ceiling), so this slice was format alone.
@@ -445,13 +466,13 @@ contribute zero unique past Schengen days. See "Historical data" in that doc.
 ### `datesConfirmed`
 
 A slot held before the CFP opens usually carries *last year's* dates. Because those guessed dates now
-drive the Schengen ceiling, `ConferenceTentativelyPlanned` needs a `datesConfirmed` flag (or the
+drive the Schengen ceiling, `ConferencePlanned` needs a `datesConfirmed` flag (or the
 inverse, `datesProvisional`) so a guess is visibly marked wherever it is counted.
 
 **Deferred to slice 5 (Ted, 2026-08-18).** It was briefly promoted into slice 1, but its only consumer
 is the Schengen ceiling (slice 5) — shipping a form control months ahead of the behaviour that reads
 it is a papercut with no payoff, so slice 1 shipped `ConferenceFormat` alone and `datesConfirmed`
-lands with the ceiling. Adding it later is a second schema bump on `ConferenceTentativelyPlanned`
+lands with the ceiling. Adding it later is a second schema bump on `ConferencePlanned`
 (v3→v4) with its own upcaster increment (absent→provisional), exactly like the format increment.
 
 ### Read models
@@ -471,7 +492,7 @@ convention is enforced by `TimeFilterToggleConventionTest`.
 
 Distinct from the Schengen "nothing to backfill" note above (which is only about the *day count*):
 once the two status dimensions exist, every conference already in the app is a bare
-`ConferenceTentativelyPlanned` with **no** commitment or speaking status. Figure out how to backfill
+`ConferencePlanned` with **no** commitment or speaking status. Figure out how to backfill
 that — i.e. how the existing conferences get their real `attendance`/`speaking` state instead of all
 defaulting to `WATCHING`/`NOT_SPEAKING`. Options to weigh when the time comes: a one-off admin
 back-entry pass (append the commitment/submission events by hand from memory), a small guided
@@ -489,7 +510,7 @@ rework here.
 > Refinement section, which folds in `ConferenceFormat`, the CFP-deadline iCal source, and the
 > event renames. Kept for the trail.
 
-1. `datesConfirmed` on `ConferenceTentativelyPlanned` + the plan-conference form. Small, and the
+1. `datesConfirmed` on `ConferencePlanned` + the plan-conference form. Small, and the
    Schengen ceiling depends on it.
 2. Commitment events, handlers, and the derived `attendance` fold. `CalendarEntry.commitment`, the
    redactor branch, and both tiers of redaction test land here — this is the slice that makes the

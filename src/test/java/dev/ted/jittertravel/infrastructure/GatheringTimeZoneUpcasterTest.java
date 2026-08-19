@@ -30,7 +30,7 @@ class GatheringTimeZoneUpcasterTest {
                 .isTrue();
         assertThat(upcaster.canHandle("GatheringPlanned", 2))
                 .isFalse();
-        assertThat(upcaster.canHandle("ConferenceTentativelyPlanned", 1))
+        assertThat(upcaster.canHandle("ConferencePlanned", 1))
                 .isFalse();
     }
 

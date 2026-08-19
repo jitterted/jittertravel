@@ -7,7 +7,7 @@ import tools.jackson.databind.node.ObjectNode;
 import java.time.ZoneId;
 
 /**
- * v1→v2 for {@code ConferenceTentativelyPlanned}: start and end are at the one venue, so they share
+ * v1→v2 for {@code ConferencePlanned}: start and end are at the one venue, so they share
  * its address-derived zone. The v2→v3 {@code format} increment is a <em>separate</em> rung
  * ({@link ConferenceFormatUpcaster}) — a row written after this migration but before {@code format}
  * existed carries an object {@code startDate} yet no {@code format}, and the composite climbs it
@@ -25,7 +25,7 @@ class ConferenceTimeZoneUpcaster implements EventUpcaster {
 
     @Override
     public boolean canHandle(String eventLogicalType, int eventVersion) {
-        return eventVersion == 1 && eventLogicalType.equals("ConferenceTentativelyPlanned");
+        return eventVersion == 1 && eventLogicalType.equals("ConferencePlanned");
     }
 
     @Override

@@ -3,7 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceId;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
@@ -29,7 +29,7 @@ class ConferenceProjectorTest {
         ConferenceProjector projector = new ConferenceProjector();
         ConferenceId conferenceId = ConferenceId.random();
         Address address = new Address("123 Venue Street", "Venue City", "Venue State", "Venue Postal Code", "Venue Country", null);
-        ConferenceTentativelyPlanned event = new ConferenceTentativelyPlanned(
+        ConferencePlanned event = new ConferencePlanned(
                 conferenceId,
                 "Conference Name",
                 zt(LocalDateTime.of(2026, 6, 1, 9, 0)),
@@ -56,7 +56,7 @@ class ConferenceProjectorTest {
         ConferenceProjector projector = new ConferenceProjector();
         Address address = new Address("Street", "City", "State", "Postal Code", "Country", null);
 
-        ConferenceTentativelyPlanned laterEvent = new ConferenceTentativelyPlanned(
+        ConferencePlanned laterEvent = new ConferencePlanned(
                 ConferenceId.random(),
                 "Later Conference",
                 zt(LocalDateTime.of(2026, 7, 1, 9, 0)),
@@ -64,7 +64,7 @@ class ConferenceProjectorTest {
                 "Later Venue",
                 address
         );
-        ConferenceTentativelyPlanned earlierEvent = new ConferenceTentativelyPlanned(
+        ConferencePlanned earlierEvent = new ConferencePlanned(
                 ConferenceId.random(),
                 "Earlier Conference",
                 zt(LocalDateTime.of(2026, 6, 28, 9, 0)),
@@ -152,7 +152,7 @@ class ConferenceProjectorTest {
         ConferenceProjector projector = new ConferenceProjector();
         Address address = new Address("Street", "City", "State", "Postal", "Country", null);
         ConferenceId conferenceId = ConferenceId.random();
-        ConferenceTentativelyPlanned planned = new ConferenceTentativelyPlanned(
+        ConferencePlanned planned = new ConferencePlanned(
                 conferenceId, "Devoxx Morocco",
                 zt(LocalDateTime.of(2026, 10, 7, 9, 0)), zt(LocalDateTime.of(2026, 10, 9, 17, 0)),
                 "Venue", address);
@@ -177,7 +177,7 @@ class ConferenceProjectorTest {
 
     private static void handle(ConferenceProjector projector, long seq, String name,
                                LocalDateTime start, LocalDateTime end, Address address) {
-        ConferenceTentativelyPlanned event = new ConferenceTentativelyPlanned(
+        ConferencePlanned event = new ConferencePlanned(
                 ConferenceId.random(), name, zt(start), zt(end), "Venue", address);
         projector.handle(Stream.of(
                 new StoredEvent(seq, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID())));

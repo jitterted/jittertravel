@@ -135,7 +135,7 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
 
 ## Conference rollout steps
 
-1. `[x]` **Domain** — `ConferenceTentativelyPlanned`: `startDate`/`endDate`
+1. `[x]` **Domain** — `ConferencePlanned`: `startDate`/`endDate`
    `LocalDateTime → ZonedTimestamp` (both in the venue's single zone).
 2. `[x]` **Modernization (decision 2)** — turn `PlanConferenceCommand` into a
    `record … implements DomainCommand<PlanConferenceContext>`:
@@ -206,7 +206,8 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
    `PlanConferenceController` gains `@ModelAttribute("commonZones")` and a `ZoneResolutionException`
    catch; `plan-conference.html` gains the selector block. `ConferencesRenderer` moves to
    `ZonedTimeTag`.
-7. `[x]` **Upcaster** — add a `"ConferenceTentativelyPlanned"` case: resolve from
+7. `[x]` **Upcaster** — add a `"ConferencePlanned"` case (keyed `"ConferenceTentativelyPlanned"`
+   when this shipped; renamed 2026-08-19): resolve from
    `venueAddress.{city,country}`, rewrite both scalars in place (the simple hotel-style rewrite).
 8. `[x]` **Sentinel cleanup** — done 2026-08-05: `IMPORT_BYPASS_NOW` and `IMPORT_BYPASS_DATE` had no users left once the conference command moved to `Instant`, and are deleted; only `IMPORT_BYPASS_INSTANT` remains. Original note: — after the conference command modernizes to
    `Instant now`, check whether `IMPORT_BYPASS_NOW` (`LocalDateTime.MIN`) and
@@ -258,7 +259,7 @@ New tests this slice must add — the gaps found reviewing the earlier slices:
    pins a zone to sidestep ambiguity. Backfilling hotel/train/flight is cheap once the pattern
    exists and should ride along.
 2. `[x]` **`EventPayloadUpcasterTest` cases** for `GatheringPlanned`/`GatheringChanged` (three keys →
-   two, legacy keys removed, idempotent on new-shape input) and `ConferenceTentativelyPlanned`.
+   two, legacy keys removed, idempotent on new-shape input) and `ConferencePlanned`.
    While here: the flight cases added in `d2884fb` have **no upcaster test at all** — add them.
 3. `[x]` **Golden legacy coverage — decided 2026-07-26: build this now, in this slice.** Give
    `GoldenEventDeserializationTest` an upcast-then-deserialize path and add legacy-shape samples for

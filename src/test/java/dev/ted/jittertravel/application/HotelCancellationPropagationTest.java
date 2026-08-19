@@ -3,7 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ConferenceId;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
@@ -165,8 +165,8 @@ class HotelCancellationPropagationTest {
                 BookingIntent.TENTATIVE, "https://maps.example/grand", null);
     }
 
-    private static ConferenceTentativelyPlanned berlinConference() {
-        return new ConferenceTentativelyPlanned(
+    private static ConferencePlanned berlinConference() {
+        return new ConferencePlanned(
                 ConferenceId.random(), "BerlinConf",
                 zt(LocalDateTime.of(2026, 7, 1, 9, 0)),
                 zt(LocalDateTime.of(2026, 7, 5, 17, 0)),

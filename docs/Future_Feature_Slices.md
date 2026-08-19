@@ -55,17 +55,17 @@ prerequisite to any slice that needs to remove/retract a booking.
 
 ---
 
-## infoUrl on ConferenceTentativelyPlanned
+## infoUrl on ConferencePlanned
 
-Conferences have event-specific web pages just like gatherings. Add `infoUrl: String` (empty string when absent) to `ConferenceTentativelyPlanned` and the plan-conference form.
+Conferences have event-specific web pages just like gatherings. Add `infoUrl: String` (empty string when absent) to `ConferencePlanned` and the plan-conference form.
 
 **When to build:** When conference detail views or itinerary links are needed.
 
 ---
 
-## mapsUrl on ConferenceTentativelyPlanned
+## mapsUrl on ConferencePlanned
 
-Conferences have a physical venue. Add `mapsUrl: String` to `ConferenceTentativelyPlanned`, auto-computed from venue name + address in compact constructor if blank, and expose it in calendar/itinerary views.
+Conferences have a physical venue. Add `mapsUrl: String` to `ConferencePlanned`, auto-computed from venue name + address in compact constructor if blank, and expose it in calendar/itinerary views.
 
 **When to build:** When conference venue links are needed in views.
 

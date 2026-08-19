@@ -31,8 +31,14 @@ an absent argument means version 1). A type's version counts *its own* schema ch
 | `TrainBooked`, `TrainChanged` | 2 | v1→v2 datetime |
 | `FlightBooked`, `FlightChanged` | 2 | v1→v2 datetime |
 | `GatheringPlanned`, `GatheringChanged` | 2 | v1→v2 datetime (field-set change) |
-| `ConferenceTentativelyPlanned` | 3 | v1→v2 datetime, **then** v2→v3 `format` |
+| `ConferencePlanned` | 3 | v1→v2 datetime, **then** v2→v3 `format` |
 | everything else | 1 | — (no rungs) |
+
+Rungs are keyed by the **logical** type name, so a logical-name rename moves every rung with it:
+`ConferencePlanned` was `ConferenceTentativelyPlanned` until 2026-08-19, and stored rows still carry
+that name (and, older still, its FQCN). Both are `alias`ed in `EventTypes`, which normalizes them to
+the current logical name **before** the ladder is looked up — miss that and those rows silently stop
+climbing.
 
 A stored row also carries its `schema_version` (the `event_log.schema_version` column; **null** on a
 pre-stamp legacy row). The upcaster **climbs from that stored version up to the type's current
@@ -46,7 +52,7 @@ while (version < currentSchemaVersion(type)) {
 }
 ```
 
-`ConferenceTentativelyPlanned` is the type that makes the ladder visible: a v1 row climbs **two**
+`ConferencePlanned` is the type that makes the ladder visible: a v1 row climbs **two**
 rungs (datetime, then format); a row already stamped v2 climbs **only** the format rung; a v3 row
 does no work.
 
@@ -110,7 +116,7 @@ When an event's stored JSON changes shape in a breaking way:
 3. **Register it** in `EventPayloadUpcaster.standard(...)`.
 4. **Make the record bind loud on the missing field** (a fail-loud compact constructor), so a payload
    that reaches binding without being upcast is caught rather than silently defaulted — production
-   always upcasts before binding, so the non-null field is safe. (See `ConferenceTentativelyPlanned`.)
+   always upcasts before binding, so the non-null field is safe. (See `ConferencePlanned`.)
 5. **Add a golden sample** for the new shape in `GoldenEventDeserializationTest`, and (if the change
    is not backward-shape-compatible) a legacy sample proving the old shape still upcasts — per the
    standing "golden sample per new event/shape" rule.

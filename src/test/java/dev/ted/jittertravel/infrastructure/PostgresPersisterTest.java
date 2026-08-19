@@ -4,7 +4,7 @@ import dev.ted.jittertravel.application.AirportZoneResolver;
 import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceId;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.web.PlanConferenceRequest;
 import org.junit.jupiter.api.Test;
@@ -174,10 +174,10 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
     private StoredEvent storedEvent(long sequence, UUID commandId, String name, PlanConferenceRequest req) {
         return new StoredEvent(
                 sequence,
-                ConferenceTentativelyPlanned.class,
+                ConferencePlanned.class,
                 UUID.randomUUID(),
                 Instant.now(),
-                new ConferenceTentativelyPlanned(
+                new ConferencePlanned(
                         ConferenceId.of(commandId),
                         name,
                         ZonedTimestamp.fromLocal(req.getStartDate(), ZoneId.of("UTC")),
@@ -249,10 +249,10 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
 
         StoredEvent event = new StoredEvent(
                 1L,
-                ConferenceTentativelyPlanned.class,
+                ConferencePlanned.class,
                 UUID.randomUUID(),
                 Instant.now(),
-                new ConferenceTentativelyPlanned(
+                new ConferencePlanned(
                         ConferenceId.of(commandId),
                         "Test Conference",
                         ZonedTimestamp.fromLocal(request.getStartDate(), ZoneId.of("UTC")),
@@ -269,7 +269,7 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
                 .hasSize(1);
         assertThat(persister.loadAllEvents().getFirst().sequence())
                 .isEqualTo(1L);
-        assertThat(((ConferenceTentativelyPlanned) persister.loadAllEvents().getFirst().payload()).name())
+        assertThat(((ConferencePlanned) persister.loadAllEvents().getFirst().payload()).name())
                 .isEqualTo("Test Conference");
 
         assertThat(persister.getMaxSequence())
@@ -334,7 +334,7 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
         UUID commandId = UUID.randomUUID();
         PlanConferenceRequest req = newRequest(commandId, "Stamped Conf");
         persister.saveCommand(commandId, req);
-        // ConferenceTentativelyPlanned migrated datetimes → ZonedTimestamp (v2) and then added the
+        // ConferencePlanned migrated datetimes → ZonedTimestamp (v2) and then added the
         // format field (v3), so its current schema version is 3.
         persister.appendEvents(List.of(storedEvent(1L, commandId, "Stamped Conf", req)), commandId);
 

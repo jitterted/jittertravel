@@ -1,7 +1,7 @@
 package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.TrainBooked;
@@ -65,14 +65,34 @@ class EventTypesTest {
     }
 
     @Test
-    void conferenceTentativelyPlannedIsAtSchemaVersionThreeAfterTheFormatField() {
+    void conferencePlannedIsAtSchemaVersionThreeAfterTheFormatField() {
         // v1→v2 migrated its datetimes to ZonedTimestamp; v2→v3 added the format field (injected by
         // the upcaster into pre-v3 payloads). It is the only type past version 2.
-        assertThat(EventTypes.currentSchemaVersion(ConferenceTentativelyPlanned.class))
+        assertThat(EventTypes.currentSchemaVersion(ConferencePlanned.class))
                 .isEqualTo(3);
-        assertThat(EventTypes.currentSchemaVersion("ConferenceTentativelyPlanned"))
+        assertThat(EventTypes.currentSchemaVersion("ConferencePlanned"))
                 .as("by logical wire id")
                 .isEqualTo(3);
+    }
+
+    @Test
+    void retiredWireIdsOfARenamedTypeStillResolve() {
+        // ConferenceTentativelyPlanned was renamed to ConferencePlanned on 2026-08-19 and event_log
+        // was NOT rewritten, so every wire id the type was ever stored under has to keep resolving:
+        // the retired logical name, and the FQCN from before logical names existed. Losing either
+        // makes those rows unreadable — replay, restore and the eager migration all fail loud on them.
+        assertThat(EventTypes.classFor("ConferenceTentativelyPlanned"))
+                .as("retired logical name")
+                .isEqualTo(ConferencePlanned.class);
+        assertThat(EventTypes.classFor("dev.ted.jittertravel.domain.ConferenceTentativelyPlanned"))
+                .as("retired FQCN")
+                .isEqualTo(ConferencePlanned.class);
+        assertThat(EventTypes.currentSchemaVersion("ConferenceTentativelyPlanned"))
+                .as("a retired wire id resolves to the same current schema version")
+                .isEqualTo(3);
+        assertThat(EventTypes.logicalNameFor(ConferencePlanned.class))
+                .as("new appends carry the new name; only stored rows keep the old one")
+                .isEqualTo("ConferencePlanned");
     }
 
     @Test

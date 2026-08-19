@@ -3,7 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 /**
- * Projects {@link ConferenceTentativelyPlanned} events into pre-formatted
+ * Projects {@link ConferencePlanned} events into pre-formatted
  * {@link CalendarEntry} views ready for the calendar swimlane renderer.
  * <p>
  * For now, the calendar treats planned conferences as the only source of
@@ -34,7 +34,7 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
-                case ConferenceTentativelyPlanned event -> {
+                case ConferencePlanned event -> {
                     String location = event.venueAddress().city() + ", " + event.venueAddress().country();
                     List<SubtitleLine> locationLines = List.of(new SubtitleLine.Text(location));
                     // Calendar days are venue-local days (decision 7): bucket by the wall-clock

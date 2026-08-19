@@ -1,8 +1,13 @@
 package dev.ted.jittertravel.domain;
 
 /**
- * A conference has been tentatively planned — a multi-day (or single-full-day) event, as opposed to
+ * A conference has been put on the schedule — a multi-day (or single-full-day) event, as opposed to
  * a {@link GatheringPlanned}, which is a few hours on one day.
+ * <p>
+ * Whether Ted is actually <em>going</em> is not recorded here: attendance commitment is derived by
+ * folding the later commitment events, so this is the entry point onto the radar and nothing more.
+ * (Named {@code ConferenceTentativelyPlanned} until 2026-08-19, when "tentative" became that derived
+ * status; {@code EventTypes} aliases the old wire ids.)
  * <p>
  * {@code startDate}/{@code endDate} are {@link ZonedTimestamp}s in the venue's single zone, so "is
  * it over?" is answerable without knowing where the server runs. Legacy payloads carrying bare
@@ -13,7 +18,7 @@ package dev.ted.jittertravel.domain;
  * {@link ConferenceFormat#CALL_FOR_PAPERS} into pre-v3 payloads before they bind, so an absent value
  * fails loud here rather than reaching a projector as a null.
  */
-public record ConferenceTentativelyPlanned(
+public record ConferencePlanned(
         ConferenceId conferenceId,
         String name,
         ZonedTimestamp startDate,
@@ -23,7 +28,7 @@ public record ConferenceTentativelyPlanned(
         ConferenceFormat format
 ) implements Event {
 
-    public ConferenceTentativelyPlanned {
+    public ConferencePlanned {
         if (format == null) {
             throw new IllegalArgumentException(
                     "format must not be null — legacy payloads are upcast to CALL_FOR_PAPERS before binding");
@@ -36,9 +41,9 @@ public record ConferenceTentativelyPlanned(
      * {@link ConferenceFormat#CALL_FOR_PAPERS}, the same value the upcaster injects into legacy
      * payloads. Not used by Jackson, which binds through the canonical seven-argument constructor.
      */
-    public ConferenceTentativelyPlanned(ConferenceId conferenceId, String name,
-                                        ZonedTimestamp startDate, ZonedTimestamp endDate,
-                                        String venueName, Address venueAddress) {
+    public ConferencePlanned(ConferenceId conferenceId, String name,
+                             ZonedTimestamp startDate, ZonedTimestamp endDate,
+                             String venueName, Address venueAddress) {
         this(conferenceId, name, startDate, endDate, venueName, venueAddress,
                 ConferenceFormat.CALL_FOR_PAPERS);
     }

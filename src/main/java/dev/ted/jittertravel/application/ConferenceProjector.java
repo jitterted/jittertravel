@@ -3,7 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
@@ -22,7 +22,7 @@ public class ConferenceProjector implements EventStreamConsumer {
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
-                case ConferenceTentativelyPlanned event -> conferences.put(event.conferenceId(),
+                case ConferencePlanned event -> conferences.put(event.conferenceId(),
                         new ConferenceView(
                                 event.conferenceId(),
                                 event.name(),

@@ -7,7 +7,6 @@ import dev.ted.jittertravel.infrastructure.StoredEvent;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,7 +32,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                 case HotelBooked e -> hotelEntries.put(e.hotelBookingId(), toHotelEntries(e));
                 case HotelChanged e -> hotelEntries.put(e.hotelBookingId(), toHotelEntries(e));
                 case HotelBookingCancelled(HotelBookingId hotelBookingId, String _) -> hotelEntries.remove(hotelBookingId);
-                case ConferenceTentativelyPlanned e -> conferenceEntries.put(e.conferenceId(), toConferenceEntries(e));
+                case ConferencePlanned e -> conferenceEntries.put(e.conferenceId(), toConferenceEntries(e));
                 case ConferenceCancelled(ConferenceId conferenceId, String _) -> conferenceEntries.remove(conferenceId);
                 case ConferenceAttendanceDeclined e -> conferenceEntries.remove(e.conferenceId());
                 case GatheringPlanned e -> gatheringEntries.put(e.gatheringId(), toGatheringEntry(
@@ -206,7 +205,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                 e.startsAt(), e.endsAt());
     }
 
-    private static List<ConferenceItineraryEntry> toConferenceEntries(ConferenceTentativelyPlanned e) {
+    private static List<ConferenceItineraryEntry> toConferenceEntries(ConferencePlanned e) {
         // Itinerary days are venue-local days (see CalendarEntry), so the entry keeps the
         // wall-clock the traveler will actually read off a clock when they get there.
         LocalDateTime startDateTime = e.startDate().localDateTime();

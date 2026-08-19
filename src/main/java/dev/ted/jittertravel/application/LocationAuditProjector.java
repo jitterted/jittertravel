@@ -2,7 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.AirportCode;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.GatheringChanged;
@@ -49,7 +49,7 @@ public class LocationAuditProjector implements EventStreamConsumer {
                 // A change can move a gathering to a venue the tables don't know, and the upcaster
                 // reads *every* stored event — so changes must be audited too, like their siblings.
                 case GatheringChanged e -> addAddress(e.location(), source);
-                case ConferenceTentativelyPlanned e -> addAddress(e.venueAddress(), source);
+                case ConferencePlanned e -> addAddress(e.venueAddress(), source);
                 case TrainBooked e -> {
                     addStation(e.departureStation(), source);
                     addStation(e.arrivalStation(), source);

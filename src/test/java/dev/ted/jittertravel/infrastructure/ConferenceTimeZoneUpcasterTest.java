@@ -1,7 +1,7 @@
 package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.LocationZoneResolver;
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -26,9 +26,9 @@ class ConferenceTimeZoneUpcasterTest {
 
     @Test
     void handlesConferenceAtVersionOneOnly() {
-        assertThat(upcaster.canHandle("ConferenceTentativelyPlanned", 1))
+        assertThat(upcaster.canHandle("ConferencePlanned", 1))
                 .isTrue();
-        assertThat(upcaster.canHandle("ConferenceTentativelyPlanned", 2))
+        assertThat(upcaster.canHandle("ConferencePlanned", 2))
                 .as("v2→v3 is the format rung, not this one")
                 .isFalse();
         assertThat(upcaster.canHandle("GatheringPlanned", 1))
@@ -51,14 +51,14 @@ class ConferenceTimeZoneUpcasterTest {
                 }
                 """);
 
-        upcaster.upcast(payload, "ConferenceTentativelyPlanned");
+        upcaster.upcast(payload, "ConferencePlanned");
 
         assertThat(payload.has("format"))
                 .as("the datetime rung must not inject format — that is the separate v2→v3 rung")
                 .isFalse();
         // Bind with format supplied out-of-band, since this rung alone leaves it absent.
         payload.put("format", "CALL_FOR_PAPERS");
-        ConferenceTentativelyPlanned event = mapper.treeToValue(payload, ConferenceTentativelyPlanned.class);
+        ConferencePlanned event = mapper.treeToValue(payload, ConferencePlanned.class);
         assertThat(event.startDate().zone())
                 .isEqualTo(ZoneId.of("America/Los_Angeles"));
         assertThat(event.startDate().utc())
@@ -85,7 +85,7 @@ class ConferenceTimeZoneUpcasterTest {
                 """);
         JsonNode before = payload.deepCopy();
 
-        upcaster.upcast(payload, "ConferenceTentativelyPlanned");
+        upcaster.upcast(payload, "ConferencePlanned");
 
         assertThat(payload)
                 .as("an already-migrated datetime is left untouched")

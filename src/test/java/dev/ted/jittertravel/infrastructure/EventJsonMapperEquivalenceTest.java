@@ -1,6 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
-import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
@@ -88,7 +88,7 @@ class EventJsonMapperEquivalenceTest {
                 "venueName":"Moscone Center","venueAddress":{"street":"747 Howard St","city":"San Francisco",\
                 "region":"CA","country":"USA","postalCode":"94103","locationForMatching":"San Francisco"},\
                 "format":"CALL_FOR_PAPERS"}""",
-                ConferenceTentativelyPlanned.class);
+                ConferencePlanned.class);
     }
 
     /**

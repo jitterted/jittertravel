@@ -1167,14 +1167,14 @@ class ScheduleGapProjectorTest {
                 zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null, null);
     }
 
-    private static ConferenceTentativelyPlanned conference(String city, LocalDate start, LocalDate end) {
-        return new ConferenceTentativelyPlanned(ConferenceId.random(), "Conf",
+    private static ConferencePlanned conference(String city, LocalDate start, LocalDate end) {
+        return new ConferencePlanned(ConferenceId.random(), "Conf",
                 zt(start.atStartOfDay()), zt(end.atStartOfDay()), "Venue",
                 new Address("1 Street", city, "", "00000", "XX", null));
     }
 
-    private static ConferenceTentativelyPlanned conferenceAt(String city, LocalDateTime start, LocalDateTime end) {
-        return new ConferenceTentativelyPlanned(ConferenceId.random(), "Conf",
+    private static ConferencePlanned conferenceAt(String city, LocalDateTime start, LocalDateTime end) {
+        return new ConferencePlanned(ConferenceId.random(), "Conf",
                 zt(start), zt(end), "Venue",
                 new Address("1 Street", city, "", "00000", "XX", null));
     }
@@ -1190,9 +1190,9 @@ class ScheduleGapProjectorTest {
                 inZone(zone, start), inZone(zone, end), false, "");
     }
 
-    private static ConferenceTentativelyPlanned conferenceAtZone(String city, String zone,
-                                                                 LocalDateTime start, LocalDateTime end) {
-        return new ConferenceTentativelyPlanned(ConferenceId.random(), "Conf",
+    private static ConferencePlanned conferenceAtZone(String city, String zone,
+                                                      LocalDateTime start, LocalDateTime end) {
+        return new ConferencePlanned(ConferenceId.random(), "Conf",
                 inZone(zone, start), inZone(zone, end), "Venue",
                 new Address("1 Street", city, "", "00000", "XX", null));
     }
@@ -1320,9 +1320,9 @@ class ScheduleGapProjectorTest {
         }
     }
 
-    private static ConferenceTentativelyPlanned conferenceWithId(ConferenceId id, String city,
-                                                                  LocalDate start, LocalDate end) {
-        return new ConferenceTentativelyPlanned(id, "Conf",
+    private static ConferencePlanned conferenceWithId(ConferenceId id, String city,
+                                                      LocalDate start, LocalDate end) {
+        return new ConferencePlanned(id, "Conf",
                 zt(start.atStartOfDay()), zt(end.atStartOfDay()), "Venue",
                 new Address("1 Street", city, "", "00000", "XX", null));
     }

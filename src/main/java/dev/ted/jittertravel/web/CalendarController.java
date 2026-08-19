@@ -55,7 +55,7 @@ public class CalendarController {
         LocalDate today = LocalDate.ofInstant(clock.instant(), todayZone(request));
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
-                .body(ConfirmedCalendarRenderer.render(calendarAggregator.allEntries(), today,
+                .body(CalendarRenderer.render(calendarAggregator.allEntries(), today,
                         isPublicUser, isOwner, parseDate(from), parseDate(to), zoneDisplay));
     }
 

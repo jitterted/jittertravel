@@ -14,12 +14,6 @@ plan doc and its status — including these items — see `Backlog.md`.
 - [ ] **Itinerary: show current location (from hotel) when a day has no other events.** So the
       owner can tell *where they are* on a day whose only context is an ongoing hotel stay, surface
       the current location (derived from the active hotel booking) instead of an empty/eventless day.
-- [ ] **Rename `ConfirmedCalendar*` → `Calendar*`.** "Confirmed" no longer distinguishes anything:
-      the calendar is *the* calendar, the route is already `/calendar`, and the adjective survives
-      only in class names. Touches `ConfirmedCalendarRenderer` (+ its reference in
-      `CalendarController`) and the three tests `ConfirmedCalendarRendererTest`,
-      `ConfirmedCalendarDayMenuJsTest`, `ConfirmedCalendarToggleJsTest` — ~27 occurrences, no route,
-      template, or stored-data impact. Pure class rename; sweep the docs that name the class too.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.
@@ -33,6 +27,15 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Done
 
+- [x] **Rename `ConfirmedCalendar*` → `Calendar*`** (2026-08-19). "Confirmed" distinguished nothing:
+      the calendar is *the* calendar, the route has been `/calendar` all along, and the adjective
+      survived only in class names. `ConfirmedCalendarRenderer` → `CalendarRenderer` (plus its single
+      call site in `CalendarController`), and the three tests → `CalendarRendererTest`,
+      `CalendarDayMenuJsTest`, `CalendarToggleJsTest`. Pure rename, 27 usages: **no** route, template,
+      CSS class, event, or stored-data impact, and no name collision (`CalendarViewBuilder` is a
+      different thing, and no `CalendarRenderer` existed). Docs naming the class swept — including a
+      few code-fence references the IDE's rename doesn't reach. 962 unit + 36 js green, with both
+      renamed js-tier tests discovered and running under their new names.
 - [x] **Login "have to sign in twice"** (2026-08-18). The custom sign-in form's CSRF token was
       session-bound (default `HttpSessionCsrfTokenRepository`), so it died whenever the in-memory
       session did — every redeploy, every local devtools restart, every idle timeout. A login page
@@ -121,13 +124,13 @@ plan doc and its status — including these items — see `Backlog.md`.
       menu on `/calendar` is a native `<details class="day-menu">`, which on its own never
       dismisses — clicking away left it open, Escape did nothing, and opening a second day left the
       first open so the absolutely-positioned menus stacked and overlapped. Added `DAY_MENU_SCRIPT`
-      in `ConfirmedCalendarRenderer` giving the three behaviors a popup is expected to have: only
+      in `CalendarRenderer` giving the three behaviors a popup is expected to have: only
       one open at a time (a `toggle` listener closes the others when one opens), close on
       outside-click (document `click` where the target isn't inside a `.day-menu`), and close on
       Escape (document `keydown`). Harmless when no day menus are present (owner-only render).
-      Covered by `ConfirmedCalendarDayMenuJsTest` (`@Tag("js")`, `page.setContent`, no server) —
+      Covered by `CalendarDayMenuJsTest` (`@Tag("js")`, `page.setContent`, no server) —
       three cases (outside-click, Escape, no-stacking), each mutation-verified. **Note:** while
-      doing this I found `ConfirmedCalendarToggleJsTest` was **pre-existing broken** (failed without
+      doing this I found `CalendarToggleJsTest` was **pre-existing broken** (failed without
       any of my changes) — the 2026-08-16 "default `from` = one week before today" change
       (`0435623`) shrank the rendered range so the tests' expected collapsed-week counts no longer
       held; the `js` tier is opt-in (excluded from the default build), so it shipped invisibly.

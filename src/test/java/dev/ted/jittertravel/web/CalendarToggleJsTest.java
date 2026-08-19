@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * JS-behavior tests for the calendar "Show/Hide past weeks" toggle (the inline
- * {@code TOGGLE_SCRIPT} in {@link ConfirmedCalendarRenderer}). These cover the
+ * {@code TOGGLE_SCRIPT} in {@link CalendarRenderer}). These cover the
  * integration between the global toggle and per-week clicks — behavior that only
  * exists once a browser runs the script, so no renderer or @WebMvcTest could reach it.
  *
@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * logged-in render where day labels <em>are</em> links. The toggle JS is identical
  * either way.
  */
-class ConfirmedCalendarToggleJsTest extends JsBehaviorTest {
+class CalendarToggleJsTest extends JsBehaviorTest {
 
     // Monday. Weeks whose Saturday falls before this week's Sunday (Jun 14) collapse.
     private static final LocalDate TODAY = LocalDate.of(2026, 6, 15);
@@ -56,12 +56,12 @@ class ConfirmedCalendarToggleJsTest extends JsBehaviorTest {
 
     /** Public render: day labels are spans, so a collapsed week is clickable anywhere. */
     private String publicCalendarHtml() {
-        return ConfirmedCalendarRenderer.render(twoConferences(), TODAY, true, false, WINDOW_START, null);
+        return CalendarRenderer.render(twoConferences(), TODAY, true, false, WINDOW_START, null);
     }
 
     /** OWNER render: day labels are {@code <a>} links to the day's itinerary. */
     private String ownerCalendarHtml() {
-        return ConfirmedCalendarRenderer.render(twoConferences(), TODAY, false, false, WINDOW_START, null);
+        return CalendarRenderer.render(twoConferences(), TODAY, false, false, WINDOW_START, null);
     }
 
     private Locator toggleAll() {

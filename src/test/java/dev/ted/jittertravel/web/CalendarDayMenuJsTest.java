@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * JS-behavior tests for the owner future-day disclosure menu on the calendar (the inline
- * {@code DAY_MENU_SCRIPT} in {@link ConfirmedCalendarRenderer}). The menu is a native
+ * {@code DAY_MENU_SCRIPT} in {@link CalendarRenderer}). The menu is a native
  * {@code <details>}, which on its own never dismisses — the script adds the three popup
  * behaviors it lacks: only one open at a time, close on outside-click, close on Escape.
  * These only exist once a browser runs the script, so no renderer or @WebMvcTest reaches them.
@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Rendered as OWNER on a range of future days, so each future day cell is a
  * {@code <details class="day-menu">}.
  */
-class ConfirmedCalendarDayMenuJsTest extends JsBehaviorTest {
+class CalendarDayMenuJsTest extends JsBehaviorTest {
 
     // Day menus render only on days strictly after "today"; the default range runs two weeks
     // past today, so there are ample future day cells (hence day menus) to open.
@@ -38,7 +38,7 @@ class ConfirmedCalendarDayMenuJsTest extends JsBehaviorTest {
 
     /** OWNER render: future day cells are {@code <details class="day-menu">} disclosures. */
     private String ownerCalendarHtml() {
-        return ConfirmedCalendarRenderer.render(oneUpcomingConference(), TODAY, false, true);
+        return CalendarRenderer.render(oneUpcomingConference(), TODAY, false, true);
     }
 
     private Locator dayMenus() {

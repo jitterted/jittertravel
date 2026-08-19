@@ -12,15 +12,20 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ConfirmedCalendarRendererTest {
+class CalendarRendererTest {
 
     @Test
     void emptyEntriesRendersCalendarPage() {
-        String html = ConfirmedCalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false);
+        // Assert whole elements, not bare words. contains("Calendar") passed against a page
+        // titled "Confirmed Calendar" — and would pass against the nav's own Calendar link even
+        // with no <title> at all, so it asserted nothing about the title it was meant to pin.
+        String html = CalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false);
 
         assertThat(html)
-                .contains("Confirmed Calendar")
-                .contains("JitterTravel");
+                .as("the document title is exactly Calendar")
+                .contains("<title>Calendar</title>")
+                .as("and the nav still offers the way home")
+                .contains("<a href=\"/\">JitterTravel</a>");
     }
 
     @Test
@@ -28,7 +33,7 @@ class ConfirmedCalendarRendererTest {
         // Each week is its own grid, so a bare 1fr (= minmax(auto, 1fr)) lets one wide entry
         // widen that week's column alone and knock it out of registration with the header and
         // the other weeks. Alignment holds only while every grid's tracks are content-independent.
-        String html = ConfirmedCalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false);
+        String html = CalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false);
 
         assertThat(html)
                 .contains("grid-template-columns: repeat(7, minmax(0, 1fr))")
@@ -40,7 +45,7 @@ class ConfirmedCalendarRendererTest {
         // On a phone the 4rem gutters take 8rem of ~390px — more than a day column. The
         // media query hands that back to the grid; it is the only thing making the calendar
         // usable at that width, so losing it silently would go unnoticed until a device test.
-        String html = ConfirmedCalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false);
+        String html = CalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false);
 
         assertThat(html)
                 .contains("@media (max-width: 900px)")
@@ -58,7 +63,7 @@ class ConfirmedCalendarRendererTest {
                 "https://maps.google.com/grand"
         );
 
-        String html = ConfirmedCalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), true);
+        String html = CalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), true);
 
         assertThat(html)
                 .contains("Hotel")
@@ -75,7 +80,7 @@ class ConfirmedCalendarRendererTest {
                 null, null, null, "/booked-trains/trip-123"
         );
 
-        String html = ConfirmedCalendarRenderer.render(List.of(train), LocalDate.of(2026, 6, 11), false, true);
+        String html = CalendarRenderer.render(List.of(train), LocalDate.of(2026, 6, 11), false, true);
 
         assertThat(html).contains("href=\"/booked-trains/trip-123\"");
     }
@@ -90,7 +95,7 @@ class ConfirmedCalendarRendererTest {
                 null, null, null, "/booked-trains/trip-123"
         );
 
-        String html = ConfirmedCalendarRenderer.render(List.of(train), LocalDate.of(2026, 6, 11), false, false);
+        String html = CalendarRenderer.render(List.of(train), LocalDate.of(2026, 6, 11), false, false);
 
         assertThat(html).doesNotContain("href=\"/booked-trains/");
     }
@@ -105,7 +110,7 @@ class ConfirmedCalendarRendererTest {
                 null, null, null, "/booked-flights/flight-123"
         );
 
-        String html = ConfirmedCalendarRenderer.render(List.of(flight), LocalDate.of(2026, 6, 11), false, true);
+        String html = CalendarRenderer.render(List.of(flight), LocalDate.of(2026, 6, 11), false, true);
 
         assertThat(html).contains("href=\"/booked-flights/flight-123\"");
     }
@@ -116,8 +121,8 @@ class ConfirmedCalendarRendererTest {
         LocalDate from = LocalDate.of(2026, 7, 1);
         LocalDate to = LocalDate.of(2026, 8, 31);
 
-        String forward = ConfirmedCalendarRenderer.render(List.of(), today, false, false, from, to);
-        String reversed = ConfirmedCalendarRenderer.render(List.of(), today, false, false, to, from);
+        String forward = CalendarRenderer.render(List.of(), today, false, false, from, to);
+        String reversed = CalendarRenderer.render(List.of(), today, false, false, to, from);
 
         assertThat(reversed)
                 .as("Reversed from/to must render the same (non-empty) window as forward order")
@@ -137,7 +142,7 @@ class ConfirmedCalendarRendererTest {
                 conference("WayAfterRange", LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 7))
         );
 
-        String html = ConfirmedCalendarRenderer.render(entries, today, false, false,
+        String html = CalendarRenderer.render(entries, today, false, false,
                                                        LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
 
         assertThat(html)
@@ -155,7 +160,7 @@ class ConfirmedCalendarRendererTest {
 
         // from = Wed 2026-07-01 -> grid starts Sun 2026-06-28
         // to   = Fri 2026-07-31 -> grid ends   Sat 2026-08-01
-        String html = ConfirmedCalendarRenderer.render(List.of(), today, false, false,
+        String html = CalendarRenderer.render(List.of(), today, false, false,
                                                        LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
 
         assertThat(html)
@@ -173,7 +178,7 @@ class ConfirmedCalendarRendererTest {
                 conference("SpansIntoRange", LocalDate.of(2026, 6, 29), LocalDate.of(2026, 7, 3))
         );
 
-        String html = ConfirmedCalendarRenderer.render(entries, today, false, false,
+        String html = CalendarRenderer.render(entries, today, false, false,
                                                        LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
 
         assertThat(html).contains("SpansIntoRange");
@@ -186,7 +191,7 @@ class ConfirmedCalendarRendererTest {
                 conference("SpansOutOfRange", LocalDate.of(2026, 7, 29), LocalDate.of(2026, 8, 4))
         );
 
-        String html = ConfirmedCalendarRenderer.render(entries, today, false, false,
+        String html = CalendarRenderer.render(entries, today, false, false,
                                                        LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
 
         assertThat(html).contains("SpansOutOfRange");
@@ -200,7 +205,7 @@ class ConfirmedCalendarRendererTest {
                 conference("AfterFrom", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8))
         );
 
-        String html = ConfirmedCalendarRenderer.render(entries, today, false, false,
+        String html = CalendarRenderer.render(entries, today, false, false,
                                                        LocalDate.of(2026, 7, 1), null);
 
         assertThat(html)
@@ -216,7 +221,7 @@ class ConfirmedCalendarRendererTest {
                 conference("AfterTo", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 16))
         );
 
-        String html = ConfirmedCalendarRenderer.render(entries, today, false, false,
+        String html = CalendarRenderer.render(entries, today, false, false,
                                                        null, LocalDate.of(2026, 7, 31));
 
         assertThat(html)
@@ -229,7 +234,7 @@ class ConfirmedCalendarRendererTest {
         LocalDate today = LocalDate.of(2026, 6, 11); // Thursday
         // One week before today is 2026-06-04, whose grid week starts Sunday 2026-05-31.
 
-        String html = ConfirmedCalendarRenderer.render(List.of(), today, false);
+        String html = CalendarRenderer.render(List.of(), today, false);
 
         assertThat(html)
                 .as("default window opens at the week containing today minus one week")
@@ -261,7 +266,7 @@ class ConfirmedCalendarRendererTest {
                 "https://maps.google.com/grand"
         );
 
-        String html = ConfirmedCalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), false);
+        String html = CalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), false);
 
         assertThat(html).contains("Grand Hotel");
     }

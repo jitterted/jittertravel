@@ -1,7 +1,7 @@
 # j2html Migration Analysis — Read-Only View Pages
 
 > **Status: DONE (2026-06-06, commit `b0e6f11`).** Every read-only view listed here is now a
-> j2html renderer (`ConfirmedCalendarRenderer`, `ItineraryRenderer`, `ScheduleProblemsRenderer`,
+> j2html renderer (`CalendarRenderer`, `ItineraryRenderer`, `ScheduleProblemsRenderer`,
 > `Booked{Flights,Hotels,Trains}Renderer`, `ConferencesRenderer`,
 > `PlannedGatheringsRenderer`); the corresponding Thymeleaf templates are deleted and only forms,
 > admin pages, and the `address-paste` fragment remain on Thymeleaf.

@@ -151,6 +151,33 @@ against single-method utility classes when you place it.
 
 ## Testing
 
+### Assertions against rendered HTML must name whole elements, not bare words
+
+A renderer test asserts on one long string, so `contains("Calendar")` is satisfied by *any*
+occurrence anywhere in the document — the title, a nav link, a CSS class, an entry's text. That is
+almost never the claim the test is making, and it fails to fail when the thing under test changes.
+
+Real example (2026-08-19): `CalendarRendererTest.emptyEntriesRendersCalendarPage` asserted
+`contains("Calendar")` while the page was titled **"Confirmed Calendar"**. Changing the title to
+"Calendar" left the test green — and deleting the `<title>` altogether would *also* have left it
+green, because the nav's own Calendar link matches the same bare word. The assertion pinned nothing.
+
+**So:**
+
+- Assert the **whole element**: `contains("<title>Calendar</title>")`, not `contains("Calendar")`.
+- Assert whole **attributes** with their value: `contains("href=\"/booked-trains/trip-123\"")`.
+- For an absence, be *more* specific still — `doesNotContain("Grand Hotel")` is a real claim;
+  `doesNotContain("Hotel")` would break on the word appearing in a heading, and a too-loose
+  `doesNotContain` passes for the wrong reason once the markup moves.
+- Prefer a distinctive substring of the exact markup over a regex; if a claim genuinely needs
+  structure (this element inside that one), that is a sign the assertion belongs in a
+  `@WebMvcTest`/security-chain test that can query the DOM.
+- Same rule for CSS assertions: `contains("grid-template-columns: repeat(7, minmax(0, 1fr))")`
+  paired with `doesNotContain("repeat(7, 1fr)")` — the pair is what makes it precise.
+
+Mutation-verifying (standing practice) catches exactly this class of bug: change the production
+string and watch the test go red. If it stays green, the assertion is too loose.
+
 ### List views: future/all toggle is a shared, enforced convention
 
 Booked/planned list views (trains, flights, hotels, conferences, gatherings) all share one

@@ -20,7 +20,7 @@ These tests must **not** boot a server, a Spring context, a database, or securit
 They render HTML by calling the renderer directly and load the string into the browser:
 
 ```java
-String html = ConfirmedCalendarRenderer.render(entries, today, isPublicUser);
+String html = CalendarRenderer.render(entries, today, isPublicUser);
 page.setContent(html);   // no HTTP, no Spring, no DB, no auth
 ```
 
@@ -62,4 +62,4 @@ Every class in this tier carries `@Tag("js")` (inherited from `JsBehaviorTest`).
 ## Naming
 
 Suffix the class `...JsTest` and place it next to the renderer it covers in
-`src/test/java/.../web/`. Example: `ConfirmedCalendarToggleJsTest`.
+`src/test/java/.../web/`. Example: `CalendarToggleJsTest`.

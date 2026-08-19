@@ -243,7 +243,7 @@ Existing tests to update (all currently assert wall-clock values):
 `ConferenceProjectorTest`, `PlannedGatheringsRendererTest`,
 `ConferencesRendererTest`, `ItineraryProjectorTest`, `ScheduleGapProjectorTest`,
 `CalendarViewBuilderTest`, `CalendarAggregatorTest`, `CalendarEntryRedactorTest`,
-`ItineraryRendererTest`, `ConfirmedCalendarRendererTest`, `CalendarControllerTest`,
+`ItineraryRendererTest`, `CalendarRendererTest`, `CalendarControllerTest`,
 `ConferenceMigrationServiceTest`, `EventJsonMapperEquivalenceTest`,
 `GoldenEventDeserializationTest`, `PlanGatheringWebIntegrationTest`,
 `ChangeGatheringWebIntegrationTest`, `ConferenceWebIntegrationTest`,

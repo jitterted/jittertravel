@@ -10,7 +10,7 @@ import java.util.List;
 
 import static j2html.TagCreator.*;
 
-public class ConfirmedCalendarRenderer {
+public class CalendarRenderer {
 
     private static final CalendarEntryRedactor REDACTOR = new CalendarEntryRedactor();
 
@@ -333,7 +333,7 @@ public class ConfirmedCalendarRenderer {
         String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser, isOwner);
 
         return "<!DOCTYPE html>\n" + BrowserZoneScript.markRoot(html(
-                Page.head("Confirmed Calendar", CSS),
+                Page.head("Calendar", CSS),
                 body(
                         Page.viewNav(Page.NavAudience.of(isPublicUser, isOwner), "/calendar"),
                         ZoneToggle.render(zoneDisplay),

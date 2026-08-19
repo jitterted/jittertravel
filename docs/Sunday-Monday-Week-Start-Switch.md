@@ -8,7 +8,7 @@ instead of the hardcoded **Sunday**, controlled by a user-facing toggle.
 The calendar is server-rendered static HTML (j2html). The week-start day is hardcoded
 to Sunday in several places:
 
-- `ConfirmedCalendarRenderer.render(...)` computes the date range and calls
+- `CalendarRenderer.render(...)` computes the date range and calls
   `CalendarViewBuilder.render(...)`.
 - `CalendarViewBuilder.render(...)`:
   - `gridStart = rangeStart.with(previousOrSame(DayOfWeek.SUNDAY))`
@@ -33,7 +33,7 @@ and the past/today shading remain correct because they are date-driven.
 Add a `DayOfWeek weekStart` parameter to:
 
 - `CalendarController.getCalendar(...)` — parsed from the request (see step 5).
-- `ConfirmedCalendarRenderer.render(rawEntries, today, isPublicUser, weekStart)`.
+- `CalendarRenderer.render(rawEntries, today, isPublicUser, weekStart)`.
 - `CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser, weekStart)`.
 - `renderWeek(...)` — receives the concrete week-start date per week.
 
@@ -83,7 +83,7 @@ links to `/calendar` with the appropriate `weekStart` value.
 
 ## Tests
 
-- `CalendarViewBuilderTest` and `ConfirmedCalendarRendererTest` currently assume Sunday-first
+- `CalendarViewBuilderTest` and `CalendarRendererTest` currently assume Sunday-first
   (e.g. `>May 24, 2026<` is the Sunday before May 28). Keep them green by defaulting the
   existing calls to `SUNDAY` (an overload or explicit argument).
 - Add Monday-start cases:

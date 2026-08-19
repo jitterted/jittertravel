@@ -519,7 +519,7 @@ Spec (unchanged where still relevant):
 
 ### 6. Conventions & other consumers — `[x]`
 - `[x]` `TimeFilterToggleConventionTest` needed no change: phase 4's display-mode parameter went
-  onto `ItineraryRenderer.render` and `ConfirmedCalendarRenderer.render`, neither of which is a
+  onto `ItineraryRenderer.render` and `CalendarRenderer.render`, neither of which is a
   `render(List, TimeView)` list view. The five list renderers kept their signatures, so the
   convention still holds and the test stayed green.
 - `[x]` `pom.xml:183` pins the test JVM to UTC. Every zone-sensitive test added in this plan sets

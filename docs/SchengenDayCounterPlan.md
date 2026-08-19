@@ -394,7 +394,7 @@ should leave room for it.
 
 ## The calendar strip
 
-A strip above the grid in `ConfirmedCalendarRenderer`, showing the range:
+A strip above the grid in `CalendarRenderer`, showing the range:
 
 > **Schengen: 34 / 90 days used** · window from 2026-02-14 · peak **71–87** on 2026-11-03
 > · *3 assumed stays, 2 speculative conferences* ▾

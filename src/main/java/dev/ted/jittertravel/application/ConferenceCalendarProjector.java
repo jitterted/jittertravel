@@ -17,7 +17,7 @@ import java.util.stream.Stream;
  * Projects {@link ConferenceTentativelyPlanned} events into pre-formatted
  * {@link CalendarEntry} views ready for the calendar swimlane renderer.
  * <p>
- * For now, the calendar treats tentative conferences as the only source of
+ * For now, the calendar treats planned conferences as the only source of
  * conference entries, and every conference renders identically whether Ted is
  * committed to it or merely holding the slot.
  * <p>

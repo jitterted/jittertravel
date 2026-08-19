@@ -6,7 +6,7 @@ import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
-import dev.ted.jittertravel.web.PlanTentativeConferenceRequest;
+import dev.ted.jittertravel.web.PlanConferenceRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
@@ -88,24 +88,24 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
     void loadTimelinePageReflectsCommandStatus() {
         // command #1 — succeeds, produces one event
         UUID cmd1 = UUID.randomUUID();
-        PlanTentativeConferenceRequest req1 = newRequest(cmd1, "Conf One");
+        PlanConferenceRequest req1 = newRequest(cmd1, "Conf One");
         persister.saveCommand(cmd1, req1);
         persister.appendEvents(List.of(storedEvent(1L, cmd1, "Conf One", req1)), cmd1);
 
         // command #2 — domain failure: saved, marked failed, no events
         UUID cmd2 = UUID.randomUUID();
-        PlanTentativeConferenceRequest req2 = newRequest(cmd2, "Conf Two (failed)");
+        PlanConferenceRequest req2 = newRequest(cmd2, "Conf Two (failed)");
         persister.saveCommand(cmd2, req2);
         persister.markCommandFailed(cmd2, "FAILED_DOMAIN", "rejected by domain");
 
         // command #3 — still pending: saved but never completed
         UUID cmd3 = UUID.randomUUID();
-        PlanTentativeConferenceRequest req3 = newRequest(cmd3, "Conf Three (pending)");
+        PlanConferenceRequest req3 = newRequest(cmd3, "Conf Three (pending)");
         persister.saveCommand(cmd3, req3);
 
         // command #4 — succeeds, produces two events
         UUID cmd4 = UUID.randomUUID();
-        PlanTentativeConferenceRequest req4 = newRequest(cmd4, "Conf Four");
+        PlanConferenceRequest req4 = newRequest(cmd4, "Conf Four");
         persister.saveCommand(cmd4, req4);
         persister.appendEvents(
                 List.of(storedEvent(2L, cmd4, "Conf Four", req4),
@@ -157,8 +157,8 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
         assertThat(page).allSatisfy(entry -> assertThat(entry.outOfOrder()).isFalse());
     }
 
-    private PlanTentativeConferenceRequest newRequest(UUID id, String name) {
-        PlanTentativeConferenceRequest r = new PlanTentativeConferenceRequest();
+    private PlanConferenceRequest newRequest(UUID id, String name) {
+        PlanConferenceRequest r = new PlanConferenceRequest();
         r.setConferenceId(id.toString());
         r.setName(name);
         r.setStartDate(LocalDateTime.now().plusDays(10));
@@ -171,7 +171,7 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
         return r;
     }
 
-    private StoredEvent storedEvent(long sequence, UUID commandId, String name, PlanTentativeConferenceRequest req) {
+    private StoredEvent storedEvent(long sequence, UUID commandId, String name, PlanConferenceRequest req) {
         return new StoredEvent(
                 sequence,
                 ConferenceTentativelyPlanned.class,
@@ -197,7 +197,7 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
 
         // a succeeded command (saved + events)
         UUID succeeded = UUID.randomUUID();
-        PlanTentativeConferenceRequest succeededReq = newRequest(succeeded, "Done Conf");
+        PlanConferenceRequest succeededReq = newRequest(succeeded, "Done Conf");
         persister.saveCommand(succeeded, succeededReq);
         persister.appendEvents(List.of(storedEvent(1L, succeeded, "Done Conf", succeededReq)), succeeded);
 
@@ -234,7 +234,7 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
     @Test
     void canSaveAndLoadCommandAndEvents() {
         UUID commandId = UUID.randomUUID();
-        PlanTentativeConferenceRequest request = new PlanTentativeConferenceRequest();
+        PlanConferenceRequest request = new PlanConferenceRequest();
         request.setConferenceId(commandId.toString());
         request.setName("Test Conference");
         request.setStartDate(LocalDateTime.now().plusDays(10));
@@ -280,7 +280,7 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
     void backupCapturesEveryCommandStatusWithAllColumns() {
         // succeeded — has events, event_ids populated, status SUCCEEDED
         UUID succeeded = UUID.randomUUID();
-        PlanTentativeConferenceRequest succeededReq = newRequest(succeeded, "Succeeded Conf");
+        PlanConferenceRequest succeededReq = newRequest(succeeded, "Succeeded Conf");
         persister.saveCommand(succeeded, succeededReq);
         StoredEvent event = storedEvent(1L, succeeded, "Succeeded Conf", succeededReq);
         persister.appendEvents(List.of(event), succeeded);
@@ -332,7 +332,7 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
     @Test
     void appendStampsTheEventTypesCurrentSchemaVersion() {
         UUID commandId = UUID.randomUUID();
-        PlanTentativeConferenceRequest req = newRequest(commandId, "Stamped Conf");
+        PlanConferenceRequest req = newRequest(commandId, "Stamped Conf");
         persister.saveCommand(commandId, req);
         // ConferenceTentativelyPlanned migrated datetimes → ZonedTimestamp (v2) and then added the
         // format field (v3), so its current schema version is 3.
@@ -348,7 +348,7 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
     @Test
     void restoreReinsertsCommandsAndEventsVerbatimAndIsIdempotent() {
         UUID succeeded = UUID.randomUUID();
-        PlanTentativeConferenceRequest succeededReq = newRequest(succeeded, "Succeeded Conf");
+        PlanConferenceRequest succeededReq = newRequest(succeeded, "Succeeded Conf");
         persister.saveCommand(succeeded, succeededReq);
         persister.appendEvents(
                 List.of(storedEvent(1L, succeeded, "Succeeded Conf", succeededReq),

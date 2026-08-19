@@ -6,7 +6,7 @@ import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.Instant;
 
-public record TentativeConferenceView(
+public record ConferenceView(
         ConferenceId conferenceId,
         String name,
         String venueName,

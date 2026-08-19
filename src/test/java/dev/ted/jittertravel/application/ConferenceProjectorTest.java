@@ -16,7 +16,7 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class TentativeConferenceProjectorTest {
+class ConferenceProjectorTest {
 
     // ALL ignores now; any instant works for those cases.
     private static final Instant NOW = Instant.parse("2020-01-01T00:00:00Z");
@@ -26,7 +26,7 @@ class TentativeConferenceProjectorTest {
 
     @Test
     void projectorCreatesViewFromEvents() {
-        TentativeConferenceProjector projector = new TentativeConferenceProjector();
+        ConferenceProjector projector = new ConferenceProjector();
         ConferenceId conferenceId = ConferenceId.random();
         Address address = new Address("123 Venue Street", "Venue City", "Venue State", "Venue Postal Code", "Venue Country", null);
         ConferenceTentativelyPlanned event = new ConferenceTentativelyPlanned(
@@ -53,7 +53,7 @@ class TentativeConferenceProjectorTest {
 
     @Test
     void projectedViewsAreSortedAscendingByStartDate() {
-        TentativeConferenceProjector projector = new TentativeConferenceProjector();
+        ConferenceProjector projector = new ConferenceProjector();
         Address address = new Address("Street", "City", "State", "Postal Code", "Country", null);
 
         ConferenceTentativelyPlanned laterEvent = new ConferenceTentativelyPlanned(
@@ -80,13 +80,13 @@ class TentativeConferenceProjectorTest {
 
         assertThat(projector.views(TimeView.ALL, NOW))
                 .hasSize(2)
-                .extracting(TentativeConferenceView::name)
+                .extracting(ConferenceView::name)
                 .containsExactly("Earlier Conference", "Later Conference");
     }
 
     @Test
     void migratableViewsExcludesMultiDayConferences() {
-        TentativeConferenceProjector projector = new TentativeConferenceProjector();
+        ConferenceProjector projector = new ConferenceProjector();
         Address address = new Address("Street", "City", "State", "Postal", "Country", null);
 
         handle(projector, 1, "Single-day", LocalDateTime.of(2026, 6, 1, 9, 0), LocalDateTime.of(2026, 6, 1, 17, 0), address);
@@ -94,26 +94,26 @@ class TentativeConferenceProjectorTest {
 
         assertThat(projector.migratableViews())
                 .hasSize(1)
-                .extracting(TentativeConferenceView::name)
+                .extracting(ConferenceView::name)
                 .containsExactly("Single-day");
     }
 
     @Test
     void migratableViewsIncludesSingleDayConferences() {
-        TentativeConferenceProjector projector = new TentativeConferenceProjector();
+        ConferenceProjector projector = new ConferenceProjector();
         Address address = new Address("Street", "City", "State", "Postal", "Country", null);
 
         handle(projector, 1, "All Day", LocalDateTime.of(2026, 6, 1, 0, 0), LocalDateTime.of(2026, 6, 1, 23, 59), address);
 
         assertThat(projector.migratableViews())
                 .hasSize(1)
-                .extracting(TentativeConferenceView::name)
+                .extracting(ConferenceView::name)
                 .containsExactly("All Day");
     }
 
     @Test
     void migratableViewsAreSortedAscendingByStartDate() {
-        TentativeConferenceProjector projector = new TentativeConferenceProjector();
+        ConferenceProjector projector = new ConferenceProjector();
         Address address = new Address("Street", "City", "State", "Postal", "Country", null);
 
         handle(projector, 1, "Later Single-day",   LocalDateTime.of(2026, 7, 5, 9, 0), LocalDateTime.of(2026, 7, 5, 17, 0), address);
@@ -121,13 +121,13 @@ class TentativeConferenceProjectorTest {
         handle(projector, 3, "Earlier Single-day",  LocalDateTime.of(2026, 6, 10, 9, 0), LocalDateTime.of(2026, 6, 10, 17, 0), address);
 
         assertThat(projector.migratableViews())
-                .extracting(TentativeConferenceView::name)
+                .extracting(ConferenceView::name)
                 .containsExactly("Earlier Single-day", "Later Single-day");
     }
 
     @Test
     void futureFilterKeepsInProgressConferenceButDropsFinishedOne() {
-        TentativeConferenceProjector projector = new TentativeConferenceProjector();
+        ConferenceProjector projector = new ConferenceProjector();
         Address address = new Address("Street", "City", "State", "Postal", "Country", null);
         LocalDateTime now = LocalDateTime.of(2026, 6, 15, 12, 0);
         // started yesterday, ends tomorrow -> still "upcoming" by endDate
@@ -140,16 +140,16 @@ class TentativeConferenceProjectorTest {
         // "Now" is a moment, read against the venue's own zone — not the server's.
         Instant nowInstant = now.atZone(VENUE_ZONE).toInstant();
         assertThat(projector.views(TimeView.FUTURE, nowInstant))
-                .extracting(TentativeConferenceView::name)
+                .extracting(ConferenceView::name)
                 .containsExactly("In Progress");
         assertThat(projector.views(TimeView.ALL, nowInstant))
-                .extracting(TentativeConferenceView::name)
+                .extracting(ConferenceView::name)
                 .containsExactlyInAnyOrder("In Progress", "Finished");
     }
 
     @Test
     void decliningAttendanceRemovesTheConferenceFromTheList() {
-        TentativeConferenceProjector projector = new TentativeConferenceProjector();
+        ConferenceProjector projector = new ConferenceProjector();
         Address address = new Address("Street", "City", "State", "Postal", "Country", null);
         ConferenceId conferenceId = ConferenceId.random();
         ConferenceTentativelyPlanned planned = new ConferenceTentativelyPlanned(
@@ -167,7 +167,7 @@ class TentativeConferenceProjectorTest {
                 2, declined.getClass(), UUID.randomUUID(), Instant.now(), declined, UUID.randomUUID())));
 
         assertThat(projector.views(TimeView.ALL, NOW))
-                .as("a declined conference leaves the tentative list, like a cancelled one")
+                .as("a declined conference leaves the conferences list, like a cancelled one")
                 .isEmpty();
     }
 
@@ -175,8 +175,8 @@ class TentativeConferenceProjectorTest {
         return ZonedTimestamp.fromLocal(local, VENUE_ZONE);
     }
 
-    private static void handle(TentativeConferenceProjector projector, long seq, String name,
-                                LocalDateTime start, LocalDateTime end, Address address) {
+    private static void handle(ConferenceProjector projector, long seq, String name,
+                               LocalDateTime start, LocalDateTime end, Address address) {
         ConferenceTentativelyPlanned event = new ConferenceTentativelyPlanned(
                 ConferenceId.random(), name, zt(start), zt(end), "Venue", address);
         projector.handle(Stream.of(

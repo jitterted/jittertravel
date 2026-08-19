@@ -27,8 +27,8 @@ class PlanConferenceControllerTest {
 
         controller.planConferenceForm(model, null);
 
-        PlanTentativeConferenceRequest request =
-                (PlanTentativeConferenceRequest) model.getAttribute("planTentativeConference");
+        PlanConferenceRequest request =
+                (PlanConferenceRequest) model.getAttribute("planConference");
         assertThat(request.getStartDate()).isEqualTo(LocalDateTime.of(2026, 6, 7, 9, 0));
         assertThat(request.getEndDate()).isEqualTo(LocalDateTime.of(2026, 6, 9, 17, 0));
     }
@@ -40,8 +40,8 @@ class PlanConferenceControllerTest {
 
         controller.planConferenceForm(model, LocalDate.of(2026, 7, 20));
 
-        PlanTentativeConferenceRequest request =
-                (PlanTentativeConferenceRequest) model.getAttribute("planTentativeConference");
+        PlanConferenceRequest request =
+                (PlanConferenceRequest) model.getAttribute("planConference");
         assertThat(request.getStartDate()).isEqualTo(LocalDateTime.of(2026, 7, 20, 9, 0));
         assertThat(request.getEndDate()).isEqualTo(LocalDateTime.of(2026, 7, 22, 17, 0));
     }

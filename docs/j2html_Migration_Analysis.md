@@ -2,9 +2,14 @@
 
 > **Status: DONE (2026-06-06, commit `b0e6f11`).** Every read-only view listed here is now a
 > j2html renderer (`ConfirmedCalendarRenderer`, `ItineraryRenderer`, `ScheduleProblemsRenderer`,
-> `Booked{Flights,Hotels,Trains}Renderer`, `TentativeConferencesRenderer`,
+> `Booked{Flights,Hotels,Trains}Renderer`, `ConferencesRenderer`,
 > `PlannedGatheringsRenderer`); the corresponding Thymeleaf templates are deleted and only forms,
 > admin pages, and the `address-paste` fragment remain on Thymeleaf.
+>
+> **Names below are pre-migration.** The `*.html` template names in the sections that follow (e.g.
+> `tentative-conferences.html`) are the Thymeleaf files as they were named then; all are deleted.
+> The conference view is now `ConferencesRenderer` serving **`/conferences`** — the route and the
+> read-model classes were renamed away from "tentative" on 2026-08-19.
 >
 > **Implemented differently from the plan:** the shared infrastructure in "Step 1" was not
 > extracted as proposed — only `web/Page.java` exists. There is no `TemporalFormatter`,
@@ -268,7 +273,7 @@ city, country. No conditional logic beyond the empty state.
 
 **Fragment contents:**
 - Table with 5 columns
-- `th:each="conference : ${conferences}"` over `TentativeConferenceView` records
+- `th:each="conference : ${conferences}"` over `ConferenceView` records
 - Temporal formatting: `#temporals.format(conference.startDate(), 'MMM d, yyyy')`
 - No links, no conditional CSS
 
@@ -316,7 +321,7 @@ tentative-conferences disappears entirely — in j2html reuse is just a method c
 5. Migrate `CalendarController` to `ResponseEntity<String>`, delete `confirmed-calendar.html`
 
 **Step 3 — Simple views** *(build confidence, validate infrastructure)*
-6. `TentativeConferencesRenderer` + update `PlanConferenceController`
+6. `ConferencesRenderer` + update `PlanConferenceController`
 7. `BookedHotelsRenderer` + update `BookedHotelsController`
 8. `BookedTrainsRenderer` + update `BookedTrainsController`
 

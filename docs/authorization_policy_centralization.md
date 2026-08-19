@@ -22,7 +22,8 @@ definition that both the security chain and the home navigation are derived from
 
 ## Confirmed current policy (the thing to centralize)
 
-Transcribed from `SecurityConfig.securedFilterChain` on **2026-08-14** (`a2b1845`). This table
+Transcribed from `SecurityConfig.securedFilterChain` on **2026-08-14** (`a2b1845`), refreshed
+**2026-08-19** for the `/tentative-conferences` → `/conferences` rename. This table
 goes stale every time a route is added; `AuthorizationMatrixTest` is the canonical, executable
 statement — read it, not this, when the two disagree.
 
@@ -31,10 +32,10 @@ statement — read it, not this, when the two disagree.
 | `/` (home)                                                               |  ✅   |  ✅    |    ✅     |
 | `/calendar` (redacted for anonymous via `CalendarEntryRedactor`)         |  ✅   |  ✅    |    ✅     |
 | `/itinerary`, `/itinerary/**`                                            |  ✅   |  ✅    |   login   |
-| Bookings lists: `/booked-flights`, `/booked-trains`, `/booked-hotels`, `/tentative-conferences`, `/planned-gatherings` |  ✅   | denied |   login   |
+| Bookings lists: `/booked-flights`, `/booked-trains`, `/booked-hotels`, `/conferences`, `/planned-gatherings` |  ✅   | denied |   login   |
 | Data entry: `/book-*`, `/plan-conference`, `/plan-gathering`, `/plan-private-event`, `/clear-conflict` (each with `/**`), `/api/parse-address` |  ✅   | denied |   login   |
-| Per-item edit pages: `/booked-flights/*`, `/booked-trains/*`, `/booked-hotels/*`, `/planned-gatherings/*` |  ✅   | denied |   login   |
-| Per-item actions (one matcher each — `*` spans one segment): `/booked-flights/*/lookup`, `/booked-flights/*/lookup/select`, `/booked-hotels/*/cancel` |  ✅   | denied |   login   |
+| Per-item edit pages: `/booked-flights/*`, `/booked-trains/*`, `/booked-hotels/*`, `/conferences/*`, `/planned-gatherings/*` |  ✅   | denied |   login   |
+| Per-item actions (one matcher each — `*` spans one segment): `/booked-flights/*/lookup`, `/booked-flights/*/lookup/select`, `/booked-hotels/*/cancel`, `/conferences/*/decline` |  ✅   | denied |   login   |
 | `/schedule-problems` (conflict/gap report — times, names, internal ids)   |  ✅   | denied |   login   |
 | Admin: `/admin`, `/admin/**`                                             |  ✅   | denied |   login   |
 | `/actuator/health`, `/actuator/health/**` (Railway health check)         |  ✅   |  ✅    |    ✅     |
@@ -64,10 +65,11 @@ public enum NavSection {
                     "/booked-flights/*/lookup/select",
                     "/booked-trains/*", "/booked-hotels/*",
                     "/booked-hotels/*/cancel",
+                    "/conferences/*", "/conferences/*/decline",
                     "/planned-gatherings/*")),
     BOOKINGS(Set.of("OWNER"),
             List.of("/booked-flights", "/booked-trains", "/booked-hotels",
-                    "/tentative-conferences", "/planned-gatherings")),
+                    "/conferences", "/planned-gatherings")),
     ITINERARY(Set.of("OWNER", "FAMILY"),
             List.of("/itinerary", "/itinerary/**")),
     SCHEDULE_PROBLEMS(Set.of("OWNER"),

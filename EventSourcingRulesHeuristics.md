@@ -263,7 +263,7 @@ distinction behind R9):
   current time (`views(TimeView, now)`), but not always: it can be the viewer's
   identity, a requested date (`ItineraryProjector.entriesForDate(date)`), or a
   standing predicate over the view records' own fields
-  (`TentativeConferenceProjector.migratableViews()` = the single-day conferences).
+  (`ConferenceProjector.migratableViews()` = the single-day conferences).
   A filter reads the already-projected records; it never re-derives them from events.
 
 The test for which one you are looking at: **does the read method run the domain

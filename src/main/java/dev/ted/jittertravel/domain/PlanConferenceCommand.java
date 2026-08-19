@@ -2,7 +2,7 @@ package dev.ted.jittertravel.domain;
 
 import java.util.stream.Stream;
 
-public record PlanTentativeConferenceCommand(
+public record PlanConferenceCommand(
         ConferenceId conferenceId,
         String name,
         ZonedTimestamp startDate,
@@ -10,10 +10,10 @@ public record PlanTentativeConferenceCommand(
         String venueName,
         Address venueAddress,
         ConferenceFormat format
-) implements DomainCommand<PlanTentativeConferenceContext> {
+) implements DomainCommand<PlanConferenceContext> {
 
     @Override
-    public Stream<ConferenceTentativelyPlanned> execute(PlanTentativeConferenceContext context) {
+    public Stream<ConferenceTentativelyPlanned> execute(PlanConferenceContext context) {
         // "At least a day out" is a calendar-day question read in the venue's own zone, matching
         // PlanGatheringCommand. It used to be a 24-hour wall-clock comparison against the server's
         // clock, so a conference starting tomorrow morning is now accepted even when that is less

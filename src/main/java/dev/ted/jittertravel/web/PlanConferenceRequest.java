@@ -5,7 +5,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
 
-public class PlanTentativeConferenceRequest {
+public class PlanConferenceRequest {
     private String conferenceId;
     private String name;
     // The @DateTimeFormat for start and end dates are required to match browser's <input type="datetime-local" /> format
@@ -27,7 +27,7 @@ public class PlanTentativeConferenceRequest {
     // default too (ConferenceFormat.fromParam).
     private String format = "CALL_FOR_PAPERS";
 
-    public PlanTentativeConferenceRequest() {
+    public PlanConferenceRequest() {
     }
 
     public String getConferenceId() {
@@ -132,7 +132,7 @@ public class PlanTentativeConferenceRequest {
 
     @Override
     public String toString() {
-        return "PlanTentativeConferenceRequest {" +
+        return "PlanConferenceRequest {" +
                 "conferenceId='" + conferenceId + '\'' +
                 ", name='" + name + '\'' +
                 ", startDate=" + startDate +

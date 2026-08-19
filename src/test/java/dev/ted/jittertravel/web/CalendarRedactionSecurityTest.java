@@ -126,7 +126,7 @@ class CalendarRedactionSecurityTest {
                 .doesNotContain("href=\"/booked-trains")
                 .doesNotContain("href=\"/booked-hotels")
                 .doesNotContain("href=\"/planned-gatherings")
-                .doesNotContain("href=\"/tentative-conferences")
+                .doesNotContain("href=\"/conferences")
                 .doesNotContain("href=\"/schedule-problems");
     }
 

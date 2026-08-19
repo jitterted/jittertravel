@@ -114,7 +114,7 @@ class TimelineControllerTest {
         TimelineCommand command = new TimelineCommand(
                 commandId,
                 OffsetDateTime.now(),
-                "dev.ted.jittertravel.web.PlanTentativeConferenceRequest",
+                "dev.ted.jittertravel.web.PlanConferenceRequest",
                 "{}",
                 status
         );

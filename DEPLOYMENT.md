@@ -51,12 +51,16 @@ real Railway variables.
 ### Access control (secured profiles)
 Data-entry and admin pages require login; read-only views stay public:
 
-- **Login required:** `/admin/**`, `/book-flight*`, `/book-hotel*`, `/book-train*`,
-  `/plan-conference*`, `/plan-gathering*`, `/clear-conflict*`, the per-flight edit
-  `/booked-flights/{id}` (+ `/lookup`), and `/api/parse-address`.
-- **Public:** home `/`, `/calendar`, `/itinerary`, the booking lists (`/booked-*`),
-  `/planned-gatherings`, `/tentative-conferences`, `/schedule-problems`, `/actuator/**`,
-  `/login`, and static assets.
+- **OWNER only:** `/admin/**`; `/actuator/**` except `/actuator/health`; the data-entry
+  forms `/book-flight*`, `/book-hotel*`, `/book-train*`, `/plan-conference*`,
+  `/plan-gathering*`, `/plan-private-event*`, `/clear-conflict*` and `/api/parse-address`;
+  the lists `/booked-flights`, `/booked-trains`, `/booked-hotels`, `/conferences`,
+  `/planned-gatherings` together with their per-item edit/action pages; and
+  `/schedule-problems`.
+- **FAMILY or OWNER:** `/itinerary` and `/itinerary/**`.
+- **Public:** home `/`, `/calendar`, `/login`, `/actuator/health`, the token-gated
+  `/calendar/feed/**` (the URL token is the credential, checked in the controller), and
+  static assets.
 
 Visiting a protected page while logged out redirects to the login form; a **failed login
 returns to the login page with an error** (`/login?error`). The home page hides the "Book & Plan"

@@ -262,7 +262,7 @@ when the first DB-backed projection lands.
   that **2 are called on the live path** and must keep `events()`:
   - **Deleted `events()` (importer-only, 10):** `BookFlightRequest`, `ChangeFlightRequest`,
     `BookHotelRequest`, `ChangeHotelRequest`, `CancelHotelRequest`, `BookTrainRequest`,
-    `ChangeTrainRequest`, `PlanTentativeConferenceRequest`, `PlanGatheringRequest`,
+    `ChangeTrainRequest`, `PlanConferenceRequest`, `PlanGatheringRequest`,
     `ChangeGatheringRequest`. Each also shed `implements ImportableCommand`, `commandId()`, and its
     now-unused handler/context imports. `CancelHotelRequest` dropped its hardcoded
     `CancelHotelContext` fake.

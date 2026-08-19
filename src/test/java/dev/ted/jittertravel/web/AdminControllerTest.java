@@ -4,7 +4,7 @@ import dev.ted.jittertravel.application.BackupService;
 import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.ConferenceMigrationService;
 import dev.ted.jittertravel.application.LegacyEventMigration;
-import dev.ted.jittertravel.application.TentativeConferenceProjector;
+import dev.ted.jittertravel.application.ConferenceProjector;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,7 +54,7 @@ class AdminControllerTest {
     @MockitoBean
     PostgresPersister persister;
     @MockitoBean
-    TentativeConferenceProjector tentativeConferenceProjector;
+    ConferenceProjector conferenceProjector;
     @MockitoBean
     ConferenceMigrationService conferenceMigrationService;
     @MockitoBean
@@ -133,7 +133,7 @@ class AdminControllerTest {
 
     @Test
     void migrateConferencesFormMapsToOkWithHtmlContentType() {
-        given(tentativeConferenceProjector.migratableViews()).willReturn(List.of());
+        given(conferenceProjector.migratableViews()).willReturn(List.of());
 
         assertThat(mockMvc.get().uri("/admin/migrate-conferences"))
                 .hasStatusOk()

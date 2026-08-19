@@ -5,7 +5,7 @@ import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
-import dev.ted.jittertravel.web.PlanTentativeConferenceRequest;
+import dev.ted.jittertravel.web.PlanConferenceRequest;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -53,7 +53,7 @@ class EventStorePerfTest extends AbstractTestcontainerIntegrationTest {
             log.info("Starting Database Warmup ({} writes)...", warmupIterations);
             for (int i = 0; i < warmupIterations; i++) {
                 UUID commandId = UUID.randomUUID();
-                PlanTentativeConferenceRequest request = createCommandRequest(commandId);
+                PlanConferenceRequest request = createCommandRequest(commandId);
                 transactionTemplate.executeWithoutResult(_ -> {
                     realPersister.saveCommand(commandId, request);
                     eventStore.append(Stream.of(createSampleEvent()), commandId);
@@ -67,7 +67,7 @@ class EventStorePerfTest extends AbstractTestcontainerIntegrationTest {
 
             for (int i = 0; i < measuredIterations; i++) {
                 UUID commandId = UUID.randomUUID();
-                PlanTentativeConferenceRequest request = createCommandRequest(commandId);
+                PlanConferenceRequest request = createCommandRequest(commandId);
 
 
                 Stream<Event> stream = Stream.of(createSampleEvent());
@@ -88,8 +88,8 @@ class EventStorePerfTest extends AbstractTestcontainerIntegrationTest {
         }
     }
 
-    private PlanTentativeConferenceRequest createCommandRequest(UUID commandId) {
-        PlanTentativeConferenceRequest request = new PlanTentativeConferenceRequest();
+    private PlanConferenceRequest createCommandRequest(UUID commandId) {
+        PlanConferenceRequest request = new PlanConferenceRequest();
         request.setConferenceId(commandId.toString());
         request.setName("Test Conference");
         request.setStartDate(LocalDateTime.now().plusDays(10));

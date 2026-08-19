@@ -47,7 +47,7 @@ class ConferenceMigrationServiceTest {
 
     private static ConferenceMigrationService serviceFor(ConferenceId conferenceId,
                                                          CommandExecutor commandExecutor) {
-        TentativeConferenceProjector projector = new TentativeConferenceProjector();
+        ConferenceProjector projector = new ConferenceProjector();
         projector.handle(Stream.of(stored(new ConferenceTentativelyPlanned(
                 conferenceId,
                 "JitterConf 2026",

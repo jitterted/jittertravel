@@ -22,6 +22,13 @@
 in `EventPayloadUpcasterDesign.md` (this migration, `format` v2→v3, is the `ConferenceFormatUpcaster`
 rung that shaped that framework out of the previously single-class upcaster).
 >
+> **Slice 2 decisions taken 2026-08-19, before any code:** `AttendanceBasis` is **three values**
+> (`ATTENDING_ANYWAY` dropped — see "AttendanceBasis" below); the public calendar shows a **"Maybe"
+> chip on speculative conferences only**, identical for owner and anonymous viewers (see "The public
+> calendar label"); and the app-layer vocabulary is realigned from "tentative conferences" to plain
+> **"conferences"**, route included, as a separate rename commit landing *before* slice 2 (see "The
+> tentative → conferences realignment").
+>
 > **The 2026-08-18 refinement (this pass) settled the last open questions and simplified the model.**
 > It is driven by a concrete need — CFPs for next year are opening now — and by four real conferences
 > already entered (dev2next, ExploreDDD, SoCraTes DE, J-Fall, PLoP). The decisions below **supersede**
@@ -39,7 +46,7 @@ four unrelated meanings at once:
    and no ticket bought yet;
 4. ticket bought as a pure attendee, not speaking.
 
-They all render identically on `/calendar` and in `/planned-conferences`, so the list cannot answer
+They all render identically on `/calendar` and in `/conferences`, so the list cannot answer
 "what am I actually committed to?" — which is the question that drives flights, hotels, and the
 Schengen count.
 
@@ -123,7 +130,7 @@ Two streams. Commitment events key on the existing `ConferenceId`; submissions g
 |---|---|
 | `ConferenceTentativelyPlanned` (exists) | Unchanged, name kept for backup compatibility. Reads as "on my radar" — the `WATCHING` entry point. |
 | `CfpWindowRecorded(conferenceId, opensOn, closesOn)` | Optional; either date may be absent. Drives `CFP_PENDING` → `CFP_OPEN` and the "submit before you lose it" nudge. |
-| `ConferenceAttendanceCommitted(conferenceId, basis, committedOn)` | `basis` ∈ `SPEAKING_ACCEPTED`, `SPEAKING_INVITED`, `TICKET_PURCHASED`, `ATTENDING_ANYWAY`. **Owner-only.** |
+| `ConferenceAttendanceCommitted(conferenceId, basis, committedOn)` | `basis` ∈ `SPEAKING_ACCEPTED`, `SPEAKING_INVITED`, `TICKET_PURCHASED` (`ATTENDING_ANYWAY` dropped 2026-08-19). **Owner-only.** |
 | `ConferenceAttendanceDeclined(conferenceId, reason, declinedOn)` | *Ted* decided not to go. Distinct from a rejection and from an organizer cancellation. |
 | `ConferenceCancelled` (exists) | Organizers cancelled. |
 
@@ -238,9 +245,88 @@ reads as "I submitted (one or more talks) to this CFP." When per-talk state earn
 `SubmissionId` + title then — not before (no abstraction before the 2nd user).
 
 **ExploreDDD's "rejected, attended anyway"** (nice-to-have) needs no extra machinery: `TalkRejected`
-(conference-keyed) then `ConferenceAttendanceConfirmed(basis: ATTENDING_ANYWAY)`. The rejection is
+(conference-keyed) then `ConferenceAttendanceConfirmed(basis: TICKET_PURCHASED)`. The rejection is
 recorded; the confirm is the "go anyway." Only reachable for `CALL_FOR_PAPERS`; for
 `ACCEPTANCE_REQUIRED` the rejection auto-drops.
+
+### `AttendanceBasis` is three values — `ATTENDING_ANYWAY` dropped (Ted, 2026-08-19)
+
+```
+AttendanceBasis { SPEAKING_ACCEPTED, SPEAKING_INVITED, TICKET_PURCHASED }
+```
+
+The original four carried `ATTENDING_ANYWAY` alongside `TICKET_PURCHASED`, but they name the same
+fact: buying a ticket **is** how "I'll go anyway" happens (Ted, 2026-08-19) — the SoCraTes open-space
+case and the ExploreDDD rejected-then-attended case are both just a purchased ticket. Nothing
+downstream ever branched on the difference.
+
+The narrative the fourth value was trying to preserve — *that Ted went anyway after a rejection* —
+is **already recorded by the preceding `TalkRejected` event**, so encoding it a second time in the
+basis duplicates a fact the stream holds, and duplicated facts drift. Read the sequence, not the
+label.
+
+The surviving three partition cleanly into speaking (`SPEAKING_ACCEPTED`, `SPEAKING_INVITED`) and
+not (`TICKET_PURCHASED`), which is exactly the read the slice-4 conference speaking badge needs.
+`basis` stays **OWNER-only and never enters `CalendarEntry`** regardless.
+
+### The public calendar label — a "Maybe" chip, speculative only (Ted, 2026-08-19)
+
+Slice 2 stamps a commitment onto `CalendarEntry`. **The collapse to the public label happens in the
+projector, not the redactor:** `CalendarEntry` carries only the already-collapsed level, so `basis`
+and submission status never enter the view at all. That is redaction rule 1 doing the work
+structurally rather than the redactor stripping fields.
+
+What renders:
+
+| Commitment | Calendar |
+|---|---|
+| `WATCHING` (every speculative state) | a **"Maybe"** chip on the entry |
+| `GOING` | no chip — a plain conference entry |
+| `NOT_GOING` / organizer-cancelled | absent entirely, for everyone |
+
+**Chip on the speculative case only.** A badge earns its place when it says something non-obvious:
+"Ted might be at this one" is non-obvious, while "Ted is going" is the default reading of any
+calendar entry — a `Going` chip would be noise on every committed conference, and would make its own
+absence something a reader has to reason about. This matches the existing precedent: the "A Ted
+Talk" speaking badge shows only in the exceptional case.
+
+**The same chip for owner and anonymous viewers.** One rendering path, one collapse, nothing for the
+redactor to get wrong. Richer per-conference status (submitted / waitlisted / decide) belongs on the
+conference radar list in slice 3, not on the calendar.
+
+A styling-only distinction (muted vs. solid) was rejected: it is invisible to anyone who does not
+already know the convention, and muted conventionally reads as *cancelled*.
+
+### The `tentative` → `conferences` realignment (Ted, 2026-08-19)
+
+Once commitment is its own derived dimension, "tentative" is precisely the concept being *removed*
+from the model — so a `GOING` conference living in a class called `ConferenceProjector` is
+an active lie. The app-layer vocabulary is realigned to plain "conferences" as a **separate rename
+commit landing before slice 2**, so the rename diff stays reviewable at a glance instead of hiding
+inside a behavioural change. (Both touch `SecurityConfig` and `AuthorizationMatrixTest`; renaming
+first makes slice 2's change there a single added row.)
+
+**Renamed:** `ConferenceProjector` → `ConferenceProjector`, `ConferenceView` →
+`ConferenceView`, `ConferencesRenderer` → `ConferencesRenderer`, the route
+`/tentative-conferences` → **`/conferences`**, and the command side
+`PlanTentativeConference{Command,Handler,Context,Request}` → `PlanConference*` (already inconsistent
+with its own `PlanConferenceController`, which never carried "Tentative").
+
+**Not renamed, deliberately:**
+
+- **The event class `ConferenceTentativelyPlanned`.** `EventTypes` decouples the logical name from
+  the class, so the rename would be free at the persistence layer — but the logical name
+  `"ConferenceTentativelyPlanned"` would stay in `event_log` and in backup JSON either way, and a
+  permanent divergence between what you read in the database and what you read in code is a
+  debugging tax on exactly the artifact you inspect when something is wrong. The name is also still
+  *true*: "a conference was tentatively planned" is precisely the `WATCHING` entry point. Commitment
+  events are what add `GOING`.
+- **`TentativeHotelBooking*`, `status-tentative`, "Tentative/Final".** A second, unrelated meaning of
+  "tentative" — hotel booking status. Out of scope; a blanket rename would have hit these.
+
+Command class names are safe to change: per `EventTypes`' javadoc a command's `type` is stored
+opaquely and never resolved back to a class. The only consequence is `/admin/commandlog` showing two
+names for the same command across the rename boundary.
 
 ### Backfilling existing conferences — resolved
 
@@ -253,7 +339,7 @@ CFP history:
 |---|---|---|---|
 | dev2next (speaking) | `CALL_FOR_PAPERS` | `ConferenceAttendanceConfirmed(basis: SPEAKING_ACCEPTED)` | `GOING` + speaking badge |
 | ExploreDDD (attending only) | `CALL_FOR_PAPERS` | `ConferenceAttendanceConfirmed(basis: TICKET_PURCHASED)`; optionally `TalkRejected` first to record the "anyway" | `GOING`, no badge |
-| SoCraTes DE (open-space) | `OPEN_SPACE` | `ConferenceAttendanceConfirmed(basis: ATTENDING_ANYWAY)` | `GOING`, no CFP nudge |
+| SoCraTes DE (open-space) | `OPEN_SPACE` | `ConferenceAttendanceConfirmed(basis: TICKET_PURCHASED)` | `GOING`, no CFP nudge |
 | J-Fall (CFP open) | `CALL_FOR_PAPERS` | `CfpOpened(closesOn)`; then submit forward | `WATCHING` + `CFP_OPEN` |
 
 Accept-the-default is out: it would mislabel dev2next as not-speaking, the one outcome we can't have.
@@ -284,10 +370,13 @@ The original bottom-up order is re-cut so the CFP-season payoff and the backfill
    v3; upcaster injects absent format→`CALL_FOR_PAPERS` as an independent increment). **SHIPPED
    2026-08-18.** `datesConfirmed` was split out and deferred to slice 5 (its only consumer is the
    Schengen ceiling), so this slice was format alone.
-2. **Commitment fold + `ConferenceAttendanceConfirmed`** + `CalendarEntry.commitment` + the redactor
-   branch + both tiers of redaction test + CLAUDE.md amend. This is the slice that makes the calendar
-   tell the truth, and the slice the **backfill runs through** — so the backfill decision (above) is
-   its gate. `SubmissionAccepted`/`InvitedToSpeak` auto-commit / offer-to-commit per the original.
+2. **Commitment fold + `ConferenceAttendanceConfirmed`** + `CalendarEntry.commitment` + the "Maybe"
+   chip + the redactor branch + both tiers of redaction test + CLAUDE.md amend. This is the slice
+   that makes the calendar tell the truth, and the slice the **backfill runs through** — so the
+   backfill decision (above) is its gate. `SubmissionAccepted`/`InvitedToSpeak` auto-commit /
+   offer-to-commit per the original. Preceded by the rename commit (see "The `tentative` →
+   `conferences` realignment"). Note the backfill lands in **two sittings**: dev2next, ExploreDDD and
+   SoCraTes are reachable after this slice, but J-Fall's `CfpOpened` row needs slice 3.
 3. **`CfpOpened` + the CFP-deadline iCal source (72h + 24h)** + the radar view grouped by derived
    status, `OPEN_SPACE` in a "nothing to submit" group. Pulls the deadline reminder forward because
    that is the concrete CFP-season value.
@@ -325,7 +414,7 @@ The original bottom-up order is re-cut so the CFP-season payoff and the backfill
 
 ### Any new route is deny-by-default
 
-A submissions surface (`/submissions`, or an extension of `/planned-conferences`) and its POST
+A submissions surface (`/submissions`, or an extension of `/conferences`) and its POST
 endpoints are OWNER-only. Add the matcher to `SecurityConfig` **and** the `policy()` row to
 `AuthorizationMatrixTest` in the same change (redaction rule 3). Hiding the nav card is not access
 control. Per the `index.html` convention, ask Ted which nav group, which Font Awesome Pro fill-based
@@ -367,7 +456,7 @@ lands with the ceiling. Adding it later is a second schema bump on `ConferenceTe
 
 ### Read models
 
-`TentativeConferenceProjector` / `TentativeConferenceView` become the conference **radar**: grouped
+`ConferenceProjector` / `ConferenceView` become the conference **radar**: grouped
 by derived status, with the actions inline (`WATCHING` → Submit / Buy ticket / Drop; `SUBMITTED` →
 Accepted / Waitlisted / Rejected / Withdraw; `REJECTED` → Go anyway / Drop). Keep the
 `TemporalView.relevantUntil()` + `TimeView` + `TimeFilterToggle.render(...)` trio — the FUTURE/ALL
@@ -411,7 +500,7 @@ rework here.
 
 ## Testing
 
-- **Domain command tests** per new command, in the `PlanTentativeConferenceCommandTest` style.
+- **Domain command tests** per new command, in the `PlanConferenceCommandTest` style.
 - **Lifecycle-propagation scenarios** in each affected projector test — the preferred guard against
   a projector silently missing an event (sealing `Event` was rejected). A decline, a rejection, and
   an organizer cancellation must each move every read model that shows conferences.
@@ -430,7 +519,7 @@ rework here.
 
 - **leaves the calendar and the itinerary entirely** — for owner and anonymous viewers alike, the same
   way `ConferenceCancelled` already behaves;
-- **stays on the full conference list** (`/tentative-conferences`), so "looked at it, said no" is a
+- **stays on the full conference list** (`/conferences`), so "looked at it, said no" is a
   record next year's entry can benefit from;
 - is **hidden there by default, behind a toggle**.
 
@@ -440,7 +529,7 @@ unrelated questions (when, versus whether Ted is going), and folding them togeth
 combinatorial parameter whose values have to be enumerated. Keep `TimeFilterToggle.render(...)`
 untouched so `TimeFilterToggleConventionTest` keeps passing, and add the dropped toggle beside it.
 
-No redaction concern on the list: `/tentative-conferences` is already OWNER-only
+No redaction concern on the list: `/conferences` is already OWNER-only
 (`SecurityConfig.java:61`). The calendar is where the public/private line lives, and dropped
 conferences are absent from it for everyone.
 

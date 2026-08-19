@@ -1,6 +1,6 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.TentativeConferenceView;
+import dev.ted.jittertravel.application.ConferenceView;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
@@ -10,7 +10,7 @@ import java.util.List;
 
 import static j2html.TagCreator.*;
 
-public class TentativeConferencesRenderer {
+public class ConferencesRenderer {
 
     private static final String DATE_PATTERN = "EEE, MMM d";
     private static final String TIME_PATTERN = "h:mm a";
@@ -43,14 +43,14 @@ public class TentativeConferencesRenderer {
             .conf-decline:hover { text-decoration: underline; }
             """;
 
-    public static String render(List<TentativeConferenceView> conferences, TimeView activeFilter) {
+    public static String render(List<ConferenceView> conferences, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
-                Page.head("Tentative Conferences", CSS),
+                Page.head("Conferences", CSS),
                 body(
-                        Page.viewNav(Page.NavAudience.OWNER, "/tentative-conferences"),
-                        h1("Tentative Conferences"),
+                        Page.viewNav(Page.NavAudience.OWNER, "/conferences"),
+                        h1("Conferences"),
                         div().withClass("conference-container").with(
-                                TimeFilterToggle.render("/tentative-conferences", activeFilter),
+                                TimeFilterToggle.render("/conferences", activeFilter),
                                 conferences.isEmpty()
                                         ? renderEmptyState(activeFilter)
                                         : renderTable(conferences),
@@ -64,11 +64,11 @@ public class TentativeConferencesRenderer {
     private static DomContent renderEmptyState(TimeView activeFilter) {
         String message = activeFilter == TimeView.FUTURE
                 ? "No upcoming conferences."
-                : "No tentative conferences yet.";
+                : "No conferences yet.";
         return p(message).withClass("empty-state");
     }
 
-    private static DomContent renderTable(List<TentativeConferenceView> conferences) {
+    private static DomContent renderTable(List<ConferenceView> conferences) {
         return table().withClass("conference-table").with(
                 thead(tr(
                         th("Name"),
@@ -80,13 +80,13 @@ public class TentativeConferencesRenderer {
                 )),
                 tbody().with(
                         conferences.stream()
-                                   .map(TentativeConferencesRenderer::renderRow)
+                                   .map(ConferencesRenderer::renderRow)
                                    .toList()
                 )
         );
     }
 
-    private static TrTag renderRow(TentativeConferenceView conf) {
+    private static TrTag renderRow(ConferenceView conf) {
         return tr(
                 td(conf.name()).withClass("conf-name"),
                 td(dateTime(conf.startDate())),
@@ -94,7 +94,7 @@ public class TentativeConferencesRenderer {
                 td(conf.city()),
                 td(conf.country()),
                 td(a("Decline").withClass("conf-decline")
-                        .withHref("/tentative-conferences/" + conf.conferenceId().id() + "/decline"))
+                        .withHref("/conferences/" + conf.conferenceId().id() + "/decline"))
         );
     }
 

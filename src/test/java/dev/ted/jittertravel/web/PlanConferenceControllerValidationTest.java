@@ -2,13 +2,13 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ConferencePlanning;
 import dev.ted.jittertravel.application.LocationZoneResolver;
-import dev.ted.jittertravel.application.PlanTentativeConferenceHandler;
+import dev.ted.jittertravel.application.PlanConferenceHandler;
 import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
 import dev.ted.jittertravel.domain.DateRangeNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
-import dev.ted.jittertravel.domain.PlanTentativeConferenceContext;
+import dev.ted.jittertravel.domain.PlanConferenceContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
@@ -63,7 +63,7 @@ class PlanConferenceControllerValidationTest {
 
     @Test
     void anUnresolvableVenueWithNoZonePickIsRejectedOnTheZoneField() {
-        PlanTentativeConferenceRequest request = conferenceForm(
+        PlanConferenceRequest request = conferenceForm(
                 LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 22, 17, 0), null);
         request.setVenueCity("Springfield");
         request.setVenueCountry("Freedonia");
@@ -77,7 +77,7 @@ class PlanConferenceControllerValidationTest {
 
     @Test
     void anUnresolvableVenueIsAcceptedOnceAZoneIsPicked() {
-        PlanTentativeConferenceRequest request = conferenceForm(
+        PlanConferenceRequest request = conferenceForm(
                 LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 22, 17, 0), "US_CENTRAL");
         request.setVenueCity("Springfield");
         request.setVenueCountry("Freedonia");
@@ -94,13 +94,13 @@ class PlanConferenceControllerValidationTest {
     void theChosenFormatRidesThroughTheHandlerOntoTheEvent() {
         // A non-default format (OPEN_SPACE) proves the handler reads the form value rather than
         // defaulting. Runs the real handler → command → event, minus persistence.
-        PlanTentativeConferenceRequest request = conferenceForm(
+        PlanConferenceRequest request = conferenceForm(
                 LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 22, 17, 0), null);
         request.setFormat("OPEN_SPACE");
 
         ConferenceTentativelyPlanned event =
-                new PlanTentativeConferenceHandler(new LocationZoneResolver()).handle(request)
-                        .execute(new PlanTentativeConferenceContext(NOW))
+                new PlanConferenceHandler(new LocationZoneResolver()).handle(request)
+                        .execute(new PlanConferenceContext(NOW))
                         .toList()
                         .getFirst();
 
@@ -110,9 +110,9 @@ class PlanConferenceControllerValidationTest {
     }
 
     /** The controller's catch-and-reject block, exercised against the real handler and command. */
-    private static BindingResult submit(PlanTentativeConferenceRequest request) {
+    private static BindingResult submit(PlanConferenceRequest request) {
         BindingResult bindingResult =
-                new BeanPropertyBindingResult(request, "planTentativeConference");
+                new BeanPropertyBindingResult(request, "planConference");
         try {
             plan(request);
         } catch (DateRangeNotInFuture e) {
@@ -127,16 +127,16 @@ class PlanConferenceControllerValidationTest {
     }
 
     /** What {@link ConferencePlanning#planConference} does, minus the persistence. */
-    private static void plan(PlanTentativeConferenceRequest request) {
-        new PlanTentativeConferenceHandler(new LocationZoneResolver()).handle(request)
-                .execute(new PlanTentativeConferenceContext(NOW))
+    private static void plan(PlanConferenceRequest request) {
+        new PlanConferenceHandler(new LocationZoneResolver()).handle(request)
+                .execute(new PlanConferenceContext(NOW))
                 .toList();
     }
 
-    private static PlanTentativeConferenceRequest conferenceForm(LocalDateTime start,
-                                                                 LocalDateTime end,
-                                                                 String zone) {
-        PlanTentativeConferenceRequest request = new PlanTentativeConferenceRequest();
+    private static PlanConferenceRequest conferenceForm(LocalDateTime start,
+                                                        LocalDateTime end,
+                                                        String zone) {
+        PlanConferenceRequest request = new PlanConferenceRequest();
         request.setConferenceId(UUID.randomUUID().toString());
         request.setName("JitterConf");
         request.setStartDate(start);

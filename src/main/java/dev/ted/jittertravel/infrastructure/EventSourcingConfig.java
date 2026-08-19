@@ -81,8 +81,8 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public TentativeConferenceProjector tentativeConferenceProjector(ProjectorBootstrapper bootstrapper) {
-        return bootstrapper.register(new TentativeConferenceProjector());
+    public ConferenceProjector conferenceProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new ConferenceProjector());
     }
 
     @Bean
@@ -94,7 +94,7 @@ public class EventSourcingConfig {
     /**
      * No projector dependency for the write path: {@link DeclineConference} folds its decision fact
      * from the event stream (R1), so the executor is all it needs. (The controller separately reads
-     * {@link TentativeConferenceProjector} to render the confirmation page.)
+     * {@link ConferenceProjector} to render the confirmation page.)
      */
     @Bean
     public DeclineConference declineConferenceApplicationService(CommandExecutor commandExecutor) {
@@ -301,8 +301,8 @@ public class EventSourcingConfig {
 
     @Bean
     public ConferenceMigrationService conferenceMigrationService(
-            TentativeConferenceProjector tentativeConferenceProjector, CommandExecutor commandExecutor) {
-        return new ConferenceMigrationService(tentativeConferenceProjector, commandExecutor);
+            ConferenceProjector conferenceProjector, CommandExecutor commandExecutor) {
+        return new ConferenceMigrationService(conferenceProjector, commandExecutor);
     }
 
     @Bean

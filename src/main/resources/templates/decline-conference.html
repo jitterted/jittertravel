@@ -76,7 +76,7 @@
     <nav>
         <a href="/">JitterTravel</a>
         <span class="sep">·</span>
-        <a href="/tentative-conferences">Tentative Conferences</a>
+        <a href="/conferences">Conferences</a>
     </nav>
 
     <h1>Decline Conference</h1>
@@ -95,11 +95,11 @@
     <p class="warning">
         Declining records that <em>you</em> decided not to attend — it is not the same as the
         organizers cancelling. It removes the conference from the calendar, the itinerary, the
-        tentative-conferences list and the schedule-problems report, and the event log keeps the
+        conferences list and the schedule-problems report, and the event log keeps the
         record. This cannot be undone from the app yet — you would have to plan the conference again.
     </p>
 
-    <form th:action="@{|/tentative-conferences/${conference.conferenceId().id()}/decline|}" method="post">
+    <form th:action="@{|/conferences/${conference.conferenceId().id()}/decline|}" method="post">
         <div class="field">
             <label>
                 Reason (optional)
@@ -110,7 +110,7 @@
 
         <div class="actions">
             <button type="submit" class="danger">Decline this conference</button>
-            <a class="keep-link" th:href="@{/tentative-conferences}">Keep it — back to the list</a>
+            <a class="keep-link" th:href="@{/conferences}">Keep it — back to the list</a>
         </div>
     </form>
 

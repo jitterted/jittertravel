@@ -1,3 +1,13 @@
+# General Controller Refactor Plan
+
+> **Status: SHIPPED — historical record.** Its open items 1 and 2 are resolved and item 3 moved to
+> `docs/Backlog.md`. **The `SecurityConfig` and `NavSection` code below are verbatim snapshots from
+> when this was written, not current code**, and have since diverged in several ways — the matcher
+> list has gained `/schedule-problems`, `/plan-private-event`, `/booked-hotels/*/cancel`,
+> `/calendar/feed/**` and the per-item conference actions, and `/tentative-conferences` was renamed
+> to **`/conferences`** on 2026-08-19. They are deliberately left as-written so the reasoning trail
+> stays readable. For the current policy read `AuthorizationMatrixTest` (canonical and executable),
+> then `docs/authorization_policy_centralization.md`.
 
 ## Verifying the changes compile cleanly
 

@@ -1,6 +1,6 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.TentativeConferenceView;
+import dev.ted.jittertravel.application.ConferenceView;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.ConferenceId;
@@ -13,7 +13,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class TentativeConferencesRendererTest {
+class ConferencesRendererTest {
 
     // The test JVM is pinned to UTC (pom.xml), so an explicit venue zone is what proves the
     // rendered text is the venue's wall-clock rather than the server's.
@@ -21,32 +21,32 @@ class TentativeConferencesRendererTest {
 
     @Test
     void emptyAllListRendersEmptyStateMessage() {
-        String html = TentativeConferencesRenderer.render(List.of(), TimeView.ALL);
+        String html = ConferencesRenderer.render(List.of(), TimeView.ALL);
 
         assertThat(html)
-                .contains("No tentative conferences yet.")
+                .contains("No conferences yet.")
                 .doesNotContain("<td");
     }
 
     @Test
     void emptyFutureListRendersNoUpcomingMessage() {
-        String html = TentativeConferencesRenderer.render(List.of(), TimeView.FUTURE);
+        String html = ConferencesRenderer.render(List.of(), TimeView.FUTURE);
 
         assertThat(html).contains("No upcoming conferences.");
     }
 
     @Test
     void activeFilterMarkedOnToggleLink() {
-        String html = TentativeConferencesRenderer.render(List.of(), TimeView.ALL);
+        String html = ConferencesRenderer.render(List.of(), TimeView.ALL);
 
         assertThat(html)
-                .contains("<a href=\"/tentative-conferences?filter=all\" class=\"active\">All</a>")
-                .contains("<a href=\"/tentative-conferences?filter=future\">Upcoming</a>");
+                .contains("<a href=\"/conferences?filter=all\" class=\"active\">All</a>")
+                .contains("<a href=\"/conferences?filter=future\">Upcoming</a>");
     }
 
     @Test
     void conferenceNameCityAndCountryAreRendered() {
-        String html = TentativeConferencesRenderer.render(List.of(
+        String html = ConferencesRenderer.render(List.of(
                 view("DDD Europe 2026", "2026-06-07T11:00", "2026-06-10T17:00", "Frankfurt", "Germany")
         ), TimeView.FUTURE);
 
@@ -58,7 +58,7 @@ class TentativeConferencesRendererTest {
 
     @Test
     void startAndEndDatesAreFormatted() {
-        String html = TentativeConferencesRenderer.render(List.of(
+        String html = ConferencesRenderer.render(List.of(
                 view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "City", "Country")
         ), TimeView.FUTURE);
 
@@ -73,7 +73,7 @@ class TentativeConferencesRendererTest {
 
     @Test
     void tableIsNotWrappedInAHorizontalScroller() {
-        String html = TentativeConferencesRenderer.render(List.of(
+        String html = ConferencesRenderer.render(List.of(
                 view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "City", "Country")
         ), TimeView.FUTURE);
 
@@ -87,26 +87,26 @@ class TentativeConferencesRendererTest {
 
     @Test
     void eachConferenceRowHasADeclineLinkToItsDeclinePage() {
-        TentativeConferenceView conf = view("Devoxx Morocco", "2026-10-07T09:00", "2026-10-09T17:00",
+        ConferenceView conf = view("Devoxx Morocco", "2026-10-07T09:00", "2026-10-09T17:00",
                 "Marrakesh", "Morocco");
 
-        String html = TentativeConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
 
         assertThat(html)
-                .contains("/tentative-conferences/" + conf.conferenceId().id() + "/decline")
+                .contains("/conferences/" + conf.conferenceId().id() + "/decline")
                 .contains(">Decline</a>");
     }
 
     @Test
     void planConferenceLinkIsPresent() {
-        String html = TentativeConferencesRenderer.render(List.of(), TimeView.ALL);
+        String html = ConferencesRenderer.render(List.of(), TimeView.ALL);
 
         assertThat(html).contains("/plan-conference");
     }
 
-    private static TentativeConferenceView view(String name, String start, String end,
-                                                String city, String country) {
-        return new TentativeConferenceView(
+    private static ConferenceView view(String name, String start, String end,
+                                       String city, String country) {
+        return new ConferenceView(
                 ConferenceId.random(), name, "Venue",
                 new Address("1 Street", city, "", "", country, null),
                 ZonedTimestamp.fromLocal(LocalDateTime.parse(start), ZONE),

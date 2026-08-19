@@ -2,7 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ConferencePlanning;
 import dev.ted.jittertravel.application.ReadOnlyModeException;
-import dev.ted.jittertravel.application.TentativeConferenceProjector;
+import dev.ted.jittertravel.application.ConferenceProjector;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.CommonZone;
@@ -35,11 +35,11 @@ public class PlanConferenceController {
 
     private static final Logger log = LoggerFactory.getLogger(PlanConferenceController.class);
     private final ConferencePlanning applicationService;
-    private final TentativeConferenceProjector projector;
+    private final ConferenceProjector projector;
     private final Clock clock;
 
     public PlanConferenceController(ConferencePlanning applicationService,
-                                    TentativeConferenceProjector projector,
+                                    ConferenceProjector projector,
                                     Clock clock) {
         this.applicationService = applicationService;
         this.projector = projector;
@@ -62,7 +62,7 @@ public class PlanConferenceController {
         if (applicationService.isReadOnly()) {
             return "redirect:/read-only";
         }
-        PlanTentativeConferenceRequest request = new PlanTentativeConferenceRequest();
+        PlanConferenceRequest request = new PlanConferenceRequest();
         request.setConferenceId(UUID.randomUUID().toString());
         // ?date= from the calendar day-menu seeds the start day; the default (one week out)
         // stands when absent so the index nav card is unaffected.
@@ -71,16 +71,16 @@ public class PlanConferenceController {
         request.setStartDate(startDateTime);
         request.setEndDate(startDateTime.plusDays(2).plusHours(8));
 
-        model.addAttribute("planTentativeConference", request);
+        model.addAttribute("planConference", request);
         return "plan-conference";
     }
 
     @PostMapping("/plan-conference")
     // The name must match the GET's model attribute and the template's th:object: without it Spring
-    // derives "planTentativeConferenceRequest" from the type, and every re-render after a rejected
+    // derives "planConferenceRequest" from the type, and every re-render after a rejected
     // field throws instead of showing the error.
-    public String planConferenceSubmit(@ModelAttribute("planTentativeConference")
-                                       PlanTentativeConferenceRequest command,
+    public String planConferenceSubmit(@ModelAttribute("planConference")
+                                           PlanConferenceRequest command,
                                        BindingResult bindingResult) {
         if (applicationService.isReadOnly()) {
             return "redirect:/read-only";
@@ -105,17 +105,17 @@ public class PlanConferenceController {
             return "plan-conference";
         }
 
-        return "redirect:/tentative-conferences";
+        return "redirect:/conferences";
     }
 
-    @GetMapping("/tentative-conferences")
-    public ResponseEntity<String> tentativeConferences(
+    @GetMapping("/conferences")
+    public ResponseEntity<String> conferences(
             @RequestParam(required = false) String filter) {
         TimeView timeView = TimeView.fromParam(filter);
         Instant now = Instant.now(clock);
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
-                .body(TentativeConferencesRenderer.render(projector.views(timeView, now), timeView));
+                .body(ConferencesRenderer.render(projector.views(timeView, now), timeView));
     }
 
 }

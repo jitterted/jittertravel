@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
  * the server runs. The test JVM is pinned to UTC (pom.xml), so the fixtures deliberately sit in a
  * far-away zone — a rule accidentally evaluated in the server zone fails here.
  */
-class PlanTentativeConferenceCommandTest {
+class PlanConferenceCommandTest {
 
     private static final ZoneId VENUE_ZONE = ZoneId.of("America/Los_Angeles");
     private static final Address VENUE = new Address("747 Howard St", "San Francisco", "CA",
@@ -28,7 +28,7 @@ class PlanTentativeConferenceCommandTest {
         assertThatExceptionOfType(DateRangeNotInFuture.class)
                 .isThrownBy(() -> conference(LocalDateTime.of(2026, 5, 16, 18, 0),
                                              LocalDateTime.of(2026, 5, 18, 17, 0))
-                        .execute(new PlanTentativeConferenceContext(now)).toList());
+                        .execute(new PlanConferenceContext(now)).toList());
     }
 
     @Test
@@ -37,7 +37,7 @@ class PlanTentativeConferenceCommandTest {
 
         var events = conference(LocalDateTime.of(2026, 5, 17, 9, 0),
                                 LocalDateTime.of(2026, 5, 18, 17, 0))
-                .execute(new PlanTentativeConferenceContext(now)).toList();
+                .execute(new PlanConferenceContext(now)).toList();
 
         assertThat(events)
                 .as("the rule is 'a later day at the venue', not 'a full 24 hours out'")
@@ -51,7 +51,7 @@ class PlanTentativeConferenceCommandTest {
         assertThatExceptionOfType(InvalidDateRange.class)
                 .isThrownBy(() -> conference(LocalDateTime.of(2026, 5, 20, 9, 0),
                                              LocalDateTime.of(2026, 5, 20, 8, 0))
-                        .execute(new PlanTentativeConferenceContext(now)).toList());
+                        .execute(new PlanConferenceContext(now)).toList());
     }
 
     @Test
@@ -60,7 +60,7 @@ class PlanTentativeConferenceCommandTest {
 
         var events = conference(LocalDateTime.of(2026, 5, 20, 9, 0),
                                 LocalDateTime.of(2026, 5, 20, 17, 0))
-                .execute(new PlanTentativeConferenceContext(now)).toList();
+                .execute(new PlanConferenceContext(now)).toList();
 
         assertThat(events)
                 .as("a one-day conference is legitimate — it is what the gathering migration reads")
@@ -73,12 +73,12 @@ class PlanTentativeConferenceCommandTest {
         ZonedTimestamp start = zt(LocalDateTime.of(2026, 5, 20, 9, 0));
         ZonedTimestamp end = zt(LocalDateTime.of(2026, 5, 22, 17, 0));
         // A non-default format (OPEN_SPACE) proves it rides through rather than being defaulted.
-        PlanTentativeConferenceCommand command = new PlanTentativeConferenceCommand(
+        PlanConferenceCommand command = new PlanConferenceCommand(
                 conferenceId, "Successful Conference", start, end, "Moscone Center", VENUE,
                 ConferenceFormat.OPEN_SPACE);
 
         ConferenceTentativelyPlanned event = command
-                .execute(new PlanTentativeConferenceContext(instantAt(LocalDateTime.of(2026, 5, 16, 10, 0))))
+                .execute(new PlanConferenceContext(instantAt(LocalDateTime.of(2026, 5, 16, 10, 0))))
                 .toList()
                 .getFirst();
 
@@ -108,8 +108,8 @@ class PlanTentativeConferenceCommandTest {
                 .isEqualTo(Instant.parse("2026-05-20T16:00:00Z"));
     }
 
-    private static PlanTentativeConferenceCommand conference(LocalDateTime start, LocalDateTime end) {
-        return new PlanTentativeConferenceCommand(
+    private static PlanConferenceCommand conference(LocalDateTime start, LocalDateTime end) {
+        return new PlanConferenceCommand(
                 ConferenceId.random(), "JitterConf", zt(start), zt(end), "Moscone Center", VENUE,
                 ConferenceFormat.CALL_FOR_PAPERS);
     }

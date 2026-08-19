@@ -22,7 +22,7 @@ ride-along items to the conference steps below — they're mirrored in here at t
 marked *(review ride-along)*. The master plan's "Bugs" section (R1–R3) also matters to this slice:
 fix **R1** (deterministic `commandId()` for `MigrateConferenceToGathering` /
 `ClearDifferentCityConflict`) *before* the slice — it's standalone and protects every backup made
-in the meantime. **Urgency note:** the server runs UTC, so `TentativeConferenceView`'s
+in the meantime. **Urgency note:** the server runs UTC, so `ConferenceView`'s
 `relevantUntil()` stopgap reads the venue wall-clock as UTC — a US conference ending 17:00 local
 drops off the FUTURE list ~7–8 hours *early*. The plan's original bug is still live for
 conferences, in the opposite direction.
@@ -35,7 +35,7 @@ conferences, in the opposite direction.
    `MigrateConferenceToGathering`, `/admin/migrate-conferences`) is a correction tool for entries
    filed under the wrong concept, **not** a deprecation of conferences. So conferences get the full
    `ZonedTimestamp` treatment, same as everything else.
-2. **`PlanTentativeConferenceCommand` gets modernized to the handler + context pattern** as part of
+2. **`PlanConferenceCommand` gets modernized to the handler + context pattern** as part of
    this slice. It is the oldest code in the app (conferences were the first concept implemented) and
    the only command that still takes a web request DTO directly. Details in "Conference
    modernization" below.
@@ -137,10 +137,10 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
 
 1. `[x]` **Domain** — `ConferenceTentativelyPlanned`: `startDate`/`endDate`
    `LocalDateTime → ZonedTimestamp` (both in the venue's single zone).
-2. `[x]` **Modernization (decision 2)** — turn `PlanTentativeConferenceCommand` into a
-   `record … implements DomainCommand<PlanTentativeConferenceContext>`:
-   - new `PlanTentativeConferenceContext(Instant now)` (mirrors `BookHotelContext`);
-   - new `PlanTentativeConferenceHandler(LocationZoneResolver)` mapping request → command, resolving
+2. `[x]` **Modernization (decision 2)** — turn `PlanConferenceCommand` into a
+   `record … implements DomainCommand<PlanConferenceContext>`:
+   - new `PlanConferenceContext(Instant now)` (mirrors `BookHotelContext`);
+   - new `PlanConferenceHandler(LocationZoneResolver)` mapping request → command, resolving
      the venue zone (explicit `CommonZone` wins, else `resolve(venueAddress)`);
    - `execute(context)` keeps the existing rules on instants: start at least one day out
      (`DateRangeNotInFuture`), end on/after start (`InvalidDateRange`);
@@ -150,11 +150,11 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
      hours away, where the old wall-clock `now.plusDays(1)` rule rejected it. Reuses
      `ZonedTimestamp.isOnDayAfter`, if the answer is "a later calendar day". The old rule is
      `startDate.isBefore(now.plusDays(1))` on wall-clock
-     (`PlanTentativeConferenceCommand.java:11`); re-deriving it as
+     (`PlanConferenceCommand.java:11`); re-deriving it as
      `now.plus(Duration.ofDays(1))` would silently change semantics ("24h out" vs "later day")
      *and* re-open the `Instant.MIN` overflow trap `isOnDayAfter`'s javadoc warns about
      (`ZonedTimestamp.java:68`) — the gathering slice already built the sentinel-safe version;
-   - the command no longer imports `PlanTentativeConferenceRequest` — the domain stops depending on
+   - the command no longer imports `PlanConferenceRequest` — the domain stops depending on
      the web package.
 3. `[x]` **`ConferencePlanning` must go through `CommandExecutor`.** It currently injects
    `EventStore` + `PostgresPersister` and calls `persister.saveCommand(...)` then
@@ -178,9 +178,9 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
      plain reflection test over `application`-package constructors (in
      `src/test/java/.../architecture/`, styled like `NoFullyQualifiedClassReferencesTest`) — no
      ArchUnit dependency. Delete the CLAUDE.md TODO when done.
-4. `[x]` **View** — `TentativeConferenceView` holds `ZonedTimestamp startDate/endDate`;
+4. `[x]` **View** — `ConferenceView` holds `ZonedTimestamp startDate/endDate`;
    `relevantUntil()` returns `endDate.utc()`, removing its STOPGAP.
-5. `[x]` **Projectors** — `TentativeConferenceProjector` (the single-day filter at line 48 becomes an
+5. `[x]` **Projectors** — `ConferenceProjector` (the single-day filter at line 48 becomes an
    entry-zone `toLocalDate()` comparison), `ConferenceCalendarProjector`, `ConferenceItineraryEntry`
    + `ItineraryProjector`, and `ScheduleGapProjector`'s `CityOccupancy.startDate()/endDate()`.
    - *(review ride-along — master plan bug R2)* `[x]` **done 2026-08-05: `ScheduleGapProjector`
@@ -198,13 +198,13 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
      decision 6 fixed for gathering conflicts, same fix: **sequence and compare by `utc()`; keep
      entry-zone locals only for night bucketing and messages.** The events already carry
      `ZonedTimestamp`, so don't leave `TravelLeg` on `LocalDateTime`.
-   - *(review ride-along)* `[x]` moved 2026-08-05 — `TentativeConferenceProjectorTest` lives in
+   - *(review ride-along)* `[x]` moved 2026-08-05 — `ConferenceProjectorTest` lives in
      `application/` beside its projector. Original note: while the
      projector is in `application/` — move it beside its peers while touching it.
-6. `[x]` **Web** — `PlanTentativeConferenceRequest` keeps `startDate`/`endDate` as `LocalDateTime`
+6. `[x]` **Web** — `PlanConferenceRequest` keeps `startDate`/`endDate` as `LocalDateTime`
    and gains an optional `zone`; `events()` calls the new handler with a real `LocationZoneResolver`.
    `PlanConferenceController` gains `@ModelAttribute("commonZones")` and a `ZoneResolutionException`
-   catch; `plan-conference.html` gains the selector block. `TentativeConferencesRenderer` moves to
+   catch; `plan-conference.html` gains the selector block. `ConferencesRenderer` moves to
    `ZonedTimeTag`.
 7. `[x]` **Upcaster** — add a `"ConferenceTentativelyPlanned"` case: resolve from
    `venueAddress.{city,country}`, rewrite both scalars in place (the simple hotel-style rewrite).
@@ -236,11 +236,11 @@ Gathering changes the field *set*: three fields (`date`, `startTime`, `endTime`)
 ## Tests
 
 Existing tests to update (all currently assert wall-clock values):
-`PlanGatheringCommandTest`, `ChangeGatheringCommandTest`, `PlanTentativeConferenceCommandTest`,
+`PlanGatheringCommandTest`, `ChangeGatheringCommandTest`, `PlanConferenceCommandTest`,
 `PlannedGatheringsProjectorTest`, `GatheringDetailsViewProjectorTest`,
 `GatheringCalendarProjectorTest`, `ConferenceCalendarProjectorTest`,
-`TentativeConferenceProjectorTest`, `PlannedGatheringsRendererTest`,
-`TentativeConferencesRendererTest`, `ItineraryProjectorTest`, `ScheduleGapProjectorTest`,
+`ConferenceProjectorTest`, `PlannedGatheringsRendererTest`,
+`ConferencesRendererTest`, `ItineraryProjectorTest`, `ScheduleGapProjectorTest`,
 `CalendarViewBuilderTest`, `CalendarAggregatorTest`, `CalendarEntryRedactorTest`,
 `ItineraryRendererTest`, `ConfirmedCalendarRendererTest`, `CalendarControllerTest`,
 `ConferenceMigrationServiceTest`, `EventJsonMapperEquivalenceTest`,
@@ -251,7 +251,7 @@ Existing tests to update (all currently assert wall-clock values):
 New tests this slice must add — the gaps found reviewing the earlier slices:
 
 1. `[x]` **Handler zone tests** (gathering done; hotel/train/flight backfill still open) (`PlanGatheringHandlerTest`, `ChangeGatheringHandlerTest`,
-   `PlanTentativeConferenceHandlerTest`): an explicit `CommonZone` wins over the address; an absent
+   `PlanConferenceHandlerTest`): an explicit `CommonZone` wins over the address; an absent
    pick derives from the address; an unresolvable address with no pick throws
    `ZoneResolutionException`. **These rules are currently untested for every migrated type** — there
    is no `BookHotelHandlerTest`/`BookTrainHandlerTest`, and `BookHotelControllerValidationTest` only

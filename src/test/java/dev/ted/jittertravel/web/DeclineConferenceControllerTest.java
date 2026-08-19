@@ -1,8 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.DeclineConference;
-import dev.ted.jittertravel.application.TentativeConferenceProjector;
-import dev.ted.jittertravel.application.TentativeConferenceView;
+import dev.ted.jittertravel.application.ConferenceProjector;
+import dev.ted.jittertravel.application.ConferenceView;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceNotFound;
@@ -44,7 +44,7 @@ class DeclineConferenceControllerTest {
     DeclineConference declineConference;
 
     @MockitoBean
-    TentativeConferenceProjector projector;
+    ConferenceProjector projector;
 
     @MockitoBean
     Clock clock;
@@ -54,8 +54,8 @@ class DeclineConferenceControllerTest {
         lenient().when(clock.instant()).thenReturn(Instant.parse("2026-08-16T18:30:00Z"));
     }
 
-    private static TentativeConferenceView viewFor(UUID conferenceId) {
-        return new TentativeConferenceView(
+    private static ConferenceView viewFor(UUID conferenceId) {
+        return new ConferenceView(
                 ConferenceId.of(conferenceId),
                 "Devoxx Morocco",
                 "Palais des Congrès",
@@ -69,7 +69,7 @@ class DeclineConferenceControllerTest {
         UUID conferenceId = UUID.randomUUID();
         given(projector.findById(any())).willReturn(Optional.of(viewFor(conferenceId)));
 
-        assertThat(mockMvc.get().uri("/tentative-conferences/" + conferenceId + "/decline"))
+        assertThat(mockMvc.get().uri("/conferences/" + conferenceId + "/decline"))
                 .hasStatusOk()
                 .bodyText()
                 .contains("Devoxx Morocco")
@@ -80,25 +80,25 @@ class DeclineConferenceControllerTest {
     void getOnUnknownConferenceRedirectsToList() {
         given(projector.findById(any())).willReturn(Optional.empty());
 
-        assertThat(mockMvc.get().uri("/tentative-conferences/" + UUID.randomUUID() + "/decline"))
+        assertThat(mockMvc.get().uri("/conferences/" + UUID.randomUUID() + "/decline"))
                 .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/tentative-conferences");
+                .hasRedirectedUrl("/conferences");
     }
 
     @Test
     void decliningRedirectsBackToTheList() {
-        assertThat(mockMvc.post().uri("/tentative-conferences/" + UUID.randomUUID() + "/decline")
+        assertThat(mockMvc.post().uri("/conferences/" + UUID.randomUUID() + "/decline")
                 .with(csrf())
                 .param("reason", "Schedule clash"))
                 .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/tentative-conferences");
+                .hasRedirectedUrl("/conferences");
     }
 
     @Test
     void requestCarriesThePathIdAndTheReason() {
         UUID conferenceId = UUID.randomUUID();
 
-        mockMvc.post().uri("/tentative-conferences/" + conferenceId + "/decline")
+        mockMvc.post().uri("/conferences/" + conferenceId + "/decline")
                 .with(csrf())
                 .param("reason", "Schedule clash")
                 .exchange();
@@ -111,7 +111,7 @@ class DeclineConferenceControllerTest {
     void omittedReasonBecomesEmptyRatherThanNull() {
         UUID conferenceId = UUID.randomUUID();
 
-        mockMvc.post().uri("/tentative-conferences/" + conferenceId + "/decline")
+        mockMvc.post().uri("/conferences/" + conferenceId + "/decline")
                 .with(csrf())
                 .exchange();
 
@@ -124,18 +124,18 @@ class DeclineConferenceControllerTest {
         willThrow(new ConferenceNotFound("No conference found to decline"))
                 .given(declineConference).declineConference(any(), any(), any());
 
-        assertThat(mockMvc.post().uri("/tentative-conferences/" + UUID.randomUUID() + "/decline")
+        assertThat(mockMvc.post().uri("/conferences/" + UUID.randomUUID() + "/decline")
                 .with(csrf()))
                 .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/tentative-conferences");
+                .hasRedirectedUrl("/conferences");
     }
 
     @Test
     void malformedConferenceIdRedirectsInsteadOfThrowing() {
-        assertThat(mockMvc.post().uri("/tentative-conferences/not-a-uuid/decline")
+        assertThat(mockMvc.post().uri("/conferences/not-a-uuid/decline")
                 .with(csrf()))
                 .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/tentative-conferences");
+                .hasRedirectedUrl("/conferences");
 
         then(declineConference).shouldHaveNoInteractions();
     }

@@ -58,12 +58,12 @@ public class SecurityConfig {
                                 "/booked-flights/*/lookup/select",
                                 "/booked-trains/*", "/booked-hotels/*",
                                 "/booked-hotels/*/cancel",
-                                "/tentative-conferences/*", "/tentative-conferences/*/decline",
+                                "/conferences/*", "/conferences/*/decline",
                                 "/planned-gatherings/*").hasRole("OWNER")
                         // Booking lists: OWNER-only (FAMILY cannot view booking details).
                         .requestMatchers(
                                 "/booked-flights", "/booked-trains", "/booked-hotels",
-                                "/tentative-conferences", "/planned-gatherings").hasRole("OWNER")
+                                "/conferences", "/planned-gatherings").hasRole("OWNER")
                         // Schedule problems: conflict/gap report over the whole itinerary —
                         // exact arrival and departure times, hotel and gathering names, and
                         // internal ids in its clear-conflict links. Owner-only.

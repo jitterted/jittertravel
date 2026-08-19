@@ -10,7 +10,7 @@ import java.time.Instant;
  * with different downstream meaning, so they get different events.
  * <p>
  * Today a declined conference leaves every read model (calendar, itinerary, schedule-problems,
- * tentative list), the same way {@link ConferenceCancelled} does. The plan's eventual "keep it on
+ * conferences list), the same way {@link ConferenceCancelled} does. The plan's eventual "keep it on
  * the list behind a dropped toggle" behaviour is a read-model change replayable from this same
  * event — this event carries the durable, correctly-labelled fact regardless.
  *

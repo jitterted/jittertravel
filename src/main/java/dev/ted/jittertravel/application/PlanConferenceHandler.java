@@ -3,9 +3,9 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
-import dev.ted.jittertravel.domain.PlanTentativeConferenceCommand;
+import dev.ted.jittertravel.domain.PlanConferenceCommand;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
-import dev.ted.jittertravel.web.PlanTentativeConferenceRequest;
+import dev.ted.jittertravel.web.PlanConferenceRequest;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -17,18 +17,18 @@ import java.util.UUID;
  * with a {@link ZoneResolutionException} and the form re-prompts for a pick. A conference has one
  * {@code venueAddress}, so start and end share that single zone.
  */
-public class PlanTentativeConferenceHandler {
+public class PlanConferenceHandler {
 
     private final VenueZone venueZone;
 
-    public PlanTentativeConferenceHandler(LocationZoneResolver zoneResolver) {
+    public PlanConferenceHandler(LocationZoneResolver zoneResolver) {
         this.venueZone = new VenueZone(zoneResolver);
     }
 
-    public PlanTentativeConferenceCommand handle(PlanTentativeConferenceRequest request) {
+    public PlanConferenceCommand handle(PlanConferenceRequest request) {
         Address venueAddress = request.getVenueAddress();
         ZoneId zone = venueZone.resolve(request.getZone(), venueAddress);
-        return new PlanTentativeConferenceCommand(
+        return new PlanConferenceCommand(
                 ConferenceId.of(UUID.fromString(request.getConferenceId())),
                 request.getName(),
                 zonedOrNull(request.getStartDate(), zone),

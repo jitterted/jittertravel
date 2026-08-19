@@ -15,15 +15,15 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
-public class TentativeConferenceProjector implements EventStreamConsumer {
-    private final Map<ConferenceId, TentativeConferenceView> conferences = new ConcurrentHashMap<>();
+public class ConferenceProjector implements EventStreamConsumer {
+    private final Map<ConferenceId, ConferenceView> conferences = new ConcurrentHashMap<>();
 
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
                 case ConferenceTentativelyPlanned event -> conferences.put(event.conferenceId(),
-                        new TentativeConferenceView(
+                        new ConferenceView(
                                 event.conferenceId(),
                                 event.name(),
                                 event.venueName(),
@@ -38,7 +38,7 @@ public class TentativeConferenceProjector implements EventStreamConsumer {
         });
     }
 
-    public List<TentativeConferenceView> views(TimeView timeView, Instant now) {
+    public List<ConferenceView> views(TimeView timeView, Instant now) {
         return conferences.values().stream()
                 .filter(view -> timeView.includes(view, now))
                 .sorted(Comparator.comparing(view -> view.startDate().utc()))
@@ -49,7 +49,7 @@ public class TentativeConferenceProjector implements EventStreamConsumer {
      * "One day long" is asked in the venue's own zone — a conference is single-day where it
      * happens, regardless of where the server or the viewer is.
      */
-    public List<TentativeConferenceView> migratableViews() {
+    public List<ConferenceView> migratableViews() {
         return conferences.values().stream()
                 .filter(v -> v.startDate().localDateTime().toLocalDate()
                         .equals(v.endDate().localDateTime().toLocalDate()))
@@ -57,7 +57,7 @@ public class TentativeConferenceProjector implements EventStreamConsumer {
                 .toList();
     }
 
-    public Optional<TentativeConferenceView> findById(ConferenceId conferenceId) {
+    public Optional<ConferenceView> findById(ConferenceId conferenceId) {
         return Optional.ofNullable(conferences.get(conferenceId));
     }
 }

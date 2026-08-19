@@ -4,7 +4,7 @@ import dev.ted.jittertravel.application.BackupService;
 import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.ConferenceMigrationService;
 import dev.ted.jittertravel.application.LegacyEventMigration;
-import dev.ted.jittertravel.application.TentativeConferenceProjector;
+import dev.ted.jittertravel.application.ConferenceProjector;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceSpansMultipleDays;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
@@ -32,7 +32,7 @@ import java.util.UUID;
 public class AdminController {
     private final BackupService backupService;
     private final PostgresPersister persister;
-    private final TentativeConferenceProjector tentativeConferenceProjector;
+    private final ConferenceProjector conferenceProjector;
     private final ConferenceMigrationService conferenceMigrationService;
     private final LegacyEventMigration legacyEventMigration;
     private final BackupSource backupSource;
@@ -41,7 +41,7 @@ public class AdminController {
     private final String baseUrl;
 
     public AdminController(BackupService backupService, PostgresPersister persister,
-                           TentativeConferenceProjector tentativeConferenceProjector,
+                           ConferenceProjector conferenceProjector,
                            ConferenceMigrationService conferenceMigrationService,
                            LegacyEventMigration legacyEventMigration,
                            BackupSource backupSource, Clock clock,
@@ -49,7 +49,7 @@ public class AdminController {
                            @Value("${jittertravel.base-url:}") String baseUrl) {
         this.backupService = backupService;
         this.persister = persister;
-        this.tentativeConferenceProjector = tentativeConferenceProjector;
+        this.conferenceProjector = conferenceProjector;
         this.conferenceMigrationService = conferenceMigrationService;
         this.legacyEventMigration = legacyEventMigration;
         this.backupSource = backupSource;
@@ -142,7 +142,7 @@ public class AdminController {
 
     @GetMapping("/migrate-conferences")
     public String migrateConferencesForm(Model model) {
-        model.addAttribute("conferences", tentativeConferenceProjector.migratableViews());
+        model.addAttribute("conferences", conferenceProjector.migratableViews());
         return "admin-migrate-conferences";
     }
 

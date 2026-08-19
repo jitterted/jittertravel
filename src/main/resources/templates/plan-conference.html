@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
-    <title>Plan Tentative Conference</title>
+    <title>Plan Conference</title>
     <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
     <style>
         .page {
@@ -99,9 +99,9 @@
         <a href="/calendar">Calendar</a>
     </nav>
 
-    <h1>Plan Tentative Conference</h1>
+    <h1>Plan Conference</h1>
 
-    <form th:action="@{/plan-conference}" th:object="${planTentativeConference}" method="post">
+    <form th:action="@{/plan-conference}" th:object="${planConference}" method="post">
         <input type="hidden" th:field="*{conferenceId}"/>
 
         <div class="field" style="margin-bottom: 0.75rem;">

@@ -9,17 +9,17 @@ import java.util.UUID;
 
 public class ConferenceMigrationService {
 
-    private final TentativeConferenceProjector tentativeConferenceProjector;
+    private final ConferenceProjector conferenceProjector;
     private final CommandExecutor commandExecutor;
 
-    public ConferenceMigrationService(TentativeConferenceProjector tentativeConferenceProjector,
+    public ConferenceMigrationService(ConferenceProjector conferenceProjector,
                                       CommandExecutor commandExecutor) {
-        this.tentativeConferenceProjector = tentativeConferenceProjector;
+        this.conferenceProjector = conferenceProjector;
         this.commandExecutor = commandExecutor;
     }
 
     public void migrateToGathering(ConferenceId conferenceId, boolean speaking) {
-        TentativeConferenceView conference = tentativeConferenceProjector.findById(conferenceId)
+        ConferenceView conference = conferenceProjector.findById(conferenceId)
                 .orElseThrow(() -> new IllegalArgumentException("Conference not found: " + conferenceId));
 
         // Single-day is judged in the venue's own zone, matching the migratable list.

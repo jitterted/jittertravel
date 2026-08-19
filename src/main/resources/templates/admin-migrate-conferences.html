@@ -68,12 +68,12 @@
 
     <h1>Migrate Conferences to Gatherings</h1>
     <p class="subtitle">
-        Converts a single-day tentative conference to a gathering, cancelling the conference entry.
+        Converts a single-day conference to a gathering, cancelling the conference entry.
     </p>
 
     <div class="error" th:if="${error}" th:text="${error}"></div>
 
-    <p class="empty" th:if="${conferences.isEmpty()}">No tentative conferences to migrate.</p>
+    <p class="empty" th:if="${conferences.isEmpty()}">No conferences to migrate.</p>
 
     <table th:unless="${conferences.isEmpty()}">
         <thead>

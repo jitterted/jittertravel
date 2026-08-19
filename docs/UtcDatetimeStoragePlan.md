@@ -317,7 +317,7 @@ Remaining work is planned in detail in `docs/GatheringConferenceUtcRolloutPlan.m
   `startsAt`/`endsAt`; commands, contexts, handlers, views, projectors, web forms, upcaster and
   tests all landed. Renderer `<time>` treatment deferred to phase 4 with the other list views.
 - `[x]` **Conference** (2026-08-05): `ConferenceTentativelyPlanned` on `ZonedTimestamp`,
-  `PlanTentativeConferenceCommand` a `DomainCommand` record with a new context and handler, the
+  `PlanConferenceCommand` a `DomainCommand` record with a new context and handler, the
   `ConferencePlanning`→`CommandExecutor` rewrite, view/projectors/web/upcaster, plus every
   ride-along below. **Behavior change:** the "start at least one day out" rule is now "a later
   calendar day at the venue" (`isOnDayAfter`, matching gatherings) rather than 24 wall-clock hours,
@@ -330,7 +330,7 @@ they each anchor to a step that is being rewritten anyway):
   2026-08-05): the rule is now "a later calendar day at the venue", matching gatherings. Deliberate
   behavior change — a conference under 24h out but starting tomorrow is now accepted. Original note: The existing
   rule is `startDate.isBefore(now.plusDays(1))` on wall-clock
-  (`PlanTentativeConferenceCommand.java:11`). The gathering slice built the day-granularity,
+  (`PlanConferenceCommand.java:11`). The gathering slice built the day-granularity,
   entry-zone, `Instant.MIN`-sentinel-safe version (`ZonedTimestamp.java:68`). Re-deriving it with
   `now.plus(Duration.ofDays(1))` would silently change semantics ("24h out" vs "a later calendar
   day") *and* re-open the `Instant.MIN` overflow trap its javadoc warns about. Decide explicitly
@@ -389,15 +389,15 @@ Original spec, still authoritative for the conference type:
 - `[x]` `TemporalView`/`TimeView` on `Instant`, controllers pass `Instant.now()`, `TimeViewTest`
   updated (`5dab535`).
 - `[x]` `PlannedGatheringView.relevantUntil()` returns `endsAt.utc()` (gathering slice).
-- `[x]` `TentativeConferenceView.relevantUntil()` returns `endDate.utc()` (2026-08-05); the
+- `[x]` `ConferenceView.relevantUntil()` returns `endDate.utc()` (2026-08-05); the
   `systemDefault()` stopgap is gone, and with it the last live instance of this plan's original
-  bug. `TentativeConferenceProjectorTest` pins the FUTURE filter against a venue zone
+  bug. `ConferenceProjectorTest` pins the FUTURE filter against a venue zone
   (America/Los_Angeles) rather than the UTC-pinned test JVM.
 
 ### 4. Display — `[x]` done 2026-08-05
 - `[x]` `ZonedTimeTag` helper emitting `<time datetime="…Z" data-fmt="…">`, used by
   `BookedHotelsRenderer`, `BookedTrainsRenderer`, `BookedFlightsRenderer` (`a97e96e`, `7b31d6d`).
-- `[x]` Same `<time>` treatment everywhere: `TentativeConferencesRenderer` (conference slice),
+- `[x]` Same `<time>` treatment everywhere: `ConferencesRenderer` (conference slice),
   then `PlannedGatheringsRenderer`, `ScheduleProblemsRenderer`, `ItineraryRenderer` and
   `CalendarViewBuilder` (2026-08-05).
   - The itinerary needed the entry records to stop flattening to wall-clock:
@@ -574,8 +574,8 @@ failure confirmed, and the code restored. Item 8 found a live bug that way.
 8. `[x]` **`@WebMvcTest` assertions on the zone `<select>` and the rejection re-render** — done
    2026-08-05 for both the gathering and conference forms. **This found a real pre-existing bug:**
    `PlanConferenceController`'s POST used a bare `@ModelAttribute`, so Spring bound the form under
-   `planTentativeConferenceRequest` while `plan-conference.html`'s `th:object` is
-   `planTentativeConference` — *every* validation failure on `/plan-conference` (the date rules
+   `planConferenceRequest` while `plan-conference.html`'s `th:object` is
+   `planConference` — *every* validation failure on `/plan-conference` (the date rules
    too, not just the zone) threw at render time instead of showing the error. Fixed by naming the
    attribute, as `PlanGatheringController` already did. Mutation-verified: removing the selector
    block, reverting the attribute name, and swallowing the gathering's `ZoneResolutionException`
@@ -612,7 +612,7 @@ failure confirmed, and the code restored. Item 8 found a live bug that way.
      golden samples store `"country": "GB"` — evidence real data can carry codes. Single-zone
      countries only (multi-zone ones now go through the region step above). Re-run
      `/admin/zone-audit` after.
-3. `[x]` **`TentativeConferenceProjectorTest` moved to `application/`** 2026-08-05.
+3. `[x]` **`ConferenceProjectorTest` moved to `application/`** 2026-08-05.
 4. `[ ]` **`EventSourcingConfig` projector wiring** repeats the subscribe-then-replay triple
    fifteen times; a small private `wire(projector)` helper would collapse it without Spring
    cleverness. Cosmetic; do it opportunistically.

@@ -1,7 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ConferencePlanning;
-import dev.ted.jittertravel.application.TentativeConferenceProjector;
+import dev.ted.jittertravel.application.ConferenceProjector;
 import dev.ted.jittertravel.application.ZoneResolutionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,7 +33,7 @@ class ConferenceWebIntegrationTest {
     ConferencePlanning conferencePlanning;
 
     @MockitoBean
-    TentativeConferenceProjector projector;
+    ConferenceProjector projector;
 
     @MockitoBean
     Clock clock;
@@ -45,7 +45,7 @@ class ConferenceWebIntegrationTest {
     }
 
     @Test
-    void planConferencePostRedirectsToTentativeConferences() {
+    void planConferencePostRedirectsToConferences() {
         given(conferencePlanning.isReadOnly()).willReturn(false);
 
         assertThat(mockMvc.post().uri("/plan-conference")
@@ -60,7 +60,7 @@ class ConferenceWebIntegrationTest {
                 .param("venueCountry", "ES Country")
                 .param("venuePostalCode", "ES-00000"))
                 .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/tentative-conferences");
+                .hasRedirectedUrl("/conferences");
     }
 
     /**
@@ -126,10 +126,10 @@ class ConferenceWebIntegrationTest {
     }
 
     @Test
-    void tentativeConferencesPageRendersOk() {
+    void conferencesPageRendersOk() {
         given(projector.views(any(), any())).willReturn(List.of());
 
-        assertThat(mockMvc.get().uri("/tentative-conferences"))
+        assertThat(mockMvc.get().uri("/conferences"))
                 .hasStatusOk();
     }
 }

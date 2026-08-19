@@ -10,7 +10,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 /**
- * Command record for migrating a tentative conference to a gathering. It is the durable,
+ * Command record for migrating a planned conference to a gathering. It is the durable,
  * self-contained representation of that action, capturing everything needed to emit its events
  * (notably the generated {@code gatheringId}). {@link #events()} is the single source of those
  * events, applied on the live path via {@code CommandExecutor.appendEvents}.

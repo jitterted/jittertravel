@@ -91,14 +91,14 @@ renderer work on `ScheduleProblemsRenderer`.
 The plan itself (`docs/GatheringConferenceUtcRolloutPlan.md`, conference steps 1–7) is sound and
 the gathering slice proved the pattern. Points to fold in:
 
-1. `[ ]` **Urgency note:** the server runs UTC, so `TentativeConferenceView.relevantUntil()`'s
-   stopgap (`TentativeConferenceView.java:30`) reads a venue wall-clock as UTC. A US conference
+1. `[ ]` **Urgency note:** the server runs UTC, so `ConferenceView.relevantUntil()`'s
+   stopgap (`ConferenceView.java:30`) reads a venue wall-clock as UTC. A US conference
    ending 17:00 local is treated as ending 17:00 UTC — it drops off the FUTURE list ~7–8 hours
    early. This is the *original bug of the whole plan* still live for conferences, in the
    opposite direction of "past items linger". Worth doing the slice soon.
 2. `[ ]` **Reuse `ZonedTimestamp.isOnDayAfter` for the "start at least one day out" rule.** The
    existing rule is `startDate.isBefore(now.plusDays(1))` on wall-clock
-   (`PlanTentativeConferenceCommand.java:11`). The gathering slice already built the
+   (`PlanConferenceCommand.java:11`). The gathering slice already built the
    day-granularity, entry-zone, `Instant.MIN`-sentinel-safe version (`ZonedTimestamp.java:68`).
    Re-deriving it with `now.plus(Duration.ofDays(1))` would silently change semantics ("24h out"
    vs "a later calendar day") *and* re-open the `Instant.MIN` overflow trap the javadoc warns
@@ -196,7 +196,7 @@ the design that actually shipped:
    single-zone countries only (never multi-zone) is cheap insurance and keeps the strict-no-default
    promise. Re-run `/admin/zone-audit` after (it must be re-run before the conference deploy
    anyway, per the slice plan's backward-compat section).
-3. `[ ]` **`TentativeConferenceProjectorTest` lives in `web/`** while the projector is in
+3. `[ ]` **`ConferenceProjectorTest` lives in `web/`** while the projector is in
    `application/` — move it beside its peers when the conference slice touches it.
 4. `[ ]` **`EventSourcingConfig` projector wiring** repeats the subscribe-then-replay triple
    fifteen times; a small private helper (`wire(projector)`) would collapse it without any Spring

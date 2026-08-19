@@ -45,7 +45,7 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
 
         @Bean
         EventPayloadUpcaster eventPayloadUpcaster(JsonMapper jsonMapper) {
-            return new EventPayloadUpcaster(new LocationZoneResolver(),
+            return EventPayloadUpcaster.standard(new LocationZoneResolver(),
                     new AirportZoneResolver(), jsonMapper);
         }
 
@@ -334,14 +334,15 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
         UUID commandId = UUID.randomUUID();
         PlanTentativeConferenceRequest req = newRequest(commandId, "Stamped Conf");
         persister.saveCommand(commandId, req);
-        // ConferenceTentativelyPlanned is one of the datetime-bearing types (current schema version 2).
+        // ConferenceTentativelyPlanned migrated datetimes → ZonedTimestamp (v2) and then added the
+        // format field (v3), so its current schema version is 3.
         persister.appendEvents(List.of(storedEvent(1L, commandId, "Stamped Conf", req)), commandId);
 
         assertThat(persister.findAllEventsForBackup())
                 .singleElement()
                 .satisfies(e -> assertThat(e.schemaVersion())
                         .as("a freshly appended event carries its type's current schema version")
-                        .isEqualTo(2));
+                        .isEqualTo(3));
     }
 
     @Test

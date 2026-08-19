@@ -208,7 +208,7 @@ public class BackupService {
         }
         try {
             Class<? extends Event> eventClass = EventTypes.classFor(event.type());
-            JsonNode upcasted = upcaster.upcast(event.type(), event.payload().deepCopy());
+            JsonNode upcasted = upcaster.upcast(event.type(), event.payload().deepCopy(), event.schemaVersion());
             jsonMapper.treeToValue(upcasted, eventClass);
         } catch (Exception e) {
             errors.add("Event %d (%s) payload cannot be restored: %s"

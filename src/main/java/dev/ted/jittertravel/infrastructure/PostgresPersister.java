@@ -576,8 +576,8 @@ public class PostgresPersister {
             String type,
             String payloadJson,
             // Non-null on write (fromStoredEvent stamps the current version); nullable on read, since
-            // legacy rows predate the column. toStoredEvent still upcasts structurally, so a null read
-            // here is harmless — the stamp is the forward anchor, not this replay path's discriminator.
+            // legacy rows predate the column. This is the version the upcaster climbs from: a null read
+            // (an unstamped legacy row) is treated as the oldest version, so it walks the full ladder.
             Integer schemaVersion
     ) {
         static StoredEventRow fromStoredEvent(StoredEvent event, JsonMapper jsonMapper) {
@@ -600,9 +600,9 @@ public class PostgresPersister {
             try {
                 Class<? extends Event> eventClass = EventTypes.classFor(type);
 
-                // Legacy rows (bare scalar datetimes) are rewritten to the current shape before
-                // binding; new rows pass through untouched.
-                JsonNode tree = upcaster.upcast(type, jsonMapper.readTree(payloadJson));
+                // Legacy rows (below the current schema version) are climbed to the current shape
+                // before binding; a row already at the current version passes through untouched.
+                JsonNode tree = upcaster.upcast(type, jsonMapper.readTree(payloadJson), schemaVersion);
                 Event payload = jsonMapper.treeToValue(tree, eventClass);
 
                 return new StoredEvent(

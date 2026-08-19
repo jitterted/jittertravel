@@ -17,8 +17,12 @@ Built together in one session; full suite green at 880.
   carries the stamp verbatim. Decided with Ted: **column, not a payload key** (keeps domain payloads
   pure, so golden samples are untouched), at the cost of a **backup-format bump to version 3**.
   This is the *stamp* half of event-schema versioning; the *framework* half (a per-type upcaster
-  chain driven by the stamp) is deliberately **deferred** until a second real migration shapes it
-  (no-abstraction-before-second-user). Recorded here so that later work has an anchor.
+  chain driven by the stamp) was deliberately deferred until a second real migration shaped it
+  (no-abstraction-before-second-user). **That framework is now built** (2026-08-18): the second
+  migration — `ConferenceTentativelyPlanned` v2→v3 adding `format` — is what shaped it. See
+  `EventPayloadUpcasterDesign.md` for the version-ladder design; the summary is that
+  `EventPayloadUpcaster` became a composite that climbs a payload from its stored `schema_version`
+  to current by applying one small `EventUpcaster` rung per version step.
 - **Backup format v3.** `BackupService` writes v3 (events carry `schemaVersion`) and **restores both
   v2 and v3** — a v2 event simply has no stamp (null), exactly like a pre-migration row — so Ted's
   existing backups are never orphaned. `BackupRestoreRoundTripTest` covers the v2 backward-compat path.
@@ -43,8 +47,9 @@ Built together in one session; full suite green at 880.
 **Decisions resolved with Ted (the "Open decisions" below are now settled):** (1) trigger = in-place
 admin UPDATE, not a backup-file transform; (2) `type` FQCN→logical normalization = **deferred** (kept
 out of this pass — orthogonal cleanup the stamp does not need); (3)/(4) retirement schedule unchanged
-— the upcaster legacy branches, FQCN mapping and Antwerp-style resolver hacks stay until no
-pre-migration backup can be restored, each retirement gated on the new preflight. Plus the
+— the upcaster's legacy timezone rungs (the `*TimeZoneUpcaster` classes), FQCN mapping and
+Antwerp-style resolver hacks stay until no pre-migration backup can be restored, each retirement
+gated on the new preflight. Plus the
 schema-version stamp above, which the original plan did not include.
 
 ## Why this exists
@@ -93,8 +98,9 @@ once boot works.
 
 ## What counts as "legacy" (precise detection)
 
-A row needs migrating iff running its payload through `EventPayloadUpcaster.upcast(type, payload)`
-**changes the payload**. That is exactly the set with a bare-scalar datetime field, per type:
+A row needs migrating iff running its payload through
+`EventPayloadUpcaster.upcast(type, payload, storedVersion)` **changes the payload**. That is exactly
+the set with a bare-scalar datetime field, per type:
 
 | Logical type | Legacy datetime fields | New shape |
 |---|---|---|
@@ -113,8 +119,9 @@ does not need its own legacy/new discriminator — "did `upcast` change the JSON
 
 For every `event_log` row, in `sequence` order:
 
-1. Read `type` (wire id — logical **or** legacy FQCN) and the raw `payload` JSON.
-2. `upcast = EventPayloadUpcaster.upcast(type, rawPayload)`.
+1. Read `type` (wire id — logical **or** legacy FQCN), the raw `payload` JSON, and the row's stored
+   `schema_version` (null for a pre-stamp legacy row ⇒ the composite climbs from version 1).
+2. `upcast = EventPayloadUpcaster.upcast(type, rawPayload, storedVersion)`.
 3. If `upcast` is **byte-identical** to `rawPayload` → already new shape, **skip** (idempotent).
 4. Otherwise → **validate** it binds: `treeToValue(upcast, EventTypes.classFor(type))` must succeed.
 5. `UPDATE event_log SET payload = :upcast WHERE sequence = :sequence`. **Only `payload` changes** —
@@ -171,11 +178,14 @@ Therefore the retirements this migration *enables* are gated on **old backups be
 not on the migration alone:
 
 1. Run the migration → `event_log` is all new-shape.
-2. Keep the upcaster's legacy branches, the FQCN wire-id mapping, and the per-error resolver entries
-   **until no pre-migration backup can be restored**.
-3. Then retire, in a later change: the upcaster's legacy `upcast*` branches, the Antwerp-style hacks,
-   and (if `type` was normalized) the FQCN mapping. Guard each retirement with the boot-replay
-   preflight (its own cleanup item) proving nothing in the current store needs it.
+2. Keep the upcaster's legacy timezone rungs (the `*TimeZoneUpcaster` classes), the FQCN wire-id
+   mapping, and the per-error resolver entries **until no pre-migration backup can be restored**.
+3. Then retire, in a later change: delete the `*TimeZoneUpcaster` rung classes (and drop them from
+   `EventPayloadUpcaster.standard(...)`), the Antwerp-style hacks, and (if `type` was normalized) the
+   FQCN mapping. Guard each retirement with the boot-replay preflight (its own cleanup item) proving
+   nothing in the current store still needs to climb from below that rung — a row read below a
+   deleted rung fails loud (the composite cannot reach the current version) rather than binding a
+   stale shape.
 
 Take **one fresh backup immediately after** the migration and treat it as the new floor, so the
 window in which an old backup matters is short.
@@ -203,8 +213,10 @@ window in which an old backup matters is short.
 - **`LocationZoneResolver`** leaves the boot-replay path entirely once old backups are retired; its
   per-error entries (Antwerp) and any future ones can be deleted. It stays for the *live entry* path,
   which is where a curated resolver belongs.
-- **`EventPayloadUpcaster`** keeps its wire-id normalization and legacy branches until old backups are
-  gone, then sheds the legacy branches (the class survives for any *future* shape migration).
+- **`EventPayloadUpcaster`** keeps its wire-id normalization and the legacy timezone rungs until old
+  backups are gone, then sheds those rungs by deleting the `*TimeZoneUpcaster` classes. The composite
+  itself survives for any *future* shape migration (it is now a general version-ladder — see
+  `EventPayloadUpcasterDesign.md`).
 - **`EventTypes`** can drop the FQCN wire-id mapping only if `type` normalization is included **and**
   old backups are retired.
 - **Boot-replay preflight** (separate cleanup item) is the tool that certifies each retirement above.

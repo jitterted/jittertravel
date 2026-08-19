@@ -86,7 +86,8 @@ class EventJsonMapperEquivalenceTest {
                 "startDate":{"utc":"2026-09-15T16:00:00Z","zone":"America/Los_Angeles"},\
                 "endDate":{"utc":"2026-09-18T00:00:00Z","zone":"America/Los_Angeles"},\
                 "venueName":"Moscone Center","venueAddress":{"street":"747 Howard St","city":"San Francisco",\
-                "region":"CA","country":"USA","postalCode":"94103","locationForMatching":"San Francisco"}}""",
+                "region":"CA","country":"USA","postalCode":"94103","locationForMatching":"San Francisco"},\
+                "format":"CALL_FOR_PAPERS"}""",
                 ConferenceTentativelyPlanned.class);
     }
 

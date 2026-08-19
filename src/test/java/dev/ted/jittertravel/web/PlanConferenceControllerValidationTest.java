@@ -4,6 +4,8 @@ import dev.ted.jittertravel.application.ConferencePlanning;
 import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.application.PlanTentativeConferenceHandler;
 import dev.ted.jittertravel.application.ZoneResolutionException;
+import dev.ted.jittertravel.domain.ConferenceFormat;
+import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
 import dev.ted.jittertravel.domain.DateRangeNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
 import dev.ted.jittertravel.domain.PlanTentativeConferenceContext;
@@ -86,6 +88,25 @@ class PlanConferenceControllerValidationTest {
                 .as("an explicit pick is what makes an unresolvable location usable: %s",
                     bindingResult.getAllErrors())
                 .isFalse();
+    }
+
+    @Test
+    void theChosenFormatRidesThroughTheHandlerOntoTheEvent() {
+        // A non-default format (OPEN_SPACE) proves the handler reads the form value rather than
+        // defaulting. Runs the real handler → command → event, minus persistence.
+        PlanTentativeConferenceRequest request = conferenceForm(
+                LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 22, 17, 0), null);
+        request.setFormat("OPEN_SPACE");
+
+        ConferenceTentativelyPlanned event =
+                new PlanTentativeConferenceHandler(new LocationZoneResolver()).handle(request)
+                        .execute(new PlanTentativeConferenceContext(NOW))
+                        .toList()
+                        .getFirst();
+
+        assertThat(event.format())
+                .as("the form's format choice reaches the event through the handler")
+                .isEqualTo(ConferenceFormat.OPEN_SPACE);
     }
 
     /** The controller's catch-and-reject block, exercised against the real handler and command. */

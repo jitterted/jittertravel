@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.PlanTentativeConferenceCommand;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -33,7 +34,8 @@ public class PlanTentativeConferenceHandler {
                 zonedOrNull(request.getStartDate(), zone),
                 zonedOrNull(request.getEndDate(), zone),
                 request.getVenueName(),
-                venueAddress
+                venueAddress,
+                ConferenceFormat.fromParam(request.getFormat())
         );
     }
 

@@ -22,6 +22,10 @@ public class PlanTentativeConferenceRequest {
     // Optional CommonZone pick. Absent (older backups have no such field) means "derive the zone
     // from the venue address" — which is what keeps pre-migration backups importable unchanged.
     private String zone;
+    // ConferenceFormat enum name, chosen via radio buttons on the form. Defaults to the safe
+    // CALL_FOR_PAPERS so a submit that somehow omits it still binds; the handler re-derives the
+    // default too (ConferenceFormat.fromParam).
+    private String format = "CALL_FOR_PAPERS";
 
     public PlanTentativeConferenceRequest() {
     }
@@ -114,6 +118,14 @@ public class PlanTentativeConferenceRequest {
         this.zone = zone;
     }
 
+    public String getFormat() {
+        return format;
+    }
+
+    public void setFormat(String format) {
+        this.format = format;
+    }
+
     public Address getVenueAddress() {
         return new Address(venueStreet, venueCity, venueState, venuePostalCode, venueCountry, null);
     }
@@ -132,6 +144,7 @@ public class PlanTentativeConferenceRequest {
                 ", venueCountry='" + venueCountry + '\'' +
                 ", venuePostalCode='" + venuePostalCode + '\'' +
                 ", zone='" + zone + '\'' +
+                ", format='" + format + '\'' +
                 '}';
     }
 }

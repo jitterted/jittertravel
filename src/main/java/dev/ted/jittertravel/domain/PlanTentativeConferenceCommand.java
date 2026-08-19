@@ -8,7 +8,8 @@ public record PlanTentativeConferenceCommand(
         ZonedTimestamp startDate,
         ZonedTimestamp endDate,
         String venueName,
-        Address venueAddress
+        Address venueAddress,
+        ConferenceFormat format
 ) implements DomainCommand<PlanTentativeConferenceContext> {
 
     @Override
@@ -26,6 +27,6 @@ public record PlanTentativeConferenceCommand(
             throw new InvalidDateRange("End date must be on or after start date");
         }
         return Stream.of(new ConferenceTentativelyPlanned(
-                conferenceId, name, startDate, endDate, venueName, venueAddress));
+                conferenceId, name, startDate, endDate, venueName, venueAddress, format));
     }
 }

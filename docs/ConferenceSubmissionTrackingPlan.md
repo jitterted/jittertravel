@@ -1,7 +1,32 @@
 # Conference Submission Tracking Plan — commitment, speaking status, and the CFP pipeline
 
-> **Status: OPEN (designed 2026-08-12). Nothing built.** Design agreed with Ted in conversation;
-> implementation not started. See `docs/Backlog.md` for the status of everything else.
+> **Status: IN PROGRESS. Slice 1 (`ConferenceFormat`) shipped 2026-08-18; the Decline slice shipped
+> 2026-08-16. Slices 2–5 not started.** Design agreed with Ted in conversation. See
+> `docs/Backlog.md` for the status of everything else.
+>
+> **Slice 1 as built (2026-08-18):** `ConferenceFormat` (CALL_FOR_PAPERS / ACCEPTANCE_REQUIRED /
+> OPEN_SPACE) rides on `ConferenceTentativelyPlanned` as a **non-null** field; the plan form picks it
+> with **radio buttons** (Ted's UI preference), defaulting to CALL_FOR_PAPERS. **`datesConfirmed` was
+> deferred** out of slice 1 — its only consumer is the slice-5 Schengen ceiling, so it will land with
+> that slice rather than shipping a form control months ahead of its behaviour.
+>
+> **How the default reaches legacy rows — decided this session (choice A).** An absent `format` is
+> injected as CALL_FOR_PAPERS by the **read-time upcaster** as an *independent* schema increment
+> (v2→v3), applied by its own absence check so a row written after the datetime migration but before
+> `format` existed is still brought current; `ConferenceTentativelyPlanned` is bumped to schema
+> **version 3** in `EventTypes`, so the eager migration rewrites stored rows to physically carry the
+> field. The record's compact constructor **fails loud** on a null `format`, since production always
+> upcasts before binding. This was chosen over a compact-constructor null-default so the value is
+> stored/migrated/versioned (a domain-behavioural field, not a read-time ghost) through the one
+> general-purpose payload-migration mechanism — the version-ladder of `EventUpcaster` rungs described
+in `EventPayloadUpcasterDesign.md` (this migration, `format` v2→v3, is the `ConferenceFormatUpcaster`
+rung that shaped that framework out of the previously single-class upcaster).
+>
+> **The 2026-08-18 refinement (this pass) settled the last open questions and simplified the model.**
+> It is driven by a concrete need — CFPs for next year are opening now — and by four real conferences
+> already entered (dev2next, ExploreDDD, SoCraTes DE, J-Fall, PLoP). The decisions below **supersede**
+> the corresponding parts of the original design where they differ; the superseded text is kept for
+> the reasoning trail. Jump to **"Refinement (2026-08-18)"** for the current shape.
 
 ## Problem
 
@@ -146,6 +171,133 @@ made rather than presenting him with a new one.
 invitation is unsolicited, so it is an offer awaiting Ted's yes, not the completion of something he
 started. It needs an explicit `ConferenceAttendanceCommitted(basis: SPEAKING_INVITED)`.
 
+## Refinement (2026-08-18) — the current shape
+
+Everything in this section supersedes the original where they differ. Grounded in four real
+conferences: **dev2next** (speaking, accepted), **ExploreDDD** (had a CFP, submitted, rejected,
+attending anyway), **SoCraTes DE** (open-space, no CFP, buys a ticket), **J-Fall** (CFP open now),
+and **PLoP** (a writers'-workshop where **acceptance is required to attend**).
+
+### `ConferenceFormat` — how a conference forms its program
+
+The open-space case is **not** a new `EntryKind`: SoCraTes is a fully public, multi-day event with
+name/venue/city/dates/infoUrl — publicly identical to any conference, so it shares the `CONFERENCE`
+redaction branch. A new `EntryKind` is only for something *private* (the company-internal talk, the
+private dinner). What actually varies is **how you get on the program**, which is intrinsic to the
+conference and known when it is entered — so it is a **field on `ConferenceTentativelyPlanned`**, not
+a separate "what happened" event (nothing happened; SoCraTes simply *is* open-space).
+
+A boolean `hasCfp` was rejected (Ted: "booleans eventually become enums anyway" — and PLoP proved it
+on the same day). The enum, with three real values, no speculation:
+
+```
+ConferenceFormat { CALL_FOR_PAPERS, ACCEPTANCE_REQUIRED, OPEN_SPACE }
+```
+
+| Value | Example | Submission? | On `TalkRejected` |
+|---|---|---|---|
+| `CALL_FOR_PAPERS` | dev2next, ExploreDDD, J-Fall | open CFP; attend regardless of outcome | `REJECTED + WATCHING` → visible **"decide: go anyway or drop?"** |
+| `ACCEPTANCE_REQUIRED` | PLoP | acceptance **gates** attendance | **auto-drops** → `NOT_GOING`, leaves the calendar; no "go anyway" |
+| `OPEN_SPACE` | SoCraTes DE | none — sessions chosen on the day | n/a (no CFP; a `CfpOpened` on this format is **rejected by the command handler**) |
+
+Note `CALL_FOR_PAPERS` + `NOT_SPEAKING` is a real, distinct state (ExploreDDD before he submitted, or
+a conference he only attends): the conference *has* a CFP, he just didn't submit — different from
+"no CFP exists." The enum keeps them apart. `ACCEPTANCE_REQUIRED` bundles a behavior (rejection
+auto-drops) into the format value deliberately — all three values answer the one question "how do you
+get in," and the fold branches on the value.
+
+Existing conferences default absent→`CALL_FOR_PAPERS` via the upcaster — the safe default (offers the
+CFP action rather than silently hiding it); the backfill pass re-marks SoCraTes to `OPEN_SPACE` and
+PLoP to `ACCEPTANCE_REQUIRED` once. **Shipped 2026-08-18** as slice 1 (schema bump to v3 on
+`ConferenceTentativelyPlanned`); `datesConfirmed` was **deferred** to the slice that consumes it
+(slice 5), so slice 1 was `ConferenceFormat` alone.
+
+### Event names are "what happened", not CRUD (Ted, 2026-08-18)
+
+Renamed from the original tables. See the global rule in memory / CLAUDE-adjacent guidance.
+
+| Original draft | Current name |
+|---|---|
+| `CfpWindowRecorded(conferenceId, opensOn, closesOn)` | **`CfpOpened(conferenceId, closesOn)`** — opens = the event; carries only the close date (no "watch for it to open" case yet) |
+| `TalkSubmitted(submissionId, conferenceId, talkTitle, submittedOn)` | **`TalkSubmitted(conferenceId, submittedOn)`** — conference-keyed, see below |
+| `SubmissionAccepted` / `SubmissionRejected` / `SubmissionWaitlisted` / `SubmissionWithdrawn` | **`TalkAccepted` / `TalkRejected` / `TalkWaitlisted` / `TalkWithdrawn`** `(conferenceId, decidedOn)` |
+| `SpeakingInvitationReceived(conferenceId, invitedOn)` | **`InvitedToSpeak(conferenceId, invitedOn)`** |
+| `ConferenceAttendanceCommitted(conferenceId, basis, committedOn)` | **`ConferenceAttendanceConfirmed(conferenceId, basis, confirmedOn)`** — pairs with the shipped `ConferenceAttendanceDeclined` |
+| `ConferenceTentativelyPlanned` (unchanged name for backup compat) | gains `datesConfirmed` **and** `format` fields |
+
+`ConferenceCancelled` (organizers cancelled) and `ConferenceAttendanceDeclined` (Ted's own decision —
+**distinct** from a `TalkRejected`, which is the organizers' decision) are unchanged.
+
+### No per-talk tracking yet — submissions are conference-keyed
+
+For calendaring it does not matter whether Ted submitted one talk or three, or of what type
+(Ted, 2026-08-18). So `SubmissionId` and `talkTitle` are **dropped for now**: the submission events
+key on `ConferenceId`, and the speaking fold collapses to **best-outcome-wins** per conference
+(`accepted` beats `waitlisted` beats `submitted` beats `rejected` beats `withdrawn`). `TalkSubmitted`
+reads as "I submitted (one or more talks) to this CFP." When per-talk state earns its keep, add
+`SubmissionId` + title then — not before (no abstraction before the 2nd user).
+
+**ExploreDDD's "rejected, attended anyway"** (nice-to-have) needs no extra machinery: `TalkRejected`
+(conference-keyed) then `ConferenceAttendanceConfirmed(basis: ATTENDING_ANYWAY)`. The rejection is
+recorded; the confirm is the "go anyway." Only reachable for `CALL_FOR_PAPERS`; for
+`ACCEPTANCE_REQUIRED` the rejection auto-drops.
+
+### Backfilling existing conferences — resolved
+
+The open question from 2026-08-16 is settled: **backfill is a one-off pass through the real UI**, not
+a special admin tool and not accept-the-default. Backfill records each conference's *current end
+state* with a single event through the same affordances new conferences use — it never reconstructs
+CFP history:
+
+| Conference | Format | Backfill event(s) | Derived |
+|---|---|---|---|
+| dev2next (speaking) | `CALL_FOR_PAPERS` | `ConferenceAttendanceConfirmed(basis: SPEAKING_ACCEPTED)` | `GOING` + speaking badge |
+| ExploreDDD (attending only) | `CALL_FOR_PAPERS` | `ConferenceAttendanceConfirmed(basis: TICKET_PURCHASED)`; optionally `TalkRejected` first to record the "anyway" | `GOING`, no badge |
+| SoCraTes DE (open-space) | `OPEN_SPACE` | `ConferenceAttendanceConfirmed(basis: ATTENDING_ANYWAY)` | `GOING`, no CFP nudge |
+| J-Fall (CFP open) | `CALL_FOR_PAPERS` | `CfpOpened(closesOn)`; then submit forward | `WATCHING` + `CFP_OPEN` |
+
+Accept-the-default is out: it would mislabel dev2next as not-speaking, the one outcome we can't have.
+There is a handful of conferences and Ted knows each one's state, so this is minutes of clicking once
+the actions exist — decided **before** slice 2 ships so the calendar never briefly mislabels a
+committed conference.
+
+### CFP closing deadline rides the existing iCal feed (72h + 24h)
+
+`CfpOpened.closesOn` is structurally identical to a hotel `cancelBy` — a deadline not to miss — so it
+becomes a VEVENT at the closing instant with **two `VALARM`s, 72h and 24h before** (Ted, 2026-08-18),
+fired locally by iOS exactly like the hotel cancel-deadline reminders. No scheduler; a pure
+projection over the event. Safe on the private side: CFP dates are OWNER-only, and that feed is
+already token-gated **unredacted owner data** (never the public `/calendar`).
+
+Architecturally this is the moment the deferred `ICalEventSource` abstraction earns itself:
+`CalendarSubscriptionFeedPlan.md` deliberately held it back "until the 2nd contributor (no abstraction
+before 2nd user)." **CFP deadlines are that second contributor** — so introduce `ICalEventSource`
+cleanly here, alongside the existing hotel-cancel source, rather than speculatively earlier.
+
+No "watch for the CFP to open" reminder yet (Ted, 2026-08-18) — closing deadline only.
+
+### Revised build order (sequenced for CFP season)
+
+The original bottom-up order is re-cut so the CFP-season payoff and the backfill land together:
+
+1. **`ConferenceFormat`** on `ConferenceTentativelyPlanned` + the plan-conference form (schema bump to
+   v3; upcaster injects absent format→`CALL_FOR_PAPERS` as an independent increment). **SHIPPED
+   2026-08-18.** `datesConfirmed` was split out and deferred to slice 5 (its only consumer is the
+   Schengen ceiling), so this slice was format alone.
+2. **Commitment fold + `ConferenceAttendanceConfirmed`** + `CalendarEntry.commitment` + the redactor
+   branch + both tiers of redaction test + CLAUDE.md amend. This is the slice that makes the calendar
+   tell the truth, and the slice the **backfill runs through** — so the backfill decision (above) is
+   its gate. `SubmissionAccepted`/`InvitedToSpeak` auto-commit / offer-to-commit per the original.
+3. **`CfpOpened` + the CFP-deadline iCal source (72h + 24h)** + the radar view grouped by derived
+   status, `OPEN_SPACE` in a "nothing to submit" group. Pulls the deadline reminder forward because
+   that is the concrete CFP-season value.
+4. **The submission stream** (`TalkSubmitted` / `TalkAccepted` / `TalkRejected` / `TalkWaitlisted` /
+   `TalkWithdrawn`, conference-keyed) + the pipeline actions on the radar, incl. the
+   `ACCEPTANCE_REQUIRED` auto-drop-on-reject fork and the `CALL_FOR_PAPERS` "decide" affordance. The
+   conference **speaking badge** unlocks here.
+5. **`ScheduleGapProjector` + Schengen ceiling** filtering by attendance (only `GOING` occupies the
+   schedule; speculative feeds the ceiling).
+
 ## Consequences elsewhere in the codebase
 
 ### Redaction
@@ -205,8 +357,13 @@ contribute zero unique past Schengen days. See "Historical data" in that doc.
 
 A slot held before the CFP opens usually carries *last year's* dates. Because those guessed dates now
 drive the Schengen ceiling, `ConferenceTentativelyPlanned` needs a `datesConfirmed` flag (or the
-inverse, `datesProvisional`) so a guess is visibly marked wherever it is counted. Promoted out of
-"nice to have" into the first slice for that reason.
+inverse, `datesProvisional`) so a guess is visibly marked wherever it is counted.
+
+**Deferred to slice 5 (Ted, 2026-08-18).** It was briefly promoted into slice 1, but its only consumer
+is the Schengen ceiling (slice 5) — shipping a form control months ahead of the behaviour that reads
+it is a papercut with no payoff, so slice 1 shipped `ConferenceFormat` alone and `datesConfirmed`
+lands with the ceiling. Adding it later is a second schema bump on `ConferenceTentativelyPlanned`
+(v3→v4) with its own upcaster increment (absent→provisional), exactly like the format increment.
 
 ### Read models
 
@@ -216,7 +373,12 @@ Accepted / Waitlisted / Rejected / Withdraw; `REJECTED` → Go anyway / Drop). K
 `TemporalView.relevantUntil()` + `TimeView` + `TimeFilterToggle.render(...)` trio — the FUTURE/ALL
 convention is enforced by `TimeFilterToggleConventionTest`.
 
-## Backfilling existing conferences (OPEN QUESTION — Ted, 2026-08-16)
+## Backfilling existing conferences (RESOLVED 2026-08-18 — see "Refinement" above)
+
+> **Resolved:** backfill is a one-off pass through the real UI (record each conference's current end
+> state with a single `ConferenceAttendanceConfirmed` / `CfpOpened`, never reconstruct history). The
+> per-conference mapping and the reasoning are in **"Backfilling existing conferences — resolved"**
+> under the Refinement section. The original open-question text is kept below for the trail.
 
 Distinct from the Schengen "nothing to backfill" note above (which is only about the *day count*):
 once the two status dimensions exist, every conference already in the app is a bare
@@ -232,7 +394,11 @@ its command/handler/projectors/controller and a Decline affordance on `/tentativ
 thin, forward-compatible first piece of this plan — it uses this plan's own event name and needs no
 rework here.
 
-## Build order
+## Build order (SUPERSEDED 2026-08-18 — see "Revised build order" under Refinement)
+
+> The order below is replaced by **"Revised build order (sequenced for CFP season)"** in the
+> Refinement section, which folds in `ConferenceFormat`, the CFP-deadline iCal source, and the
+> event renames. Kept for the trail.
 
 1. `datesConfirmed` on `ConferenceTentativelyPlanned` + the plan-conference form. Small, and the
    Schengen ceiling depends on it.

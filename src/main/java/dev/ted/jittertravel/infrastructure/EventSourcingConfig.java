@@ -40,7 +40,7 @@ public class EventSourcingConfig {
     public EventPayloadUpcaster eventPayloadUpcaster(LocationZoneResolver locationZoneResolver,
                                                      AirportZoneResolver airportZoneResolver,
                                                      JsonMapper jsonMapper) {
-        return new EventPayloadUpcaster(locationZoneResolver, airportZoneResolver, jsonMapper);
+        return EventPayloadUpcaster.standard(locationZoneResolver, airportZoneResolver, jsonMapper);
     }
 
     /**

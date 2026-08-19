@@ -107,6 +107,24 @@ class ConferenceWebIntegrationTest {
                 .contains("Could not determine the time zone from the location");
     }
 
+    /**
+     * The format radios drive the whole speaking pipeline (whether there's a CFP, what a rejection
+     * means), and the {@code th:each} over the enum only fails at render time — so the form has to
+     * actually emit all three choices.
+     */
+    @Test
+    void formOffersAllThreeConferenceFormatRadios() {
+        given(conferencePlanning.isReadOnly()).willReturn(false);
+
+        assertThat(mockMvc.get().uri("/plan-conference"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("Call for Papers")
+                .contains("Acceptance Required")
+                .contains("Open Space")
+                .contains("value=\"OPEN_SPACE\"");
+    }
+
     @Test
     void tentativeConferencesPageRendersOk() {
         given(projector.views(any(), any())).willReturn(List.of());

@@ -41,7 +41,7 @@ class GoldenEventDeserializationTest {
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true)
             .build();
 
-    private static final EventPayloadUpcaster UPCASTER = new EventPayloadUpcaster(
+    private static final EventPayloadUpcaster UPCASTER = EventPayloadUpcaster.standard(
             new LocationZoneResolver(), new AirportZoneResolver(), MAPPER);
 
     @Test
@@ -133,10 +133,15 @@ class GoldenEventDeserializationTest {
         assertThat(event.venueAddress().locationForMatching())
                 .as("locationForMatching absent in legacy JSON defaults to city")
                 .isEqualTo("San Francisco");
+        assertThat(event.format())
+                .as("a pre-v3 payload with no format upcasts to the safe CALL_FOR_PAPERS default")
+                .isEqualTo(ConferenceFormat.CALL_FOR_PAPERS);
     }
 
     @Test
     void conferenceTentativelyPlannedNewShapePayloadDeserializes() {
+        // format is deliberately OPEN_SPACE (not the CALL_FOR_PAPERS default) so the assertion proves
+        // the value is read from the payload, not conjured by the default.
         String json = """
                 {
                   "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
@@ -151,7 +156,8 @@ class GoldenEventDeserializationTest {
                     "country": "USA",
                     "postalCode": "94103",
                     "locationForMatching": "San Francisco"
-                  }
+                  },
+                  "format": "OPEN_SPACE"
                 }
                 """;
 
@@ -165,6 +171,9 @@ class GoldenEventDeserializationTest {
                         LocalDateTime.of(2026, 9, 17, 17, 0), ZoneId.of("America/Los_Angeles")));
         assertThat(event.venueName())
                 .isEqualTo("Moscone Center");
+        assertThat(event.format())
+                .as("a v3 payload's format is read verbatim from the payload")
+                .isEqualTo(ConferenceFormat.OPEN_SPACE);
     }
 
     @Test

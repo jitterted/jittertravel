@@ -2,188 +2,118 @@ package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.AirportZoneResolver;
 import dev.ted.jittertravel.application.LocationZoneResolver;
-import dev.ted.jittertravel.domain.AirportCode;
-import dev.ted.jittertravel.domain.ZonedTimestamp;
+import dev.ted.jittertravel.domain.Event;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
+import java.util.List;
 
 /**
- * Read-time upcaster: rewrites a legacy event payload — where a datetime was stored as a bare
- * wall-clock scalar (e.g. {@code "checkIn": "2026-06-17T15:00:00"}) — into the current shape, a
- * {@link ZonedTimestamp} object ({@code {"utc": ..., "zone": ...}}). The zone is derived from the
- * event's own location, exactly as live entry does, so a replayed legacy event resolves to the same
- * moment a freshly-booked one would.
+ * Read-time upcaster: the general-purpose mechanism for bringing a stored event payload up to its
+ * current schema shape before it binds. It is a <em>composite</em> — it owns no migration logic of
+ * its own but drives a ladder of registered {@link EventUpcaster} rungs, each of which advances one
+ * event type by one version (see {@link #standard} for the production set). Splitting the rungs out
+ * keeps each one cohesive: the datetime→{@link dev.ted.jittertravel.domain.ZonedTimestamp} rungs that
+ * need a zone resolver no longer share a class with the {@code format}-field rung that needs nothing,
+ * and the flight rung's {@link AirportZoneResolver} no longer sits in a class that also does hotels.
  *
- * <p>Idempotent: a payload already in the new shape (the datetime field is an object, not a scalar)
- * is returned untouched, so new rows pass straight through. The stored {@code type} is normalized to
- * the stable logical name (see {@link EventTypes}) before dispatch, so both new logical-name rows
- * and legacy FQCN rows reach the same case; add a case here when a new event type migrates a
- * datetime field to {@link ZonedTimestamp}. The pre-migration zone audit ({@code /admin/zone-audit})
- * guarantees every legacy location resolves, so this never throws for stored data.
+ * <p><b>Version-driven, not shape-sniffing.</b> The climb starts from the row's stored
+ * {@code schema_version} (a legacy row that predates the column reads as {@code null} ⇒ version 1)
+ * and walks up to the type's {@link EventTypes#currentSchemaVersion current version}, applying the
+ * one rung registered for each step. A row already stamped at the current version does no work. The
+ * stored version is the driver; each rung additionally keeps its edit idempotent (an absence/shape
+ * check) so a never-stamped legacy row whose payload is <em>already</em> in a later shape climbs from
+ * version 1 through the intervening rungs as no-ops rather than being double-applied.
+ *
+ * <p><b>Retiring a rung</b> (once every stored row of that type has been permanently migrated past
+ * it — see {@code /admin/migrate-legacy-events} and {@code docs/LegacyEventEagerMigrationPlan.md})
+ * means deleting its {@link EventUpcaster} and dropping it from {@link #standard}. If a row is ever
+ * read that still sits below a retired rung, the climb cannot reach the current version and this
+ * fails loud rather than binding a stale shape — the signal that the migration was skipped.
+ *
+ * <p>The stored {@code type} may be a stable logical name (new rows) or a legacy FQCN (rows written
+ * before logical names); it is normalized to the logical name (see {@link EventTypes}) before the
+ * climb, so both reach the same rungs. The pre-migration zone audit ({@code /admin/zone-audit})
+ * guarantees every legacy location resolves, so the datetime rungs never throw for stored data.
  */
 public class EventPayloadUpcaster {
 
-    private final LocationZoneResolver locationZoneResolver;
-    private final AirportZoneResolver airportZoneResolver;
-    private final JsonMapper jsonMapper;
+    /**
+     * The floor of every climb. A row that predates the {@code schema_version} column reads as
+     * {@code null}; {@link EventTypes} treats an absent stamp as version 1, so the ladder does too.
+     */
+    private static final int OLDEST_SCHEMA_VERSION = 1;
 
-    public EventPayloadUpcaster(LocationZoneResolver locationZoneResolver,
-                                AirportZoneResolver airportZoneResolver,
-                                JsonMapper jsonMapper) {
-        this.locationZoneResolver = locationZoneResolver;
-        this.airportZoneResolver = airportZoneResolver;
-        this.jsonMapper = jsonMapper;
+    private final List<EventUpcaster> upcasters;
+
+    EventPayloadUpcaster(List<EventUpcaster> upcasters) {
+        this.upcasters = List.copyOf(upcasters);
     }
 
+    /**
+     * The production ladder, assembled from the zone resolvers and mapper. Every timezone rung shares
+     * one {@link WallClockZoning} collaborator; the conference {@code format} rung needs none.
+     */
+    public static EventPayloadUpcaster standard(LocationZoneResolver locationZoneResolver,
+                                                AirportZoneResolver airportZoneResolver,
+                                                JsonMapper jsonMapper) {
+        WallClockZoning zoning = new WallClockZoning(jsonMapper);
+        return new EventPayloadUpcaster(List.of(
+                new HotelTimeZoneUpcaster(locationZoneResolver, zoning),
+                new TrainTimeZoneUpcaster(locationZoneResolver, zoning),
+                new FlightTimeZoneUpcaster(airportZoneResolver, zoning),
+                new GatheringTimeZoneUpcaster(locationZoneResolver, zoning),
+                new ConferenceTimeZoneUpcaster(locationZoneResolver, zoning),
+                new ConferenceFormatUpcaster()));
+    }
+
+    /**
+     * Upcast a payload whose stored schema version is unknown — climb from the oldest version. For
+     * callers with no {@code schema_version} to hand; the read paths that have one use
+     * {@link #upcast(String, JsonNode, Integer)}.
+     */
     public JsonNode upcast(String wireType, JsonNode payload) {
+        return upcast(wireType, payload, null);
+    }
+
+    /**
+     * Bring {@code payload} from its {@code storedVersion} up to the current shape for {@code
+     * wireType}, mutating it in place. A {@code null} {@code storedVersion} (a legacy row with no
+     * stamp) is the oldest version.
+     */
+    public JsonNode upcast(String wireType, JsonNode payload, Integer storedVersion) {
         if (!(payload instanceof ObjectNode object)) {
             return payload;
         }
-        // The stored type can be a logical name (new rows) or a legacy FQCN (rows written before
-        // logical names). Normalize to the logical name first: the cases below are keyed by it, so a
-        // legacy FQCN row — which is also exactly the shape that still holds bare-scalar datetimes —
-        // must not slip through the switch unmigrated.
-        String logicalType = EventTypes.logicalNameFor(EventTypes.classFor(wireType));
-        switch (logicalType) {
-            case "HotelBooked", "HotelChanged" -> upcastHotelStay(object);
-            case "TrainBooked", "TrainChanged" -> upcastTrainTrip(object);
-            case "FlightBooked", "FlightChanged" -> upcastFlightTrip(object);
-            case "GatheringPlanned", "GatheringChanged" -> upcastGathering(object);
-            case "ConferenceTentativelyPlanned" -> upcastConference(object);
-            default -> { /* type not migrated, or it has no datetime fields */ }
+        Class<? extends Event> eventClass = EventTypes.classFor(wireType); // fail loud on an unknown type
+        String logicalType = EventTypes.logicalNameFor(eventClass);
+        int target = EventTypes.currentSchemaVersion(eventClass);
+
+        int version = storedVersion == null ? OLDEST_SCHEMA_VERSION : storedVersion;
+        while (version < target) {
+            rungFor(logicalType, version).upcast(object, logicalType);
+            version++;
         }
         return object;
     }
 
-    /** check-in/check-out share the hotel's single, address-derived zone. */
-    private void upcastHotelStay(ObjectNode object) {
-        JsonNode checkIn = object.get("checkIn");
-        if (!isLegacyScalar(checkIn)) {
-            return; // already a {utc, zone} object
+    private EventUpcaster rungFor(String logicalType, int version) {
+        EventUpcaster found = null;
+        for (EventUpcaster candidate : upcasters) {
+            if (candidate.canHandle(logicalType, version)) {
+                if (found != null) {
+                    throw new IllegalStateException(
+                            "Two upcasters both claim %s schema version %d".formatted(logicalType, version));
+                }
+                found = candidate;
+            }
         }
-        ZoneId zone = locationZoneResolver.resolve(
-                addressField(object, "city"), addressField(object, "region"),
-                addressField(object, "country"));
-        object.set("checkIn", toZoned(checkIn.asText(), zone));
-        object.set("checkOut", toZoned(object.get("checkOut").asText(), zone));
-    }
-
-    /**
-     * The only <em>shape</em> change so far, rather than a field-type change: a gathering's legacy
-     * {@code date} + {@code startTime} + {@code endTime} trio collapses into {@code startsAt} and
-     * {@code endsAt}. The three legacy keys are removed, because the record no longer declares them
-     * and the golden contract test rejects unknown properties. Both endpoints are at the one venue,
-     * so they share its address-derived zone.
-     */
-    private void upcastGathering(ObjectNode object) {
-        JsonNode date = object.get("date");
-        if (!isLegacyScalar(date)) {
-            return; // already collapsed into startsAt/endsAt
+        if (found == null) {
+            throw new IllegalStateException(
+                    "No upcaster advances %s from schema version %d — was a rung retired before its rows were migrated?"
+                            .formatted(logicalType, version));
         }
-        ZoneId zone = locationZoneResolver.resolve(
-                nestedText(object.get("location"), "city"),
-                nestedText(object.get("location"), "region"),
-                nestedText(object.get("location"), "country"));
-        LocalDate localDate = LocalDate.parse(date.asText());
-        object.set("startsAt", toZoned(localDate.atTime(localTime(object, "startTime")), zone));
-        object.set("endsAt", toZoned(localDate.atTime(localTime(object, "endTime")), zone));
-        object.remove("date");
-        object.remove("startTime");
-        object.remove("endTime");
-    }
-
-    private static LocalTime localTime(ObjectNode object, String field) {
-        return LocalTime.parse(object.get(field).asText());
-    }
-
-    /** Start and end are at the one venue, so they share its address-derived zone. */
-    private void upcastConference(ObjectNode object) {
-        JsonNode startDate = object.get("startDate");
-        if (!isLegacyScalar(startDate)) {
-            return; // already a {utc, zone} object
-        }
-        ZoneId zone = locationZoneResolver.resolve(
-                nestedText(object.get("venueAddress"), "city"),
-                nestedText(object.get("venueAddress"), "region"),
-                nestedText(object.get("venueAddress"), "country"));
-        object.set("startDate", toZoned(startDate.asText(), zone));
-        object.set("endDate", toZoned(object.get("endDate").asText(), zone));
-    }
-
-    /**
-     * Departure and arrival resolve <em>independently</em> from their own station's city/country —
-     * a trip may span two zones (e.g. Frankfurt→Paris).
-     */
-    private void upcastTrainTrip(ObjectNode object) {
-        JsonNode departure = object.get("departureDateTime");
-        if (!isLegacyScalar(departure)) {
-            return; // already a {utc, zone} object
-        }
-        ZoneId departureZone = stationZone(object, "departureStation");
-        ZoneId arrivalZone = stationZone(object, "arrivalStation");
-        object.set("departureDateTime", toZoned(departure.asText(), departureZone));
-        object.set("arrivalDateTime", toZoned(object.get("arrivalDateTime").asText(), arrivalZone));
-    }
-
-    /**
-     * Departure and arrival resolve independently from their airport codes.
-     */
-    private void upcastFlightTrip(ObjectNode object) {
-        JsonNode departure = object.get("departureDateTime");
-        if (!isLegacyScalar(departure)) {
-            return; // already a {utc, zone} object
-        }
-        ZoneId departureZone = airportZone(object, "departureAirport");
-        ZoneId arrivalZone = airportZone(object, "arrivalAirport");
-        object.set("departureDateTime", toZoned(departure.asText(), departureZone));
-        object.set("arrivalDateTime", toZoned(object.get("arrivalDateTime").asText(), arrivalZone));
-    }
-
-    private ZoneId airportZone(ObjectNode payload, String airportField) {
-        JsonNode airport = payload.get(airportField);
-        String code = nestedText(airport, "code");
-        return airportZoneResolver.resolve(AirportCode.of(code));
-    }
-
-    private ZoneId stationZone(ObjectNode payload, String stationField) {
-        JsonNode station = payload.get(stationField);
-        String city = nestedText(station, "city");
-        String country = nestedText(station, "country");
-        return locationZoneResolver.resolve(city, country);
-    }
-
-    private static String nestedText(JsonNode node, String field) {
-        if (node == null) {
-            return "";
-        }
-        JsonNode value = node.get(field);
-        return value == null ? "" : value.asText();
-    }
-
-    private JsonNode toZoned(String wallClock, ZoneId zone) {
-        return toZoned(LocalDateTime.parse(wallClock), zone);
-    }
-
-    private JsonNode toZoned(LocalDateTime wallClock, ZoneId zone) {
-        return jsonMapper.valueToTree(ZonedTimestamp.fromLocal(wallClock, zone));
-    }
-
-    private static boolean isLegacyScalar(JsonNode node) {
-        return node != null && node.isTextual();
-    }
-
-    private static String addressField(ObjectNode payload, String field) {
-        JsonNode address = payload.get("address");
-        if (address == null) {
-            return "";
-        }
-        JsonNode value = address.get(field);
-        return value == null ? "" : value.asText();
+        return found;
     }
 }

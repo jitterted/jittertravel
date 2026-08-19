@@ -134,6 +134,17 @@
         </div>
 
         <fieldset>
+            <legend>Format</legend>
+            <div class="field" th:each="cf : ${conferenceFormats}">
+                <label style="flex-direction: row; align-items: center; gap: 0.4rem; color: inherit; font-size: 0.95rem;">
+                    <input type="radio" th:field="*{format}" th:value="${cf.name()}"
+                           style="width: auto;"/>
+                    <span th:text="${cf.label()}">Call for Papers</span>
+                </label>
+            </div>
+        </fieldset>
+
+        <fieldset>
             <legend>Venue</legend>
 
             <div class="field">

@@ -6,6 +6,7 @@ import dev.ted.jittertravel.application.TentativeConferenceProjector;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.CommonZone;
+import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.DateRangeNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
 import org.slf4j.Logger;
@@ -48,6 +49,11 @@ public class PlanConferenceController {
     @ModelAttribute("commonZones")
     public CommonZone[] commonZones() {
         return CommonZone.values();
+    }
+
+    @ModelAttribute("conferenceFormats")
+    public ConferenceFormat[] conferenceFormats() {
+        return ConferenceFormat.values();
     }
 
     @GetMapping("/plan-conference")

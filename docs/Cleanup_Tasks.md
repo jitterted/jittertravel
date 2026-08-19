@@ -148,8 +148,9 @@ plan doc and its status — including these items — see `Backlog.md`.
       row and an admin nav card. Decided with Ted: **column not payload-key**, accept the backup bump,
       in-place admin UPDATE, FQCN→logical `type` normalization **deferred**, versioning *framework*
       deferred (stamp only for now). Every new/changed test mutation-verified. Retirements still gated
-      on old backups leaving rotation: the upcaster's legacy branches, the FQCN mapping, and the
-      Antwerp-style resolver hacks.
+      on old backups leaving rotation: the upcaster's legacy timezone rungs (the `*TimeZoneUpcaster`
+      classes — see `EventPayloadUpcasterDesign.md`), the FQCN mapping, and the Antwerp-style resolver
+      hacks.
 - [x] **Boot-replay preflight (pre-deploy)** (2026-08-16). `BootReplayPreflightTest`, a
       `@Tag("replay-preflight")` tier excluded from the default build (`mvn test -Preplay-preflight
       -Dpreflight.dump=/path/to/backup.json`; no dump ⇒ skips). Restores a production backup into a

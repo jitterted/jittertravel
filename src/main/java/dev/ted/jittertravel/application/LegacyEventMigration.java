@@ -92,7 +92,7 @@ public class LegacyEventMigration {
                 int currentVersion = EventTypes.currentSchemaVersion(row.type());
                 JsonNode original = jsonMapper.readTree(row.payloadJson());
                 // upcast mutates the node in place, so hand it a copy and compare against the original.
-                JsonNode upcasted = upcaster.upcast(row.type(), original.deepCopy());
+                JsonNode upcasted = upcaster.upcast(row.type(), original.deepCopy(), row.schemaVersion());
 
                 boolean payloadChanged = !upcasted.equals(original);
                 boolean stampChanged = row.schemaVersion() == null || row.schemaVersion() != currentVersion;

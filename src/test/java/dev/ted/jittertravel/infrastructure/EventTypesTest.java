@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
+import dev.ted.jittertravel.domain.ConferenceTentativelyPlanned;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.TrainBooked;
@@ -61,6 +62,17 @@ class EventTypesTest {
         assertThat(EventTypes.currentSchemaVersion("dev.ted.jittertravel.domain.HotelBooked"))
                 .as("legacy FQCN wire id resolves to the same version")
                 .isEqualTo(2);
+    }
+
+    @Test
+    void conferenceTentativelyPlannedIsAtSchemaVersionThreeAfterTheFormatField() {
+        // v1→v2 migrated its datetimes to ZonedTimestamp; v2→v3 added the format field (injected by
+        // the upcaster into pre-v3 payloads). It is the only type past version 2.
+        assertThat(EventTypes.currentSchemaVersion(ConferenceTentativelyPlanned.class))
+                .isEqualTo(3);
+        assertThat(EventTypes.currentSchemaVersion("ConferenceTentativelyPlanned"))
+                .as("by logical wire id")
+                .isEqualTo(3);
     }
 
     @Test

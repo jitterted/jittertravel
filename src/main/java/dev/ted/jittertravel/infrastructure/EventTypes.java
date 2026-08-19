@@ -58,6 +58,13 @@ public final class EventTypes {
     /** The current schema version of the nine types that migrated to {@code ZonedTimestamp}. */
     private static final int ZONED_TIMESTAMP_SCHEMA_VERSION = 2;
 
+    /**
+     * {@code ConferenceTentativelyPlanned} alone advanced past {@code ZonedTimestamp}: v3 added the
+     * {@code format} field ({@link dev.ted.jittertravel.domain.ConferenceFormat}), injected by the
+     * upcaster into pre-v3 payloads.
+     */
+    private static final int CONFERENCE_FORMAT_SCHEMA_VERSION = 3;
+
     private static final Map<String, Class<? extends Event>> LOGICAL_TO_CLASS = new LinkedHashMap<>();
     private static final Map<Class<? extends Event>, String> CLASS_TO_LOGICAL = new LinkedHashMap<>();
     private static final Map<String, String> WIRE_ID_TO_LOGICAL = new LinkedHashMap<>();
@@ -71,7 +78,7 @@ public final class EventTypes {
         register("HotelBooked", HotelBooked.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("HotelChanged", HotelChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("HotelBookingCancelled", HotelBookingCancelled.class);
-        register("ConferenceTentativelyPlanned", ConferenceTentativelyPlanned.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
+        register("ConferenceTentativelyPlanned", ConferenceTentativelyPlanned.class, CONFERENCE_FORMAT_SCHEMA_VERSION);
         register("ConferenceCancelled", ConferenceCancelled.class);
         register("ConferenceAttendanceDeclined", ConferenceAttendanceDeclined.class);
         register("GatheringPlanned", GatheringPlanned.class, ZONED_TIMESTAMP_SCHEMA_VERSION);

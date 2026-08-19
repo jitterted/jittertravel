@@ -296,9 +296,10 @@ public class CalendarViewBuilder {
             // The title is a plain text link only when it navigates *out* (maps); editing is
             // never the title itself but a separate pencil appended after it, so a link on the
             // title always means "go look at this elsewhere" and the pencil always means "edit".
+            List<DomContent> titleParts = breakableTitle(title);
             DomContent titleText = entry.mapsUrl() != null && !isContinuation
-                    ? a(title).withHref(entry.mapsUrl()).withTarget("_blank").withRel("noopener")
-                    : span(title);
+                    ? a().with(titleParts).withHref(entry.mapsUrl()).withTarget("_blank").withRel("noopener")
+                    : span().with(titleParts);
             DivTag titleDiv = div().withClass("entry-title").with(titleText);
             if (entry.editPath() != null && isOwner && !isContinuation) {
                 // OWNER-only deep link to the entry's edit page — every editable kind
@@ -350,6 +351,31 @@ public class CalendarViewBuilder {
         DateTimeFormatter zoneAbbrev = DateTimeFormatter.ofPattern("z", Locale.ENGLISH);
         return time.format(from.atEntryZone()) + " → " + time.format(to.atEntryZone())
                 + " " + zoneAbbrev.format(from.atEntryZone());
+    }
+
+    /**
+     * Splits a title so the browser has somewhere to wrap it, without changing a visible character.
+     * A flight route ({@code ✈️ SFO→MUC}) is one unbreakable run — U+2192 is line-break class AL, so
+     * there is no break opportunity between the codes and the entry's min-content width is the whole
+     * route. A {@code <wbr>} after the arrow lets the codes stack onto two lines, but only in a column
+     * too narrow to hold them side by side. A *spaced* arrow (a train's {@code 🚄 Frankfurt → Paris})
+     * already breaks at its spaces, so it is left alone.
+     */
+    private static List<DomContent> breakableTitle(String title) {
+        List<DomContent> parts = new ArrayList<>();
+        int segmentStart = 0;
+        for (int i = 0; i < title.length(); i++) {
+            boolean unspacedArrow = title.charAt(i) == '→'
+                    && i + 1 < title.length()
+                    && title.charAt(i + 1) != ' ';
+            if (unspacedArrow) {
+                parts.add(text(title.substring(segmentStart, i + 1)));
+                parts.add(wbr());
+                segmentStart = i + 1;
+            }
+        }
+        parts.add(text(title.substring(segmentStart)));
+        return parts;
     }
 
     private static DomContent editPencil(String href, String label) {

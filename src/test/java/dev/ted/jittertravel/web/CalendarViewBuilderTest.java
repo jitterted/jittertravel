@@ -229,14 +229,16 @@ class CalendarViewBuilderTest {
                 false
         );
 
-        // Both entry titles appear (flight title only on departure segment).
-        assertThat(html).contains(">✈\uFE0F SFO\u2192FRA<");
+        // Both entry titles appear (flight title only on departure segment). The route carries a
+        // <wbr> between the codes so a narrow column can stack them — see
+        // unspacedRouteArrowGetsABreakOpportunitySoTheEntryCanNarrow.
+        assertThat(html).contains(">✈\uFE0F SFO\u2192<wbr>FRA<");
         assertThat(html).contains(">Departs 1:55 PM<");
         assertThat(html).contains(">DDD Europe 2026<");
         assertThat(html).contains(">(Frankfurt, Germany)<");
         // The continuation flight segment shows ONLY the arrival subtitle, no title.
         assertThat(html).contains(">Arr 9:45 AM<");
-        long titleCount = html.split(">✈\uFE0F SFO\u2192FRA<", -1).length - 1;
+        long titleCount = html.split(">✈\uFE0F SFO\u2192<wbr>FRA<", -1).length - 1;
         assertThat(titleCount).isEqualTo(1);
 
         // Both kinds of entry cells are present.
@@ -602,6 +604,55 @@ class CalendarViewBuilderTest {
 
         assertThat(html).contains(
                 "Departs <time datetime=\"2026-06-10T21:00:00Z\" data-fmt=\"h:mm a\">10:00 PM</time>");
+    }
+
+    @Test
+    void unspacedRouteArrowGetsABreakOpportunitySoTheEntryCanNarrow() {
+        // "✈️ SFO→MUC" is one unbreakable run (U+2192 offers no break opportunity), which
+        // makes the entry's min-content width the whole route. The <wbr> lets the codes stack
+        // in a narrow column; the visible text is unchanged.
+        CalendarEntry flight = new CalendarEntry(
+                EntryKind.FLIGHT,
+                LocalDateTime.of(2026, 6, 10, 9, 0),
+                LocalDateTime.of(2026, 6, 10, 13, 0),
+                "✈️ SFO→MUC",
+                lines("9:00 AM"),
+                null, null, null
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(flight),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14),
+                TODAY,
+                false
+        );
+
+        assertThat(html).contains("✈️ SFO→<wbr>MUC");
+    }
+
+    @Test
+    void spacedRouteArrowIsLeftAloneBecauseItAlreadyBreaksAtItsSpaces() {
+        CalendarEntry train = new CalendarEntry(
+                EntryKind.TRAIN,
+                LocalDateTime.of(2026, 6, 10, 9, 0),
+                LocalDateTime.of(2026, 6, 10, 13, 0),
+                "🚄 Frankfurt → Paris",
+                lines("9:00 AM"),
+                null, null, null
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(train),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14),
+                TODAY,
+                false
+        );
+
+        assertThat(html)
+                .contains("🚄 Frankfurt → Paris")
+                .doesNotContain("<wbr>");
     }
 
     private static ZonedTimestamp zoned(LocalDateTime local, String zone) {

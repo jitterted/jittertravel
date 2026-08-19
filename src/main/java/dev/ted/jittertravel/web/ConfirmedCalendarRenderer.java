@@ -42,13 +42,26 @@ public class ConfirmedCalendarRenderer {
             /* Align the shared view-nav with the calendar body (which sits at 4rem);
                base .view-nav styling lives in site.css. */
             nav.view-nav { margin: 1.5rem 4rem 0; }
+            /* Narrow screens (phone, tablet portrait): the 4rem side gutters cost 8rem of a
+               ~390px viewport — more than a whole day column out of seven. Give that width
+               back to the grid; the container's own borders still frame it at the edge. */
+            @media (max-width: 900px) {
+                .calendar-outer { margin: 1rem 0; }
+                nav.view-nav { margin: 1rem 0.5rem 0; }
+            }
             .calendar-container {
                 border-left: 1px solid var(--calendar-border-strong);
                 border-top: 1px solid var(--calendar-border-strong);
                 border-bottom: 1px solid var(--calendar-border-strong);
             }
+            /* minmax(0, 1fr), never a bare 1fr: `1fr` is `minmax(auto, 1fr)`, so a track's floor
+               is its widest item's min-content width. Every week below is its *own* grid, so one
+               un-shrinkable entry (a route label, a long venue name) would widen that week's
+               column alone and knock it out of registration with the other weeks and this header.
+               Pinning the min to 0 makes each track exactly 1/7 of the container at every width,
+               so the columns align by construction rather than by content happening to be short. */
             .calendar-header {
-                display: grid; grid-template-columns: repeat(7, 1fr);
+                display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
                 position: sticky; top: 0; z-index: 10;
             }
             .calendar-header div {
@@ -59,8 +72,10 @@ public class ConfirmedCalendarRenderer {
                 padding: 12px 0; font-size: 0.9rem;
                 color: var(--calendar-text-secondary);
             }
+            /* minmax(0, 1fr) for the same reason as .calendar-header above — this is the grid
+               whose tracks would otherwise drift week to week. */
             .calendar-week {
-                display: grid; grid-template-columns: repeat(7, 1fr);
+                display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
                 background-color: var(--calendar-surface);
             }
             .day-label-cell {
@@ -127,10 +142,15 @@ public class ConfirmedCalendarRenderer {
             .day-label-cell.is-today, .lane-cell.is-today {
                 background-color: var(--calendar-today-tint);
             }
+            /* min-width: 0 so an entry can shrink with its track instead of refusing to go below
+               its own min-content and spilling over the day boundary (the page must never scroll
+               sideways). Belt-and-braces alongside the minmax(0, 1fr) tracks above, and the thing
+               that keeps this safe if those tracks ever go back to an intrinsic minimum. */
             .entry {
                 position: relative;
                 margin: 4px 6px; padding: 6px 10px; border-radius: 8px;
                 box-sizing: border-box; font-size: 0.9rem; line-height: 1.3;
+                min-width: 0;
                 min-height: 52px; display: flex; flex-direction: column; justify-content: center;
             }
             .entry-title { font-weight: 700; font-size: 0.95rem; letter-spacing: 0.01em; }

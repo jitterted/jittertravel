@@ -24,6 +24,30 @@ class ConfirmedCalendarRendererTest {
     }
 
     @Test
+    void everyGridPinsItsColumnsToMinmaxZeroSoDaysAlignAcrossWeeks() {
+        // Each week is its own grid, so a bare 1fr (= minmax(auto, 1fr)) lets one wide entry
+        // widen that week's column alone and knock it out of registration with the header and
+        // the other weeks. Alignment holds only while every grid's tracks are content-independent.
+        String html = ConfirmedCalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false);
+
+        assertThat(html)
+                .contains("grid-template-columns: repeat(7, minmax(0, 1fr))")
+                .doesNotContain("grid-template-columns: repeat(7, 1fr)");
+    }
+
+    @Test
+    void narrowScreensDropTheOuterSideMarginSoTheSevenDaysGetTheWidth() {
+        // On a phone the 4rem gutters take 8rem of ~390px — more than a day column. The
+        // media query hands that back to the grid; it is the only thing making the calendar
+        // usable at that width, so losing it silently would go unnoticed until a device test.
+        String html = ConfirmedCalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false);
+
+        assertThat(html)
+                .contains("@media (max-width: 900px)")
+                .contains(".calendar-outer { margin: 1rem 0; }");
+    }
+
+    @Test
     void publicUserSeesRedactedHotelName() {
         CalendarEntry hotel = new CalendarEntry(
                 EntryKind.LODGING,

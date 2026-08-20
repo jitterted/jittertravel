@@ -26,6 +26,10 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     // volatile: handle() runs on the append/replay thread, problems() on a web thread.
     private volatile List<ScheduleProblem> cachedProblems = List.of();
 
+    // The second read model, from the same state and the same batch: what the schedule holds,
+    // which is what explains the problems above. See ScheduleContext.
+    private volatile List<ScheduleContext> cachedContext = List.of();
+
     public ScheduleGapProjector(AirportCityResolver cityResolver) {
         this(cityResolver, new HomeCities(List.of()));
     }
@@ -72,9 +76,12 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 default -> {}
             }
         });
-        // Recompute the read model once per handled batch (replay: once; runtime: once per append),
-        // so reads are O(1) and never re-derive from the event-shaped state.
+        // Recompute the read models once per handled batch (replay: once; runtime: once per
+        // append), so reads are O(1) and never re-derive from the event-shaped state. Both are
+        // computed from the same state in the same pass, so a problem and its context cannot
+        // describe two different versions of the schedule.
         cachedProblems = computeProblems();
+        cachedContext = computeContext();
     }
 
     /** The whole read model: every detected problem, past ones included. */
@@ -91,6 +98,39 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     public List<ScheduleProblem> problems(Instant now) {
         return cachedProblems.stream()
                 .filter(problem -> TimeView.FUTURE.includes(problem, now))
+                .toList();
+    }
+
+    /**
+     * Everything the schedule holds, unfiltered: conferences, gatherings, booked legs and booked
+     * stays, each as a run of local days. Unlike {@link #problems(Instant)} there is no {@code now}
+     * cut — a caller showing context behind a problem already knows which days it is drawing, and
+     * clipping to that window is its job, not this one's.
+     */
+    public List<ScheduleContext> context() {
+        return cachedContext;
+    }
+
+    private List<ScheduleContext> computeContext() {
+        List<ScheduleContext> context = new ArrayList<>();
+        for (CityOccupancy conference : conferenceOccupancies.values()) {
+            context.add(new ScheduleContext.Conference(conference.name(), conference.city(),
+                    conference.startDate(), conference.endDate()));
+        }
+        for (GatheringOccupancy gathering : gatheringOccupancies.values()) {
+            context.add(new ScheduleContext.Gathering(gathering.name(), gathering.city(),
+                    gathering.date(), gathering.endDate()));
+        }
+        for (HotelStay stay : hotelStays.values()) {
+            context.add(new ScheduleContext.Stay(stay.city(), stay.checkIn(), stay.checkOut()));
+        }
+        for (TravelLeg leg : allLegs()) {
+            context.add(new ScheduleContext.Travel(leg.fromCity(), leg.toCity(),
+                    leg.departure().localDateTime().toLocalDate(),
+                    leg.arrival().localDateTime().toLocalDate()));
+        }
+        return context.stream()
+                .sorted(Comparator.comparing(ScheduleContext::firstDay))
                 .toList();
     }
 
@@ -392,6 +432,8 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         }
 
         LocalDate date() { return startsAt.localDateTime().toLocalDate(); }
+
+        LocalDate endDate() { return endsAt.localDateTime().toLocalDate(); }
 
         ScheduleProblem.ConflictingGathering asConflicting() {
             return new ScheduleProblem.ConflictingGathering(name, city, startsAt, endsAt);

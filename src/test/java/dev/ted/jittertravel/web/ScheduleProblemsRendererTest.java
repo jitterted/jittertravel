@@ -23,6 +23,16 @@ class ScheduleProblemsRendererTest {
     }
 
     @Test
+    void pageCarriesTheSelectorWithListActive() {
+        String html = ScheduleProblemsRenderer.render(List.of());
+
+        assertThat(html)
+                .contains("<div class=\"view-toggle\">")
+                .contains("<a href=\"/schedule-problems?view=list\" class=\"active\">List</a>")
+                .contains("<a href=\"/schedule-problems?view=calendar\">Calendar</a>");
+    }
+
+    @Test
     void missingTravelShowsCitiesAndTimes() {
         ScheduleProblem problem = new ScheduleProblem.MissingTravel(
                 "London",

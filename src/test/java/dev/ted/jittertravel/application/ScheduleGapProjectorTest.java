@@ -1123,6 +1123,65 @@ class ScheduleGapProjectorTest {
     }
 
     // -------------------------------------------------------------------------
+    // Context read model
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class ContextReadModel {
+
+        @Test
+        void noContextWithNoEvents() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+
+            assertThat(projector.context()).isEmpty();
+        }
+
+        @Test
+        void everyKindOfHeldSchedulePlaceBecomesContext() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(conference("AMS", SEP_15, SEP_17)),
+                    stored(gatheringIn("AMS", "AMS JUG", SEP_16, LocalTime.of(18, 0), LocalTime.of(21, 0))),
+                    stored(hotel("AMS", SEP_15, SEP_17)),
+                    stored(flight(LON, SEP_15.atTime(9, 0), AMS, SEP_15.atTime(11, 0)))));
+
+            assertThat(projector.context())
+                    .containsExactlyInAnyOrder(
+                            new ScheduleContext.Conference("Conf", "AMS", SEP_15, SEP_17),
+                            new ScheduleContext.Gathering("AMS JUG", "AMS", SEP_16, SEP_16),
+                            new ScheduleContext.Stay("AMS", SEP_15, SEP_17),
+                            new ScheduleContext.Travel(LON, AMS, SEP_15, SEP_15));
+        }
+
+        @Test
+        void contextIsOrderedByFirstDay() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(conference("AMS", SEP_17, SEP_18)),
+                    stored(flight(LON, SEP_15.atTime(9, 0), AMS, SEP_15.atTime(11, 0)))));
+
+            assertThat(projector.context())
+                    .extracting(ScheduleContext::firstDay)
+                    .containsExactly(SEP_15, SEP_17);
+        }
+
+        @Test
+        void aCancelledStayLeavesTheContextAsWellAsTheDetection() {
+            // Context and problems are computed from one state in one pass, so they cannot describe
+            // two different schedules: the stay that stops covering the nights also stops being
+            // drawn behind the gap it leaves.
+            HotelBookingId bookingId = HotelBookingId.random();
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(stored(hotelWithId(bookingId, "AMS", SEP_15, SEP_17))));
+            assertThat(projector.context()).hasSize(1);
+
+            projector.handle(Stream.of(stored(new HotelBookingCancelled(bookingId, "plans changed"))));
+
+            assertThat(projector.context()).isEmpty();
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 

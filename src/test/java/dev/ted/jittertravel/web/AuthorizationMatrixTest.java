@@ -114,6 +114,11 @@ class AuthorizationMatrixTest {
                 arguments("/planned-gatherings",   Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/planned-gatherings/abc", Outcome.OK,     Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/schedule-problems",    Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
+                // The calendar view of the same report is the same route with ?view=calendar, so
+                // the path matcher above already covers it. Asserted anyway: if the two views are
+                // ever split onto separate paths, this row fails instead of the calendar going
+                // public under .anyRequest().permitAll().
+                arguments("/schedule-problems?view=calendar", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/admin",                Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/admin/backup",         Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/admin/restore",        Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),

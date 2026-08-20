@@ -19,25 +19,27 @@ body {
     padding: 0;
 }
 
-/* Shared FUTURE/ALL toggle for list views (see web/TimeFilterToggle). */
-.time-toggle {
+/* Shared FUTURE/ALL toggle for list views (see web/TimeFilterToggle), and the List/Calendar
+   selector on the schedule-problems report (see web/ProblemViewToggle). Two different controls
+   writing two different query parameters, sharing one look so they cannot drift apart. */
+.time-toggle, .view-toggle {
     display: inline-flex;
     margin-top: 1rem;
     border-radius: 6px;
     overflow: hidden;
     border: 1px solid var(--border-color);
 }
-.time-toggle a {
+.time-toggle a, .view-toggle a {
     padding: 6px 16px;
     text-decoration: none;
     font-size: 0.9rem;
     color: var(--muted-text);
     background-color: var(--surface, #fff);
 }
-.time-toggle a + a {
+.time-toggle a + a, .view-toggle a + a {
     border-left: 1px solid var(--border-color);
 }
-.time-toggle a.active {
+.time-toggle a.active, .view-toggle a.active {
     background-color: var(--accent-color);
     color: #fff;
     font-weight: 600;

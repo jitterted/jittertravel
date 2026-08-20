@@ -67,6 +67,7 @@ public class ScheduleProblemsRenderer {
                         div().withClass("page").with(
                                 Page.viewNav(Page.NavAudience.OWNER, "/schedule-problems"),
                                 h1("Schedule Problems"),
+                                ProblemViewToggle.render(ProblemView.LIST),
                                 travel.isEmpty() && hotel.isEmpty() && scheduling.isEmpty() && cityConflicts.isEmpty()
                                         ? renderNoProblems()
                                         : renderProblems(travel, hotel, scheduling, cityConflicts)

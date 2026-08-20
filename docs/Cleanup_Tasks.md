@@ -32,6 +32,19 @@ plan doc and its status — including these items — see `Backlog.md`.
         after an optional service-ID span, so the **pencil slides to the start of the line on trains
         with no service id**. The neighbour is text rather than an action, but the pencil is the
         thing being aimed at.
+- [ ] **Surface "restart needed" after a truncate, next to the read-only banner.** `PostgresPersister
+      .truncateAllTables()` (via `/admin/database/truncate`, `AdminController.java:128`) empties the
+      tables, but `EventStore`'s in-memory list and every projector keep the old data — the app goes
+      on serving read models for events that no longer exist, and only a restart clears it. That is
+      the known stale-after-truncate bug: the live `reset()`/`rebuildFromPersistence()` rebuild was
+      built and then **reverted** for the email-sender hazard (`EventOrientedBackupRestorePlan.md`),
+      so a restart is the fix and the app should say so. It bites Ted's standard wipe-then-import
+      workflow every time. Detection looks cheap and derivable: the persisted event count (or max
+      sequence) being **lower** than what `EventStore` holds in memory can only mean the tables were
+      emptied underneath it. Render it like the existing read-only banner (`index.html:312`,
+      `role="alert"`, model attribute from `GeneralController:62`) rather than as a post-deploy task
+      — it says the data on screen is wrong *now*. Split out of `PostDeployTaskBannerPlan.md`
+      (decision 4, 2026-08-19), which deliberately excludes it.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] **Read-only mode redirect is untested on the conference action controllers.** Both
       `ConfirmConferenceAttendanceController` and `DeclineConferenceController` catch

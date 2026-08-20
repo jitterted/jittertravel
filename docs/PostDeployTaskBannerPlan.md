@@ -13,7 +13,7 @@
 > conference attendance backfill. `/admin/tasks` needed no new `SecurityConfig` matcher — the
 > existing `/admin/**` rule covers it — but has its own `AuthorizationMatrixTest` row, and the
 > banner's OWNER-gating has both anonymous and FAMILY cases in `SecurityAuthorizationTest`
-> (mutation-verified: dropping the gate fails exactly those two). Suite green at 995 + js tier.
+> (mutation-verified: dropping the gate fails exactly those two). Suite green at 955 + js tier.
 > **Still open: step 2** (derivable checks — legacy-row count, missing config) **and step 3** (the
 > `declaredOn` age check).
 
@@ -28,9 +28,9 @@ no `CfpOpened` is at most a low-priority "timeout" nice-to-have, not part of thi
 
 A deploy can leave work that only Ted can do, and nothing in the running app says so:
 
-- **Migrations** — `/admin/migrate-legacy-events`, `/admin/migrate-conferences`, and the
-  `event_log.type` normalization shipped in `5df5358`, which is **outstanding against prod right
-  now** as of 2026-08-19.
+- **Migrations** — `/admin/migrate-legacy-events` and the `event_log.type` normalization shipped in
+  `5df5358`, which is **outstanding against prod right now** as of 2026-08-19.
+  (`/admin/migrate-conferences` was the third until Ted ran it; it has since been deleted.)
 - **Backfills** — the conference attendance pass (dev2next, ExploreDDD, SoCraTes; J-Fall waits for
   slice 3), and every future one: `CfpOpened` (slice 3), the submission stream (slice 4),
   `datesConfirmed` (slice 5), booking provenance (`BookingProvenancePlan.md`). **Each schema

@@ -7,7 +7,7 @@ import java.util.stream.Stream;
 
 /**
  * Command record for ticking a post-deploy task off the list. A typed record with its own
- * {@link #events()}, like {@link MigrateConferenceToGathering}: it is the durable representation of
+ * {@link #events()}: it is the durable representation of
  * the action, and the single source of the event it emits, applied through
  * {@code CommandExecutor.appendEvents} — the internal-action path, since ticking off a chore is not
  * a travel decision and has nothing to refuse.

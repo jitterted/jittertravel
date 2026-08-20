@@ -45,14 +45,17 @@ plan doc and its status — including these items — see `Backlog.md`.
       `role="alert"`, model attribute from `GeneralController:62`) rather than as a post-deploy task
       — it says the data on screen is wrong *now*. Split out of `PostDeployTaskBannerPlan.md`
       (decision 4, 2026-08-19), which deliberately excludes it.
-- [ ] **Retire `/admin/migrate-conferences` — Ted ran it, so it is obsolete (2026-08-19).** The
-      one-off conference→gathering migration has served its purpose: the page, `AdminController`'s
-      handlers for it, `ConferenceMigrationService`, the `MigrateConferenceToGathering` command
-      record and `admin-migrate-conferences.html` are all now dead weight, and the admin home still
-      offers the card. Removing it needs a check that nothing else uses `MigrateConferenceToGathering`
-      (the *events* it emitted stay in the log and keep replaying — only the write path goes), and
-      that the `GatheringPlanned`/`ConferenceCancelled` pair it produced is still deserializable
-      afterwards. Deliberately NOT declared as a post-deploy task: it is already done.
+- [ ] **Extract a shared admin nav bar.** Every admin page hand-rolls its own: `admin-tasks` and
+      `admin-migrate-conferences` used one shape, `admin-eventlog` another
+      (`<nav><h3><a href="/admin">Admin</a> · <a href="/">JitterTravel</a></h3></nav>`), and
+      `migrate-legacy-events` / `database` / `zone-audit` a third — each with its own CSS, and each
+      needing the same edit when a link changes (as on 2026-08-19, when four pages had to gain a
+      home link one at a time). Three pages — `admin-calendar-feed`, `admin-restore`,
+      `admin-restore-success` — still have **no nav at all** and are dead ends. Extract one fragment
+      (a Thymeleaf `th:replace` fragment, since these are all Thymeleaf pages) taking the current
+      page's label, and apply it everywhere including the three with none. Compare
+      `Page.viewNav(NavAudience, activePath)`, which already does exactly this job for the eight
+      j2html view pages.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] **Read-only mode redirect is untested on the conference action controllers.** Both
       `ConfirmConferenceAttendanceController` and `DeclineConferenceController` catch
@@ -76,6 +79,17 @@ plan doc and its status — including these items — see `Backlog.md`.
       *which* window is fetched, not how it's scanned.
 
 ## Done
+
+- [x] **Retired `/admin/migrate-conferences`** (2026-08-19). The one-off conference→gathering
+      migration had served its purpose — Ted ran it — so the whole write path went: both
+      `AdminController` handlers, `ConferenceMigrationService`, the `MigrateConferenceToGathering`
+      command record, `admin-migrate-conferences.html`, the admin-home card, the bean in
+      `EventSourcingConfig`, and `ConferenceProjector.migratableViews()`, which existed only to feed
+      that page. Two things deliberately stayed: the **events** it emitted (`GatheringPlanned` /
+      `ConferenceCancelled`) are ordinary history and keep replaying, and the **command_log rows**
+      still resolve — command payloads are stored and rendered as raw JSON
+      (`PostgresPersister` reads `payloadJson` as a string), never deserialized back into the record
+      class, so deleting the class cannot break the command log.
 
 - [x] **Rename `ConfirmedCalendar*` → `Calendar*`** (2026-08-19). "Confirmed" distinguished nothing:
       the calendar is *the* calendar, the route has been `/calendar` all along, and the adjective

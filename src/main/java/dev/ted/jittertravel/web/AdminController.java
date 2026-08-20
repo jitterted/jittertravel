@@ -2,11 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BackupService;
 import dev.ted.jittertravel.application.BackupSource;
-import dev.ted.jittertravel.application.ConferenceMigrationService;
 import dev.ted.jittertravel.application.LegacyEventMigration;
-import dev.ted.jittertravel.application.ConferenceProjector;
-import dev.ted.jittertravel.domain.ConferenceId;
-import dev.ted.jittertravel.domain.ConferenceSpansMultipleDays;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,8 +28,6 @@ import java.util.UUID;
 public class AdminController {
     private final BackupService backupService;
     private final PostgresPersister persister;
-    private final ConferenceProjector conferenceProjector;
-    private final ConferenceMigrationService conferenceMigrationService;
     private final LegacyEventMigration legacyEventMigration;
     private final BackupSource backupSource;
     private final Clock clock;
@@ -41,16 +35,12 @@ public class AdminController {
     private final String baseUrl;
 
     public AdminController(BackupService backupService, PostgresPersister persister,
-                           ConferenceProjector conferenceProjector,
-                           ConferenceMigrationService conferenceMigrationService,
                            LegacyEventMigration legacyEventMigration,
                            BackupSource backupSource, Clock clock,
                            @Value("${jittertravel.calendar-feed.token:}") String feedToken,
                            @Value("${jittertravel.base-url:}") String baseUrl) {
         this.backupService = backupService;
         this.persister = persister;
-        this.conferenceProjector = conferenceProjector;
-        this.conferenceMigrationService = conferenceMigrationService;
         this.legacyEventMigration = legacyEventMigration;
         this.backupSource = backupSource;
         this.clock = clock;
@@ -138,24 +128,6 @@ public class AdminController {
         persister.truncateAllTables();
         redirectAttributes.addFlashAttribute("truncated", true);
         return "redirect:/admin/database";
-    }
-
-    @GetMapping("/migrate-conferences")
-    public String migrateConferencesForm(Model model) {
-        model.addAttribute("conferences", conferenceProjector.migratableViews());
-        return "admin-migrate-conferences";
-    }
-
-    @PostMapping("/migrate-conferences")
-    public String migrateConference(@RequestParam UUID conferenceId,
-                                    @RequestParam(defaultValue = "false") boolean speaking,
-                                    RedirectAttributes redirectAttributes) {
-        try {
-            conferenceMigrationService.migrateToGathering(ConferenceId.of(conferenceId), speaking);
-        } catch (ConferenceSpansMultipleDays e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
-        }
-        return "redirect:/admin/migrate-conferences";
     }
 
     @GetMapping("/migrate-legacy-events")

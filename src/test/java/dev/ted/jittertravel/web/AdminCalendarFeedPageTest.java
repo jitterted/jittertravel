@@ -2,9 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BackupService;
 import dev.ted.jittertravel.application.BackupSource;
-import dev.ted.jittertravel.application.ConferenceMigrationService;
 import dev.ted.jittertravel.application.LegacyEventMigration;
-import dev.ted.jittertravel.application.ConferenceProjector;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,10 +51,6 @@ class AdminCalendarFeedPageTest {
     BackupService backupService;
     @MockitoBean
     PostgresPersister persister;
-    @MockitoBean
-    ConferenceProjector conferenceProjector;
-    @MockitoBean
-    ConferenceMigrationService conferenceMigrationService;
     @MockitoBean
     LegacyEventMigration legacyEventMigration;
 

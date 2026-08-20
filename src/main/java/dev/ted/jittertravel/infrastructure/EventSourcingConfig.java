@@ -325,12 +325,6 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public ConferenceMigrationService conferenceMigrationService(
-            ConferenceProjector conferenceProjector, CommandExecutor commandExecutor) {
-        return new ConferenceMigrationService(conferenceProjector, commandExecutor);
-    }
-
-    @Bean
     public CalendarAggregator calendarAggregator(ConferenceCalendarProjector conferenceCalendarProjector,
                                                  FlightCalendarProjector flightCalendarProjector,
                                                  TrainCalendarProjector trainCalendarProjector,

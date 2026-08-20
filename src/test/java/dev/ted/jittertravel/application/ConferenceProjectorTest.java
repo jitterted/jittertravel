@@ -88,47 +88,6 @@ class ConferenceProjectorTest {
     }
 
     @Test
-    void migratableViewsExcludesMultiDayConferences() {
-        ConferenceProjector projector = new ConferenceProjector();
-        Address address = new Address("Street", "City", "State", "Postal", "Country", null);
-
-        handle(projector, 1, "Single-day", LocalDateTime.of(2026, 6, 1, 9, 0), LocalDateTime.of(2026, 6, 1, 17, 0), address);
-        handle(projector, 2, "Multi-day",  LocalDateTime.of(2026, 6, 2, 9, 0), LocalDateTime.of(2026, 6, 4, 17, 0), address);
-
-        assertThat(projector.migratableViews())
-                .hasSize(1)
-                .extracting(ConferenceView::name)
-                .containsExactly("Single-day");
-    }
-
-    @Test
-    void migratableViewsIncludesSingleDayConferences() {
-        ConferenceProjector projector = new ConferenceProjector();
-        Address address = new Address("Street", "City", "State", "Postal", "Country", null);
-
-        handle(projector, 1, "All Day", LocalDateTime.of(2026, 6, 1, 0, 0), LocalDateTime.of(2026, 6, 1, 23, 59), address);
-
-        assertThat(projector.migratableViews())
-                .hasSize(1)
-                .extracting(ConferenceView::name)
-                .containsExactly("All Day");
-    }
-
-    @Test
-    void migratableViewsAreSortedAscendingByStartDate() {
-        ConferenceProjector projector = new ConferenceProjector();
-        Address address = new Address("Street", "City", "State", "Postal", "Country", null);
-
-        handle(projector, 1, "Later Single-day",   LocalDateTime.of(2026, 7, 5, 9, 0), LocalDateTime.of(2026, 7, 5, 17, 0), address);
-        handle(projector, 2, "Multi-day (skipped)", LocalDateTime.of(2026, 6, 1, 9, 0), LocalDateTime.of(2026, 6, 3, 17, 0), address);
-        handle(projector, 3, "Earlier Single-day",  LocalDateTime.of(2026, 6, 10, 9, 0), LocalDateTime.of(2026, 6, 10, 17, 0), address);
-
-        assertThat(projector.migratableViews())
-                .extracting(ConferenceView::name)
-                .containsExactly("Earlier Single-day", "Later Single-day");
-    }
-
-    @Test
     void futureFilterKeepsInProgressConferenceButDropsFinishedOne() {
         ConferenceProjector projector = new ConferenceProjector();
         Address address = new Address("Street", "City", "State", "Postal", "Country", null);

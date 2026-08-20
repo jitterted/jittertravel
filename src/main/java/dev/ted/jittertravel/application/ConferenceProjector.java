@@ -68,18 +68,6 @@ public class ConferenceProjector implements EventStreamConsumer {
                 .toList();
     }
 
-    /**
-     * "One day long" is asked in the venue's own zone — a conference is single-day where it
-     * happens, regardless of where the server or the viewer is.
-     */
-    public List<ConferenceView> migratableViews() {
-        return conferences.values().stream()
-                .filter(v -> v.startDate().localDateTime().toLocalDate()
-                        .equals(v.endDate().localDateTime().toLocalDate()))
-                .sorted(Comparator.comparing(v -> v.startDate().utc()))
-                .toList();
-    }
-
     public Optional<ConferenceView> findById(ConferenceId conferenceId) {
         return Optional.ofNullable(conferences.get(conferenceId));
     }

@@ -1,6 +1,6 @@
 # Schedule Problems Rewrite Plan
 
-**Status:** shipped 2026-08-20. All seven slices done; suite green at 1116 (+ 36 js). Supersedes
+**Status:** shipped 2026-08-20. All seven slices done; suite green at 1154 (+ 36 js). Supersedes
 the detection half of `ScheduleGapProjector`; the event handling, caching, and `context()` read
 model stay.
 
@@ -212,9 +212,10 @@ presences — not a bag of single-method detector classes — and it preserves t
 that `problems()` and `context()` cannot describe two different versions of the schedule, because
 now they are literally derived from the same ordered sequence.
 
-### D13 — A fortnight of silence ends the run (NEEDS TED'S RULING)
+### D13 — A fortnight of silence ends the run
 
-**Not agreed in advance — found while implementing, and decided in order to finish.**
+**Not agreed in advance — found while implementing, decided in order to finish, and confirmed by
+Ted 2026-08-20.**
 
 Last-known-location has no natural stopping point. An existing test paired a conference in Oslo in
 January with one in Lima in December and nothing between them, and the night sweep duly demanded a
@@ -376,8 +377,14 @@ them apart, which is the argument for the acceptance suite in one sentence.
 - **The mirror image of D14**: a gap *into* home still spans every day from the last away fact to
   the next home departure. Collapsing it costs `relevantUntil()`, so it needs a decision, not just
   a symmetric edit.
-- Whether the problem calendar's Travel lane needs revisiting once the phantom bands stop being
-  drawn — far fewer bands, and the ones that remain are real.
+- ~~Whether the problem calendar's Travel lane needs revisiting once the phantom bands stop being
+  drawn.~~ **Closed 2026-08-20**: Ted read the live calendar with real bands and it looks right;
+  the quirks left are minor enough not to write down.
 - `DifferentCityConflict` still ignores private events, unlike `SchedulingConflict`, which now
-  includes them. Nothing about the detection resists them — clearing one of these is keyed to a
-  `GatheringId`, and a private event has no such id to record against.
+  includes them. **Tabled 2026-08-20** — making fixing problems easy comes first. Nothing about the
+  detection resists private events (adding them to the walk is two lines); the *clearing* does:
+  `DifferentCityConflictCleared` types its subject as a `GatheringId`, and the projector's dedupe
+  key is `ClearedConflict(GatheringId, ConferenceId)`. `PrivateEventId` exists, so the work is a
+  new additive event (`PrivateEventCityConflictCleared`) plus a one-of subject on the problem
+  record and its clear form — not a widened payload. It lands naturally inside problem-calendar
+  slice 4, which already opens the clearing path.

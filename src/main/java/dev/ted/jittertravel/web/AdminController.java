@@ -136,8 +136,19 @@ public class AdminController {
         return "admin-migrate-legacy-events";
     }
 
+    /**
+     * Destructive and one-way (renaming a type is not undone by rolling the code back), so it takes
+     * the same typed confirmation as truncation rather than a bare button — see the destructive-action
+     * guideline in CLAUDE.md.
+     */
     @PostMapping("/migrate-legacy-events")
-    public String migrateLegacyEvents(Model model) {
+    public String migrateLegacyEvents(@RequestParam(value = "confirm", required = false) String confirm,
+                                      Model model) {
+        if (!"MIGRATE".equals(confirm)) {
+            model.addAttribute("confirmError", "You must type MIGRATE exactly to confirm the migration.");
+            model.addAttribute("report", legacyEventMigration.preview());
+            return "admin-migrate-legacy-events";
+        }
         LegacyEventMigration.MigrationResult result = legacyEventMigration.migrate();
         model.addAttribute("result", result);
         // Re-preview so the page shows the (now-settled) state whether the run applied or was refused.

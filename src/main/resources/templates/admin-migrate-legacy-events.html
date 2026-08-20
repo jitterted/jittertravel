@@ -66,20 +66,36 @@
         tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
         td.zero { color: var(--text-muted); }
 
-        .backup-note {
-            font-size: 0.85rem; color: var(--warning-text); background: var(--warning-bg);
-            border: 1px solid var(--warning-border); border-radius: 6px;
+        /* Red, not amber: this migration rewrites rows and renaming is one-way. Amber is for
+           warnings about reversible or recoverable actions; irreversible ones are red. */
+        .danger-note {
+            font-size: 0.85rem; color: var(--danger); background: var(--danger-bg);
+            border: 1px solid var(--danger-border); border-radius: 6px;
             padding: 0.6rem 0.85rem; margin-bottom: 1.5rem; line-height: 1.45;
         }
 
-        form { display: flex; gap: 0.75rem; align-items: center; }
+        /* Same shape as the database page's Danger Zone: a red button that stays inert until the
+           confirm word is typed, so the destructive action cannot be a single stray click. */
+        form { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+        form input[type="text"] {
+            border: 1px solid var(--danger-border); border-radius: 6px;
+            padding: 0.4rem 0.75rem; font-size: 0.9rem; font-family: monospace;
+            width: 12ch; background: var(--surface);
+        }
+        form input[type="text"]:not(:disabled):focus {
+            outline: 2px solid var(--danger); outline-offset: 1px;
+        }
+        form input[type="text"]:disabled { opacity: 0.4; cursor: not-allowed; }
         button {
-            padding: 0.5rem 1.15rem; background: var(--text-primary); color: #fff; border: none;
+            padding: 0.5rem 1.15rem; background: var(--danger); color: #fff; border: none;
             border-radius: 6px; font-size: 0.95rem; font-weight: 600; cursor: pointer;
         }
         button:not(:disabled):hover { opacity: 0.88; }
         button:disabled { opacity: 0.4; cursor: not-allowed; }
         .hint { font-size: 0.85rem; color: var(--text-secondary); }
+        p.error {
+            font-size: 0.9rem; color: var(--danger); font-weight: 600; margin-top: 0.6rem;
+        }
     </style>
 </head>
 <body>
@@ -149,12 +165,12 @@
         </tbody>
     </table>
 
-    <div class="backup-note" th:if="${report.totalToMigrate() > 0}">
+    <div class="danger-note" th:if="${report.totalToMigrate() > 0}">
         This rewrites real rows. Download a backup from <a href="/admin/backup">Admin → Backup</a>
         (or run <code>scripts/backup-db.sh</code>) before you run it — <strong>and keep that file</strong>.
     </div>
 
-    <div class="backup-note" th:if="${report.toRename() > 0}">
+    <div class="danger-note" th:if="${report.toRename() > 0}">
         <strong>Renaming types is one-way.</strong> A renamed row carries a logical name that only this
         build and later ones know, so rolling the code back stops being safe: the older build fails its
         boot replay and runs read-only with empty read models. The backup taken just before this run
@@ -162,11 +178,17 @@
     </div>
 
     <form method="post" th:action="@{/admin/migrate-legacy-events}" th:if="${!report.hasErrors()}">
+        <input type="text" name="confirm" placeholder="Type MIGRATE"
+               autocomplete="off" th:disabled="${report.totalToMigrate() == 0}"/>
         <button type="submit" th:disabled="${report.totalToMigrate() == 0}"
                 th:text="${report.totalToMigrate() == 0} ? 'Nothing to migrate' : 'Run migration'">
             Run migration</button>
         <span class="hint" th:if="${report.totalToMigrate() == 0}">Every row is already current-shape and stamped.</span>
     </form>
+    <p class="error" th:if="${confirmError}" th:text="${confirmError}"></p>
+    <p class="hint" th:if="${report.totalToMigrate() > 0}">
+        Type MIGRATE (all caps) in the box, then click the button.
+    </p>
 
     <div class="banner error" th:if="${report.hasErrors()}">
         <strong>Cannot migrate — these rows would not bind:</strong>

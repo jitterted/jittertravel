@@ -173,7 +173,7 @@ class AdminControllerTest {
         given(legacyEventMigration.preview()).willReturn(
                 new LegacyEventMigration.MigrationReport(10, 0, 0, 0, 0, 10, List.of()));
 
-        assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()))
+        assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()).param("confirm", "MIGRATE"))
                 .hasStatusOk()
                 .bodyText()
                 .contains("Migration complete")
@@ -189,7 +189,7 @@ class AdminControllerTest {
         given(legacyEventMigration.preview()).willReturn(
                 new LegacyEventMigration.MigrationReport(10, 0, 0, 0, 0, 10, List.of()));
 
-        assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()))
+        assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()).param("confirm", "MIGRATE"))
                 .hasStatusOk()
                 .bodyText()
                 .contains("0 types renamed")
@@ -204,11 +204,54 @@ class AdminControllerTest {
         given(legacyEventMigration.preview()).willReturn(
                 new LegacyEventMigration.MigrationReport(10, 3, 2, 0, 5, 5, List.of()));
 
-        assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()))
+        assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()).param("confirm", "MIGRATE"))
                 .hasStatusOk()
                 .bodyText()
                 .contains("Migration refused")
                 .contains("read-only");
+    }
+
+    @Test
+    void migrateLegacyEventsPostWithoutTheConfirmWordRunsNothing() {
+        // Destructive and one-way, so it takes a typed confirmation like truncation does.
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of()));
+
+        assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("You must type MIGRATE exactly to confirm the migration.");
+
+        verify(legacyEventMigration, never()).migrate();
+    }
+
+    @Test
+    void migrateLegacyEventsPostWithTheWrongConfirmWordRunsNothing() {
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of()));
+
+        assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf())
+                .param("confirm", "migrate"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("You must type MIGRATE exactly to confirm the migration.");
+
+        verify(legacyEventMigration, never()).migrate();
+    }
+
+    @Test
+    void migrateLegacyEventsPageWarnsInRedAndOffersARedButtonBehindATypedConfirmation() {
+        // Irreversible actions are red and gated; amber is for the recoverable kind (CLAUDE.md).
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of()));
+
+        assertThat(mockMvc.get().uri("/admin/migrate-legacy-events"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("class=\"danger-note\"")
+                .contains("placeholder=\"Type MIGRATE\"")
+                .contains("background: var(--danger); color: #fff;")
+                .doesNotContain("class=\"backup-note\"");
     }
 
     @Test

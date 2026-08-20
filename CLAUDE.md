@@ -151,6 +151,26 @@ production code. Note that a `@WebMvcTest` slice has no `Clock` bean of its own 
 `Clock.fixed(...)`; use an advancing clock only when the behaviour under test genuinely
 depends on time passing (see `PostgresPersisterTest`, where command ordering does).
 
+### Destructive actions: red, and gated behind a typed word
+
+Colour carries meaning, and it is not decorative (Ted, 2026-08-19):
+
+- **Red = irreversible.** The action cannot be undone from inside the app — truncating the
+  database, a migration that rewrites or renames stored rows, deleting data.
+- **Amber/orange/yellow = reversible or recoverable.** Work waiting (the pending-commands and
+  post-deploy task banners), a restart needed, a schedule problem to look at. If the answer to
+  "can Ted put this back?" is yes, it is not red.
+
+A warning *about* a destructive operation follows the operation, not the tone of the sentence: it
+is red, never amber.
+
+**Every destructive action takes a typed confirmation** — a short all-caps word in a text input
+next to a **red** button, matching the Danger Zone on `/admin/database` (type `DELETE`) and
+`/admin/migrate-legacy-events` (type `MIGRATE`). The controller compares the word exactly and
+re-renders the page with the error when it does not match, writing nothing; a disabled-looking
+button alone is not a gate, because the POST is still reachable. The word goes in the input's
+placeholder and in a hint line, so nobody has to guess it.
+
 ### Action affordances: never move, and disable rather than hide — but only for *state*
 
 Two standing UI rules for buttons, links, and icons (Ted, 2026-08-19):

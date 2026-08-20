@@ -45,6 +45,14 @@ plan doc and its status — including these items — see `Backlog.md`.
       `role="alert"`, model attribute from `GeneralController:62`) rather than as a post-deploy task
       — it says the data on screen is wrong *now*. Split out of `PostDeployTaskBannerPlan.md`
       (decision 4, 2026-08-19), which deliberately excludes it.
+- [ ] **Retire `/admin/migrate-conferences` — Ted ran it, so it is obsolete (2026-08-19).** The
+      one-off conference→gathering migration has served its purpose: the page, `AdminController`'s
+      handlers for it, `ConferenceMigrationService`, the `MigrateConferenceToGathering` command
+      record and `admin-migrate-conferences.html` are all now dead weight, and the admin home still
+      offers the card. Removing it needs a check that nothing else uses `MigrateConferenceToGathering`
+      (the *events* it emitted stay in the log and keep replaying — only the write path goes), and
+      that the `GatheringPlanned`/`ConferenceCancelled` pair it produced is still deserializable
+      afterwards. Deliberately NOT declared as a post-deploy task: it is already done.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] **Read-only mode redirect is untested on the conference action controllers.** Both
       `ConfirmConferenceAttendanceController` and `DeclineConferenceController` catch

@@ -348,7 +348,7 @@
     <span class="tasks-banner-cta">Review &rsaquo;</span>
 </a>
 
-<a th:if="${pendingCount > 0}" th:href="@{/admin/pending-commands}" class="pending-banner">
+<a th:if="${pendingCount != null and pendingCount > 0}" th:href="@{/admin/pending-commands}" class="pending-banner">
     <span th:text="${pendingCount} + (${pendingCount} == 1 ? ' command is still pending' : ' commands are still pending')">N commands are still pending</span>
     <span class="pending-banner-cta">Review &rsaquo;</span>
 </a>

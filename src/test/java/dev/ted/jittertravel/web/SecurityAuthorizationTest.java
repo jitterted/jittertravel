@@ -147,6 +147,44 @@ class SecurityAuthorizationTest {
                 .contains("href=\"/admin/tasks\"");
     }
 
+    @Test
+    @WithAnonymousUser
+    void anonymousHomeNeverShowsThePendingCommandsBanner() {
+        // Same reasoning as the task banner: it names a count of admin internals and links into
+        // /admin/pending-commands. Commands are pending here, so the claim is about the viewer.
+        given(persister.countPendingCommands()).willReturn(3);
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("still pending")
+                .doesNotContain("href=\"/admin/pending-commands\"");
+    }
+
+    @Test
+    @WithMockUser(roles = "FAMILY")
+    void familyHomeNeverShowsThePendingCommandsBanner() {
+        given(persister.countPendingCommands()).willReturn(3);
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("still pending")
+                .doesNotContain("href=\"/admin/pending-commands\"");
+    }
+
+    @Test
+    @WithMockUser(roles = "OWNER")
+    void ownerHomeStillShowsThePendingCommandsBanner() {
+        given(persister.countPendingCommands()).willReturn(3);
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("3 commands are still pending")
+                .contains("href=\"/admin/pending-commands\"");
+    }
+
     private static OneOffTaskView outstandingTask() {
         return new OneOffTaskView("normalize-event-log-type", "Run the migration", "Detail",
                 "/admin/migrate-legacy-events", "Open it", LocalDate.of(2026, 8, 19), null);

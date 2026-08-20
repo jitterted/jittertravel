@@ -157,6 +157,20 @@ class AdminControllerTest {
     }
 
     @Test
+    void migrateLegacyEventsPageLinksBackToTheSiteHomeAndNotJustAdmin() {
+        // Reached from the post-deploy task banner, so it needs a way back to the app rather than
+        // only up to /admin (Ted, 2026-08-19).
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of()));
+
+        assertThat(mockMvc.get().uri("/admin/migrate-legacy-events"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a href=\"/\">JitterTravel</a>")
+                .contains("<a href=\"/admin\">");
+    }
+
+    @Test
     void migrateLegacyEventsFormWithNothingToRenameOmitsTheOneWayWarning() {
         given(legacyEventMigration.preview()).willReturn(
                 new LegacyEventMigration.MigrationReport(10, 3, 2, 0, 5, 5, List.of()));

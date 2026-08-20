@@ -80,7 +80,11 @@ class GeneralController {
         if (isOwner) {
             model.addAttribute("outstandingTaskCount", oneOffTasks.outstanding().size());
         }
-        model.addAttribute("pendingCount", persister.countPendingCommands());
+        // Pending commands are admin internals too — the banner names a count and links into
+        // /admin/pending-commands — so it is OWNER-only for the same reason as the task banner.
+        if (isOwner) {
+            model.addAttribute("pendingCount", persister.countPendingCommands());
+        }
         model.addAttribute("buildTime", BUILD_TIME_FORMATTER.format(buildProperties.getTime()));
         return "index";
     }

@@ -24,7 +24,9 @@ A deploy can leave work that only Ted can do, and nothing in the running app say
   here, because it is the only one that fails silently.
 - **Restart required after a restore** — read models rebuild on restart only (the live rebuild was
   built then reverted, see `EventOrientedBackupRestorePlan.md`), so a restored database serves stale
-  projections until someone restarts it.
+  projections until someone restarts it. **Out of scope for this plan** (decision 4): it belongs with
+  the read-only banner, because it describes the app running degraded now rather than work to
+  schedule.
 
 Today the only record of any of this is a doc, which is invisible while using the app.
 
@@ -96,6 +98,10 @@ means a **token-gated read-only endpoint** in the shape of the calendar feed —
 `SecurityConfig` matcher and `AuthorizationMatrixTest` row. That is real surface area for a
 convenience, which is why the alternatives below may be better value.
 
+**Decided 2026-08-19: neither the hook nor the endpoint gets built for now** — the age check below
+carries the nudge. The paragraphs above are kept as the record of what a hook would cost, so the
+question does not get re-opened from scratch.
+
 **Two alternatives that need no network at all:**
 
 - **Age check in the test suite.** Every declaration carries `declaredOn`; a registry test fails once
@@ -121,28 +127,38 @@ Each item states the task and links straight to where it is done — the migrati
 item should say **back up first** and link `/admin/backup`, because that is the step that makes it
 undoable.
 
-## Open questions
+**The banner disappears entirely once nothing is outstanding.** It exists to prompt action, so
+having done the work is rewarded with silence.
 
-1. **Where does "tick it off" live?** A control in the banner itself, or a small `/admin/tasks` page?
-   The banner is fewer clicks; the page has somewhere to show already-completed tasks.
-2. **Does a completed-but-still-declared task keep showing, greyed?** Per the affordance rule in
-   CLAUDE.md this is a *state* case, so showing it greyed with "code can be removed" would be
-   consistent — but it also re-clutters the banner the moment Ted has done the work.
-3. **Config checks:** which are worth declaring, and does a missing secret read as a task ("set
-   `CALENDAR_FEED_TOKEN`") or as its own warning? It differs from the others in that Ted fixes it in
-   Railway, not in the app.
-4. **Restart-after-restore:** same banner, or does it belong with the read-only banner it resembles?
-5. Whether the hook, the age check, or the heartbeat carries the "code can be removed" nudge —
-   see above; the recommendation is to start with the age check (no network, no new endpoint) and
-   only add the hook if that proves too quiet.
+## Decisions (Ted, 2026-08-19) — no open questions remain
+
+1. **Ticking off lives on a separate `/admin/tasks` page**, not on a control in the banner. The
+   banner links to it. Costs a route — and therefore a `SecurityConfig` matcher and an
+   `AuthorizationMatrixTest` row in the same change — but gives completed tasks a home, which the
+   banner cannot have without re-cluttering itself.
+2. **A completed-but-still-declared task shows only on `/admin/tasks`, greyed**, reading "code can
+   be removed". It never appears in the banner: the banner is for outstanding work only. Greying
+   rather than dropping it from the page follows the disable-rather-than-hide rule in CLAUDE.md —
+   this is a *state* case, and the page is where that state is legible.
+3. **Missing config is a task in the same list** — "set `CALENDAR_FEED_TOKEN` on Railway" sits
+   alongside migrations and backfills. It is **derivable**, so it clears itself when the variable
+   appears and never needs ticking off. One mechanism, and it covers the only failure mode here
+   that is otherwise silent.
+4. **Restart-after-restore does NOT join this list.** It belongs with the read-only banner it
+   resembles: it says the app is running degraded *right now* and the data on screen is stale, which
+   is a different claim from "here is work to do at your leisure". Tracked separately from this
+   plan.
+5. **The cleanup nudge is a `declaredOn` age check in the test suite** — no network, no new
+   endpoint, and the build does the nagging. The advisory pre-push hook and the weekly iCal
+   heartbeat line stay unbuilt; revisit only if the age check proves too quiet.
 
 ## Build order (proposed)
 
-1. The registry + `OneOffTaskCompleted` + the OWNER-only banner, with the **outstanding
-   `event_log.type` normalization as its first real customer** and the conference backfill as its
-   first acknowledged one.
-2. Derivable checks (legacy-row count, missing config).
-3. The "code can be removed" nudge — age check first.
+1. The registry + `OneOffTaskCompleted` + the OWNER-only banner + the `/admin/tasks` page (with its
+   matcher and matrix row), with the **outstanding `event_log.type` normalization as its first real
+   customer** and the conference attendance backfill as its first acknowledged one.
+2. Derivable checks: legacy-row count, then missing config.
+3. The `declaredOn` age check in the suite.
 
 ## Testing
 

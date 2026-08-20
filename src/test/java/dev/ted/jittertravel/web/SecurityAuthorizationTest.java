@@ -1,5 +1,7 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.OneOffTaskView;
+import dev.ted.jittertravel.application.OneOffTasks;
 import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.infrastructure.EventStore;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
@@ -19,6 +21,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import jakarta.servlet.http.Cookie;
 import java.time.Instant;
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
@@ -52,6 +55,9 @@ class SecurityAuthorizationTest {
     ScheduleGapProjector scheduleGapProjector;
 
     @MockitoBean
+    OneOffTasks oneOffTasks;
+
+    @MockitoBean
     EventStore eventStore;
 
     @MockitoBean
@@ -62,6 +68,7 @@ class SecurityAuthorizationTest {
         lenient().when(buildProperties.getTime()).thenReturn(Instant.EPOCH);
         lenient().when(clock.instant()).thenReturn(Instant.EPOCH);
         lenient().when(scheduleGapProjector.problems(any())).thenReturn(List.of());
+        lenient().when(oneOffTasks.outstanding()).thenReturn(List.of());
     }
 
     @Test
@@ -92,6 +99,57 @@ class SecurityAuthorizationTest {
                 .doesNotContain("/booked-flights")
                 .doesNotContain("/book-flight")
                 .doesNotContain(">Admin</span>");
+    }
+
+    @Test
+    @WithAnonymousUser
+    void anonymousHomeNeverShowsThePostDeployTaskBanner() {
+        // The banner names migrations and pending data work, so it is OWNER-only — unlike the
+        // read-only banner, which is deliberately shown to everyone. Tasks are outstanding here:
+        // the claim is that the viewer, not the state, is what keeps the banner off the page.
+        given(persister.countPendingCommands()).willReturn(0);
+        given(oneOffTasks.outstanding()).willReturn(List.of(outstandingTask()));
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("need doing after the latest deploy")
+                .doesNotContain("needs doing after the latest deploy")
+                .doesNotContain("href=\"/admin/tasks\"");
+    }
+
+    @Test
+    @WithMockUser(roles = "FAMILY")
+    void familyHomeNeverShowsThePostDeployTaskBanner() {
+        given(persister.countPendingCommands()).willReturn(0);
+        given(oneOffTasks.outstanding()).willReturn(List.of(outstandingTask()));
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("need doing after the latest deploy")
+                .doesNotContain("needs doing after the latest deploy")
+                .doesNotContain("href=\"/admin/tasks\"");
+    }
+
+    @Test
+    @WithMockUser(roles = "OWNER")
+    void ownerHomeShowsThePostDeployTaskBanner() {
+        // The other half of the claim: the banner really would have rendered for an owner, so the
+        // two tests above are about the viewer and not about an empty list.
+        given(persister.countPendingCommands()).willReturn(0);
+        given(oneOffTasks.outstanding()).willReturn(List.of(outstandingTask()));
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("1 task needs doing after the latest deploy")
+                .contains("href=\"/admin/tasks\"");
+    }
+
+    private static OneOffTaskView outstandingTask() {
+        return new OneOffTaskView("normalize-event-log-type", "Run the migration", "Detail",
+                "/admin/migrate-legacy-events", "Open it", LocalDate.of(2026, 8, 19), null);
     }
 
     @Test

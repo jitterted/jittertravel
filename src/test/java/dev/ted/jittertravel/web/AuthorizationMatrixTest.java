@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.OneOffTasks;
 import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.infrastructure.EventStore;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
@@ -59,6 +60,9 @@ class AuthorizationMatrixTest {
     ScheduleGapProjector scheduleGapProjector;
 
     @MockitoBean
+    OneOffTasks oneOffTasks;
+
+    @MockitoBean
     EventStore eventStore;
 
     @MockitoBean
@@ -70,6 +74,7 @@ class AuthorizationMatrixTest {
         lenient().when(clock.instant()).thenReturn(Instant.EPOCH);
         lenient().when(persister.countPendingCommands()).thenReturn(0);
         lenient().when(scheduleGapProjector.problems(any())).thenReturn(List.of());
+        lenient().when(oneOffTasks.outstanding()).thenReturn(List.of());
     }
 
     static Stream<Arguments> policy() {
@@ -113,6 +118,7 @@ class AuthorizationMatrixTest {
                 arguments("/admin/backup",         Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/admin/restore",        Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/admin/migrate-legacy-events", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
+                arguments("/admin/tasks",          Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/actuator/health",      Outcome.OK,       Outcome.OK,           Outcome.OK),
                 arguments("/actuator/metrics",     Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN)
         );

@@ -13,6 +13,7 @@ import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelChanged;
+import dev.ted.jittertravel.domain.OneOffTaskCompleted;
 import dev.ted.jittertravel.domain.PrivateEventPlanned;
 import dev.ted.jittertravel.domain.TrainBooked;
 import dev.ted.jittertravel.domain.TrainChanged;
@@ -96,6 +97,7 @@ public final class EventTypes {
         register("GatheringChanged", GatheringChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("PrivateEventPlanned", PrivateEventPlanned.class);
         register("DifferentCityConflictCleared", DifferentCityConflictCleared.class);
+        register("OneOffTaskCompleted", OneOffTaskCompleted.class);
 
         // Renamed 2026-08-19: ConferenceTentativelyPlanned → ConferencePlanned. "Tentative" became a
         // *derived* attendance status (WATCHING/GOING), so the old name asserted a state the model no

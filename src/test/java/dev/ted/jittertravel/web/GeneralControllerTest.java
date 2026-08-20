@@ -1,5 +1,7 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.OneOffTaskView;
+import dev.ted.jittertravel.application.OneOffTasks;
 import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.ScheduleProblem;
 import dev.ted.jittertravel.infrastructure.EventStore;
@@ -42,6 +44,9 @@ class GeneralControllerTest {
     ScheduleGapProjector scheduleGapProjector;
 
     @MockitoBean
+    OneOffTasks oneOffTasks;
+
+    @MockitoBean
     EventStore eventStore;
 
     @MockitoBean
@@ -53,6 +58,7 @@ class GeneralControllerTest {
         lenient().when(clock.instant()).thenReturn(Instant.EPOCH);
         lenient().when(scheduleGapProjector.problems(any())).thenReturn(List.of());
         lenient().when(eventStore.isReadOnly()).thenReturn(false);
+        lenient().when(oneOffTasks.outstanding()).thenReturn(List.of());
     }
 
     @Test
@@ -92,6 +98,47 @@ class GeneralControllerTest {
                 .hasStatusOk()
                 .bodyText()
                 .contains("1 command is still pending");
+    }
+
+    @Test
+    void homeHidesTaskBannerWhenNothingIsOutstanding() {
+        // The banner exists to prompt action, so having done the work is rewarded with silence.
+        given(persister.countPendingCommands()).willReturn(0);
+        given(oneOffTasks.outstanding()).willReturn(List.of());
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("need doing after the latest deploy")
+                .doesNotContain("needs doing after the latest deploy");
+    }
+
+    @Test
+    void homeShowsTaskBannerLinkingToTheTaskListWhenTasksAreOutstanding() {
+        given(persister.countPendingCommands()).willReturn(0);
+        given(oneOffTasks.outstanding()).willReturn(List.of(task("a"), task("b")));
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("2 tasks need doing after the latest deploy")
+                .contains("href=\"/admin/tasks\"");
+    }
+
+    @Test
+    void homeUsesSingularTaskBannerForOneOutstandingTask() {
+        given(persister.countPendingCommands()).willReturn(0);
+        given(oneOffTasks.outstanding()).willReturn(List.of(task("a")));
+
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("1 task needs doing after the latest deploy");
+    }
+
+    private static OneOffTaskView task(String id) {
+        return new OneOffTaskView(id, "Title", "Detail", "/admin", "Do it",
+                LocalDate.of(2026, 8, 19), null);
     }
 
     @Test

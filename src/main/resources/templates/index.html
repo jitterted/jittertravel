@@ -88,6 +88,32 @@
             font-weight: 700;
         }
 
+        /* Post-deploy chores. Same amber family as the pending banner — work waiting, not a fault —
+           and it disappears the moment nothing is outstanding, so doing the work is rewarded with
+           silence. */
+        .tasks-banner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            width: 100%;
+            padding: 0.7rem 1.5rem;
+            background: #fef3c7;
+            color: #92400e;
+            border-bottom: 1px solid #f59e0b;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .tasks-banner:hover {
+            background: #fde68a;
+        }
+
+        .tasks-banner-cta {
+            font-weight: 700;
+        }
+
         /* Read-only banner: louder than the amber pending banner because it means the app is
            degraded (failed boot replay or a failed save), not merely behind on work. */
         .readonly-banner {
@@ -315,6 +341,12 @@
 </div>
 
 <div th:if="${runningLocally}" class="local-badge" role="status">JitterTravel Running Locally</div>
+
+<a th:if="${outstandingTaskCount != null and outstandingTaskCount > 0}"
+   th:href="@{/admin/tasks}" class="tasks-banner" role="alert">
+    <span th:text="${outstandingTaskCount} + (${outstandingTaskCount} == 1 ? ' task needs doing after the latest deploy' : ' tasks need doing after the latest deploy')">N tasks need doing after the latest deploy</span>
+    <span class="tasks-banner-cta">Review &rsaquo;</span>
+</a>
 
 <a th:if="${pendingCount > 0}" th:href="@{/admin/pending-commands}" class="pending-banner">
     <span th:text="${pendingCount} + (${pendingCount} == 1 ? ' command is still pending' : ' commands are still pending')">N commands are still pending</span>

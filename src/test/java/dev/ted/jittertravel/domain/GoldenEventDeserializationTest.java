@@ -221,6 +221,25 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
+    void oneOffTaskCompletedCurrentPayloadDeserializes() {
+        // The taskId is a hand-written registry id, not a UUID: it has to survive the code that
+        // declared it being deleted, which is the normal end of a post-deploy task's life.
+        String json = """
+                {
+                  "taskId": "normalize-event-log-type",
+                  "completedOn": "2026-08-20T14:00:00Z"
+                }
+                """;
+
+        OneOffTaskCompleted event = deserialize(json, OneOffTaskCompleted.class);
+
+        assertThat(event.taskId())
+                .isEqualTo("normalize-event-log-type");
+        assertThat(event.completedOn())
+                .isEqualTo(Instant.parse("2026-08-20T14:00:00Z"));
+    }
+
+    @Test
     void conferenceAttendanceDeclinedWithoutReasonReadsBackAsEmpty() {
         // A payload written with no reason must read back as "" (no-null-Strings rule), not null.
         String json = """

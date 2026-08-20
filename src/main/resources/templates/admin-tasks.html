@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Post-Deploy Tasks — Admin — JitterTravel</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #faf9f7;
+            --surface: #ffffff;
+            --text-primary: #1a1916;
+            --text-secondary: #6b6860;
+            --text-muted: #b0aea8;
+            --border: rgba(0, 0, 0, 0.10);
+            --accent: #4338ca;
+            --warning-text: #6e4d00;
+            --warning-bg: #fdf3d8;
+            --warning-border: #e6c66b;
+            --radius: 10px;
+        }
+
+        body {
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .container { max-width: 70ch; margin: 3rem auto; padding: 0 1.25rem; }
+
+        nav { margin-bottom: 1.25rem; font-size: 0.9rem; }
+        nav a { color: var(--accent); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--text-muted); margin: 0 0.4em; }
+
+        h1 { font-size: 1.5rem; margin-bottom: 0.4rem; }
+        .lede { color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.75rem; }
+
+        .task {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem 1.15rem;
+            margin-bottom: 1rem;
+        }
+        .task--outstanding { border-left: 4px solid var(--warning-border); }
+        /* Done, but the declaration is still in the code: greyed rather than dropped, because the
+           whole point of keeping it visible is to remind us to delete it. */
+        .task--completed { opacity: 0.65; }
+
+        .task-title { font-size: 1.05rem; font-weight: 650; margin-bottom: 0.35rem; }
+        .task-detail { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5; }
+        .task-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.6rem; }
+
+        /* Both actions keep their slot whether or not the task is done, so nothing shifts between
+           cards (CLAUDE.md: action affordances never move). */
+        .task-actions {
+            display: flex; flex-wrap: wrap; align-items: center;
+            gap: 0.5rem 1.1rem; margin-top: 0.9rem;
+        }
+        .task-action { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        .task-action:hover { text-decoration: underline; }
+
+        button.mark-done {
+            background: var(--accent); color: #fff; border: 1px solid var(--accent);
+            border-radius: 6px; padding: 0.35rem 1rem;
+            font-family: inherit; font-size: 0.9rem; cursor: pointer;
+        }
+        button.mark-done:hover { opacity: 0.88; }
+
+        .done-note { font-size: 0.9rem; color: var(--text-muted); }
+        .done-note code { font-size: 0.85em; }
+
+        .empty-state {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a th:href="@{/admin}">Admin</a>
+    </nav>
+
+    <h1>Post-Deploy Tasks</h1>
+    <p class="lede">
+        One-off jobs a deploy left behind — migrations to run, and backfills of data that did not
+        exist before. Marking one done is permanent: it records an event, and the task never comes
+        back.
+    </p>
+
+    <p class="empty-state" th:if="${tasks.isEmpty()}">
+        Nothing declared. When a deploy needs a migration or a backfill, it ships with a task here.
+    </p>
+
+    <div th:each="task : ${tasks}"
+         class="task"
+         th:classappend="${task.completed()} ? ' task--completed' : ' task--outstanding'">
+
+        <div class="task-title" th:text="${task.title()}">Task title</div>
+        <div class="task-detail" th:text="${task.detail()}">What it is and what done looks like.</div>
+        <div class="task-meta">
+            Declared <span th:text="${#temporals.format(task.declaredOn(), 'd MMM yyyy')}">1 Jan 2026</span>
+        </div>
+
+        <div class="task-actions">
+            <a class="task-action" th:href="${task.actionPath()}" th:text="${task.actionLabel()}">Do it</a>
+
+            <form th:if="${!task.completed()}"
+                  method="post"
+                  th:action="@{|/admin/tasks/${task.id()}/complete|}">
+                <button type="submit" class="mark-done">Mark done</button>
+            </form>
+
+            <span th:if="${task.completed()}" class="done-note">
+                Done <span th:text="${task.completedOn()}">instant</span> &mdash;
+                its declaration can be removed from <code>OneOffTaskRegistry</code>.
+            </span>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

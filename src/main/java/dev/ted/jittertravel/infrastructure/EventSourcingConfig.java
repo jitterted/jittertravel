@@ -86,6 +86,24 @@ public class EventSourcingConfig {
     }
 
     @Bean
+    public OneOffTaskProjector oneOffTaskProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new OneOffTaskProjector());
+    }
+
+    /** The declared tasks live in the registry's own code, so there is nothing to configure here. */
+    @Bean
+    public OneOffTaskRegistry oneOffTaskRegistry() {
+        return new OneOffTaskRegistry();
+    }
+
+    @Bean
+    public OneOffTasks oneOffTasksApplicationService(OneOffTaskRegistry registry,
+                                                     OneOffTaskProjector projector,
+                                                     CommandExecutor commandExecutor) {
+        return new OneOffTasks(registry, projector, commandExecutor);
+    }
+
+    @Bean
     public ConferencePlanning conferenceApplicationService(CommandExecutor commandExecutor,
                                                           LocationZoneResolver locationZoneResolver) {
         return new ConferencePlanning(commandExecutor, locationZoneResolver);

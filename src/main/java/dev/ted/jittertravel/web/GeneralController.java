@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.OneOffTasks;
 import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.infrastructure.EventStore;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
@@ -25,6 +26,7 @@ class GeneralController {
 
     private final PostgresPersister persister;
     private final ScheduleGapProjector scheduleGapProjector;
+    private final OneOffTasks oneOffTasks;
     private final EventStore eventStore;
     private final Clock clock;
     private final Environment environment;
@@ -33,12 +35,14 @@ class GeneralController {
 
     GeneralController(PostgresPersister persister,
                       ScheduleGapProjector scheduleGapProjector,
+                      OneOffTasks oneOffTasks,
                       EventStore eventStore,
                       Clock clock,
                       Environment environment,
                       @Nullable BuildProperties buildProperties) {
         this.persister = persister;
         this.scheduleGapProjector = scheduleGapProjector;
+        this.oneOffTasks = oneOffTasks;
         this.eventStore = eventStore;
         this.clock = clock;
         this.environment = environment;
@@ -69,6 +73,12 @@ class GeneralController {
         if (isOwner) {
             model.addAttribute("scheduleProblemCount",
                     scheduleGapProjector.problems(Instant.now(clock)).size());
+        }
+        // Post-deploy chores: OWNER-only, because the banner names migrations and pending data
+        // work. The attribute stays absent for everyone else, so the banner cannot render for them
+        // even if the template's condition is later loosened.
+        if (isOwner) {
+            model.addAttribute("outstandingTaskCount", oneOffTasks.outstanding().size());
         }
         model.addAttribute("pendingCount", persister.countPendingCommands());
         model.addAttribute("buildTime", BUILD_TIME_FORMATTER.format(buildProperties.getTime()));

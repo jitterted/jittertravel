@@ -1,6 +1,23 @@
 # Post-Deploy Task Banner — one-off migrations and backfills that must not be forgotten
 
-**Status: `open` — designed 2026-08-19 (Ted + discussion), nothing built.**
+**Status: `partial` — slice 1 built 2026-08-19; derivable checks and the age check still open.**
+
+> **Slice 1 as built.** `OneOffTaskCompleted(taskId, completedOn)` + `CompleteOneOffTask` (typed
+> internal command record with its own `events()`), folded by `OneOffTaskProjector` — first
+> completion wins, so a replay or a re-applied restore cannot move the date. Tasks are declared in
+> `OneOffTaskRegistry` in code, joined to completions by the `OneOffTasks` service, which refuses an
+> undeclared id and a second completion and writes through `CommandExecutor.appendEvents`. An
+> OWNER-only amber banner on the home page links to the new `/admin/tasks` page (Thymeleaf, since it
+> posts), where a task is ticked off and completed ones stay greyed with "its declaration can be
+> removed". Two real customers ship declared: the outstanding `event_log.type` normalization and the
+> conference attendance backfill. `/admin/tasks` needed no new `SecurityConfig` matcher — the
+> existing `/admin/**` rule covers it — but has its own `AuthorizationMatrixTest` row, and the
+> banner's OWNER-gating has both anonymous and FAMILY cases in `SecurityAuthorizationTest`
+> (mutation-verified: dropping the gate fails exactly those two). Suite green at 995 + js tier.
+> **Still open: step 2** (derivable checks — legacy-row count, missing config) **and step 3** (the
+> `declaredOn` age check).
+
+**Originally: `open` — designed 2026-08-19 (Ted + discussion), nothing built.**
 Scope was narrowed by Ted on 2026-08-19: this is about **one-off tasks that follow a deploy** —
 migrations to run and backfills of data that did not exist before. It is *not* a general data-quality
 nag. A hotel with no `cancelBy` is explicitly **not** a task (sometimes there is no free

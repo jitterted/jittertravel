@@ -13,7 +13,7 @@
 > conference attendance backfill. `/admin/tasks` needed no new `SecurityConfig` matcher — the
 > existing `/admin/**` rule covers it — but has its own `AuthorizationMatrixTest` row, and the
 > banner's OWNER-gating has both anonymous and FAMILY cases in `SecurityAuthorizationTest`
-> (mutation-verified: dropping the gate fails exactly those two). Suite green at 955 + js tier.
+> (mutation-verified: dropping the gate fails exactly those two). Suite green: 1046 unit + 36 js (what IDEA's All Tests reports as 1082).
 > **Still open: step 2** (derivable checks — legacy-row count, missing config) **and step 3** (the
 > `declaredOn` age check).
 

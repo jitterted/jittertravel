@@ -1,8 +1,10 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleProblem;
+import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
@@ -182,6 +184,45 @@ class ScheduleProblemsRendererTest {
         String html = ScheduleProblemsRenderer.render(List.of(hotelOnly));
 
         assertThat(html).contains("None");
+    }
+
+    @Test
+    void duplicateHotelsNameEveryStayWithItsCityAndBookingIntent() {
+        // The question this row raises is "which one do I cancel?", and the tentative one is
+        // usually the answer — so the intent is on the page, not just in the event.
+        ScheduleProblem duplicate = new ScheduleProblem.DuplicateHotel(
+                LocalDate.of(2026, 8, 8), LocalDate.of(2026, 8, 13),
+                List.of(new ScheduleProblem.DuplicateStay(
+                                HotelBookingId.random(), "Oak House", "Toronto", BookingIntent.FINAL),
+                        new ScheduleProblem.DuplicateStay(
+                                HotelBookingId.random(), "Doubletree by Hilton", "Toronto", BookingIntent.TENTATIVE)));
+
+        String html = ScheduleProblemsRenderer.render(List.of(duplicate));
+
+        assertThat(html)
+                .contains("<p class=\"column-heading column-heading--duplicate\">Duplicate Hotels</p>")
+                .contains("<div class=\"problem-title\">2 hotels booked for the same nights</div>")
+                .contains("Nights of Sat, Aug 8 through Thu, Aug 13 — check out Fri, Aug 14")
+                .contains("Oak House, Toronto (final)")
+                .contains("Doubletree by Hilton, Toronto (tentative)");
+    }
+
+    @Test
+    void aPageWithOnlyDuplicatesStillReportsThemRatherThanClaimingNoProblems() {
+        // The empty check used to ask the four columns it knew about, so a page whose only problem
+        // was a new kind would have said the schedule looked complete.
+        ScheduleProblem duplicate = new ScheduleProblem.DuplicateHotel(
+                LocalDate.of(2026, 8, 8), LocalDate.of(2026, 8, 8),
+                List.of(new ScheduleProblem.DuplicateStay(
+                                HotelBookingId.random(), "Oak House", "Toronto", BookingIntent.FINAL),
+                        new ScheduleProblem.DuplicateStay(
+                                HotelBookingId.random(), "Doubletree by Hilton", "Toronto", BookingIntent.FINAL)));
+
+        String html = ScheduleProblemsRenderer.render(List.of(duplicate));
+
+        assertThat(html)
+                .doesNotContain("No problems found")
+                .contains("Duplicate Hotels");
     }
 
     private static ScheduleProblem.ConflictingGathering gathering(

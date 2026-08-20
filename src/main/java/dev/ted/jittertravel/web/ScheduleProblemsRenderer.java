@@ -30,12 +30,15 @@ public class ScheduleProblemsRenderer {
             .column-heading--travel    { color: #92400e; }
             .column-heading--hotel     { color: #1e40af; }
             .column-heading--scheduling { color: #991b1b; }
+            .column-heading--duplicate { color: #9a3412; }
             .problem-list { display: flex; flex-direction: column; gap: 0.6rem; }
             .problem-card { border-left: 4px solid transparent; border-radius: 0 6px 6px 0; padding: 0.6rem 0.85rem; }
             .problem-card--missing-travel   { border-left-color: #b45309; background: #fef3c7; }
             .problem-card--missing-hotel    { border-left-color: #1d4ed8; background: #dbeafe; }
             .problem-card--scheduling-conflict { border-left-color: #dc2626; background: #fee2e2; }
             .problem-card--city-conflict { border-left-color: #7c3aed; background: #ede9fe; }
+            /* Amber, not red: a second booking costs money, but Ted can cancel it. */
+            .problem-card--duplicate-hotel { border-left-color: #c2410c; background: #ffedd5; }
             .problem-title  { font-weight: 600; font-size: 0.9rem; color: #1f2937; }
             .problem-detail { font-size: 0.82rem; color: #374151; margin-top: 0.15rem; }
             .empty-column   { color: var(--muted-text); font-style: italic; font-size: 0.85rem; }
@@ -51,6 +54,10 @@ public class ScheduleProblemsRenderer {
         List<ScheduleProblem.MissingHotel> hotel = problems.stream()
                 .filter(p -> p instanceof ScheduleProblem.MissingHotel)
                 .map(p -> (ScheduleProblem.MissingHotel) p)
+                .toList();
+        List<ScheduleProblem.DuplicateHotel> duplicates = problems.stream()
+                .filter(p -> p instanceof ScheduleProblem.DuplicateHotel)
+                .map(p -> (ScheduleProblem.DuplicateHotel) p)
                 .toList();
         List<ScheduleProblem.SchedulingConflict> scheduling = problems.stream()
                 .filter(p -> p instanceof ScheduleProblem.SchedulingConflict)
@@ -68,9 +75,9 @@ public class ScheduleProblemsRenderer {
                                 Page.viewNav(Page.NavAudience.OWNER, "/schedule-problems"),
                                 h1("Schedule Problems"),
                                 ProblemViewToggle.render(ProblemView.LIST),
-                                travel.isEmpty() && hotel.isEmpty() && scheduling.isEmpty() && cityConflicts.isEmpty()
+                                problems.isEmpty()
                                         ? renderNoProblems()
-                                        : renderProblems(travel, hotel, scheduling, cityConflicts)
+                                        : renderProblems(travel, hotel, duplicates, scheduling, cityConflicts)
                         )
                 )
         ).withLang("en").render();
@@ -83,6 +90,7 @@ public class ScheduleProblemsRenderer {
     private static DomContent renderProblems(
             List<ScheduleProblem.MissingTravel> travel,
             List<ScheduleProblem.MissingHotel> hotel,
+            List<ScheduleProblem.DuplicateHotel> duplicates,
             List<ScheduleProblem.SchedulingConflict> scheduling,
             List<ScheduleProblem.DifferentCityConflict> cityConflicts) {
         return div().with(
@@ -90,6 +98,9 @@ public class ScheduleProblemsRenderer {
                         renderTravelColumn(travel),
                         renderHotelColumn(hotel)
                 ),
+                duplicates.isEmpty()
+                        ? span()
+                        : renderDuplicatesSection(duplicates),
                 scheduling.isEmpty()
                         ? span()
                         : renderSchedulingSection(scheduling),
@@ -139,6 +150,33 @@ public class ScheduleProblemsRenderer {
                                 ))
                         )
         );
+    }
+
+    /**
+     * Every doubly-booked stay is named with its city and its booking intent, because the question
+     * this row raises is "which one do I cancel?" — and the tentative one is usually the answer.
+     */
+    private static DomContent renderDuplicatesSection(List<ScheduleProblem.DuplicateHotel> duplicates) {
+        return div().withStyle("margin-top: 2rem;").with(
+                p("Duplicate Hotels").withClass("column-heading column-heading--duplicate"),
+                div().withClass("problem-list").with(
+                        each(duplicates, p -> div().withClass("problem-card problem-card--duplicate-hotel").with(
+                                div(p.stays().size() + " hotels booked for the same nights")
+                                        .withClass("problem-title"),
+                                div("Nights of " + p.firstNight().format(DATE)
+                                    + " through " + p.lastNight().format(DATE)
+                                    + " — check out " + p.checkOut().format(DATE))
+                                        .withClass("problem-detail"),
+                                each(p.stays(), stay -> div(stay.hotelName() + ", " + stay.city()
+                                                            + " (" + intentLabel(stay) + ")")
+                                        .withClass("problem-detail"))
+                        ))
+                )
+        );
+    }
+
+    private static String intentLabel(ScheduleProblem.DuplicateStay stay) {
+        return stay.bookingIntent().name().toLowerCase(Locale.ENGLISH);
     }
 
     private static DomContent renderSchedulingSection(List<ScheduleProblem.SchedulingConflict> scheduling) {

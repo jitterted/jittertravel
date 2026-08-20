@@ -1,7 +1,11 @@
 # Schedule Problems Rewrite Plan
 
-**Status:** agreed 2026-08-20, not started. Supersedes the detection half of
-`ScheduleGapProjector`; the event handling, caching, and `context()` read model stay.
+**Status:** shipped 2026-08-20. All seven slices done; suite green at 1116 (+ 36 js). Supersedes
+the detection half of `ScheduleGapProjector`; the event handling, caching, and `context()` read
+model stay.
+
+One rule was added during implementation that Ted has not yet ruled on — the **trip break**, D13
+below. Everything else is as agreed.
 
 `/schedule-problems` is one of the main reasons this app exists, and it is currently wrong in both
 directions: it invents travel gaps that do not exist and misses nights with no bed. This plan
@@ -207,6 +211,28 @@ presences — not a bag of single-method detector classes — and it preserves t
 that `problems()` and `context()` cannot describe two different versions of the schedule, because
 now they are literally derived from the same ordered sequence.
 
+### D13 — A fortnight of silence ends the run (NEEDS TED'S RULING)
+
+**Not agreed in advance — found while implementing, and decided in order to finish.**
+
+Last-known-location has no natural stopping point. An existing test paired a conference in Oslo in
+January with one in Lima in December and nothing between them, and the night sweep duly demanded a
+hotel room in Oslo every night for eleven months. The same thing would happen in Ted's real data
+the moment a conference is planned months out with no flights booked yet — which is exactly what
+CFP-season planning looks like.
+
+So `ScheduleTimeline.TRIP_BREAK_NIGHTS = 14`: if the schedule holds nothing at all for longer than
+a fortnight, the run ends at the last fact rather than carrying on. The reasoning is that Ted's
+trips are dense — a leg, a stay, a conference or a gathering every day or two — so a fortnight of
+total silence is the gap *between* trips, spent at home. The travel gap between the two conferences
+is still reported, which is the real problem in that schedule.
+
+It is a threshold, and thresholds are arbitrary. Checked against the real itineraries: the longest
+in-trip silence in any of the three is six nights (Rush Tours, between the two New York gatherings),
+so 14 has room. Alternatives if Ted dislikes it: report the long run anyway and let him live with
+it; or treat a return to a home city as the only thing that ends a trip, which does not help here
+because that schedule never mentions home.
+
 ## Acceptance examples
 
 These three are the acceptance suite. They are written against `problems()` and survive any
@@ -294,7 +320,29 @@ York produce one missing-hotel run, not two, per D2/D5. Aug 4–8 is at home, pe
 Slices 3–5 each need mutation-verification per standing practice, and `docs/Backlog.md` updated on
 completion.
 
+## What the re-judged tests turned out to be
+
+Slice 7 expected a bloodbath and got six tests, every one of them encoding an assumption the model
+no longer makes:
+
+- **Four** assumed that a conference ending, or a stay in another city, carries Ted back to where
+  he flew in. `conferenceInDifferentCityExcludesOverlappingNightsFromArrivalCity` expected a London
+  bed on the night the Steventon conference ended, with no leg to London until the next morning —
+  a bed he had no way to reach. Rewritten to the new semantics.
+- **Two** cast every problem in the list to `MissingHotel`, and now trip over the (correct) travel
+  gap between two conferences in different cities with nothing booked between them. Filtered by
+  type; their actual claims were untouched.
+
+The `MissingTravelToFromConference` and `MissingTravelDeduplication` nests — the ones expected to be
+deleted wholesale — passed unchanged. Their fixtures are small enough that the old detector's
+unbounded nearest-leg search and the new adjacency walk agree; it took a whole itinerary to tell
+them apart, which is the argument for the acceptance suite in one sentence.
+
 ## Open
 
+- **D13 needs Ted's ruling.**
 - Whether the problem calendar's Travel lane needs revisiting once the phantom bands stop being
   drawn — far fewer bands, and the ones that remain are real.
+- `DifferentCityConflict` still ignores private events, unlike `SchedulingConflict`, which now
+  includes them. Nothing about the detection resists them — clearing one of these is keyed to a
+  `GatheringId`, and a private event has no such id to record against.

@@ -1,14 +1,17 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleProblem;
+import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -94,6 +97,23 @@ class ProblemBandTest {
         assertThat(ProblemBand.from(problem)).get()
                 .extracting(ProblemBand::firstDay, ProblemBand::lastDay)
                 .containsExactly(LocalDate.of(2026, 7, 2), LocalDate.of(2026, 7, 3));
+    }
+
+    @Test
+    void duplicateHotelBandCoversTheDoublyBookedNightsExactly() {
+        // Unlike a missing stay, this problem is already expressed in nights, so there is no
+        // checkout day to trim: the 8th through the 10th is three nights and three days of band.
+        ScheduleProblem problem = new ScheduleProblem.DuplicateHotel(
+                LocalDate.of(2026, 8, 8), LocalDate.of(2026, 8, 10),
+                List.of(new ScheduleProblem.DuplicateStay(
+                                HotelBookingId.random(), "Oak House", "Toronto", BookingIntent.FINAL),
+                        new ScheduleProblem.DuplicateStay(
+                                HotelBookingId.random(), "Doubletree", "Toronto", BookingIntent.TENTATIVE)));
+
+        assertThat(ProblemBand.from(problem))
+                .contains(new ProblemBand(ProblemBand.Lane.DUPLICATE,
+                        LocalDate.of(2026, 8, 8), LocalDate.of(2026, 8, 10),
+                        "2 hotels — Oak House · Doubletree", "3 nights booked twice"));
     }
 
     @Test

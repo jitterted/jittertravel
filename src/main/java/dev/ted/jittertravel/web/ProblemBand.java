@@ -8,6 +8,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * One {@link ScheduleProblem} placed on the problem calendar: a run of days ({@code firstDay}
@@ -30,6 +31,7 @@ public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, Stri
      */
     public enum Lane {
         BED,
+        DUPLICATE,
         TRAVEL
     }
 
@@ -43,7 +45,7 @@ public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, Stri
         return switch (problem) {
             case ScheduleProblem.MissingHotel missingHotel -> Optional.of(bedBand(missingHotel));
             case ScheduleProblem.MissingTravel missingTravel -> Optional.of(travelBand(missingTravel));
-            case ScheduleProblem.DuplicateHotel ignored -> Optional.empty();         // ScheduleProblemsRewritePlan slice 5
+            case ScheduleProblem.DuplicateHotel duplicateHotel -> Optional.of(duplicateBand(duplicateHotel));
             case ScheduleProblem.SchedulingConflict ignored -> Optional.empty();     // slice 3
             case ScheduleProblem.DifferentCityConflict ignored -> Optional.empty();  // slice 3
         };
@@ -62,6 +64,20 @@ public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, Stri
         return new ProblemBand(Lane.BED, checkIn, lastNight,
                 "No hotel — " + missingHotel.city(),
                 detail(nightsBetween(checkIn, lastNight), missingHotel.conferenceName()));
+    }
+
+    /**
+     * Doubly-booked nights are already a run of nights, so the band is that run exactly — first
+     * night through last, with no checkout day to trim off.
+     */
+    private static ProblemBand duplicateBand(ScheduleProblem.DuplicateHotel duplicateHotel) {
+        String hotels = duplicateHotel.stays().stream()
+                .map(ScheduleProblem.DuplicateStay::hotelName)
+                .collect(Collectors.joining(" · "));
+        return new ProblemBand(Lane.DUPLICATE, duplicateHotel.firstNight(), duplicateHotel.lastNight(),
+                duplicateHotel.stays().size() + " hotels — " + hotels,
+                nightsBetween(duplicateHotel.firstNight(), duplicateHotel.lastNight())
+                + " nights booked twice");
     }
 
     /**

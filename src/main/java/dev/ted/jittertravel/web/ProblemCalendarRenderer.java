@@ -43,6 +43,8 @@ public class ProblemCalendarRenderer {
                    through them — the cause is the point of the backdrop. */
                 --pc-bed-bg: rgba(219, 234, 254, 0.8); --pc-bed-border: #1d4ed8; --pc-bed-fg: #1e3a8a;
                 --pc-travel-bg: rgba(254, 243, 199, 0.8); --pc-travel-border: #b45309; --pc-travel-fg: #78350f;
+                /* Amber, not red: a second booking costs money but Ted can cancel it. */
+                --pc-duplicate-bg: rgba(255, 237, 213, 0.8); --pc-duplicate-border: #c2410c; --pc-duplicate-fg: #7c2d12;
                 /* One grey for every kind of context; the kind is named in the label. */
                 --pc-context-bg: rgba(107, 114, 128, 0.14);
                 --pc-context-border: rgba(107, 114, 128, 0.35);
@@ -115,6 +117,9 @@ public class ProblemCalendarRenderer {
             }
             .pc-band--travel {
                 background: var(--pc-travel-bg); border-left-color: var(--pc-travel-border); color: var(--pc-travel-fg);
+            }
+            .pc-band--duplicate {
+                background: var(--pc-duplicate-bg); border-left-color: var(--pc-duplicate-border); color: var(--pc-duplicate-fg);
             }
             .pc-band-title  { font-weight: 600; font-size: 0.82rem; }
             .pc-band-detail { font-size: 0.75rem; margin-top: 0.1rem; }

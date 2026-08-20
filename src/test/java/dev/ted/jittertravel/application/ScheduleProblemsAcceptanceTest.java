@@ -212,6 +212,45 @@ class ScheduleProblemsAcceptanceTest {
         }
     }
 
+    /**
+     * A private event is a presence fact like any other (D9). It had never reached the projector at
+     * all, so a dinner between two stays was invisible: the nights around it, and both journeys to
+     * and from it, went unreported.
+     */
+    @Nested
+    class PrivateEventsAreLocationsToo {
+
+        private List<ScheduleProblem> problems() {
+            return Itinerary.homeAt("San Francisco").inZone("Europe/Berlin")
+                    .hotel("Reichshof", "Hamburg", "2026-08-25", "2026-08-27")
+                    .privateEvent("Dinner with friends", "Berlin", "2026-08-28 19:00", "2026-08-28 22:00")
+                    .hotel("Reichshof", "Hamburg", "2026-08-30", "2026-09-01")
+                    .problems();
+        }
+
+        @Test
+        void aDinnerInAnotherCityOpensTheJourneysAtEachEndOfIt() {
+            assertThat(only(problems(), ScheduleProblem.MissingTravel.class))
+                    .extracting(ScheduleProblem.MissingTravel::fromCity,
+                                ScheduleProblem.MissingTravel::toCity)
+                    .containsExactly(tuple("Hamburg", "Berlin"), tuple("Berlin", "Hamburg"));
+        }
+
+        @Test
+        void theNightsAroundItBelongToTheCityItIsIn() {
+            // Checked out of Hamburg on the 27th, dinner in Berlin on the 28th: the night of the
+            // 27th is still Hamburg, and the 28th and 29th are Berlin, until the Hamburg stay
+            // reclaims him on the 30th.
+            assertThat(only(problems(), ScheduleProblem.MissingHotel.class))
+                    .extracting(ScheduleProblem.MissingHotel::city,
+                                ScheduleProblem.MissingHotel::checkIn,
+                                ScheduleProblem.MissingHotel::checkOut)
+                    .containsExactly(
+                            tuple("Hamburg", date("2026-08-27"), date("2026-08-28")),
+                            tuple("Berlin", date("2026-08-28"), date("2026-08-30")));
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Itinerary builder — an itinerary reads like the tables in the plan doc
     // -------------------------------------------------------------------------

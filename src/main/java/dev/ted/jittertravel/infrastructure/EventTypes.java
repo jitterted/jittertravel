@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferencePlanned;
@@ -89,6 +90,7 @@ public final class EventTypes {
         register("HotelBookingCancelled", HotelBookingCancelled.class);
         register("ConferencePlanned", ConferencePlanned.class, CONFERENCE_FORMAT_SCHEMA_VERSION);
         register("ConferenceCancelled", ConferenceCancelled.class);
+        register("ConferenceAttendanceConfirmed", ConferenceAttendanceConfirmed.class);
         register("ConferenceAttendanceDeclined", ConferenceAttendanceDeclined.class);
         register("GatheringPlanned", GatheringPlanned.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("GatheringChanged", GatheringChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);

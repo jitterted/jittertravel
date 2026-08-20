@@ -162,6 +162,15 @@ public class CalendarRenderer {
                 font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
                 padding: 2px 6px; border-radius: 4px; background: #111827; color: #ffffff;
             }
+            /* Public "Maybe" chip on a speculative conference. Amber rather than the speaking
+               chip's near-black so the two read as different statements, and solid rather than
+               muted: muted conventionally reads as *cancelled*, and a distinction nobody knows
+               the convention for is no distinction at all. */
+            .entry-maybe-badge {
+                align-self: flex-start; margin-top: 3px;
+                font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+                padding: 2px 6px; border-radius: 4px; background: #b45309; color: #ffffff;
+            }
             .edit-pencil { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
             .edit-pencil:hover { opacity: 1; }
             .edit-pencil svg { width: 12px; height: 12px; }

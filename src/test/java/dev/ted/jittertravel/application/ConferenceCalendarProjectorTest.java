@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.AttendanceBasis;
+import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
@@ -19,6 +21,8 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ConferenceCalendarProjectorTest {
+
+    private static final Instant CONFIRMED_ON = Instant.parse("2026-08-19T16:45:00Z");
 
     @Test
     void buildsCalendarEntryFromConferencePlanned() {
@@ -91,6 +95,104 @@ class ConferenceCalendarProjectorTest {
         assertThat(projector.entries())
                 .as("a declined conference leaves the calendar, like a cancelled one")
                 .isEmpty();
+    }
+
+    @Test
+    void aPlannedConferenceStartsOutMerelyWatched() {
+        ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
+
+        projector.handle(Stream.of(stored(sampleConference("J-Fall", LocalDateTime.of(2026, 11, 5, 9, 0)))));
+
+        assertThat(projector.entries().getFirst().commitment())
+                .as("planning a conference puts it on the radar, nothing more")
+                .isEqualTo(AttendanceCommitment.WATCHING);
+    }
+
+    @Test
+    void confirmingAttendanceTurnsTheEntryIntoGoing() {
+        ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        projector.handle(Stream.of(stored(withId(conferenceId,
+                sampleConference("dev2next", LocalDateTime.of(2026, 9, 28, 9, 0))))));
+
+        projector.handle(Stream.of(storedEvent(2, new ConferenceAttendanceConfirmed(
+                conferenceId, AttendanceBasis.SPEAKING_ACCEPTED, CONFIRMED_ON))));
+
+        assertThat(projector.entries())
+                .singleElement()
+                .extracting(CalendarEntry::commitment)
+                .isEqualTo(AttendanceCommitment.GOING);
+    }
+
+    @Test
+    void confirmingAttendanceLeavesTheRestOfTheEntryAlone() {
+        ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        projector.handle(Stream.of(stored(withId(conferenceId,
+                sampleConference("dev2next", LocalDateTime.of(2026, 9, 28, 9, 0))))));
+        CalendarEntry before = projector.entries().getFirst();
+
+        projector.handle(Stream.of(storedEvent(2, new ConferenceAttendanceConfirmed(
+                conferenceId, AttendanceBasis.SPEAKING_ACCEPTED, CONFIRMED_ON))));
+
+        assertThat(projector.entries().getFirst())
+                .isEqualTo(new CalendarEntry(
+                        before.kind(), before.start(), before.end(),
+                        before.mainTitle(), before.subTitle(),
+                        before.continuationTitle(), before.continuationSubTitle(),
+                        before.mapsUrl(), before.speaking(), before.editPath(),
+                        AttendanceCommitment.GOING));
+    }
+
+    @Test
+    void theBasisForGoingNeverReachesTheCalendarEntry() {
+        // AttendanceBasis is submission status wearing a different hat: the projector reads it and
+        // discards it, so redaction rule 1 is satisfied structurally rather than by the redactor.
+        ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        projector.handle(Stream.of(stored(withId(conferenceId,
+                sampleConference("dev2next", LocalDateTime.of(2026, 9, 28, 9, 0))))));
+
+        projector.handle(Stream.of(storedEvent(2, new ConferenceAttendanceConfirmed(
+                conferenceId, AttendanceBasis.SPEAKING_ACCEPTED, CONFIRMED_ON))));
+
+        assertThat(projector.entries().getFirst().toString())
+                .as("no field of the entry may carry the basis")
+                .doesNotContain("SPEAKING_ACCEPTED");
+    }
+
+    @Test
+    void confirmingAttendanceForAnUnknownConferenceAddsNothing() {
+        // A confirmation can only ever follow a ConferencePlanned in the stream; if the conference
+        // has since been declined or cancelled, this must not resurrect it.
+        ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
+
+        projector.handle(Stream.of(storedEvent(1, new ConferenceAttendanceConfirmed(
+                ConferenceId.random(), AttendanceBasis.TICKET_PURCHASED, CONFIRMED_ON))));
+
+        assertThat(projector.entries()).isEmpty();
+    }
+
+    @Test
+    void aConfirmedConferenceCanStillBeDeclined() {
+        // Last decision wins: changing your mind after committing removes it from the calendar.
+        ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        projector.handle(Stream.of(stored(withId(conferenceId,
+                sampleConference("dev2next", LocalDateTime.of(2026, 9, 28, 9, 0))))));
+        projector.handle(Stream.of(storedEvent(2, new ConferenceAttendanceConfirmed(
+                conferenceId, AttendanceBasis.SPEAKING_ACCEPTED, CONFIRMED_ON))));
+
+        projector.handle(Stream.of(storedEvent(3, new ConferenceAttendanceDeclined(
+                conferenceId, "Something came up", CONFIRMED_ON))));
+
+        assertThat(projector.entries()).isEmpty();
+    }
+
+    private static ConferencePlanned withId(ConferenceId conferenceId, ConferencePlanned planned) {
+        return new ConferencePlanned(
+                conferenceId, planned.name(), planned.startDate(), planned.endDate(),
+                planned.venueName(), planned.venueAddress());
     }
 
     private static ConferencePlanned sampleConference(String name, LocalDateTime start) {

@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.EntryKind;
 import dev.ted.jittertravel.application.SubtitleLine;
@@ -319,6 +320,15 @@ public class CalendarViewBuilder {
         // like the title and pencil.
         if (entry.speaking() && !isContinuation) {
             div.with(span("A Ted Talk").withClass("entry-speaking-badge"));
+        }
+        // Public "Maybe" chip on a speculative conference — the same chip for owner, family and
+        // anonymous viewers, because the projector already collapsed every speculative state
+        // (CFP pending, submitted, rejected-but-undecided) into WATCHING before it got here.
+        // Only the speculative case is marked: "Ted is going" is the default reading of a calendar
+        // entry, so a "Going" chip would be noise on every committed conference. Non-conference
+        // kinds carry a null commitment and never match.
+        if (entry.commitment() == AttendanceCommitment.WATCHING && !isContinuation) {
+            div.with(span("Maybe").withClass("entry-maybe-badge"));
         }
         return div;
     }

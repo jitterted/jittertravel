@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.ConferenceView;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.application.TimeView;
@@ -82,7 +83,12 @@ class ConferencesRendererTest {
         assertThat(html)
                 .doesNotContain("overflow-x")
                 .doesNotContain("table-responsive")
-                .doesNotContain("max-width: 100ch");
+                .doesNotContain("max-width: 100ch")
+                // The seven columns need the whole viewport: measured 2026-08-19, the old
+                // `margin: 2rem; padding: 0 1rem` gutter made this page scroll sideways at ~860px,
+                // and giving those 96px back to the table makes it fit at ~820px.
+                .contains(".conference-container { margin: 2rem 0; padding: 0; }")
+                .doesNotContain("padding: 0 1rem");
     }
 
     @Test
@@ -98,6 +104,123 @@ class ConferencesRendererTest {
     }
 
     @Test
+    void speculativeConferenceShowsMaybeAndOffersConfirmAttendance() {
+        ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
+                "Ede", "Netherlands", AttendanceCommitment.WATCHING);
+
+        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<span class=\"conf-commitment conf-commitment--watching\">Maybe</span>")
+                .contains("href=\"/conferences/" + conf.conferenceId().id() + "/confirm\"")
+                .contains(">Confirm</a>");
+    }
+
+    @Test
+    void committedConferenceShowsGoingAndDropsTheConfirmLink() {
+        ConferenceView conf = view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00",
+                "Denver", "USA", AttendanceCommitment.GOING);
+
+        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<span class=\"conf-commitment conf-commitment--going\">Going</span>")
+                .doesNotContain("/confirm\"")
+                .doesNotContain(">Confirm</a>");
+    }
+
+    @Test
+    void declineKeepsItsPlaceOnRowsThatHaveNoConfirmLink() {
+        // Action affordances never move, and an unavailable one is disabled rather than removed:
+        // a GOING row fills the first slot with greyed, non-interactive text. Leaving the slot
+        // empty slid Decline into it; leaving it invisible left a blank line when the cell wrapped.
+        String html = ConferencesRenderer.render(List.of(
+                view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA",
+                     AttendanceCommitment.GOING)
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<span class=\"conf-confirm-disabled\"")
+                .contains(">Confirm</span>")
+                .contains("color: var(--muted-text); cursor: default;")
+                // Visible, not the old invisible placeholder.
+                .doesNotContain("visibility: hidden")
+                // Left-justified within their slots, never flush right.
+                .doesNotContain("justify-content: flex-end");
+    }
+
+    @Test
+    void disabledConfirmSaysWhyItIsUnavailableAndCannotBeActivated() {
+        // A greyed control with no reason is a dead end. The reason names the *presentation* limit
+        // it really is — the domain allows re-confirming with a different basis — and it is a span,
+        // so it is neither focusable nor clickable.
+        String html = ConferencesRenderer.render(List.of(
+                view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA",
+                     AttendanceCommitment.GOING)
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("title=\"Already confirmed. Changing why you&#x27;re going "
+                          + "arrives with submission tracking.\"")
+                .contains("aria-disabled=\"true\"")
+                .doesNotContain(">Confirm</a>");
+    }
+
+    @Test
+    void speculativeRowFillsTheConfirmSlotWithTheRealLinkNotTheDisabledText() {
+        String html = ConferencesRenderer.render(List.of(
+                view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "Netherlands",
+                     AttendanceCommitment.WATCHING)
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains(">Confirm</a>")
+                // The class name alone appears in the stylesheet on every page; only the element
+                // is a claim about this row.
+                .doesNotContain("<span class=\"conf-confirm-disabled\"");
+    }
+
+    @Test
+    void actionsHeaderIsCentredAcrossBothSlots() {
+        // The header labels the pair, so it belongs over neither link in particular.
+        String html = ConferencesRenderer.render(List.of(
+                view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "City", "Country")
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains(".conference-table th:last-child { text-align: center; }")
+                .doesNotContain("th:last-child { text-align: right; }");
+    }
+
+    @Test
+    void decliningStaysAvailableOnACommittedConference() {
+        // Changing your mind about a conference you committed to is exactly what Decline is for,
+        // so unlike Confirm it is not gated on the commitment level.
+        ConferenceView conf = view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00",
+                "Denver", "USA", AttendanceCommitment.GOING);
+
+        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("href=\"/conferences/" + conf.conferenceId().id() + "/decline\"");
+    }
+
+    @Test
+    void theBasisForGoingNeverReachesTheList() {
+        // AttendanceBasis is OWNER-private submission status wearing a different hat: it is not
+        // carried on ConferenceView at all, so no wording of it can appear here.
+        String html = ConferencesRenderer.render(List.of(
+                view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA",
+                        AttendanceCommitment.GOING)
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .doesNotContain("SPEAKING_ACCEPTED")
+                .doesNotContain("TICKET_PURCHASED")
+                .doesNotContain("SPEAKING_INVITED");
+    }
+
+    @Test
     void planConferenceLinkIsPresent() {
         String html = ConferencesRenderer.render(List.of(), TimeView.ALL);
 
@@ -106,11 +229,18 @@ class ConferencesRendererTest {
 
     private static ConferenceView view(String name, String start, String end,
                                        String city, String country) {
+        return view(name, start, end, city, country, AttendanceCommitment.WATCHING);
+    }
+
+    private static ConferenceView view(String name, String start, String end,
+                                       String city, String country,
+                                       AttendanceCommitment commitment) {
         return new ConferenceView(
                 ConferenceId.random(), name, "Venue",
                 new Address("1 Street", city, "", "", country, null),
                 ZonedTimestamp.fromLocal(LocalDateTime.parse(start), ZONE),
-                ZonedTimestamp.fromLocal(LocalDateTime.parse(end), ZONE)
+                ZonedTimestamp.fromLocal(LocalDateTime.parse(end), ZONE),
+                commitment
         );
     }
 }

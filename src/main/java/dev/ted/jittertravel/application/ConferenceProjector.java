@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
@@ -15,6 +16,14 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
+/**
+ * Projects the conference events into the OWNER-only {@code /conferences} list.
+ * <p>
+ * Folds attendance commitment the same way {@link ConferenceCalendarProjector} does — planned means
+ * {@link AttendanceCommitment#WATCHING}, confirmed means {@link AttendanceCommitment#GOING},
+ * declined or organizer-cancelled means gone. The two folds are deliberately written twice rather
+ * than shared: each builds a different view record, and the shared part is a two-arm switch.
+ */
 public class ConferenceProjector implements EventStreamConsumer {
     private final Map<ConferenceId, ConferenceView> conferences = new ConcurrentHashMap<>();
 
@@ -29,13 +38,27 @@ public class ConferenceProjector implements EventStreamConsumer {
                                 event.venueName(),
                                 event.venueAddress(),
                                 event.startDate(),
-                                event.endDate()
+                                event.endDate(),
+                                AttendanceCommitment.WATCHING
                         ));
+                // The basis is read and discarded: this page shows *whether* Ted is going, and why
+                // he is going stays OWNER-private even from the owner's own list until slice 4
+                // gives it somewhere to render.
+                case ConferenceAttendanceConfirmed event ->
+                        conferences.computeIfPresent(event.conferenceId(),
+                                (id, view) -> going(view));
                 case ConferenceCancelled event -> conferences.remove(event.conferenceId());
                 case ConferenceAttendanceDeclined event -> conferences.remove(event.conferenceId());
                 default -> {}
             }
         });
+    }
+
+    private ConferenceView going(ConferenceView view) {
+        return new ConferenceView(
+                view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
+                view.startDate(), view.endDate(), AttendanceCommitment.GOING
+        );
     }
 
     public List<ConferenceView> views(TimeView timeView, Instant now) {

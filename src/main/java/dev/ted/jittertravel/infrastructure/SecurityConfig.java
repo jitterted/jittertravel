@@ -59,6 +59,7 @@ public class SecurityConfig {
                                 "/booked-trains/*", "/booked-hotels/*",
                                 "/booked-hotels/*/cancel",
                                 "/conferences/*", "/conferences/*/decline",
+                                "/conferences/*/confirm",
                                 "/planned-gatherings/*").hasRole("OWNER")
                         // Booking lists: OWNER-only (FAMILY cannot view booking details).
                         .requestMatchers(

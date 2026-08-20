@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.EntryKind;
 import dev.ted.jittertravel.application.SubtitleLine;
@@ -488,6 +489,7 @@ class CalendarViewBuilderTest {
                 null,
                 "https://meetup.com/ljc/events/123",
                 true,
+                null,
                 null
         );
 
@@ -501,6 +503,74 @@ class CalendarViewBuilderTest {
 
         assertThat(html).contains("class=\"entry-speaking-badge\"");
         assertThat(html).contains(">A Ted Talk<");
+    }
+
+    @Test
+    void speculativeConferenceRendersMaybeChip() {
+        String html = CalendarViewBuilder.render(
+                List.of(conference(AttendanceCommitment.WATCHING)),
+                LocalDate.of(2026, 11, 1),
+                LocalDate.of(2026, 11, 8),
+                TODAY,
+                false
+        );
+
+        assertThat(html).contains("<span class=\"entry-maybe-badge\">Maybe</span>");
+    }
+
+    @Test
+    void committedConferenceRendersNoChipAtAll() {
+        // "Ted is going" is the default reading of a calendar entry, so a Going chip would be
+        // noise on every committed conference — and its absence something a reader has to reason
+        // about.
+        String html = CalendarViewBuilder.render(
+                List.of(conference(AttendanceCommitment.GOING)),
+                LocalDate.of(2026, 11, 1),
+                LocalDate.of(2026, 11, 8),
+                TODAY,
+                false
+        );
+
+        assertThat(html)
+                .contains(">J-Fall<")
+                .doesNotContain("entry-maybe-badge")
+                .doesNotContain(">Maybe<");
+    }
+
+    @Test
+    void continuationSegmentOfASpeculativeConferenceCarriesNoChip() {
+        // Like the title and the pencil, the chip belongs to the entry's own segment: repeating it
+        // on every week the conference spans would read as a second, separate maybe.
+        CalendarEntry multiWeek = new CalendarEntry(
+                EntryKind.CONFERENCE,
+                LocalDateTime.of(2026, 11, 5, 9, 0),
+                LocalDateTime.of(2026, 11, 12, 18, 0),
+                "J-Fall", lines("Ede, Netherlands"),
+                "J-Fall cont'd", lines("Ede, Netherlands"),
+                null, false, null, AttendanceCommitment.WATCHING
+        );
+
+        String secondWeek = CalendarViewBuilder.render(
+                List.of(multiWeek),
+                LocalDate.of(2026, 11, 8),
+                LocalDate.of(2026, 11, 15),
+                TODAY,
+                false
+        );
+
+        assertThat(secondWeek)
+                .contains("<span>J-Fall cont&#x27;d</span>")
+                .doesNotContain("entry-maybe-badge");
+    }
+
+    private static CalendarEntry conference(AttendanceCommitment commitment) {
+        return new CalendarEntry(
+                EntryKind.CONFERENCE,
+                LocalDateTime.of(2026, 11, 5, 9, 0),
+                LocalDateTime.of(2026, 11, 5, 18, 0),
+                "J-Fall", lines("Ede, Netherlands"),
+                null, null, null, false, null, commitment
+        );
     }
 
     @Test
@@ -548,7 +618,8 @@ class CalendarViewBuilderTest {
                 null,
                 "https://meetup.com/ljc/events/123",
                 false,
-                "/planned-gatherings/g-123"
+                "/planned-gatherings/g-123",
+                null
         );
     }
 

@@ -62,6 +62,12 @@ Treat it as security code, not formatting code.
 - carrier/service identifiers — flight numbers, train `serviceId`, booking references
 - links into owner/family surfaces (`/itinerary`, `/booked-*`, `/planned-*`)
 - the whole `/schedule-problems` report (conflict/gap times, names, internal ids) — OWNER-only
+- everything about a conference *except* the collapsed commitment level: the submission
+  pipeline (talk titles, submitted/accepted/waitlisted/rejected/withdrawn and their dates), CFP
+  window dates, and the commitment **basis** — `AttendanceBasis`, i.e. whether Ted is going
+  because a talk was accepted, he was invited, or he bought a ticket. The basis is the easy leak,
+  because it re-states the submission outcome; keep it out of `CalendarEntry` entirely rather than
+  stripping it in the redactor.
 
 **Public by decision** (do not "fix" these without asking Ted): the fact that travel is
 happening on a given day, airport codes and city names for flights/trains/hotels, and
@@ -72,7 +78,18 @@ redactor's GATHERING branch and renders as a "Speaking" badge on the anonymous `
 (the venue and time are already public, so the badge reveals nothing new). The conference
 half of the speaking badge waits on submission tracking; a **private** talk at a company is
 neither — it has no public venue/time and must get its own redacted `EntryKind`, never be
-modelled as a gathering to earn the badge.
+modelled as a gathering *or a conference* to earn the badge.
+
+A conference's **attendance commitment** is public too (shipped 2026-08-19):
+`CalendarEntry.commitment` rides through the redactor's CONFERENCE branch and renders as a
+"Maybe" chip on the anonymous `/calendar` — the same chip owner and family see. It is publishable
+only because `ConferenceCalendarProjector` has **already collapsed** every speculative state
+(CFP not open, submitted and waiting, rejected but undecided, not submitting) into one
+`AttendanceCommitment.WATCHING`, so the chip cannot distinguish them; the private
+`AttendanceBasis` is read there and discarded rather than carried and stripped. If you ever
+un-collapse that enum — add a value that a viewer could map back to a submission outcome — the
+chip stops being publishable. `GOING` renders no chip, and a declined or organizer-cancelled
+conference leaves the calendar entirely, for everyone.
 
 **Private social events are their own kind (shipped 2026-08-13).** `EntryKind.PRIVATE_EVENT`
 (a dinner with friends) has its own redacting branch: an anonymous viewer sees `Busy`, a
@@ -133,6 +150,35 @@ production code. Note that a `@WebMvcTest` slice has no `Clock` bean of its own 
 `WebTodayTestConfig` (which pins one) when slicing a controller that needs time. Prefer a
 `Clock.fixed(...)`; use an advancing clock only when the behaviour under test genuinely
 depends on time passing (see `PostgresPersisterTest`, where command ordering does).
+
+### Action affordances: never move, and disable rather than hide — but only for *state*
+
+Two standing UI rules for buttons, links, and icons (Ted, 2026-08-19):
+
+1. **They never move.** A reader aims at a remembered position, and a misclick on an action is not
+   a free mistake. If one action renders conditionally, its neighbours must stay exactly where they
+   were — same position on every row, in every state. Reserve the slot; do **not** re-align the
+   container to compensate (flush-right was tried on `/conferences` and rejected: it reads as off,
+   and it drags the column header right with it).
+2. **An action that cannot be triggered right now is shown disabled, with the reason** — greyed,
+   non-interactive text (a `span`, never a disabled `<a>`), carrying a `title` that says why. It is
+   not removed. Removing it changes the row's vocabulary between rows and hides that the capability
+   exists at all.
+
+**The split that matters — the second rule is about state, never about authorization.** It applies
+only where the action *has been or will be* available to this viewer: already confirmed, already
+cancelled, no next page. Where a viewer could **never** trigger it — anonymous and family users on
+OWNER surfaces — render **nothing at all**. A greyed control is itself a disclosure: it tells a
+stranger the surface exists and that Ted has one. Hiding by permission stays hiding; see the
+redaction rules above, which win wherever the two appear to disagree.
+
+Worked example, `ConferencesRenderer.confirmSlot`: a `WATCHING` row gets a live `Confirm` link, a
+`GOING` row gets greyed `Confirm` text titled "Already confirmed. Changing why you're going arrives
+with submission tracking." — a *presentation* limit, honestly stated, since the domain does allow
+re-confirming with a different basis. Decline therefore occupies the same slot in both.
+
+Known violations still open, with the mechanism for each, are listed in `docs/Cleanup_Tasks.md`
+("Action affordances that still move").
 
 ### Presentation formatting stays out of the domain
 

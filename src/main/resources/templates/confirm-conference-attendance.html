@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Confirm Attendance</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .summary {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.9rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }
+        .summary .name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .summary .line { font-size: 0.9rem; color: var(--muted-text); margin-top: 0.15rem; }
+
+        p.explain { font-size: 0.9rem; color: var(--text-color); margin: 0 0 1rem; }
+
+        p.error {
+            font-size: 0.9rem;
+            color: #b00;
+            margin: 0 0 1rem;
+        }
+
+        fieldset {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.9rem 1.1rem;
+            margin: 0 0 1.25rem;
+        }
+        legend { font-size: 0.8rem; color: var(--muted-text); padding: 0 0.35rem; }
+
+        .choice { display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.7rem; }
+        .choice:last-child { margin-bottom: 0; }
+        .choice input { margin-top: 0.25rem; }
+        .choice .label { font-size: 0.95rem; }
+        .choice .hint { display: block; font-size: 0.8rem; color: var(--muted-text); }
+
+        .actions { display: flex; align-items: center; gap: 1.25rem; }
+
+        button.primary {
+            background: var(--accent-color);
+            color: #fff;
+            border: 1px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        button.primary:hover { opacity: 0.88; }
+
+        .back-link { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/conferences">Conferences</a>
+    </nav>
+
+    <h1>Confirm Attendance</h1>
+
+    <div class="summary">
+        <div class="name" th:text="${conference.name()}">Conference Name</div>
+        <div class="line" th:text="${conference.city() + ', ' + conference.country()}">City, Country</div>
+        <div class="line" th:if="${!conference.venueName().isBlank()}" th:text="${conference.venueName()}">Venue</div>
+        <div class="line">
+            <span th:text="${#temporals.format(conference.startDate().localDateTime(), 'EEE, MMM d, yyyy')}">start</span>
+            &ndash;
+            <span th:text="${#temporals.format(conference.endDate().localDateTime(), 'EEE, MMM d, yyyy')}">end</span>
+        </div>
+    </div>
+
+    <p class="explain">
+        Confirming records that <em>you</em> decided to go. It drops the &ldquo;Maybe&rdquo; from the
+        public calendar &mdash; but not why you&rsquo;re going: the reason below stays private and
+        never reaches the calendar.
+    </p>
+
+    <p class="error" th:if="${error}" th:text="${error}">Choose why you are going.</p>
+
+    <!-- The three labels are written out rather than looped over AttendanceBasis.values(): wording
+         is presentation, so it does not belong on the domain enum, and a fourth basis would need a
+         label written here anyway. ConfirmConferenceAttendanceControllerTest posts every value. -->
+    <form th:action="@{|/conferences/${conference.conferenceId().id()}/confirm|}" method="post">
+        <fieldset>
+            <legend>Why are you going?</legend>
+
+            <label class="choice">
+                <input type="radio" name="basis" value="SPEAKING_ACCEPTED"/>
+                <span class="label">A talk was accepted
+                    <span class="hint">You submitted, and they said yes.</span>
+                </span>
+            </label>
+
+            <label class="choice">
+                <input type="radio" name="basis" value="SPEAKING_INVITED"/>
+                <span class="label">Invited to speak
+                    <span class="hint">No CFP &mdash; the organizers asked you.</span>
+                </span>
+            </label>
+
+            <label class="choice">
+                <input type="radio" name="basis" value="TICKET_PURCHASED"/>
+                <span class="label">Ticket purchased
+                    <span class="hint">Going as an attendee, whatever happened with a talk.</span>
+                </span>
+            </label>
+        </fieldset>
+
+        <div class="actions">
+            <button type="submit" class="primary">Confirm I'm going</button>
+            <a class="back-link" th:href="@{/conferences}">Not yet &mdash; back to the list</a>
+        </div>
+    </form>
+
+</div>
+</body>
+</html>

@@ -14,7 +14,36 @@ plan doc and its status — including these items — see `Backlog.md`.
 - [ ] **Itinerary: show current location (from hotel) when a day has no other events.** So the
       owner can tell *where they are* on a day whose only context is an ongoing hotel stay, surface
       the current location (derived from the active hotel booking) instead of an empty/eventless day.
+- [ ] **Action affordances that still move (general rule: they must not).** Fixed on `/conferences`
+      2026-08-19 by giving the actions cell two virtual slots: a row with nothing to confirm shows
+      greyed, non-interactive `Confirm` text with a title saying why, so Decline keeps the second
+      slot and both stay left-justified within their own, header centred across the pair. (Two
+      earlier attempts rejected: flush-right alignment reads as off and drags the header right, and
+      an *invisible* placeholder left a blank line wherever the cell wrapped.) The standing rule and
+      its state-vs-authorization split are now in CLAUDE.md. Two other places still have the moving
+      defect and were left alone:
+      - `PlannedGatheringsRenderer.actionsCell` (`PlannedGatheringsRenderer.java:157`) stacks an
+        optional `Event page →` above an always-present `Edit` in a column flex
+        (`.gathering-actions`, CSS at `:57`), so **Edit sits on the first line on gatherings with no
+        info URL and the second line on those with one** — the link's vertical position changes row
+        to row. Needs a reserved slot rather than the conferences fix (the shift is vertical, and
+        this list stacks on narrow viewports).
+      - `ItineraryRenderer` train card (`ItineraryRenderer.java:163`) puts the OWNER edit pencil
+        after an optional service-ID span, so the **pencil slides to the start of the line on trains
+        with no service id**. The neighbour is text rather than an action, but the pencil is the
+        thing being aimed at.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
+- [ ] **Read-only mode redirect is untested on the conference action controllers.** Both
+      `ConfirmConferenceAttendanceController` and `DeclineConferenceController` catch
+      `ReadOnlyModeException` and return `redirect:/read-only`, and neither slice test exercises
+      that branch — the `catch` could be deleted and both suites stay green. Add a case to each
+      (`willThrow(new ReadOnlyModeException(...))` on the application service, assert the redirect).
+      Noticed 2026-08-19 reviewing the commitment slice; the same gap predates it on the decline
+      side. Worth checking whether the other write controllers have the same hole.
+- [ ] **A malformed conference id on the GET of `/conferences/{id}/confirm` (and `/decline`) is
+      untested.** `lookup(...)` catches the `IllegalArgumentException` from `UUID.fromString` and
+      redirects to `/conferences`; only the POST path has a `malformedConferenceIdRedirects...`
+      test, so the GET-side catch is unpinned.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.
       `PostgresPersister.loadTimelinePage` resets `runningMaxSeq` to `Long.MIN_VALUE` on every

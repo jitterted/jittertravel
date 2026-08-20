@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.DeclineConference;
 import dev.ted.jittertravel.application.ConferenceProjector;
 import dev.ted.jittertravel.application.ConferenceView;
@@ -7,16 +8,14 @@ import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferenceNotFound;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Optional;
@@ -28,10 +27,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.lenient;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(DeclineConferenceController.class)
+@Import(WebTodayTestConfig.class)
 @WithMockUser(roles = "OWNER")
 class DeclineConferenceControllerTest {
 
@@ -46,14 +45,6 @@ class DeclineConferenceControllerTest {
     @MockitoBean
     ConferenceProjector projector;
 
-    @MockitoBean
-    Clock clock;
-
-    @BeforeEach
-    void setUp() {
-        lenient().when(clock.instant()).thenReturn(Instant.parse("2026-08-16T18:30:00Z"));
-    }
-
     private static ConferenceView viewFor(UUID conferenceId) {
         return new ConferenceView(
                 ConferenceId.of(conferenceId),
@@ -61,7 +52,8 @@ class DeclineConferenceControllerTest {
                 "Palais des Congrès",
                 new Address("Avenue de France", "Marrakesh", "", "40000", "Morocco", "Marrakesh"),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 7, 9, 0), VENUE_ZONE),
-                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 9, 17, 0), VENUE_ZONE));
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 9, 17, 0), VENUE_ZONE),
+                AttendanceCommitment.WATCHING);
     }
 
     @Test
@@ -103,8 +95,11 @@ class DeclineConferenceControllerTest {
                 .param("reason", "Schedule clash")
                 .exchange();
 
+        // declinedOn is the injected Clock's instant (WebTodayTestConfig's fixed one), never an
+        // ambient read.
         then(declineConference).should().declineConference(any(),
-                eq(new DeclineConferenceRequest(conferenceId, "Schedule clash")), any());
+                eq(new DeclineConferenceRequest(conferenceId, "Schedule clash")),
+                eq(WebTodayTestConfig.FIXED_INSTANT));
     }
 
     @Test

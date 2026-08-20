@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.AttendanceBasis;
+import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
@@ -20,6 +22,7 @@ class ConferenceProjectorTest {
 
     // ALL ignores now; any instant works for those cases.
     private static final Instant NOW = Instant.parse("2020-01-01T00:00:00Z");
+    private static final Instant CONFIRMED_ON = Instant.parse("2026-08-19T16:45:00Z");
     // The test JVM is pinned to UTC (pom.xml), so fixtures name a venue zone explicitly —
     // otherwise "is it over?" would accidentally agree with the server and prove nothing.
     private static final ZoneId VENUE_ZONE = ZoneId.of("America/Los_Angeles");
@@ -169,6 +172,88 @@ class ConferenceProjectorTest {
         assertThat(projector.views(TimeView.ALL, NOW))
                 .as("a declined conference leaves the conferences list, like a cancelled one")
                 .isEmpty();
+    }
+
+    @Test
+    void aPlannedConferenceStartsOutMerelyWatched() {
+        ConferenceProjector projector = new ConferenceProjector();
+        plan(projector, ConferenceId.random());
+
+        assertThat(projector.views(TimeView.ALL, NOW))
+                .singleElement()
+                .extracting(ConferenceView::commitment)
+                .isEqualTo(AttendanceCommitment.WATCHING);
+    }
+
+    @Test
+    void confirmingAttendanceTurnsTheViewIntoGoing() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+
+        confirm(projector, conferenceId, AttendanceBasis.SPEAKING_ACCEPTED);
+
+        assertThat(projector.views(TimeView.ALL, NOW))
+                .singleElement()
+                .extracting(ConferenceView::commitment)
+                .isEqualTo(AttendanceCommitment.GOING);
+    }
+
+    @Test
+    void confirmingAttendanceLeavesTheRestOfTheViewAlone() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+        ConferenceView before = projector.views(TimeView.ALL, NOW).getFirst();
+
+        confirm(projector, conferenceId, AttendanceBasis.SPEAKING_ACCEPTED);
+
+        assertThat(projector.views(TimeView.ALL, NOW).getFirst())
+                .isEqualTo(new ConferenceView(
+                        before.conferenceId(), before.name(), before.venueName(),
+                        before.venueAddress(), before.startDate(), before.endDate(),
+                        AttendanceCommitment.GOING));
+    }
+
+    @Test
+    void confirmingAttendanceForAnUnknownConferenceAddsNothing() {
+        ConferenceProjector projector = new ConferenceProjector();
+
+        confirm(projector, ConferenceId.random(), AttendanceBasis.TICKET_PURCHASED);
+
+        assertThat(projector.views(TimeView.ALL, NOW)).isEmpty();
+    }
+
+    @Test
+    void aConfirmedConferenceCanStillBeDeclined() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+        confirm(projector, conferenceId, AttendanceBasis.SPEAKING_ACCEPTED);
+
+        ConferenceAttendanceDeclined declined = new ConferenceAttendanceDeclined(
+                conferenceId, "Something came up", CONFIRMED_ON);
+        projector.handle(Stream.of(new StoredEvent(
+                3, declined.getClass(), UUID.randomUUID(), Instant.now(), declined, UUID.randomUUID())));
+
+        assertThat(projector.views(TimeView.ALL, NOW)).isEmpty();
+    }
+
+    private static void plan(ConferenceProjector projector, ConferenceId conferenceId) {
+        ConferencePlanned planned = new ConferencePlanned(
+                conferenceId, "dev2next",
+                zt(LocalDateTime.of(2026, 9, 28, 9, 0)), zt(LocalDateTime.of(2026, 10, 1, 17, 0)),
+                "Venue", new Address("Street", "Denver", "CO", "80202", "USA", null));
+        projector.handle(Stream.of(new StoredEvent(
+                1, planned.getClass(), UUID.randomUUID(), Instant.now(), planned, UUID.randomUUID())));
+    }
+
+    private static void confirm(ConferenceProjector projector, ConferenceId conferenceId,
+                                AttendanceBasis basis) {
+        ConferenceAttendanceConfirmed confirmed =
+                new ConferenceAttendanceConfirmed(conferenceId, basis, CONFIRMED_ON);
+        projector.handle(Stream.of(new StoredEvent(
+                2, confirmed.getClass(), UUID.randomUUID(), Instant.now(), confirmed, UUID.randomUUID())));
     }
 
     private static ZonedTimestamp zt(LocalDateTime local) {

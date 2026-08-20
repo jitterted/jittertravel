@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
@@ -14,18 +15,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 /**
- * Projects {@link ConferencePlanned} events into pre-formatted
- * {@link CalendarEntry} views ready for the calendar swimlane renderer.
+ * Projects the conference events into pre-formatted {@link CalendarEntry} views ready for the
+ * calendar swimlane renderer.
  * <p>
- * For now, the calendar treats planned conferences as the only source of
- * conference entries, and every conference renders identically whether Ted is
- * committed to it or merely holding the slot.
+ * Attendance commitment is folded here rather than in a separate {@code ConfirmedConferenceProjector},
+ * since commitment is a property of one conference and not a second source of conferences: a
+ * {@link ConferencePlanned} lands as {@link AttendanceCommitment#WATCHING}, and a
+ * {@link ConferenceAttendanceConfirmed} rewrites that same entry as
+ * {@link AttendanceCommitment#GOING}.
  * <p>
- * A planned change makes this projector fold attendance-commitment events as well and
- * stamp a commitment level onto each {@link CalendarEntry} — not a separate
- * {@code ConfirmedConferenceProjector}, since commitment is a property of one
- * conference rather than a second source of conferences. Commitment is public;
- * submission/speaking status is not. See {@code docs/ConferenceSubmissionTrackingPlan.md}.
+ * <strong>The collapse to a public label happens here.</strong> Only the commitment level reaches
+ * the {@link CalendarEntry}; the event's {@link dev.ted.jittertravel.domain.AttendanceBasis} — why
+ * Ted is going, which is submission status in disguise — is read and discarded. A field that never
+ * enters the view cannot leak from it (CLAUDE.md redaction rule 1), so the redactor has nothing to
+ * strip. See {@code docs/ConferenceSubmissionTrackingPlan.md}.
  */
 public class ConferenceCalendarProjector implements EventStreamConsumer {
     private final Map<ConferenceId, CalendarEntry> entries = new ConcurrentHashMap<>();
@@ -47,14 +50,34 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                             locationLines,
                             event.name() + " cont'd",
                             locationLines,
-                            null
+                            null,
+                            false,
+                            null,
+                            // Planning a conference is putting it on the radar, nothing more: it is
+                            // speculative until an attendance confirmation says otherwise.
+                            AttendanceCommitment.WATCHING
                     ));
                 }
+                // Ted is going: same entry, no longer speculative. `event.basis()` is deliberately
+                // not read — see the class comment.
+                case ConferenceAttendanceConfirmed event ->
+                        entries.computeIfPresent(event.conferenceId(),
+                                (id, entry) -> going(entry));
                 case ConferenceCancelled event -> entries.remove(event.conferenceId());
                 case ConferenceAttendanceDeclined event -> entries.remove(event.conferenceId());
                 default -> {}
             }
         });
+    }
+
+    private CalendarEntry going(CalendarEntry entry) {
+        return new CalendarEntry(
+                entry.kind(), entry.start(), entry.end(),
+                entry.mainTitle(), entry.subTitle(),
+                entry.continuationTitle(), entry.continuationSubTitle(),
+                entry.mapsUrl(), entry.speaking(), entry.editPath(),
+                AttendanceCommitment.GOING
+        );
     }
 
     public List<CalendarEntry> entries() {

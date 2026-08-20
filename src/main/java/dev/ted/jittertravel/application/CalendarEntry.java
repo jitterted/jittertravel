@@ -16,6 +16,12 @@ import java.util.List;
  * contains the entry's {@code start} day uses {@code mainTitle} / {@code subTitle};
  * subsequent (continuation) segments use {@code continuationTitle} /
  * {@code continuationSubTitle}, skipping any field that is {@code null}.
+ * <p>
+ * {@code commitment} applies to {@link EntryKind#CONFERENCE} alone and is {@code null} —
+ * "not applicable" — on every other kind. It is one of several fields here that apply to some kinds
+ * only; the agreed fix is the sealed {@code EntryDetails} of
+ * {@code docs/RendererVsProjectorResponsibilities.md} (decision S2 + E2, 2026-08-19), which this
+ * field is expected to move into.
  */
 public record CalendarEntry(
         EntryKind kind,
@@ -27,17 +33,18 @@ public record CalendarEntry(
         List<SubtitleLine> continuationSubTitle,
         String mapsUrl,
         boolean speaking,
-        String editPath
+        String editPath,
+        AttendanceCommitment commitment
 ) {
     /**
      * Convenience constructor for entries with no owner edit link and no public "speaking"
-     * marker (hotels, flights sharing a day, conferences, private events, and non-speaking
-     * gatherings). Keeps the many call sites that predate {@code editPath} and {@code speaking}.
+     * marker (hotels, flights sharing a day, private events, and non-speaking gatherings).
+     * Keeps the many call sites that predate {@code editPath} and {@code speaking}.
      */
     public CalendarEntry(EntryKind kind, LocalDateTime start, LocalDateTime end,
                          String mainTitle, List<SubtitleLine> subTitle,
                          String continuationTitle, List<SubtitleLine> continuationSubTitle, String mapsUrl) {
-        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, null);
+        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, null, null);
     }
 
     /**
@@ -48,6 +55,6 @@ public record CalendarEntry(
                          String mainTitle, List<SubtitleLine> subTitle,
                          String continuationTitle, List<SubtitleLine> continuationSubTitle,
                          String mapsUrl, String editPath) {
-        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, editPath);
+        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, editPath, null);
     }
 }

@@ -22,29 +22,34 @@ public class CalendarEntryRedactor {
                     entry.kind(), entry.start(), entry.end(),
                     "Hotel", entry.subTitle(),
                     "Hotel cont'd", entry.continuationSubTitle(),
-                    null, false, null
+                    null, false, null, null
             );
             case FLIGHT -> new CalendarEntry(
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), null,
                     entry.continuationTitle(), null,
-                    null, false, null
+                    null, false, null, null
             );
             case TRAIN -> new CalendarEntry(
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), null,
                     entry.continuationTitle(), null,
-                    null, false, null
+                    null, false, null, null
             );
             // Conferences are public events: name, venue, location, and times are all visible by
-            // decision (Ted attends them publicly). They carry no `speaking` marker today, so it
-            // is dropped; when conference submission tracking lands (docs/ConferenceSubmission-
-            // TrackingPlan.md) this branch gains its own `entry.speaking()` pass-through.
+            // decision (Ted attends them publicly). `commitment` is public too — but only because
+            // the projector already collapsed every speculative state into WATCHING, so what
+            // arrives here cannot distinguish "submitted and waiting" from "hasn't decided". The
+            // private half, the AttendanceBasis, never enters a CalendarEntry at all (redaction
+            // rule 1 done structurally rather than stripped here).
+            // They carry no `speaking` marker today, so it is dropped; when the submission stream
+            // lands (docs/ConferenceSubmissionTrackingPlan.md slice 4) this branch gains its own
+            // `entry.speaking()` pass-through.
             case CONFERENCE -> new CalendarEntry(
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), entry.subTitle(),
                     entry.continuationTitle(), entry.continuationSubTitle(),
-                    entry.mapsUrl(), false, null
+                    entry.mapsUrl(), false, null, entry.commitment()
             );
             // Gatherings are public events too, and that Ted is *speaking* at one is public by
             // decision (the venue and time are already public) — so `speaking` passes through to
@@ -55,7 +60,7 @@ public class CalendarEntryRedactor {
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), entry.subTitle(),
                     entry.continuationTitle(), entry.continuationSubTitle(),
-                    entry.mapsUrl(), entry.speaking(), null
+                    entry.mapsUrl(), entry.speaking(), null, null
             );
             // A private social event: anonymous viewers see only that Ted is "Busy", when
             // (the time in the event's own zone, via FixedRange), and the city/country — never
@@ -87,7 +92,7 @@ public class CalendarEntryRedactor {
                 entry.kind(), entry.start(), entry.end(),
                 "Busy", List.copyOf(redacted),
                 null, null,
-                null, false, null
+                null, false, null, null
         );
     }
 }

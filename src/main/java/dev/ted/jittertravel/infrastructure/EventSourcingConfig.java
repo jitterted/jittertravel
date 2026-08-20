@@ -101,6 +101,13 @@ public class EventSourcingConfig {
         return new DeclineConference(commandExecutor);
     }
 
+    /** Same shape as {@link DeclineConference}: the decision fact is folded from the stream (R1). */
+    @Bean
+    public ConfirmConferenceAttendance confirmConferenceAttendanceApplicationService(
+            CommandExecutor commandExecutor) {
+        return new ConfirmConferenceAttendance(commandExecutor);
+    }
+
     @Bean
     public FlightBooking flightBookingApplicationService(CommandExecutor commandExecutor,
                                                          AirportZoneResolver airportZoneResolver) {

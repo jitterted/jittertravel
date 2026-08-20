@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.CalendarAggregator;
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.EntryKind;
@@ -225,7 +226,7 @@ class CalendarRedactionSecurityTest {
                 EntryKind.GATHERING, GATHERING_START, GATHERING_END,
                 "London Java Community", List.of(new SubtitleLine.Text("London, GB")),
                 null, null, "https://meetup.com/ljc/events/123",
-                true, "/planned-gatherings/abc"
+                true, "/planned-gatherings/abc", null
         )));
 
         assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
@@ -234,6 +235,76 @@ class CalendarRedactionSecurityTest {
                 .contains("A Ted Talk")
                 // The owner edit link is still never public.
                 .doesNotContain("/planned-gatherings/abc");
+    }
+
+    private static final LocalDateTime CONF_START = LocalDateTime.of(2026, 11, 5, 9, 0);
+    private static final LocalDateTime CONF_END = LocalDateTime.of(2026, 11, 5, 18, 0);
+
+    private static CalendarEntry conference(AttendanceCommitment commitment) {
+        return new CalendarEntry(
+                EntryKind.CONFERENCE, CONF_START, CONF_END,
+                "J-Fall", List.of(new SubtitleLine.Text("Ede, Netherlands")),
+                null, null, null, false, null, commitment);
+    }
+
+    // The chip's own CSS comment names it, so the bare word "Maybe" appears in every calendar
+    // response whether or not a chip is rendered. Both directions assert the whole element.
+    private static final String MAYBE_CHIP = "<span class=\"entry-maybe-badge\">Maybe</span>";
+
+    @Test
+    void anonymousUserSeesMaybeChipOnSpeculativeConference() {
+        // The commitment level is public by decision: an anonymous reader is meant to learn that
+        // Ted might be at this one, so the chip must survive the real security chain.
+        given(calendarAggregator.allEntries()).willReturn(
+                List.of(conference(AttendanceCommitment.WATCHING)));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains(MAYBE_CHIP);
+    }
+
+    @Test
+    void anonymousUserSeesNoChipOnCommittedConference() {
+        given(calendarAggregator.allEntries()).willReturn(
+                List.of(conference(AttendanceCommitment.GOING)));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("J-Fall")
+                .doesNotContain(MAYBE_CHIP);
+    }
+
+    @Test
+    void anonymousUserNeverSeesWhyTedIsGoing() {
+        // AttendanceBasis is the private half: it never enters a CalendarEntry, so no wording or
+        // enum name of it can reach the anonymous page however the entry is rendered.
+        given(calendarAggregator.allEntries()).willReturn(
+                List.of(conference(AttendanceCommitment.GOING)));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("SPEAKING_ACCEPTED")
+                .doesNotContain("SPEAKING_INVITED")
+                .doesNotContain("TICKET_PURCHASED")
+                .doesNotContain("Ticket purchased")
+                .doesNotContain("Invited to speak");
+    }
+
+    @Test
+    @WithMockUser(username = "ted", roles = "OWNER")
+    void ownerSeesTheSameMaybeChipAsAnonymousViewers() {
+        // One rendering path, one collapse: richer per-conference status belongs on the conference
+        // radar, not on the calendar, so there is nothing for the redactor to get wrong here.
+        given(calendarAggregator.allEntries()).willReturn(
+                List.of(conference(AttendanceCommitment.WATCHING)));
+
+        assertThat(mockMvc.get().uri("/calendar"))
+                .hasStatusOk()
+                .bodyText()
+                .contains(MAYBE_CHIP);
     }
 
     @Test

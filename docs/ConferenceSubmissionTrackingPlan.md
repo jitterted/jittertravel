@@ -1,8 +1,33 @@
 # Conference Submission Tracking Plan — commitment, speaking status, and the CFP pipeline
 
 > **Status: IN PROGRESS. Slice 1 (`ConferenceFormat`) shipped 2026-08-18; the Decline slice shipped
-> 2026-08-16. Slices 2–5 not started.** Design agreed with Ted in conversation. See
-> `docs/Backlog.md` for the status of everything else.
+> 2026-08-16; slice 2 (commitment) shipped 2026-08-19. Slices 3–5 not started.** Design agreed with
+> Ted in conversation. See `docs/Backlog.md` for the status of everything else.
+>
+> **Slice 2 as built (2026-08-19).** `AttendanceBasis` (3 values) + `ConferenceAttendanceConfirmed`
+> (basis non-null, fails loud) + `ConfirmConferenceAttendanceCommand`/`Context` + a
+> `ConfirmConferenceAttendance` application service folding "is the conference still live?" from the
+> stream, exactly like `DeclineConference`. The derived level is `AttendanceCommitment` in
+> `application` with **two** values (`WATCHING`, `GOING`) — no `NOT_GOING`, because a declined or
+> cancelled conference leaves every read model, so "not going" is absence, not a value a renderer
+> could ever be handed. Both conference projectors fold it: `ConferenceCalendarProjector` stamps
+> `CalendarEntry.commitment` (rendering as the "Maybe" chip) and `ConferenceProjector` stamps
+> `ConferenceView.commitment` (rendering as a **Going?** column on `/conferences`, with the
+> **Confirm** link shown on `WATCHING` rows only — one word, because that cell's links are
+> nowrap units and a longer label widens the table past a narrow viewport). **Confirming twice is allowed** — a
+> second confirmation with a different basis is how "I'd bought a ticket, then the talk was
+> accepted" is recorded, and the fold takes the last one.
+>
+> **Sequencing decided 2026-08-19: slice 2 shipped *before* the S2 + E2 calendar refactor** of
+> `RendererVsProjectorResponsibilities.md`. So `commitment` is, for now, one more nullable field on
+> the flat `CalendarEntry` (null = not applicable on the five non-conference kinds) rather than a
+> `ConferenceDetails`. Two small reviewable diffs instead of one large one; the field is expected to
+> move into the sealed `EntryDetails` when that refactor lands.
+>
+> **What slice 2 did *not* build:** `TalkAccepted`'s auto-commit and `InvitedToSpeak`'s
+> offer-to-commit. Those events land in slice 4, so their arms of the fold land with them — there is
+> nothing to write a branch against today. The confirm form is the manual path, and it is the one
+> the backfill uses.
 >
 > **Slice 1 as built (2026-08-18):** `ConferenceFormat` (CALL_FOR_PAPERS / ACCEPTANCE_REQUIRED /
 > OPEN_SPACE) rides on `ConferencePlanned` as a **non-null** field; the plan form picks it
@@ -266,7 +291,8 @@ basis duplicates a fact the stream holds, and duplicated facts drift. Read the s
 label.
 
 The surviving three partition cleanly into speaking (`SPEAKING_ACCEPTED`, `SPEAKING_INVITED`) and
-not (`TICKET_PURCHASED`), which is exactly the read the slice-4 conference speaking badge needs.
+not (`TICKET_PURCHASED`), which is exactly the read the slice-4 conference speaking badge needs —
+and, before it, the `SPEAKER` marker on the `/conferences` radar (see below).
 `basis` stays **OWNER-only and never enters `CalendarEntry`** regardless.
 
 ### The public calendar label — a "Maybe" chip, speculative only (Ted, 2026-08-19)
@@ -296,6 +322,46 @@ conference radar list in slice 3, not on the calendar.
 
 A styling-only distinction (muted vs. solid) was rejected: it is invisible to anyone who does not
 already know the convention, and muted conventionally reads as *cancelled*.
+
+### The `/conferences` speaking marker — **SPEAKER** in the Going? column (Ted, 2026-08-19)
+
+The OWNER-only list marks that Ted is speaking in the **same `Going?` column** as the commitment
+chip, and the word is **`SPEAKER`** — deliberately *not* the calendar's "A Ted Talk".
+
+| surface | wording | why |
+|---|---|---|
+| public `/calendar` entry | "A Ted Talk" | the entry cell owns a whole row of a day column; the longer, playful wording fits and reads well |
+| OWNER `/conferences` row | **`SPEAKER`** | one nowrap unit in a seven-column table that only just fits — the page started scrolling sideways at ~860px and fits at ~820px only after the container gave up its gutter (measured 2026-08-19), so every extra word in that column costs real width |
+
+Same fact, two surfaces, two lengths. This is not a new dimension: it renders alongside
+`Maybe`/`Going` rather than replacing either, so a speculative conference Ted has been invited to
+can read `Maybe` + `SPEAKER`.
+
+**Where the fact comes from — and it changes at slice 4.**
+
+- *Before slice 4:* from `AttendanceBasis` on `ConferenceAttendanceConfirmed` —
+  `SPEAKING_ACCEPTED` and `SPEAKING_INVITED` are speaking, `TICKET_PURCHASED` is not. This is the
+  partition the basis was chosen for, and it is the **only** speaking evidence the backfilled
+  conferences will carry.
+- *From slice 4 on:* the **submission fold** (`TalkAccepted`, `InvitedToSpeak`) is authoritative,
+  because that is where speaking becomes a tracked fact rather than a one-off label. The basis
+  stays as the stand-in for conferences recorded before those events existed. If the two ever
+  disagree, the stream wins — the basis is a manual annotation, the submission events are history.
+
+**What it needs.** `ConferenceProjector` today reads `event.basis()` and deliberately discards it
+(nothing rendered it). It stops discarding it and carries a **derived `speaking` boolean** — *not*
+the basis itself — onto `ConferenceView`. Carrying the boolean keeps accepted-vs-invited out of the
+view for the same reason `CalendarEntry` carries only the collapsed commitment: a field that never
+enters a view cannot leak from it, and "which of the two speaking bases" is submission status.
+
+**No redaction question here.** `/conferences` is OWNER-only (`SecurityConfig` matcher +
+`AuthorizationMatrixTest` row), so this marker is invisible to family and anonymous viewers by
+construction. It says nothing about the *public* conference speaking badge on `/calendar`, which
+remains a separate slice-4 decision — see "Redaction" below and the gathering precedent.
+
+**Sequencing.** Shippable any time after slice 2 (the basis exists now), but it belongs with
+**slice 3**, which reworks this list into the radar and therefore the column layout; its source then
+flips to the submission fold in **slice 4** with the rest of the pipeline.
 
 ### The `tentative` → `conferences` realignment (Ted, 2026-08-19)
 
@@ -394,17 +460,20 @@ The original bottom-up order is re-cut so the CFP-season payoff and the backfill
 2. **Commitment fold + `ConferenceAttendanceConfirmed`** + `CalendarEntry.commitment` + the "Maybe"
    chip + the redactor branch + both tiers of redaction test + CLAUDE.md amend. This is the slice
    that makes the calendar tell the truth, and the slice the **backfill runs through** — so the
-   backfill decision (above) is its gate. `SubmissionAccepted`/`InvitedToSpeak` auto-commit /
-   offer-to-commit per the original. Preceded by the rename commit (see "The `tentative` →
+   backfill decision (above) is its gate. Preceded by the rename commit (see "The `tentative` →
    `conferences` realignment"). Note the backfill lands in **two sittings**: dev2next, ExploreDDD and
    SoCraTes are reachable after this slice, but J-Fall's `CfpOpened` row needs slice 3.
+   **SHIPPED 2026-08-19** — see "Slice 2 as built" at the top. `TalkAccepted` auto-commit and
+   `InvitedToSpeak` offer-to-commit moved to slice 4 with the events they fold.
 3. **`CfpOpened` + the CFP-deadline iCal source (72h + 24h)** + the radar view grouped by derived
    status, `OPEN_SPACE` in a "nothing to submit" group. Pulls the deadline reminder forward because
-   that is the concrete CFP-season value.
+   that is the concrete CFP-season value. Also lands the **`SPEAKER` marker in the `Going?`
+   column**, basis-sourced for now (see "The `/conferences` speaking marker").
 4. **The submission stream** (`TalkSubmitted` / `TalkAccepted` / `TalkRejected` / `TalkWaitlisted` /
    `TalkWithdrawn`, conference-keyed) + the pipeline actions on the radar, incl. the
    `ACCEPTANCE_REQUIRED` auto-drop-on-reject fork and the `CALL_FOR_PAPERS` "decide" affordance. The
-   conference **speaking badge** unlocks here.
+   conference **speaking badge** unlocks here, and the `Going?` column's `SPEAKER` marker re-sources
+   from this fold instead of `AttendanceBasis`.
 5. **`ScheduleGapProjector` + Schengen ceiling** filtering by attendance (only `GOING` occupies the
    schedule; speculative feeds the ceiling).
 
@@ -412,15 +481,22 @@ The original bottom-up order is re-cut so the CFP-season payoff and the backfill
 
 ### Redaction
 
-- `CalendarEntryRedactor.java:41` currently copies conferences through field-by-field. Adding a
-  `commitment` field to `CalendarEntry` **breaks that branch's compilation**, which is the intended
-  forcing function (redaction rule 1). Give `CalendarEntry` a convenience overload defaulting to
-  `CONFIRMED` so the other projectors are untouched and only the conference projector passes it.
+- `CalendarEntryRedactor` copies conferences through field-by-field. Adding a `commitment` field to
+  `CalendarEntry` **breaks every branch's compilation**, which is the intended forcing function
+  (redaction rule 1). **As built:** the two existing convenience constructors default it to `null`
+  ("not applicable"), so the five non-conference projectors are untouched, and the conference
+  projector names it through the canonical constructor. Every redactor branch names it too — the
+  CONFERENCE branch passes it through, the other five write `null` — and a test asserts the drop on
+  each of those five kinds, so a projector that one day stamps a commitment onto the wrong kind
+  still cannot publish it.
 - The redacted conference branch keeps name, venue, city, dates, `infoUrl`, and `commitment`, and
   names every other field explicitly.
 - `NOT_GOING` and organizer-cancelled conferences render for **nobody** — they leave the calendar
   entirely, as `ConferenceCancelled` already does.
-- **`CLAUDE.md` must be amended in the same change.** Its redaction section currently reads
+- **`CLAUDE.md` must be amended in the same change.** *(Done 2026-08-19 with slice 2: the private
+  list gained the submission pipeline / CFP dates / `AttendanceBasis`, and "Public by decision"
+  gained the commitment chip, its collapse precondition, and the "never model a private talk as a
+  conference either" caveat.)* Its redaction section read
   "**conferences and gatherings in full** — name, venue, city, `infoUrl`, and start/end times" under
   *Public by decision*. That stays true, but it needs two additions: commitment level **and the
   speaking flag** are public; submission status, talk titles, CFP dates and commitment basis are
@@ -479,7 +555,8 @@ lands with the ceiling. Adding it later is a second schema bump on `ConferencePl
 
 `ConferenceProjector` / `ConferenceView` become the conference **radar**: grouped
 by derived status, with the actions inline (`WATCHING` → Submit / Buy ticket / Drop; `SUBMITTED` →
-Accepted / Waitlisted / Rejected / Withdraw; `REJECTED` → Go anyway / Drop). Keep the
+Accepted / Waitlisted / Rejected / Withdraw; `REJECTED` → Go anyway / Drop), and a derived
+`speaking` boolean on the view rendering as **`SPEAKER`** in the `Going?` column. Keep the
 `TemporalView.relevantUntil()` + `TimeView` + `TimeFilterToggle.render(...)` trio — the FUTURE/ALL
 convention is enforced by `TimeFilterToggleConventionTest`.
 

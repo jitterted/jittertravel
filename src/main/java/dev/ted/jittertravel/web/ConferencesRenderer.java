@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.ConferenceView;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -20,8 +21,14 @@ public class ConferencesRenderer {
     // unit), and City/Country are single-value columns that wrap on their own, so a narrow viewport
     // — e.g. iPad portrait — stacks the content onto more lines rather than forcing a horizontal
     // scrollbar. The table is never scrolled.
+    //
+    // The container gives up its horizontal margin and padding (measured 2026-08-19: the seven
+    // columns started scrolling at ~860px with them, and fit at ~820px without) — 96px of gutter
+    // is worth more spent on the table than on whitespace. Vertical margin stays, so the page
+    // keeps its rhythm. The sibling list pages still have their gutters; this one has one column
+    // more than they do.
     private static final String CSS = """
-            .conference-container { margin: 2rem; padding: 0 1rem; }
+            .conference-container { margin: 2rem 0; padding: 0; }
             .conference-table {
                 width: 100%; border-collapse: collapse; text-align: left;
                 margin-top: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -39,8 +46,40 @@ public class ConferencesRenderer {
             .conference-table tbody tr:last-child td { border-bottom: none; }
             .conference-table tbody tr:hover { background-color: var(--hover-bg); }
             .conf-name { font-weight: 500; color: var(--accent-color); }
+            /* Action affordances never move, and one that is merely unavailable is shown disabled
+               rather than removed. The cell holds two virtual slots — Confirm, then Decline — and
+               every row fills both: on a GOING row Confirm is greyed, non-interactive text with a
+               title saying why. So Decline is in the second slot in every row, and both stay
+               left-justified within their own slot.
+               Slots rather than right-aligning the cell (reads oddly, and drags the header flush
+               right) or a real second column (another cell costs 32px of padding, and this table
+               only just fits at ~820px). The disabled text sizes the slot exactly, so no guessed
+               width in rem/ch can drift when the label or font changes — and it replaced an
+               invisible placeholder, which left a blank line wherever the cell wrapped. */
+            .conf-actions { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; }
+            /* Its own rule rather than `.conf-confirm` plus a modifier: sharing the link class
+               would inherit the accent colour and the hover underline, and a single-class modifier
+               defined earlier in the sheet loses to them. */
+            .conf-confirm-disabled {
+                color: var(--muted-text); cursor: default;
+                white-space: nowrap; font-size: 0.9rem;
+            }
+            /* Header centred across both slots — it labels the pair, not either one. */
+            .conference-table th:last-child { text-align: center; }
             .conf-decline { color: #b00; text-decoration: none; white-space: nowrap; font-size: 0.9rem; }
             .conf-decline:hover { text-decoration: underline; }
+            /* One word on purpose: this cell's links are nowrap units, so a longer label
+               ("Confirm attendance") widens the table's minimum width and is what would push a
+               narrow viewport into the horizontal scroll the comment above rules out. */
+            .conf-confirm { color: var(--accent-color); text-decoration: none; white-space: nowrap; font-size: 0.9rem; }
+            .conf-confirm:hover { text-decoration: underline; }
+            /* Same two words the public calendar uses, so the list and the calendar agree. */
+            .conf-commitment {
+                font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+                padding: 2px 6px; border-radius: 4px; white-space: nowrap;
+            }
+            .conf-commitment--watching { background: #b45309; color: #ffffff; }
+            .conf-commitment--going { background: #166534; color: #ffffff; }
             """;
 
     public static String render(List<ConferenceView> conferences, TimeView activeFilter) {
@@ -72,6 +111,7 @@ public class ConferencesRenderer {
         return table().withClass("conference-table").with(
                 thead(tr(
                         th("Name"),
+                        th("Going?"),
                         th("Start Date"),
                         th("End Date"),
                         th("City"),
@@ -89,13 +129,64 @@ public class ConferencesRenderer {
     private static TrTag renderRow(ConferenceView conf) {
         return tr(
                 td(conf.name()).withClass("conf-name"),
+                td(commitmentChip(conf.commitment())),
                 td(dateTime(conf.startDate())),
                 td(dateTime(conf.endDate())),
                 td(conf.city()),
                 td(conf.country()),
-                td(a("Decline").withClass("conf-decline")
-                        .withHref("/conferences/" + conf.conferenceId().id() + "/decline"))
+                td(actions(conf))
         );
+    }
+
+    /**
+     * "Maybe" reads the same here as on the public calendar, deliberately: one vocabulary for one
+     * fact. "Going" is spelled out on this list even though the calendar marks it only by the
+     * absence of a chip — a table column has to say something in every row.
+     */
+    private static DomContent commitmentChip(AttendanceCommitment commitment) {
+        return switch (commitment) {
+            case WATCHING -> span("Maybe").withClass("conf-commitment conf-commitment--watching");
+            case GOING -> span("Going").withClass("conf-commitment conf-commitment--going");
+        };
+    }
+
+    /**
+     * Confirming is offered only while a conference is still speculative: once it is GOING the
+     * action has nothing left to say, and re-confirming to correct the basis is a slice-4 concern
+     * (nothing renders the basis yet). Declining stays available either way — changing your mind
+     * about a conference you committed to is exactly what it is for.
+     */
+    private static DomContent actions(ConferenceView conf) {
+        String base = "/conferences/" + conf.conferenceId().id();
+        return div().withClass("conf-actions")
+                    .with(confirmSlot(conf, base))
+                    .with(a("Decline").withClass("conf-decline")
+                            .withHref(base + "/decline"));
+    }
+
+    /**
+     * The first slot always exists, so the second one — Decline — cannot move. On a GOING
+     * conference Confirm is greyed rather than removed: an action that is unavailable *for now*
+     * stays visible with the reason attached, so the row's vocabulary does not change under the
+     * reader.
+     * <p>
+     * The reason names a <em>presentation</em> limit, not a rule: the domain deliberately allows
+     * re-confirming with a different basis (ticket bought, then talk accepted — see
+     * {@code ConfirmConferenceAttendanceCommand}), and this becomes a live link again in slice 4,
+     * when the basis finally has somewhere to render. A tooltip claiming "not allowed" would be
+     * a lie about the model.
+     * <p>
+     * A {@code span}, never a disabled {@code <a>}: it is not focusable and cannot be activated,
+     * which is exactly the intent.
+     */
+    private static DomContent confirmSlot(ConferenceView conf, String base) {
+        if (conf.commitment() == AttendanceCommitment.WATCHING) {
+            return a("Confirm").withClass("conf-confirm").withHref(base + "/confirm");
+        }
+        return span("Confirm").withClass("conf-confirm-disabled")
+                              .withTitle("Already confirmed. Changing why you're going "
+                                       + "arrives with submission tracking.")
+                              .attr("aria-disabled", "true");
     }
 
     private static DomContent dateTime(ZonedTimestamp when) {

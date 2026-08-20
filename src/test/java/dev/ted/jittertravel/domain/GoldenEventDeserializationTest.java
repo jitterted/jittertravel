@@ -201,6 +201,26 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
+    void conferenceAttendanceConfirmedCurrentPayloadDeserializes() {
+        String json = """
+                {
+                  "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "basis": "SPEAKING_ACCEPTED",
+                  "confirmedOn": "2026-08-19T16:45:00Z"
+                }
+                """;
+
+        ConferenceAttendanceConfirmed event = deserialize(json, ConferenceAttendanceConfirmed.class);
+
+        assertThat(event.conferenceId().id())
+                .isEqualTo(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        assertThat(event.basis())
+                .isEqualTo(AttendanceBasis.SPEAKING_ACCEPTED);
+        assertThat(event.confirmedOn())
+                .isEqualTo(Instant.parse("2026-08-19T16:45:00Z"));
+    }
+
+    @Test
     void conferenceAttendanceDeclinedWithoutReasonReadsBackAsEmpty() {
         // A payload written with no reason must read back as "" (no-null-Strings rule), not null.
         String json = """

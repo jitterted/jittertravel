@@ -138,7 +138,7 @@ class CalendarEntryRedactorTest {
                 EntryKind.GATHERING, START, END,
                 "London Java Community", lines("Skills Matter", "London, GB"),
                 null, null, "https://meetup.com/events/123",
-                true, "/planned-gatherings/abc"
+                true, "/planned-gatherings/abc", null
         );
 
         CalendarEntry redacted = redactor.redact(gathering);
@@ -159,7 +159,7 @@ class CalendarEntryRedactorTest {
                 EntryKind.CONFERENCE, START, END,
                 "DDD Europe 2026", lines("Frankfurt, Germany"),
                 null, null, "https://dddeurope.com",
-                true, "/plan-conference/abc"
+                true, "/plan-conference/abc", AttendanceCommitment.GOING
         );
 
         CalendarEntry redacted = redactor.redact(conference);
@@ -167,6 +167,48 @@ class CalendarEntryRedactorTest {
         assertThat(redacted.speaking())
                 .as("conferences drop speaking until submission tracking exists")
                 .isFalse();
+    }
+
+    /**
+     * The commitment level is public by decision: it is the already-collapsed "Maybe", not the
+     * submission status behind it, so an anonymous viewer sees the same chip Ted does.
+     */
+    @Test
+    void conferenceCommitmentSurvivesRedaction() {
+        CalendarEntry conference = new CalendarEntry(
+                EntryKind.CONFERENCE, START, END,
+                "J-Fall", lines("Ede, Netherlands"),
+                null, null, null,
+                false, "/plan-conference/abc", AttendanceCommitment.WATCHING
+        );
+
+        CalendarEntry redacted = redactor.redact(conference);
+
+        assertThat(redacted.commitment())
+                .as("the collapsed commitment level is public, so it survives redaction")
+                .isEqualTo(AttendanceCommitment.WATCHING);
+    }
+
+    /**
+     * Commitment applies to conferences alone. Every other branch names it explicitly as null
+     * rather than copying {@code entry.commitment()} through, so a projector that one day stamps a
+     * commitment onto the wrong kind cannot publish it by accident.
+     */
+    @Test
+    void commitmentIsDroppedFromEveryNonConferenceKind() {
+        for (EntryKind kind : List.of(EntryKind.LODGING, EntryKind.FLIGHT, EntryKind.TRAIN,
+                                      EntryKind.GATHERING, EntryKind.PRIVATE_EVENT)) {
+            CalendarEntry entry = new CalendarEntry(
+                    kind, START, END,
+                    "Whatever", lines("Somewhere"),
+                    null, null, null,
+                    false, null, AttendanceCommitment.WATCHING
+            );
+
+            assertThat(redactor.redact(entry).commitment())
+                    .as("commitment must not survive redaction on " + kind)
+                    .isNull();
+        }
     }
 
     /**

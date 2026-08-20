@@ -187,6 +187,23 @@ class ScheduleProblemsRendererTest {
     }
 
     @Test
+    void aGapOutOfHomeNamesOneDateRatherThanTheSameOneTwice() {
+        // Its window is a single moment, so "Arrive Nov 11 — next leg departs Nov 11" would be
+        // true and useless. See ScheduleTimeline.gapLeaving.
+        ZonedTimestamp needed = ZonedTimestamp.fromLocal(
+                LocalDateTime.of(2026, 11, 11, 9, 0), ZoneId.of("Europe/Amsterdam"));
+        ScheduleProblem gap = new ScheduleProblem.MissingTravel(
+                "San Francisco", needed, "Ede", needed);
+
+        String html = ScheduleProblemsRenderer.render(List.of(gap));
+
+        assertThat(html)
+                .contains("<div class=\"problem-title\">San Francisco → Ede</div>")
+                .contains("Nothing booked — needed by")
+                .doesNotContain("next leg departs");
+    }
+
+    @Test
     void duplicateHotelsNameEveryStayWithItsCityAndBookingIntent() {
         // The question this row raises is "which one do I cancel?", and the tentative one is
         // usually the answer — so the intent is on the page, not just in the event.

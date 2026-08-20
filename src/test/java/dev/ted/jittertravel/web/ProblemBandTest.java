@@ -100,6 +100,19 @@ class ProblemBandTest {
     }
 
     @Test
+    void aGapOutOfHomeIsOneDayOfBandAndNamesItsTimeOnce() {
+        ZonedTimestamp needed = ZonedTimestamp.fromLocal(
+                LocalDateTime.of(2026, 11, 11, 9, 0), ZoneId.of("Europe/Amsterdam"));
+        ScheduleProblem problem = new ScheduleProblem.MissingTravel(
+                "San Francisco", needed, "Ede", needed);
+
+        assertThat(ProblemBand.from(problem)).get()
+                .extracting(ProblemBand::firstDay, ProblemBand::lastDay, ProblemBand::detail)
+                .containsExactly(LocalDate.of(2026, 11, 11), LocalDate.of(2026, 11, 11),
+                                 "Nothing booked · needed by 9:00 AM CET");
+    }
+
+    @Test
     void duplicateHotelBandCoversTheDoublyBookedNightsExactly() {
         // Unlike a missing stay, this problem is already expressed in nights, so there is no
         // checkout day to trim: the 8th through the 10th is three nights and three days of band.

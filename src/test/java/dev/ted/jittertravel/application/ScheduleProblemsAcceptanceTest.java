@@ -251,6 +251,63 @@ class ScheduleProblemsAcceptanceTest {
         }
     }
 
+    /**
+     * Days at home are not a problem to solve, so a missing journey out of home is dated by the day
+     * he has to be somewhere else — not by the day he last landed (Ted, 2026-08-20). Both cases are
+     * from Ted's real schedule.
+     */
+    @Nested
+    class GapsOutOfHome {
+
+        @Test
+        void aGapAfterFourDaysAtHomeIsDatedByTheConferenceNotByTheLanding() {
+            List<ScheduleProblem> problems = Itinerary.homeAt("San Francisco", "San Jose", "Oakland")
+                    .inZone("America/Los_Angeles")
+                    .flight("DEN", "2026-10-15 09:00", "SJC", "2026-10-15 10:45")
+                    .conference("Conf", "North Gower", "2026-10-19", "2026-10-22")
+                    .problems();
+
+            assertThat(only(problems, ScheduleProblem.MissingTravel.class))
+                    .singleElement()
+                    .extracting(ScheduleProblem.MissingTravel::fromCity,
+                                ScheduleProblem.MissingTravel::toCity,
+                                gap -> day(gap.arrivedAt()),
+                                gap -> day(gap.nextDepartureAt()))
+                    .containsExactly("San Jose", "North Gower",
+                                     date("2026-10-19"), date("2026-10-19"));
+        }
+
+        @Test
+        void elevenDaysAtHomeDoNotStretchTheGapAcrossAllOfThem() {
+            List<ScheduleProblem> problems = Itinerary.homeAt("San Francisco", "San Jose", "Oakland")
+                    .inZone("America/Los_Angeles")
+                    .flight("YYZ", "2026-10-31 09:00", "SFO", "2026-10-31 12:30")
+                    .conference("JFall", "Ede", "2026-11-11", "2026-11-12")
+                    .problems();
+
+            assertThat(only(problems, ScheduleProblem.MissingTravel.class))
+                    .singleElement()
+                    .extracting(gap -> day(gap.arrivedAt()), gap -> day(gap.nextDepartureAt()))
+                    .containsExactly(date("2026-11-11"), date("2026-11-11"));
+        }
+
+        @Test
+        void beingAwayStillStrandsHimForEveryDayOfTheGap() {
+            // The counterpart: away from home every day between the two really is part of the
+            // problem, and the window must still span both ends.
+            List<ScheduleProblem> problems = Itinerary.homeAt("San Francisco")
+                    .inZone("Europe/Berlin")
+                    .hotel("Reichshof", "Hamburg", "2026-08-31", "2026-09-07")
+                    .gathering("Aachen JUG", "Aachen", "2026-09-08 19:00", "2026-09-08 22:00")
+                    .problems();
+
+            assertThat(only(problems, ScheduleProblem.MissingTravel.class))
+                    .singleElement()
+                    .extracting(gap -> day(gap.arrivedAt()), gap -> day(gap.nextDepartureAt()))
+                    .containsExactly(date("2026-09-07"), date("2026-09-08"));
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Itinerary builder — an itinerary reads like the tables in the plan doc
     // -------------------------------------------------------------------------

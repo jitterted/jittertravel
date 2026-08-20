@@ -4,8 +4,9 @@
 the detection half of `ScheduleGapProjector`; the event handling, caching, and `context()` read
 model stay.
 
-One rule was added during implementation that Ted has not yet ruled on — the **trip break**, D13
-below. Everything else is as agreed.
+D13 (the 14-night **trip break**) was added during implementation and confirmed by Ted 2026-08-20.
+D14 (**home does not strand him**) followed from a bug Ted found on the live report the same day.
+Its mirror image — gaps *into* home — is still open.
 
 `/schedule-problems` is one of the main reasons this app exists, and it is currently wrong in both
 directions: it invents travel gaps that do not exist and misses nights with no bed. This plan
@@ -233,6 +234,38 @@ so 14 has room. Alternatives if Ted dislikes it: report the long run anyway and 
 it; or treat a return to a home city as the only thing that ends a trip, which does not help here
 because that schedule never mentions home.
 
+### D14 — Home does not strand him: a gap out of home is dated by the away end
+
+Away from home, a gap runs from the moment Ted was last accounted for to the moment he has to be
+somewhere else, and every day between is part of the problem — checked out of Hamburg on the 7th
+with a gathering in Aachen on the 8th, both days are the gap.
+
+Leaving home is not like that (Ted, 2026-08-20). Landing at SJC on Oct 15 with a conference in
+North Gower on the 19th, the four days at home are not a problem to solve: the problem is one
+journey, on the 19th. Read the other way, the gap spanned every day since he got home — on the
+YYZ→SFO/JFall pair, eleven days of amber for one missing flight.
+
+The reason is that **the window is the span of the problem, and time at home is not part of any
+problem** — he is home, indefinitely, by choice. Stranded in Aachen with no bed and no way onward,
+every one of those days is wrong; eleven days at home, nothing is wrong. So the window is anchored
+at the away end: both ends of a home-origin gap are the moment he has to be elsewhere.
+
+Note what this is *not* about: his presence at home is recorded perfectly well — the landing at SJC
+is exactly what puts him there, and sets the window's start in the first place. The rule turns on
+home being a fine place to be, not on any gap in the data.
+
+This also keeps the problem actionable *longer*, since `relevantUntil()` is the far end of the
+window — the missing flight stays on the report until the day he needed to have taken it, rather
+than expiring on the day he got home.
+
+Both views special-case the resulting zero-length window: "Nothing booked — needed by Nov 11, 9:00
+AM" rather than naming the same date twice.
+
+**Not yet done — the mirror image.** A gap *into* home has the same shape: a conference ending in
+Ede on Nov 12 with the next home departure on Dec 1 spans nineteen days. It was left alone because
+collapsing that window moves `relevantUntil()` *earlier* — the "no flight home" warning would
+vanish the day the conference ends, which is exactly when it matters most. Needs Ted.
+
 ## Acceptance examples
 
 These three are the acceptance suite. They are written against `problems()` and survive any
@@ -340,7 +373,9 @@ them apart, which is the argument for the acceptance suite in one sentence.
 
 ## Open
 
-- **D13 needs Ted's ruling.**
+- **The mirror image of D14**: a gap *into* home still spans every day from the last away fact to
+  the next home departure. Collapsing it costs `relevantUntil()`, so it needs a decision, not just
+  a symmetric edit.
 - Whether the problem calendar's Travel lane needs revisiting once the phantom bands stop being
   drawn — far fewer bands, and the ones that remain are real.
 - `DifferentCityConflict` still ignores private events, unlike `SchedulingConflict`, which now

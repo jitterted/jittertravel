@@ -118,14 +118,29 @@ public class ScheduleProblemsRenderer {
                         : div().withClass("problem-list").with(
                                 each(travel, p -> div().withClass("problem-card problem-card--missing-travel").with(
                                         div(p.fromCity() + " → " + p.toCity()).withClass("problem-title"),
-                                        div().withClass("problem-detail").with(
-                                                text("Arrive "),
-                                                ZonedTimeTag.render(p.arrivedAt(), DATE_TIME_FORMAT),
-                                                text(" — next leg departs "),
-                                                ZonedTimeTag.render(p.nextDepartureAt(), DATE_TIME_FORMAT)
-                                        )
+                                        travelDetail(p)
                                 ))
                         )
+        );
+    }
+
+    /**
+     * A gap out of home has no stranded stretch to report — its window is the single moment he has
+     * to be somewhere else (see {@code ScheduleTimeline.gapLeaving}). "Arrive Nov 11 — next leg
+     * departs Nov 11" would be true and useless; what he needs is the one date.
+     */
+    private static DomContent travelDetail(ScheduleProblem.MissingTravel gap) {
+        if (gap.arrivedAt().equals(gap.nextDepartureAt())) {
+            return div().withClass("problem-detail").with(
+                    text("Nothing booked — needed by "),
+                    ZonedTimeTag.render(gap.nextDepartureAt(), DATE_TIME_FORMAT)
+            );
+        }
+        return div().withClass("problem-detail").with(
+                text("Arrive "),
+                ZonedTimeTag.render(gap.arrivedAt(), DATE_TIME_FORMAT),
+                text(" — next leg departs "),
+                ZonedTimeTag.render(gap.nextDepartureAt(), DATE_TIME_FORMAT)
         );
     }
 

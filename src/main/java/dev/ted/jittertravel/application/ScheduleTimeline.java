@@ -211,8 +211,7 @@ class ScheduleTimeline {
                 }
                 case REQUIRE -> {
                     if (!homeCities.sameLocation(point.city(), currentCity)) {
-                        gaps.add(new ScheduleProblem.MissingTravel(
-                                currentCity, lastMoment, point.city(), point.moment()));
+                        gaps.add(gapLeaving(currentCity, lastMoment, point));
                     }
                     currentCity = point.city();
                     lastMoment = point.moment();
@@ -224,6 +223,30 @@ class ScheduleTimeline {
         // that night because the flight home leaves on the 14th — but past the last fact there is
         // no trip left to be on, and the alternative is demanding a bed every night forever.
         return new Walk(gaps, locationByNight);
+    }
+
+    /**
+     * The window a missing journey occupies — and <strong>home does not strand him</strong>.
+     * <p>
+     * Away from home, a gap runs from the moment he was last accounted for to the moment he has to
+     * be somewhere else, and every day in between is part of the problem: checked out of Hamburg on
+     * the 7th with a gathering in Aachen on the 8th, both days are the gap. Leaving home is not
+     * like that. Landing at SJC on October 15th with a conference in North Gower on the 19th, the
+     * four days at home are not a problem to solve — the problem is one journey, on the 19th. Read
+     * the other way the gap spanned every day since he got home, which on a longer stay was eleven
+     * days of amber for a single missing flight.
+     * <p>
+     * The window is the span of the <em>problem</em>, and time at home is not part of any problem —
+     * he is home, indefinitely, by choice. That is the whole of it. (Not that his presence at home
+     * goes unrecorded: landing at SJC records it precisely, and is what put him there.) So a gap
+     * whose origin is home is anchored at the away end.
+     * <p>
+     * This also keeps the problem actionable longer, since {@code relevantUntil} is the far end of
+     * the window: the missing flight stays on the report until the day he needed to have taken it.
+     */
+    private ScheduleProblem.MissingTravel gapLeaving(String fromCity, ZonedTimestamp lastMoment, Point arrival) {
+        ZonedTimestamp windowStart = homeCities.includes(fromCity) ? arrival.moment() : lastMoment;
+        return new ScheduleProblem.MissingTravel(fromCity, windowStart, arrival.city(), arrival.moment());
     }
 
     /**

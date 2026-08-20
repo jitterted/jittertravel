@@ -1086,10 +1086,13 @@ class ScheduleGapProjectorTest {
                     stored(flight("LHR", SEP_15.atTime(9, 0), "SFO", SEP_15.atTime(13, 0))),
                     stored(flight("LAX", SEP_18.atTime(10, 0), "SEA", SEP_18.atTime(13, 0)))));
 
+            // Both ends of the window are the LAX departure, not the SFO landing three days
+            // earlier: the days at home are not part of the problem, so the gap is dated by the
+            // day he has to be in Los Angeles. See ScheduleTimeline.gapLeaving.
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            "San Francisco", zt(SEP_15.atTime(13, 0)),
+                            "San Francisco", zt(SEP_18.atTime(10, 0)),
                             "Los Angeles", zt(SEP_18.atTime(10, 0))));
         }
 

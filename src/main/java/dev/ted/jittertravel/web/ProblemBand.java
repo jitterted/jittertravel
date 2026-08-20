@@ -95,10 +95,16 @@ public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, Stri
         LocalDate departureDay = missingTravel.nextDepartureAt().localDateTime().toLocalDate();
         LocalDate firstDay = arrivalDay.isBefore(departureDay) ? arrivalDay : departureDay;
         LocalDate lastDay = arrivalDay.isAfter(departureDay) ? arrivalDay : departureDay;
+        // A gap out of home has no stranded stretch: its window is the single moment he has to be
+        // somewhere else, so the band is that one day and naming the same time twice reads as an
+        // error. See ScheduleTimeline.gapLeaving.
+        String detail = missingTravel.arrivedAt().equals(missingTravel.nextDepartureAt())
+                ? "Nothing booked · needed by " + zonedTime(missingTravel.nextDepartureAt())
+                : "Arrive " + zonedTime(missingTravel.arrivedAt())
+                  + " · depart " + zonedTime(missingTravel.nextDepartureAt());
         return new ProblemBand(Lane.TRAVEL, firstDay, lastDay,
                 "No travel — " + missingTravel.fromCity() + " → " + missingTravel.toCity(),
-                "Arrive " + zonedTime(missingTravel.arrivedAt())
-                + " · depart " + zonedTime(missingTravel.nextDepartureAt()));
+                detail);
     }
 
     /**

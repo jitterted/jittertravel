@@ -4,6 +4,48 @@ Deferred slices and features, captured here so they aren't forgotten.
 
 ---
 
+## Time-ordered calendar days (abandoning swimlanes)
+
+**Deferred by Ted, 2026-08-20**, on seeing a 3:55 PM flight render *above* the 1:00 PM ground
+transfer that fed it. The lanes stay as they are for now; this records what changing it costs.
+
+The calendar is not time-ordered within a day and cannot be made so without changing its layout
+model. Each week is a CSS grid of fixed per-kind **lane bands**, laid out in `EntryKind` declaration
+order (conference, gathering, private event, flight, train, ground transfer, lodging), with entries
+stacked into sub-rows inside their own band. An entry therefore sits in its kind's band regardless
+of when it happens — the same reason a 9 PM gathering renders above a 7 AM flight.
+
+**Reordering `EntryKind` does not fix it.** A ground transfer runs both ways: put it above FLIGHT
+and the taxi *to* the airport reads correctly while the taxi *from* the airport reads backwards.
+No fixed ordering of kinds can be right for both, because the question is about time, not kind.
+
+**The itinerary already does this** — `ItineraryProjector.entriesForDate` sorts across kinds by
+`anchorTime`, pinned by `aTransferToTheAirportSortsAboveTheLaterFlightItFeeds`. So the time-ordered
+view exists; it is the calendar that cannot join in.
+
+**Shape to work out when building:**
+
+- Lanes are what `CalendarViewBuilder.renderWeek` is built around: `byKind` grouping, per-kind
+  sub-row allocation, `kindOffset` accumulation, and the `grid-row` each segment lands on. Ordering
+  by time means allocating rows from one chronologically-sorted list instead, so most of that
+  method goes.
+- **Multi-day entries are the hard part**, and the reason lanes exist at all. A conference or hotel
+  stay spans a week and currently occupies one continuous band across it; in a time-ordered layout
+  a multi-day bar has no single row it can sit in without colliding with each day's own timed
+  entries. Likely needs multi-day entries kept in a band of their own above the timed ones — i.e.
+  a partial retreat to lanes, split by *duration* rather than by kind.
+- The kind colours, the CSS class per kind (`entry--ground_transfer`), and the continuation
+  arrows are all independent of row allocation and should survive untouched.
+- `CalendarViewBuilderTest` has substantial coverage of sub-row stacking and lane offsets; expect
+  to rewrite it rather than extend it.
+
+**When to build:** when reading a day's real order off the calendar matters more than seeing kinds
+grouped — most likely alongside the `EntryDetails` refactor in
+`RendererVsProjectorResponsibilities.md`, which is already going to touch `CalendarEntry` and the
+builder. Not urgent: the itinerary answers "what order did this day go in" today.
+
+---
+
 ## Undo Cancel Hotel Booking
 
 **Event:** `HotelBookingCancellationUndone(hotelBookingId)` (name TBD), reinstating the stay.

@@ -324,15 +324,50 @@ public class EventSourcingConfig {
         return bootstrapper.register(new PrivateEventCalendarProjector());
     }
 
+    /**
+     * The endpoint resolver holds every lookup a transfer endpoint token can need: the hotel's
+     * address (a snapshot source), and the airport city/zone tables. Ted cleared the dependency
+     * gate for it (D8).
+     */
+    @Bean
+    public GroundTransferEndpointResolver groundTransferEndpointResolver(
+            HotelDetailsViewProjector hotelDetailsViewProjector,
+            AirportZoneResolver airportZoneResolver,
+            LocationZoneResolver locationZoneResolver) {
+        return new GroundTransferEndpointResolver(hotelDetailsViewProjector,
+                new StaticAirportCityResolver(), airportZoneResolver, locationZoneResolver);
+    }
+
+    @Bean
+    public GroundTransferEndpointOptions groundTransferEndpointOptions(
+            BookedFlightsProjector bookedFlightsProjector,
+            BookedHotelsProjector bookedHotelsProjector) {
+        return new GroundTransferEndpointOptions(bookedFlightsProjector, bookedHotelsProjector,
+                new StaticAirportCityResolver());
+    }
+
+    /** No {@code now} anywhere on this path: a ground transfer has no future-date rule (D6). */
+    @Bean
+    public GroundTransferPlanning groundTransferPlanningApplicationService(
+            CommandExecutor commandExecutor, GroundTransferEndpointResolver endpointResolver) {
+        return new GroundTransferPlanning(commandExecutor, endpointResolver);
+    }
+
+    @Bean
+    public GroundTransferCalendarProjector groundTransferCalendarProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new GroundTransferCalendarProjector());
+    }
+
     @Bean
     public CalendarAggregator calendarAggregator(ConferenceCalendarProjector conferenceCalendarProjector,
                                                  FlightCalendarProjector flightCalendarProjector,
                                                  TrainCalendarProjector trainCalendarProjector,
                                                  HotelCalendarProjector hotelCalendarProjector,
                                                  GatheringCalendarProjector gatheringCalendarProjector,
-                                                 PrivateEventCalendarProjector privateEventCalendarProjector) {
+                                                 PrivateEventCalendarProjector privateEventCalendarProjector,
+                                                 GroundTransferCalendarProjector groundTransferCalendarProjector) {
         return new CalendarAggregator(conferenceCalendarProjector, flightCalendarProjector,
                 trainCalendarProjector, hotelCalendarProjector, gatheringCalendarProjector,
-                privateEventCalendarProjector);
+                privateEventCalendarProjector, groundTransferCalendarProjector);
     }
 }

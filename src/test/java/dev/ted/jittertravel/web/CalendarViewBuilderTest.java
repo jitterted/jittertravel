@@ -77,6 +77,7 @@ class CalendarViewBuilderTest {
                 .contains("href=\"/book-flight?date=2026-06-20\"")
                 .contains("href=\"/book-train?date=2026-06-20\"")
                 .contains("href=\"/book-hotel?date=2026-06-20\"")
+                .contains("href=\"/plan-ground-transfer?date=2026-06-20\"")
                 .contains("href=\"/plan-gathering?date=2026-06-20\"")
                 .contains("href=\"/plan-conference?date=2026-06-20\"");
     }

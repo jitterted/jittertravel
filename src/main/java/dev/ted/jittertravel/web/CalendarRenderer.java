@@ -33,6 +33,10 @@ public class CalendarRenderer {
                 --entry-gathering-bg: #f5f3ff;  --entry-gathering-fg: #7c3aed;
                 --entry-flight-bg: #cfeafd;     --entry-flight-fg: #075985;
                 --entry-train-bg: #ffedd5;      --entry-train-fg: #9a3412;
+                /* Taxi yellow, deliberately distinct from the train's orange: sharing the train
+                   lane's colour was rejected (D5 reason 2) precisely so a taxi cannot be mistaken
+                   for a booked leg. */
+                --entry-ground_transfer-bg: #fef9c3; --entry-ground_transfer-fg: #854d0e;
                 --entry-lodging-bg: #dcfce7;    --entry-lodging-fg: #166534;
             }
             .calendar-outer {
@@ -178,6 +182,8 @@ public class CalendarRenderer {
             .entry--gathering  { background-color: var(--entry-gathering-bg);  color: var(--entry-gathering-fg); }
             .entry--flight     { background-color: var(--entry-flight-bg);     color: var(--entry-flight-fg); }
             .entry--train      { background-color: var(--entry-train-bg);      color: var(--entry-train-fg); }
+            /* The class name comes from EntryKind.name().toLowerCase(), underscore and all. */
+            .entry--ground_transfer { background-color: var(--entry-ground_transfer-bg); color: var(--entry-ground_transfer-fg); }
             .entry--lodging    { background-color: var(--entry-lodging-bg);    color: var(--entry-lodging-fg); }
             .entry--continuation { opacity: 0.9; }
             /* Entries spanning a week boundary: square the continuing edge and run it flush

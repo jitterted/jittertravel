@@ -64,6 +64,8 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
                 "/planned-gatherings/" + gatheringId.id(),
                 // Attendance commitment applies to conferences only: a gathering Ted has planned is
                 // one he is going to, so there is no speculative state to mark.
+                null,
+                // publicRoute belongs to GROUND_TRANSFER alone: a gathering is public in full.
                 null
         );
     }

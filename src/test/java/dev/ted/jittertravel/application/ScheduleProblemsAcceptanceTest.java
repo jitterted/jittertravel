@@ -308,6 +308,46 @@ class ScheduleProblemsAcceptanceTest {
         }
     }
 
+    /**
+     * The gap a ground transfer exists to close (Ted, 2026-08-20): the flight lands at DEN, the
+     * conference is in Lone Tree, and the journey between them is real but was unrecordable — so
+     * {@code /schedule-problems} reported missing travel that no booking could ever satisfy. See
+     * {@code docs/GroundTransferPlan.md}.
+     */
+    @Nested
+    class AirportToVenueHop {
+
+        @Test
+        void withoutATransferTheHopFromTheAirportToTheVenueIsReportedMissing() {
+            List<ScheduleProblem> problems = Itinerary.homeAt("San Francisco")
+                    .inZone("America/Denver")
+                    .flight("SFO", "2026-09-14 08:00", "DEN", "2026-09-14 11:30")
+                    .hotel("Marriott Lone Tree", "Lone Tree", "2026-09-14", "2026-09-18")
+                    .conference("dev2next", "Lone Tree", "2026-09-15", "2026-09-18")
+                    .problems();
+
+            assertThat(only(problems, ScheduleProblem.MissingTravel.class))
+                    .singleElement()
+                    .extracting(ScheduleProblem.MissingTravel::fromCity, ScheduleProblem.MissingTravel::toCity)
+                    .containsExactly("Denver", "Lone Tree");
+        }
+
+        @Test
+        void aGroundTransferFromTheAirportToTheHotelClosesTheGap() {
+            List<ScheduleProblem> problems = Itinerary.homeAt("San Francisco")
+                    .inZone("America/Denver")
+                    .flight("SFO", "2026-09-14 08:00", "DEN", "2026-09-14 11:30")
+                    .groundTransfer("Denver", "2026-09-14 12:00", "Lone Tree", "2026-09-14 12:45")
+                    .hotel("Marriott Lone Tree", "Lone Tree", "2026-09-14", "2026-09-18")
+                    .conference("dev2next", "Lone Tree", "2026-09-15", "2026-09-18")
+                    .problems();
+
+            assertThat(only(problems, ScheduleProblem.MissingTravel.class))
+                    .as("the transfer is a leg like any other, so the Denver → Lone Tree hop is covered")
+                    .isEmpty();
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Itinerary builder — an itinerary reads like the tables in the plan doc
     // -------------------------------------------------------------------------
@@ -372,6 +412,19 @@ class ScheduleProblemsAcceptanceTest {
         Itinerary gathering(String title, String city, String start, String end) {
             events.add(new GatheringPlanned(GatheringId.random(), title, title + " venue",
                     address(city), at(start), at(end), false, ""));
+            return this;
+        }
+
+        /**
+         * A short hop with no booking. Both ends are already-known places (an airport or a booked
+         * hotel), so the fixture takes the two match cities directly — the resolution from a form
+         * token to those cities is the handler's job, not the timeline's.
+         */
+        Itinerary groundTransfer(String fromCity, String departure, String toCity, String arrival) {
+            events.add(new GroundTransferPlanned(GroundTransferId.random(),
+                    "", fromCity + " pickup", address(fromCity),
+                    "", toCity + " dropoff", address(toCity),
+                    at(departure), at(arrival)));
             return this;
         }
 

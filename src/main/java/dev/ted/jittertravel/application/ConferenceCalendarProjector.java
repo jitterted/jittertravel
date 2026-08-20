@@ -55,7 +55,10 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                             null,
                             // Planning a conference is putting it on the radar, nothing more: it is
                             // speculative until an attendance confirmation says otherwise.
-                            AttendanceCommitment.WATCHING
+                            AttendanceCommitment.WATCHING,
+                            // publicRoute belongs to GROUND_TRANSFER alone: a conference's own
+                            // title and location are public, so there is nothing to carry.
+                            null
                     ));
                 }
                 // Ted is going: same entry, no longer speculative. `event.basis()` is deliberately
@@ -76,7 +79,7 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                 entry.mainTitle(), entry.subTitle(),
                 entry.continuationTitle(), entry.continuationSubTitle(),
                 entry.mapsUrl(), entry.speaking(), entry.editPath(),
-                AttendanceCommitment.GOING
+                AttendanceCommitment.GOING, entry.publicRoute()
         );
     }
 

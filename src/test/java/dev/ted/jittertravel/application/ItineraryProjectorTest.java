@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 class ItineraryProjectorTest {
 
@@ -594,6 +595,70 @@ class ItineraryProjectorTest {
         assertThat(projector.entriesForDate(DATE.plusDays(1)))
                 .as("private event must not appear after its date")
                 .isEmpty();
+    }
+
+    @Test
+    void groundTransferPlannedAppearsOnItsDepartureDateWithBothEndsNamed() {
+        ItineraryProjector projector = new ItineraryProjector();
+
+        projector.handle(Stream.of(stored(groundTransfer())));
+
+        List<ItineraryEntry> entries = projector.entriesForDate(DATE);
+        assertThat(entries).hasSize(1);
+        GroundTransferItineraryEntry entry = (GroundTransferItineraryEntry) entries.getFirst();
+        assertThat(entry.origin())
+                .as("an airport end is named by its code")
+                .isEqualTo("DEN");
+
+        assertThat(entry.destination())
+                .as("a hotel end is named by its hotel — the itinerary is behind auth")
+                .isEqualTo("Marriott Lone Tree");
+
+        assertThat(entry.anchorTime()).isEqualTo(DATE.atTime(12, 0));
+    }
+
+    @Test
+    void groundTransferGetsNoSecondArrivalDayEntry() {
+        // Unlike a flight or a train, both ends share one zone and the hop is short, so there is
+        // never a second local day to place it on.
+        ItineraryProjector projector = new ItineraryProjector();
+
+        projector.handle(Stream.of(stored(groundTransfer())));
+
+        assertThat(projector.entriesForDate(DATE.plusDays(1)))
+                .as("a transfer must not appear on the following day")
+                .isEmpty();
+    }
+
+    /**
+     * The itinerary is ordered by time, across kinds — so the taxi that gets Ted to the airport
+     * sits above the flight it feeds, and the taxi from the airport sits below the flight that
+     * brought him. (The calendar cannot do this: it lays entries out in fixed per-kind lanes, so a
+     * transfer is always in the same band relative to flights whichever way it runs.)
+     */
+    @Test
+    void aTransferToTheAirportSortsAboveTheLaterFlightItFeeds() {
+        ItineraryProjector projector = new ItineraryProjector();
+
+        projector.handle(Stream.of(
+                stored(new FlightBooked(FlightId.random(), "United", "UA58",
+                        AirportCode.of("DEN"), ukTime(DATE, LocalTime.of(15, 55)),
+                        AirportCode.of("SJC"), ukTime(DATE, LocalTime.of(17, 32)))),
+                stored(groundTransfer())));
+
+        assertThat(projector.entriesForDate(DATE))
+                .extracting(ItineraryEntry::kind, ItineraryEntry::anchorTime)
+                .containsExactly(
+                        tuple(EntryKind.GROUND_TRANSFER, DATE.atTime(12, 0)),
+                        tuple(EntryKind.FLIGHT, DATE.atTime(15, 55)));
+    }
+
+    private static GroundTransferPlanned groundTransfer() {
+        return new GroundTransferPlanned(GroundTransferId.random(),
+                "DEN", "", new Address("", "Denver", "", "", "", "Denver"),
+                "", "Marriott Lone Tree",
+                new Address("10345 Park Meadows Dr", "Lone Tree", "CO", "80124", "US", "Lone Tree"),
+                ukTime(DATE, LocalTime.of(12, 0)), ukTime(DATE, LocalTime.of(12, 45)));
     }
 
     private static ZonedTimestamp zt(LocalDateTime local) {

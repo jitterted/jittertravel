@@ -10,5 +10,6 @@ public enum EntryKind {
     PRIVATE_EVENT,
     FLIGHT,
     TRAIN,
+    GROUND_TRANSFER,
     LODGING
 }

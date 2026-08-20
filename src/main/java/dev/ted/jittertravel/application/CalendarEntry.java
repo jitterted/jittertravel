@@ -22,6 +22,13 @@ import java.util.List;
  * only; the agreed fix is the sealed {@code EntryDetails} of
  * {@code docs/RendererVsProjectorResponsibilities.md} (decision S2 + E2, 2026-08-19), which this
  * field is expected to move into.
+ * <p>
+ * {@code publicRoute} is the same shape of field for {@link EntryKind#GROUND_TRANSFER} alone, and
+ * another passenger for that refactor. It is <strong>never rendered</strong>: it carries the
+ * publishable form of the route ({@code DEN → Lone Tree, CO, US}) purely so
+ * {@link CalendarEntryRedactor} has something true to publish, since it cannot derive a city from
+ * the owner's title — which names a hotel. The owner's own view is the title plus the times, and
+ * repeating the route as a second line there was noise (Ted, 2026-08-20).
  */
 public record CalendarEntry(
         EntryKind kind,
@@ -34,7 +41,8 @@ public record CalendarEntry(
         String mapsUrl,
         boolean speaking,
         String editPath,
-        AttendanceCommitment commitment
+        AttendanceCommitment commitment,
+        String publicRoute
 ) {
     /**
      * Convenience constructor for entries with no owner edit link and no public "speaking"
@@ -44,7 +52,21 @@ public record CalendarEntry(
     public CalendarEntry(EntryKind kind, LocalDateTime start, LocalDateTime end,
                          String mainTitle, List<SubtitleLine> subTitle,
                          String continuationTitle, List<SubtitleLine> continuationSubTitle, String mapsUrl) {
-        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, null, null);
+        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, null, null, null);
+    }
+
+    /**
+     * Convenience constructor for every kind that carries no publishable route — that is, all of
+     * them except {@link EntryKind#GROUND_TRANSFER}, whose redaction has to publish something and
+     * cannot get it from a title naming a hotel.
+     */
+    public CalendarEntry(EntryKind kind, LocalDateTime start, LocalDateTime end,
+                         String mainTitle, List<SubtitleLine> subTitle,
+                         String continuationTitle, List<SubtitleLine> continuationSubTitle,
+                         String mapsUrl, boolean speaking, String editPath,
+                         AttendanceCommitment commitment) {
+        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle,
+                mapsUrl, speaking, editPath, commitment, null);
     }
 
     /**
@@ -55,6 +77,6 @@ public record CalendarEntry(
                          String mainTitle, List<SubtitleLine> subTitle,
                          String continuationTitle, List<SubtitleLine> continuationSubTitle,
                          String mapsUrl, String editPath) {
-        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, editPath, null);
+        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, editPath, null, null);
     }
 }

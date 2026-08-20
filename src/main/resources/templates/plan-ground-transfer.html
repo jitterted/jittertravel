@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Plan Ground Transfer</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .field { margin-bottom: 0.75rem; }
+        .field:last-child { margin-bottom: 0; }
+
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+
+        .hint {
+            font-size: 0.75rem;
+            color: var(--muted-text);
+            margin-top: 2px;
+        }
+
+        .field input[type=date],
+        .field input[type=time],
+        .field select {
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .field input:focus,
+        .field select:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+
+        .field-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .field-row .field { flex: 1; margin-bottom: 0; }
+
+        .error {
+            display: block;
+            margin-top: 2px;
+            font-size: 0.8rem;
+            color: #b00;
+        }
+
+        .form-errors {
+            border: 1px solid #b00;
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.75rem;
+            color: #b00;
+            font-size: 0.85rem;
+        }
+
+        .nothing-booked {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            color: var(--muted-text);
+        }
+
+        button[type=submit] {
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        button[type=submit]:hover { opacity: 0.88; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/calendar">Calendar</a>
+    </nav>
+
+    <h1>Plan Ground Transfer</h1>
+
+    <p class="hint" style="margin-bottom: 1rem;">
+        A short hop with no booking — the taxi from the airport to the hotel, the subway back. It
+        fills a missing-travel gap on Schedule Problems. Anonymous calendar visitors see only
+        &ldquo;Ground transfer&rdquo; and the airport code or city at each end &mdash; never a hotel
+        name, an address, or a time.
+    </p>
+
+    <div class="nothing-booked" th:if="${endpointChoices.empty}">
+        Nothing to travel between yet. Both ends are picked from places already recorded, so book a
+        flight or a hotel first &mdash; there is no free-text option.
+    </div>
+
+    <form th:action="@{/plan-ground-transfer}" th:object="${planGroundTransfer}" method="post">
+        <input type="hidden" th:field="*{groundTransferId}"/>
+
+        <div class="form-errors" th:if="${#fields.hasGlobalErrors()}">
+            <span th:each="err : ${#fields.globalErrors()}" th:text="${err}"></span>
+        </div>
+
+        <div class="field">
+            <label>
+                From
+                <select th:field="*{origin}">
+                    <option value="">Choose a place&hellip;</option>
+                    <optgroup label="Flight arrivals" th:if="${!endpointChoices.arrivals.empty}">
+                        <option th:each="opt : ${endpointChoices.arrivals}"
+                                th:value="${opt.token()}"
+                                th:text="${opt.label()}"
+                                th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>
+                    </optgroup>
+                    <optgroup label="Hotels" th:if="${!endpointChoices.hotels.empty}">
+                        <option th:each="opt : ${endpointChoices.hotels}"
+                                th:value="${opt.token()}"
+                                th:text="${opt.label()}"></option>
+                    </optgroup>
+                </select>
+            </label>
+            <span class="hint">Only flights you <em>land</em> on are offered here &mdash; picking one fills in when it gets in</span>
+            <span class="error"
+                  th:if="${#fields.hasErrors('origin')}"
+                  th:errors="*{origin}"></span>
+        </div>
+
+        <div class="field">
+            <label>
+                To
+                <select th:field="*{destination}">
+                    <option value="">Choose a place&hellip;</option>
+                    <optgroup label="Flight departures" th:if="${!endpointChoices.departures.empty}">
+                        <option th:each="opt : ${endpointChoices.departures}"
+                                th:value="${opt.token()}"
+                                th:text="${opt.label()}"
+                                th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>
+                    </optgroup>
+                    <optgroup label="Hotels" th:if="${!endpointChoices.hotels.empty}">
+                        <option th:each="opt : ${endpointChoices.hotels}"
+                                th:value="${opt.token()}"
+                                th:text="${opt.label()}"></option>
+                    </optgroup>
+                </select>
+            </label>
+            <span class="hint">Only flights you <em>leave</em> on are offered here &mdash; picking one fills in when it goes</span>
+            <span class="error"
+                  th:if="${#fields.hasErrors('destination')}"
+                  th:errors="*{destination}"></span>
+        </div>
+
+        <div class="field-row">
+            <div class="field">
+                <label>
+                    Date
+                    <input type="date" th:field="*{date}"/>
+                </label>
+                <span class="error"
+                      th:if="${#fields.hasErrors('date')}"
+                      th:errors="*{date}"></span>
+            </div>
+            <div class="field">
+                <label>
+                    Departure time
+                    <input type="time" th:field="*{departureTime}"/>
+                </label>
+            </div>
+            <div class="field">
+                <label>
+                    Arrival time
+                    <input type="time" th:field="*{arrivalTime}"/>
+                </label>
+                <span class="error"
+                      th:if="${#fields.hasErrors('arrivalTime')}"
+                      th:errors="*{arrivalTime}"></span>
+            </div>
+        </div>
+
+        <p class="hint" style="margin: 0 0 1rem;">
+            The times are approximate on purpose &mdash; normally &ldquo;just before&rdquo; or
+            &ldquo;just after&rdquo; a flight. Any date is accepted, including today and days
+            already past.
+        </p>
+
+        <button type="submit">Plan Ground Transfer</button>
+    </form>
+
+</div>
+<script>
+    // Picking a flight leg fills in when it happens, so the times never have to be remembered or
+    // looked up in another tab. The leg's own date and time ride on its <option> as data-date /
+    // data-time (GroundTransferEndpointOptions); a hotel carries neither, so choosing one changes
+    // nothing. "From" only ever offers arrivals and "To" only departures, so each end has exactly
+    // one time that can apply to it and there is nothing to disambiguate here.
+    (function () {
+        var dateField = document.getElementById('date');
+        var departureField = document.getElementById('departureTime');
+        var arrivalField = document.getElementById('arrivalTime');
+        var GAP_MINUTES = 45;
+        var LAST_MINUTE_OF_DAY = 23 * 60 + 59;
+
+        function minutesOf(value) {
+            var parts = (value || '').split(':');
+            return parts.length === 2 ? Number(parts[0]) * 60 + Number(parts[1]) : null;
+        }
+
+        function timeOf(minutes) {
+            var clamped = Math.min(Math.max(minutes, 0), LAST_MINUTE_OF_DAY);
+            return String(Math.floor(clamped / 60)).padStart(2, '0')
+                   + ':' + String(clamped % 60).padStart(2, '0');
+        }
+
+        // ownField is the time this end contributes; otherField is the far end, nudged only when
+        // the pair would otherwise be invalid — so a time already typed is never overwritten.
+        function prefillFrom(select, ownField, otherField, otherComesLater) {
+            var option = select.options[select.selectedIndex];
+            if (!option) {
+                return;
+            }
+            var date = option.getAttribute('data-date');
+            var time = option.getAttribute('data-time');
+            if (!date || !time) {
+                return;
+            }
+            dateField.value = date;
+            ownField.value = time;
+            var own = minutesOf(time);
+            var other = minutesOf(otherField.value);
+            var stillValid = other !== null && (otherComesLater ? other > own : other < own);
+            if (!stillValid) {
+                otherField.value = timeOf(otherComesLater ? own + GAP_MINUTES : own - GAP_MINUTES);
+            }
+        }
+
+        document.getElementById('origin').addEventListener('change', function () {
+            prefillFrom(this, departureField, arrivalField, true);
+        });
+        document.getElementById('destination').addEventListener('change', function () {
+            prefillFrom(this, arrivalField, departureField, false);
+        });
+    })();
+</script>
+</body>
+</html>

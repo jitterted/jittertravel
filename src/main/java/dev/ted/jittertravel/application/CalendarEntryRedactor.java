@@ -22,19 +22,33 @@ public class CalendarEntryRedactor {
                     entry.kind(), entry.start(), entry.end(),
                     "Hotel", entry.subTitle(),
                     "Hotel cont'd", entry.continuationSubTitle(),
-                    null, false, null, null
+                    null, false, null, null, null
             );
             case FLIGHT -> new CalendarEntry(
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), null,
                     entry.continuationTitle(), null,
-                    null, false, null, null
+                    null, false, null, null, null
             );
             case TRAIN -> new CalendarEntry(
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), null,
                     entry.continuationTitle(), null,
-                    null, false, null, null
+                    null, false, null, null, null
+            );
+            // A ground transfer: the taxi from the airport to the hotel. Its owner title names a
+            // hotel — "DEN → Marriott Lone Tree" — so unlike FLIGHT and TRAIN above the title
+            // cannot be published, and this branch must never be folded into theirs. What an
+            // anonymous viewer gets instead is the generic word plus `publicRoute`, the one field
+            // the projector fills for exactly this purpose (the owner never sees it rendered).
+            // The owner's whole subtitle — the time range — is dropped rather than filtered:
+            // redaction rule 2 forbids a ZonedTimestamp surviving on a travel entry, because
+            // ZonedTimeTag leaks a clock time in the datetime attribute.
+            case GROUND_TRANSFER -> new CalendarEntry(
+                    entry.kind(), entry.start(), entry.end(),
+                    "🚕 Ground transfer", routeLine(entry.publicRoute()),
+                    null, null,
+                    null, false, null, null, null
             );
             // Conferences are public events: name, venue, location, and times are all visible by
             // decision (Ted attends them publicly). `commitment` is public too — but only because
@@ -49,7 +63,7 @@ public class CalendarEntryRedactor {
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), entry.subTitle(),
                     entry.continuationTitle(), entry.continuationSubTitle(),
-                    entry.mapsUrl(), false, null, entry.commitment()
+                    entry.mapsUrl(), false, null, entry.commitment(), null
             );
             // Gatherings are public events too, and that Ted is *speaking* at one is public by
             // decision (the venue and time are already public) — so `speaking` passes through to
@@ -60,7 +74,7 @@ public class CalendarEntryRedactor {
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), entry.subTitle(),
                     entry.continuationTitle(), entry.continuationSubTitle(),
-                    entry.mapsUrl(), entry.speaking(), null, null
+                    entry.mapsUrl(), entry.speaking(), null, null, null
             );
             // A private social event: anonymous viewers see only that Ted is "Busy", when
             // (the time in the event's own zone, via FixedRange), and the city/country — never
@@ -69,6 +83,17 @@ public class CalendarEntryRedactor {
             // ZonedTimestamp (the time is public in its own zone by decision).
             case PRIVATE_EVENT -> redactPrivateEvent(entry);
         };
+    }
+
+    /**
+     * The anonymous ground-transfer subtitle: the publishable route and nothing else. Built from
+     * {@code publicRoute} rather than filtered out of the owner's subtitle, so a line added to that
+     * subtitle later cannot ride along — the owner's version is discarded wholesale.
+     */
+    private List<SubtitleLine> routeLine(String publicRoute) {
+        return publicRoute == null || publicRoute.isBlank()
+                ? List.of()
+                : List.of(new SubtitleLine.Text(publicRoute));
     }
 
     /**
@@ -92,7 +117,7 @@ public class CalendarEntryRedactor {
                 entry.kind(), entry.start(), entry.end(),
                 "Busy", List.copyOf(redacted),
                 null, null,
-                null, false, null, null
+                null, false, null, null, null
         );
     }
 }

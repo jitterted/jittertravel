@@ -23,6 +23,7 @@ class CalendarAggregatorTest {
     @Mock HotelCalendarProjector hotelProjector;
     @Mock GatheringCalendarProjector gatheringProjector;
     @Mock PrivateEventCalendarProjector privateEventProjector;
+    @Mock GroundTransferCalendarProjector groundTransferProjector;
 
     @Test
     void allEntriesAreReturnedFromAllProjectors() {
@@ -32,19 +33,22 @@ class CalendarAggregatorTest {
         CalendarEntry hotel = entry(EntryKind.LODGING, "Grand Hotel");
         CalendarEntry gathering = entry(EntryKind.GATHERING, "Mob Session");
         CalendarEntry privateEvent = entry(EntryKind.PRIVATE_EVENT, "Dinner with friends");
+        CalendarEntry groundTransfer = entry(EntryKind.GROUND_TRANSFER, "DEN → Marriott Lone Tree");
         given(conferenceProjector.entries()).willReturn(List.of(conference));
         given(flightProjector.entries()).willReturn(List.of(flight));
         given(trainProjector.entries()).willReturn(List.of(train));
         given(hotelProjector.entries()).willReturn(List.of(hotel));
         given(gatheringProjector.entries()).willReturn(List.of(gathering));
         given(privateEventProjector.entries()).willReturn(List.of(privateEvent));
+        given(groundTransferProjector.entries()).willReturn(List.of(groundTransfer));
 
         CalendarAggregator aggregator = new CalendarAggregator(
                 conferenceProjector, flightProjector, trainProjector, hotelProjector,
-                gatheringProjector, privateEventProjector);
+                gatheringProjector, privateEventProjector, groundTransferProjector);
 
         assertThat(aggregator.allEntries())
-                .containsExactlyInAnyOrder(conference, flight, train, hotel, gathering, privateEvent);
+                .containsExactlyInAnyOrder(conference, flight, train, hotel, gathering, privateEvent,
+                                           groundTransfer);
     }
 
     @Test
@@ -55,10 +59,11 @@ class CalendarAggregatorTest {
         given(hotelProjector.entries()).willReturn(List.of());
         given(gatheringProjector.entries()).willReturn(List.of());
         given(privateEventProjector.entries()).willReturn(List.of());
+        given(groundTransferProjector.entries()).willReturn(List.of());
 
         CalendarAggregator aggregator = new CalendarAggregator(
                 conferenceProjector, flightProjector, trainProjector, hotelProjector,
-                gatheringProjector, privateEventProjector);
+                gatheringProjector, privateEventProjector, groundTransferProjector);
 
         assertThat(aggregator.allEntries()).isEmpty();
     }

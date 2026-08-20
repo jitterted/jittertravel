@@ -10,6 +10,7 @@ import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringPlanned;
+import dev.ted.jittertravel.domain.GroundTransferPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelChanged;
@@ -96,6 +97,7 @@ public final class EventTypes {
         register("GatheringPlanned", GatheringPlanned.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("GatheringChanged", GatheringChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("PrivateEventPlanned", PrivateEventPlanned.class);
+        register("GroundTransferPlanned", GroundTransferPlanned.class);
         register("DifferentCityConflictCleared", DifferentCityConflictCleared.class);
         register("OneOffTaskCompleted", OneOffTaskCompleted.class);
 

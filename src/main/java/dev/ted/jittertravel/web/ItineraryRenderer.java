@@ -20,6 +20,9 @@ public class ItineraryRenderer {
     private static final String FLIGHT_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#075985\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2 16l20-7-9 13-2-6-9 0z\"/></svg>";
     private static final String TRAIN_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#9a3412\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"4\" y=\"3\" width=\"16\" height=\"14\" rx=\"3\"/><path d=\"M4 11h16M8 3v8M16 3v8M7 17l-2 4M17 17l2 4\"/><circle cx=\"8.5\" cy=\"14.5\" r=\"1\" fill=\"#9a3412\" stroke=\"none\"/><circle cx=\"15.5\" cy=\"14.5\" r=\"1\" fill=\"#9a3412\" stroke=\"none\"/></svg>";
     private static final String HOTEL_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#166534\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20\"/><path d=\"M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2\"/></svg>";
+    // Taxi, from the travel-icons row on the home page — a ground transfer is whatever comes next,
+    // so the taxi stands for the whole category.
+    private static final String TRANSFER_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#854d0e\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11\"/><path d=\"M3 11h18v5H3zM6 16v2M18 16v2M9 5.5V3.5h6v2\"/><circle cx=\"7\" cy=\"13.5\" r=\"1\" fill=\"#854d0e\" stroke=\"none\"/><circle cx=\"17\" cy=\"13.5\" r=\"1\" fill=\"#854d0e\" stroke=\"none\"/></svg>";
     private static final String PENCIL_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z\"/></svg>";
 
     private static final String CSS = """
@@ -38,6 +41,7 @@ public class ItineraryRenderer {
                 .entry-card--lodging    { border-left-color: #166534; background: #dcfce7; }
                 .entry-card--gathering  { border-left-color: #7c3aed; background: #f5f3ff; }
                 .entry-card--private-event { border-left-color: #475569; background: #f1f5f9; }
+                .entry-card--ground-transfer { border-left-color: #854d0e; background: #fef9c3; }
                 .entry-header { display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.2rem; }
                 .entry-header svg { width: 13px; height: 13px; flex-shrink: 0; }
                 .entry-kind { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
@@ -47,6 +51,7 @@ public class ItineraryRenderer {
                 .entry-kind--lodging    { color: #166534; }
                 .entry-kind--gathering  { color: #7c3aed; }
                 .entry-kind--private-event { color: #475569; }
+                .entry-kind--ground-transfer { color: #854d0e; }
                 .entry-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; line-height: 1.3; }
                 .entry-detail { font-size: 0.82rem; color: #374151; line-height: 1.4; }
                 .entry-detail a { color: inherit; text-decoration: underline; }
@@ -119,6 +124,7 @@ public class ItineraryRenderer {
             case GatheringItineraryEntry e -> renderGathering(e, isOwner);
             case ConferenceItineraryEntry e -> renderConference(e);
             case PrivateEventItineraryEntry e -> renderPrivateEvent(e);
+            case GroundTransferItineraryEntry e -> renderGroundTransfer(e);
         };
     }
 
@@ -252,6 +258,30 @@ public class ItineraryRenderer {
                 div(e.name()).withClass("entry-title"),
                 div(e.venueName()).withClass("entry-detail"),
                 div(location).withClass("entry-detail entry-location")
+        );
+    }
+
+    /**
+     * A short hop with no booking, so there is nothing to edit into and no service id to show:
+     * both ends and the (approximate) times, and nothing else — the airport code or hotel name
+     * already says where each end is, so a cities line only repeated the journey (Ted, 2026-08-20).
+     */
+    private static DivTag renderGroundTransfer(GroundTransferItineraryEntry e) {
+        return div().withClass("entry-card entry-card--ground-transfer").with(
+                div().withClass("entry-header").with(
+                        rawHtml(TRANSFER_SVG),
+                        span("Ground transfer").withClass("entry-kind entry-kind--ground-transfer")
+                ),
+                div().withClass("entry-title").with(
+                        span(e.origin()),
+                        rawHtml("&nbsp;&rarr;&nbsp;"),
+                        span(e.destination())
+                ),
+                div().withClass("entry-detail").with(
+                        ZonedTimeTag.render(e.departsAt(), TIME_FORMAT),
+                        rawHtml("&nbsp;&rarr;&nbsp;"),
+                        ZonedTimeTag.render(e.arrivesAt(), TIME_FORMAT)
+                )
         );
     }
 

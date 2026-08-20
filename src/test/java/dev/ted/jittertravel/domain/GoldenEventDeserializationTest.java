@@ -591,6 +591,62 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
+    void groundTransferPlannedSampleDeserializes() {
+        // Flat by design: two Strings and an Address per end, rather than a sealed TransferPoint
+        // that would need Jackson type information in every stored payload. Exactly one of
+        // airportCode / name is set at each end, and that is what decides how the end is published.
+        String json = """
+                {
+                  "groundTransferId": {"id": "77777777-7777-7777-7777-777777777777"},
+                  "originAirportCode": "DEN",
+                  "originName": "",
+                  "origin": {
+                    "street": "",
+                    "city": "Denver",
+                    "region": "",
+                    "postalCode": "",
+                    "country": "",
+                    "locationForMatching": "Denver"
+                  },
+                  "destinationAirportCode": "",
+                  "destinationName": "Marriott Lone Tree",
+                  "destination": {
+                    "street": "10345 Park Meadows Dr",
+                    "city": "Lone Tree",
+                    "region": "CO",
+                    "postalCode": "80124",
+                    "country": "US",
+                    "locationForMatching": "Lone Tree"
+                  },
+                  "departsAt": {"utc": "2026-09-14T18:00:00Z", "zone": "America/Denver"},
+                  "arrivesAt": {"utc": "2026-09-14T18:45:00Z", "zone": "America/Denver"}
+                }
+                """;
+
+        GroundTransferPlanned event = deserialize(json, GroundTransferPlanned.class);
+
+        assertThat(event.groundTransferId().id())
+                .isEqualTo(UUID.fromString("77777777-7777-7777-7777-777777777777"));
+        assertThat(event.originAirportCode())
+                .isEqualTo("DEN");
+        assertThat(event.originName())
+                .isEmpty();
+        assertThat(event.origin().locationForMatching())
+                .isEqualTo("Denver");
+        assertThat(event.destinationAirportCode())
+                .isEmpty();
+        assertThat(event.destinationName())
+                .isEqualTo("Marriott Lone Tree");
+        assertThat(event.destination().locationForMatching())
+                .as("the match location is what connects the transfer to the stay it serves")
+                .isEqualTo("Lone Tree");
+        assertThat(event.departsAt().localDateTime().toString())
+                .isEqualTo("2026-09-14T12:00");
+        assertThat(event.arrivesAt().localDateTime().toString())
+                .isEqualTo("2026-09-14T12:45");
+    }
+
+    @Test
     void legacyGatheringPlannedWallClockTrioIsUpcastToStartsAtAndEndsAt() {
         // Written before gatherings stored instants: a date plus two times, no zone anywhere. The
         // zone comes from the payload's own location, so the upcast lands on the same moment the

@@ -252,6 +252,7 @@ public class CalendarViewBuilder {
                         dayMenuItem("Add flight", "/book-flight?date=" + iso),
                         dayMenuItem("Add train", "/book-train?date=" + iso),
                         dayMenuItem("Add hotel", "/book-hotel?date=" + iso),
+                        dayMenuItem("Add ground transfer", "/plan-ground-transfer?date=" + iso),
                         dayMenuItem("Add gathering", "/plan-gathering?date=" + iso),
                         dayMenuItem("Add conference", "/plan-conference?date=" + iso)
                 )

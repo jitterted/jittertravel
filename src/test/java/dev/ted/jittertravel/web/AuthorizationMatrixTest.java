@@ -95,6 +95,7 @@ class AuthorizationMatrixTest {
                 arguments("/book-flight",          Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/book-flight/lookup/select", Outcome.OK,  Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/plan-private-event",   Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
+                arguments("/plan-ground-transfer", Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/booked-flights",       Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/booked-flights/abc",   Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 // Two segments past the id, so neither "/booked-flights/*" nor

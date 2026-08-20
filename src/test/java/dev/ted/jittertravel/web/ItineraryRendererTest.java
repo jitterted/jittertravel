@@ -509,6 +509,49 @@ class ItineraryRendererTest {
                 .contains("<time datetime=\"2026-06-01T21:00:00Z\" data-fmt=\"h:mm a\">10:00 PM</time>");
     }
 
+    // --- Ground transfer ---
+
+    @Test
+    void groundTransferShowsItsOwnKindLabelAndColour() {
+        String html = renderWithEntry(groundTransfer());
+
+        assertThat(html)
+                .contains("entry-card entry-card--ground-transfer")
+                .contains("entry-kind entry-kind--ground-transfer")
+                .contains(">Ground transfer<");
+    }
+
+    @Test
+    void groundTransferNamesBothEndsAndNothingElse() {
+        // The itinerary is OWNER/FAMILY only, so the hotel is named in full here — redaction is an
+        // anonymous-calendar concern. But the journey is stated once: naming the same hop again as
+        // cities was noise on the card (Ted, 2026-08-20).
+        String html = renderWithEntry(groundTransfer());
+
+        assertThat(html)
+                .contains("DEN")
+                .contains("Marriott Lone Tree")
+                .doesNotContain("Denver to Lone Tree")
+                .doesNotContain("entry-detail entry-location");
+    }
+
+    @Test
+    void groundTransferCarriesNoEditPencilBecauseThereIsNothingToEditYet() {
+        String html = renderWithEntry(groundTransfer());
+
+        assertThat(html).doesNotContain("class=\"edit-pencil\"");
+    }
+
+    @Test
+    void groundTransferTimesRenderAsTimeElementsCarryingTheUtcInstant() {
+        // London 12:00-12:45 PM BST is 11:00-11:45Z.
+        String html = renderWithEntry(groundTransfer());
+
+        assertThat(html)
+                .contains("<time datetime=\"2026-06-01T11:00:00Z\" data-fmt=\"h:mm a\">12:00 PM</time>")
+                .contains("<time datetime=\"2026-06-01T11:45:00Z\" data-fmt=\"h:mm a\">12:45 PM</time>");
+    }
+
     // --- Helpers ---
 
     private static String renderEmpty() {
@@ -570,6 +613,12 @@ class ItineraryRendererTest {
         return new PrivateEventItineraryEntry(title, venueName, "London", "GB",
                 zoned(JUN_1.atTime(LocalTime.of(19, 0)), LONDON),
                 zoned(JUN_1.atTime(LocalTime.of(22, 0)), LONDON));
+    }
+
+    private static GroundTransferItineraryEntry groundTransfer() {
+        return new GroundTransferItineraryEntry("DEN", "Marriott Lone Tree",
+                zoned(JUN_1.atTime(LocalTime.of(12, 0)), LONDON),
+                zoned(JUN_1.atTime(LocalTime.of(12, 45)), LONDON));
     }
 
     private static ZonedTimestamp zoned(LocalDateTime local, ZoneId zone) {

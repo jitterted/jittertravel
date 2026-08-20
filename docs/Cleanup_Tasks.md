@@ -7,6 +7,24 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Open
 
+- [ ] **Conferences have no `locationForMatching`.** `PlanConferenceRequest:130` always passes
+      `null` for the venue `Address`, so the compact constructor falls back to the city and a
+      conference can only ever match on that. A conference in **Lone Tree, CO** therefore never
+      matches the **Denver** that `StaticAirportCityResolver` gives for a `DEN` flight, and
+      `/schedule-problems` reports missing travel between two places that are effectively one
+      (found 2026-08-20). Hotels, gatherings and private events all expose the field on their
+      forms; conferences do not, and there is no Change Conference flow to correct it after the
+      fact. Add the input to the conference venue address (the `fragments/address-paste.html`
+      pattern) and pass it through. Related but separate: `GroundTransferPlan.md`, which records
+      the journey that genuinely does happen between an airport and a venue.
+- [ ] **Cancel ground transfer — the slice shipped 2026-08-20, so this is now due.** D11 in
+      `GroundTransferPlan.md` (Ted, 2026-08-20) shipped it without cancel or change, so a
+      mistyped transfer cannot be removed from inside the app: it stays on the calendar and keeps
+      feeding a false presence fact into `/schedule-problems`, where it can mask a real
+      missing-travel gap. This is a named fast-follow, not an open-ended deferral: a
+      `GroundTransferCancelled` event, command + handler, a POST route with matcher and matrix
+      row, and removal branches in the calendar/itinerary/gap projectors. Deleting one transfer is
+      recoverable by re-entering it, so amber rules apply — a plain confirm, no typed word.
 - [ ] **Itinerary: add-entry day dropdown** (like the calendar's). The `/calendar` future-day
       disclosure menu lets the owner add an entry for a specific day; the itinerary has no such
       affordance. Add the same per-day "add an entry" dropdown to the itinerary so a day can be

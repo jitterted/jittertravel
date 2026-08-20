@@ -31,6 +31,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     private final HomeCities homeCities;
     private final Map<FlightId, ScheduleTimeline.Movement> flightLegs = new ConcurrentHashMap<>();
     private final Map<TrainTripId, ScheduleTimeline.Movement> trainLegs = new ConcurrentHashMap<>();
+    private final Map<GroundTransferId, ScheduleTimeline.Movement> groundTransfers = new ConcurrentHashMap<>();
     private final Map<HotelBookingId, ScheduleTimeline.Stay> hotelStays = new ConcurrentHashMap<>();
     private final Map<ConferenceId, ScheduleTimeline.Occupancy> conferences = new ConcurrentHashMap<>();
     private final Map<GatheringId, ScheduleTimeline.Occupancy> gatherings = new ConcurrentHashMap<>();
@@ -71,6 +72,14 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 case TrainChanged e -> trainLegs.put(e.tripId(), new ScheduleTimeline.Movement(
                         e.departureStation().city(), e.departureDateTime(),
                         e.arrivalStation().city(), e.arrivalDateTime()));
+                // The whole point of a ground transfer: it is a leg like any other, so the gap it
+                // fills stops being reported. Both ends compare on locationForMatching — the hotel's
+                // own, or the airport's city — which is what the timeline matches conferences and
+                // stays against.
+                case GroundTransferPlanned e -> groundTransfers.put(e.groundTransferId(),
+                        new ScheduleTimeline.Movement(
+                                e.origin().locationForMatching(), e.departsAt(),
+                                e.destination().locationForMatching(), e.arrivesAt()));
                 case HotelBooked e -> hotelStays.put(e.hotelBookingId(), new ScheduleTimeline.Stay(
                         e.hotelBookingId(), e.hotelName(), e.address().locationForMatching(),
                         e.checkIn(), e.checkOut(), e.bookingIntent()));
@@ -194,7 +203,9 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     }
 
     private List<ScheduleTimeline.Movement> allLegs() {
-        return Stream.concat(flightLegs.values().stream(), trainLegs.values().stream())
+        return Stream.of(flightLegs.values().stream(), trainLegs.values().stream(),
+                         groundTransfers.values().stream())
+                .flatMap(legs -> legs)
                 .sorted(Comparator.comparing(leg -> leg.departure().utc()))
                 .toList();
     }

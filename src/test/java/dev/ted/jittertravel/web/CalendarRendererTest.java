@@ -28,6 +28,24 @@ class CalendarRendererTest {
                 .contains("<a href=\"/\">JitterTravel</a>");
     }
 
+    /**
+     * The ground-transfer lane gets a colour of its own — reason 2 for giving it its own
+     * {@code EntryKind} rather than reusing TRAIN, which would have rendered a taxi in the train's
+     * orange. The class name comes from {@code EntryKind.name().toLowerCase()}, underscore and all,
+     * so the rule must be spelled {@code entry--ground_transfer} or it silently matches nothing.
+     */
+    @Test
+    void theGroundTransferLaneHasItsOwnColourRuleNotTheTrainOne() {
+        String html = CalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false);
+
+        assertThat(html)
+                .contains("--entry-ground_transfer-bg: #fef9c3; --entry-ground_transfer-fg: #854d0e;")
+                .contains(".entry--ground_transfer { background-color: var(--entry-ground_transfer-bg); "
+                          + "color: var(--entry-ground_transfer-fg); }")
+                .as("a hyphenated spelling would never match the generated class")
+                .doesNotContain(".entry--ground-transfer {");
+    }
+
     @Test
     void everyGridPinsItsColumnsToMinmaxZeroSoDaysAlignAcrossWeeks() {
         // Each week is its own grid, so a bare 1fr (= minmax(auto, 1fr)) lets one wide entry

@@ -215,6 +215,66 @@ class CalendarRedactionSecurityTest {
                 "/planned-private-events/abc");
     }
 
+    private static final ZoneId DENVER = ZoneId.of("America/Denver");
+    private static final LocalDateTime GT_DEPARTS = LocalDateTime.of(2026, 9, 14, 12, 0);
+    private static final LocalDateTime GT_ARRIVES = LocalDateTime.of(2026, 9, 14, 12, 45);
+
+    @Test
+    @WithMockUser(username = "ted", roles = "OWNER")
+    void ownerSeesTheHotelAtTheEndOfAGroundTransfer() {
+        given(calendarAggregator.allEntries()).willReturn(List.of(groundTransfer()));
+
+        assertThat(mockMvc.get().uri("/calendar"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("Marriott Lone Tree")
+                .contains("12:00 PM")
+                .as("the owner reads the title and the times, not the journey spelled out twice")
+                .doesNotContain("DEN → Lone Tree, CO, US");
+    }
+
+    @Test
+    void anonymousUserSeesGroundTransferWithoutTheHotelOrAnyTime() {
+        given(calendarAggregator.allEntries()).willReturn(List.of(groundTransfer()));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                // Public: that a hop happened, and each end as a code or a city.
+                .contains("\uD83D\uDE95 Ground transfer")
+                .contains("DEN → Lone Tree, CO, US")
+                // Private: the hotel Ted sleeps in, and the times of day.
+                .doesNotContain("Marriott Lone Tree")
+                .doesNotContain("12:00 PM")
+                .doesNotContain("12:45 PM");
+    }
+
+    /**
+     * Redaction rule 2, through the real chain: {@code ZonedTimeTag} writes the UTC instant into a
+     * {@code datetime} attribute, so a surviving time leaks in the markup even when nothing visible
+     * shows a clock. Asserted on the raw response, not the text, because that is where it would be.
+     */
+    @Test
+    void anonymousGroundTransferMarkupCarriesNoDatetimeInstant() throws Exception {
+        given(calendarAggregator.allEntries()).willReturn(List.of(groundTransfer()));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous())
+                .exchange().getResponse().getContentAsString())
+                .doesNotContain("2026-09-14T18:00")
+                .doesNotContain("2026-09-14T18:45");
+    }
+
+    private static CalendarEntry groundTransfer() {
+        return new CalendarEntry(
+                EntryKind.GROUND_TRANSFER, GT_DEPARTS, GT_ARRIVES,
+                "\uD83D\uDE95 DEN → Marriott Lone Tree",
+                List.of(new SubtitleLine.Range(
+                        ZonedTimestamp.fromLocal(GT_DEPARTS, DENVER),
+                        ZonedTimestamp.fromLocal(GT_ARRIVES, DENVER))),
+                null, null, null,
+                false, null, null, "DEN → Lone Tree, CO, US");
+    }
+
     private static final LocalDateTime GATHERING_START = LocalDateTime.of(2026, 7, 5, 18, 0);
     private static final LocalDateTime GATHERING_END = LocalDateTime.of(2026, 7, 5, 21, 0);
 

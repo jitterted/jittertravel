@@ -20,6 +20,9 @@ public class ItineraryProjector implements EventStreamConsumer {
     private final Map<ConferenceId, List<ConferenceItineraryEntry>> conferenceEntries = new ConcurrentHashMap<>();
     private final Map<GatheringId, GatheringItineraryEntry> gatheringEntries = new ConcurrentHashMap<>();
     private final Map<PrivateEventId, PrivateEventItineraryEntry> privateEventEntries = new ConcurrentHashMap<>();
+    private final Map<GroundTransferId, GroundTransferItineraryEntry> groundTransferEntries = new ConcurrentHashMap<>();
+
+    private final TransferEndpointLabel transferLabel = new TransferEndpointLabel();
 
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
@@ -42,6 +45,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                         e.gatheringId(), e.title(), e.venueName(), e.location(),
                         e.speaking(), e.infoUrl(), e.startsAt(), e.endsAt()));
                 case PrivateEventPlanned e -> privateEventEntries.put(e.privateEventId(), toPrivateEventEntry(e));
+                case GroundTransferPlanned e -> groundTransferEntries.put(e.groundTransferId(), toGroundTransferEntry(e));
                 default -> {}
             }
         });
@@ -54,7 +58,8 @@ public class ItineraryProjector implements EventStreamConsumer {
                         hotelEntries.values().stream().flatMap(List::stream),
                         conferenceEntries.values().stream().flatMap(List::stream),
                         gatheringEntries.values().stream(),
-                        privateEventEntries.values().stream()
+                        privateEventEntries.values().stream(),
+                        groundTransferEntries.values().stream()
                 )
                 .flatMap(s -> s)
                 .map(e -> e.anchorTime().toLocalDate())
@@ -85,6 +90,9 @@ public class ItineraryProjector implements EventStreamConsumer {
                 .filter(e -> e.anchorTime().toLocalDate().equals(date))
                 .forEach(result::add);
         privateEventEntries.values().stream()
+                .filter(e -> e.anchorTime().toLocalDate().equals(date))
+                .forEach(result::add);
+        groundTransferEntries.values().stream()
                 .filter(e -> e.anchorTime().toLocalDate().equals(date))
                 .forEach(result::add);
         result.sort(Comparator.comparing(ItineraryEntry::anchorTime));
@@ -203,6 +211,17 @@ public class ItineraryProjector implements EventStreamConsumer {
                 e.title(), e.venueName(),
                 e.location().city(), e.location().country(),
                 e.startsAt(), e.endsAt());
+    }
+
+    /**
+     * Anchored on the departure alone: a transfer takes both ends' times from one zone and is a
+     * short hop, so unlike a flight or a train it never needs a second, arrival-day entry.
+     */
+    private GroundTransferItineraryEntry toGroundTransferEntry(GroundTransferPlanned e) {
+        return new GroundTransferItineraryEntry(
+                transferLabel.ownerLabel(e.originAirportCode(), e.originName(), e.origin()),
+                transferLabel.ownerLabel(e.destinationAirportCode(), e.destinationName(), e.destination()),
+                e.departsAt(), e.arrivesAt());
     }
 
     private static List<ConferenceItineraryEntry> toConferenceEntries(ConferencePlanned e) {

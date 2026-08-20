@@ -202,7 +202,7 @@ class CalendarEntryRedactorTest {
                     kind, START, END,
                     "Whatever", lines("Somewhere"),
                     null, null, null,
-                    false, null, AttendanceCommitment.WATCHING
+                    false, null, AttendanceCommitment.WATCHING, null
             );
 
             assertThat(redactor.redact(entry).commitment())
@@ -244,6 +244,56 @@ class CalendarEntryRedactorTest {
         assertThat(redacted.continuationSubTitle()).isNull();
         assertThat(redacted.mapsUrl()).isNull();
         assertThat(redacted.editPath()).isNull();
+    }
+
+    /**
+     * A ground transfer is the one travel kind whose owner title names a hotel, so — unlike FLIGHT
+     * and TRAIN, whose route titles are public — the title cannot survive. What is left is the
+     * generic word and the projector's already-public route line.
+     */
+    @Test
+    void groundTransferBecomesTheGenericWordDroppingTheHotelNameFromTheTitle() {
+        ZonedTimestamp departs = torontoTime(12, 0);
+        ZonedTimestamp arrives = torontoTime(12, 45);
+        CalendarEntry transfer = new CalendarEntry(
+                EntryKind.GROUND_TRANSFER, START, END,
+                "\uD83D\uDE95 DEN → Marriott Lone Tree", List.of(new SubtitleLine.Range(departs, arrives)),
+                null, null, null,
+                false, null, null, "DEN → Lone Tree, CO, US"
+        );
+
+        CalendarEntry redacted = redactor.redact(transfer);
+
+        assertThat(redacted.mainTitle()).isEqualTo("\uD83D\uDE95 Ground transfer");
+        assertThat(redacted.mainTitle()).doesNotContain("Marriott Lone Tree");
+        assertThat(redacted.subTitle())
+                .isEqualTo(List.of(new SubtitleLine.Text("DEN → Lone Tree, CO, US")));
+        assertThat(redacted.continuationTitle()).isNull();
+        assertThat(redacted.continuationSubTitle()).isNull();
+        assertThat(redacted.mapsUrl()).isNull();
+        assertThat(redacted.editPath()).isNull();
+    }
+
+    /**
+     * Redaction rule 2: on a travel entry a {@code SubtitleLine} carrying a {@code ZonedTimestamp}
+     * must never survive, because {@code ZonedTimeTag} writes the UTC instant into the
+     * {@code datetime} attribute — a clock time leaks there even when the visible text does not.
+     */
+    @Test
+    void noTimestampBearingSubtitleSurvivesOnAGroundTransfer() {
+        CalendarEntry transfer = new CalendarEntry(
+                EntryKind.GROUND_TRANSFER, START, END,
+                "DEN → Marriott Lone Tree", List.of(
+                        new SubtitleLine.Range(torontoTime(12, 0), torontoTime(12, 45)),
+                        new SubtitleLine.At("Departs", torontoTime(12, 0)),
+                        new SubtitleLine.FixedRange(torontoTime(12, 0), torontoTime(12, 45))),
+                null, null, null,
+                false, null, null, "DEN → Lone Tree, CO, US"
+        );
+
+        assertThat(redactor.redact(transfer).subTitle())
+                .allMatch(SubtitleLine.Text.class::isInstance,
+                          "every surviving subtitle line is plain text");
     }
 
     private static ZonedTimestamp torontoTime(int hour, int minute) {

@@ -43,6 +43,7 @@ public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, Stri
         return switch (problem) {
             case ScheduleProblem.MissingHotel missingHotel -> Optional.of(bedBand(missingHotel));
             case ScheduleProblem.MissingTravel missingTravel -> Optional.of(travelBand(missingTravel));
+            case ScheduleProblem.DuplicateHotel ignored -> Optional.empty();         // ScheduleProblemsRewritePlan slice 5
             case ScheduleProblem.SchedulingConflict ignored -> Optional.empty();     // slice 3
             case ScheduleProblem.DifferentCityConflict ignored -> Optional.empty();  // slice 3
         };

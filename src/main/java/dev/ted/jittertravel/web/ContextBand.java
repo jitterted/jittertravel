@@ -28,6 +28,8 @@ public record ContextBand(String label, LocalDate firstDay, LocalDate lastDay) {
                     new ContextBand(named(name, city, first, last), first, last);
             case ScheduleContext.Gathering(String name, String city, LocalDate first, LocalDate last) ->
                     new ContextBand(named(name, city, first, last), first, last);
+            case ScheduleContext.PrivateEvent(String name, String city, LocalDate first, LocalDate last) ->
+                    new ContextBand(named(name, city, first, last), first, last);
             case ScheduleContext.Travel(String fromCity, String toCity, LocalDate first, LocalDate last) ->
                     new ContextBand(fromCity + " → " + toCity + " · " + dayRange(first, last), first, last);
             case ScheduleContext.Stay(String city, LocalDate first, LocalDate last) ->

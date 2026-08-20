@@ -27,6 +27,16 @@ public sealed interface ScheduleContext {
     record Gathering(String name, String city, LocalDate firstDay, LocalDate lastDay) implements ScheduleContext {
     }
 
+    /**
+     * A private social event. It places Ted somewhere exactly as a gathering does, and gets its own
+     * variant rather than being folded into {@link Gathering} for the same reason
+     * {@code EntryKind.PRIVATE_EVENT} does on the public calendar: the two differ in who may see
+     * them, and collapsing them here would make that distinction one refactor away from being lost.
+     * This page is OWNER-only, so both render in full — but the type keeps the difference visible.
+     */
+    record PrivateEvent(String name, String city, LocalDate firstDay, LocalDate lastDay) implements ScheduleContext {
+    }
+
     /** A booked leg, flight or train alike: the calendar cares that it moves you, not how. */
     record Travel(String fromCity, String toCity, LocalDate firstDay, LocalDate lastDay) implements ScheduleContext {
     }

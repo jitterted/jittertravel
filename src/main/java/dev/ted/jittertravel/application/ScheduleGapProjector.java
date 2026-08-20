@@ -6,19 +6,35 @@ import dev.ted.jittertravel.infrastructure.StoredEvent;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
+/**
+ * Turns the event stream into the {@code /schedule-problems} read models.
+ * <p>
+ * Detection itself lives in {@link ScheduleTimeline}: this class only holds the current state of
+ * every located thing — legs, stays, conferences, gatherings, private events — and hands it over.
+ * <strong>Any entry kind that has a location must be handled here</strong>, or it becomes invisible
+ * to the location trace and silently breaks every problem after it; {@code
+ * LocatedEventsReachScheduleProblemsTest} enforces that. See
+ * {@code docs/ScheduleProblemsRewritePlan.md}.
+ */
 public class ScheduleGapProjector implements EventStreamConsumer {
 
     private final AirportCityResolver cityResolver;
     private final HomeCities homeCities;
-    private final Map<FlightId, TravelLeg> flightLegs = new ConcurrentHashMap<>();
-    private final Map<TrainTripId, TravelLeg> trainLegs = new ConcurrentHashMap<>();
-    private final Map<HotelBookingId, HotelStay> hotelStays = new ConcurrentHashMap<>();
-    private final Map<ConferenceId, CityOccupancy> conferenceOccupancies = new ConcurrentHashMap<>();
-    private final Map<GatheringId, GatheringOccupancy> gatheringOccupancies = new ConcurrentHashMap<>();
+    private final Map<FlightId, ScheduleTimeline.Movement> flightLegs = new ConcurrentHashMap<>();
+    private final Map<TrainTripId, ScheduleTimeline.Movement> trainLegs = new ConcurrentHashMap<>();
+    private final Map<HotelBookingId, ScheduleTimeline.Stay> hotelStays = new ConcurrentHashMap<>();
+    private final Map<ConferenceId, ScheduleTimeline.Occupancy> conferences = new ConcurrentHashMap<>();
+    private final Map<GatheringId, ScheduleTimeline.Occupancy> gatherings = new ConcurrentHashMap<>();
+    private final Map<PrivateEventId, ScheduleTimeline.Occupancy> privateEvents = new ConcurrentHashMap<>();
     private final Set<ClearedConflict> clearedConflicts = new HashSet<>();
 
     // The read model. Problem detection depends only on event-derived state (no clock, no viewer),
@@ -49,28 +65,35 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 case FlightChanged e -> flightLegs.put(e.flightId(), flightLeg(
                         e.departureAirport(), e.departureDateTime(),
                         e.arrivalAirport(), e.arrivalDateTime()));
-                case TrainBooked e -> trainLegs.put(e.tripId(), new TravelLeg(
+                case TrainBooked e -> trainLegs.put(e.tripId(), new ScheduleTimeline.Movement(
                         e.departureStation().city(), e.departureDateTime(),
                         e.arrivalStation().city(), e.arrivalDateTime()));
-                case TrainChanged e -> trainLegs.put(e.tripId(), new TravelLeg(
+                case TrainChanged e -> trainLegs.put(e.tripId(), new ScheduleTimeline.Movement(
                         e.departureStation().city(), e.departureDateTime(),
                         e.arrivalStation().city(), e.arrivalDateTime()));
-                case HotelBooked e -> hotelStays.put(e.hotelBookingId(), new HotelStay(
-                        e.address().locationForMatching(), e.checkIn().localDateTime().toLocalDate(), e.checkOut().localDateTime().toLocalDate()));
-                case HotelChanged e -> hotelStays.put(e.hotelBookingId(), new HotelStay(
-                        e.address().locationForMatching(), e.checkIn().localDateTime().toLocalDate(), e.checkOut().localDateTime().toLocalDate()));
+                case HotelBooked e -> hotelStays.put(e.hotelBookingId(), new ScheduleTimeline.Stay(
+                        e.hotelBookingId(), e.hotelName(), e.address().locationForMatching(),
+                        e.checkIn(), e.checkOut(), e.bookingIntent()));
+                case HotelChanged e -> hotelStays.put(e.hotelBookingId(), new ScheduleTimeline.Stay(
+                        e.hotelBookingId(), e.hotelName(), e.address().locationForMatching(),
+                        e.checkIn(), e.checkOut(), e.bookingIntent()));
                 case HotelBookingCancelled e -> hotelStays.remove(e.hotelBookingId());
-                case ConferencePlanned e -> conferenceOccupancies.put(e.conferenceId(),
-                        new CityOccupancy(e.venueAddress().locationForMatching(),
-                                e.startDate(), e.endDate(), e.name()));  // now ZonedTimestamps
-                case ConferenceCancelled e -> conferenceOccupancies.remove(e.conferenceId());
-                case ConferenceAttendanceDeclined e -> conferenceOccupancies.remove(e.conferenceId());
-                case GatheringPlanned e -> gatheringOccupancies.put(e.gatheringId(),
-                        new GatheringOccupancy(e.title(), e.location().locationForMatching(),
-                                e.startsAt(), e.endsAt()));
-                case GatheringChanged e -> gatheringOccupancies.put(e.gatheringId(),
-                        new GatheringOccupancy(e.title(), e.location().locationForMatching(),
-                                e.startsAt(), e.endsAt()));
+                case ConferencePlanned e -> conferences.put(e.conferenceId(),
+                        new ScheduleTimeline.Occupancy(e.name(), e.venueAddress().locationForMatching(),
+                                e.startDate(), e.endDate(), ScheduleTimeline.Occupancy.Kind.CONFERENCE));
+                case ConferenceCancelled e -> conferences.remove(e.conferenceId());
+                case ConferenceAttendanceDeclined e -> conferences.remove(e.conferenceId());
+                case GatheringPlanned e -> gatherings.put(e.gatheringId(),
+                        new ScheduleTimeline.Occupancy(e.title(), e.location().locationForMatching(),
+                                e.startsAt(), e.endsAt(), ScheduleTimeline.Occupancy.Kind.GATHERING));
+                case GatheringChanged e -> gatherings.put(e.gatheringId(),
+                        new ScheduleTimeline.Occupancy(e.title(), e.location().locationForMatching(),
+                                e.startsAt(), e.endsAt(), ScheduleTimeline.Occupancy.Kind.GATHERING));
+                // A private event places Ted somewhere exactly as a gathering does; only who may
+                // see it differs, and that is the redactor's problem, not this one's.
+                case PrivateEventPlanned e -> privateEvents.put(e.privateEventId(),
+                        new ScheduleTimeline.Occupancy(e.title(), e.location().locationForMatching(),
+                                e.startsAt(), e.endsAt(), ScheduleTimeline.Occupancy.Kind.PRIVATE_EVENT));
                 case DifferentCityConflictCleared e ->
                         clearedConflicts.add(new ClearedConflict(e.gatheringId(), e.conferenceId()));
                 default -> {}
@@ -80,7 +103,8 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         // append), so reads are O(1) and never re-derive from the event-shaped state. Both are
         // computed from the same state in the same pass, so a problem and its context cannot
         // describe two different versions of the schedule.
-        cachedProblems = computeProblems();
+        ScheduleTimeline timeline = timeline();
+        cachedProblems = computeProblems(timeline);
         cachedContext = computeContext();
     }
 
@@ -102,341 +126,142 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     }
 
     /**
-     * Everything the schedule holds, unfiltered: conferences, gatherings, booked legs and booked
-     * stays, each as a run of local days. Unlike {@link #problems(Instant)} there is no {@code now}
-     * cut — a caller showing context behind a problem already knows which days it is drawing, and
-     * clipping to that window is its job, not this one's.
+     * Everything the schedule holds, unfiltered: conferences, gatherings, private events, booked
+     * legs and booked stays, each as a run of local days. Unlike {@link #problems(Instant)} there
+     * is no {@code now} cut — a caller showing context behind a problem already knows which days
+     * it is drawing, and clipping to that window is its job, not this one's.
      */
     public List<ScheduleContext> context() {
         return cachedContext;
     }
 
+    private ScheduleTimeline timeline() {
+        List<ScheduleTimeline.Occupancy> occupancies = new ArrayList<>();
+        occupancies.addAll(conferences.values());
+        occupancies.addAll(gatherings.values());
+        occupancies.addAll(privateEvents.values());
+        return new ScheduleTimeline(List.copyOf(hotelStays.values()), occupancies,
+                allLegs(), homeCities);
+    }
+
     private List<ScheduleContext> computeContext() {
         List<ScheduleContext> context = new ArrayList<>();
-        for (CityOccupancy conference : conferenceOccupancies.values()) {
+        for (ScheduleTimeline.Occupancy conference : conferences.values()) {
             context.add(new ScheduleContext.Conference(conference.name(), conference.city(),
-                    conference.startDate(), conference.endDate()));
+                    conference.firstDay(), conference.lastDay()));
         }
-        for (GatheringOccupancy gathering : gatheringOccupancies.values()) {
+        for (ScheduleTimeline.Occupancy gathering : gatherings.values()) {
             context.add(new ScheduleContext.Gathering(gathering.name(), gathering.city(),
-                    gathering.date(), gathering.endDate()));
+                    gathering.firstDay(), gathering.lastDay()));
         }
-        for (HotelStay stay : hotelStays.values()) {
-            context.add(new ScheduleContext.Stay(stay.city(), stay.checkIn(), stay.checkOut()));
+        for (ScheduleTimeline.Occupancy privateEvent : privateEvents.values()) {
+            context.add(new ScheduleContext.PrivateEvent(privateEvent.name(), privateEvent.city(),
+                    privateEvent.firstDay(), privateEvent.lastDay()));
         }
-        for (TravelLeg leg : allLegs()) {
+        for (ScheduleTimeline.Stay stay : hotelStays.values()) {
+            context.add(new ScheduleContext.Stay(stay.city(), stay.checkInDay(), stay.checkOutDay()));
+        }
+        for (ScheduleTimeline.Movement leg : allLegs()) {
             context.add(new ScheduleContext.Travel(leg.fromCity(), leg.toCity(),
-                    leg.departure().localDateTime().toLocalDate(),
-                    leg.arrival().localDateTime().toLocalDate()));
+                    leg.departureDay(), leg.arrivalDay()));
         }
         return context.stream()
                 .sorted(Comparator.comparing(ScheduleContext::firstDay))
                 .toList();
     }
 
-    private List<ScheduleProblem> computeProblems() {
-        List<TravelLeg> legs = allLegs();
-        Set<ScheduleProblem> rawProblems = new LinkedHashSet<>();
-        detectMissingTravel(legs, rawProblems);
-        detectMissingTravelToFromConferences(legs, rawProblems);
-        detectMissingHotel(legs, rawProblems);
-        detectGatheringConflicts(rawProblems);
-        detectDifferentCityConflicts(rawProblems);
+    private List<ScheduleProblem> computeProblems(ScheduleTimeline timeline) {
+        List<ScheduleProblem> problems = new ArrayList<>();
+        problems.addAll(timeline.missingTravel());
+        problems.addAll(timeline.missingHotels());
+        problems.addAll(timeline.duplicateHotels());
+        problems.addAll(overlappingOccupancies());
+        problems.addAll(differentCityConflicts());
 
-        List<ScheduleProblem> result = new ArrayList<>(deduplicateMissingTravel(rawProblems));
-        rawProblems.stream()
-                .filter(p -> p instanceof ScheduleProblem.MissingHotel)
-                .forEach(result::add);
-        rawProblems.stream()
-                .filter(p -> p instanceof ScheduleProblem.SchedulingConflict)
-                .forEach(result::add);
-        rawProblems.stream()
-                .filter(p -> p instanceof ScheduleProblem.DifferentCityConflict)
-                .forEach(result::add);
-
-        return result.stream()
+        return problems.stream()
                 .sorted(Comparator.comparing(this::firstDate))
                 .toList();
     }
 
-    private List<ScheduleProblem.MissingTravel> deduplicateMissingTravel(Set<ScheduleProblem> rawProblems) {
-        List<ScheduleProblem.MissingTravel> sorted = rawProblems.stream()
-                .filter(p -> p instanceof ScheduleProblem.MissingTravel)
-                .map(p -> (ScheduleProblem.MissingTravel) p)
-                .sorted(Comparator.comparing((ScheduleProblem.MissingTravel t) -> t.fromCity().toLowerCase())
-                        .thenComparing(t -> t.toCity().toLowerCase())
-                        .thenComparing(t -> t.arrivedAt().utc()))
-                .toList();
-
-        List<ScheduleProblem.MissingTravel> result = new ArrayList<>();
-        int i = 0;
-        while (i < sorted.size()) {
-            ScheduleProblem.MissingTravel current = sorted.get(i);
-            ZonedTimestamp latestArrival = current.arrivedAt();
-            ZonedTimestamp earliestNextDep = current.nextDepartureAt();
-
-            while (i + 1 < sorted.size()) {
-                ScheduleProblem.MissingTravel next = sorted.get(i + 1);
-                boolean sameCities = homeCities.sameLocation(next.fromCity(), current.fromCity())
-                        && homeCities.sameLocation(next.toCity(), current.toCity());
-                // arrival in one city vs departure from another: only the instants are comparable
-                boolean overlaps = next.arrivedAt().utc().isBefore(earliestNextDep.utc());
-                if (!sameCities || !overlaps) break;
-                if (next.arrivedAt().utc().isAfter(latestArrival.utc())) latestArrival = next.arrivedAt();
-                if (next.nextDepartureAt().utc().isBefore(earliestNextDep.utc())) earliestNextDep = next.nextDepartureAt();
-                i++;
-            }
-            result.add(new ScheduleProblem.MissingTravel(
-                    current.fromCity(), latestArrival, current.toCity(), earliestNextDep));
-            i++;
-        }
-        return result;
-    }
-
-    private LocalDate firstDate(ScheduleProblem p) {
-        return switch (p) {
+    private LocalDate firstDate(ScheduleProblem problem) {
+        return switch (problem) {
             case ScheduleProblem.MissingTravel mt -> mt.arrivedAt().localDateTime().toLocalDate();
             case ScheduleProblem.MissingHotel mh -> mh.checkIn();
+            case ScheduleProblem.DuplicateHotel dh -> dh.firstNight();
             case ScheduleProblem.SchedulingConflict sc -> sc.first().startsAt().localDateTime().toLocalDate();
             case ScheduleProblem.DifferentCityConflict dc -> dc.date();
         };
     }
 
-    private void detectMissingTravel(List<TravelLeg> legs, Set<ScheduleProblem> problems) {
-        for (int i = 0; i < legs.size() - 1; i++) {
-            TravelLeg current = legs.get(i);
-            TravelLeg next = legs.get(i + 1);
-            if (!homeCities.sameLocation(current.toCity(), next.fromCity())) {
-                problems.add(new ScheduleProblem.MissingTravel(
-                        current.toCity(), current.arrival(),
-                        next.fromCity(), next.departure()));
-            }
-        }
-    }
-
-    private void detectMissingTravelToFromConferences(List<TravelLeg> legs, Set<ScheduleProblem> problems) {
-        for (CityOccupancy conf : conferenceOccupancies.values()) {
-            // "To conference": a connecting leg exists if any leg going TO the conference city
-            // departs before the conference starts (even if it arrives after it starts).
-            boolean hasConnectionToConference = legs.stream()
-                    .anyMatch(l -> l.toCity().equalsIgnoreCase(conf.city())
-                            && l.departure().utc().isBefore(conf.startsAt().utc()));
-            if (!hasConnectionToConference) {
-                legs.stream()
-                        .filter(l -> l.arrival().utc().isBefore(conf.startsAt().utc()))
-                        .max(Comparator.comparing(l -> l.arrival().utc()))
-                        .ifPresent(lastLeg -> {
-                            if (!lastLeg.toCity().equalsIgnoreCase(conf.city())) {
-                                problems.add(new ScheduleProblem.MissingTravel(
-                                        lastLeg.toCity(), lastLeg.arrival(),
-                                        conf.city(), conf.startsAt()));
-                            }
-                        });
-            }
-
-            // "From conference": a connecting leg exists if any leg FROM the conference city
-            // departs after the conference starts (even before it officially ends).
-            boolean hasConnectionFromConference = legs.stream()
-                    .anyMatch(l -> l.fromCity().equalsIgnoreCase(conf.city())
-                            && l.departure().utc().isAfter(conf.startsAt().utc()));
-            if (!hasConnectionFromConference) {
-                legs.stream()
-                        .filter(l -> l.departure().utc().isAfter(conf.endsAt().utc()))
-                        .min(Comparator.comparing(l -> l.departure().utc()))
-                        .ifPresent(firstLeg -> {
-                            if (!conf.city().equalsIgnoreCase(firstLeg.fromCity())) {
-                                problems.add(new ScheduleProblem.MissingTravel(
-                                        conf.city(), conf.endsAt(),
-                                        firstLeg.fromCity(), firstLeg.departure()));
-                            }
-                        });
-            }
-        }
-    }
-
-    private void detectMissingHotel(List<TravelLeg> legs, Set<ScheduleProblem> problems) {
-        Set<CityNight> neededNights = new LinkedHashSet<>();
-
-        for (TravelLeg leg : legs) {
-            String city = leg.toCity();
-            if (homeCities.includes(city)) {
-                continue; // nights at home need no hotel
-            }
-            // Nights are bucketed by the local date in the city you land in (decision 7).
-            LocalDate arrivalDate = leg.arrival().localDateTime().toLocalDate();
-            nextDepartureFromCity(legs, city, leg.arrival()).ifPresent(nextDeparture -> {
-                for (LocalDate night = arrivalDate; night.isBefore(nextDeparture); night = night.plusDays(1)) {
-                    LocalDate finalNight = night;
-                    boolean conferenceElsewhere = conferenceOccupancies.values().stream()
-                            .anyMatch(occ -> !occ.city().equalsIgnoreCase(city)
-                                    && !finalNight.isBefore(occ.startDate())
-                                    && finalNight.isBefore(occ.endDate()));
-                    boolean hotelInConferenceCity = hotelStays.values().stream()
-                            .anyMatch(stay -> !stay.city().equalsIgnoreCase(city)
-                                    && stay.coversNight(finalNight)
-                                    && isConferenceCity(stay.city()));
-                    if (!conferenceElsewhere && !hotelInConferenceCity) {
-                        neededNights.add(new CityNight(city, finalNight));
-                    }
-                }
-            });
-        }
-
-        for (CityOccupancy occ : conferenceOccupancies.values()) {
-            if (homeCities.includes(occ.city())) {
-                continue; // a conference at home doesn't imply a hotel stay
-            }
-            for (LocalDate night = occ.startDate(); night.isBefore(occ.endDate()); night = night.plusDays(1)) {
-                neededNights.add(new CityNight(occ.city(), night));
-            }
-        }
-
-        List<CityNight> uncovered = neededNights.stream()
-                .filter(cn -> hotelStays.values().stream()
-                        .noneMatch(stay -> stay.city().equalsIgnoreCase(cn.city())
-                                && stay.coversNight(cn.night())))
-                .sorted(Comparator.comparing((CityNight cn) -> cn.city().toLowerCase())
-                        .thenComparing(CityNight::night))
-                .toList();
-
-        int i = 0;
-        while (i < uncovered.size()) {
-            CityNight first = uncovered.get(i);
-            LocalDate lastNight = first.night();
-            while (i + 1 < uncovered.size()
-                    && uncovered.get(i + 1).city().equalsIgnoreCase(first.city())
-                    && uncovered.get(i + 1).night().equals(lastNight.plusDays(1))) {
-                i++;
-                lastNight = uncovered.get(i).night();
-            }
-            LocalDate checkIn = first.night();
-            LocalDate checkOut = lastNight.plusDays(1);
-            String conferenceName = conferenceNameFor(first.city(), checkIn, checkOut);
-            problems.add(new ScheduleProblem.MissingHotel(first.city(), checkIn, checkOut, conferenceName));
-            i++;
-        }
-    }
-
-    private String conferenceNameFor(String city, LocalDate checkIn, LocalDate checkOut) {
-        return conferenceOccupancies.values().stream()
-                .filter(occ -> occ.city().equalsIgnoreCase(city)
-                        && occ.startDate().isBefore(checkOut)
-                        && occ.endDate().isAfter(checkIn))
-                .map(CityOccupancy::name)
-                .findFirst()
-                .orElse("");
-    }
-
-    private boolean isConferenceCity(String city) {
-        return conferenceOccupancies.values().stream()
-                .anyMatch(occ -> occ.city().equalsIgnoreCase(city));
-    }
-
-    /** "After" is an instant comparison; the answer is a local date, because nights are local. */
-    private Optional<LocalDate> nextDepartureFromCity(List<TravelLeg> legs, String city, ZonedTimestamp afterTime) {
-        return legs.stream()
-                .filter(l -> homeCities.sameLocation(l.fromCity(), city)
-                        && l.departure().utc().isAfter(afterTime.utc()))
-                .map(l -> l.departure().localDateTime().toLocalDate())
-                .min(Comparator.naturalOrder());
-    }
-
-    private List<TravelLeg> allLegs() {
+    private List<ScheduleTimeline.Movement> allLegs() {
         return Stream.concat(flightLegs.values().stream(), trainLegs.values().stream())
-                .sorted(Comparator.comparing(l -> l.departure().utc()))
+                .sorted(Comparator.comparing(leg -> leg.departure().utc()))
                 .toList();
     }
 
-    private TravelLeg flightLeg(AirportCode dep, ZonedTimestamp depDt, AirportCode arr, ZonedTimestamp arrDt) {
-        return new TravelLeg(cityResolver.cityFor(dep.code()), depDt,
+    private ScheduleTimeline.Movement flightLeg(AirportCode dep, ZonedTimestamp depDt,
+                                                AirportCode arr, ZonedTimestamp arrDt) {
+        return new ScheduleTimeline.Movement(cityResolver.cityFor(dep.code()), depDt,
                 cityResolver.cityFor(arr.code()), arrDt);
     }
 
-    private void detectDifferentCityConflicts(Set<ScheduleProblem> problems) {
-        for (Map.Entry<GatheringId, GatheringOccupancy> ge : gatheringOccupancies.entrySet()) {
+    /**
+     * Two things Ted has said he will attend, at the same time. Private events count: being at a
+     * dinner and at a meetup at once is the same impossibility as two meetups, and Ted asked for
+     * private events to be treated like gatherings throughout the schedule problems.
+     */
+    private List<ScheduleProblem> overlappingOccupancies() {
+        List<ScheduleTimeline.Occupancy> attended = new ArrayList<>(gatherings.values());
+        attended.addAll(privateEvents.values());
+        List<ScheduleProblem> conflicts = new ArrayList<>();
+        for (int i = 0; i < attended.size(); i++) {
+            for (int j = i + 1; j < attended.size(); j++) {
+                ScheduleTimeline.Occupancy first = attended.get(i);
+                ScheduleTimeline.Occupancy second = attended.get(j);
+                if (first.overlapsWith(second)) {
+                    conflicts.add(new ScheduleProblem.SchedulingConflict(
+                            conflicting(first), conflicting(second)));
+                }
+            }
+        }
+        return conflicts;
+    }
+
+    /**
+     * A gathering in one city while a conference runs in another. Detection compares instants, not
+     * local dates — that hid a Tokyo morning gathering overlapping the last afternoon of a Chicago
+     * conference, because the local dates never lined up.
+     * <p>
+     * Private events are excluded here, unlike in {@link #overlappingOccupancies()}: clearing one
+     * of these is keyed to a {@code GatheringId}, and a private event has no such id to record
+     * against. Nothing about the detection resists them; the clearing mechanism does.
+     */
+    private List<ScheduleProblem> differentCityConflicts() {
+        List<ScheduleProblem> conflicts = new ArrayList<>();
+        for (Map.Entry<GatheringId, ScheduleTimeline.Occupancy> ge : gatherings.entrySet()) {
             GatheringId gatheringId = ge.getKey();
-            GatheringOccupancy gathering = ge.getValue();
-            for (Map.Entry<ConferenceId, CityOccupancy> ce : conferenceOccupancies.entrySet()) {
+            ScheduleTimeline.Occupancy gathering = ge.getValue();
+            for (Map.Entry<ConferenceId, ScheduleTimeline.Occupancy> ce : conferences.entrySet()) {
                 ConferenceId conferenceId = ce.getKey();
-                CityOccupancy conf = ce.getValue();
-                // A real overlap in time, not "the gathering's local date falls in the conference's
-                // local date range" — that hid a Tokyo morning gathering overlapping the last
-                // afternoon of a Chicago conference, because the local dates never lined up.
-                boolean gatheringDuringConference =
-                        gathering.startsAt().utc().isBefore(conf.endsAt().utc())
-                        && conf.startsAt().utc().isBefore(gathering.endsAt().utc());
-                boolean differentCity = !gathering.city().equalsIgnoreCase(conf.city());
+                ScheduleTimeline.Occupancy conference = ce.getValue();
+                boolean differentCity = !gathering.city().equalsIgnoreCase(conference.city());
                 boolean alreadyCleared = clearedConflicts.contains(new ClearedConflict(gatheringId, conferenceId));
-                if (gatheringDuringConference && differentCity && !alreadyCleared) {
-                    problems.add(new ScheduleProblem.DifferentCityConflict(
+                if (gathering.overlapsWith(conference) && differentCity && !alreadyCleared) {
+                    conflicts.add(new ScheduleProblem.DifferentCityConflict(
                             gathering.name(), gathering.city(),
-                            conf.name(), conf.city(),
-                            gathering.date(),
+                            conference.name(), conference.city(),
+                            gathering.firstDay(),
                             gatheringId, conferenceId));
                 }
             }
         }
+        return conflicts;
     }
 
-    private void detectGatheringConflicts(Set<ScheduleProblem> problems) {
-        List<GatheringOccupancy> gatherings = new ArrayList<>(gatheringOccupancies.values());
-        for (int i = 0; i < gatherings.size(); i++) {
-            for (int j = i + 1; j < gatherings.size(); j++) {
-                GatheringOccupancy a = gatherings.get(i);
-                GatheringOccupancy b = gatherings.get(j);
-                if (a.overlapsWith(b)) {
-                    problems.add(new ScheduleProblem.SchedulingConflict(
-                            a.asConflicting(), b.asConflicting()));
-                }
-            }
-        }
+    private ScheduleProblem.ConflictingGathering conflicting(ScheduleTimeline.Occupancy occupancy) {
+        return new ScheduleProblem.ConflictingGathering(occupancy.name(), occupancy.city(),
+                occupancy.startsAt(), occupancy.endsAt());
     }
-
-    /**
-     * A leg's two ends are in different cities and usually different zones, so ordering and
-     * comparing legs is done on {@code utc()} — wall-clock numbers from two zones denote different
-     * moments, and a short eastbound hop can invert their apparent order. Entry-zone locals are
-     * read only for night bucketing and displayed messages.
-     */
-    private record TravelLeg(String fromCity, ZonedTimestamp departure, String toCity, ZonedTimestamp arrival) {}
-
-    private record HotelStay(String city, LocalDate checkIn, LocalDate checkOut) {
-        boolean coversNight(LocalDate night) {
-            return !night.isBefore(checkIn) && night.isBefore(checkOut);
-        }
-    }
-
-    /**
-     * Detection compares instants; night bucketing and messages read the venue-local dates — the
-     * days a traveler is actually in that city.
-     */
-    private record CityOccupancy(String city, ZonedTimestamp startsAt, ZonedTimestamp endsAt, String name) {
-        LocalDate startDate() { return startsAt.localDateTime().toLocalDate(); }
-        LocalDate endDate() { return endsAt.localDateTime().toLocalDate(); }
-    }
-
-    private record CityNight(String city, LocalDate night) {}
 
     private record ClearedConflict(GatheringId gatheringId, ConferenceId conferenceId) {}
-
-    /**
-     * Detection compares instants; reporting reads the venue-local wall-clock. Two gatherings in
-     * different zones can overlap in real time while falling on different local dates (a San
-     * Francisco evening and a Tokyo morning), which the former same-date-plus-local-times test
-     * could never see.
-     */
-    private record GatheringOccupancy(String name, String city, ZonedTimestamp startsAt, ZonedTimestamp endsAt) {
-        boolean overlapsWith(GatheringOccupancy other) {
-            return this.startsAt.utc().isBefore(other.endsAt.utc())
-                    && other.startsAt.utc().isBefore(this.endsAt.utc());
-        }
-
-        LocalDate date() { return startsAt.localDateTime().toLocalDate(); }
-
-        LocalDate endDate() { return endsAt.localDateTime().toLocalDate(); }
-
-        ScheduleProblem.ConflictingGathering asConflicting() {
-            return new ScheduleProblem.ConflictingGathering(name, city, startsAt, endsAt);
-        }
-    }
 }

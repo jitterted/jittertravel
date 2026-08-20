@@ -1,12 +1,15 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.List;
 
 /**
  * A detected gap or clash in the schedule. It is {@link TemporalView} so a read can drop the
@@ -16,6 +19,7 @@ import java.time.ZoneOffset;
  */
 public sealed interface ScheduleProblem extends TemporalView
         permits ScheduleProblem.MissingTravel, ScheduleProblem.MissingHotel,
+                ScheduleProblem.DuplicateHotel,
                 ScheduleProblem.SchedulingConflict, ScheduleProblem.DifferentCityConflict {
 
     /**
@@ -67,6 +71,45 @@ public sealed interface ScheduleProblem extends TemporalView
             return checkOut.atStartOfDay(ANYWHERE_ON_EARTH).toInstant();
         }
     }
+
+    /**
+     * Two or more stays covering the same night — Ted can only sleep in one of them, and the other
+     * is usually still being paid for. Cities may differ: two rooms in one city and two rooms in
+     * two cities are the same mistake, and the second is worse.
+     * <p>
+     * Each side carries its {@link BookingIntent}, which is <em>not</em> a detection input — a
+     * tentative reservation is a reservation until it is cancelled, so it both covers its nights
+     * and duplicates. The intent rides along because it is what tells Ted which of the two to
+     * cancel.
+     */
+    record DuplicateHotel(
+            LocalDate firstNight,
+            LocalDate lastNight,
+            List<DuplicateStay> stays
+    ) implements ScheduleProblem {
+        public DuplicateHotel {
+            stays = List.copyOf(stays);
+        }
+
+        /** The nights covered twice run {@code firstNight} through {@code lastNight} inclusive. */
+        public LocalDate checkOut() {
+            return lastNight.plusDays(1);
+        }
+
+        // Moot once the last doubly-booked night is behind us, read at Anywhere on Earth for the
+        // same reason MissingHotel is: no zone survives the night bucketing.
+        @Override
+        public Instant relevantUntil() {
+            return checkOut().atStartOfDay(ANYWHERE_ON_EARTH).toInstant();
+        }
+    }
+
+    record DuplicateStay(
+            HotelBookingId bookingId,
+            String hotelName,
+            String city,
+            BookingIntent bookingIntent
+    ) {}
 
     /**
      * Two gatherings whose instants overlap. Each side carries its <em>own</em>

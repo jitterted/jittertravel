@@ -15,6 +15,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 class ScheduleGapProjectorTest {
 
@@ -268,7 +269,11 @@ class ScheduleGapProjectorTest {
         }
 
         @Test
-        void hotelInWrongCityDoesNotCoverArrival() {
+        void aStayInAnotherCityPutsHimThereAndOpensTravelGapsRatherThanLeavingABedMissing() {
+            // A hotel is a presence fact: booking Brussels says he is in Brussels, so those nights
+            // are covered and what is actually missing is the travel at each end. The old detector
+            // read stays as coverage only, so the same events read as "no bed in Amsterdam" while
+            // silently accepting that he teleports there and back.
             ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
             projector.handle(Stream.of(
                     stored(flight(LON, SEP_15.atTime(7, 0), AMS, SEP_15.atTime(9, 0))),
@@ -277,7 +282,12 @@ class ScheduleGapProjectorTest {
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
-                    .containsExactly(new ScheduleProblem.MissingHotel("AMS", SEP_15, SEP_18, ""));
+                    .isEmpty();
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
+                    .extracting(p -> ((ScheduleProblem.MissingTravel) p).fromCity(),
+                                p -> ((ScheduleProblem.MissingTravel) p).toCity())
+                    .containsExactly(tuple(AMS, "BRU"), tuple("BRU", AMS));
         }
 
         @Test
@@ -391,9 +401,11 @@ class ScheduleGapProjectorTest {
     class ConferenceCityOverlapDetection {
 
         @Test
-        void conferenceInDifferentCityExcludesOverlappingNightsFromArrivalCity() {
-            // Arrive LON Sep 15, conference in Steventon Sep 15-17, depart LON Sep 18
-            // → LON only needs Sep 17 (post-conference); Steventon Sep 15-16 uncovered
+        void conferenceNightsRunOnPastItsLastDayUntilSomethingMovesHim() {
+            // Arrive LON Sep 15, conference in Steventon Sep 15-17, depart LON Sep 18.
+            // The night of the 17th is in Steventon, not London: the conference ending does not
+            // carry him back, only a booked leg would, and the first one is the 18th. The old
+            // detector assumed a return, and reported a London bed he had no way to reach.
             ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
             projector.handle(Stream.of(
                     stored(flight(AMS, SEP_15.atTime(7, 0), LON, SEP_15.atTime(9, 0))),
@@ -403,9 +415,7 @@ class ScheduleGapProjectorTest {
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
-                    .containsExactlyInAnyOrder(
-                            new ScheduleProblem.MissingHotel(LON, SEP_17, SEP_18, ""),
-                            new ScheduleProblem.MissingHotel("Steventon", SEP_15, SEP_17, "Conf"));
+                    .containsExactly(new ScheduleProblem.MissingHotel("Steventon", SEP_15, SEP_18, "Conf"));
         }
 
         @Test
@@ -442,9 +452,11 @@ class ScheduleGapProjectorTest {
         }
 
         @Test
-        void arrivalCityNightsSurroundingConferenceSplitIntoTwoSeparateEntries() {
-            // Arrive LON Sep 15, conference in Steventon Sep 16-18, depart LON Sep 19
-            // → LON needs Sep 15 (pre-conference) and Sep 18 (post-conference) as two entries
+        void nightsSplitWhereTheCityChangesAndOnlyWhereTheCityChanges() {
+            // Arrive LON Sep 15, conference in Steventon Sep 16-18, depart LON Sep 19.
+            // Two runs, not three: London for the night before the conference, then Steventon from
+            // the 16th right through the night of the 18th. Splitting the Steventon run at the
+            // conference's last day would split a booking he would make in one go.
             ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
             projector.handle(Stream.of(
                     stored(flight(AMS, SEP_15.atTime(7, 0), LON, SEP_15.atTime(9, 0))),
@@ -454,10 +466,9 @@ class ScheduleGapProjectorTest {
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
-                    .containsExactlyInAnyOrder(
+                    .containsExactly(
                             new ScheduleProblem.MissingHotel(LON, SEP_15, SEP_16, ""),
-                            new ScheduleProblem.MissingHotel("Steventon", SEP_16, SEP_18, "Conf"),
-                            new ScheduleProblem.MissingHotel(LON, SEP_18, SEP_19, ""));
+                            new ScheduleProblem.MissingHotel("Steventon", SEP_16, SEP_19, "Conf"));
         }
     }
 
@@ -698,6 +709,7 @@ class ScheduleGapProjectorTest {
                     stored(conference(BRU, SEP_15, SEP_16))));
 
             assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
                     .extracting(p -> ((ScheduleProblem.MissingHotel) p).checkIn())
                     .containsExactly(SEP_15, SEP_16);
         }
@@ -986,12 +998,15 @@ class ScheduleGapProjectorTest {
                 .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
                 .isEmpty();
 
-        // Move the same booking to Brussels: AMS nights are now uncovered.
+        // Move the same booking to Brussels: the stay now places him in Brussels, so the flights
+        // at each end no longer connect to where he sleeps.
         projector.handle(Stream.of(stored(hotelChanged(id, BRU, SEP_15, SEP_18))));
 
         assertThat(projector.problems())
-                .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
-                .containsExactly(new ScheduleProblem.MissingHotel(AMS, SEP_15, SEP_18, ""));
+                .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
+                .extracting(p -> ((ScheduleProblem.MissingTravel) p).fromCity(),
+                            p -> ((ScheduleProblem.MissingTravel) p).toCity())
+                .containsExactly(tuple(AMS, BRU), tuple(BRU, AMS));
     }
 
     // -------------------------------------------------------------------------
@@ -1112,11 +1127,13 @@ class ScheduleGapProjectorTest {
 
             // The whole read model keeps both — handle() maintains every detected problem.
             assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
                     .extracting(p -> ((ScheduleProblem.MissingHotel) p).city())
                     .contains("Oslo", "Lima");
 
             // The time-filtered read drops the Oslo stay whose checkout is already behind us.
             assertThat(projector.problems(june))
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
                     .extracting(p -> ((ScheduleProblem.MissingHotel) p).city())
                     .containsExactly("Lima");
         }

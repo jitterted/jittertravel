@@ -103,27 +103,8 @@ public class CalendarRenderer {
             }
             .day-number:hover { text-decoration: underline; }
             .day-label-cell.is-past .day-number { font-weight: 500; }
-            /* Owner future-day disclosure menu. Native <details>/<summary>, so a tap toggles
-               it — no hover, which matters on touch (iPad). The list overlays neighbouring
-               cells (absolute + z-index) instead of reflowing the grid when it opens. */
-            .day-menu { position: relative; }
-            .day-menu > summary { display: block; list-style: none; cursor: pointer; }
-            .day-menu > summary::-webkit-details-marker { display: none; }
-            .day-menu-list {
-                position: absolute; top: 100%; left: 0; z-index: 50;
-                min-width: 160px; margin-top: 2px; padding: 4px;
-                display: flex; flex-direction: column;
-                background-color: var(--calendar-surface);
-                border: 1px solid var(--calendar-border-strong);
-                border-radius: 8px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-            }
-            .day-menu-item {
-                padding: 8px 10px; border-radius: 6px;
-                font-size: 0.85rem; font-weight: 500;
-                color: var(--calendar-text-secondary);
-                text-decoration: none; white-space: nowrap;
-            }
-            .day-menu-item:hover { background-color: var(--calendar-header-bg); }
+            /* The owner's future-day "Add ..." menu is a DisclosureMenu; its popup mechanics
+               live there, shared with the fix menus on /schedule-problems. */
             .day-number.is-month-start {
                 font-size: 1.25rem; font-weight: 700;
                 color: var(--calendar-month-start-color); letter-spacing: 0.02em;
@@ -267,34 +248,6 @@ public class CalendarRenderer {
     // leaves the first open so the absolutely-positioned menus stack and overlap. This adds the
     // three behaviors a popup is expected to have — only one open at a time, close on
     // outside-click, close on Escape. Harmless when no day menus are present (owner-only render).
-    private static final String DAY_MENU_SCRIPT = """
-            var dayMenus = document.querySelectorAll('.day-menu');
-            function closeDayMenus(except) {
-                dayMenus.forEach(function (menu) {
-                    if (menu !== except) {
-                        menu.open = false;
-                    }
-                });
-            }
-            dayMenus.forEach(function (menu) {
-                menu.addEventListener('toggle', function () {
-                    if (menu.open) {
-                        closeDayMenus(menu);  // opening one closes the rest — no stacking
-                    }
-                });
-            });
-            document.addEventListener('click', function (event) {
-                if (!event.target.closest('.day-menu')) {
-                    closeDayMenus(null);
-                }
-            });
-            document.addEventListener('keydown', function (event) {
-                if (event.key === 'Escape') {
-                    closeDayMenus(null);
-                }
-            });
-            """;
-
     public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser) {
         return render(rawEntries, today, isPublicUser, false, null, null);
     }
@@ -348,12 +301,12 @@ public class CalendarRenderer {
         String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser, isOwner);
 
         return "<!DOCTYPE html>\n" + BrowserZoneScript.markRoot(html(
-                Page.head("Calendar", CSS),
+                Page.head("Calendar", CSS + DisclosureMenu.CSS),
                 body(
                         Page.viewNav(Page.NavAudience.of(isPublicUser, isOwner), "/calendar"),
                         ZoneToggle.render(zoneDisplay),
                         rawHtml(calendarMarkup),
-                        rawHtml("<script>" + TOGGLE_SCRIPT + DAY_MENU_SCRIPT + "</script>"),
+                        rawHtml("<script>" + TOGGLE_SCRIPT + DisclosureMenu.SCRIPT + "</script>"),
                         BrowserZoneScript.render(zoneDisplay)
                 )
         ), zoneDisplay).withLang("en").render();

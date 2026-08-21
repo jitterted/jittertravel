@@ -238,29 +238,22 @@ public class CalendarViewBuilder {
     }
 
     /**
-     * The day number rendered as a native {@code <details>} disclosure: tapping the number
-     * opens a small menu with the itinerary link plus one "Add …" link per bookable kind,
-     * each carrying {@code ?date=} so the create form opens on this day. Native disclosure is
-     * used deliberately — it is touch-first (a tap toggles it) with no hover dependency.
+     * The day number rendered as a {@link DisclosureMenu}: tapping the number opens a small menu
+     * with the itinerary link plus one "Add …" link per bookable kind, each carrying {@code ?date=}
+     * so the create form opens on this day. The menu's mechanics — touch-first, outside-click and
+     * Escape dismissal, no stacking — are shared with the fix menus on {@code /schedule-problems}.
      */
     private static DomContent dayMenu(LocalDate date, String label, String dayNumberClass) {
         String iso = date.toString();
-        return details().withClass("day-menu").with(
-                summary(label).withClass(dayNumberClass),
-                div().withClass("day-menu-list").with(
-                        dayMenuItem("Open day", "/itinerary?date=" + iso),
-                        dayMenuItem("Add flight", "/book-flight?date=" + iso),
-                        dayMenuItem("Add train", "/book-train?date=" + iso),
-                        dayMenuItem("Add hotel", "/book-hotel?date=" + iso),
-                        dayMenuItem("Add ground transfer", "/plan-ground-transfer?date=" + iso),
-                        dayMenuItem("Add gathering", "/plan-gathering?date=" + iso),
-                        dayMenuItem("Add conference", "/plan-conference?date=" + iso)
-                )
-        );
-    }
-
-    private static DomContent dayMenuItem(String label, String href) {
-        return a(label).withHref(href).withClass("day-menu-item");
+        return DisclosureMenu.render(text(label), dayNumberClass, List.of(
+                DisclosureMenu.item("Open day", "/itinerary?date=" + iso),
+                DisclosureMenu.item("Add flight", "/book-flight?date=" + iso),
+                DisclosureMenu.item("Add train", "/book-train?date=" + iso),
+                DisclosureMenu.item("Add hotel", "/book-hotel?date=" + iso),
+                DisclosureMenu.item("Add ground transfer", "/plan-ground-transfer?date=" + iso),
+                DisclosureMenu.item("Add gathering", "/plan-gathering?date=" + iso),
+                DisclosureMenu.item("Add conference", "/plan-conference?date=" + iso)
+        ));
     }
 
     private static DomContent renderEntrySegment(CalendarEntry entry,

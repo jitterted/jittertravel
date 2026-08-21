@@ -44,7 +44,8 @@ class ProblemCalendarRendererTest {
         String html = render(missingHotel("London", 15, 18));
 
         assertThat(html)
-                .contains("<div class=\"pc-band pc-band--bed\" style=\"grid-column: 4 / span 3; grid-row: 2;\">")
+                .contains("<div class=\"pc-band-anchor\" style=\"grid-column: 4 / span 3; grid-row: 2;\">")
+                .contains("<div class=\"pc-band pc-band--bed\">")
                 .contains("<div class=\"pc-band-title\">No hotel — London</div>")
                 .contains("<div class=\"pc-band-detail\">3 nights</div>");
     }
@@ -55,8 +56,8 @@ class ProblemCalendarRendererTest {
         String html = render(missingHotel("Berlin", 17, 21));
 
         assertThat(html)
-                .contains("<div class=\"pc-band pc-band--bed pc-band--to-right\""
-                          + " style=\"grid-column: 6 / span 2; grid-row: 2;\">")
+                .contains("<div class=\"pc-band-anchor\" style=\"grid-column: 6 / span 2; grid-row: 2;\">")
+                .contains("<div class=\"pc-band pc-band--bed pc-band--to-right\">")
                 .contains("<div class=\"pc-band pc-band--bed pc-band--from-left\""
                           + " style=\"grid-column: 1 / span 2; grid-row: 2;\">");
     }
@@ -108,8 +109,8 @@ class ProblemCalendarRendererTest {
 
         assertThat(html)
                 .contains(">Jun 28, 2026<")   // the Sunday of the week holding Saturday 4 July
-                .contains("<div class=\"pc-band pc-band--bed pc-band--to-right\""
-                          + " style=\"grid-column: 7 / span 1; grid-row: 2;\">");
+                .contains("<div class=\"pc-band-anchor\" style=\"grid-column: 7 / span 1; grid-row: 2;\">")
+                .contains("<div class=\"pc-band pc-band--bed pc-band--to-right\">");
     }
 
     @Test
@@ -128,8 +129,10 @@ class ProblemCalendarRendererTest {
         String html = render(missingHotel("London", 15, 17), missingTravel("London", 15, "Berlin", 16));
 
         assertThat(html)
-                .contains("<div class=\"pc-band pc-band--bed\" style=\"grid-column: 4 / span 2; grid-row: 2;\">")
-                .contains("<div class=\"pc-band pc-band--travel\" style=\"grid-column: 4 / span 2; grid-row: 3;\">")
+                .contains("<div class=\"pc-band-anchor\" style=\"grid-column: 4 / span 2; grid-row: 2;\">")
+                .contains("<div class=\"pc-band pc-band--bed\">")
+                .contains("<div class=\"pc-band-anchor\" style=\"grid-column: 4 / span 2; grid-row: 3;\">")
+                .contains("<div class=\"pc-band pc-band--travel\">")
                 .contains("<div class=\"pc-band-title\">No travel — London → Berlin</div>");
     }
 
@@ -139,7 +142,8 @@ class ProblemCalendarRendererTest {
         String html = render(missingTravel("London", 15, "Berlin", 16));
 
         assertThat(html)
-                .contains("<div class=\"pc-band pc-band--travel\" style=\"grid-column: 4 / span 2; grid-row: 2;\">")
+                .contains("<div class=\"pc-band-anchor\" style=\"grid-column: 4 / span 2; grid-row: 2;\">")
+                .contains("<div class=\"pc-band pc-band--travel\">")
                 // the class name also appears in the page's own CSS, so name the whole element
                 .doesNotContain("<div class=\"pc-band pc-band--bed\"");
     }
@@ -155,7 +159,8 @@ class ProblemCalendarRendererTest {
         assertThat(html)
                 .contains("<div class=\"pc-context\" style=\"grid-column: 4 / span 3; grid-row: 2 / span 2;\">")
                 .contains("<span class=\"pc-context-label\">dev2next, Chicago · Jul 15–17</span>")
-                .contains("<div class=\"pc-band pc-band--bed\" style=\"grid-column: 4 / span 3; grid-row: 2;\">");
+                .contains("<div class=\"pc-band-anchor\" style=\"grid-column: 4 / span 3; grid-row: 2;\">")
+                .contains("<div class=\"pc-band pc-band--bed\">");
     }
 
     @Test
@@ -233,6 +238,66 @@ class ProblemCalendarRendererTest {
 
     private static String render(ScheduleProblem... problems) {
         return render(List.of(problems), List.of());
+    }
+
+    // --- Fix menus on bands (slice 5) ---
+
+    /**
+     * The band <em>is</em> the summary: the whole band is already the click target, so it gains no
+     * chrome and no height and the week rows keep their shape.
+     */
+    @Test
+    void aBandOpensItsFixMenuFromItsOwnFirstSegment() {
+        String html = render(missingHotel("London", 15, 18));
+
+        assertThat(html)
+                .contains("<details class=\"disclosure-menu\">")
+                .contains("<summary class=\"pc-band-summary\">")
+                .contains("<a href=\"/book-hotel?city=London&amp;checkIn=2026-07-15&amp;checkOut=2026-07-18\" "
+                          + "class=\"disclosure-menu-item\">Book hotel</a>");
+    }
+
+    /**
+     * Clicking the middle of a run reads as clicking that day, and two menus for one problem would
+     * be two things to dismiss — so only the first segment is an anchor.
+     */
+    @Test
+    void aContinuationSegmentIsInertWithNoMenuOfItsOwn() {
+        // Fri 17 Jul through Tue 21 Jul: the Sun-Mon half is a continuation.
+        String html = render(missingHotel("Berlin", 17, 21));
+
+        assertThat(html)
+                .containsOnlyOnce("<details class=\"disclosure-menu\">")
+                .as("the continuation stays a plain band, carrying its own grid placement")
+                .contains("<div class=\"pc-band pc-band--bed pc-band--from-left\""
+                          + " style=\"grid-column: 1 / span 2; grid-row: 2;\">");
+    }
+
+    /**
+     * C3, stated as a test: the band and the list card link to the same place, because both read
+     * {@code ProblemFix.forProblem}. Two URL builders is how the two views drift apart.
+     */
+    @Test
+    void aBandAndItsListCardOfferTheSameHrefs() {
+        ScheduleProblem problem = missingTravel("London", 15, "Berlin", 16);
+
+        String calendar = render(problem);
+        String list = ScheduleProblemsRenderer.render(List.of(problem));
+
+        for (ProblemFix fix : ProblemFix.forProblem(problem)) {
+            String anchor = "class=\"disclosure-menu-item\">" + fix.label() + "</a>";
+            assertThat(calendar).contains(anchor);
+            assertThat(list).contains(anchor);
+        }
+    }
+
+    @Test
+    void theMenuDismissalScriptShipsWithTheCalendarPage() {
+        String html = render(missingHotel("London", 15, 18));
+
+        assertThat(html)
+                .as("without it the menus open and never close")
+                .contains("closeDisclosureMenus");
     }
 
     private static String render(List<ScheduleProblem> problems, List<ScheduleContext> context) {

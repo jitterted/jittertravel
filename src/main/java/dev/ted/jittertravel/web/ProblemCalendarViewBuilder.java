@@ -204,18 +204,31 @@ public class ProblemCalendarViewBuilder {
      * One week's worth of a problem band. The title repeats on every segment: a hole in the
      * schedule that spans a week boundary is still "no hotel in London" on the far side, and a
      * nameless continuation would have to be traced back to the previous row to be read.
+     * <p>
+     * The band <em>is</em> the fix menu's {@code <summary>} — the whole band is already the click
+     * target, so it gains no chrome and no height, and week rows keep their shape. Only the band's
+     * <strong>first</strong> segment opens: clicking the middle of a run reads as clicking that
+     * day, and two menus for one problem would be two things to dismiss.
      */
     private static DomContent renderBandSegment(ProblemBand band, LocalDate sunday, int gridRow) {
         int[] segment = segmentColumns(band.firstDay(), band.lastDay(), sunday);
         int span = segment[1] - segment[0] + 1;
         String classes = "pc-band pc-band--" + band.lane().name().toLowerCase(Locale.ENGLISH)
                          + continuationClasses(band.firstDay(), band.lastDay(), sunday, "pc-band");
-        return div().withClass(classes)
-                .withStyle("grid-column: " + segment[0] + " / span " + span + "; grid-row: " + gridRow + ";")
-                .with(
-                        div(band.title()).withClass("pc-band-title"),
-                        div(band.detail()).withClass("pc-band-detail")
-                );
+        String style = "grid-column: " + segment[0] + " / span " + span + "; grid-row: " + gridRow + ";";
+        List<DomContent> bandContent = List.of(
+                div(band.title()).withClass("pc-band-title"),
+                div(band.detail()).withClass("pc-band-detail"));
+
+        boolean isContinuation = band.firstDay().isBefore(sunday);
+        if (band.fixes().isEmpty() || isContinuation) {
+            return div().withClass(classes).withStyle(style).with(bandContent);
+        }
+        return div().withClass("pc-band-anchor").withStyle(style).with(
+                DisclosureMenu.render(div().withClass(classes).with(bandContent), "pc-band-summary",
+                        band.fixes().stream()
+                                .map(fix -> DisclosureMenu.item(fix.label(), fix.href()))
+                                .toList()));
     }
 
     /** Squares off the side on which the band runs into an adjacent week. */

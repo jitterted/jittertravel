@@ -27,10 +27,14 @@ class ProblemBandTest {
 
         Optional<ProblemBand> band = ProblemBand.from(problem);
 
-        assertThat(band)
-                .contains(new ProblemBand(ProblemBand.Lane.BED,
+        // Placement and words only: which fixes a band offers is ProblemFixTest's claim, and
+        // asserting the whole record here would restate it in every placement test.
+        assertThat(band).get()
+                .extracting(ProblemBand::lane, ProblemBand::firstDay, ProblemBand::lastDay,
+                            ProblemBand::title, ProblemBand::detail)
+                .containsExactly(ProblemBand.Lane.BED,
                         LocalDate.of(2026, 7, 3), LocalDate.of(2026, 7, 5),
-                        "No hotel — London", "3 nights"));
+                        "No hotel — London", "3 nights");
     }
 
     @Test
@@ -65,11 +69,13 @@ class ProblemBandTest {
 
         Optional<ProblemBand> band = ProblemBand.from(problem);
 
-        assertThat(band)
-                .contains(new ProblemBand(ProblemBand.Lane.TRAVEL,
+        assertThat(band).get()
+                .extracting(ProblemBand::lane, ProblemBand::firstDay, ProblemBand::lastDay,
+                            ProblemBand::title, ProblemBand::detail)
+                .containsExactly(ProblemBand.Lane.TRAVEL,
                         LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 3),
                         "No travel — London → Berlin",
-                        "Arrive 2:30 PM BST · depart 9:00 AM CEST"));
+                        "Arrive 2:30 PM BST · depart 9:00 AM CEST");
     }
 
     @Test
@@ -123,10 +129,12 @@ class ProblemBandTest {
                         new ScheduleProblem.DuplicateStay(
                                 HotelBookingId.random(), "Doubletree", "Toronto", BookingIntent.TENTATIVE)));
 
-        assertThat(ProblemBand.from(problem))
-                .contains(new ProblemBand(ProblemBand.Lane.DUPLICATE,
+        assertThat(ProblemBand.from(problem)).get()
+                .extracting(ProblemBand::lane, ProblemBand::firstDay, ProblemBand::lastDay,
+                            ProblemBand::title, ProblemBand::detail)
+                .containsExactly(ProblemBand.Lane.DUPLICATE,
                         LocalDate.of(2026, 8, 8), LocalDate.of(2026, 8, 10),
-                        "2 hotels — Oak House · Doubletree", "3 nights booked twice"));
+                        "2 hotels — Oak House · Doubletree", "3 nights booked twice");
     }
 
     @Test
@@ -144,4 +152,33 @@ class ProblemBandTest {
         assertThat(ProblemBand.from(overlap)).isEmpty();
         assertThat(ProblemBand.from(differentCity)).isEmpty();
     }
+    /**
+     * The band and the card read the same mapping, so the two views cannot offer different answers
+     * to the same problem — the whole reason {@code ProblemFix.forProblem} exists.
+     */
+    @Test
+    void aBandCarriesTheSameFixesTheListCardWouldOffer() {
+        ScheduleProblem problem = new ScheduleProblem.MissingHotel(
+                "London", LocalDate.of(2026, 7, 3), LocalDate.of(2026, 7, 6), "");
+
+        assertThat(ProblemBand.from(problem)).get()
+                .extracting(ProblemBand::fixes)
+                .isEqualTo(ProblemFix.forProblem(problem));
+    }
+
+    @Test
+    void aSchedulingClashIsNotAnAnchorSoItReachesNoBandAtAll() {
+        // F6: nothing to link to, and unlike a card there is no slot vocabulary to keep on the
+        // calendar — it simply is not clickable.
+        ScheduleProblem problem = new ScheduleProblem.SchedulingConflict(
+                new ScheduleProblem.ConflictingGathering("A", "Aachen",
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 19, 0), ZoneId.of("Europe/Berlin")),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 22, 0), ZoneId.of("Europe/Berlin"))),
+                new ScheduleProblem.ConflictingGathering("B", "Bonn",
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 20, 0), ZoneId.of("Europe/Berlin")),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 23, 0), ZoneId.of("Europe/Berlin"))));
+
+        assertThat(ProblemBand.from(problem)).isEmpty();
+    }
+
 }

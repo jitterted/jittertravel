@@ -24,7 +24,7 @@ class BookHotelControllerTest {
         BookHotelController controller = new BookHotelController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookHotelForm(model, null);
+        controller.bookHotelForm(model, null, null, null, null);
 
         BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
         assertThat(request.getCheckIn()).isEqualTo(LocalDateTime.of(2026, 6, 14, 15, 0));
@@ -36,11 +36,55 @@ class BookHotelControllerTest {
         BookHotelController controller = new BookHotelController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookHotelForm(model, LocalDate.of(2026, 7, 20));
+        controller.bookHotelForm(model, LocalDate.of(2026, 7, 20), null, null, null);
 
         BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
         assertThat(request.getCheckIn()).isEqualTo(LocalDateTime.of(2026, 7, 20, 15, 0));
         assertThat(request.getCheckOut()).isEqualTo(LocalDateTime.of(2026, 7, 21, 11, 0));
+    }
+
+    /**
+     * The "Book hotel" fix link on /schedule-problems knows exactly which city and which nights are
+     * uncovered, so the form opens on them instead of on a default fortnight away. The clock times
+     * stay the form's own (15:00 / 11:00): the night sweep carries dates, not times.
+     */
+    @Test
+    void getBookHotelFormWithAFixLinksCityAndNightsOpensOnThatStay() {
+        BookHotelController controller = new BookHotelController(null, FIXED_CLOCK);
+        Model model = new ConcurrentModel();
+
+        controller.bookHotelForm(model, null, "Johannesberg",
+                LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 14));
+
+        BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
+        assertThat(request.getCity()).isEqualTo("Johannesberg");
+        assertThat(request.getCheckIn()).isEqualTo(LocalDateTime.of(2026, 9, 10, 15, 0));
+        assertThat(request.getCheckOut())
+                .as("the gap's own checkout, not a single night")
+                .isEqualTo(LocalDateTime.of(2026, 9, 14, 11, 0));
+    }
+
+    @Test
+    void aCheckOutThatIsNotAfterCheckInFallsBackToOneNight() {
+        BookHotelController controller = new BookHotelController(null, FIXED_CLOCK);
+        Model model = new ConcurrentModel();
+
+        controller.bookHotelForm(model, null, "Aachen",
+                LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 10));
+
+        BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
+        assertThat(request.getCheckOut()).isEqualTo(LocalDateTime.of(2026, 9, 11, 11, 0));
+    }
+
+    @Test
+    void aBlankCityIsLeftAloneRatherThanWrittenIn() {
+        BookHotelController controller = new BookHotelController(null, FIXED_CLOCK);
+        Model model = new ConcurrentModel();
+
+        controller.bookHotelForm(model, null, "  ", null, null);
+
+        BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
+        assertThat(request.getCity()).isNull();
     }
 
     @Test
@@ -49,8 +93,8 @@ class BookHotelControllerTest {
 
         Model model1 = new ConcurrentModel();
         Model model2 = new ConcurrentModel();
-        controller.bookHotelForm(model1, null);
-        controller.bookHotelForm(model2, null);
+        controller.bookHotelForm(model1, null, null, null, null);
+        controller.bookHotelForm(model2, null, null, null, null);
 
         BookHotelRequest request1 = (BookHotelRequest) model1.getAttribute("bookHotel");
         BookHotelRequest request2 = (BookHotelRequest) model2.getAttribute("bookHotel");

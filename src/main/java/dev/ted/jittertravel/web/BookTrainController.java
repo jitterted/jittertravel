@@ -36,11 +36,26 @@ public class BookTrainController {
         return CommonZone.values();
     }
 
+    /**
+     * {@code ?date=} comes from the calendar day-menu; {@code ?fromCity=&toCity=} come from a
+     * "Book train" fix link on {@code /schedule-problems}. This is the cleanest prefill in the
+     * slice: {@link BookTrainRequest} already carries city names, so the gap's own cities go
+     * straight in with no resolution step. Every parameter is optional and every absent-value
+     * default is unchanged.
+     */
     @GetMapping("/book-train")
     public String bookTrainForm(Model model,
-                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                                @RequestParam(required = false) String fromCity,
+                                @RequestParam(required = false) String toCity) {
         BookTrainRequest request = new BookTrainRequest();
         request.setTrainTripId(UUID.randomUUID().toString());
+        if (fromCity != null && !fromCity.isBlank()) {
+            request.setDepartureCityName(fromCity);
+        }
+        if (toCity != null && !toCity.isBlank()) {
+            request.setArrivalCityName(toCity);
+        }
         // ?date= from the calendar day-menu seeds the departure day; the default (one week
         // out) stands when absent so the index nav card is unaffected.
         LocalDate day = date != null ? date : LocalDate.now(clock).plusWeeks(1);

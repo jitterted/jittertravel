@@ -6,6 +6,7 @@ import dev.ted.jittertravel.domain.ZonedTimestamp;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -17,8 +18,25 @@ import java.util.stream.Collectors;
  * This is the problem calendar's own view type. It deliberately shares nothing with
  * {@code CalendarEntry}, which is shaped for the public calendar and is about to be split by the
  * S2+E2 refactor — see {@code docs/ProblemCalendarPlan.md}.
+ * <p>
+ * {@code fixes} come from {@link ProblemFix#forProblem}, the same mapping the list cards read, so
+ * the two views can never offer different answers to the same problem.
  */
-public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, String title, String detail) {
+public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, String title, String detail,
+                          List<ProblemFix> fixes) {
+
+    public ProblemBand {
+        fixes = List.copyOf(fixes);
+    }
+
+    /**
+     * A band with no fixes yet — {@code SchedulingConflict}, whose sides carry no ids. Unlike a
+     * card, a band with nothing to offer simply is not an anchor: there is no slot vocabulary on
+     * the calendar to keep consistent (F6).
+     */
+    ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, String title, String detail) {
+        this(lane, firstDay, lastDay, title, detail, List.of());
+    }
 
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
     private static final DateTimeFormatter ZONE_ABBREVIATION = DateTimeFormatter.ofPattern("z", Locale.ENGLISH);
@@ -63,7 +81,8 @@ public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, Stri
                 : checkIn;
         return new ProblemBand(Lane.BED, checkIn, lastNight,
                 "No hotel — " + missingHotel.city(),
-                detail(nightsBetween(checkIn, lastNight), missingHotel.conferenceName()));
+                detail(nightsBetween(checkIn, lastNight), missingHotel.conferenceName()),
+                ProblemFix.forProblem(missingHotel));
     }
 
     /**
@@ -77,7 +96,8 @@ public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, Stri
         return new ProblemBand(Lane.DUPLICATE, duplicateHotel.firstNight(), duplicateHotel.lastNight(),
                 duplicateHotel.stays().size() + " hotels — " + hotels,
                 nightsBetween(duplicateHotel.firstNight(), duplicateHotel.lastNight())
-                + " nights booked twice");
+                + " nights booked twice",
+                ProblemFix.forProblem(duplicateHotel));
     }
 
     /**
@@ -104,7 +124,8 @@ public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, Stri
                   + " · depart " + zonedTime(missingTravel.nextDepartureAt());
         return new ProblemBand(Lane.TRAVEL, firstDay, lastDay,
                 "No travel — " + missingTravel.fromCity() + " → " + missingTravel.toCity(),
-                detail);
+                detail,
+                ProblemFix.forProblem(missingTravel));
     }
 
     /**

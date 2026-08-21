@@ -1,9 +1,9 @@
 # Problem Calendar Plan
 
 **Status:** slices 1–3 shipped (2026-08-19), i.e. the Bed lane, the 1.5 context backdrop and the
-Travel lane; Ted reviewed the live calendar after the
-schedule-problems rewrite and it reads correctly (2026-08-20). Slices 4 and 5 are designed below
-and open, **5 first**.
+Travel lane; Ted reviewed the live calendar after the schedule-problems rewrite and it reads
+correctly (2026-08-20). **Slice 5 (fix links) shipped 2026-08-20** — suite green at 1217 (+ 48 js).
+**Slice 4 (clash markers) is designed below and open**, and is now the only one left.
 
 A second view of the OWNER-only `/schedule-problems` report: the same problems, placed on a
 week-row calendar instead of in four card columns. The list answers "what is wrong"; the calendar
@@ -221,12 +221,19 @@ The third answer now has a home: **`docs/GroundTransferPlan.md`** (Ted, 2026-08-
 `ScheduleGapProjector`, so a transfer *closes* the gap rather than silencing it. Its fix item is
 **Add ground transfer** → `/plan-ground-transfer?date=…`, listed after train.
 
-One wrinkle worth knowing before wiring it: that form does **not** take typed cities. Each end is a
-`<select>` of tokens — `airport:DEN`, `hotel:<bookingId>`, `custom` — resolved server-side (D3
-there). So the fix link seeds the **date**, which is what populates those option lists in the first
-place, and preselects an end only where exactly one option resolves to the gap's city — the same
-discipline as the sole-airport rule in F4, for the same reason: a wrong preselection is worse than
-an empty one. Cities still ride in the query string so the handler can do that matching.
+**Corrected 2026-08-20, when the transfer form actually shipped.** The paragraph here was written
+before it existed and was wrong in three ways:
+
+- There is **no `custom` token** — D12 dropped free text entirely, so an end is an airport or a
+  booked hotel and nothing else.
+- **Preselection was dropped.** D13 made the airport ends *flight legs*, so one `airport:DEN` value
+  can belong to several options (two trips through DEN). Preselecting by value would silently
+  highlight the first — picking a trip for Ted. That is exactly what F4's own rule forbids: a wrong
+  preselection is worse than an empty one.
+- D14 changed what brings options into range at all (today-or-later, per endpoint zone).
+
+So the transfer fix link carries the **date alone** — `/plan-ground-transfer?date=…` — which is
+what populates the option lists, and Ted picks the ends. No cities ride in its query string.
 
 Sequencing: the two slices are independent, and the cost of doing fix links first is **one added
 item in one exhaustive switch** when ground transfer lands. Ground transfer first is still the
@@ -282,6 +289,13 @@ CLAUDE.md fires on new `@GetMapping`s, and this slice adds none. Nor is redactio
 report is OWNER-only and every fix target is already an OWNER surface.
 
 ### F4 — City → airport is ambiguous, so the link carries cities and the controller resolves
+
+**As built:** the `AirportCityResolver` bean landed with **four** injection sites, not two — the gap
+projector, both ground-transfer collaborators, and `BookFlightController`. The two ground-transfer
+ones were constructed inline when that slice shipped the day before; this slice folded all three
+inline constructions into the one bean. Adding `soleAirportFor` also stopped the interface being
+functional, which broke a lambda stub in `ScheduleGapProjectorTest`; it was spelled out as an
+anonymous class rather than given a `default`, so a future resolver still has to decide.
 
 `StaticAirportCityResolver`'s table is many-to-one — London is LHR/LGW/STN/LCY, New York is
 JFK/EWR/LGA — so there is no city→code answer in general. Two consequences:

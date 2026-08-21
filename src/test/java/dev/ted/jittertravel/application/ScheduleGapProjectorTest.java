@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -40,8 +41,22 @@ class ScheduleGapProjectorTest {
     private static final LocalDate OCT_7 = LocalDate.of(2026, 10, 7);
     private static final LocalDate OCT_8 = LocalDate.of(2026, 10, 8);
 
-    // Identity resolver: airport code is used directly as the city name
-    private static final AirportCityResolver IDENTITY = code -> code;
+    /**
+     * Identity resolver: the airport code is used directly as the city name. Spelled out rather
+     * than a lambda because the interface also answers the reverse, city → sole airport — which
+     * this projector never asks, and which no stub should pretend to know.
+     */
+    private static final AirportCityResolver IDENTITY = new AirportCityResolver() {
+        @Override
+        public String cityFor(String airportCode) {
+            return airportCode;
+        }
+
+        @Override
+        public Optional<String> soleAirportFor(String city) {
+            return Optional.empty();
+        }
+    };
 
     // -------------------------------------------------------------------------
     // Missing travel

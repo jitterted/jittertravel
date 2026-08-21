@@ -1,13 +1,18 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.AirportCityResolver;
 import dev.ted.jittertravel.application.FlightBooking;
+import dev.ted.jittertravel.application.StaticAirportCityResolver;
 import dev.ted.jittertravel.infrastructure.AeroDataBoxClient;
 import dev.ted.jittertravel.infrastructure.FlightLookupCandidates;
 import dev.ted.jittertravel.infrastructure.FlightLookupResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -25,8 +30,22 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(BookFlightController.class)
+@Import(BookFlightWebIntegrationTest.RealAirportCities.class)
 @WithMockUser(roles = "OWNER")
 class BookFlightWebIntegrationTest {
+
+    /**
+     * The real table, not a mock: whether a fix link's city seeds the airport field is a fact about
+     * that table (Frankfurt has one airport, London has four), and a stub would only restate
+     * whatever this test assumed.
+     */
+    @TestConfiguration
+    static class RealAirportCities {
+        @Bean
+        AirportCityResolver airportCityResolver() {
+            return new StaticAirportCityResolver();
+        }
+    }
 
     @Autowired
     private MockMvcTester mockMvc;

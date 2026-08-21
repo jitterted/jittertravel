@@ -24,7 +24,7 @@ class BookTrainControllerTest {
         BookTrainController controller = new BookTrainController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookTrainForm(model, null);
+        controller.bookTrainForm(model, null, null, null);
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
         assertThat(request.getDepartureDateTime())
@@ -36,7 +36,7 @@ class BookTrainControllerTest {
         BookTrainController controller = new BookTrainController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookTrainForm(model, LocalDate.of(2026, 7, 15));
+        controller.bookTrainForm(model, LocalDate.of(2026, 7, 15), null, null);
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
         assertThat(request.getDepartureDateTime())
@@ -50,7 +50,7 @@ class BookTrainControllerTest {
         BookTrainController controller = new BookTrainController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookTrainForm(model, null);
+        controller.bookTrainForm(model, null, null, null);
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
         assertThat(request.getArrivalDateTime().toLocalDate())
@@ -63,8 +63,8 @@ class BookTrainControllerTest {
 
         Model model1 = new ConcurrentModel();
         Model model2 = new ConcurrentModel();
-        controller.bookTrainForm(model1, null);
-        controller.bookTrainForm(model2, null);
+        controller.bookTrainForm(model1, null, null, null);
+        controller.bookTrainForm(model2, null, null, null);
 
         BookTrainRequest r1 = (BookTrainRequest) model1.getAttribute("bookTrain");
         BookTrainRequest r2 = (BookTrainRequest) model2.getAttribute("bookTrain");
@@ -73,4 +73,33 @@ class BookTrainControllerTest {
                 .isNotEmpty()
                 .isNotEqualTo(r2.getTrainTripId());
     }
+    /**
+     * The cleanest prefill in the slice: {@link BookTrainRequest} already carries city names, so a
+     * travel gap's own cities go straight in with no resolution step and no ambiguity.
+     */
+    @Test
+    void aFixLinksCitiesSeedTheStationCityFields() {
+        BookTrainController controller = new BookTrainController(null, FIXED_CLOCK);
+        Model model = new ConcurrentModel();
+
+        controller.bookTrainForm(model, LocalDate.of(2026, 6, 22), "Frankfurt", "Leipzig");
+
+        BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
+        assertThat(request.getDepartureCityName()).isEqualTo("Frankfurt");
+        assertThat(request.getArrivalCityName()).isEqualTo("Leipzig");
+        assertThat(request.getDepartureDateTime()).isEqualTo(LocalDateTime.of(2026, 6, 22, 9, 0));
+    }
+
+    @Test
+    void blankCitiesAreLeftAloneRatherThanWrittenIn() {
+        BookTrainController controller = new BookTrainController(null, FIXED_CLOCK);
+        Model model = new ConcurrentModel();
+
+        controller.bookTrainForm(model, null, "  ", null);
+
+        BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
+        assertThat(request.getDepartureCityName()).isNull();
+        assertThat(request.getArrivalCityName()).isNull();
+    }
+
 }

@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * These only exist once a browser runs the script, so no renderer or @WebMvcTest reaches them.
  *
  * <p>Rendered as OWNER on a range of future days, so each future day cell is a
- * {@code <details class="day-menu">}.
+ * {@code <details class="disclosure-menu">}.
  */
 class CalendarDayMenuJsTest extends JsBehaviorTest {
 
@@ -36,13 +36,13 @@ class CalendarDayMenuJsTest extends JsBehaviorTest {
         return List.of(upcoming);
     }
 
-    /** OWNER render: future day cells are {@code <details class="day-menu">} disclosures. */
+    /** OWNER render: future day cells are {@code <details class="disclosure-menu">} disclosures. */
     private String ownerCalendarHtml() {
         return CalendarRenderer.render(oneUpcomingConference(), TODAY, false, true);
     }
 
     private Locator dayMenus() {
-        return page.locator(".day-menu");
+        return page.locator(".disclosure-menu");
     }
 
     private boolean isOpen(Locator menu) {

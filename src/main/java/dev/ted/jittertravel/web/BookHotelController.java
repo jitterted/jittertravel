@@ -35,19 +35,44 @@ public class BookHotelController {
         return CommonZone.values();
     }
 
+    /**
+     * {@code ?date=} comes from the calendar day-menu; {@code ?city=&checkIn=&checkOut=} come from
+     * a "Book hotel" fix link on {@code /schedule-problems}, which knows exactly which city and
+     * which nights are uncovered. Every parameter is optional and every absent-value default is
+     * unchanged, so the index nav card and the day-menu link behave exactly as before.
+     * <p>
+     * No zone is prefilled: the night sweep's location map is keyed city-only, so there is none to
+     * carry (F5 in {@code docs/ProblemCalendarPlan.md}).
+     */
     @GetMapping("/book-hotel")
     public String bookHotelForm(Model model,
-                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                                @RequestParam(required = false) String city,
+                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
+                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut) {
         BookHotelRequest request = new BookHotelRequest();
         request.setHotelBookingId(UUID.randomUUID().toString());
-        // ?date= from the calendar day-menu seeds the check-in day; without it the default
-        // (two weeks out) stands so the index nav card is unaffected.
-        LocalDate day = date != null ? date : LocalDate.now(clock).plusWeeks(2);
-        var checkIn = day.atTime(15, 0);
-        request.setCheckIn(checkIn);
-        request.setCheckOut(checkIn.toLocalDate().plusDays(1).atTime(11, 0));
+        // checkIn wins over date when both are present: it is the more specific statement of the
+        // same thing, and only the fix link sends it.
+        LocalDate arrival = firstPresent(checkIn, date, LocalDate.now(clock).plusWeeks(2));
+        request.setCheckIn(arrival.atTime(15, 0));
+        // The gap's own checkout when the fix link supplies one, otherwise one night.
+        LocalDate departure = checkOut != null && checkOut.isAfter(arrival)
+                ? checkOut
+                : arrival.plusDays(1);
+        request.setCheckOut(departure.atTime(11, 0));
+        if (city != null && !city.isBlank()) {
+            request.setCity(city);
+        }
         model.addAttribute("bookHotel", request);
         return "book-hotel";
+    }
+
+    private static LocalDate firstPresent(LocalDate preferred, LocalDate fallback, LocalDate absent) {
+        if (preferred != null) {
+            return preferred;
+        }
+        return fallback != null ? fallback : absent;
     }
 
     @PostMapping("/book-hotel")

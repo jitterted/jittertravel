@@ -123,6 +123,13 @@ public class ProblemCalendarRenderer {
             }
             .pc-band-title  { font-weight: 600; font-size: 0.82rem; }
             .pc-band-detail { font-size: 0.75rem; margin-top: 0.1rem; }
+            /* The band is its own fix menu's summary, so an outer positioned wrapper takes the
+               grid placement and the band keeps filling it — the band gains no chrome and no
+               height, and week rows keep their shape. */
+            .pc-band-anchor { position: relative; display: flex; }
+            .pc-band-anchor > .disclosure-menu { display: flex; flex: 1; min-width: 0; }
+            .pc-band-summary { display: flex; flex: 1; min-width: 0; cursor: pointer; }
+            .pc-band-summary > .pc-band { flex: 1; min-width: 0; }
             """;
 
     public static String render(List<ScheduleProblem> problems, List<ScheduleContext> context, LocalDate today) {
@@ -138,14 +145,15 @@ public class ProblemCalendarRenderer {
                 .toList();
 
         return "<!DOCTYPE html>\n" + html(
-                Page.head("Schedule Problems", CSS),
+                Page.head("Schedule Problems", CSS + DisclosureMenu.CSS),
                 body(
                         div().withClass("page").with(
                                 Page.viewNav(Page.NavAudience.OWNER, "/schedule-problems"),
                                 h1("Schedule Problems"),
                                 ProblemViewToggle.render(ProblemView.CALENDAR),
                                 bands.isEmpty() ? renderNoProblems() : renderGrid(bands, contextBands, today)
-                        )
+                        ),
+                        rawHtml("<script>" + DisclosureMenu.SCRIPT + "</script>")
                 )
         ).withLang("en").render();
     }

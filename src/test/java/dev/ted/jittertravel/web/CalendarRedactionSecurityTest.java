@@ -395,9 +395,9 @@ class CalendarRedactionSecurityTest {
         assertThat(mockMvc.get().uri("/calendar"))
                 .hasStatusOk()
                 .bodyText()
-                // Assert on the actual disclosure markup + dated link, not the ".day-menu"
+                // Assert on the actual disclosure markup + dated link, not the ".disclosure-menu"
                 // CSS selector (which is inlined on every calendar page regardless of viewer).
-                .contains("<details class=\"day-menu\"")
+                .contains("<details class=\"disclosure-menu\"")
                 .contains("href=\"/book-flight?date=2026-07-");
     }
 
@@ -413,7 +413,7 @@ class CalendarRedactionSecurityTest {
         assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
                 .hasStatusOk()
                 .bodyText()
-                .doesNotContain("<details class=\"day-menu\"")
+                .doesNotContain("<details class=\"disclosure-menu\"")
                 .doesNotContain("href=\"/book-flight")
                 .doesNotContain("href=\"/plan-gathering")
                 .doesNotContain("href=\"/plan-conference");
@@ -432,7 +432,7 @@ class CalendarRedactionSecurityTest {
         assertThat(mockMvc.get().uri("/calendar"))
                 .hasStatusOk()
                 .bodyText()
-                .doesNotContain("<details class=\"day-menu\"")
+                .doesNotContain("<details class=\"disclosure-menu\"")
                 .doesNotContain("href=\"/book-flight")
                 .doesNotContain("href=\"/plan-gathering");
     }

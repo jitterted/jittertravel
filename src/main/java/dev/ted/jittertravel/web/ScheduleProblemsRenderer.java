@@ -3,8 +3,6 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.ScheduleProblem;
 import j2html.tags.DomContent;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -18,6 +16,10 @@ public class ScheduleProblemsRenderer {
     private static final String TIME_FORMAT = "h:mm a";
     private static final DateTimeFormatter DATE =
             DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH);
+
+    /** Why a scheduling clash has no link: neither side carries an id to edit (F6 in the plan). */
+    private static final String NO_FIX_REASON =
+            "Editing a gathering from here arrives with cause-linking";
 
     private static final String CSS = """
             .page { max-width: 1100px; }
@@ -42,8 +44,21 @@ public class ScheduleProblemsRenderer {
             .problem-title  { font-weight: 600; font-size: 0.9rem; color: #1f2937; }
             .problem-detail { font-size: 0.82rem; color: #374151; margin-top: 0.15rem; }
             .empty-column   { color: var(--muted-text); font-style: italic; font-size: 0.85rem; }
-            .clear-link { font-size: 0.78rem; color: #7c3aed; text-decoration: none; margin-top: 0.3rem; display: inline-block; }
-            .clear-link:hover { text-decoration: underline; }
+            /* One control, one place, on every card whatever the problem type — a row of links
+               would sit at a different width on each, which is exactly what the "action
+               affordances never move" rule forbids. Even a single-item menu goes through it. */
+            .fix-slot { margin-top: 0.4rem; }
+            .fix-summary {
+                display: inline-block; font-size: 0.78rem; font-weight: 600;
+                color: #1f2937; background: rgba(255, 255, 255, 0.75);
+                border: 1px solid rgba(0, 0, 0, 0.15); border-radius: 5px;
+                padding: 0.15rem 0.5rem;
+            }
+            .fix-summary:hover { background: #ffffff; }
+            /* A problem with nothing to link to keeps the slot and says why, rather than leaving
+               a card with no vocabulary at all. */
+            .fix-summary--disabled { color: var(--muted-text); cursor: default; opacity: 0.75; }
+            .fix-summary--disabled:hover { background: rgba(255, 255, 255, 0.75); }
             """;
 
     public static String render(List<ScheduleProblem> problems) {
@@ -69,7 +84,7 @@ public class ScheduleProblemsRenderer {
                 .toList();
 
         return "<!DOCTYPE html>\n" + html(
-                Page.head("Schedule Problems", CSS),
+                Page.head("Schedule Problems", CSS + DisclosureMenu.CSS),
                 body(
                         div().withClass("page").with(
                                 Page.viewNav(Page.NavAudience.OWNER, "/schedule-problems"),
@@ -78,7 +93,8 @@ public class ScheduleProblemsRenderer {
                                 problems.isEmpty()
                                         ? renderNoProblems()
                                         : renderProblems(travel, hotel, duplicates, scheduling, cityConflicts)
-                        )
+                        ),
+                        rawHtml("<script>" + DisclosureMenu.SCRIPT + "</script>")
                 )
         ).withLang("en").render();
     }
@@ -118,7 +134,8 @@ public class ScheduleProblemsRenderer {
                         : div().withClass("problem-list").with(
                                 each(travel, p -> div().withClass("problem-card problem-card--missing-travel").with(
                                         div(p.fromCity() + " → " + p.toCity()).withClass("problem-title"),
-                                        travelDetail(p)
+                                        travelDetail(p),
+                                        fixSlot(p)
                                 ))
                         )
         );
@@ -161,7 +178,8 @@ public class ScheduleProblemsRenderer {
                                             + p.checkIn().format(DATE)
                                             + " through check out on "
                                             + p.checkOut().format(DATE))
-                                                .withClass("problem-detail")
+                                                .withClass("problem-detail"),
+                                        fixSlot(p)
                                 ))
                         )
         );
@@ -184,7 +202,8 @@ public class ScheduleProblemsRenderer {
                                         .withClass("problem-detail"),
                                 each(p.stays(), stay -> div(stay.hotelName() + ", " + stay.city()
                                                             + " (" + intentLabel(stay) + ")")
-                                        .withClass("problem-detail"))
+                                        .withClass("problem-detail")),
+                                fixSlot(p)
                         ))
                 )
         );
@@ -207,7 +226,8 @@ public class ScheduleProblemsRenderer {
                                         conflictSide(p.first()),
                                         text(" overlaps "),
                                         conflictSide(p.second())
-                                )
+                                ),
+                                fixSlot(p)
                         ))
                 )
         );
@@ -234,26 +254,29 @@ public class ScheduleProblemsRenderer {
                                     + p.conferenceName() + " (" + p.conferenceCity() + ")")
                                         .withClass("problem-title"),
                                 div(p.date().format(DATE)).withClass("problem-detail"),
-                                a("Clear this conflict")
-                                        .withHref(clearConflictUrl(p))
-                                        .withClass("clear-link")
+                                fixSlot(p)
                         ))
                 )
         );
     }
 
-    private static String clearConflictUrl(ScheduleProblem.DifferentCityConflict p) {
-        return "/clear-conflict"
-               + "?gatheringId=" + p.gatheringId().id()
-               + "&conferenceId=" + p.conferenceId().id()
-               + "&gatheringName=" + encode(p.gatheringName())
-               + "&gatheringCity=" + encode(p.gatheringCity())
-               + "&conferenceName=" + encode(p.conferenceName())
-               + "&conferenceCity=" + encode(p.conferenceCity())
-               + "&date=" + p.date();
-    }
-
-    private static String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    /**
+     * The card's fix control: always present, always in the same place, whatever the problem type.
+     * A problem with no fix yet ({@code SchedulingConflict}) shows the same control greyed with the
+     * reason, per the affordance rule in CLAUDE.md — removing it would change the card's vocabulary
+     * from row to row and hide that fixing is a thing you can do here at all.
+     */
+    private static DomContent fixSlot(ScheduleProblem problem) {
+        List<ProblemFix> fixes = ProblemFix.forProblem(problem);
+        if (fixes.isEmpty()) {
+            return div().withClass("fix-slot").with(
+                    span("Fix").withClass("fix-summary fix-summary--disabled")
+                            .withTitle(NO_FIX_REASON));
+        }
+        return div().withClass("fix-slot").with(
+                DisclosureMenu.render(rawHtml("Fix &#9662;"), "fix-summary",
+                        fixes.stream()
+                                .map(fix -> DisclosureMenu.item(fix.label(), fix.href()))
+                                .toList()));
     }
 }

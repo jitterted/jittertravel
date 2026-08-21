@@ -176,6 +176,96 @@ class ScheduleProblemsRendererTest {
                 .contains(conferenceId.id().toString());
     }
 
+    // --- Fix menus (slice 5) ---
+
+    /**
+     * Every card carries the same control in the same place, whatever the problem — a row of links
+     * would sit at a different width on each, which is what the "action affordances never move"
+     * rule forbids. Even a one-answer problem goes through the menu.
+     */
+    @Test
+    void aMissingHotelCardOffersItsFixInsideTheSharedMenu() {
+        String html = ScheduleProblemsRenderer.render(List.of(new ScheduleProblem.MissingHotel(
+                "Johannesberg", LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 14), "JCON")));
+
+        assertThat(html)
+                .contains("<details class=\"disclosure-menu\">")
+                // The whole anchor, with & escaped as the markup really has it.
+                .contains("<a href=\"/book-hotel?city=Johannesberg&amp;checkIn=2026-09-10&amp;checkOut=2026-09-14\" "
+                          + "class=\"disclosure-menu-item\">Book hotel</a>");
+    }
+
+    @Test
+    void aTravelCardOffersFlightTrainAndGroundTransferInThatOrder() {
+        String html = ScheduleProblemsRenderer.render(List.of(new ScheduleProblem.MissingTravel(
+                "Denver", zonedDenver(2026, 9, 14, 11, 30),
+                "Lone Tree", zonedDenver(2026, 9, 15, 9, 0))));
+
+        assertThat(html)
+                .contains("<a href=\"/book-flight?fromCity=Denver&amp;toCity=Lone+Tree&amp;date=2026-09-15\" "
+                          + "class=\"disclosure-menu-item\">Book flight</a>")
+                .contains("<a href=\"/book-train?fromCity=Denver&amp;toCity=Lone+Tree&amp;date=2026-09-15\" "
+                          + "class=\"disclosure-menu-item\">Book train</a>")
+                .contains("<a href=\"/plan-ground-transfer?date=2026-09-15\" "
+                          + "class=\"disclosure-menu-item\">Add ground transfer</a>");
+        assertThat(html.indexOf("Book flight"))
+                .as("flight is the common case in Ted's data, so it is offered first")
+                .isLessThan(html.indexOf("Book train"));
+        assertThat(html.indexOf("Book train")).isLessThan(html.indexOf("Add ground transfer"));
+    }
+
+    /**
+     * F6: the clash has no id on either side to link to, so the card keeps the slot and states the
+     * reason rather than silently dropping the control — which would leave that card with no
+     * vocabulary at all.
+     */
+    @Test
+    void aSchedulingConflictCardShowsTheFixControlGreyedWithItsReasonAndNoLink() {
+        String html = ScheduleProblemsRenderer.render(List.of(new ScheduleProblem.SchedulingConflict(
+                new ScheduleProblem.ConflictingGathering("Aachen JUG", "Aachen",
+                        zonedDenver(2026, 9, 8, 19, 0), zonedDenver(2026, 9, 8, 22, 0)),
+                new ScheduleProblem.ConflictingGathering("Cologne JUG", "Cologne",
+                        zonedDenver(2026, 9, 8, 20, 0), zonedDenver(2026, 9, 8, 23, 0)))));
+
+        assertThat(html)
+                .contains("<span class=\"fix-summary fix-summary--disabled\" "
+                          + "title=\"Editing a gathering from here arrives with cause-linking\">Fix</span>")
+                .as("a greyed control is a span, never a disabled anchor")
+                .doesNotContain("<details class=\"disclosure-menu\">");
+    }
+
+    @Test
+    void aDuplicateHotelCardOffersOneCancelLinkPerStay() {
+        HotelBookingId first = HotelBookingId.random();
+        HotelBookingId second = HotelBookingId.random();
+
+        String html = ScheduleProblemsRenderer.render(List.of(new ScheduleProblem.DuplicateHotel(
+                LocalDate.of(2026, 8, 26), LocalDate.of(2026, 8, 28),
+                List.of(new ScheduleProblem.DuplicateStay(first, "Reichshof", "Hamburg", BookingIntent.FINAL),
+                        new ScheduleProblem.DuplicateStay(second, "Park Hotel", "Soltau", BookingIntent.TENTATIVE)))));
+
+        assertThat(html)
+                .contains("<a href=\"/booked-hotels/" + first.id() + "/cancel\" "
+                          + "class=\"disclosure-menu-item\">Cancel &quot;Reichshof&quot;</a>")
+                .contains("<a href=\"/booked-hotels/" + second.id() + "/cancel\" "
+                          + "class=\"disclosure-menu-item\">Cancel &quot;Park Hotel&quot;</a>");
+    }
+
+    @Test
+    void theMenuDismissalScriptShipsWithThePage() {
+        String html = ScheduleProblemsRenderer.render(List.of(new ScheduleProblem.MissingHotel(
+                "Paris", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 5), "")));
+
+        assertThat(html)
+                .as("without it the menus open and never close")
+                .contains("closeDisclosureMenus");
+    }
+
+    private static ZonedTimestamp zonedDenver(int year, int month, int day, int hour, int minute) {
+        return ZonedTimestamp.fromLocal(LocalDateTime.of(year, month, day, hour, minute),
+                ZoneId.of("America/Denver"));
+    }
+
     @Test
     void emptyTravelColumnShowsNone() {
         ScheduleProblem hotelOnly = new ScheduleProblem.MissingHotel(

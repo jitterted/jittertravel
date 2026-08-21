@@ -72,7 +72,7 @@ class CalendarViewBuilderTest {
         );
 
         assertThat(html)
-                .containsOnlyOnce("<details class=\"day-menu\"")
+                .containsOnlyOnce("<details class=\"disclosure-menu\"")
                 .contains("href=\"/itinerary?date=2026-06-20\"")
                 .contains("href=\"/book-flight?date=2026-06-20\"")
                 .contains("href=\"/book-train?date=2026-06-20\"")
@@ -116,7 +116,7 @@ class CalendarViewBuilderTest {
 
         assertThat(html)
                 .contains("href=\"/itinerary?date=2026-06-17\"")
-                .doesNotContain("day-menu")
+                .doesNotContain("disclosure-menu")
                 .doesNotContain("book-flight")
                 .doesNotContain("plan-gathering")
                 .doesNotContain("plan-conference");
@@ -134,7 +134,7 @@ class CalendarViewBuilderTest {
         );
 
         assertThat(html)
-                .doesNotContain("day-menu")
+                .doesNotContain("disclosure-menu")
                 .doesNotContain("href=\"/itinerary")
                 .doesNotContain("book-flight")
                 .doesNotContain("plan-gathering");

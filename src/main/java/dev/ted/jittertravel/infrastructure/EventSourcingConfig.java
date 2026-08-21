@@ -25,6 +25,16 @@ public class EventSourcingConfig {
         return new AirportZoneResolver();
     }
 
+    /**
+     * One instance, four injection sites (the gap projector, both ground-transfer collaborators,
+     * and {@code BookFlightController}, which needs {@code soleAirportFor} to prefill a fix link).
+     * It was constructed inline at each of them until the fix-link slice gave it a fourth reader.
+     */
+    @Bean
+    public AirportCityResolver airportCityResolver() {
+        return new StaticAirportCityResolver();
+    }
+
     @Bean
     public ViewerZonePolicy viewerZonePolicy() {
         return new ViewerZonePolicy();
@@ -279,8 +289,9 @@ public class EventSourcingConfig {
 
     @Bean
     public ScheduleGapProjector scheduleGapProjector(ProjectorBootstrapper bootstrapper,
+                                                     AirportCityResolver airportCityResolver,
                                                      @Value("${jittertravel.home-cities:}") List<String> homeCityNames) {
-        return bootstrapper.register(new ScheduleGapProjector(new StaticAirportCityResolver(),
+        return bootstrapper.register(new ScheduleGapProjector(airportCityResolver,
                                                               new HomeCities(homeCityNames)));
     }
 
@@ -332,18 +343,20 @@ public class EventSourcingConfig {
     @Bean
     public GroundTransferEndpointResolver groundTransferEndpointResolver(
             HotelDetailsViewProjector hotelDetailsViewProjector,
+            AirportCityResolver airportCityResolver,
             AirportZoneResolver airportZoneResolver,
             LocationZoneResolver locationZoneResolver) {
         return new GroundTransferEndpointResolver(hotelDetailsViewProjector,
-                new StaticAirportCityResolver(), airportZoneResolver, locationZoneResolver);
+                airportCityResolver, airportZoneResolver, locationZoneResolver);
     }
 
     @Bean
     public GroundTransferEndpointOptions groundTransferEndpointOptions(
             BookedFlightsProjector bookedFlightsProjector,
-            BookedHotelsProjector bookedHotelsProjector) {
+            BookedHotelsProjector bookedHotelsProjector,
+            AirportCityResolver airportCityResolver) {
         return new GroundTransferEndpointOptions(bookedFlightsProjector, bookedHotelsProjector,
-                new StaticAirportCityResolver());
+                airportCityResolver);
     }
 
     /** No {@code now} anywhere on this path: a ground transfer has no future-date rule (D6). */

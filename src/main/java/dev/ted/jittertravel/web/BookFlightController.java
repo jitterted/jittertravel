@@ -21,10 +21,13 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import dev.ted.jittertravel.application.AirportCityResolver;
+
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Controller
@@ -35,11 +38,15 @@ public class BookFlightController {
     private final AeroDataBoxClient aeroDataBoxClient;
     private final Clock clock;
 
+    private final AirportCityResolver airportCities;
+
     public BookFlightController(FlightBooking applicationService,
                                 AeroDataBoxClient aeroDataBoxClient,
+                                AirportCityResolver airportCities,
                                 Clock clock) {
         this.applicationService = applicationService;
         this.aeroDataBoxClient = aeroDataBoxClient;
+        this.airportCities = airportCities;
         this.clock = clock;
     }
 
@@ -48,14 +55,26 @@ public class BookFlightController {
         return CommonZone.values();
     }
 
+    /**
+     * {@code ?date=} comes from the calendar day-menu; {@code ?fromCity=&toCity=} come from a
+     * "Book flight" fix link on {@code /schedule-problems}. The link carries <strong>cities, never
+     * codes</strong>: the airport table is many-to-one (London is LHR/LGW/STN/LCY), so a code is
+     * seeded only where the city has exactly one — a wrong prefilled airport is worse than an empty
+     * one, because Ted has to notice it to undo it. Every parameter is optional and every
+     * absent-value default is unchanged.
+     */
     @GetMapping("/book-flight")
     public String bookFlightForm(Model model,
-                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                                 @RequestParam(required = false) String fromCity,
+                                 @RequestParam(required = false) String toCity) {
         if (applicationService.isReadOnly()) {
             return "redirect:/read-only";
         }
         BookFlightRequest request = new BookFlightRequest();
         request.setFlightId(UUID.randomUUID().toString());
+        soleAirport(fromCity).ifPresent(request::setDepartureAirport);
+        soleAirport(toCity).ifPresent(request::setArrivalAirport);
         // ?date= from the calendar day-menu seeds the departure day; without it, the default
         // stands (one week out) so the index nav card keeps working unchanged.
         LocalDate day = date != null ? date : LocalDate.now(clock).plusWeeks(1);
@@ -169,4 +188,9 @@ public class BookFlightController {
         request.setArrivalDateTime(lookup.arrivalDateTime());
         request.setArrivalZone(lookup.arrivalZoneId());
     }
+    /** Empty unless the city has exactly one airport — see {@link AirportCityResolver#soleAirportFor}. */
+    private Optional<String> soleAirport(String city) {
+        return city == null || city.isBlank() ? Optional.empty() : airportCities.soleAirportFor(city);
+    }
+
 }

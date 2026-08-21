@@ -35,21 +35,31 @@ class ScheduleProblemsControllerTest {
     ScheduleGapProjector scheduleGapProjector;
 
     @Test
-    void noViewParamRendersTheListView() {
+    void noViewParamRendersTheCalendarView() {
         ResponseEntity<String> response = controller().scheduleProblems(request(), null);
+
+        assertThat(response.getBody())
+                .contains("<a href=\"/schedule-problems?view=calendar\" class=\"active\">Calendar</a>")
+                .contains("class=\"pc-container\"")
+                .doesNotContain("class=\"problem-card problem-card--missing-hotel\"");
+    }
+
+    @Test
+    void unrecognizedViewParamFallsBackToTheCalendarView() {
+        ResponseEntity<String> response = controller().scheduleProblems(request(), "gantt");
+
+        assertThat(response.getBody())
+                .contains("<a href=\"/schedule-problems?view=calendar\" class=\"active\">Calendar</a>")
+                .doesNotContain("class=\"problem-card problem-card--missing-hotel\"");
+    }
+
+    @Test
+    void listViewParamRendersTheListView() {
+        ResponseEntity<String> response = controller().scheduleProblems(request(), "list");
 
         assertThat(response.getBody())
                 .contains("<a href=\"/schedule-problems?view=list\" class=\"active\">List</a>")
                 .contains("class=\"problem-card problem-card--missing-hotel\"")
-                .doesNotContain("class=\"pc-container\"");
-    }
-
-    @Test
-    void unrecognizedViewParamFallsBackToTheListView() {
-        ResponseEntity<String> response = controller().scheduleProblems(request(), "gantt");
-
-        assertThat(response.getBody())
-                .contains("<a href=\"/schedule-problems?view=list\" class=\"active\">List</a>")
                 .doesNotContain("class=\"pc-container\"");
     }
 

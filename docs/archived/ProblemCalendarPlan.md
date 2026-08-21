@@ -33,6 +33,12 @@ Not a new route.
   `?filter=` is on the list views.
 - **Default stays `list`.** Existing links and the nav card keep their present meaning. An absent
   or unrecognized value falls back to `LIST`, matching `TimeView.fromParam`.
+  **Reversed 2026-08-21: the default is now `calendar`.** The list kept the default only so that
+  links written before the calendar existed showed the page they always had — a migration
+  concern, spent once. With the calendar's colours and fix affordances fixed the same day, it is
+  the view that answers the question a problem actually raises (when is it wrong, and how does it
+  sit against the trip), so it is what `/schedule-problems` and the nav card now open. An absent
+  or unrecognized `?view=` falls back to `CALENDAR`; the list is one click away on the toggle.
 
 ### Redaction is not part of this
 

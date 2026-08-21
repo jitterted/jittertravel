@@ -12,18 +12,23 @@ public enum ProblemView {
     CALENDAR;
 
     /**
-     * Resolves a request parameter to a view, falling back to {@link #LIST} when the value is
-     * absent or unrecognized. Case-insensitive. The list stays the default so every existing link
-     * to {@code /schedule-problems} keeps the page it has always shown.
+     * Resolves a request parameter to a view, falling back to {@link #CALENDAR} when the value is
+     * absent or unrecognized. Case-insensitive.
+     * <p>
+     * The calendar is the default (Ted, 2026-08-21). The plan shipped with the list as the default
+     * to keep existing links showing the page they always had; now that the calendar reads
+     * correctly — all bands amber, each saying what to do about itself — it is the view that
+     * answers the question a problem actually raises, which is <em>when</em>, and how it sits
+     * against the rest of the trip. The list is a click away and still linked from the toggle.
      */
     public static ProblemView fromParam(String value) {
         if (value == null) {
-            return LIST;
+            return CALENDAR;
         }
         try {
             return valueOf(value.toUpperCase(Locale.ENGLISH));
         } catch (IllegalArgumentException unrecognized) {
-            return LIST;
+            return CALENDAR;
         }
     }
 

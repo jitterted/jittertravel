@@ -48,12 +48,18 @@ for open work.
       feed with everything, or scoped feeds (`…/deadlines.ics` vs `…/all.ics`). Watch the token:
       the feed URL is the only credential, so widening what it serves widens what one leaked URL
       exposes.
-- [ ] **Two open questions on the problem calendar**, lifted from `archived/ProblemCalendarPlan.md`
+- [ ] **One open question on the problem calendar**, lifted from `archived/ProblemCalendarPlan.md`
       2026-08-21 (slices 1–5 all shipped):
-      - Should the **calendar become the default view** on `/schedule-problems`, instead of the list?
       - Should a **day number link to `/itinerary?date=`**? It is a fix link, so it belongs with the
         slice-5 vocabulary — but as its own step: the day cell is not interactive today, so this
         changes the grid rather than a band.
+
+      Answered 2026-08-21: **the calendar is now the default view**, `ProblemView.fromParam`
+      falling back to `CALENDAR` for an absent or unrecognized `?view=`. The list held the default
+      only to keep pre-calendar links showing the page they always had, which is a migration
+      concern spent once; with the same day's colour and affordance fixes the calendar is the view
+      that answers when a problem is wrong and how it sits against the trip. The list is one click
+      away on the toggle.
 - [ ] **Conferences have no `locationForMatching` — but ask whether that is still a problem
       (Ted, 2026-08-20).** `PlanConferenceRequest:130` always passes `null` for the venue
       `Address`, so the compact constructor falls back to the city and a conference can only ever

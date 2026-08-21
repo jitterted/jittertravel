@@ -159,6 +159,12 @@ public class CalendarRenderer {
             .edit-pencil { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
             .edit-pencil:hover { opacity: 1; }
             .edit-pencil svg { width: 12px; height: 12px; }
+            /* The cancel bin sits in the pencil's slot on the kinds that have no edit page, and
+               matches it exactly — no red: removing one ground transfer is recoverable by entering
+               it again, and red is reserved for what cannot be undone. */
+            .cancel-bin { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
+            .cancel-bin:hover { opacity: 1; }
+            .cancel-bin svg { width: 12px; height: 12px; }
             .entry--conference { background-color: var(--entry-conference-bg); color: var(--entry-conference-fg); }
             .entry--gathering  { background-color: var(--entry-gathering-bg);  color: var(--entry-gathering-fg); }
             .entry--flight     { background-color: var(--entry-flight-bg);     color: var(--entry-flight-fg); }

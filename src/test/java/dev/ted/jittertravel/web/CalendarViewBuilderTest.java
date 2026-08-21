@@ -608,6 +608,61 @@ class CalendarViewBuilderTest {
                 .doesNotContain("/planned-gatherings/");
     }
 
+    /**
+     * A ground transfer has no edit page, so the same slot carries a cancel instead — which is why
+     * {@code cancelPath} is a field of its own rather than an overloaded {@code editPath}: the icon
+     * and the verb differ, and no kind sets both, so nothing moves between rows.
+     */
+    @Test
+    void ownerEntryWithCancelPathShowsCancelBinInThePencilsSlot() {
+        String html = CalendarViewBuilder.render(
+                List.of(transferWithCancelPath()),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14),
+                TODAY,
+                false,   // isPublicUser
+                true     // isOwner
+        );
+
+        assertThat(html)
+                .contains("class=\"cancel-bin\" href=\"/ground-transfers/gt-123/cancel\"")
+                .doesNotContain("class=\"edit-pencil\"");
+    }
+
+    @Test
+    void nonOwnerEntryWithCancelPathHasNoCancelBin() {
+        String html = CalendarViewBuilder.render(
+                List.of(transferWithCancelPath()),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14),
+                TODAY,
+                false,   // isPublicUser
+                false    // isOwner
+        );
+
+        assertThat(html)
+                .doesNotContain("cancel-bin")
+                .doesNotContain("/ground-transfers/");
+    }
+
+    private static CalendarEntry transferWithCancelPath() {
+        return new CalendarEntry(
+                EntryKind.GROUND_TRANSFER,
+                LocalDateTime.of(2026, 6, 10, 12, 0),
+                LocalDateTime.of(2026, 6, 10, 12, 45),
+                "🚕 DEN → Marriott Lone Tree",
+                lines("12:00 PM"),
+                null,
+                null,
+                null,
+                false,
+                null,
+                null,
+                "DEN → Lone Tree, CO, US",
+                "/ground-transfers/gt-123/cancel"
+        );
+    }
+
     private static CalendarEntry gatheringWithEditPath() {
         return new CalendarEntry(
                 EntryKind.GATHERING,

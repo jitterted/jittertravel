@@ -46,6 +46,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                         e.speaking(), e.infoUrl(), e.startsAt(), e.endsAt()));
                 case PrivateEventPlanned e -> privateEventEntries.put(e.privateEventId(), toPrivateEventEntry(e));
                 case GroundTransferPlanned e -> groundTransferEntries.put(e.groundTransferId(), toGroundTransferEntry(e));
+                case GroundTransferCancelled e -> groundTransferEntries.remove(e.groundTransferId());
                 default -> {}
             }
         });
@@ -219,6 +220,7 @@ public class ItineraryProjector implements EventStreamConsumer {
      */
     private GroundTransferItineraryEntry toGroundTransferEntry(GroundTransferPlanned e) {
         return new GroundTransferItineraryEntry(
+                e.groundTransferId(),
                 transferLabel.ownerLabel(e.originAirportCode(), e.originName(), e.origin()),
                 transferLabel.ownerLabel(e.destinationAirportCode(), e.destinationName(), e.destination()),
                 e.departsAt(), e.arrivesAt());

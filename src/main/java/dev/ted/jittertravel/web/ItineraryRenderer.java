@@ -24,6 +24,8 @@ public class ItineraryRenderer {
     // so the taxi stands for the whole category.
     private static final String TRANSFER_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#854d0e\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11\"/><path d=\"M3 11h18v5H3zM6 16v2M18 16v2M9 5.5V3.5h6v2\"/><circle cx=\"7\" cy=\"13.5\" r=\"1\" fill=\"#854d0e\" stroke=\"none\"/><circle cx=\"17\" cy=\"13.5\" r=\"1\" fill=\"#854d0e\" stroke=\"none\"/></svg>";
     private static final String PENCIL_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z\"/></svg>";
+    // Shared with the calendar: a bin always means "cancel this entry", as the pencil means edit.
+    private static final String TRASH_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 6h18\"/><path d=\"M8 6V4h8v2\"/><path d=\"M19 6l-1 14H6L5 6\"/><path d=\"M10 11v6\"/><path d=\"M14 11v6\"/></svg>";
 
     private static final String CSS = """
                 .page { max-width: 1200px; }
@@ -58,6 +60,12 @@ public class ItineraryRenderer {
                 .edit-pencil { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
                 .edit-pencil:hover { opacity: 1; }
                 .edit-pencil svg { width: 12px; height: 12px; }
+                /* The cancel bin sits where the pencil sits on the kinds that have an edit page,
+                   and looks the same — no red: re-entering a removed transfer puts it back, and
+                   red is reserved for what cannot be undone. */
+                .cancel-bin { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
+                .cancel-bin:hover { opacity: 1; }
+                .cancel-bin svg { width: 12px; height: 12px; }
                 .entry-location { font-weight: 700; }
                 .speaking-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: #7c3aed; color: #fff; border-radius: 4px; padding: 0.1rem 0.4rem; margin-top: 0.25rem; }
             """;
@@ -124,7 +132,7 @@ public class ItineraryRenderer {
             case GatheringItineraryEntry e -> renderGathering(e, isOwner);
             case ConferenceItineraryEntry e -> renderConference(e);
             case PrivateEventItineraryEntry e -> renderPrivateEvent(e);
-            case GroundTransferItineraryEntry e -> renderGroundTransfer(e);
+            case GroundTransferItineraryEntry e -> renderGroundTransfer(e, isOwner);
         };
     }
 
@@ -191,6 +199,10 @@ public class ItineraryRenderer {
 
     private static DomContent editPencil(String href, String label) {
         return a(rawHtml(PENCIL_SVG)).withClass("edit-pencil").withHref(href).withTitle(label);
+    }
+
+    private static DomContent cancelBin(String href, String label) {
+        return a(rawHtml(TRASH_SVG)).withClass("cancel-bin").withHref(href).withTitle(label);
     }
 
     private static DomContent stationContent(String name, String mapsUrl) {
@@ -262,21 +274,30 @@ public class ItineraryRenderer {
     }
 
     /**
-     * A short hop with no booking, so there is nothing to edit into and no service id to show:
-     * both ends and the (approximate) times, and nothing else — the airport code or hotel name
-     * already says where each end is, so a cities line only repeated the journey (Ted, 2026-08-20).
+     * A short hop with no booking, so there is no service id to show: both ends and the
+     * (approximate) times, and nothing else — the airport code or hotel name already says where
+     * each end is, so a cities line only repeated the journey (Ted, 2026-08-20).
+     * <p>
+     * There is nothing to edit into either, so the owner's action in the pencil's slot is a cancel:
+     * a wrong transfer is corrected by removing it and entering it again — and left in place it
+     * keeps asserting a hop that never happened, masking a real gap on /schedule-problems.
      */
-    private static DivTag renderGroundTransfer(GroundTransferItineraryEntry e) {
+    private static DivTag renderGroundTransfer(GroundTransferItineraryEntry e, boolean isOwner) {
+        DivTag title = div().withClass("entry-title").with(
+                span(e.origin()),
+                rawHtml("&nbsp;&rarr;&nbsp;"),
+                span(e.destination())
+        );
+        if (isOwner) {
+            title.with(cancelBin("/ground-transfers/" + e.groundTransferId().id() + "/cancel",
+                    "Cancel ground transfer"));
+        }
         return div().withClass("entry-card entry-card--ground-transfer").with(
                 div().withClass("entry-header").with(
                         rawHtml(TRANSFER_SVG),
                         span("Ground transfer").withClass("entry-kind entry-kind--ground-transfer")
                 ),
-                div().withClass("entry-title").with(
-                        span(e.origin()),
-                        rawHtml("&nbsp;&rarr;&nbsp;"),
-                        span(e.destination())
-                ),
+                title,
                 div().withClass("entry-detail").with(
                         ZonedTimeTag.render(e.departsAt(), TIME_FORMAT),
                         rawHtml("&nbsp;&rarr;&nbsp;"),

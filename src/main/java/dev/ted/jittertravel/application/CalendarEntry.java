@@ -29,6 +29,13 @@ import java.util.List;
  * {@link CalendarEntryRedactor} has something true to publish, since it cannot derive a city from
  * the owner's title — which names a hotel. The owner's own view is the title plus the times, and
  * repeating the route as a second line there was noise (Ted, 2026-08-20).
+ * <p>
+ * {@code cancelPath} is the owner-only link to the entry's cancel page, and the third such
+ * kind-specific passenger: only {@link EntryKind#GROUND_TRANSFER} sets it, because a transfer has
+ * nothing to edit — correcting one means removing it and entering it again. It is a sibling of
+ * {@code editPath}, not a replacement: an entry that can be edited is not thereby one that can be
+ * cancelled from the calendar. Like {@code editPath} it is dropped by
+ * {@link CalendarEntryRedactor} on every branch.
  */
 public record CalendarEntry(
         EntryKind kind,
@@ -42,7 +49,8 @@ public record CalendarEntry(
         boolean speaking,
         String editPath,
         AttendanceCommitment commitment,
-        String publicRoute
+        String publicRoute,
+        String cancelPath
 ) {
     /**
      * Convenience constructor for entries with no owner edit link and no public "speaking"
@@ -52,7 +60,7 @@ public record CalendarEntry(
     public CalendarEntry(EntryKind kind, LocalDateTime start, LocalDateTime end,
                          String mainTitle, List<SubtitleLine> subTitle,
                          String continuationTitle, List<SubtitleLine> continuationSubTitle, String mapsUrl) {
-        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, null, null, null);
+        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, null, null, null, null);
     }
 
     /**
@@ -66,7 +74,7 @@ public record CalendarEntry(
                          String mapsUrl, boolean speaking, String editPath,
                          AttendanceCommitment commitment) {
         this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle,
-                mapsUrl, speaking, editPath, commitment, null);
+                mapsUrl, speaking, editPath, commitment, null, null);
     }
 
     /**
@@ -77,6 +85,6 @@ public record CalendarEntry(
                          String mainTitle, List<SubtitleLine> subTitle,
                          String continuationTitle, List<SubtitleLine> continuationSubTitle,
                          String mapsUrl, String editPath) {
-        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, editPath, null, null);
+        this(kind, start, end, mainTitle, subTitle, continuationTitle, continuationSubTitle, mapsUrl, false, editPath, null, null, null);
     }
 }

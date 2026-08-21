@@ -66,6 +66,9 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
                 // one he is going to, so there is no speculative state to mark.
                 null,
                 // publicRoute belongs to GROUND_TRANSFER alone: a gathering is public in full.
+                null,
+                // Nor cancelPath: a gathering is edited (and cancelled) from its own page, reached
+                // by the edit pencil above.
                 null
         );
     }

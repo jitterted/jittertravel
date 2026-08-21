@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Cancel Ground Transfer</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .summary {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.9rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }
+        .summary .name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .summary .line { font-size: 0.9rem; color: var(--muted-text); margin-top: 0.15rem; }
+
+        p.warning { font-size: 0.9rem; color: var(--text-color); margin: 0 0 1rem; }
+
+        .actions { display: flex; align-items: center; gap: 1.25rem; }
+
+        /* Amber, not red: entering the transfer again puts it back, so this is recoverable from
+           inside the app — red is reserved for what is not. */
+        button.confirm {
+            background: #b45309;
+            color: #fff;
+            border: 1px solid #b45309;
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        button.confirm:hover { opacity: 0.88; }
+
+        .keep-link { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
+        .keep-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/itinerary">Itinerary</a>
+    </nav>
+
+    <h1>Cancel Ground Transfer</h1>
+
+    <div class="summary">
+        <div class="name" th:text="${transfer.origin() + ' → ' + transfer.destination()}">DEN → Hotel</div>
+        <div class="line" th:text="${#temporals.format(transfer.departsAt(), 'EEE, MMM d, yyyy')}">date</div>
+        <div class="line">
+            <span th:text="${#temporals.format(transfer.departsAt(), 'h:mm a')}">time</span>
+            &rarr;
+            <span th:text="${#temporals.format(transfer.arrivesAt(), 'h:mm a')}">time</span>
+        </div>
+    </div>
+
+    <p class="warning">
+        Cancelling removes the transfer from the calendar, the itinerary and the schedule-problems
+        report — including the gap it was closing, which will show up as missing travel again. The
+        event log keeps the record. To put it back, plan the transfer again.
+    </p>
+
+    <form th:action="@{|/ground-transfers/${transfer.groundTransferId().id()}/cancel|}" method="post">
+        <div class="actions">
+            <button type="submit" class="confirm">Cancel this transfer</button>
+            <a class="keep-link" th:href="@{|/itinerary?date=${#temporals.format(transfer.departsAt(), 'yyyy-MM-dd')}|}">Keep it — back to the itinerary</a>
+        </div>
+    </form>
+
+</div>
+</body>
+</html>

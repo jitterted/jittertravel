@@ -202,7 +202,7 @@ class CalendarEntryRedactorTest {
                     kind, START, END,
                     "Whatever", lines("Somewhere"),
                     null, null, null,
-                    false, null, AttendanceCommitment.WATCHING, null
+                    false, null, AttendanceCommitment.WATCHING, null, null
             );
 
             assertThat(redactor.redact(entry).commitment())
@@ -259,7 +259,8 @@ class CalendarEntryRedactorTest {
                 EntryKind.GROUND_TRANSFER, START, END,
                 "\uD83D\uDE95 DEN → Marriott Lone Tree", List.of(new SubtitleLine.Range(departs, arrives)),
                 null, null, null,
-                false, null, null, "DEN → Lone Tree, CO, US"
+                false, null, null, "DEN → Lone Tree, CO, US",
+                "/ground-transfers/11111111-2222-3333-4444-555555555555/cancel"
         );
 
         CalendarEntry redacted = redactor.redact(transfer);
@@ -272,6 +273,9 @@ class CalendarEntryRedactorTest {
         assertThat(redacted.continuationSubTitle()).isNull();
         assertThat(redacted.mapsUrl()).isNull();
         assertThat(redacted.editPath()).isNull();
+        // The owner's cancel link is an action on an OWNER-only surface: publishing it would tell a
+        // stranger both that the surface exists and the id of the transfer behind it.
+        assertThat(redacted.cancelPath()).isNull();
     }
 
     /**
@@ -288,7 +292,7 @@ class CalendarEntryRedactorTest {
                         new SubtitleLine.At("Departs", torontoTime(12, 0)),
                         new SubtitleLine.FixedRange(torontoTime(12, 0), torontoTime(12, 45))),
                 null, null, null,
-                false, null, null, "DEN → Lone Tree, CO, US"
+                false, null, null, "DEN → Lone Tree, CO, US", null
         );
 
         assertThat(redactor.redact(transfer).subTitle())

@@ -58,6 +58,9 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                             AttendanceCommitment.WATCHING,
                             // publicRoute belongs to GROUND_TRANSFER alone: a conference's own
                             // title and location are public, so there is nothing to carry.
+                            null,
+                            // Nor cancelPath: a conference is declined or cancelled from its own
+                            // pages, not from a link on the calendar entry.
                             null
                     ));
                 }
@@ -79,7 +82,7 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                 entry.mainTitle(), entry.subTitle(),
                 entry.continuationTitle(), entry.continuationSubTitle(),
                 entry.mapsUrl(), entry.speaking(), entry.editPath(),
-                AttendanceCommitment.GOING, entry.publicRoute()
+                AttendanceCommitment.GOING, entry.publicRoute(), entry.cancelPath()
         );
     }
 

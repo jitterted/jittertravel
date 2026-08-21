@@ -59,6 +59,7 @@ public class SecurityConfig {
                                 "/booked-flights/*/lookup/select",
                                 "/booked-trains/*", "/booked-hotels/*",
                                 "/booked-hotels/*/cancel",
+                                "/ground-transfers/*/cancel",
                                 "/conferences/*", "/conferences/*/decline",
                                 "/conferences/*/confirm",
                                 "/planned-gatherings/*").hasRole("OWNER")

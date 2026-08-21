@@ -372,6 +372,20 @@ public class EventSourcingConfig {
     }
 
     @Bean
+    public GroundTransferDetailsViewProjector groundTransferDetailsViewProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new GroundTransferDetailsViewProjector());
+    }
+
+    /**
+     * No projector dependency: like {@link CancelHotel}, {@link CancelGroundTransfer} folds its one
+     * decision fact from the event stream (R1), not from a read model.
+     */
+    @Bean
+    public CancelGroundTransfer cancelGroundTransferApplicationService(CommandExecutor commandExecutor) {
+        return new CancelGroundTransfer(commandExecutor);
+    }
+
+    @Bean
     public CalendarAggregator calendarAggregator(ConferenceCalendarProjector conferenceCalendarProjector,
                                                  FlightCalendarProjector flightCalendarProjector,
                                                  TrainCalendarProjector trainCalendarProjector,

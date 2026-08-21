@@ -647,6 +647,22 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
+    void groundTransferCancelledSampleDeserializes() {
+        // The id alone: unlike a cancelled hotel there is no reason to record, because a transfer
+        // has no booking to explain away — the entry being wrong is the usual reason it is going.
+        String json = """
+                {
+                  "groundTransferId": {"id": "77777777-7777-7777-7777-777777777777"}
+                }
+                """;
+
+        GroundTransferCancelled event = deserialize(json, GroundTransferCancelled.class);
+
+        assertThat(event.groundTransferId().id())
+                .isEqualTo(UUID.fromString("77777777-7777-7777-7777-777777777777"));
+    }
+
+    @Test
     void legacyGatheringPlannedWallClockTrioIsUpcastToStartsAtAndEndsAt() {
         // Written before gatherings stored instants: a date plus two times, no zone anywhere. The
         // zone comes from the payload's own location, so the upcast lands on the same moment the

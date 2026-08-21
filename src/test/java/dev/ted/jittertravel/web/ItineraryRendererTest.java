@@ -5,6 +5,7 @@ import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.GroundTransferId;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -15,6 +16,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -536,10 +538,37 @@ class ItineraryRendererTest {
     }
 
     @Test
-    void groundTransferCarriesNoEditPencilBecauseThereIsNothingToEditYet() {
+    void groundTransferCarriesNoEditPencilBecauseThereIsNothingToEdit() {
         String html = renderWithEntry(groundTransfer());
 
         assertThat(html).doesNotContain("class=\"edit-pencil\"");
+    }
+
+    /**
+     * The owner's action in the pencil's slot is a cancel: a wrong transfer is corrected by
+     * removing it and entering it again, and left in place it keeps asserting a hop that never
+     * happened.
+     */
+    @Test
+    void groundTransferCarriesTheOwnersCancelBinInThePencilsSlot() {
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(groundTransfer()), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains("<a class=\"cancel-bin\""
+                          + " href=\"/ground-transfers/11111111-2222-3333-4444-555555555555/cancel\""
+                          + " title=\"Cancel ground transfer\">");
+    }
+
+    @Test
+    void familyViewersGetNoCancelBinAtAllRatherThanAGreyedOne() {
+        // Hiding by permission stays hiding: a greyed control would itself disclose that the
+        // OWNER-only cancel surface exists (CLAUDE.md, affordances vs authorization).
+        String html = renderWithEntry(groundTransfer());
+
+        assertThat(html)
+                .doesNotContain("cancel-bin\" href=")
+                .doesNotContain("/ground-transfers/");
     }
 
     @Test
@@ -615,8 +644,11 @@ class ItineraryRendererTest {
                 zoned(JUN_1.atTime(LocalTime.of(22, 0)), LONDON));
     }
 
+    private static final GroundTransferId TRANSFER_ID =
+            GroundTransferId.of(UUID.fromString("11111111-2222-3333-4444-555555555555"));
+
     private static GroundTransferItineraryEntry groundTransfer() {
-        return new GroundTransferItineraryEntry("DEN", "Marriott Lone Tree",
+        return new GroundTransferItineraryEntry(TRANSFER_ID, "DEN", "Marriott Lone Tree",
                 zoned(JUN_1.atTime(LocalTime.of(12, 0)), LONDON),
                 zoned(JUN_1.atTime(LocalTime.of(12, 45)), LONDON));
     }

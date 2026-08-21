@@ -80,6 +80,9 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                         new ScheduleTimeline.Movement(
                                 e.origin().locationForMatching(), e.departsAt(),
                                 e.destination().locationForMatching(), e.arrivesAt()));
+                // The point of cancelling: a wrong transfer must stop asserting that the hop
+                // happened, or it goes on masking the missing-travel gap it was entered to close.
+                case GroundTransferCancelled e -> groundTransfers.remove(e.groundTransferId());
                 case HotelBooked e -> hotelStays.put(e.hotelBookingId(), new ScheduleTimeline.Stay(
                         e.hotelBookingId(), e.hotelName(), e.address().locationForMatching(),
                         e.checkIn(), e.checkOut(), e.bookingIntent()));

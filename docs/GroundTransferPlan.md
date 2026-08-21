@@ -3,8 +3,9 @@
 **Status:** `done` — designed **and built** 2026-08-20; **D13 (flight-leg prefill), D14 (today-or-later
 scoping) and D15 (state the journey once) added and built the same day**, after Ted used the form. A gap-review pass settled four more
 decisions (D9–D12) before coding; **all of D1–D12 were settled** (Ted, 2026-08-20) and all were
-built as written. Suite green at 1183 (default tier) + 43 (js tier). The one deliberate omission is
-cancel/change, per D11 — tracked as a named fast-follow in `Cleanup_Tasks.md`.
+built as written. Suite green at 1183 (default tier) + 43 (js tier). The one deliberate omission was
+cancel/change, per D11; **cancel shipped 2026-08-20** as its named fast-follow (see "Cancel, as
+built" below, suite green at 1246 + 48), and change stays deferred.
 
 ## As built — where it differs from the plan above
 
@@ -361,12 +362,12 @@ endpoint resolution, minus the future-date rejection D6 removes. One focused ses
 
 ## Deferred (not in this slice unless Ted says so)
 
-- **Cancel and change flows — D11 (Ted, 2026-08-20): accepted, with the cost named.** A wrong
-  entry cannot be removed from inside the app, and "cheap to re-enter" does not delete the bad
-  event: a mistyped transfer stays on the calendar and keeps feeding a false presence fact into
-  `/schedule-problems`, where it can **mask a real missing-travel gap**. Accepted to keep the
-  slice thin; "cancel ground transfer" is a named fast-follow in `Cleanup_Tasks.md`, not an
-  open-ended deferral.
+- ~~**Cancel and change flows — D11 (Ted, 2026-08-20): accepted, with the cost named.**~~ **Cancel
+  shipped 2026-08-20**, the day after, as the named fast-follow — see "Cancel, as built" below.
+  **Change is still deferred**, and now costs little: correcting a transfer is cancel-then-enter,
+  which is two forms rather than one and loses nothing, since both ends are snapshots anyway. It is
+  tracked in `Cleanup_Tasks.md` under **Deferred (until needed)** — not queued, with the trigger
+  named: re-entering transfers often enough to notice, most likely once a `mode` field lands (D7).
 - **Time ordering on the calendar.** Ted saw a 3:55 PM flight render above the 1:00 PM transfer
   that fed it (2026-08-20) and chose to **leave the lanes as they are**. This is not a ground-
   transfer bug: the calendar lays every kind out in a fixed lane band, so no entry is time-ordered
@@ -385,6 +386,42 @@ endpoint resolution, minus the future-date rejection D6 removes. One focused ses
   preselect an endpoint when exactly one option resolves to the gap's city) — that plan's slice,
   compatible with D10 since options are not date-filtered.
 
+## Cancel, as built (2026-08-20)
+
+The D11 fast-follow, built the day after the slice. A wrong transfer was permanent, and a permanent
+wrong transfer is worse than a wrong row: it keeps asserting a movement, so it **masks** the
+missing-travel gap it was entered to close. That is the failure the flow exists to undo, and it is
+the case the propagation test pins.
+
+- **`GroundTransferCancelled(groundTransferId)` — the id alone, no reason.** A hotel's cancellation
+  reason records something that happened in the real world with a booking; a transfer has no
+  booking to explain away, and "the entry was wrong" is the usual reason (Ted, 2026-08-20).
+- **`CancelGroundTransferCommand` refuses only an unknown or already-cancelled transfer**
+  (`GroundTransferNotFound`), folded from the event stream by `CancelGroundTransfer` exactly as
+  `CancelHotel` does (R1 — never from a read model). **No time gate**, for the same reason D6 gave
+  planning none: a past hop that never happened is precisely the entry most worth removing.
+- **Hard removal in every read model**, guarded by `GroundTransferCancellationPropagationTest` —
+  the calendar, the itinerary, the new details view, and `ScheduleGapProjector`, whose case asserts
+  the Denver→Lone Tree gap *returns* once the transfer is gone.
+- **`/ground-transfers/{id}/cancel`**, GET confirmation + POST, its own `SecurityConfig` matcher
+  (a single `*` matches one segment, so a per-item action needs its own entry) and its own
+  `AuthorizationMatrixTest` row. POST lands back on `/itinerary?date=` the transfer's own day, which
+  is where the hop's absence is visible. A `GroundTransferDetailsViewProjector` serves the page,
+  mirroring `HotelDetailsViewProjector`.
+- **A plain confirm, no typed word** — removing a transfer is recoverable by entering it again, so
+  the amber half of the destructive-action rule applies, and the button is amber rather than red.
+- **Reachable from both surfaces** (Ted, 2026-08-20, asked): the itinerary card and the calendar
+  entry. A transfer has nothing to edit, so the owner action in the pencil's slot is a **bin**
+  (`.cancel-bin`, same size and weight as `.edit-pencil`, no red). On the calendar that needed a
+  new `CalendarEntry.cancelPath` — a sibling of `editPath`, not a replacement, since an entry that
+  can be edited is not thereby one that can be cancelled from the calendar. It is the third
+  kind-specific passenger for the `EntryDetails` refactor, after `commitment` and `publicRoute`,
+  and adding it made all seven redactor branches declare it: deny-by-default working again.
+- **Anonymous and family viewers get nothing at all**, not a greyed control: the href would tell a
+  stranger both that the surface exists and the transfer's internal id. Two independent barriers —
+  the redactor nulls the field, the renderer gates on `isOwner` — each pinned by its own test, and
+  the security-chain case goes red only when both are broken (verified by mutation).
+
 ## Open questions
 
 None. D1–D5 (the model), D6 (any date), D7 (no `mode`), D8 (the two collaborators), the
@@ -394,8 +431,8 @@ legs that prefill their own date and time), D14 (today-or-later scoping), and D1
 journey once) were all settled by Ted on 2026-08-20, and the slice was
 built in the order above the same day.
 
-Still deferred, unchanged from the list above: cancel/change (the named fast-follow), a venue
-endpoint, a `/ground-transfers` list page, zone- and midnight-crossing transfers, a live link
+Still deferred, unchanged from the list above (cancel is no longer among them — it shipped
+2026-08-20): change, a venue endpoint, a `/ground-transfers` list page, zone- and midnight-crossing transfers, a live link
 between a transfer and the flight or hotel it serves, and fix-link prefill beyond `?date=` (which
 belongs to `ProblemCalendarPlan.md` slice 5 — now unblocked, since ground transfer is the third
 answer its `Fix ▾` menu was waiting on).

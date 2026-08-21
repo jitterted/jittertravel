@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.GroundTransferId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.LocalDateTime;
@@ -11,8 +12,12 @@ import java.time.LocalDateTime;
  * {@code origin}/{@code destination} arrive already written by {@link TransferEndpointLabel}: an
  * airport code, or the hotel's name. No cities: naming the same journey a second time as cities was
  * noise on the card (Ted, 2026-08-20), and the airport or hotel already says where it is.
+ * <p>
+ * The id rides along for one reason: the card's OWNER-only cancel link. A transfer has no edit page
+ * to deep-link into — correcting one means removing it and entering it again.
  */
 public record GroundTransferItineraryEntry(
+        GroundTransferId groundTransferId,
         String origin,
         String destination,
         ZonedTimestamp departsAt,

@@ -106,6 +106,24 @@ class GroundTransferCalendarProjectorTest {
         assertThat(entry.continuationSubTitle()).isNull();
     }
 
+    /**
+     * A transfer has nothing to edit — correcting one means removing it and entering it again — so
+     * the owner action the calendar entry carries is a cancel, keyed to this transfer.
+     */
+    @Test
+    void theOwnerActionIsACancelLinkForThisTransfer() {
+        GroundTransferId transferId = GroundTransferId.of(
+                UUID.fromString("11111111-2222-3333-4444-555555555555"));
+
+        projector.handle(Stream.of(stored(new GroundTransferPlanned(transferId,
+                "DEN", "", AIRPORT,
+                "", "Marriott Lone Tree", HOTEL,
+                DEPARTS, ARRIVES))));
+
+        assertThat(projector.entries().getFirst().cancelPath())
+                .isEqualTo("/ground-transfers/11111111-2222-3333-4444-555555555555/cancel");
+    }
+
     private static GroundTransferPlanned airportToHotel() {
         return new GroundTransferPlanned(GroundTransferId.random(),
                 "DEN", "", AIRPORT,

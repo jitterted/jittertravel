@@ -5,6 +5,10 @@ dedicated planning doc. Add an item when you notice it; check it off (or delete 
 done. For larger structural refactors, see `Refactoring_Opportunities.md`. For an index of every
 plan doc and its status — including these items — see `Backlog.md`.
 
+Three sections: **Open** is work that is wanted, **Deferred (until needed)** is work whose shape is
+known but whose need has not arrived — each item names the trigger that would promote it — and
+**Done** is the record.
+
 ## Open
 
 - [ ] **Conferences have no `locationForMatching` — but ask whether that is still a problem
@@ -65,14 +69,6 @@ plan doc and its status — including these items — see `Backlog.md`.
         so there is little to gain and a compatibility commitment to lose.
 
       Recommendation: do the first, live with it, and treat the second as probably-never.
-- [ ] **Cancel ground transfer — the slice shipped 2026-08-20, so this is now due.** D11 in
-      `GroundTransferPlan.md` (Ted, 2026-08-20) shipped it without cancel or change, so a
-      mistyped transfer cannot be removed from inside the app: it stays on the calendar and keeps
-      feeding a false presence fact into `/schedule-problems`, where it can mask a real
-      missing-travel gap. This is a named fast-follow, not an open-ended deferral: a
-      `GroundTransferCancelled` event, command + handler, a POST route with matcher and matrix
-      row, and removal branches in the calendar/itinerary/gap projectors. Deleting one transfer is
-      recoverable by re-entering it, so amber rules apply — a plain confirm, no typed word.
 - [ ] **Itinerary: add-entry day dropdown** (like the calendar's). The `/calendar` future-day
       disclosure menu lets the owner add an entry for a specific day; the itinerary has no such
       affordance. Add the same per-day "add an entry" dropdown to the itinerary so a day can be
@@ -144,8 +140,51 @@ plan doc and its status — including these items — see `Backlog.md`.
       behaviour, untouched by the newest-first paging fix (`PageWindow`), which only changed
       *which* window is fetched, not how it's scanned.
 
+## Deferred (until needed)
+
+Items with a known shape and a named trigger, deliberately **not** queued: the cost of carrying
+them is a paragraph, and building either one now would be work ahead of a need. Move an item up to
+**Open** when its trigger fires — do not treat this section as a backlog to work down.
+
+- [ ] **Private events in `DifferentCityConflict`** — tabled by Ted 2026-08-20, and it outlived the
+      slice it was pencilled into: it was to ride along with problem-calendar slice 4, but slice 4
+      shipped 2026-08-20 as clash *markers* only, so this now has no home but this list.
+      **What is wrong:** detection is already indifferent to what kind of thing a conflicting entry
+      is, but the *clearing* event types its subject as a `GatheringId`, so a private event in the
+      wrong city cannot be reported (it would be unclearable, and an unclearable row is worse than
+      no row). **The work is additive:** a `PrivateEventCityConflictCleared` event, or a one-of
+      subject on the existing one, plus the detector branch — no schema change to anything stored.
+      **Trigger:** Ted plans a private event on a day a conference runs elsewhere and wants the
+      clash surfaced. Until then `/schedule-problems` is quietly incomplete in one direction only,
+      which is the safe direction — it under-reports rather than reporting something he cannot act
+      on. See `ScheduleProblemsRewritePlan.md` and `PrivateSocialEventPlan.md`.
+- [ ] **Change a ground transfer** — the other half of D11 in `GroundTransferPlan.md`. Cancel
+      shipped 2026-08-20 and took the urgency with it: correcting a transfer is now
+      cancel-then-enter, two forms instead of one, and **nothing is lost in the round trip** —
+      both ends are snapshots in the event by design, so there is no live reference an edit would
+      preserve. **The work, if it ever lands:** a `GroundTransferChanged` full-snapshot event
+      (mirroring `HotelChanged`/`TrainChanged`), a change command + handler reusing
+      `GroundTransferEndpointResolver` wholesale, a form that is the plan form with its fields
+      hydrated, and `put`-branches in the four projectors that already handle `Planned`.
+      **Trigger:** Ted finds himself re-entering the same transfer often enough to notice — most
+      likely if a mode/notes field ever arrives (D7), since that is the kind of detail you edit
+      rather than re-type. Not before.
+
 ## Done
 
+- [x] **Cancel ground transfer** (2026-08-20), the day after the slice it followed. D11 in
+      `GroundTransferPlan.md` shipped that slice without cancel, so a mistyped transfer could not be
+      removed from inside the app: it stayed on the calendar and kept feeding a false presence fact
+      into `/schedule-problems`, where it masked a real missing-travel gap. Built as the task
+      described: a `GroundTransferCancelled` event (the id alone — no reason, since a transfer has
+      no booking to explain away), command + context + application service folding existence from
+      the event stream, `/ground-transfers/{id}/cancel` GET-confirm + POST with its own matcher and
+      matrix row, and removal branches in the calendar, itinerary, gap and new details-view
+      projectors — the gap the transfer was closing correctly returns, which
+      `GroundTransferCancellationPropagationTest` pins. Amber, plain confirm, no typed word, as
+      specified. Reachable from **both** the itinerary card and the calendar entry (Ted's call): a
+      `.cancel-bin` in the edit pencil's slot, OWNER-only, via a new `CalendarEntry.cancelPath` that
+      the redactor drops. Details in `GroundTransferPlan.md` → "Cancel, as built".
 - [x] **Retired `/admin/migrate-conferences`** (2026-08-19). The one-off conference→gathering
       migration had served its purpose — Ted ran it — so the whole write path went: both
       `AdminController` handlers, `ConferenceMigrationService`, the `MigrateConferenceToGathering`

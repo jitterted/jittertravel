@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.GroundTransferCancelled;
 import dev.ted.jittertravel.domain.GroundTransferId;
 import dev.ted.jittertravel.domain.GroundTransferPlanned;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
@@ -37,6 +38,9 @@ public class GroundTransferCalendarProjector implements EventStreamConsumer {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
                 case GroundTransferPlanned e -> entries.put(e.groundTransferId(), toEntry(e));
+                // A hard removal: a cancelled transfer leaves the calendar entirely, for every
+                // viewer. There is no "cancelled" rendering to keep.
+                case GroundTransferCancelled e -> entries.remove(e.groundTransferId());
                 default -> { /* not a ground-transfer event */ }
             }
         });
@@ -59,7 +63,11 @@ public class GroundTransferCalendarProjector implements EventStreamConsumer {
                 null,
                 null,
                 route(label.publicLabel(e.originAirportCode(), e.origin()),
-                      label.publicLabel(e.destinationAirportCode(), e.destination()))
+                      label.publicLabel(e.destinationAirportCode(), e.destination())),
+                // A transfer has nothing to edit — correcting one means removing it and entering
+                // it again — so its owner action is cancel, and the calendar carries the link. The
+                // renderer gates it on isOwner and the redactor drops it.
+                "/ground-transfers/" + e.groundTransferId().id() + "/cancel"
         );
     }
 

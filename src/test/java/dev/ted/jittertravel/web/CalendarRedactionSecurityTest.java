@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -218,6 +219,7 @@ class CalendarRedactionSecurityTest {
     private static final ZoneId DENVER = ZoneId.of("America/Denver");
     private static final LocalDateTime GT_DEPARTS = LocalDateTime.of(2026, 9, 14, 12, 0);
     private static final LocalDateTime GT_ARRIVES = LocalDateTime.of(2026, 9, 14, 12, 45);
+    private static final UUID GT_ID = UUID.fromString("11111111-2222-3333-4444-555555555555");
 
     @Test
     @WithMockUser(username = "ted", roles = "OWNER")
@@ -250,6 +252,22 @@ class CalendarRedactionSecurityTest {
     }
 
     /**
+     * The owner's cancel link is an action on an OWNER-only surface, and the href is the secret: it
+     * would tell a stranger that the surface exists and hand them the transfer's internal id. Not a
+     * greyed control either — hiding by permission stays hiding (CLAUDE.md).
+     */
+    @Test
+    void anonymousGroundTransferCarriesNoCancelLink() throws Exception {
+        given(calendarAggregator.allEntries()).willReturn(List.of(groundTransfer()));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous())
+                .exchange().getResponse().getContentAsString())
+                .doesNotContain("/ground-transfers/")
+                .doesNotContain(GT_ID.toString())
+                .doesNotContain("cancel-bin\" href");
+    }
+
+    /**
      * Redaction rule 2, through the real chain: {@code ZonedTimeTag} writes the UTC instant into a
      * {@code datetime} attribute, so a surviving time leaks in the markup even when nothing visible
      * shows a clock. Asserted on the raw response, not the text, because that is where it would be.
@@ -272,7 +290,8 @@ class CalendarRedactionSecurityTest {
                         ZonedTimestamp.fromLocal(GT_DEPARTS, DENVER),
                         ZonedTimestamp.fromLocal(GT_ARRIVES, DENVER))),
                 null, null, null,
-                false, null, null, "DEN → Lone Tree, CO, US");
+                false, null, null, "DEN → Lone Tree, CO, US",
+                "/ground-transfers/" + GT_ID + "/cancel");
     }
 
     private static final LocalDateTime GATHERING_START = LocalDateTime.of(2026, 7, 5, 18, 0);

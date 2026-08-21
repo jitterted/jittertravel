@@ -10,7 +10,8 @@ import java.util.List;
  * new {@link CalendarEntry} via the full canonical constructor, naming each field explicitly
  * (including {@code speaking} and {@code editPath}), so adding a field to {@code CalendarEntry}
  * breaks compilation here — forcing a redaction decision — instead of silently publishing the
- * new field. {@code editPath} is always {@code null}: owner edit links are never public.
+ * new field. {@code editPath} and {@code cancelPath} are always {@code null}: owner action links
+ * are never public — the link itself would tell a stranger the surface exists.
  * <p>
  * See "Redaction: anonymous viewers are a first-class threat model" in CLAUDE.md.
  */
@@ -22,19 +23,19 @@ public class CalendarEntryRedactor {
                     entry.kind(), entry.start(), entry.end(),
                     "Hotel", entry.subTitle(),
                     "Hotel cont'd", entry.continuationSubTitle(),
-                    null, false, null, null, null
+                    null, false, null, null, null, null
             );
             case FLIGHT -> new CalendarEntry(
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), null,
                     entry.continuationTitle(), null,
-                    null, false, null, null, null
+                    null, false, null, null, null, null
             );
             case TRAIN -> new CalendarEntry(
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), null,
                     entry.continuationTitle(), null,
-                    null, false, null, null, null
+                    null, false, null, null, null, null
             );
             // A ground transfer: the taxi from the airport to the hotel. Its owner title names a
             // hotel — "DEN → Marriott Lone Tree" — so unlike FLIGHT and TRAIN above the title
@@ -48,7 +49,7 @@ public class CalendarEntryRedactor {
                     entry.kind(), entry.start(), entry.end(),
                     "🚕 Ground transfer", routeLine(entry.publicRoute()),
                     null, null,
-                    null, false, null, null, null
+                    null, false, null, null, null, null
             );
             // Conferences are public events: name, venue, location, and times are all visible by
             // decision (Ted attends them publicly). `commitment` is public too — but only because
@@ -63,7 +64,7 @@ public class CalendarEntryRedactor {
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), entry.subTitle(),
                     entry.continuationTitle(), entry.continuationSubTitle(),
-                    entry.mapsUrl(), false, null, entry.commitment(), null
+                    entry.mapsUrl(), false, null, entry.commitment(), null, null
             );
             // Gatherings are public events too, and that Ted is *speaking* at one is public by
             // decision (the venue and time are already public) — so `speaking` passes through to
@@ -74,7 +75,7 @@ public class CalendarEntryRedactor {
                     entry.kind(), entry.start(), entry.end(),
                     entry.mainTitle(), entry.subTitle(),
                     entry.continuationTitle(), entry.continuationSubTitle(),
-                    entry.mapsUrl(), entry.speaking(), null, null, null
+                    entry.mapsUrl(), entry.speaking(), null, null, null, null
             );
             // A private social event: anonymous viewers see only that Ted is "Busy", when
             // (the time in the event's own zone, via FixedRange), and the city/country — never
@@ -117,7 +118,7 @@ public class CalendarEntryRedactor {
                 entry.kind(), entry.start(), entry.end(),
                 "Busy", List.copyOf(redacted),
                 null, null,
-                null, false, null, null, null
+                null, false, null, null, null, null
         );
     }
 }

@@ -240,16 +240,38 @@ class ProblemCalendarRendererTest {
     }
 
     /**
+     * Ted missed a run of missing hotels on this calendar because they were blue (2026-08-21). A
+     * band's first job is to say something is wrong, so every kind now shares one amber fill and
+     * keeps its kind only as the left edge. The absence assertions are the real claim: a per-kind
+     * <em>fill</em> must not come back.
+     */
+    @Test
+    void everyBandWearsTheSameAmberAndCarriesItsKindOnlyOnTheLeftEdge() {
+        String html = render(missingHotel("London", 15, 18));
+
+        assertThat(html)
+                .contains("--pc-problem-bg: rgba(254, 243, 199, 0.85);")
+                .contains("background: var(--pc-problem-bg); color: var(--pc-problem-fg);")
+                .contains("border-left-color: var(--pc-bed-border);")
+                .doesNotContain("--pc-bed-bg")
+                .doesNotContain("--pc-travel-bg")
+                .doesNotContain("--pc-duplicate-bg")
+                .doesNotContain("--pc-clash-city-bg")
+                .doesNotContain("--pc-clash-scheduling-bg");
+    }
+
+    /**
      * C3: a city clash is the one clash with something to do about it, and it is the same
      * {@code /clear-conflict} URL the list card offers.
      */
     @Test
-    void aCityClashBandOpensTheClearConflictMenu() {
+    void aCityClashBandLinksStraightToClearingTheConflict() {
         String html = render(cityConflict(15));
 
         assertThat(html)
-                .contains("<summary class=\"pc-band-summary\">")
-                .contains("class=\"disclosure-menu-item\">Clear this conflict</a>");
+                .contains("class=\"pc-band-link\">")
+                .contains("<span class=\"pc-band-fix\">Clear this conflict &rarr;</span>")
+                .doesNotContain("<summary class=\"pc-band-summary\">");
     }
 
     /**
@@ -313,14 +335,15 @@ class ProblemCalendarRendererTest {
      * chrome and no height and the week rows keep their shape.
      */
     @Test
-    void aBandOpensItsFixMenuFromItsOwnFirstSegment() {
+    void aBandWithOneAnswerIsALinkToItAndSaysSoOnItsFace() {
         String html = render(missingHotel("London", 15, 18));
 
         assertThat(html)
-                .contains("<details class=\"disclosure-menu\">")
-                .contains("<summary class=\"pc-band-summary\">")
                 .contains("<a href=\"/book-hotel?city=London&amp;checkIn=2026-07-15&amp;checkOut=2026-07-18\" "
-                          + "class=\"disclosure-menu-item\">Book hotel</a>");
+                          + "class=\"pc-band-link\">")
+                .contains("<span class=\"pc-band-fix\">Book hotel &rarr;</span>")
+                .as("one answer needs no menu, and a band that only looks clickable is a hidden affordance")
+                .doesNotContain("<details class=\"disclosure-menu\">");
     }
 
     /**
@@ -333,7 +356,8 @@ class ProblemCalendarRendererTest {
         String html = render(missingHotel("Berlin", 17, 21));
 
         assertThat(html)
-                .containsOnlyOnce("<details class=\"disclosure-menu\">")
+                .containsOnlyOnce("class=\"pc-band-link\">")
+                .containsOnlyOnce("<span class=\"pc-band-fix\">Book hotel &rarr;</span>")
                 .as("the continuation stays a plain band, carrying its own grid placement")
                 .contains("<div class=\"pc-band pc-band--bed pc-band--from-left\""
                           + " style=\"grid-column: 1 / span 2; grid-row: 2;\">");
@@ -350,10 +374,13 @@ class ProblemCalendarRendererTest {
         String calendar = render(problem);
         String list = ScheduleProblemsRenderer.render(List.of(problem));
 
+        // A travel gap has three answers, so the band keeps a menu while the card lists its links:
+        // different controls, deliberately, but the same destinations.
         for (ProblemFix fix : ProblemFix.forProblem(problem)) {
-            String anchor = "class=\"disclosure-menu-item\">" + fix.label() + "</a>";
-            assertThat(calendar).contains(anchor);
-            assertThat(list).contains(anchor);
+            assertThat(calendar).contains("<a href=\"" + fix.href().replace("&", "&amp;") + "\" "
+                                          + "class=\"disclosure-menu-item\">" + fix.label() + "</a>");
+            assertThat(list).contains("<a href=\"" + fix.href().replace("&", "&amp;") + "\" "
+                                      + "class=\"fix-summary\">" + fix.label() + " &rarr;</a>");
         }
     }
 

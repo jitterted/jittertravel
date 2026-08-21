@@ -69,7 +69,7 @@ public record ProblemFix(String label, String href) {
                 // are flight legs and booked hotels that the date itself brings into range. It is
                 // deliberately not preselected — one `airport:` value can belong to several legs,
                 // so a preselection would silently pick a trip. See docs/archived/GroundTransferPlan.md D13.
-                new ProblemFix("Add ground transfer", "/plan-ground-transfer?date=" + date));
+                new ProblemFix("Ground transfer", "/plan-ground-transfer?date=" + date));
     }
 
     /**

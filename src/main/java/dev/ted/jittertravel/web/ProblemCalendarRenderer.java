@@ -28,8 +28,9 @@ public class ProblemCalendarRenderer {
     private static final String CSS = """
             .page { max-width: 1400px; }
             .no-problems { color: var(--muted-text); font-style: italic; font-size: 0.95rem; padding: 2rem 0; }
-            /* Lane colours match the card columns in the list view: the two views of one report
-               must not disagree about what a colour means. */
+            /* Lane *edges* match the card columns in the list view, so the two views of one report
+               do not disagree about what a hue means. The fill is a different question here and
+               is answered below: on a calendar the bands sit among untroubled days. */
             :root {
                 --pc-border: #dee2e6;
                 --pc-border-strong: darkgray;
@@ -38,16 +39,23 @@ public class ProblemCalendarRenderer {
                 --pc-text-secondary: #495057;
                 --pc-past-hatch: rgba(0, 0, 0, 0.1);
                 --pc-today-tint: #eef2ff;
-                /* Problem bands are translucent so the context they sit inside stays visible
-                   through them — the cause is the point of the backdrop. */
-                --pc-bed-bg: rgba(219, 234, 254, 0.8); --pc-bed-border: #1d4ed8; --pc-bed-fg: #1e3a8a;
-                --pc-travel-bg: rgba(254, 243, 199, 0.8); --pc-travel-border: #b45309; --pc-travel-fg: #78350f;
-                /* Amber, not red: a second booking costs money but Ted can cancel it. */
-                --pc-duplicate-bg: rgba(255, 237, 213, 0.8); --pc-duplicate-border: #c2410c; --pc-duplicate-fg: #7c2d12;
-                /* The two clashes share a lane and split the list view's two hues: violet for a
-                   gathering in the wrong city, red for two things at the same moment. */
-                --pc-clash-city-bg: rgba(237, 233, 254, 0.8); --pc-clash-city-border: #7c3aed; --pc-clash-city-fg: #4c1d95;
-                --pc-clash-scheduling-bg: rgba(254, 226, 226, 0.8); --pc-clash-scheduling-border: #dc2626; --pc-clash-scheduling-fg: #7f1d1d;
+                /* Every band wears the same amber, whatever kind of problem it is (Ted,
+                   2026-08-21): he missed a whole run of missing hotels because they were blue,
+                   and on a calendar of mostly-fine days the first thing a band has to say is
+                   "something here is wrong". Kind is the second question, and it survives on the
+                   left edge below — plus the band names itself in words.
+                   Translucent so the context the band sits inside stays visible through it —
+                   the cause is the point of the backdrop. */
+                --pc-problem-bg: rgba(254, 243, 199, 0.85);
+                --pc-problem-fg: #78350f;
+                /* Kind, kept only as the 4px left edge, in the hue its column uses in the list
+                   view. Red on a scheduling clash is the odd one out and stays a border rather
+                   than a fill for a second reason: red means irreversible, and a clash is not. */
+                --pc-bed-border: #1d4ed8;
+                --pc-travel-border: #b45309;
+                --pc-duplicate-border: #c2410c;
+                --pc-clash-city-border: #7c3aed;
+                --pc-clash-scheduling-border: #dc2626;
                 /* One grey for every kind of context; the kind is named in the label. */
                 --pc-context-bg: rgba(107, 114, 128, 0.14);
                 --pc-context-border: rgba(107, 114, 128, 0.35);
@@ -109,29 +117,35 @@ public class ProblemCalendarRenderer {
                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             }
             .pc-band {
+                display: flex; align-items: center; gap: 4px;
                 margin: 2px 3px; padding: 3px 6px; border-radius: 5px;
                 border-left: 4px solid transparent; overflow-wrap: anywhere;
+                background: var(--pc-problem-bg); color: var(--pc-problem-fg);
             }
             .pc-band--from-left { margin-left: 0; border-radius: 0 5px 5px 0; }
             .pc-band--to-right  { margin-right: 0; border-radius: 5px 0 0 5px; }
             .pc-band--from-left.pc-band--to-right { border-radius: 0; }
-            .pc-band--bed {
-                background: var(--pc-bed-bg); border-left-color: var(--pc-bed-border); color: var(--pc-bed-fg);
-            }
-            .pc-band--travel {
-                background: var(--pc-travel-bg); border-left-color: var(--pc-travel-border); color: var(--pc-travel-fg);
-            }
-            .pc-band--duplicate {
-                background: var(--pc-duplicate-bg); border-left-color: var(--pc-duplicate-border); color: var(--pc-duplicate-fg);
-            }
-            .pc-band--clash-city {
-                background: var(--pc-clash-city-bg); border-left-color: var(--pc-clash-city-border); color: var(--pc-clash-city-fg);
-            }
-            .pc-band--clash-scheduling {
-                background: var(--pc-clash-scheduling-bg); border-left-color: var(--pc-clash-scheduling-border); color: var(--pc-clash-scheduling-fg);
-            }
+            .pc-band--bed              { border-left-color: var(--pc-bed-border); }
+            .pc-band--travel           { border-left-color: var(--pc-travel-border); }
+            .pc-band--duplicate        { border-left-color: var(--pc-duplicate-border); }
+            .pc-band--clash-city       { border-left-color: var(--pc-clash-city-border); }
+            .pc-band--clash-scheduling { border-left-color: var(--pc-clash-scheduling-border); }
+            /* The words take what is left after the chip, and may wrap; the chip never shrinks
+               and never wraps, so the narrowest one-day band still shows its whole action. */
+            .pc-band-text   { flex: 1; min-width: 0; }
             .pc-band-title  { font-weight: 600; font-size: 0.82rem; }
             .pc-band-detail { font-size: 0.75rem; margin-top: 0.1rem; }
+            /* The affordance. Knowing the band is clickable used to require having been told,
+               which is a hidden affordance (Ted, 2026-08-21): the chip says out loud that there
+               is an action here, and what it is. */
+            .pc-band-fix {
+                flex-shrink: 0; white-space: nowrap;
+                font-size: 0.68rem; font-weight: 700; line-height: 1.5;
+                background: rgba(255, 255, 255, 0.85);
+                border: 1px solid rgba(0, 0, 0, 0.2); border-radius: 4px;
+                padding: 0 4px;
+            }
+            .pc-band-link:hover .pc-band-fix, .pc-band-summary:hover .pc-band-fix { background: #ffffff; }
             /* The band is its own fix menu's summary, so an outer positioned wrapper takes the
                grid placement and the band keeps filling it — the band gains no chrome and no
                height, and week rows keep their shape. */
@@ -139,6 +153,10 @@ public class ProblemCalendarRenderer {
             .pc-band-anchor > .disclosure-menu { display: flex; flex: 1; min-width: 0; }
             .pc-band-summary { display: flex; flex: 1; min-width: 0; cursor: pointer; }
             .pc-band-summary > .pc-band { flex: 1; min-width: 0; }
+            /* A band with one answer navigates rather than opening a menu of one, so the whole
+               band is the link — same target, one click less. */
+            .pc-band-link { display: flex; flex: 1; min-width: 0; text-decoration: none; color: inherit; }
+            .pc-band-link > .pc-band { flex: 1; min-width: 0; }
             """;
 
     public static String render(List<ScheduleProblem> problems, List<ScheduleContext> context, LocalDate today) {

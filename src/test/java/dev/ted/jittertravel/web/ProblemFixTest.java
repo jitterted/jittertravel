@@ -58,7 +58,7 @@ class ProblemFixTest {
                         "/book-flight?fromCity=Denver&toCity=Lone+Tree&date=2026-09-15"),
                 new ProblemFix("Book train",
                         "/book-train?fromCity=Denver&toCity=Lone+Tree&date=2026-09-15"),
-                new ProblemFix("Add ground transfer",
+                new ProblemFix("Ground transfer",
                         "/plan-ground-transfer?date=2026-09-15"));
     }
 

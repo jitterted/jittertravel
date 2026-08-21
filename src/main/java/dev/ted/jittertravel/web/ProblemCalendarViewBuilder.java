@@ -17,9 +17,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import static j2html.TagCreator.a;
 import static j2html.TagCreator.div;
 import static j2html.TagCreator.each;
+import static j2html.TagCreator.rawHtml;
 import static j2html.TagCreator.span;
+import static j2html.TagCreator.text;
 
 /**
  * Renders {@link ProblemBand}s as Sunday→Saturday weeks, over a backdrop of {@link ContextBand}s.
@@ -216,19 +219,39 @@ public class ProblemCalendarViewBuilder {
         String classes = "pc-band pc-band--" + band.marker().cssModifier()
                          + continuationClasses(band.firstDay(), band.lastDay(), sunday, "pc-band");
         String style = "grid-column: " + segment[0] + " / span " + span + "; grid-row: " + gridRow + ";";
-        List<DomContent> bandContent = List.of(
-                div(band.title()).withClass("pc-band-title"),
-                div(band.detail()).withClass("pc-band-detail"));
+        DivTag bandBox = div().withClass(classes).with(
+                div().withClass("pc-band-text").with(
+                        div(band.title()).withClass("pc-band-title"),
+                        div(band.detail()).withClass("pc-band-detail")));
 
         boolean isContinuation = band.firstDay().isBefore(sunday);
         if (band.fixes().isEmpty() || isContinuation) {
-            return div().withClass(classes).withStyle(style).with(bandContent);
+            return bandBox.withStyle(style);
+        }
+        bandBox.with(fixChip(band.fixes()));
+        if (band.fixes().size() == 1) {
+            return div().withClass("pc-band-anchor").withStyle(style).with(
+                    a().withHref(band.fixes().getFirst().href()).withClass("pc-band-link").with(bandBox));
         }
         return div().withClass("pc-band-anchor").withStyle(style).with(
-                DisclosureMenu.render(div().withClass(classes).with(bandContent), "pc-band-summary",
+                DisclosureMenu.render(bandBox, "pc-band-summary",
                         band.fixes().stream()
                                 .map(fix -> DisclosureMenu.item(fix.label(), fix.href()))
                                 .toList()));
+    }
+
+    /**
+     * The visible half of the band's action: what it does when there is one answer, and that
+     * there <em>is</em> one when there are several. A band with several keeps the menu — the
+     * calendar is the space-constrained case the dropdown rule allows — but the chip is what
+     * tells you the menu is there at all.
+     */
+    private static DomContent fixChip(List<ProblemFix> fixes) {
+        if (fixes.size() == 1) {
+            return span().withClass("pc-band-fix")
+                    .with(text(fixes.getFirst().label()), rawHtml(" &rarr;"));
+        }
+        return span().withClass("pc-band-fix").with(rawHtml("Fix &#9662;"));
     }
 
     /** Squares off the side on which the band runs into an adjacent week. */

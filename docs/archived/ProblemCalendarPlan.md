@@ -220,7 +220,8 @@ That is what F9 settles.
 The third answer now has a home: **`docs/archived/GroundTransferPlan.md`** (Ted, 2026-08-20) — an
 `EntryKind.GROUND_TRANSFER` with its own event, its own redaction branch, and a `Movement` case in
 `ScheduleGapProjector`, so a transfer *closes* the gap rather than silencing it. Its fix item is
-**Add ground transfer** → `/plan-ground-transfer?date=…`, listed after train.
+**Ground transfer** → `/plan-ground-transfer?date=…`, listed after train. (Shortened from "Add
+ground transfer" on 2026-08-21, to spend less of a narrow band on the verb.)
 
 **Corrected 2026-08-20, when the transfer form actually shipped.** The paragraph here was written
 before it existed and was wrong in three ways:
@@ -251,6 +252,33 @@ inside it**, even when there is only one. A single-item menu costs one extra cli
 vocabulary that is identical on every row; a card that sometimes shows a bare link and sometimes a
 menu button teaches nothing. The `SchedulingConflict` card renders the *same* control greyed, with
 its reason (F6), rather than dropping it.
+
+**Superseded, 2026-08-21 — both views, in two passes.** Ted caught the inconsistency the day the
+itinerary's no-bed row shipped: that row argued a menu holding one item is a door in front of a
+door, while this page was still wrapping `Book hotel` and `Clear this conflict` in `Fix ▾`. Then he
+stated the rule behind it: **a dropdown only above three choices, or where space is constrained —
+and if unsure, ask** (now in CLAUDE.md).
+
+So on `/schedule-problems`, `fixSlot` renders **up to three fixes as links** in the same slot,
+wearing the same `.fix-summary` chip — which is every card except a hotel booked four ways. No fixes
+still keeps the greyed control with its reason (F6 stands). What the argument above actually defends
+is position *within a column*, and every card in a column is the same problem type, so the control
+is identical row to row either way; the cost accepted is that its width now differs *between*
+columns.
+
+On the calendar, a band with **one** answer is now a link straight to it and a band with several
+keeps the menu — the week grid is the space-constrained case the rule allows. But either way the
+band now carries a **visible chip** naming the action (`Book hotel →`) or announcing the menu
+(`Fix ▾`). The old design made the whole band the click target with nothing to say so, and
+"knowing I have to click is a hidden affordance" (Ted, 2026-08-21).
+
+**The band colours went with it.** F1's lane hues are gone as *fills*: Ted scanned this view and
+missed a run of missing hotels because they were blue while travel gaps were amber. Every band now
+shares one amber (`--pc-problem-bg`), and the kind survives only as the 4px left edge. "Lane colours
+match the card columns in the list view" no longer holds for the fill, deliberately — on a calendar
+the bands sit among *untroubled* days, so the first thing they have to say is that something is
+wrong. The list view still colours its cards by kind, where every card is already a problem and
+there is nothing to be missed among.
 
 The pattern already exists: `CalendarRenderer`'s day menu is a `<details>`/`<summary>` popup
 (`.day-menu`, `.day-menu-list`, `.day-menu-item`) with `DAY_MENU_SCRIPT` handling outside-click

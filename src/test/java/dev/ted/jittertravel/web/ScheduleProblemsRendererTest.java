@@ -179,20 +179,34 @@ class ScheduleProblemsRendererTest {
     // --- Fix menus (slice 5) ---
 
     /**
-     * Every card carries the same control in the same place, whatever the problem — a row of links
-     * would sit at a different width on each, which is what the "action affordances never move"
-     * rule forbids. Even a one-answer problem goes through the menu.
+     * A missing hotel has exactly one answer, so the slot holds that link and not a menu wrapping
+     * it: a one-item menu is a door in front of a door. The card keeps the slot and the chip, so
+     * nothing moves within the column — every card in it is a missing hotel.
      */
     @Test
-    void aMissingHotelCardOffersItsFixInsideTheSharedMenu() {
+    void aMissingHotelCardOffersItsOneFixAsADirectLink() {
         String html = ScheduleProblemsRenderer.render(List.of(new ScheduleProblem.MissingHotel(
                 "Johannesberg", LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 14), "JCON")));
 
         assertThat(html)
-                .contains("<details class=\"disclosure-menu\">")
                 // The whole anchor, with & escaped as the markup really has it.
                 .contains("<a href=\"/book-hotel?city=Johannesberg&amp;checkIn=2026-09-10&amp;checkOut=2026-09-14\" "
-                          + "class=\"disclosure-menu-item\">Book hotel</a>");
+                          + "class=\"fix-summary\">Book hotel &rarr;</a>")
+                .doesNotContain("<details class=\"disclosure-menu\">");
+    }
+
+    @Test
+    void aDifferentCityConflictCardAlsoOffersItsOneFixAsADirectLink() {
+        GatheringId gatheringId = GatheringId.random();
+        ConferenceId conferenceId = ConferenceId.random();
+
+        String html = ScheduleProblemsRenderer.render(List.of(new ScheduleProblem.DifferentCityConflict(
+                "BRU JUG", "Brussels", "JavaOne", "Amsterdam",
+                LocalDate.of(2026, 9, 16), gatheringId, conferenceId)));
+
+        assertThat(html)
+                .contains("class=\"fix-summary\">Clear this conflict &rarr;</a>")
+                .doesNotContain("<details class=\"disclosure-menu\">");
     }
 
     @Test
@@ -201,17 +215,19 @@ class ScheduleProblemsRendererTest {
                 "Denver", zonedDenver(2026, 9, 14, 11, 30),
                 "Lone Tree", zonedDenver(2026, 9, 15, 9, 0))));
 
+        // Three answers is not more than three, so they are links rather than a menu.
         assertThat(html)
                 .contains("<a href=\"/book-flight?fromCity=Denver&amp;toCity=Lone+Tree&amp;date=2026-09-15\" "
-                          + "class=\"disclosure-menu-item\">Book flight</a>")
+                          + "class=\"fix-summary\">Book flight &rarr;</a>")
                 .contains("<a href=\"/book-train?fromCity=Denver&amp;toCity=Lone+Tree&amp;date=2026-09-15\" "
-                          + "class=\"disclosure-menu-item\">Book train</a>")
+                          + "class=\"fix-summary\">Book train &rarr;</a>")
                 .contains("<a href=\"/plan-ground-transfer?date=2026-09-15\" "
-                          + "class=\"disclosure-menu-item\">Add ground transfer</a>");
+                          + "class=\"fix-summary\">Ground transfer &rarr;</a>")
+                .doesNotContain("<details class=\"disclosure-menu\">");
         assertThat(html.indexOf("Book flight"))
                 .as("flight is the common case in Ted's data, so it is offered first")
                 .isLessThan(html.indexOf("Book train"));
-        assertThat(html.indexOf("Book train")).isLessThan(html.indexOf("Add ground transfer"));
+        assertThat(html.indexOf("Book train")).isLessThan(html.indexOf("Ground transfer"));
     }
 
     /**
@@ -246,15 +262,19 @@ class ScheduleProblemsRendererTest {
 
         assertThat(html)
                 .contains("<a href=\"/booked-hotels/" + first.id() + "/cancel\" "
-                          + "class=\"disclosure-menu-item\">Cancel &quot;Reichshof&quot;</a>")
+                          + "class=\"fix-summary\">Cancel &quot;Reichshof&quot; &rarr;</a>")
                 .contains("<a href=\"/booked-hotels/" + second.id() + "/cancel\" "
-                          + "class=\"disclosure-menu-item\">Cancel &quot;Park Hotel&quot;</a>");
+                          + "class=\"fix-summary\">Cancel &quot;Park Hotel&quot; &rarr;</a>")
+                .as("two stays is not more than three, so no menu")
+                .doesNotContain("<details class=\"disclosure-menu\">");
     }
 
     @Test
     void theMenuDismissalScriptShipsWithThePage() {
-        String html = ScheduleProblemsRenderer.render(List.of(new ScheduleProblem.MissingHotel(
-                "Paris", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 5), "")));
+        // A travel gap, because that is a card that actually has a menu to dismiss.
+        String html = ScheduleProblemsRenderer.render(List.of(new ScheduleProblem.MissingTravel(
+                "Denver", zonedDenver(2026, 9, 14, 11, 30),
+                "Lone Tree", zonedDenver(2026, 9, 15, 9, 0))));
 
         assertThat(html)
                 .as("without it the menus open and never close")

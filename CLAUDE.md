@@ -206,6 +206,23 @@ Worked example, `ConferencesRenderer.confirmSlot`: a `WATCHING` row gets a live 
 with submission tracking." — a *presentation* limit, honestly stated, since the domain does allow
 re-confirming with a different basis. Decline therefore occupies the same slot in both.
 
+**A third rule, about dropdowns (Ted, 2026-08-21): use one only above three choices, or where
+space is genuinely constrained — and if you are unsure, ask.** Up to three actions are rendered as
+links, side by side or wrapped; a menu holding one item is a door in front of a door, and even
+three is faster read than opened. "Space is constrained" means a real constraint, like a band in a
+week-grid cell that is one day wide — not a card with a whole column to itself. Where the menu does
+survive, it still needs a **visible affordance**: a control that only reveals itself to someone who
+already knows to click is a hidden affordance, which this project does not ship. Worked examples:
+`ScheduleProblemsRenderer.fixSlot` (links up to three, menu above), and
+`ProblemCalendarViewBuilder.renderBandSegment` (one fix makes the whole band a link; several keep
+the menu, and either way a `Fix ▾`/named chip on the band's face says the action is there).
+
+**Problem colouring beats problem taxonomy.** On any surface where a problem sits among
+non-problems, every problem wears the same warning amber, whatever kind it is; the kind may survive
+as a left edge, an icon or the words, never as the fill. Ted missed a run of missing hotels on
+`/schedule-problems?view=calendar` because they were blue while travel gaps were amber (2026-08-21).
+The first thing a marker has to say is "something here is wrong".
+
 Known violations still open, with the mechanism for each, are listed in `docs/Cleanup_Tasks.md`
 ("Action affordances that still move").
 

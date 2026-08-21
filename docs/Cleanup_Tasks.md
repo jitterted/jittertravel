@@ -278,6 +278,27 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       night in transit demand no bed, so neither is ever mislabelled. The run is half-open,
       `[checkIn, checkOut)`: the checkout day is the morning he leaves.
 
+      **It cost both problem views their one-item menus, and the calendar its blue.** Ted spotted
+      that the "a menu holding one item is a worse door" argument condemned `Fix ▾` on the two
+      single-answer cards, then stated the rule behind it — *a dropdown only above three choices,
+      or where space is constrained; if unsure, ask* — and, reviewing the calendar, two more
+      problems with it. All three are now in CLAUDE.md and shipped the same day:
+      - `ScheduleProblemsRenderer.fixSlot` renders **up to three fixes as links**, above three a
+        menu. That leaves one menu on the page: a hotel booked four ways.
+      - **Calendar bands are all amber now.** Ted missed a run of missing hotels because they were
+        blue while travel gaps were amber; every band shares `--pc-problem-bg` and keeps its kind
+        only as the 4px left edge. This also retired the last red *fill* on that view, which the
+        colour law reserves for the irreversible.
+      - **Calendar bands say they are clickable.** One answer makes the whole band a link; several
+        keep the menu (a week-grid cell is genuinely constrained); either way a `.pc-band-fix` chip
+        names the action or announces the menu. The whole band being a silent click target was a
+        hidden affordance — "knowing I have to click" is not one.
+
+      F9 in `archived/ProblemCalendarPlan.md` is annotated as superseded for both views, with the
+      colour reversal spelled out against F1. `ProblemFixMenuJsTest` now builds its fixtures from
+      the two cases that still *have* menus — a four-way duplicate on the list, a travel gap's
+      three answers on a band.
+
       Found by Ted's own worked scenario (2026-08-21): flight out Sep 21, ExploreDDD in Denver
       Sep 23–25, flight home Sep 28, **no hotel at all**. Before this third source, Sep 22, 26 and
       27 all read "Nothing scheduled" while `/calendar` striped them away and `/schedule-problems`

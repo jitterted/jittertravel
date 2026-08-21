@@ -17,6 +17,9 @@ public class ScheduleProblemsRenderer {
     private static final DateTimeFormatter DATE =
             DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH);
 
+    /** Above this many choices a list of links becomes a menu — the standing dropdown rule. */
+    private static final int MENU_THRESHOLD = 3;
+
     /** Why a scheduling clash has no link: neither side carries an id to edit (F6 in the plan). */
     private static final String NO_FIX_REASON =
             "Editing a gathering from here arrives with cause-linking";
@@ -44,10 +47,11 @@ public class ScheduleProblemsRenderer {
             .problem-title  { font-weight: 600; font-size: 0.9rem; color: #1f2937; }
             .problem-detail { font-size: 0.82rem; color: #374151; margin-top: 0.15rem; }
             .empty-column   { color: var(--muted-text); font-style: italic; font-size: 0.85rem; }
-            /* One control, one place, on every card whatever the problem type — a row of links
-               would sit at a different width on each, which is exactly what the "action
-               affordances never move" rule forbids. Even a single-item menu goes through it. */
-            .fix-slot { margin-top: 0.4rem; }
+            /* Every card keeps its actions in this one place. What goes in it follows the
+               dropdown rule (Ted, 2026-08-21): up to three choices are links, above three a menu.
+               Wrapping, never scrolling — a card narrowed to a phone stacks its links instead of
+               pushing the page sideways. */
+            .fix-slot { margin-top: 0.4rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
             .fix-summary {
                 display: inline-block; font-size: 0.78rem; font-weight: 600;
                 color: #1f2937; background: rgba(255, 255, 255, 0.75);
@@ -55,6 +59,10 @@ public class ScheduleProblemsRenderer {
                 padding: 0.15rem 0.5rem;
             }
             .fix-summary:hover { background: #ffffff; }
+            /* The one-answer control is a link in the chip, so it looks the same as the menu's
+               summary and lands a click sooner. */
+            a.fix-summary { color: #1f2937; text-decoration: none; }
+            a.fix-summary:hover { text-decoration: none; }
             /* A problem with nothing to link to keeps the slot and says why, rather than leaving
                a card with no vocabulary at all. */
             .fix-summary--disabled { color: var(--muted-text); cursor: default; opacity: 0.75; }
@@ -266,6 +274,18 @@ public class ScheduleProblemsRenderer {
      * reason, per the affordance rule in CLAUDE.md — removing it would change the card's vocabulary
      * from row to row and hide that fixing is a thing you can do here at all.
      */
+    /**
+     * The card's actions, in the one place every card keeps for them. What sits in the slot
+     * follows the standing dropdown rule (Ted, 2026-08-21): <strong>a dropdown only above three
+     * choices, or where space is constrained</strong>. A problem card has a whole column's width
+     * and at most three answers, so its fixes are links — the menu is left for a duplicate booked
+     * four ways, which is the only case here that can exceed three.
+     * <p>
+     * None is the greyed control with its reason (F6), which stays: a card with no vocabulary at
+     * all teaches nothing. The affordance rule the old menu was justified by is about position
+     * <em>within a column</em>, where every card is the same problem type and so carries the same
+     * control row to row; across columns the widths now differ, which is the accepted trade.
+     */
     private static DomContent fixSlot(ScheduleProblem problem) {
         List<ProblemFix> fixes = ProblemFix.forProblem(problem);
         if (fixes.isEmpty()) {
@@ -273,10 +293,17 @@ public class ScheduleProblemsRenderer {
                     span("Fix").withClass("fix-summary fix-summary--disabled")
                             .withTitle(NO_FIX_REASON));
         }
+        if (fixes.size() > MENU_THRESHOLD) {
+            return div().withClass("fix-slot").with(
+                    DisclosureMenu.render(rawHtml("Fix &#9662;"), "fix-summary",
+                            fixes.stream()
+                                    .map(fix -> DisclosureMenu.item(fix.label(), fix.href()))
+                                    .toList()));
+        }
         return div().withClass("fix-slot").with(
-                DisclosureMenu.render(rawHtml("Fix &#9662;"), "fix-summary",
-                        fixes.stream()
-                                .map(fix -> DisclosureMenu.item(fix.label(), fix.href()))
-                                .toList()));
+                fixes.stream()
+                        .map(fix -> a().withHref(fix.href()).withClass("fix-summary")
+                                .with(text(fix.label()), rawHtml(" &rarr;")))
+                        .toList());
     }
 }

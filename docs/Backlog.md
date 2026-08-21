@@ -79,6 +79,7 @@ file; do not promote one without its trigger firing.
 |---|---|
 | **Private events in `DifferentCityConflict`** — detection is already indifferent to entry kind, but the *clearing* event types its subject as a `GatheringId`, so a private event in the wrong city would be unclearable. Additive fix: a `PrivateEventCityConflictCleared` (or a one-of subject) plus the detector branch; nothing stored changes. Tabled by Ted 2026-08-20 after problem-calendar slice 4 shipped without it. | Ted plans a private event on a day a conference runs elsewhere and wants the clash surfaced. |
 | **Change a ground transfer** — the other half of D11 in `archived/GroundTransferPlan.md`. Cancel shipped 2026-08-20 and took the urgency with it: correcting a transfer is cancel-then-enter, and both ends are snapshots by design, so nothing is lost in the round trip. | Ted re-enters the same transfer often enough to notice — most likely once a mode/notes field (D7) arrives. |
+| **No logout affordance, and `GET /logout` is a 404** — deferred by Ted 2026-08-21, incognito is sufficient. `POST /logout` works; the custom login page (`0435623`) dropped Spring's generated logout page along with its generated login page, leaving GET unmapped. Rides along: `login.html`'s `?logout` notice is unreachable because `logoutSuccessUrl` points at `/`, while a test pins the notice — the two disagree. | A second person needs an account, or Ted wants to switch roles where a private window is awkward (the iPad). |
 
 ### Loose follow-ups not tracked anywhere else
 

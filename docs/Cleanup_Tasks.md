@@ -201,6 +201,35 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       clash surfaced. Until then `/schedule-problems` is quietly incomplete in one direction only,
       which is the safe direction — it under-reports rather than reporting something he cannot act
       on. See `archived/ScheduleProblemsRewritePlan.md` and `archived/PrivateSocialEventPlan.md`.
+- [ ] **No logout affordance, and `GET /logout` is a 404** — **deferred by Ted 2026-08-21: incognito
+      is sufficient.** Not a bug to chase; recorded so the next person to notice it stops here
+      instead of re-deriving it.
+      **What is true today** (probed 2026-08-21, not inferred): `POST /logout` works and redirects
+      to `/` — the `.logout(logout -> logout.logoutSuccessUrl("/"))` config has been correct since
+      `e6f4b33`. `GET /logout` returns **404**, and no page anywhere links to logout.
+      **Why it went:** `.formLogin(form -> form.loginPage("/login"))` arrived in `0435623` with the
+      custom login page. A custom login page makes Spring Security drop
+      `DefaultLoginPageGeneratingFilter`, and the *same* configurer registers
+      `DefaultLogoutPageGeneratingFilter` — which is what used to serve `GET /logout` as a generated
+      "are you sure?" form that POSTed back with the CSRF token. With CSRF on, `LogoutFilter` matches
+      **POST only**, so losing the generated page left `GET /logout` unmapped. Nothing was
+      misconfigured; the way to *reach* logout was collateral.
+      **A real inconsistency rides along:** `login.html:78` renders a `th:if="${param.logout}"`
+      notice and `LoginControllerTest:49` pins that `/login?logout` shows it — but `logoutSuccessUrl`
+      sends a successful logout to `/`, so in production that notice is **unreachable**. The test
+      passes only because it requests the URL directly. The two disagree; whichever is wrong, fixing
+      one without the other keeps them disagreeing.
+      **Do not suggest driving `POST /logout` from the console as a workaround:** the CSRF cookie is
+      deliberately `httpOnly(true)`, so page scripts cannot read a token to submit and `CsrfFilter`
+      rejects it. That is the cookie working as designed.
+      **The work, if it ever lands:** a POST form (Thymeleaf, for CSRF — j2html renderers stay
+      uncoupled from Spring MVC's CSRF per the standing split), rendered only for authenticated
+      viewers and **nothing at all** for anonymous ones per the affordances rule, plus pointing
+      `logoutSuccessUrl` at `/login?logout` so the existing notice stops being dead code. Restoring
+      `GET /logout` itself would mean writing a confirm page — the generated one is not coming back
+      while the login page is custom.
+      **Trigger:** a second person needs an account, or Ted wants to switch roles on a device where
+      a private window is awkward (the iPad).
 - [ ] **Change a ground transfer** — the other half of D11 in `archived/GroundTransferPlan.md`. Cancel
       shipped 2026-08-20 and took the urgency with it: correcting a transfer is now
       cancel-then-enter, two forms instead of one, and **nothing is lost in the round trip** —

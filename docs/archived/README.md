@@ -23,6 +23,7 @@ Established 2026-08-21, when the eighteen docs below moved in one pass.
 | Doc | Landed | Note |
 |---|---|---|
 | `CalendarAwayBandPlan.md` | 2026-08-21 (`d4a9a3f`) | Turquoise away stripe on `/calendar`. Its one hypothetical follow-up — the same band on `/schedule-problems` — was **closed** by Ted, not deferred. |
+| `EventTypeColumnNormalizationPlan.md` | built 2026-08-19, **run in production 2026-08-21** | `event_log.type` now holds one spelling per type. Keeps the runbook, the rollback analysis, and why the `EventTypes` aliases must **stay** append-only afterwards. Two unconfirmed post-click steps → `../Cleanup_Tasks.md`. |
 | `GroundTransferPlan.md` | 2026-08-20 | The taxi/subway/shuttle hop that no entry kind could record; plan + cancel. **Change** is in `../Cleanup_Tasks.md` (Deferred, with its trigger). |
 | `ProblemCalendarPlan.md` | 2026-08-20 | Slices 1–5 of the calendar view of `/schedule-problems`, ending in clash markers and fix links. Two open questions → `../Cleanup_Tasks.md`. |
 | `ScheduleProblemsRewritePlan.md` | 2026-08-20 | Detection rebuilt on one located timeline. The mirror of D14 (gaps *into* home) → `../Cleanup_Tasks.md`. |

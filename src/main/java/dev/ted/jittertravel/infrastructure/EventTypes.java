@@ -50,7 +50,7 @@ import java.util.Map;
  *       (renamed 2026-08-19). Running {@code /admin/migrate-legacy-events} afterwards rewrites those
  *       rows to the new name — and costs the ability to roll the code back, because an alias teaches
  *       today's build yesterday's names and never the reverse. Take and keep a backup immediately
- *       before that run; see {@code docs/EventTypeColumnNormalizationPlan.md}.</li>
+ *       before that run; see {@code docs/archived/EventTypeColumnNormalizationPlan.md}.</li>
  *   <li><b>Migrate an event's payload schema:</b> bump its {@code currentSchemaVersion} here (the
  *       third {@code register} argument) so new appends and the eager migration stamp the new
  *       number. See {@code docs/archived/LegacyEventEagerMigrationPlan.md}.</li>

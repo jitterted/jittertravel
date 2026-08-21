@@ -168,7 +168,7 @@ door**: an alias teaches today's build yesterday's names and never the
 reverse, so an older build then fails its boot replay and lands read-only
 with empty read models. Take a backup immediately before that rewrite and
 keep it — that file restores into either build, and it is the entire safety
-story. See `docs/EventTypeColumnNormalizationPlan.md`.
+story. See `docs/archived/EventTypeColumnNormalizationPlan.md`.
 
 ---
 

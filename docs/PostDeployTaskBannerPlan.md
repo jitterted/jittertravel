@@ -10,10 +10,12 @@
 > OWNER-only amber banner on the home page links to the new `/admin/tasks` page (Thymeleaf, since it
 > posts), where a task is ticked off and completed ones stay greyed with "its declaration can be
 > removed". Two real customers shipped declared: the outstanding `event_log.type` normalization and
-> the conference attendance backfill — **the backfill was run in production 2026-08-21 and its
-> declaration removed the same day, the first time the retirement path was walked**; its
-> `OneOffTaskCompleted` event stays in the log as history and nothing refers to the id. That leaves
-> `event_log.type` normalization as the one declared task. `/admin/tasks` needed no new `SecurityConfig` matcher — the
+> the conference attendance backfill — and **both were run in production on 2026-08-21 and retired
+> the same day** (backfill `13:03:29Z`, normalization `15:27:49Z`), which walked the latch end to
+> end, declaration through retirement, within two days of shipping. The registry is now **empty**:
+> a normal resting state, not a gap — the banner hides itself and `/admin/tasks` reads "Nothing
+> declared." Both `OneOffTaskCompleted` events stay in the log as history and nothing refers to the
+> ids. `/admin/tasks` needed no new `SecurityConfig` matcher — the
 > existing `/admin/**` rule covers it — but has its own `AuthorizationMatrixTest` row, and the
 > banner's OWNER-gating has both anonymous and FAMILY cases in `SecurityAuthorizationTest`
 > (mutation-verified: dropping the gate fails exactly those two). Suite green: 1046 unit + 36 js (what IDEA's All Tests reports as 1082).

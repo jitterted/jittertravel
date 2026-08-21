@@ -16,6 +16,15 @@ for open work.
 
 ## Open
 
+- [ ] **Confirm the tail of the `event_log.type` normalization runbook** — delete this the moment
+      you know it was done. The migration itself ran in production 2026-08-21 (`15:27:49Z`) and its
+      task declaration is retired, but two runbook steps sit *after* the click and nothing records
+      whether they happened: **step 6, take a fresh backup** — it is the new floor and the first
+      backup file whose `type` column is clean, so every later restore starts from one spelling —
+      and **step 7, re-open `/admin/migrate-legacy-events`** and see "Nothing to migrate", which is
+      the idempotence check against real data rather than against a test fixture. Step 5 (restart,
+      confirm a clean replay, no read-only banner) presumably passed, since the app is serving.
+      Full runbook in `archived/EventTypeColumnNormalizationPlan.md`.
 - [ ] **A gap *into* home is dated by the wrong end — the mirror image of D14.** Lifted from
       `archived/ScheduleProblemsRewritePlan.md` (its whole "Open" section) when that plan was
       archived 2026-08-21. D14 fixed one direction: a gap *out of* home is now dated by the day
@@ -368,7 +377,7 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       OWNER-only `/admin/migrate-legacy-events` (GET preview + POST run) with an `AuthorizationMatrixTest`
       row and an admin nav card. Decided with Ted: **column not payload-key**, accept the backup bump,
       in-place admin UPDATE, FQCN→logical `type` normalization **deferred** (that pass is now **built**,
-      2026-08-19 — see `EventTypeColumnNormalizationPlan.md`; the same `UPDATE` now writes `type`),
+      2026-08-19 — see `archived/EventTypeColumnNormalizationPlan.md`; the same `UPDATE` now writes `type`),
       versioning *framework* deferred (stamp only for now). Every new/changed test mutation-verified. Retirements still gated
       on old backups leaving rotation: the upcaster's legacy timezone rungs (the `*TimeZoneUpcaster`
       classes — see `EventPayloadUpcasterDesign.md`), the FQCN mapping, and the Antwerp-style resolver

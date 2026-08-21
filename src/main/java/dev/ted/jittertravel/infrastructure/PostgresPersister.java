@@ -474,7 +474,7 @@ public class PostgresPersister {
      * change — {@code sequence}, {@code event_id}, {@code command_id} and {@code timestamp} are
      * untouched — so events keep their verbatim identity. {@code type} is rewritten to the current
      * logical name, so a row stored under a retired wire id stops needing an {@code EventTypes} alias
-     * to resolve (see {@code docs/EventTypeColumnNormalizationPlan.md}). Used by the eager legacy
+     * to resolve (see {@code docs/archived/EventTypeColumnNormalizationPlan.md}). Used by the eager legacy
      * migration (see
      * {@code docs/archived/LegacyEventEagerMigrationPlan.md}); never on the append path, which stamps at write
      * time. Returns the number of rows updated. Not routed through {@code CommandExecutor}: it appends

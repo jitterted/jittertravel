@@ -26,7 +26,7 @@ import java.util.List;
  *       column existed, whose payload may already be current-shape but carries no version, or</li>
  *   <li>its <em>{@code type} is a retired wire id</em> — an old logical name or a legacy FQCN that
  *       {@link EventTypes} still aliases; it is normalized to the current logical name (see
- *       {@code docs/EventTypeColumnNormalizationPlan.md}).</li>
+ *       {@code docs/archived/EventTypeColumnNormalizationPlan.md}).</li>
  * </ul>
  * A row that is already current-shape, correctly stamped <em>and</em> stored under the current logical
  * name is skipped, which makes the whole migration idempotent: a second run rewrites nothing.

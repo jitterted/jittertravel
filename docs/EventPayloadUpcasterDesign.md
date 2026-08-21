@@ -6,7 +6,7 @@ the admin action that permanently rewrites stored rows), `UtcDatetimeStoragePlan
 migration — datetimes → `ZonedTimestamp`), `ConferenceSubmissionTrackingPlan.md` (the second
 migration — conference `format` — which shaped this framework out of the original single class),
 `archived/EventOrientedBackupRestorePlan.md` (verbatim backup, so a stored row is never healed by writing),
-`EventTypeColumnNormalizationPlan.md` (proposed: rewriting the `type` column, and what it costs a
+`archived/EventTypeColumnNormalizationPlan.md` (proposed: rewriting the `type` column, and what it costs a
 rollback).
 
 **Illustrated companion —** ["Upcasting the Event Log"](https://claude.ai/code/artifact/ce256f8a-80ab-444d-a53a-6f5474c45324),
@@ -187,7 +187,7 @@ definition never read again.
 - **`event_log.type` normalization.** It rewrites one column, never the decoded event. The caveat is
   in the projector, not the read model: dispatch on the decoded event **class**, and never filter by
   the raw type string in SQL (`WHERE type = 'ConferenceTentativelyPlanned'` breaks on the rewrite —
-  resolve the string through `EventTypes` first). See `EventTypeColumnNormalizationPlan.md`.
+  resolve the string through `EventTypes` first). See `archived/EventTypeColumnNormalizationPlan.md`.
 
 **The eager migration helps here.** An un-migrated payload's decoded value depends on external
 resolver data, so the same event can decode differently after a resolver correction, and a persisted

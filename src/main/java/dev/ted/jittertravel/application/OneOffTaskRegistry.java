@@ -1,6 +1,5 @@
 package dev.ted.jittertravel.application;
 
-import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -29,19 +28,14 @@ public class OneOffTaskRegistry {
         this.declaredTasks = List.copyOf(declaredTasks);
     }
 
+    /**
+     * Empty, and that is a normal resting state — not a gap waiting to be filled. Both of the
+     * first two tasks were run in production on 2026-08-21 and retired the same day, so the banner
+     * hides itself and {@code /admin/tasks} shows "Nothing declared." Add an entry here when a
+     * deploy needs a migration or a backfill; delete it once Ted has ticked it off.
+     */
     private static List<OneOffTask> defaultTasks() {
-        return List.of(
-                new OneOffTask(
-                        "normalize-event-log-type",
-                        "Run the event_log.type normalization",
-                        """
-                        Renaming ConferenceTentativelyPlanned to ConferencePlanned left stored rows \
-                        holding both spellings. EventTypes aliases the old ids so everything \
-                        resolves, but the log stays mixed until the eager migration rewrites it. \
-                        Back up first — this rewrites rows.""",
-                        "/admin/migrate-legacy-events",
-                        "Open the migration page",
-                        LocalDate.of(2026, 8, 19)));
+        return List.of();
     }
 
     public List<OneOffTask> declaredTasks() {

@@ -1,9 +1,20 @@
 # Normalizing the `event_log.type` column
 
-> **Status: BUILT 2026-08-19, not yet run against production data.** The code ships; the *operation*
-> is a deliberate, backed-up click. Run the steps in **[Runbook](#runbook-how-to-run-it)** — step 1
-> (take and keep a backup) is not optional, because normalizing makes the database new-build-only.
-> See `docs/Backlog.md` for the status of everything else, and `EventPayloadUpcasterDesign.md` for
+> **Status: DONE — built 2026-08-19, run against production data 2026-08-21** (task completed
+> `15:27:49Z`), and its `/admin/tasks` declaration retired the same day. `event_log.type` now holds
+> one spelling per type in production.
+>
+> The aliases in `EventTypes` **stay** — they are append-only, and a pre-normalization backup still
+> restores the old names, so today's build must keep resolving them. The maintenance rule this doc
+> asked for ("normalizing afterwards costs the ability to roll back") is already stated on
+> `EventTypes`.
+>
+> **Confirm the tail of the runbook if it wasn't done at the time:** step 6, take a fresh backup —
+> it is the new floor and the first backup file whose `type` column is clean — and step 7, re-open
+> `/admin/migrate-legacy-events` and see "Nothing to migrate", which is the idempotence check
+> against real data. Tracked in `../Cleanup_Tasks.md` until Ted confirms.
+>
+> See `../Backlog.md` for the status of everything else, and `../EventPayloadUpcasterDesign.md` for
 > the read path this plugs into.
 
 ## Problem
@@ -81,7 +92,7 @@ build: any build older than logical names (pre-2026-08-16) also stops being able
   decoded event, so a checkpointed read model would stay correct. The caveat lands on the projector
   instead: dispatch on the decoded event **class**, and never filter by the raw type string in SQL.
   Upcaster changes and restores are the things that *would* force a rebuild — see
-  *Persisted read models* in `EventPayloadUpcasterDesign.md`.
+  *Persisted read models* in `../EventPayloadUpcasterDesign.md`.
 
 ## What it does **not** fix
 

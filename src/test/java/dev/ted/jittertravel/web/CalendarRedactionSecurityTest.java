@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.CalendarAggregator;
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.EntryKind;
+import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.SubtitleLine;
 import dev.ted.jittertravel.application.ViewerZonePolicy;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -18,9 +19,11 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,6 +54,9 @@ class CalendarRedactionSecurityTest {
 
     @MockitoBean
     CalendarAggregator calendarAggregator;
+
+    @MockitoBean
+    ScheduleGapProjector scheduleGapProjector;
 
     @BeforeEach
     void setUp() {
@@ -85,6 +91,19 @@ class CalendarRedactionSecurityTest {
                 .bodyText()
                 .contains("Hotel")
                 .doesNotContain("Grand Hotel");
+    }
+
+    @Test
+    void anonymousUserSeesTheAwayBand() {
+        // The away band is public by decision: it aggregates day-granularity travel facts that
+        // are already published, and assembling them by eye takes no effort. This is the case
+        // that would go red if the band ever grew a viewer check — see docs/CalendarAwayBandPlan.md.
+        given(scheduleGapProjector.awayDays()).willReturn(Set.of(LocalDate.of(2026, 7, 5)));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<div class=\"day-label-cell month-tint-odd is-away\"><span class=\"day-number\">5</span>");
     }
 
     @Test

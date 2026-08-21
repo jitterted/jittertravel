@@ -110,6 +110,66 @@ class ScheduleTimeline {
     }
 
     /**
+     * The days the calendar stripes as "away from home" — the reading of the same nights
+     * {@link #missingHotels()} sweeps, from the other side.
+     * <p>
+     * <strong>Away means sleeping away from home.</strong> A night is away when the walk places it
+     * in a city that is not home, or when it is spent in transit; a day is away because of the
+     * nights around it, never on its own. So a night away bands its own day, and it also bands the
+     * <em>following</em> day whenever the schedule still {@linkplain #accountedForOn accounts for
+     * him} then — the day he travels home is part of the trip, and so is the closing afternoon of
+     * a conference he has not booked a flight out of. The day after he lands is not.
+     * <p>
+     * The trailing day is earned rather than assumed, and a day the schedule says nothing about is
+     * where the band stops. A trip whose return is not booked ends on the last day something
+     * places him anywhere; banding on would invent both a homecoming and a whereabouts.
+     * <p>
+     * That test reads the <em>points</em> and not {@code locationByNight}, because {@code walk()}
+     * fills nights only <em>between</em> points: the night after a trip's last fact is never
+     * filled, and a trip's last fact is usually the flight home. Asking the map would quietly lose
+     * the return day of every trip that ends the schedule.
+     * <p>
+     * Deliberately a set of days and not a list of trips: nothing reads a trip's boundaries, and
+     * the day-label cells ask one question each. See {@code docs/CalendarAwayBandPlan.md}.
+     * <p>
+     * Note the asymmetry with {@link #missingHotels()}, which is chosen (Ted, 2026-08-20): there,
+     * "in transit" only <em>suppresses</em> a demand for a bed, while here it <em>asserts</em>
+     * that he is away. A leg crossing local midnight with home at both ends — the late taxi from
+     * the airport — therefore bands both days. One shared notion of transit is worth more than
+     * the occasional extra stripe.
+     */
+    Set<LocalDate> awayDays() {
+        // With no home configured, includes() is false for every city, which would read as "away,
+        // always" and stripe the whole calendar. Silence is the right failure for that.
+        if (homeCities.isEmpty()) {
+            return Set.of();
+        }
+        Set<LocalDate> days = new LinkedHashSet<>();
+        for (Map.Entry<LocalDate, String> night : walk().locationByNight().entrySet()) {
+            if (homeCities.includes(night.getValue()) && !inTransitOvernight(night.getKey())) {
+                continue;
+            }
+            days.add(night.getKey());
+            LocalDate dayAfter = night.getKey().plusDays(1);
+            if (accountedForOn(dayAfter)) {
+                days.add(dayAfter);
+            }
+        }
+        return days;
+    }
+
+    /**
+     * The schedule still says where he is this day — whichever way it says it. Waking up after a
+     * night away, the day belongs to the trip if <em>anything</em> is recorded: a flight home (he
+     * returned, and the day he travelled is the trip's last), or a conference's closing afternoon
+     * and a hotel checkout (he is still there). Only a day the schedule is silent about is left
+     * unbanded, because nothing then says he was anywhere at all.
+     */
+    private boolean accountedForOn(LocalDate day) {
+        return points.stream().anyMatch(point -> point.day().equals(day));
+    }
+
+    /**
      * Nights covered by more than one stay. Ted can only sleep in one of them and is usually still
      * paying for the other, so two rooms in one city and two rooms in two cities are the same
      * mistake. {@link BookingIntent} is not consulted: a tentative reservation is a reservation

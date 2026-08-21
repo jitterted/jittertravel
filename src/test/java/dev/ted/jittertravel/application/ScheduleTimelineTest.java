@@ -222,6 +222,183 @@ class ScheduleTimelineTest {
         }
     }
 
+    /**
+     * The days {@code /calendar} stripes as away from home. The rule is the nights, not the days:
+     * a night away bands its own day, plus the following day when something brings him home.
+     * See {@code docs/CalendarAwayBandPlan.md}.
+     */
+    @Nested
+    class AwayDays {
+
+        @Test
+        void aRoundTripBandsTheDepartureDayThroughTheReturnDay() {
+            // Out on the 27th, home on the 30th: four days, and neither neighbour.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(stay("The Standard", "New York", "2026-07-27 15:00", "2026-07-30 11:00")),
+                    List.of(),
+                    List.of(movement("San Francisco", "2026-07-27 08:55", "New York", "2026-07-27 17:45"),
+                            movement("New York", "2026-07-30 14:55", "San Francisco", "2026-07-30 18:24")),
+                    HOME_IN_SF);
+
+            assertThat(timeline.awayDays())
+                    .containsExactlyInAnyOrder(date("2026-07-27"), date("2026-07-28"),
+                                               date("2026-07-29"), date("2026-07-30"));
+        }
+
+        @Test
+        void anOvernightOutboundLegMakesItsDepartureDayTheFirstAwayDay() {
+            // Ted's explicit rule: the red-eye of the 6th leaves home that evening, so the 6th is
+            // an away day even though the walk still has him in San Francisco that night. The
+            // transit-night clause is what delivers it.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(stay("Lindner", "Cologne", "2026-06-07 15:00", "2026-06-09 11:00")),
+                    List.of(),
+                    List.of(movement("San Francisco", "2026-06-06 13:55", "Frankfurt", "2026-06-07 09:45"),
+                            movement("Frankfurt", "2026-06-07 11:30", "Cologne", "2026-06-07 13:00")),
+                    HOME_IN_SF);
+
+            assertThat(timeline.awayDays())
+                    .contains(date("2026-06-06"))
+                    .doesNotContain(date("2026-06-05"));
+        }
+
+        @Test
+        void anOvernightReturnLegMakesItsArrivalDayTheLastAwayDay() {
+            // The mirror image: the flight home leaves on the 30th and lands on the 31st, so the
+            // night of the 30th is still away and the 31st is the return day.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(stay("The Standard", "New York", "2026-07-28 15:00", "2026-07-30 11:00")),
+                    List.of(),
+                    List.of(movement("San Francisco", "2026-07-28 08:55", "New York", "2026-07-28 17:45"),
+                            movement("New York", "2026-07-30 21:00", "San Francisco", "2026-07-31 06:00")),
+                    HOME_IN_SF);
+
+            assertThat(timeline.awayDays())
+                    .containsExactlyInAnyOrder(date("2026-07-28"), date("2026-07-29"),
+                                               date("2026-07-30"), date("2026-07-31"));
+        }
+
+        @Test
+        void aTripWithNoReturnBookedRunsToTheLastDaySomethingPlacesHimSomewhere() {
+            // The same trip as the round trip above, minus the flight home. The band still covers
+            // the 30th — he checks out that morning, so the schedule says where he is — and stops
+            // at the 31st, which nothing accounts for: banding on would invent a homecoming. The
+            // missing flight is /schedule-problems' business, not the band's.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(stay("The Standard", "New York", "2026-07-27 15:00", "2026-07-30 11:00")),
+                    List.of(),
+                    List.of(movement("San Francisco", "2026-07-27 08:55", "New York", "2026-07-27 17:45")),
+                    HOME_IN_SF);
+
+            assertThat(timeline.awayDays())
+                    .containsExactlyInAnyOrder(date("2026-07-27"), date("2026-07-28"),
+                                               date("2026-07-29"), date("2026-07-30"));
+        }
+
+        @Test
+        void twoConferencesWithNoTravelBookedBandOneStripeCoveringBothAndTheDaysBetween() {
+            // CFP season, and the commonest state Ted's calendar is in: conferences committed,
+            // nothing booked around them. J-Fall in Ede, then Agile Testing Days in Potsdam five
+            // days later. He is not home in between, so it is one stripe, not two — and it has to
+            // reach the 19th, the closing afternoon of a conference with no flight out of it yet.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(),
+                    List.of(occupancy("J-Fall", "Ede", "2026-11-11 09:00", "2026-11-12 17:00"),
+                            occupancy("Agile Testing Days", "Potsdam", "2026-11-16 09:00", "2026-11-19 17:00")),
+                    List.of(), HOME_IN_SF);
+
+            assertThat(timeline.awayDays())
+                    .containsExactlyInAnyOrder(date("2026-11-11"), date("2026-11-12"), date("2026-11-13"),
+                                               date("2026-11-14"), date("2026-11-15"), date("2026-11-16"),
+                                               date("2026-11-17"), date("2026-11-18"), date("2026-11-19"));
+        }
+
+        @Test
+        void twoTripsWithANightAtHomeBetweenThemLeaveThatDayUnbanded() {
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(),
+                    List.of(),
+                    List.of(movement("San Francisco", "2026-07-27 08:55", "New York", "2026-07-27 17:45"),
+                            movement("New York", "2026-07-29 14:55", "San Francisco", "2026-07-29 18:24"),
+                            movement("San Francisco", "2026-07-31 08:10", "Toronto", "2026-07-31 16:10"),
+                            movement("Toronto", "2026-08-02 14:00", "San Francisco", "2026-08-02 18:00")),
+                    HOME_IN_SF);
+
+            assertThat(timeline.awayDays())
+                    .contains(date("2026-07-29"), date("2026-07-31"))
+                    .doesNotContain(date("2026-07-30"));
+        }
+
+        @Test
+        void aSameDayRoundTripIsNotAwayAtAll() {
+            // No night away, so no away day — by definition, not as a limitation. The flights
+            // themselves still show on the calendar.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(), List.of(),
+                    List.of(movement("San Francisco", "2026-07-27 08:00", "Portland", "2026-07-27 10:00"),
+                            movement("Portland", "2026-07-27 20:00", "San Francisco", "2026-07-27 22:00")),
+                    HOME_IN_SF);
+
+            assertThat(timeline.awayDays()).isEmpty();
+        }
+
+        @Test
+        void aLegCrossingMidnightBetweenTwoHomeLocationsStillBandsBothDays() {
+            // Chosen behaviour, not an oversight (Ted, 2026-08-20): the transit-night rule is
+            // shared verbatim with the missing-hotel sweep rather than forked, so the late taxi
+            // home from the airport bands the 3rd and the 4th. See the plan doc.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(), List.of(),
+                    List.of(movement("San Francisco", "2026-08-03 23:40", "San Francisco", "2026-08-04 00:15")),
+                    HOME_IN_SF);
+
+            assertThat(timeline.awayDays())
+                    .containsExactlyInAnyOrder(date("2026-08-03"), date("2026-08-04"));
+        }
+
+        @Test
+        void aTentativeHotelBookingBandsItsNightsLikeAnyOther() {
+            // The band is commitment-blind: if it is on the schedule, it counts as away. A
+            // tentative room is still a room, exactly as duplicateHotels() reads it.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(stay("Maybe Inn", "New York", "2026-07-27 15:00", "2026-07-30 11:00",
+                                 BookingIntent.TENTATIVE)),
+                    List.of(), List.of(), HOME_IN_SF);
+
+            assertThat(timeline.awayDays())
+                    .containsExactlyInAnyOrder(date("2026-07-27"), date("2026-07-28"),
+                                               date("2026-07-29"), date("2026-07-30"));
+        }
+
+        @Test
+        void aQuietStretchPastTheTripBreakEndsTheBandRatherThanBridgingToTheNextTrip() {
+            // Eleven months of Oslo would otherwise stripe the whole calendar. The walk stops
+            // carrying last-known-location, so the band stops with it.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(),
+                    List.of(occupancy("JavaZone", "Oslo", "2026-01-10 09:00", "2026-01-12 17:00"),
+                            occupancy("JavaZone", "Oslo", "2026-12-01 09:00", "2026-12-03 17:00")),
+                    List.of(), HOME_IN_SF);
+
+            assertThat(timeline.awayDays())
+                    .containsExactlyInAnyOrder(date("2026-01-10"), date("2026-01-11"), date("2026-01-12"),
+                                               date("2026-12-01"), date("2026-12-02"), date("2026-12-03"));
+        }
+
+        @Test
+        void withNoHomeCitiesConfiguredNothingIsAway() {
+            // Every city would fail the home test, striping the entire calendar. Silence is the
+            // right failure for a missing jittertravel.home-cities.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(stay("The Standard", "New York", "2026-07-27 15:00", "2026-07-30 11:00")),
+                    List.of(),
+                    List.of(movement("San Francisco", "2026-07-27 08:55", "New York", "2026-07-27 17:45")),
+                    NO_HOME);
+
+            assertThat(timeline.awayDays()).isEmpty();
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------

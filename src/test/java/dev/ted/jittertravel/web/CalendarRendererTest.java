@@ -3,12 +3,14 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.EntryKind;
 import dev.ted.jittertravel.application.SubtitleLine;
+import dev.ted.jittertravel.application.ZoneDisplay;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -56,6 +58,33 @@ class CalendarRendererTest {
         assertThat(html)
                 .contains("grid-template-columns: repeat(7, minmax(0, 1fr))")
                 .doesNotContain("grid-template-columns: repeat(7, 1fr)");
+    }
+
+    @Test
+    void theAwayBandIsABottomBorderOnly() {
+        // The band is one tokenized bottom border and nothing else: no departure/return caps.
+        // Side borders would eat a cell's content box and fight the amber month-start border for
+        // the left edge on equal specificity, where source order alone would decide the winner.
+        String html = CalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false);
+
+        assertThat(html)
+                .contains("--calendar-away-color: turquoise;")
+                .contains("--calendar-away-border-width: 4px;")
+                .contains("border-bottom: var(--calendar-away-border-width) solid var(--calendar-away-color);")
+                .doesNotContain("border-bottom: 4px solid turquoise")
+                .doesNotContain("border-left: var(--calendar-away-border-width)")
+                .doesNotContain("border-right: var(--calendar-away-border-width)");
+    }
+
+    @Test
+    void awayDaysReachTheDayLabelCellsOfTheRenderedGrid() {
+        String html = CalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false, false,
+                LocalDate.of(2026, 6, 8), LocalDate.of(2026, 6, 14), ZoneDisplay.entryOnly(),
+                Set.of(LocalDate.of(2026, 6, 12)));
+
+        assertThat(html)
+                .contains("is-away\"><a href=\"/itinerary?date=2026-06-12\"")
+                .doesNotContain("is-away\"><a href=\"/itinerary?date=2026-06-13\"");
     }
 
     @Test

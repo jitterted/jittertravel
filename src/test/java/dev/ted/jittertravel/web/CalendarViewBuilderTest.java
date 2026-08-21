@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -780,6 +781,45 @@ class CalendarViewBuilderTest {
         assertThat(html)
                 .contains("🚄 Frankfurt → Paris")
                 .doesNotContain("<wbr>");
+    }
+
+    @Test
+    void awayDaysCarryTheBandClassAndTheDaysAroundThemDoNot() {
+        // The band's whole rendering contract: the marked cells are exactly the days handed in.
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 13),
+                TODAY,
+                false,
+                false,
+                Set.of(LocalDate.of(2026, 6, 9), LocalDate.of(2026, 6, 10))
+        );
+
+        assertThat(html)
+                .contains("<div class=\"day-label-cell month-tint-even is-away\"><a href=\"/itinerary?date=2026-06-09\"")
+                .contains("<div class=\"day-label-cell month-tint-even is-away\"><a href=\"/itinerary?date=2026-06-10\"")
+                .contains("<div class=\"day-label-cell month-tint-even\"><a href=\"/itinerary?date=2026-06-08\"")
+                .contains("<div class=\"day-label-cell month-tint-even\"><a href=\"/itinerary?date=2026-06-11\"");
+    }
+
+    @Test
+    void anAwayDayInACollapsedPastWeekKeepsItsBand() {
+        // The reason the band lives on the day-label row at all: that row is the one thing a
+        // collapsed week still renders, so past trips keep showing their rhythm.
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 6, 1),
+                LocalDate.of(2026, 6, 20),
+                LocalDate.of(2026, 6, 15),
+                false,
+                false,
+                Set.of(LocalDate.of(2026, 6, 9))
+        );
+
+        assertThat(html)
+                .contains("calendar-week--collapsed")
+                .contains("<div class=\"day-label-cell month-tint-even is-past is-away\"><a href=\"/itinerary?date=2026-06-09\"");
     }
 
     private static ZonedTimestamp zoned(LocalDateTime local, String zone) {

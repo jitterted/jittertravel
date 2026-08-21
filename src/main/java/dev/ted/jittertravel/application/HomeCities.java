@@ -28,6 +28,15 @@ public class HomeCities {
         return city != null && cities.contains(city.trim().toLowerCase());
     }
 
+    /**
+     * No home is configured at all. A reader that asks "is he away?" has no answer to give in
+     * that case — {@link #includes} says no to every city, which would read as "away, always" —
+     * so it wants to know, rather than to ask city by city.
+     */
+    public boolean isEmpty() {
+        return cities.isEmpty();
+    }
+
     public boolean sameLocation(String cityA, String cityB) {
         return cityA.equalsIgnoreCase(cityB)
                || (includes(cityA) && includes(cityB));

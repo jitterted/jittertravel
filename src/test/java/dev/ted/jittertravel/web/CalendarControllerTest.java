@@ -9,6 +9,7 @@ import dev.ted.jittertravel.application.GatheringCalendarProjector;
 import dev.ted.jittertravel.application.GroundTransferCalendarProjector;
 import dev.ted.jittertravel.application.HotelCalendarProjector;
 import dev.ted.jittertravel.application.PrivateEventCalendarProjector;
+import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.SubtitleLine;
 import dev.ted.jittertravel.application.TrainCalendarProjector;
 import dev.ted.jittertravel.application.ViewerZonePolicy;
@@ -26,6 +27,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
@@ -45,6 +47,23 @@ class CalendarControllerTest {
     @Mock GatheringCalendarProjector gatheringProjector;
     @Mock PrivateEventCalendarProjector privateEventProjector;
     @Mock GroundTransferCalendarProjector groundTransferProjector;
+    @Mock ScheduleGapProjector scheduleGapProjector;
+
+    @Test
+    void awayDaysFromTheScheduleReachTheRenderedDayLabelCells() {
+        // The controller is the only thing that knows where the away band comes from: every
+        // renderer test below it can be green while the calendar renders no band at all.
+        CalendarController controller = controllerWith(
+                Set.of(LocalDate.of(2026, 7, 7), LocalDate.of(2026, 7, 8)),
+                conference("InsideRange", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8)));
+
+        ResponseEntity<String> response = controller.getCalendar(publicRequest(), "2026-07-01", "2026-07-31", null);
+
+        assertThat(response.getBody())
+                .contains("<div class=\"day-label-cell month-tint-odd is-away\"><span class=\"day-number\">7</span>")
+                .contains("<div class=\"day-label-cell month-tint-odd is-away\"><span class=\"day-number\">8</span>")
+                .contains("<div class=\"day-label-cell month-tint-odd\"><span class=\"day-number\">9</span>");
+    }
 
     @Test
     void isoDateRangeParamsLimitRenderedEntriesToThatRange() {
@@ -178,6 +197,11 @@ class CalendarControllerTest {
         return controllerWith(FIXED_CLOCK, entries);
     }
 
+    private CalendarController controllerWith(Set<LocalDate> awayDays, CalendarEntry... entries) {
+        given(scheduleGapProjector.awayDays()).willReturn(awayDays);
+        return controllerWith(FIXED_CLOCK, entries);
+    }
+
     private CalendarController controllerWith(Clock clock, CalendarEntry... entries) {
         given(conferenceProjector.entries()).willReturn(List.of(entries));
         given(flightProjector.entries()).willReturn(List.of());
@@ -190,6 +214,7 @@ class CalendarControllerTest {
                 new CalendarAggregator(conferenceProjector, flightProjector, trainProjector,
                                        hotelProjector, gatheringProjector, privateEventProjector,
                                        groundTransferProjector),
+                scheduleGapProjector,
                 new ViewerZonePolicy(), clock, new ViewerTodayZone(FALLBACK_ZONE));
     }
 

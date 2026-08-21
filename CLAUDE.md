@@ -91,6 +91,15 @@ un-collapse that enum — add a value that a viewer could map back to a submissi
 chip stops being publishable. `GOING` renders no chip, and a declined or organizer-cancelled
 conference leaves the calendar entirely, for everyone.
 
+The **away band** is public too (shipped 2026-08-20): the turquoise stripe under a day label
+saying Ted is out of town that day renders for every viewer, anonymous included. It reaches the
+calendar as a plain `Set<LocalDate>` from `ScheduleGapProjector.awayDays()`, which never meets
+`CalendarEntryRedactor` — deliberately, so do not "fix" that by routing it through the redactor.
+The band aggregates only day-granularity facts already public above, and assembling "he is away
+that week" from the public calendar takes no effort (Ted, 2026-08-20). Note what that argument
+rests on: the band says *when*, never *where* or *why*. A future variant that labelled the trip,
+or that banded days no public entry accounts for, would be a new disclosure and needs asking.
+
 **Private social events are their own kind (shipped 2026-08-13).** `EntryKind.PRIVATE_EVENT`
 (a dinner with friends) has its own redacting branch: an anonymous viewer sees `Busy`, a
 zone-labelled time range, and city/country, and nothing else — never the title. Do **not** model

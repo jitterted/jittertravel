@@ -7,6 +7,7 @@ import dev.ted.jittertravel.application.ZoneDisplay;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 import static j2html.TagCreator.*;
 
@@ -26,6 +27,8 @@ public class CalendarRenderer {
                 --calendar-tint-odd: #ffffff;
                 --calendar-month-start-color: #b45309;
                 --calendar-month-start-border-width: 3px;
+                --calendar-away-color: turquoise;
+                --calendar-away-border-width: 4px;
                 --calendar-past-hatch: rgba(0, 0, 0, 0.1);
                 --calendar-today-tint: #eef2ff;
                 --calendar-empty-band-min-height: 120px;
@@ -92,6 +95,12 @@ public class CalendarRenderer {
             }
             .day-label-cell.month-tint-even { background-color: var(--calendar-tint-even-day-label); }
             .day-label-cell.month-tint-odd  { background-color: var(--calendar-tint-odd); }
+            /* Away from home: one thick turquoise stripe along the bottom of the day label,
+               replacing that cell's 1px border. Bottom edge only — no end caps — so the month
+               border keeps the left edge and the cells' right edges stay uniform. */
+            .day-label-cell.is-away {
+                border-bottom: var(--calendar-away-border-width) solid var(--calendar-away-color);
+            }
             .day-label-cell.is-month-start {
                 border-top: var(--calendar-month-start-border-width) solid var(--calendar-month-start-color);
                 border-left: var(--calendar-month-start-border-width) solid var(--calendar-month-start-color);
@@ -269,6 +278,16 @@ public class CalendarRenderer {
 
     public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser, boolean isOwner,
                                 LocalDate from, LocalDate to, ZoneDisplay zoneDisplay) {
+        return render(rawEntries, today, isPublicUser, isOwner, from, to, zoneDisplay, Set.of());
+    }
+
+    /**
+     * @param awayDays the days to stripe with the away band, from {@code ScheduleGapProjector}.
+     *                 Passed through untouched for every viewer: unlike the entries above it does
+     *                 not meet the redactor, because the band is public by decision.
+     */
+    public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser, boolean isOwner,
+                                LocalDate from, LocalDate to, ZoneDisplay zoneDisplay, Set<LocalDate> awayDays) {
         List<CalendarEntry> entries = rawEntries.stream()
                 .sorted(Comparator.comparing(CalendarEntry::start))
                 .map(e -> isPublicUser ? REDACTOR.redact(e) : e)
@@ -304,7 +323,7 @@ public class CalendarRenderer {
             rangeEnd = to;
         }
 
-        String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser, isOwner);
+        String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser, isOwner, awayDays);
 
         return "<!DOCTYPE html>\n" + BrowserZoneScript.markRoot(html(
                 Page.head("Calendar", CSS + DisclosureMenu.CSS),

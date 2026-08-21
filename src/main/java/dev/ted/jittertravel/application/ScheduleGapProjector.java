@@ -47,6 +47,11 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     // which is what explains the problems above. See ScheduleContext.
     private volatile List<ScheduleContext> cachedContext = List.of();
 
+    // The third: the days /calendar stripes as away from home. Same state, same batch, same
+    // reasons — a day the band calls "away" and a night the report calls "no bed" have to be
+    // talking about the same journey.
+    private volatile Set<LocalDate> cachedAwayDays = Set.of();
+
     public ScheduleGapProjector(AirportCityResolver cityResolver) {
         this(cityResolver, new HomeCities(List.of()));
     }
@@ -118,6 +123,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         ScheduleTimeline timeline = timeline();
         cachedProblems = computeProblems(timeline);
         cachedContext = computeContext();
+        cachedAwayDays = Set.copyOf(timeline.awayDays());
     }
 
     /** The whole read model: every detected problem, past ones included. */
@@ -145,6 +151,15 @@ public class ScheduleGapProjector implements EventStreamConsumer {
      */
     public List<ScheduleContext> context() {
         return cachedContext;
+    }
+
+    /**
+     * Every day Ted is away from home, for the calendar's away band. Unfiltered by {@code now} on
+     * purpose, unlike {@link #problems(Instant)}: the band's whole value is that it still shows in
+     * collapsed past weeks, so a past cut would delete the feature.
+     */
+    public Set<LocalDate> awayDays() {
+        return cachedAwayDays;
     }
 
     private ScheduleTimeline timeline() {

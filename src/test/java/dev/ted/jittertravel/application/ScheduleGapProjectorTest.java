@@ -1127,6 +1127,48 @@ class ScheduleGapProjectorTest {
     }
 
     // -------------------------------------------------------------------------
+    // Away days (the calendar's away band)
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class AwayDaysReadModel {
+
+        private ScheduleGapProjector projectorWithBayAreaHome() {
+            return new ScheduleGapProjector(new StaticAirportCityResolver(),
+                    new HomeCities(List.of("San Francisco", "San Jose", "Oakland")));
+        }
+
+        @Test
+        void aBookedRoundTripBandsItsDepartureDayThroughItsReturnDay() {
+            ScheduleGapProjector projector = projectorWithBayAreaHome();
+            projector.handle(Stream.of(
+                    stored(flight("SFO", SEP_15.atTime(9, 0), "AMS", SEP_15.atTime(23, 0))),
+                    stored(hotel("Amsterdam", SEP_15, SEP_18)),
+                    stored(flight("AMS", SEP_18.atTime(10, 0), "SFO", SEP_18.atTime(20, 0)))));
+
+            assertThat(projector.awayDays())
+                    .containsExactlyInAnyOrder(SEP_15, SEP_16, SEP_17, SEP_18);
+        }
+
+        @Test
+        void aConferenceBandsItsDaysWithNoAttendanceDecisionRecorded() {
+            // The band is commitment-blind: a conference Ted is only watching — no confirmation
+            // event, so /conferences shows it as "Maybe" — bands exactly like a committed one.
+            // If it is on the schedule, it counts as away.
+            ScheduleGapProjector projector = projectorWithBayAreaHome();
+            projector.handle(Stream.of(stored(conference("Amsterdam", SEP_15, SEP_17))));
+
+            assertThat(projector.awayDays())
+                    .contains(SEP_15, SEP_16);
+        }
+
+        @Test
+        void noAwayDaysBeforeAnyEventsAreHandled() {
+            assertThat(projectorWithBayAreaHome().awayDays()).isEmpty();
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Time filtering (problems(now) drops the ones already past)
     // -------------------------------------------------------------------------
 

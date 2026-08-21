@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarAggregator;
+import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.ViewerTodayZone;
 import dev.ted.jittertravel.application.ViewerZonePolicy;
 import dev.ted.jittertravel.application.ZoneDisplay;
@@ -25,14 +26,17 @@ import java.util.List;
 public class CalendarController {
 
     private final CalendarAggregator calendarAggregator;
+    private final ScheduleGapProjector scheduleGapProjector;
     private final ViewerZonePolicy viewerZonePolicy;
     private final Clock clock;
     private final ViewerTodayZone viewerTodayZone;
 
     public CalendarController(CalendarAggregator calendarAggregator,
+                             ScheduleGapProjector scheduleGapProjector,
                              ViewerZonePolicy viewerZonePolicy,
                              Clock clock, ViewerTodayZone viewerTodayZone) {
         this.calendarAggregator = calendarAggregator;
+        this.scheduleGapProjector = scheduleGapProjector;
         this.viewerZonePolicy = viewerZonePolicy;
         this.clock = clock;
         this.viewerTodayZone = viewerTodayZone;
@@ -56,7 +60,8 @@ public class CalendarController {
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
                 .body(CalendarRenderer.render(calendarAggregator.allEntries(), today,
-                        isPublicUser, isOwner, parseDate(from), parseDate(to), zoneDisplay));
+                        isPublicUser, isOwner, parseDate(from), parseDate(to), zoneDisplay,
+                        scheduleGapProjector.awayDays()));
     }
 
     private ZoneId todayZone(HttpServletRequest request) {

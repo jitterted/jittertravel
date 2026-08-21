@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarAggregator;
+import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.ViewerZonePolicy;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,9 @@ class CalendarWebIntegrationTest {
 
     @MockitoBean
     CalendarAggregator calendarAggregator;
+
+    @MockitoBean
+    ScheduleGapProjector scheduleGapProjector;
 
     @Test
     void calendarPageRendersOk() {

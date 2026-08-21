@@ -45,6 +45,16 @@ public class CalendarViewBuilder {
     }
 
     public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd, LocalDate today, boolean isPublicUser, boolean isOwner) {
+        return render(entries, rangeStart, rangeEnd, today, isPublicUser, isOwner, Set.of());
+    }
+
+    /**
+     * @param awayDays every day Ted is away from home, from {@code ScheduleGapProjector}. The same
+     *                 set for every viewer — the band is public by decision, and nothing about it
+     *                 goes through the redactor. See {@code docs/CalendarAwayBandPlan.md}.
+     */
+    public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd, LocalDate today,
+                                boolean isPublicUser, boolean isOwner, Set<LocalDate> awayDays) {
         LocalDate gridStart = rangeStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
         LocalDate gridEnd = rangeEnd.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
 
@@ -63,7 +73,7 @@ public class CalendarViewBuilder {
             if (collapsed && entries.stream().anyMatch(e -> intersectsWeek(e, weekStart, saturday))) {
                 anyCollapsedWithEntries = true;
             }
-            weekRows.add(renderWeek(sunday, saturday, gridStart, today, entries, isPublicUser, isOwner, collapsed));
+            weekRows.add(renderWeek(sunday, saturday, gridStart, today, entries, isPublicUser, isOwner, collapsed, awayDays));
             sunday = sunday.plusDays(7);
         }
 
@@ -96,7 +106,8 @@ public class CalendarViewBuilder {
                                      List<CalendarEntry> allEntries,
                                      boolean isPublicUser,
                                      boolean isOwner,
-                                     boolean collapsed) {
+                                     boolean collapsed,
+                                     Set<LocalDate> awayDays) {
         List<CalendarEntry> intersecting = allEntries.stream()
                 .filter(e -> intersectsWeek(e, sunday, saturday))
                 .sorted(Comparator.comparing(CalendarEntry::start))
@@ -169,7 +180,8 @@ public class CalendarViewBuilder {
         // collapsed weeks, where they are the sole hint of hidden entries.
         for (int i = 0; i < 7; i++) {
             int badgeCount = collapsed ? dayCounts[i] : 0;
-            cells.add(renderDayLabelCell(sunday.plusDays(i), gridStart, today, isPublicUser, isOwner, badgeCount));
+            LocalDate day = sunday.plusDays(i);
+            cells.add(renderDayLabelCell(day, gridStart, today, isPublicUser, isOwner, badgeCount, awayDays.contains(day)));
         }
 
         // A non-collapsed week with no entries still gets one lane band so the day
@@ -213,11 +225,14 @@ public class CalendarViewBuilder {
         return div().withClass(weekClass).withStyle(rowsStyle).with(cells);
     }
 
-    private static DomContent renderDayLabelCell(LocalDate date, LocalDate gridStart, LocalDate today, boolean isPublicUser, boolean isOwner, int entryCount) {
+    private static DomContent renderDayLabelCell(LocalDate date, LocalDate gridStart, LocalDate today, boolean isPublicUser, boolean isOwner, int entryCount, boolean isAway) {
         boolean isFirstCellOfGrid = date.equals(gridStart);
         boolean isMonthStart = date.getDayOfMonth() == 1 || isFirstCellOfGrid;
         String monthTint = (date.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
-        String labelClass = "day-label-cell " + monthTint + (isMonthStart ? " is-month-start" : "") + dayStateClass(date, today);
+        // The away band: a turquoise bottom border, and nothing else — the label row is the one
+        // row that survives week-collapse, so past trips keep their stripe. Every viewer gets it.
+        String labelClass = "day-label-cell " + monthTint + (isMonthStart ? " is-month-start" : "")
+                            + dayStateClass(date, today) + (isAway ? " is-away" : "");
         String dayNumberClass = "day-number" + (isMonthStart ? " is-month-start" : "");
         String label = formatDayLabel(date, isMonthStart, isFirstCellOfGrid);
         // OWNER on a strictly-future day gets a tap-to-open disclosure menu (Open day + Add …);

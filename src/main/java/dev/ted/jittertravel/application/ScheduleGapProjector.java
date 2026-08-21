@@ -7,10 +7,13 @@ import dev.ted.jittertravel.infrastructure.StoredEvent;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
@@ -51,6 +54,10 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     // reasons — a day the band calls "away" and a night the report calls "no bed" have to be
     // talking about the same journey.
     private volatile Set<LocalDate> cachedAwayDays = Set.of();
+
+    // The fourth: where the schedule's last word of each day left him, home or not. Same state,
+    // same batch, and the necessary other half of the away band — see atHomeOn.
+    private volatile NavigableMap<LocalDate, Boolean> cachedHomeByLastFact = Collections.emptyNavigableMap();
 
     public ScheduleGapProjector(AirportCityResolver cityResolver) {
         this(cityResolver, new HomeCities(List.of()));
@@ -124,6 +131,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         cachedProblems = computeProblems(timeline);
         cachedContext = computeContext();
         cachedAwayDays = Set.copyOf(timeline.awayDays());
+        cachedHomeByLastFact = Collections.unmodifiableNavigableMap(timeline.homeByLastFactOfDay());
     }
 
     /** The whole read model: every detected problem, past ones included. */
@@ -160,6 +168,46 @@ public class ScheduleGapProjector implements EventStreamConsumer {
      */
     public Set<LocalDate> awayDays() {
         return cachedAwayDays;
+    }
+
+    /**
+     * The uncovered run of nights containing {@code date}, if there is one — where he is on a day
+     * with a bed missing under it.
+     * <p>
+     * Deliberately answered from the {@link ScheduleProblem.MissingHotel} read model rather than
+     * from a raw location lookup, so a view saying "he is in Denver and nothing is booked" is
+     * saying exactly what {@code /schedule-problems} already says, with the same dates behind the
+     * same fix link. It also inherits that sweep's two exclusions for free: a night at home and a
+     * night spent in transit demand no bed, so neither is ever reported here.
+     * <p>
+     * The run is half-open, {@code [checkIn, checkOut)}: the checkout day is the morning he leaves
+     * and is not itself a night without a bed.
+     */
+    public Optional<ScheduleProblem.MissingHotel> missingHotelOn(LocalDate date) {
+        return cachedProblems.stream()
+                .filter(problem -> problem instanceof ScheduleProblem.MissingHotel)
+                .map(problem -> (ScheduleProblem.MissingHotel) problem)
+                .filter(missing -> !date.isBefore(missing.checkIn()) && date.isBefore(missing.checkOut()))
+                .findFirst();
+    }
+
+    /**
+     * Whether the schedule <strong>positively places him at home</strong> on {@code date}, for a
+     * view that wants to say so out loud. Two things must hold, and the second is the one that
+     * matters: the day carries no away band, <em>and</em> the last fact the schedule holds on or
+     * before that day left him in a home city.
+     * <p>
+     * Not-away is not the same as home. The band is built from nights the walk fills
+     * <em>between</em> points, so a trip with no return booked yet — flown out, no hotel entered,
+     * nothing after it — bands nothing, and a view trusting the band alone would announce he is
+     * home while he is abroad. Asking where the last fact left him gets that case right and, with
+     * no home configured or no facts at all, answers false rather than guessing.
+     */
+    public boolean atHomeOn(LocalDate date) {
+        Map.Entry<LocalDate, Boolean> lastFact = cachedHomeByLastFact.floorEntry(date);
+        return lastFact != null
+               && lastFact.getValue()
+               && !cachedAwayDays.contains(date);
     }
 
     private ScheduleTimeline timeline() {

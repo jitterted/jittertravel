@@ -1169,6 +1169,186 @@ class ScheduleGapProjectorTest {
     }
 
     // -------------------------------------------------------------------------
+    // Nights without a bed (the itinerary's "In Denver / No hotel booked" row)
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class MissingHotelOnReadModel {
+
+        // Ted's scenario, 2026-08-21: flown to a conference with no hotel booked at all. The days
+        // he asked about — the 22nd, and the 26th and 27th after the conference ends — have no
+        // entries of their own, so they are exactly the days the itinerary had nothing to say on.
+        private ScheduleGapProjector projectorWithAConferenceTripAndNoHotel() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(new StaticAirportCityResolver(),
+                    new HomeCities(List.of("San Francisco", "San Jose", "Oakland")));
+            projector.handle(Stream.of(
+                    stored(flight("SFO", SEP_21.atTime(9, 0), "DEN", SEP_21.atTime(12, 30))),
+                    stored(conferenceNamed("ExploreDDD", "Denver", SEP_23, SEP_25)),
+                    stored(flight("DEN", SEP_28.atTime(10, 0), "SFO", SEP_28.atTime(12, 0)))));
+            return projector;
+        }
+
+        @Test
+        void aDayInsideTheTripWithNoBedReportsWhereHeIs() {
+            ScheduleGapProjector projector = projectorWithAConferenceTripAndNoHotel();
+
+            assertThat(projector.missingHotelOn(SEP_22))
+                    .map(ScheduleProblem.MissingHotel::city)
+                    .contains("Denver");
+        }
+
+        @Test
+        void theDaysAfterTheConferenceEndsStillReportTheCityHeIsStillIn() {
+            ScheduleGapProjector projector = projectorWithAConferenceTripAndNoHotel();
+
+            assertThat(projector.missingHotelOn(SEP_26))
+                    .map(ScheduleProblem.MissingHotel::city)
+                    .contains("Denver");
+            assertThat(projector.missingHotelOn(SEP_27))
+                    .map(ScheduleProblem.MissingHotel::city)
+                    .contains("Denver");
+        }
+
+        @Test
+        void theRunCarriesTheWholeGapSoTheBookingLinkPrefillsIt() {
+            ScheduleGapProjector projector = projectorWithAConferenceTripAndNoHotel();
+
+            assertThat(projector.missingHotelOn(SEP_26))
+                    .contains(new ScheduleProblem.MissingHotel("Denver", SEP_21, SEP_28, "ExploreDDD"));
+        }
+
+        @Test
+        void theFirstNightOfTheRunIsInIt() {
+            ScheduleGapProjector projector = projectorWithAConferenceTripAndNoHotel();
+
+            assertThat(projector.missingHotelOn(SEP_21))
+                    .as("the night he lands is the first one with no bed under it")
+                    .isPresent();
+        }
+
+        @Test
+        void theDayHeFliesHomeIsNotANightWithoutABed() {
+            ScheduleGapProjector projector = projectorWithAConferenceTripAndNoHotel();
+
+            assertThat(projector.missingHotelOn(SEP_28))
+                    .as("the checkout day is the morning he leaves, not a night to book")
+                    .isEmpty();
+        }
+
+        @Test
+        void aDayBeforeTheTripReportsNothing() {
+            ScheduleGapProjector projector = projectorWithAConferenceTripAndNoHotel();
+
+            assertThat(projector.missingHotelOn(SEP_20))
+                    .isEmpty();
+        }
+
+        @Test
+        void bookingTheHotelSilencesTheRow() {
+            ScheduleGapProjector projector = projectorWithAConferenceTripAndNoHotel();
+            assertThat(projector.missingHotelOn(SEP_22)).isPresent();
+
+            projector.handle(Stream.of(stored(hotel("Denver", SEP_21, SEP_28))));
+
+            assertThat(projector.missingHotelOn(SEP_22))
+                    .isEmpty();
+        }
+
+        @Test
+        void aNightAtHomeIsNeverANightWithoutABed() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(new StaticAirportCityResolver(),
+                    new HomeCities(List.of("San Francisco")));
+            projector.handle(Stream.of(
+                    stored(flight("DEN", SEP_21.atTime(10, 0), "SFO", SEP_21.atTime(12, 0))),
+                    stored(conference("San Francisco", SEP_23, SEP_25))));
+
+            assertThat(projector.missingHotelOn(SEP_22))
+                    .as("his own bed is a bed")
+                    .isEmpty();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // At home (the itinerary's "You're Home" row)
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class AtHomeReadModel {
+
+        private ScheduleGapProjector projectorWithBayAreaHome() {
+            return new ScheduleGapProjector(new StaticAirportCityResolver(),
+                    new HomeCities(List.of("San Francisco", "San Jose", "Oakland")));
+        }
+
+        private ScheduleGapProjector projectorWithARoundTrip() {
+            ScheduleGapProjector projector = projectorWithBayAreaHome();
+            projector.handle(Stream.of(
+                    stored(flight("SFO", SEP_15.atTime(9, 0), "AMS", SEP_15.atTime(23, 0))),
+                    stored(hotel("Amsterdam", SEP_15, SEP_18)),
+                    stored(flight("AMS", SEP_18.atTime(10, 0), "SFO", SEP_18.atTime(20, 0)))));
+            return projector;
+        }
+
+        @Test
+        void theDayAfterHeLandsBackIsHome() {
+            assertThat(projectorWithARoundTrip().atHomeOn(SEP_19))
+                    .as("the last fact of the 18th is the landing at SFO, and the 19th is unbanded")
+                    .isTrue();
+        }
+
+        @Test
+        void theReturnDayItselfIsNotHomeBecauseItIsStillPartOfTheTrip() {
+            assertThat(projectorWithARoundTrip().atHomeOn(SEP_18))
+                    .as("the away band covers the travel-home day, and the two must agree")
+                    .isFalse();
+        }
+
+        @Test
+        void aDayInTheMiddleOfTheTripIsNotHome() {
+            assertThat(projectorWithARoundTrip().atHomeOn(SEP_16))
+                    .isFalse();
+        }
+
+        @Test
+        void aTripWithNoReturnBookedNeverClaimsHome() {
+            // The case that rules out trusting the away band alone: flown out, no hotel entered
+            // and nothing after it, so no night is banded — but he is in Amsterdam, not at home.
+            ScheduleGapProjector projector = projectorWithBayAreaHome();
+            projector.handle(Stream.of(
+                    stored(flight("SFO", SEP_15.atTime(9, 0), "AMS", SEP_15.atTime(23, 0)))));
+
+            assertThat(projector.awayDays())
+                    .as("the band has nothing to say here, which is exactly the trap")
+                    .doesNotContain(SEP_17);
+            assertThat(projector.atHomeOn(SEP_17))
+                    .isFalse();
+        }
+
+        @Test
+        void aDayBeforeTheScheduleSaysAnythingClaimsNothing() {
+            assertThat(projectorWithARoundTrip().atHomeOn(SEP_14))
+                    .isFalse();
+        }
+
+        @Test
+        void withNoHomeConfiguredNoDayIsEverHome() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(new StaticAirportCityResolver());
+            projector.handle(Stream.of(
+                    stored(flight("AMS", SEP_18.atTime(10, 0), "SFO", SEP_18.atTime(20, 0)))));
+
+            assertThat(projector.atHomeOn(SEP_19))
+                    .as("no home city is configured, so landing at SFO places him nowhere in particular")
+                    .isFalse();
+        }
+
+        @Test
+        void nothingIsHomeBeforeAnyEventsAreHandled() {
+            assertThat(projectorWithBayAreaHome().atHomeOn(SEP_15))
+                    .isFalse();
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Time filtering (problems(now) drops the ones already past)
     // -------------------------------------------------------------------------
 
@@ -1266,6 +1446,12 @@ class ScheduleGapProjectorTest {
     private static final LocalDate SEP_19 = LocalDate.of(2026, 9, 19);
     private static final LocalDate SEP_20 = LocalDate.of(2026, 9, 20);
     private static final LocalDate SEP_21 = LocalDate.of(2026, 9, 21);
+    private static final LocalDate SEP_22 = LocalDate.of(2026, 9, 22);
+    private static final LocalDate SEP_23 = LocalDate.of(2026, 9, 23);
+    private static final LocalDate SEP_25 = LocalDate.of(2026, 9, 25);
+    private static final LocalDate SEP_26 = LocalDate.of(2026, 9, 26);
+    private static final LocalDate SEP_27 = LocalDate.of(2026, 9, 27);
+    private static final LocalDate SEP_28 = LocalDate.of(2026, 9, 28);
 
     private static FlightBooked flight(String fromCode, LocalDateTime dep, String toCode, LocalDateTime arr) {
         return new FlightBooked(FlightId.random(), "Airline", "F1",
@@ -1304,7 +1490,11 @@ class ScheduleGapProjectorTest {
     }
 
     private static ConferencePlanned conference(String city, LocalDate start, LocalDate end) {
-        return new ConferencePlanned(ConferenceId.random(), "Conf",
+        return conferenceNamed("Conf", city, start, end);
+    }
+
+    private static ConferencePlanned conferenceNamed(String name, String city, LocalDate start, LocalDate end) {
+        return new ConferencePlanned(ConferenceId.random(), name,
                 zt(start.atStartOfDay()), zt(end.atStartOfDay()), "Venue",
                 new Address("1 Street", city, "", "00000", "XX", null));
     }

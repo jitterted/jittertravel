@@ -116,9 +116,6 @@ for open work.
       disclosure menu lets the owner add an entry for a specific day; the itinerary has no such
       affordance. Add the same per-day "add an entry" dropdown to the itinerary so a day can be
       populated directly from that surface (OWNER-only; reuse the `DAY_MENU` pattern).
-- [ ] **Itinerary: show current location (from hotel) when a day has no other events.** So the
-      owner can tell *where they are* on a day whose only context is an ongoing hotel stay, surface
-      the current location (derived from the active hotel booking) instead of an empty/eventless day.
 - [ ] **Action affordances that still move (general rule: they must not).** Fixed on `/conferences`
       2026-08-19 by giving the actions cell two virtual slots: a row with nothing to confirm shows
       greyed, non-interactive `Confirm` text with a title saying why, so Decline keeps the second
@@ -244,6 +241,73 @@ them is a paragraph, and building either one now would be work ahead of a need. 
 
 ## Done
 
+- [x] **Itinerary: where he is on an eventless day** (2026-08-21). A stay produces only Check-In
+      and Check-Out entries, so every night in between rendered as "Nothing scheduled" — the
+      itinerary went blank precisely on the days Ted is somewhere. A day with **no entries at
+      all** now renders a `.whereabouts` row in that slot instead, on a tint far lighter than the
+      lodging card's (`#f0fdf4` against `#dcfce7`) and with no left border, so it reads as context
+      rather than as something scheduled. Two shapes:
+      - **In a stay** — two lines, hotel icon: `In Frankfurt, DE` over `Grand Hotel Frankfurt`.
+        (Shipped first as a one-liner joined with a `·`; it wrapped in a third-of-a-column, so
+        Ted asked for the compact 2-liner. `OngoingStay.label()` became `locationLabel()` and the
+        hotel name moved to its own line.)
+      - **Away with no bed** — two lines and a fix link, in **amber**: `In Denver` over
+        `No hotel booked`, then `Book hotel →`. Amber because a schedule problem to look at is
+        work waiting and recoverable; green is for a night that is sorted. (`/schedule-problems`
+        colours its own cards by problem *kind* — blue for hotel — but there every card is a
+        problem, while here the row has to stand out from the settled days beside it.)
+      - **At home** — one line, house icon in the same lodging green: `You’re Home`.
+
+      Shape: `OngoingStay(hotelName, city, country)` view record;
+      `ItineraryProjector.ongoingStayOn(date)` derived from the hotel entries already held (no new
+      state — the check-in entry of every stay whose check-in day is *before* and check-out day
+      *after* the date, earliest check-in winning if stays overlap);
+      `ScheduleGapProjector.missingHotelOn(date)` and `.atHomeOn(date)` for the other two.
+      `ItineraryDay` carries all three as separate fields, because two of them can hold at once (a
+      hotel booked in a home city is both a stay and a night at home); the renderer picks, most
+      specific first: **stay → no-bed → home → nothing scheduled**.
+
+      **The no-bed row is answered from the `MissingHotel` read model, not from a raw location
+      lookup.** That is what makes it say exactly what `/schedule-problems` says, with the same
+      dates behind the same link: the fix links come from `ProblemFix.forProblem`, whose whole
+      point is being the one mapping every view reads, so the itinerary is now its third reader
+      (after the problems list and the problem calendar). Rendered as plain links rather than the
+      report's disclosure menu — a missing hotel has exactly one fix, and a menu holding one item
+      is a worse door — and **OWNER-only**, since `/book-hotel` is a form family could never
+      submit. It also inherits the night sweep's two exclusions for free: a night at home and a
+      night in transit demand no bed, so neither is ever mislabelled. The run is half-open,
+      `[checkIn, checkOut)`: the checkout day is the morning he leaves.
+
+      Found by Ted's own worked scenario (2026-08-21): flight out Sep 21, ExploreDDD in Denver
+      Sep 23–25, flight home Sep 28, **no hotel at all**. Before this third source, Sep 22, 26 and
+      27 all read "Nothing scheduled" while `/calendar` striped them away and `/schedule-problems`
+      was already demanding a bed in Denver for every one of those nights — three surfaces, and
+      the itinerary the only one with nothing to say. That scenario is now a test.
+
+      **The home claim needs positive evidence, and "not in `awayDays()`" is not evidence.** The
+      away band is built from nights the walk fills *between* points, so a trip with no return
+      booked yet — flown out, no hotel entered, nothing after it — bands **nothing**, and trusting
+      the band alone would announce Ted is home while he is in Amsterdam (exactly what he asked
+      us to prevent). So a fourth cached read model, `ScheduleTimeline.homeByLastFactOfDay()`,
+      records whether each day's *last* fact left him in a home city, and `atHomeOn` requires
+      **both** that and the absence of an away band. Consequences, all deliberate: no home cities
+      configured ⇒ never home (rather than always); no facts at all, or a date before the first
+      fact ⇒ never home; the travel-home day itself ⇒ not home, so the row and the calendar's band
+      always agree; an old fact that placed him home keeps holding, since he is home by choice and
+      no news is the normal state of being there.
+
+      Scoped deliberately (Ted's call): **only fully empty days** — a mid-stay day that has a
+      conference or gathering on it is left exactly as it was. Check-in and check-out days are
+      excluded because their own entries already say where he is, and more precisely. Both booking
+      intents count: the itinerary draws a tentative stay like a final one. No redaction impact —
+      `/itinerary` is OWNER/FAMILY only, and none of this reaches `/calendar`. Mutation-verified
+      thirteen ways across the three rounds (both stay date bounds, the stay row suppressed, the
+      stay row forced onto a day with entries, the hotel name dropped, home winning over a stay,
+      the away guard dropped, the home-evidence check dropped, the tint darkened, the two
+      controller wirings cut, both no-bed range bounds shifted, the booking link shown to family).
+      Caught twice in passing: a CSS comment quoting "Nothing scheduled", then a
+      `doesNotContain("whereabouts-detail")` matching its own CSS rule — the bare-word assertion
+      trap CLAUDE.md warns about, working as intended both times.
 - [x] **Cancel ground transfer** (2026-08-20), the day after the slice it followed. D11 in
       `archived/GroundTransferPlan.md` shipped that slice without cancel, so a mistyped transfer could not be
       removed from inside the app: it stayed on the calendar and kept feeding a false presence fact

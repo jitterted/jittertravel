@@ -328,6 +328,74 @@ class ItineraryProjectorTest {
     }
 
     @Test
+    void intermediateHotelDayReportsTheStayAsWhereTheTravelerIs() {
+        ItineraryProjector projector = new ItineraryProjector();
+        projector.handle(Stream.of(stored(hotelBooked(HotelBookingId.random(), "Marriott Downtown",
+                DATE, DATE.plusDays(3)))));
+
+        assertThat(projector.ongoingStayOn(DATE.plusDays(1)))
+                .contains(new OngoingStay("Marriott Downtown", "San Francisco", "USA"));
+        assertThat(projector.ongoingStayOn(DATE.plusDays(2)))
+                .contains(new OngoingStay("Marriott Downtown", "San Francisco", "USA"));
+    }
+
+    @Test
+    void checkInAndCheckOutDaysHaveNoOngoingStayBecauseTheirOwnEntriesSayWhereHeIs() {
+        ItineraryProjector projector = new ItineraryProjector();
+        projector.handle(Stream.of(stored(hotelBooked(HotelBookingId.random(), "Marriott Downtown",
+                DATE, DATE.plusDays(3)))));
+
+        assertThat(projector.ongoingStayOn(DATE))
+                .as("check-in day already carries a Check-In entry")
+                .isEmpty();
+        assertThat(projector.ongoingStayOn(DATE.plusDays(3)))
+                .as("check-out day already carries a Check-Out entry")
+                .isEmpty();
+    }
+
+    @Test
+    void daysOutsideEveryStayHaveNoOngoingStay() {
+        ItineraryProjector projector = new ItineraryProjector();
+        projector.handle(Stream.of(stored(hotelBooked(HotelBookingId.random(), "Marriott Downtown",
+                DATE, DATE.plusDays(3)))));
+
+        assertThat(projector.ongoingStayOn(DATE.minusDays(1)))
+                .isEmpty();
+        assertThat(projector.ongoingStayOn(DATE.plusDays(4)))
+                .isEmpty();
+    }
+
+    @Test
+    void cancellingTheBookingRemovesTheOngoingStay() {
+        ItineraryProjector projector = new ItineraryProjector();
+        HotelBookingId id = HotelBookingId.random();
+        projector.handle(Stream.of(
+                stored(hotelBooked(id, "Marriott Downtown", DATE, DATE.plusDays(3))),
+                stored(new HotelBookingCancelled(id, "plans changed"))));
+
+        assertThat(projector.ongoingStayOn(DATE.plusDays(1)))
+                .isEmpty();
+    }
+
+    @Test
+    void changingTheBookingMovesTheOngoingStayToTheNewHotelAndDates() {
+        ItineraryProjector projector = new ItineraryProjector();
+        HotelBookingId id = HotelBookingId.random();
+        projector.handle(Stream.of(
+                stored(hotelBooked(id, "Marriott Downtown", DATE, DATE.plusDays(3))),
+                stored(new HotelChanged(id, "Hotel Adlon",
+                        new Address("Unter den Linden 77", "Berlin", "", "10117", "DE", null),
+                        zt(DATE.plusDays(1).atTime(15, 0)), zt(DATE.plusDays(5).atTime(11, 0)),
+                        BookingIntent.FINAL, null, null))));
+
+        assertThat(projector.ongoingStayOn(DATE.plusDays(1)))
+                .as("the new check-in day is no longer an in-between day")
+                .isEmpty();
+        assertThat(projector.ongoingStayOn(DATE.plusDays(4)))
+                .contains(new OngoingStay("Hotel Adlon", "Berlin", "DE"));
+    }
+
+    @Test
     void hotelChangedReplacesOriginalHotelEntry() {
         ItineraryProjector projector = new ItineraryProjector();
         HotelBookingId id = HotelBookingId.random();
@@ -651,6 +719,13 @@ class ItineraryProjectorTest {
                 .containsExactly(
                         tuple(EntryKind.GROUND_TRANSFER, DATE.atTime(12, 0)),
                         tuple(EntryKind.FLIGHT, DATE.atTime(15, 55)));
+    }
+
+    private static HotelBooked hotelBooked(HotelBookingId id, String hotelName,
+                                           LocalDate checkIn, LocalDate checkOut) {
+        return new HotelBooked(id, hotelName,
+                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
+                zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null, null);
     }
 
     private static GroundTransferPlanned groundTransfer() {

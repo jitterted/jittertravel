@@ -13,7 +13,9 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * Where Ted is, in order. Every source of schedule facts — booked legs, hotel stays, conferences,
@@ -304,6 +306,35 @@ class ScheduleTimeline {
      * This also keeps the problem actionable longer, since {@code relevantUntil} is the far end of
      * the window: the missing flight stays on the report until the day he needed to have taken it.
      */
+    /**
+     * Whether the schedule's <em>last word</em> on each day put him in a home city, keyed by that
+     * day so a reader can ask about any date by looking back to the most recent day that has an
+     * answer.
+     * <p>
+     * This exists because "he is home" needs <strong>positive evidence</strong>, and the absence
+     * of an away band is not evidence of anything. {@link #awayDays()} fills nights only between
+     * points, so a trip whose return is not booked yet — flown out, no hotel, nothing after —
+     * bands nothing at all, and reading that silence as "home" would say he is in his own bed
+     * while he is in Lisbon. Asking instead where the last recorded fact left him gets that case
+     * right: it left him in Lisbon, so nothing is claimed until something says otherwise.
+     * <p>
+     * There is deliberately no expiry on the answer. An old fact that put him <em>home</em> stays
+     * good indefinitely — he is home by choice, and no news is the normal state of being there
+     * (the same reasoning {@link #gapLeaving} rests on). An old fact that put him <em>away</em>
+     * likewise keeps claiming nothing, which is the safe direction.
+     * <p>
+     * The last point of a day wins, and the ordering makes that the right one: the day he flies
+     * home holds a checkout and a departure from the away city before the arrival that lands him,
+     * and it is the landing that says where he sleeps.
+     */
+    NavigableMap<LocalDate, Boolean> homeByLastFactOfDay() {
+        TreeMap<LocalDate, Boolean> homeByDay = new TreeMap<>();
+        for (Point point : points) {
+            homeByDay.put(point.day(), homeCities.includes(point.city()));
+        }
+        return homeByDay;
+    }
+
     private ScheduleProblem.MissingTravel gapLeaving(String fromCity, ZonedTimestamp lastMoment, Point arrival) {
         ZonedTimestamp windowStart = homeCities.includes(fromCity) ? arrival.moment() : lastMoment;
         return new ScheduleProblem.MissingTravel(fromCity, windowStart, arrival.city(), arrival.moment());

@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ItineraryDay;
 import dev.ted.jittertravel.application.ItineraryProjector;
+import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.ViewerTodayZone;
 import dev.ted.jittertravel.application.ViewerZonePolicy;
 import dev.ted.jittertravel.application.ZoneDisplay;
@@ -25,14 +26,17 @@ import java.util.List;
 public class ItineraryController {
 
     private final ItineraryProjector itineraryProjector;
+    private final ScheduleGapProjector scheduleGapProjector;
     private final Clock clock;
     private final ViewerZonePolicy viewerZonePolicy;
     private final ViewerTodayZone viewerTodayZone;
 
     public ItineraryController(ItineraryProjector itineraryProjector,
+                               ScheduleGapProjector scheduleGapProjector,
                                Clock clock,
                                ViewerZonePolicy viewerZonePolicy, ViewerTodayZone viewerTodayZone) {
         this.itineraryProjector = itineraryProjector;
+        this.scheduleGapProjector = scheduleGapProjector;
         this.clock = clock;
         this.viewerZonePolicy = viewerZonePolicy;
         this.viewerTodayZone = viewerTodayZone;
@@ -50,15 +54,23 @@ public class ItineraryController {
             date = itineraryProjector.firstDateOnOrAfter(today);
         }
         List<ItineraryDay> days = List.of(
-                new ItineraryDay(date, itineraryProjector.entriesForDate(date)),
-                new ItineraryDay(date.plusDays(1), itineraryProjector.entriesForDate(date.plusDays(1))),
-                new ItineraryDay(date.plusDays(2), itineraryProjector.entriesForDate(date.plusDays(2)))
+                dayFor(date),
+                dayFor(date.plusDays(1)),
+                dayFor(date.plusDays(2))
         );
         String html = ItineraryRenderer.render(days, date.minusDays(1), date.plusDays(1), today,
                 isOwner, zoneDisplay);
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
                 .body(html);
+    }
+
+    private ItineraryDay dayFor(LocalDate date) {
+        return new ItineraryDay(date,
+                itineraryProjector.entriesForDate(date),
+                itineraryProjector.ongoingStayOn(date),
+                scheduleGapProjector.missingHotelOn(date),
+                scheduleGapProjector.atHomeOn(date));
     }
 
     private ZoneId todayZone(HttpServletRequest request) {

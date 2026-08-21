@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -94,6 +95,139 @@ class ItineraryRendererTest {
         String html = renderEmpty();
 
         assertThat(html).contains("Nothing scheduled");
+    }
+
+    @Test
+    void emptyDayCoveredByAStayShowsWhereHeIsInsteadOfNothingScheduled() {
+        String html = renderStayingDay();
+
+        assertThat(html)
+                .contains("<span>In Frankfurt, DE</span>")
+                .contains("<div class=\"whereabouts-detail\">Grand Hotel Frankfurt</div>")
+                .doesNotContain("<div class=\"empty-day\">Nothing scheduled</div>");
+    }
+
+    @Test
+    void theStayRowIsTwoLinesPrefixedWithTheLodgingIconOnATintedGround() {
+        String html = renderStayingDay();
+
+        assertThat(html)
+                .contains("<div class=\"whereabouts\"><div class=\"whereabouts-where\">"
+                          + "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#166534\"")
+                .contains(".whereabouts { background: #f0fdf4;")
+                .doesNotContain(".whereabouts { background: #dcfce7;");
+    }
+
+    @Test
+    void aDayAwayWithNoBedBookedSaysWhereHeIsAndThatNothingIsBooked() {
+        String html = renderNightWithoutABed(true);
+
+        assertThat(html)
+                .contains("<span>In Denver</span>")
+                .contains("<div class=\"whereabouts-detail\">No hotel booked</div>")
+                .doesNotContain("<div class=\"empty-day\">Nothing scheduled</div>");
+    }
+
+    @Test
+    void theNoBedRowIsAmberNotTheGreenOfANightThatIsSorted() {
+        String html = renderNightWithoutABed(true);
+
+        assertThat(html)
+                .contains("<div class=\"whereabouts whereabouts--unbooked\">")
+                .contains(".whereabouts--unbooked { background: #fffbeb; }");
+    }
+
+    @Test
+    void theNoBedRowOffersTheSameBookHotelLinkTheProblemReportOffers() {
+        String html = renderNightWithoutABed(true);
+
+        assertThat(html)
+                .contains("<a href=\"/book-hotel?city=Denver&amp;checkIn=2026-06-01&amp;checkOut=2026-06-05\">"
+                          + "Book hotel &rarr;</a>");
+    }
+
+    @Test
+    void familySeesWhereHeIsButNotTheOwnerOnlyBookingLink() {
+        String html = renderNightWithoutABed(false);
+
+        assertThat(html)
+                .contains("<span>In Denver</span>")
+                .contains("<div class=\"whereabouts-detail\">No hotel booked</div>")
+                .doesNotContain("/book-hotel?city=Denver");
+    }
+
+    @Test
+    void aMissingBedOutranksTheHomeRow() {
+        String html = ItineraryRenderer.render(
+                List.of(new ItineraryDay(JUN_1, List.of(), Optional.empty(),
+                                Optional.of(missingHotel()), true),
+                        new ItineraryDay(JUN_2, List.of(gathering("Some Meetup", false, ""))),
+                        new ItineraryDay(JUN_3, List.of(gathering("Some Meetup", false, "")))),
+                MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains("<span>In Denver</span>")
+                .doesNotContain("You&rsquo;re Home");
+    }
+
+    @Test
+    void aBookedStayOutranksAMissingBed() {
+        String html = ItineraryRenderer.render(
+                List.of(new ItineraryDay(JUN_1, List.of(), Optional.of(ongoingStay()),
+                                Optional.of(missingHotel()), false),
+                        new ItineraryDay(JUN_2, List.of(gathering("Some Meetup", false, ""))),
+                        new ItineraryDay(JUN_3, List.of(gathering("Some Meetup", false, "")))),
+                MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains("<div class=\"whereabouts-detail\">Grand Hotel Frankfurt</div>")
+                .doesNotContain("No hotel booked");
+    }
+
+    @Test
+    void aDayThatIsNeitherAwayNorInAStaySaysHeIsHome() {
+        String html = renderHomeDay();
+
+        assertThat(html)
+                .contains("<span>You&rsquo;re Home</span>")
+                .doesNotContain("<div class=\"empty-day\">Nothing scheduled</div>");
+    }
+
+    @Test
+    void theHomeRowCarriesTheHouseIconAndNoSecondLine() {
+        String html = renderHomeDay();
+
+        assertThat(html)
+                .contains("<path d=\"M10 20v-5h4v5\"/>")
+                .doesNotContain("<div class=\"whereabouts-detail\">");
+    }
+
+    @Test
+    void aStayWinsOverHomeSoAHotelBookedInAHomeCityStillNamesTheHotel() {
+        String html = ItineraryRenderer.render(
+                List.of(new ItineraryDay(JUN_1, List.of(), Optional.of(ongoingStay()), Optional.empty(), true),
+                        new ItineraryDay(JUN_2, List.of(gathering("Some Meetup", false, ""))),
+                        new ItineraryDay(JUN_3, List.of(gathering("Some Meetup", false, "")))),
+                MAY_31, JUN_2, JUN_1, false);
+
+        assertThat(html)
+                .contains("<div class=\"whereabouts-detail\">Grand Hotel Frankfurt</div>")
+                .doesNotContain("You&rsquo;re Home");
+    }
+
+    @Test
+    void neitherWhereaboutsRowShowsOnADayThatHasItsOwnEntries() {
+        ItineraryEntry entry = gathering("Some Meetup", true, "");
+        String html = ItineraryRenderer.render(
+                List.of(new ItineraryDay(JUN_1, List.of(entry), Optional.of(ongoingStay()), Optional.empty(), true),
+                        new ItineraryDay(JUN_2, List.of()),
+                        new ItineraryDay(JUN_3, List.of())),
+                MAY_31, JUN_2, JUN_1, false);
+
+        assertThat(html)
+                .doesNotContain("In Frankfurt, DE")
+                .doesNotContain("You&rsquo;re Home")
+                .doesNotContain("<div class=\"whereabouts\">");
     }
 
     @Test
@@ -585,6 +719,39 @@ class ItineraryRendererTest {
 
     private static String renderEmpty() {
         return ItineraryRenderer.render(threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1, false);
+    }
+
+    private static String renderStayingDay() {
+        return ItineraryRenderer.render(
+                List.of(new ItineraryDay(JUN_1, List.of(), Optional.of(ongoingStay()), Optional.empty(), false),
+                        new ItineraryDay(JUN_2, List.of(gathering("Some Meetup", false, ""))),
+                        new ItineraryDay(JUN_3, List.of(gathering("Some Meetup", false, "")))),
+                MAY_31, JUN_2, JUN_1, false);
+    }
+
+    private static String renderHomeDay() {
+        return ItineraryRenderer.render(
+                List.of(new ItineraryDay(JUN_1, List.of(), Optional.empty(), Optional.empty(), true),
+                        new ItineraryDay(JUN_2, List.of(gathering("Some Meetup", false, ""))),
+                        new ItineraryDay(JUN_3, List.of(gathering("Some Meetup", false, "")))),
+                MAY_31, JUN_2, JUN_1, false);
+    }
+
+    private static String renderNightWithoutABed(boolean isOwner) {
+        return ItineraryRenderer.render(
+                List.of(new ItineraryDay(JUN_1, List.of(), Optional.empty(),
+                                Optional.of(missingHotel()), false),
+                        new ItineraryDay(JUN_2, List.of(gathering("Some Meetup", false, ""))),
+                        new ItineraryDay(JUN_3, List.of(gathering("Some Meetup", false, "")))),
+                MAY_31, JUN_2, JUN_1, isOwner);
+    }
+
+    private static ScheduleProblem.MissingHotel missingHotel() {
+        return new ScheduleProblem.MissingHotel("Denver", JUN_1, LocalDate.of(2026, 6, 5), "ExploreDDD");
+    }
+
+    private static OngoingStay ongoingStay() {
+        return new OngoingStay("Grand Hotel Frankfurt", "Frankfurt", "DE");
     }
 
     private static String renderWithEntry(ItineraryEntry entry) {

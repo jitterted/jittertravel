@@ -69,6 +69,33 @@ public class ItineraryProjector implements EventStreamConsumer {
                 .orElse(date);
     }
 
+    /**
+     * The stay covering {@code date} in full, for a day the itinerary would otherwise leave blank.
+     * Check-in and check-out days are deliberately <em>not</em> covered: each already has its own
+     * entry, which says where the traveler is more precisely than this line could.
+     * <p>
+     * Both booking intents count. The itinerary draws a tentative stay exactly as it draws a final
+     * one, and a bed booked on spec still answers "where am I sleeping".
+     */
+    public Optional<OngoingStay> ongoingStayOn(LocalDate date) {
+        return hotelEntries.values().stream()
+                .filter(stay -> spansAllOf(stay, date))
+                .flatMap(List::stream)
+                .filter(entry -> entry.dayRole() == HotelDayRole.CHECK_IN)
+                // Overlapping stays are a data problem /schedule-problems reports; pick the one
+                // that started first so the answer is at least the same on every render.
+                .min(Comparator.comparing(HotelItineraryEntry::anchorTime))
+                .map(entry -> new OngoingStay(entry.hotelName(),
+                        entry.address().city(), entry.address().country()));
+    }
+
+    private static boolean spansAllOf(List<HotelItineraryEntry> stay, LocalDate date) {
+        return stay.stream().anyMatch(entry -> entry.dayRole() == HotelDayRole.CHECK_IN
+                                               && entry.anchorTime().toLocalDate().isBefore(date))
+               && stay.stream().anyMatch(entry -> entry.dayRole() == HotelDayRole.CHECK_OUT
+                                                  && entry.anchorTime().toLocalDate().isAfter(date));
+    }
+
     public List<ItineraryEntry> entriesForDate(LocalDate date) {
         List<ItineraryEntry> result = new ArrayList<>();
         flightEntries.values().stream()

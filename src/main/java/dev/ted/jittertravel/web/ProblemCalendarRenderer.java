@@ -7,7 +7,6 @@ import j2html.tags.DomContent;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 
 import static j2html.TagCreator.body;
 import static j2html.TagCreator.div;
@@ -45,6 +44,10 @@ public class ProblemCalendarRenderer {
                 --pc-travel-bg: rgba(254, 243, 199, 0.8); --pc-travel-border: #b45309; --pc-travel-fg: #78350f;
                 /* Amber, not red: a second booking costs money but Ted can cancel it. */
                 --pc-duplicate-bg: rgba(255, 237, 213, 0.8); --pc-duplicate-border: #c2410c; --pc-duplicate-fg: #7c2d12;
+                /* The two clashes share a lane and split the list view's two hues: violet for a
+                   gathering in the wrong city, red for two things at the same moment. */
+                --pc-clash-city-bg: rgba(237, 233, 254, 0.8); --pc-clash-city-border: #7c3aed; --pc-clash-city-fg: #4c1d95;
+                --pc-clash-scheduling-bg: rgba(254, 226, 226, 0.8); --pc-clash-scheduling-border: #dc2626; --pc-clash-scheduling-fg: #7f1d1d;
                 /* One grey for every kind of context; the kind is named in the label. */
                 --pc-context-bg: rgba(107, 114, 128, 0.14);
                 --pc-context-border: rgba(107, 114, 128, 0.35);
@@ -121,6 +124,12 @@ public class ProblemCalendarRenderer {
             .pc-band--duplicate {
                 background: var(--pc-duplicate-bg); border-left-color: var(--pc-duplicate-border); color: var(--pc-duplicate-fg);
             }
+            .pc-band--clash-city {
+                background: var(--pc-clash-city-bg); border-left-color: var(--pc-clash-city-border); color: var(--pc-clash-city-fg);
+            }
+            .pc-band--clash-scheduling {
+                background: var(--pc-clash-scheduling-bg); border-left-color: var(--pc-clash-scheduling-border); color: var(--pc-clash-scheduling-fg);
+            }
             .pc-band-title  { font-weight: 600; font-size: 0.82rem; }
             .pc-band-detail { font-size: 0.75rem; margin-top: 0.1rem; }
             /* The band is its own fix menu's summary, so an outer positioned wrapper takes the
@@ -135,7 +144,6 @@ public class ProblemCalendarRenderer {
     public static String render(List<ScheduleProblem> problems, List<ScheduleContext> context, LocalDate today) {
         List<ProblemBand> bands = problems.stream()
                 .map(ProblemBand::from)
-                .flatMap(Optional::stream)
                 .sorted(Comparator.comparing(ProblemBand::firstDay))
                 .toList();
         // Context is not clipped here: the window below is drawn from the problems, and the builder

@@ -2,6 +2,8 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleContext;
 import dev.ted.jittertravel.application.ScheduleProblem;
+import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
@@ -212,6 +214,70 @@ class ProblemCalendarRendererTest {
         assertThat(html)
                 .contains("<div class=\"pc-context pc-context--to-right\"")
                 .contains("<div class=\"pc-context pc-context--from-left\"");
+    }
+
+    // --- Clash lane (slice 4) ---
+
+    @Test
+    void bothClashKindsRenderInTheOneClashLaneUnderTheTravelLane() {
+        // Three days of one week: a gap on Tue 14 (column 3), a city clash on Thu 16 (column 5), a
+        // scheduling clash on Fri 17 (column 6). The clash lane sits below travel, so its bands are
+        // one row lower — and the two clash markers share that lane, so two bands that do not
+        // overlap in days share its single sub-row instead of reserving a row per kind.
+        String html = render(missingTravel("London", 14, "Berlin", 14),
+                cityConflict(16), schedulingConflict(17));
+
+        assertThat(html)
+                .contains("<div class=\"pc-band pc-band--travel\">")
+                .contains("<div class=\"pc-band-anchor\" style=\"grid-column: 3 / span 1; grid-row: 2;\">")
+                .contains("<div class=\"pc-band-anchor\" style=\"grid-column: 5 / span 1; grid-row: 3;\">")
+                .contains("<div class=\"pc-band pc-band--clash-city\">")
+                .contains("<div class=\"pc-band-title\">City clash — Lunch · dev2next</div>")
+                .contains("<div class=\"pc-band-detail\">Denver vs Chicago</div>")
+                .contains("<div class=\"pc-band pc-band--clash-scheduling\""
+                          + " style=\"grid-column: 6 / span 1; grid-row: 3;\">")
+                .contains("<div class=\"pc-band-title\">Clash — XP Day · Lunch</div>");
+    }
+
+    /**
+     * C3: a city clash is the one clash with something to do about it, and it is the same
+     * {@code /clear-conflict} URL the list card offers.
+     */
+    @Test
+    void aCityClashBandOpensTheClearConflictMenu() {
+        String html = render(cityConflict(15));
+
+        assertThat(html)
+                .contains("<summary class=\"pc-band-summary\">")
+                .contains("class=\"disclosure-menu-item\">Clear this conflict</a>");
+    }
+
+    /**
+     * F6: neither side of a scheduling clash carries an id, so there is nothing to link to — and
+     * unlike a card there is no slot vocabulary to keep, so the band simply is not clickable.
+     */
+    @Test
+    void aSchedulingClashBandIsNotAnAnchorAtAll() {
+        String html = render(schedulingConflict(15));
+
+        assertThat(html)
+                .contains("<div class=\"pc-band pc-band--clash-scheduling\"")
+                .doesNotContain("<details class=\"disclosure-menu\">")
+                .doesNotContain("<summary class=\"pc-band-summary\">");
+    }
+
+    private static ScheduleProblem cityConflict(int dayOfJuly) {
+        return new ScheduleProblem.DifferentCityConflict(
+                "Lunch", "Denver", "dev2next", "Chicago", LocalDate.of(2026, 7, dayOfJuly),
+                GatheringId.random(), ConferenceId.random());
+    }
+
+    private static ScheduleProblem schedulingConflict(int dayOfJuly) {
+        return new ScheduleProblem.SchedulingConflict(
+                new ScheduleProblem.ConflictingGathering("XP Day", "London",
+                        at(dayOfJuly, 9, 0), at(dayOfJuly, 17, 0)),
+                new ScheduleProblem.ConflictingGathering("Lunch", "London",
+                        at(dayOfJuly, 12, 0), at(dayOfJuly, 13, 0)));
     }
 
     private static ScheduleProblem missingHotel(String city, int checkInDayOfJuly, int checkOutDayOfJuly) {

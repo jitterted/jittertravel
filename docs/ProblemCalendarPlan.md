@@ -1,9 +1,10 @@
 # Problem Calendar Plan
 
-**Status:** slices 1–3 shipped (2026-08-19), i.e. the Bed lane, the 1.5 context backdrop and the
-Travel lane; Ted reviewed the live calendar after the schedule-problems rewrite and it reads
+**Status:** `done`. Slices 1–3 shipped (2026-08-19), i.e. the Bed lane, the 1.5 context backdrop and
+the Travel lane; Ted reviewed the live calendar after the schedule-problems rewrite and it reads
 correctly (2026-08-20). **Slice 5 (fix links) shipped 2026-08-20** — suite green at 1217 (+ 48 js).
-**Slice 4 (clash markers) is designed below and open**, and is now the only one left.
+**Slice 4 (clash markers) shipped 2026-08-20** — suite green at 1246 (+ 48 js). Every problem the
+report can detect now has a band; the open questions at the foot are the only thing left.
 
 A second view of the OWNER-only `/schedule-problems` report: the same problems, placed on a
 week-row calendar instead of in four card columns. The list answers "what is wrong"; the calendar
@@ -359,7 +360,7 @@ write. A fix link in read-only mode lands on the read-only page, which is the co
   is empty.
 - Mutation-verify each, per standing practice.
 
-## Slice 4 — Clash markers
+## Slice 4 — Clash markers *(shipped 2026-08-20)*
 
 ### C1 — One lane, two colours
 
@@ -370,6 +371,21 @@ list's column colours per "Colour follows the list view" above. The destructive-
 CLAUDE.md is not in play: nothing here deletes anything, and the list already chose these hues to
 separate categories.
 
+**As built:** the distinction needed somewhere to live, and a second `Lane` value was the wrong
+place — two lanes would reserve a row per kind on every week. So `ProblemBand` now carries a
+**`Marker`** (`BED`, `DUPLICATE`, `TRAVEL`, `CLASH_CITY`, `CLASH_SCHEDULING`) instead of a `Lane`,
+each marker naming the lane it packs into and deriving its own CSS modifier from its name;
+`lane()` stays as a derived accessor, so the packing code and its tests were untouched. Two markers
+therefore share `Lane.CLASH` and its sub-rows, which is what C1 asked for.
+
+`ProblemBand.from` also **stopped returning `Optional`**: it returned empty only for the lanes that
+did not exist yet, and with this slice every problem type lands somewhere. The renderer's
+`flatMap(Optional::stream)` went with it.
+
+Wording (Ted, 2026-08-20, offered three ways): the existing band vocabulary won — a short kind word,
+an em dash, then the two names, with the cities or times in the detail. `City clash — Lunch ·
+dev2next` over `Denver vs Chicago`; `Clash — XP Day · Lunch` over `9:00 AM BST · 12:00 PM BST`.
+
 ### C2 — Placement
 
 - `DifferentCityConflict` carries a single `date()` — a one-day band.
@@ -378,6 +394,9 @@ separate categories.
   the next local date. So the band spans **min→max of the two sides' local dates**, the same
   argument (and the same inversion bug) as the travel band, and the detail line names both zones —
   `6:30 PM PDT · 10:00 AM JST` — so nobody subtracts two clocks that do not match.
+  **As built:** min→max over **all four** timestamps (both starts *and* both ends), not just the
+  two starts — an end can fall on a later local date than the other side's start, and taking a
+  subset reintroduces exactly the inversion this rule exists to avoid.
 
 ### C3 — The clear action rides on the band
 

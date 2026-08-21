@@ -8,12 +8,12 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * One {@link ScheduleProblem} placed on the problem calendar: a run of days ({@code firstDay}
- * through {@code lastDay}, both inclusive) in one {@link Lane}, carrying display-ready text.
+ * through {@code lastDay}, both inclusive) wearing one {@link Marker}, carrying display-ready text.
  * <p>
  * This is the problem calendar's own view type. It deliberately shares nothing with
  * {@code CalendarEntry}, which is shaped for the public calendar and is about to be split by the
@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
  * {@code fixes} come from {@link ProblemFix#forProblem}, the same mapping the list cards read, so
  * the two views can never offer different answers to the same problem.
  */
-public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, String title, String detail,
+public record ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, String title, String detail,
                           List<ProblemFix> fixes) {
 
     public ProblemBand {
@@ -30,12 +30,17 @@ public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, Stri
     }
 
     /**
-     * A band with no fixes yet — {@code SchedulingConflict}, whose sides carry no ids. Unlike a
+     * A band with no fixes — {@code SchedulingConflict}, whose sides carry no ids. Unlike a
      * card, a band with nothing to offer simply is not an anchor: there is no slot vocabulary on
      * the calendar to keep consistent (F6).
      */
-    ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, String title, String detail) {
-        this(lane, firstDay, lastDay, title, detail, List.of());
+    ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, String title, String detail) {
+        this(marker, firstDay, lastDay, title, detail, List.of());
+    }
+
+    /** Which row-stack this band is packed into; the marker decides. */
+    public Lane lane() {
+        return marker.lane();
     }
 
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
@@ -44,28 +49,54 @@ public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, Stri
     /**
      * The lanes stacked down each week, in this order. A band occupies its lane's sub-rows;
      * overlapping bands in the same lane stack into extra sub-rows.
-     * <p>
-     * {@code CLASH} arrives with slice 3.
      */
     public enum Lane {
         BED,
         DUPLICATE,
-        TRAVEL
+        TRAVEL,
+        CLASH
+    }
+
+    /**
+     * What a band looks like, and which {@link Lane} it is packed into. Usually one marker per
+     * lane — {@link Lane#CLASH} has two, because a city clash and a scheduling clash are one
+     * concern (two things at once) that the list view already colours apart, violet and red.
+     * Sharing the lane is what lets them share its sub-rows on a day that has both.
+     */
+    public enum Marker {
+        BED(Lane.BED),
+        DUPLICATE(Lane.DUPLICATE),
+        TRAVEL(Lane.TRAVEL),
+        CLASH_CITY(Lane.CLASH),
+        CLASH_SCHEDULING(Lane.CLASH);
+
+        private final Lane lane;
+
+        Marker(Lane lane) {
+            this.lane = lane;
+        }
+
+        public Lane lane() {
+            return lane;
+        }
+
+        /** The band's CSS modifier: {@code pc-band--bed}, {@code pc-band--clash-city}. */
+        public String cssModifier() {
+            return name().toLowerCase(Locale.ENGLISH).replace('_', '-');
+        }
     }
 
     /**
      * The problem-to-band mapping, as an exhaustive switch over the sealed {@link ScheduleProblem}:
      * a new problem type cannot be added without deciding here how it lands on the calendar.
-     * Problems whose lane is not built yet return empty, so the calendar shows the lanes it has
-     * rather than nothing.
      */
-    public static Optional<ProblemBand> from(ScheduleProblem problem) {
+    public static ProblemBand from(ScheduleProblem problem) {
         return switch (problem) {
-            case ScheduleProblem.MissingHotel missingHotel -> Optional.of(bedBand(missingHotel));
-            case ScheduleProblem.MissingTravel missingTravel -> Optional.of(travelBand(missingTravel));
-            case ScheduleProblem.DuplicateHotel duplicateHotel -> Optional.of(duplicateBand(duplicateHotel));
-            case ScheduleProblem.SchedulingConflict ignored -> Optional.empty();     // slice 3
-            case ScheduleProblem.DifferentCityConflict ignored -> Optional.empty();  // slice 3
+            case ScheduleProblem.MissingHotel missingHotel -> bedBand(missingHotel);
+            case ScheduleProblem.MissingTravel missingTravel -> travelBand(missingTravel);
+            case ScheduleProblem.DuplicateHotel duplicateHotel -> duplicateBand(duplicateHotel);
+            case ScheduleProblem.SchedulingConflict overlap -> schedulingClashBand(overlap);
+            case ScheduleProblem.DifferentCityConflict cityConflict -> cityClashBand(cityConflict);
         };
     }
 
@@ -79,7 +110,7 @@ public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, Stri
         LocalDate lastNight = missingHotel.checkOut().isAfter(checkIn)
                 ? missingHotel.checkOut().minusDays(1)
                 : checkIn;
-        return new ProblemBand(Lane.BED, checkIn, lastNight,
+        return new ProblemBand(Marker.BED, checkIn, lastNight,
                 "No hotel — " + missingHotel.city(),
                 detail(nightsBetween(checkIn, lastNight), missingHotel.conferenceName()),
                 ProblemFix.forProblem(missingHotel));
@@ -93,7 +124,7 @@ public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, Stri
         String hotels = duplicateHotel.stays().stream()
                 .map(ScheduleProblem.DuplicateStay::hotelName)
                 .collect(Collectors.joining(" · "));
-        return new ProblemBand(Lane.DUPLICATE, duplicateHotel.firstNight(), duplicateHotel.lastNight(),
+        return new ProblemBand(Marker.DUPLICATE, duplicateHotel.firstNight(), duplicateHotel.lastNight(),
                 duplicateHotel.stays().size() + " hotels — " + hotels,
                 nightsBetween(duplicateHotel.firstNight(), duplicateHotel.lastNight())
                 + " nights booked twice",
@@ -122,10 +153,46 @@ public record ProblemBand(Lane lane, LocalDate firstDay, LocalDate lastDay, Stri
                 ? "Nothing booked · needed by " + zonedTime(missingTravel.nextDepartureAt())
                 : "Arrive " + zonedTime(missingTravel.arrivedAt())
                   + " · depart " + zonedTime(missingTravel.nextDepartureAt());
-        return new ProblemBand(Lane.TRAVEL, firstDay, lastDay,
+        return new ProblemBand(Marker.TRAVEL, firstDay, lastDay,
                 "No travel — " + missingTravel.fromCity() + " → " + missingTravel.toCity(),
                 detail,
                 ProblemFix.forProblem(missingTravel));
+    }
+
+    /**
+     * A gathering somewhere the conference of the day is not. The conflict record carries a single
+     * {@link LocalDate}, so this is a one-day band; the two cities — the whole of what is wrong —
+     * go in the detail.
+     */
+    private static ProblemBand cityClashBand(ScheduleProblem.DifferentCityConflict conflict) {
+        return new ProblemBand(Marker.CLASH_CITY, conflict.date(), conflict.date(),
+                "City clash — " + conflict.gatheringName() + " · " + conflict.conferenceName(),
+                conflict.gatheringCity() + " vs " + conflict.conferenceCity(),
+                ProblemFix.forProblem(conflict));
+    }
+
+    /**
+     * Two gatherings whose instants overlap. There is no single date to place it on: each side
+     * carries its own zone, and a San Francisco evening overlaps a Tokyo morning that falls on the
+     * next local date — so the band spans every local date either side touches, min through max.
+     * Taking one side's dates, or subtracting one from the other, is the same inversion bug the
+     * travel band has (a band from the later day to the earlier one renders as nothing at all).
+     * <p>
+     * The detail names each side's start <em>with its zone</em>, for the same reason: "6:30 PM ·
+     * 10:00 AM" invites the reader to subtract two numbers off different clocks.
+     */
+    private static ProblemBand schedulingClashBand(ScheduleProblem.SchedulingConflict overlap) {
+        List<LocalDate> days = Stream.of(
+                        overlap.first().startsAt(), overlap.first().endsAt(),
+                        overlap.second().startsAt(), overlap.second().endsAt())
+                .map(moment -> moment.localDateTime().toLocalDate())
+                .sorted()
+                .toList();
+        // No fixes: neither side carries an id, so there is nothing to link to (F6). Unlike a
+        // card, a band with nothing to offer is simply not an anchor.
+        return new ProblemBand(Marker.CLASH_SCHEDULING, days.getFirst(), days.getLast(),
+                "Clash — " + overlap.first().name() + " · " + overlap.second().name(),
+                zonedTime(overlap.first().startsAt()) + " · " + zonedTime(overlap.second().startsAt()));
     }
 
     /**

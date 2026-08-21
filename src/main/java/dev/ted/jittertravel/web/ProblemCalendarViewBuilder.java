@@ -213,7 +213,7 @@ public class ProblemCalendarViewBuilder {
     private static DomContent renderBandSegment(ProblemBand band, LocalDate sunday, int gridRow) {
         int[] segment = segmentColumns(band.firstDay(), band.lastDay(), sunday);
         int span = segment[1] - segment[0] + 1;
-        String classes = "pc-band pc-band--" + band.lane().name().toLowerCase(Locale.ENGLISH)
+        String classes = "pc-band pc-band--" + band.marker().cssModifier()
                          + continuationClasses(band.firstDay(), band.lastDay(), sunday, "pc-band");
         String style = "grid-column: " + segment[0] + " / span " + span + "; grid-row: " + gridRow + ";";
         List<DomContent> bandContent = List.of(

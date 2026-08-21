@@ -12,7 +12,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,11 +24,11 @@ class ProblemBandTest {
         ScheduleProblem problem = new ScheduleProblem.MissingHotel(
                 "London", LocalDate.of(2026, 7, 3), LocalDate.of(2026, 7, 6), "");
 
-        Optional<ProblemBand> band = ProblemBand.from(problem);
+        ProblemBand band = ProblemBand.from(problem);
 
         // Placement and words only: which fixes a band offers is ProblemFixTest's claim, and
         // asserting the whole record here would restate it in every placement test.
-        assertThat(band).get()
+        assertThat(band)
                 .extracting(ProblemBand::lane, ProblemBand::firstDay, ProblemBand::lastDay,
                             ProblemBand::title, ProblemBand::detail)
                 .containsExactly(ProblemBand.Lane.BED,
@@ -42,9 +41,9 @@ class ProblemBandTest {
         ScheduleProblem problem = new ScheduleProblem.MissingHotel(
                 "Berlin", LocalDate.of(2026, 7, 3), LocalDate.of(2026, 7, 4), "");
 
-        Optional<ProblemBand> band = ProblemBand.from(problem);
+        ProblemBand band = ProblemBand.from(problem);
 
-        assertThat(band).get()
+        assertThat(band)
                 .extracting(ProblemBand::firstDay, ProblemBand::lastDay, ProblemBand::detail)
                 .containsExactly(LocalDate.of(2026, 7, 3), LocalDate.of(2026, 7, 3), "1 night");
     }
@@ -54,9 +53,9 @@ class ProblemBandTest {
         ScheduleProblem problem = new ScheduleProblem.MissingHotel(
                 "Chicago", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 16), "dev2next");
 
-        Optional<ProblemBand> band = ProblemBand.from(problem);
+        ProblemBand band = ProblemBand.from(problem);
 
-        assertThat(band).get()
+        assertThat(band)
                 .extracting(ProblemBand::detail)
                 .isEqualTo("2 nights — dev2next");
     }
@@ -67,9 +66,9 @@ class ProblemBandTest {
                 "London", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 14, 30), ZoneId.of("Europe/London")),
                 "Berlin", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 9, 0), ZoneId.of("Europe/Berlin")));
 
-        Optional<ProblemBand> band = ProblemBand.from(problem);
+        ProblemBand band = ProblemBand.from(problem);
 
-        assertThat(band).get()
+        assertThat(band)
                 .extracting(ProblemBand::lane, ProblemBand::firstDay, ProblemBand::lastDay,
                             ProblemBand::title, ProblemBand::detail)
                 .containsExactly(ProblemBand.Lane.TRAVEL,
@@ -86,7 +85,7 @@ class ProblemBandTest {
                 "Tokyo", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 9, 0), ZoneId.of("Asia/Tokyo")),
                 "Seoul", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 10, 0), ZoneId.of("Asia/Seoul")));
 
-        assertThat(ProblemBand.from(problem)).get()
+        assertThat(ProblemBand.from(problem))
                 .extracting(ProblemBand::detail)
                 .isEqualTo("Arrive 9:00 AM JST · depart 10:00 AM KST");
     }
@@ -100,7 +99,7 @@ class ProblemBandTest {
                 "Tokyo", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 9, 0), ZoneId.of("Asia/Tokyo")),
                 "San Francisco", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 2, 20, 0), ZoneId.of("America/Los_Angeles")));
 
-        assertThat(ProblemBand.from(problem)).get()
+        assertThat(ProblemBand.from(problem))
                 .extracting(ProblemBand::firstDay, ProblemBand::lastDay)
                 .containsExactly(LocalDate.of(2026, 7, 2), LocalDate.of(2026, 7, 3));
     }
@@ -112,7 +111,7 @@ class ProblemBandTest {
         ScheduleProblem problem = new ScheduleProblem.MissingTravel(
                 "San Francisco", needed, "Ede", needed);
 
-        assertThat(ProblemBand.from(problem)).get()
+        assertThat(ProblemBand.from(problem))
                 .extracting(ProblemBand::firstDay, ProblemBand::lastDay, ProblemBand::detail)
                 .containsExactly(LocalDate.of(2026, 11, 11), LocalDate.of(2026, 11, 11),
                                  "Nothing booked · needed by 9:00 AM CET");
@@ -129,7 +128,7 @@ class ProblemBandTest {
                         new ScheduleProblem.DuplicateStay(
                                 HotelBookingId.random(), "Doubletree", "Toronto", BookingIntent.TENTATIVE)));
 
-        assertThat(ProblemBand.from(problem)).get()
+        assertThat(ProblemBand.from(problem))
                 .extracting(ProblemBand::lane, ProblemBand::firstDay, ProblemBand::lastDay,
                             ProblemBand::title, ProblemBand::detail)
                 .containsExactly(ProblemBand.Lane.DUPLICATE,
@@ -138,19 +137,62 @@ class ProblemBandTest {
     }
 
     @Test
-    void conflictsHaveNoBandYet() {
-        // Slice 3 gives both the CLASH lane.
-        ZonedTimestamp start = ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 9, 0), ZoneId.of("Europe/London"));
-        ZonedTimestamp end = ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 17, 0), ZoneId.of("Europe/London"));
-        ScheduleProblem overlap = new ScheduleProblem.SchedulingConflict(
-                new ScheduleProblem.ConflictingGathering("XP Day", "London", start, end),
-                new ScheduleProblem.ConflictingGathering("Lunch", "London", start, end));
-        ScheduleProblem differentCity = new ScheduleProblem.DifferentCityConflict(
-                "Lunch", "London", "dev2next", "Chicago", LocalDate.of(2026, 7, 1),
+    void differentCityConflictBecomesAOneDayCityClashBand() {
+        ScheduleProblem problem = new ScheduleProblem.DifferentCityConflict(
+                "Lunch", "Denver", "dev2next", "Chicago", LocalDate.of(2026, 9, 16),
                 GatheringId.random(), ConferenceId.random());
 
-        assertThat(ProblemBand.from(overlap)).isEmpty();
-        assertThat(ProblemBand.from(differentCity)).isEmpty();
+        assertThat(ProblemBand.from(problem))
+                .extracting(ProblemBand::marker, ProblemBand::firstDay, ProblemBand::lastDay,
+                            ProblemBand::title, ProblemBand::detail)
+                .containsExactly(ProblemBand.Marker.CLASH_CITY,
+                        LocalDate.of(2026, 9, 16), LocalDate.of(2026, 9, 16),
+                        "City clash — Lunch · dev2next", "Denver vs Chicago");
+    }
+
+    @Test
+    void schedulingConflictBecomesAClashBandNamingEachSidesZone() {
+        ScheduleProblem problem = new ScheduleProblem.SchedulingConflict(
+                new ScheduleProblem.ConflictingGathering("XP Day", "London",
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 9, 0), ZoneId.of("Europe/London")),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 17, 0), ZoneId.of("Europe/London"))),
+                new ScheduleProblem.ConflictingGathering("Lunch", "London",
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 12, 0), ZoneId.of("Europe/London")),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 13, 0), ZoneId.of("Europe/London"))));
+
+        assertThat(ProblemBand.from(problem))
+                .extracting(ProblemBand::marker, ProblemBand::firstDay, ProblemBand::lastDay,
+                            ProblemBand::title, ProblemBand::detail)
+                .containsExactly(ProblemBand.Marker.CLASH_SCHEDULING,
+                        LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 1),
+                        "Clash — XP Day · Lunch", "9:00 AM BST · 12:00 PM BST");
+    }
+
+    @Test
+    void bothClashMarkersShareTheOneClashLane() {
+        // One lane, two colours: a day with both kinds stacks them in the same block of sub-rows
+        // rather than reserving a row for each kind on every week of the calendar.
+        assertThat(ProblemBand.Marker.CLASH_CITY.lane())
+                .isEqualTo(ProblemBand.Marker.CLASH_SCHEDULING.lane())
+                .isEqualTo(ProblemBand.Lane.CLASH);
+    }
+
+    @Test
+    void aSchedulingClashAcrossZonesSpansEveryLocalDateEitherSideTouches() {
+        // The San Francisco evening of the 1st is the Tokyo morning of the 2nd. Placed from one
+        // side's dates to the other's the band would run backwards and render as nothing.
+        ScheduleProblem problem = new ScheduleProblem.SchedulingConflict(
+                new ScheduleProblem.ConflictingGathering("Tokyo standup", "Tokyo",
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 2, 10, 0), ZoneId.of("Asia/Tokyo")),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 2, 11, 0), ZoneId.of("Asia/Tokyo"))),
+                new ScheduleProblem.ConflictingGathering("SF dinner", "San Francisco",
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 18, 0), ZoneId.of("America/Los_Angeles")),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 20, 0), ZoneId.of("America/Los_Angeles"))));
+
+        assertThat(ProblemBand.from(problem))
+                .extracting(ProblemBand::firstDay, ProblemBand::lastDay, ProblemBand::detail)
+                .containsExactly(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 2),
+                        "10:00 AM JST · 6:00 PM PDT");
     }
     /**
      * The band and the card read the same mapping, so the two views cannot offer different answers
@@ -161,13 +203,13 @@ class ProblemBandTest {
         ScheduleProblem problem = new ScheduleProblem.MissingHotel(
                 "London", LocalDate.of(2026, 7, 3), LocalDate.of(2026, 7, 6), "");
 
-        assertThat(ProblemBand.from(problem)).get()
+        assertThat(ProblemBand.from(problem))
                 .extracting(ProblemBand::fixes)
                 .isEqualTo(ProblemFix.forProblem(problem));
     }
 
     @Test
-    void aSchedulingClashIsNotAnAnchorSoItReachesNoBandAtAll() {
+    void aSchedulingClashBandOffersNoFixSoItIsNotAnAnchor() {
         // F6: nothing to link to, and unlike a card there is no slot vocabulary to keep on the
         // calendar — it simply is not clickable.
         ScheduleProblem problem = new ScheduleProblem.SchedulingConflict(
@@ -178,7 +220,21 @@ class ProblemBandTest {
                         ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 20, 0), ZoneId.of("Europe/Berlin")),
                         ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 23, 0), ZoneId.of("Europe/Berlin"))));
 
-        assertThat(ProblemBand.from(problem)).isEmpty();
+        assertThat(ProblemBand.from(problem).fixes()).isEmpty();
+    }
+
+    /**
+     * The city clash is the one clash that <em>can</em> be acted on, and the band offers exactly
+     * what the card offers — the same "Clear this conflict" URL, from the one mapping.
+     */
+    @Test
+    void aCityClashBandCarriesTheSameFixTheListCardWouldOffer() {
+        ScheduleProblem problem = new ScheduleProblem.DifferentCityConflict(
+                "Lunch", "Denver", "dev2next", "Chicago", LocalDate.of(2026, 9, 16),
+                GatheringId.random(), ConferenceId.random());
+
+        assertThat(ProblemBand.from(problem).fixes())
+                .isEqualTo(ProblemFix.forProblem(problem));
     }
 
 }

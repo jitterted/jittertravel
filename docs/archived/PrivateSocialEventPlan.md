@@ -9,7 +9,7 @@ zone-abbrev variant, but rendered as text so the browser-zone script can't re-lo
 (no zone label), so the zone label is anonymous-only. Full suite green (790). One cosmetic
 follow-up: the nav card's Font Awesome Pro icon is a placeholder pending Ted.
 
-Moved out of `Cleanup_Tasks.md` (it is a full vertical slice, not a small fix). The
+Moved out of `../Cleanup_Tasks.md` (it is a full vertical slice, not a small fix). The
 anonymous-view decision recorded there (2026-08-07) is carried forward verbatim below.
 
 ## Why
@@ -110,7 +110,7 @@ Mirrors the gathering slice (`Plan Gathering`):
 ## Two rendering details to resolve before coding
 
 1. **Zone label on the redacted time ("EDT").** `SubtitleLine.Range` renders via `ZonedTimeTag`,
-   which per `UtcDatetimeStoragePlan.md` decision 5 emits **no** zone label. The anonymous private
+   which per `../UtcDatetimeStoragePlan.md` decision 5 emits **no** zone label. The anonymous private
    view wants `7pm–10pm EDT`. Options: (a) a new `SubtitleLine` variant that renders a zone
    abbreviation, (b) a flag on `Range`, (c) a pre-formatted `SubtitleLine.Text` for the time —
    but that loses the `<time datetime>` element. Proposed: (a), a `Range` variant that shows the
@@ -158,7 +158,7 @@ in, inheritance-based base classes are out.
 - **Redactor untouched:** these build only the *owner* (unredacted) subtitle. `CalendarEntryRedactor`
   stays per-kind, deny-by-default. A shared builder must never become a path redaction flows through.
 
-**B — `ProjectorBootstrapper`** (independent infra win; `Refactoring_Opportunities.md` #1):
+**B — `ProjectorBootstrapper`** (independent infra win; `../Refactoring_Opportunities.md` #1):
 - Collapse the `new / eventStore.subscribe(p) / p.handle(eventStore.findAll())` triple (11 beans in
   `EventSourcingConfig`) into one `register(...)` call. Touches only `EventSourcingConfig`; no slice
   coupling; unrelated to redaction. Can land as its own commit before or after the slice.
@@ -173,10 +173,10 @@ in, inheritance-based base classes are out.
   an abstraction before the second real user exists.)
 
 **Rejected (too much coupling — Ted's caveat):** `BaseCalendarProjector<E,ID>` template-method
-base class (`Refactoring_Opportunities.md` #2) and any shared base plan-command or base request
+base class (`../Refactoring_Opportunities.md` #2) and any shared base plan-command or base request
 bean. Duplicated *structure* across independent slices is cheaper than the wrong shared parent.
 
-**Broader sweep — noted, not in this slice** (`Refactoring_Opportunities.md` owns these):
+**Broader sweep — noted, not in this slice** (`../Refactoring_Opportunities.md` owns these):
 projector base class (rejected above), booked-X simple projectors, booked-X + itinerary Thymeleaf
 fragments. Revisit separately; none block the private-event slice.
 
@@ -208,13 +208,19 @@ fragments. Revisit separately; none block the private-event slice.
 
 ## Deferred to follow-ups (NOT in this slice unless Ted says so)
 
+> **Archived 2026-08-21.** The two still-unbuilt items below were **lifted into
+> `../Cleanup_Tasks.md`** so they stay findable; nothing is tracked from this file.
+
 To keep the first slice focused on the leak it closes:
 
 - **Change Private Event** (edit flow) — parallels `ChangeGathering`. A private event can be
-  entered but not yet edited.
+  entered but not yet edited. → **now tracked in `../Cleanup_Tasks.md` (Open)**.
 - **Planned list view** (`/planned-private-events`) with the FUTURE/ALL toggle — so the owner
-  can see upcoming private events in a list, not only on the calendar.
-- **Itinerary entry** — a `PrivateEvent…ItineraryEntry` so it appears in `/itinerary`.
+  can see upcoming private events in a list, not only on the calendar. → **now tracked in
+  `../Cleanup_Tasks.md` (Open)**.
+- ~~**Itinerary entry** — a `PrivateEvent…ItineraryEntry` so it appears in `/itinerary`.~~
+  **Shipped in the slice after all** — `PrivateEventItineraryEntry` is live and
+  `ItineraryRenderer` renders it.
 
 These are real gaps; the calendar + redaction slice is the minimum that closes the leak and
 lets Ted enter a private event safely. Ted to confirm whether any of these belong in v1.

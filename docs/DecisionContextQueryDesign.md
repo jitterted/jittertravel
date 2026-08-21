@@ -8,7 +8,7 @@ This is a discussion record, captured mid-conversation so it can be picked up la
 is built, but the blocker is gone. The design is close to settled; what stopped it was **item 1
 under "Concerns"** — every command gaining a real context query forced the export/import question
 that `Backlog.md` flagged as needing "a wider decision before more commands need folded context."
-**That rethink is now resolved by `EventOrientedBackupRestorePlan.md`**: backup/restore moves to
+**That rethink is now resolved by `archived/EventOrientedBackupRestorePlan.md`**: backup/restore moves to
 event-verbatim, so restore no longer re-executes commands and no command has a decision context to
 fake on import. This slice can proceed. See Concern §1 for the detail.
 
@@ -77,7 +77,7 @@ it with four callers.
 | `EventStore` exposes only `findAll()` — no filtered query | `infrastructure/EventStore.java` |
 | `EventTypes` already maps stable **logical names** ↔ event classes, so classes can move/rename without breaking replay | `infrastructure/EventTypes.java` |
 | The arch test forbids an `EventStore` **constructor parameter type** in `application` — not "any read" | `ApplicationServicesUseCommandExecutorTest.java` |
-| Export/import round-trips `ImportableCommand` records, **not events** — *being retired by `EventOrientedBackupRestorePlan.md` (event-verbatim restore)* | `web/ImportableCommand.java` |
+| Export/import round-trips `ImportableCommand` records, **not events** — *being retired by `archived/EventOrientedBackupRestorePlan.md` (event-verbatim restore)* | `web/ImportableCommand.java` |
 | `ImportableCommand.events()` gets no stream and no read model, so `CancelHotelRequest` hardcodes `new CancelHotelContext(true, null, IMPORT_BYPASS_INSTANT)` — *the fake disappears with command replay* | `web/CancelHotelRequest.java:36-41` |
 
 **Where the prior art lives:** `TaggedEventStoreQueryingDesign.md` is at the **repo root**, not in
@@ -181,7 +181,7 @@ gained a real context query, every importable command would have needed an answe
 The options weighed at the time — keep faking per command; give the importer a real query over a
 virtual not-yet-applied stream; or export events instead of commands — resolved to the last one.
 
-**Resolution: `EventOrientedBackupRestorePlan.md`.** Backup/restore becomes **event-verbatim** —
+**Resolution: `archived/EventOrientedBackupRestorePlan.md`.** Backup/restore becomes **event-verbatim** —
 restore inserts stored events directly and **never re-executes commands**. `ImportableCommand`,
 `events()`, and the whole command-replay path are retired. With no command replay on the restore
 path, there is **no decision context to fake**: a command whose decision depends on folded event

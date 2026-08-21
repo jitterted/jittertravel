@@ -1,6 +1,7 @@
 # Calendar Away Band — see at a glance when Ted is out of town
 
-**Status: SHIPPED 2026-08-20.** Planned, reviewed against the code, and built the same day;
+**Status: SHIPPED — planned 2026-08-20 (`3fca9b6`), built straight through and committed
+2026-08-21 (`d4a9a3f`).** Planned, reviewed against the code, and built in one sitting;
 every question the review raised is decided below (decisions 2 and 5–9). One correction landed
 during implementation — see "the return day, and how it is detected".
 
@@ -302,7 +303,8 @@ That is the entire stylesheet change. Interactions, decided:
 ## What this deliberately does not do
 
 - **No band on the schedule-problems calendar** (`ProblemCalendarViewBuilder`). Different
-  audience, different question; can be a follow-up if Ted wants it there.
+  audience, different question. **Closed 2026-08-21: Ted does not want it there** — this is
+  settled, not a follow-up, and nothing tracks it anywhere else.
 - **No "home" marker.** Away is the exception; mark the exception.
 - **No tinting of the whole day column** — rejected: fights the month-tint alternation and
   the past hatch, and reads heavy.

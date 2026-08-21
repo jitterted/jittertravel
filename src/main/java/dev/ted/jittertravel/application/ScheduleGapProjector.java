@@ -23,7 +23,7 @@ import java.util.stream.Stream;
  * <strong>Any entry kind that has a location must be handled here</strong>, or it becomes invisible
  * to the location trace and silently breaks every problem after it; {@code
  * LocatedEventsReachScheduleProblemsTest} enforces that. See
- * {@code docs/ScheduleProblemsRewritePlan.md}.
+ * {@code docs/archived/ScheduleProblemsRewritePlan.md}.
  */
 public class ScheduleGapProjector implements EventStreamConsumer {
 

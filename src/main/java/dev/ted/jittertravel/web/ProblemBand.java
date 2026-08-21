@@ -17,7 +17,7 @@ import java.util.stream.Stream;
  * <p>
  * This is the problem calendar's own view type. It deliberately shares nothing with
  * {@code CalendarEntry}, which is shaped for the public calendar and is about to be split by the
- * S2+E2 refactor — see {@code docs/ProblemCalendarPlan.md}.
+ * S2+E2 refactor — see {@code docs/archived/ProblemCalendarPlan.md}.
  * <p>
  * {@code fixes} come from {@link ProblemFix#forProblem}, the same mapping the list cards read, so
  * the two views can never offer different answers to the same problem.

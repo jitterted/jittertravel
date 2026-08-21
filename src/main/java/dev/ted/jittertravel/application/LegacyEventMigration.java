@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Eager legacy-event migration (see {@code docs/LegacyEventEagerMigrationPlan.md}). Bakes the current
+ * Eager legacy-event migration (see {@code docs/archived/LegacyEventEagerMigrationPlan.md}). Bakes the current
  * payload shape and per-type {@code schema_version} stamp into {@code event_log} <em>once</em>, so the
  * read-time upcaster — and the {@link LocationZoneResolver} it calls — leave the boot-replay path.
  *

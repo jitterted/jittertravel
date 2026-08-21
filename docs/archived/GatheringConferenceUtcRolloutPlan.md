@@ -2,7 +2,7 @@
 
 Third and final slice of `docs/UtcDatetimeStoragePlan.md` phase 2. Hotels, trains and flights already
 ship the pattern (`ZonedTimestamp` events, boundary zone resolution, read-time upcaster, `<time>`
-rendering); see `docs/TrainFlightUtcRolloutPlan.md` for the previous slice. Gatherings and
+rendering); see `docs/archived/TrainFlightUtcRolloutPlan.md` for the previous slice. Gatherings and
 conferences are the only event types still storing bare wall-clock times.
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done.
@@ -17,7 +17,7 @@ it, view/projectors/web/upcaster, and the `ScheduleGapProjector` instant sweep (
 Full suite green (596) plus `-Pjs-tests` (5). **Still open in this slice:** tests 4 and 8 below, and
 `PlannedGatheringsRenderer`'s deferred `<time>` treatment (gathering step 9).
 
-**2026-08-05:** the review (`docs/UtcDatetimePlanReview.md`, folded into the master plan) added
+**2026-08-05:** the review (`docs/archived/UtcDatetimePlanReview.md`, folded into the master plan) added
 ride-along items to the conference steps below — they're mirrored in here at their anchor points,
 marked *(review ride-along)*. The master plan's "Bugs" section (R1–R3) also matters to this slice:
 fix **R1** (deterministic `commandId()` for `MigrateConferenceToGathering` /

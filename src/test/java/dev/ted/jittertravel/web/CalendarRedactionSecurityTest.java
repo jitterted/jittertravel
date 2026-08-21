@@ -97,7 +97,7 @@ class CalendarRedactionSecurityTest {
     void anonymousUserSeesTheAwayBand() {
         // The away band is public by decision: it aggregates day-granularity travel facts that
         // are already published, and assembling them by eye takes no effort. This is the case
-        // that would go red if the band ever grew a viewer check — see docs/CalendarAwayBandPlan.md.
+        // that would go red if the band ever grew a viewer check — see docs/archived/CalendarAwayBandPlan.md.
         given(scheduleGapProjector.awayDays()).willReturn(Set.of(LocalDate.of(2026, 7, 5)));
 
         assertThat(mockMvc.get().uri("/calendar").with(anonymous()))

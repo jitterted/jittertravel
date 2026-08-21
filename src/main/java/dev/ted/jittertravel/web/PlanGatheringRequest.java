@@ -22,7 +22,7 @@ public class PlanGatheringRequest {
     private String zone;
 
     // The wire shape stays date + two times even though the event now stores two instants: that is
-    // what keeps pre-migration backups importable (see docs/GatheringConferenceUtcRolloutPlan.md).
+    // what keeps pre-migration backups importable (see docs/archived/GatheringConferenceUtcRolloutPlan.md).
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate date;
 

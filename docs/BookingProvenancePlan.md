@@ -28,7 +28,7 @@ Two reasons, both operational rather than informational:
    which door to knock on, and it is the thing you least want to work out under time pressure.
 
 This pairs directly with the **cancel-by deadline** already on `HotelBooked` and the iCal alarms
-built from it (`CalendarSubscriptionFeedPlan.md`): the alarm says *when* to act, and provenance says
+built from it (`archived/CalendarSubscriptionFeedPlan.md`): the alarm says *when* to act, and provenance says
 *where and how*. The obvious first surface is the cancel-hotel page, which today tells Ted the
 deadline and nothing about the channel.
 

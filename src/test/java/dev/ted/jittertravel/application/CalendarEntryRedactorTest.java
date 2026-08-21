@@ -215,7 +215,7 @@ class CalendarEntryRedactorTest {
      * A private social event is the one entry kind that IS redacted for anonymous viewers: the
      * title becomes "Busy", the venue name is dropped, and the owner's re-localizing time
      * {@link SubtitleLine.Range} becomes a fixed, zone-labelled {@link SubtitleLine.FixedRange}.
-     * Only the city and the time survive. (See docs/PrivateSocialEventPlan.md and CLAUDE.md.)
+     * Only the city and the time survive. (See docs/archived/PrivateSocialEventPlan.md and CLAUDE.md.)
      */
     @Test
     void privateEventBecomesBusyDroppingTitleAndVenue() {

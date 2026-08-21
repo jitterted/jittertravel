@@ -41,17 +41,6 @@ public class OneOffTaskRegistry {
                         Back up first — this rewrites rows.""",
                         "/admin/migrate-legacy-events",
                         "Open the migration page",
-                        LocalDate.of(2026, 8, 19)),
-                new OneOffTask(
-                        "backfill-conference-attendance",
-                        "Backfill conference attendance",
-                        """
-                        Conferences planned before the commitment slice have no \
-                        ConferenceAttendanceConfirmed, so they all read "Maybe" on the public \
-                        calendar. Confirm dev2next, ExploreDDD and SoCraTes through the real UI, \
-                        recording each one's end state. J-Fall waits for CfpOpened in slice 3.""",
-                        "/conferences",
-                        "Open the conference list",
                         LocalDate.of(2026, 8, 19)));
     }
 

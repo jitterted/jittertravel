@@ -11,7 +11,7 @@
 //
 // The Plan Tentative Conference flow below is accurate and shipped, except that the schema shows
 // bare LocalDateTime: startDate/endDate are ZonedTimestamp as of 67a47af (see
-// docs/GatheringConferenceUtcRolloutPlan.md).
+// docs/archived/GatheringConferenceUtcRolloutPlan.md).
 
 [flows]
 ui:Enter Tentative Conference

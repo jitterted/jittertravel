@@ -53,7 +53,7 @@ import java.util.Map;
  *       before that run; see {@code docs/EventTypeColumnNormalizationPlan.md}.</li>
  *   <li><b>Migrate an event's payload schema:</b> bump its {@code currentSchemaVersion} here (the
  *       third {@code register} argument) so new appends and the eager migration stamp the new
- *       number. See {@code docs/LegacyEventEagerMigrationPlan.md}.</li>
+ *       number. See {@code docs/archived/LegacyEventEagerMigrationPlan.md}.</li>
  * </ul>
  *
  * <p><b>Schema versions are per type, not global.</b> A type's version counts <em>its own</em>

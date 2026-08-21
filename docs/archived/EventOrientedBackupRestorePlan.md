@@ -6,7 +6,7 @@ backup/restore rename all landed. Rebuild-on-restart (decision 5) is the boot re
 rebuild was added.
 **Supersedes:** the command-replay export/import (`CommandImporter`, `ImportableCommand`,
 `ImportableCommandTypes`) in its entirety.
-**Unblocks:** `DecisionContextQueryDesign.md` (its Concern §1 dissolves — see "Ripple effects").
+**Unblocks:** `../DecisionContextQueryDesign.md` (its Concern §1 dissolves — see "Ripple effects").
 
 ## Why this exists
 
@@ -22,7 +22,7 @@ is a misuse of the command log, and it has three concrete costs:
 2. **Every command must fake its decision context on import.** `ImportableCommand.events()` gets
    no event stream and no read model, so `CancelHotelRequest` hardcodes
    `new CancelHotelContext(true, null, IMPORT_BYPASS_INSTANT)`. Each fake is an untested
-   behavioural fork between live and import. This is the wall `DecisionContextQueryDesign.md` hit.
+   behavioural fork between live and import. This is the wall `../DecisionContextQueryDesign.md` hit.
 3. **Re-execution couples the backup format to live domain logic.** A backup can only be restored
    by code that can still re-run the exact command logic that produced it.
 
@@ -324,12 +324,12 @@ rebuild".)
 
 ## Ripple effects
 
-- **`DecisionContextQueryDesign.md` is unblocked.** Its Concern §1 (the import blocker) disappears:
+- **`../DecisionContextQueryDesign.md` is unblocked.** Its Concern §1 (the import blocker) disappears:
   restore no longer calls `command.events()`, so a command whose decision depends on folded event
   state has **nothing to fake** — its events are restored directly. Update that doc's status from
   `paused — blocked on the export/import rethink` and revise Concern §1 to "resolved by
   `EventOrientedBackupRestorePlan.md`". *(Ask Ted before editing that doc.)*
-- **`Backlog.md`** — the "Export/import needs a wider decision" loose follow-up is now *owned* by
+- **`../Backlog.md`** — the "Export/import needs a wider decision" loose follow-up is now *owned* by
   this doc; add a row and flip the DecisionContextQueryDesign entry off "blocked". *(Ask first.)*
 - **`ApplicationServicesUseCommandExecutorTest`** still passes: `BackupService` does not take
   `EventStore` as a constructor parameter; verbatim inserts live in `PostgresPersister`.

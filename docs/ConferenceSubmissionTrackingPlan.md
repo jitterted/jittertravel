@@ -176,7 +176,7 @@ and would break existing backup files. A single `ConferenceStatusChanged(status,
 genuinely different facts ("organizers rejected me" vs. "I changed my mind"), give talk titles
 nowhere to live, and could not represent three submissions to one conference. Explicit events also
 cost far less than they used to: `ImportableCommand` and the command-replay round-trip plumbing were
-deleted with `EventOrientedBackupRestorePlan.md`, so a new command is now just the command, the
+deleted with `archived/EventOrientedBackupRestorePlan.md`, so a new command is now just the command, the
 handler, and the projector branch.
 
 ### Derived status, not stored status
@@ -443,7 +443,7 @@ projection over the event. Safe on the private side: CFP dates are OWNER-only, a
 already token-gated **unredacted owner data** (never the public `/calendar`).
 
 Architecturally this is the moment the deferred `ICalEventSource` abstraction earns itself:
-`CalendarSubscriptionFeedPlan.md` deliberately held it back "until the 2nd contributor (no abstraction
+`archived/CalendarSubscriptionFeedPlan.md` deliberately held it back "until the 2nd contributor (no abstraction
 before 2nd user)." **CFP deadlines are that second contributor** — so introduce `ICalEventSource`
 cleanly here, alongside the existing hotel-cancel source, rather than speculatively earlier.
 
@@ -657,7 +657,7 @@ titles, CFP dates, decision dates, and every free-text reason.
 internal corporate engagement has no public venue or time, and must **not** be modelled as a
 conference or gathering to get a speaking badge — it needs its own `EntryKind`, exactly as the private
 social event does. This is the same trap CLAUDE.md already flags for private dinners: reusing
-GATHERING for a private-ish thing publishes it in full. See `docs/PrivateSocialEventPlan.md` for the
+GATHERING for a private-ish thing publishes it in full. See `docs/archived/PrivateSocialEventPlan.md` for the
 sibling pattern; a private speaking engagement is a second instance of it, not a variation of this
 plan.
 

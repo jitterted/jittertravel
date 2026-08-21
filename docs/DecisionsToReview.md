@@ -147,7 +147,7 @@ Follows `ChangeHotelRequest` and `ClearDifferentCityConflict`.
 
 **Original concern (obsolete):** it was framed around command-replay *import* resumability —
 re-importing a backup would re-apply this command under a new id rather than skip it. That model no
-longer exists: backup/restore is event-oriented (`EventOrientedBackupRestorePlan.md`, 2026-08-11),
+longer exists: backup/restore is event-oriented (`archived/EventOrientedBackupRestorePlan.md`, 2026-08-11),
 restoring stored **events** verbatim and never re-executing commands, so a request's `commandId()`
 is minted once at the boundary and never replayed from a backup. There is nothing left to review
 here — a fresh random command id at the controller boundary is the correct, uniform pattern.

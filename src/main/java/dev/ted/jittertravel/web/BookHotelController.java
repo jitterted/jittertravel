@@ -42,7 +42,7 @@ public class BookHotelController {
      * unchanged, so the index nav card and the day-menu link behave exactly as before.
      * <p>
      * No zone is prefilled: the night sweep's location map is keyed city-only, so there is none to
-     * carry (F5 in {@code docs/ProblemCalendarPlan.md}).
+     * carry (F5 in {@code docs/archived/ProblemCalendarPlan.md}).
      */
     @GetMapping("/book-hotel")
     public String bookHotelForm(Model model,

@@ -73,7 +73,7 @@ is the only one that makes sense on a cancelled booking.
   `HotelBookingId`, so the history stays in one place.
 - Needs a golden sample in `GoldenEventDeserializationTest` for the new event (standard practice
   for every new event). No import/round-trip branch: backup/restore is event-oriented now
-  (`EventOrientedBackupRestorePlan.md`), so a new event is stored and restored verbatim — the old
+  (`archived/EventOrientedBackupRestorePlan.md`), so a new event is stored and restored verbatim — the old
   `CommandExportImportRoundTripTest` and per-command import branches were retired with it.
 
 **When to build:** When a mis-entered cancellation actually costs Ted a re-entry — or alongside

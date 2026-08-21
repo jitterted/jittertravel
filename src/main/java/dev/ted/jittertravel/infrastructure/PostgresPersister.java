@@ -353,7 +353,7 @@ public class PostgresPersister {
     /**
      * Every command_log row — all statuses (SUCCEEDED, FAILED_DOMAIN, FAILED_PERSIST, PENDING,
      * ABANDONED), all columns — for an event-oriented backup (see
-     * docs/EventOrientedBackupRestorePlan.md). Carries event_ids/status/error so the
+     * docs/archived/EventOrientedBackupRestorePlan.md). Carries event_ids/status/error so the
      * command-to-event linkage survives verbatim. {@code type} and {@code payloadJson} are
      * opaque here — restore never resolves or re-runs a command.
      */
@@ -423,7 +423,7 @@ public class PostgresPersister {
      * command_log or a sequence already in event_log is skipped (ON CONFLICT DO NOTHING), so a
      * partially-applied restore resumes by re-running the same file. This does not go through
      * CommandExecutor by design: it is a bulk load of already-durable events, not new events
-     * appended from a command (see docs/EventOrientedBackupRestorePlan.md).
+     * appended from a command (see docs/archived/EventOrientedBackupRestorePlan.md).
      *
      * <p>Returns how many rows were actually inserted; a restore that skipped everything
      * (all ids already present) returns zeros, so a caller can report restored-vs-skipped.
@@ -476,7 +476,7 @@ public class PostgresPersister {
      * logical name, so a row stored under a retired wire id stops needing an {@code EventTypes} alias
      * to resolve (see {@code docs/EventTypeColumnNormalizationPlan.md}). Used by the eager legacy
      * migration (see
-     * {@code docs/LegacyEventEagerMigrationPlan.md}); never on the append path, which stamps at write
+     * {@code docs/archived/LegacyEventEagerMigrationPlan.md}); never on the append path, which stamps at write
      * time. Returns the number of rows updated. Not routed through {@code CommandExecutor}: it appends
      * no new events, it rewrites existing ones — the orchestrating service performs the read-only
      * check up front, mirroring restore.

@@ -2,7 +2,7 @@
 
 **Status:** `built 2026-08-16` — shipped as an OWNER-only admin action plus a per-event schema-version
 stamp and a boot-replay preflight (see "What shipped" below). Drafted after the 2026-08-16 production
-incident (see "Why this exists"). **Related:** `UtcDatetimeStoragePlan.md` (introduced read-time zone
+incident (see "Why this exists"). **Related:** `../UtcDatetimeStoragePlan.md` (introduced read-time zone
 resolution), `EventOrientedBackupRestorePlan.md` (verbatim backup writes the raw payload, so it never
 heals a legacy row), `LocationZoneResolver`, `EventPayloadUpcaster`.
 
@@ -20,7 +20,7 @@ Built together in one session; full suite green at 880.
   chain driven by the stamp) was deliberately deferred until a second real migration shaped it
   (no-abstraction-before-second-user). **That framework is now built** (2026-08-18): the second
   migration — `ConferencePlanned` v2→v3 adding `format` — is what shaped it. See
-  `EventPayloadUpcasterDesign.md` for the version-ladder design; the summary is that
+  `../EventPayloadUpcasterDesign.md` for the version-ladder design; the summary is that
   `EventPayloadUpcaster` became a composite that climbs a payload from its stored `schema_version`
   to current by applying one small `EventUpcaster` rung per version step.
 - **Backup format v3.** `BackupService` writes v3 (events carry `schemaVersion`) and **restores both
@@ -216,11 +216,11 @@ window in which an old backup matters is short.
 - **`EventPayloadUpcaster`** keeps its wire-id normalization and the legacy timezone rungs until old
   backups are gone, then sheds those rungs by deleting the `*TimeZoneUpcaster` classes. The composite
   itself survives for any *future* shape migration (it is now a general version-ladder — see
-  `EventPayloadUpcasterDesign.md`).
+  `../EventPayloadUpcasterDesign.md`).
 - **`EventTypes`** can drop the FQCN wire-id mapping only if `type` normalization is included **and**
   old backups are retired.
 - **Boot-replay preflight** (separate cleanup item) is the tool that certifies each retirement above.
-- **Backlog.md** gets a row (this doc) under "Open cleanups" / a new plan row.
+- **`../Backlog.md`** gets a row (this doc) under "Open cleanups" / a new plan row.
 
 ## Open decisions for Ted
 

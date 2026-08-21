@@ -32,7 +32,7 @@ Covered by `EventStoreTest.subscribersNotNotifiedWhenPersistenceFails()`.
 Backup/restore is **event-oriented**: `BackupService` writes every `event_log` row verbatim
 (same ids, sequences, timestamps, `schema_version` stamp) and restores them verbatim — it does
 **not** re-execute commands (commands ride along as opaque history for a future undo; see
-`docs/EventOrientedBackupRestorePlan.md`). `BackupService.restoreJson` runs two passes: pass one
+`docs/archived/EventOrientedBackupRestorePlan.md`). `BackupService.restoreJson` runs two passes: pass one
 deserializes, upcasts, and **bind-checks** every event **writing nothing**, pass two applies them
 (via `CommandExecutor`, per the rule above). Any validation error means zero writes, and *all* bad
 entries are reported together. `validateJson` exposes pass one on its own as a dry run for
@@ -105,7 +105,7 @@ or that banded days no public entry accounts for, would be a new disclosure and 
 zone-labelled time range, and city/country, and nothing else — never the title. Do **not** model
 a private-ish event as a GATHERING to reuse its rendering (gatherings are fully public). Any *new*
 private-ish entry kind must likewise get its own redacting branch, never reuse GATHERING —
-`PRIVATE_EVENT` is the pattern to copy. See `docs/PrivateSocialEventPlan.md`.
+`PRIVATE_EVENT` is the pattern to copy. See `docs/archived/PrivateSocialEventPlan.md`.
 
 **Rules for writing the code:**
 

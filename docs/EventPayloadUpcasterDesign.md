@@ -1,11 +1,11 @@
 # Event Payload Upcaster — the read-time version ladder
 
 **Status:** `built 2026-08-18`. Reference doc for the general-purpose event-payload migration
-mechanism. **Related:** `LegacyEventEagerMigrationPlan.md` (the per-event `schema_version` stamp and
+mechanism. **Related:** `archived/LegacyEventEagerMigrationPlan.md` (the per-event `schema_version` stamp and
 the admin action that permanently rewrites stored rows), `UtcDatetimeStoragePlan.md` (the first
 migration — datetimes → `ZonedTimestamp`), `ConferenceSubmissionTrackingPlan.md` (the second
 migration — conference `format` — which shaped this framework out of the original single class),
-`EventOrientedBackupRestorePlan.md` (verbatim backup, so a stored row is never healed by writing),
+`archived/EventOrientedBackupRestorePlan.md` (verbatim backup, so a stored row is never healed by writing),
 `EventTypeColumnNormalizationPlan.md` (proposed: rewriting the `type` column, and what it costs a
 rollback).
 
@@ -147,7 +147,7 @@ small class + its test.
 
 A rung exists only to read rows older than it. Once **every stored row and every restorable backup**
 is at or above version *N+1* (i.e. the eager migration has permanently rewritten the store *and* no
-pre-migration backup remains in rotation — see `LegacyEventEagerMigrationPlan.md`), the *N*→*N+1* rung
+pre-migration backup remains in rotation — see `archived/LegacyEventEagerMigrationPlan.md`), the *N*→*N+1* rung
 is dead code. Retire it by **deleting the class and dropping it from `standard(...)`**.
 
 The safety net is structural: if a row is ever read that still sits *below* a deleted rung, the climb

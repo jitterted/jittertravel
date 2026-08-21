@@ -79,7 +79,7 @@ public class CalendarEntryRedactor {
             );
             // A private social event: anonymous viewers see only that Ted is "Busy", when
             // (the time in the event's own zone, via FixedRange), and the city/country — never
-            // the title, the venue, or an edit link. See docs/PrivateSocialEventPlan.md and
+            // the title, the venue, or an edit link. See docs/archived/PrivateSocialEventPlan.md and
             // CLAUDE.md. This is the one redacted output that deliberately keeps a
             // ZonedTimestamp (the time is public in its own zone by decision).
             case PRIVATE_EVENT -> redactPrivateEvent(entry);

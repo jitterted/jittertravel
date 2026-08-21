@@ -2,9 +2,9 @@
 
 **Status:** `design 2026-08-19, nothing built`. The trigger to build it is the **first rung
 retirement**; before that every floor is 1 and the check is dead code. **Related:**
-`EventPayloadUpcasterDesign.md` ("How to retire a rung"), `LegacyEventEagerMigrationPlan.md`
+`EventPayloadUpcasterDesign.md` ("How to retire a rung"), `archived/LegacyEventEagerMigrationPlan.md`
 (retirement is gated on old backups leaving rotation), `MigrationLessonsLearned.md` (follow-up 3, the
-undrawn retirement date), `EventOrientedBackupRestorePlan.md` (restore is validate-then-apply).
+undrawn retirement date), `archived/EventOrientedBackupRestorePlan.md` (restore is validate-then-apply).
 
 ## The question
 

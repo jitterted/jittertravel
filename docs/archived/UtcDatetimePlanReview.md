@@ -5,7 +5,7 @@
 > improvements" sections); the checkboxes below are no longer maintained.
 
 Scope agreed with Ted: prioritize what affects the **upcoming conference slice**
-(`docs/GatheringConferenceUtcRolloutPlan.md`), then bugs/risks, plan-status corrections, missing
+(`docs/archived/GatheringConferenceUtcRolloutPlan.md`), then bugs/risks, plan-status corrections, missing
 tests, and smaller design improvements. Context confirmed during review: production server runs in
 **UTC**; existing backup files contain **both** `MigrateConferenceToGathering` and
 `ClearDifferentCityConflict` entries; phase 4 (browser-zone display, FAMILY/ANON roles) is still
@@ -88,7 +88,7 @@ renderer work on `ScheduleProblemsRenderer`.
 
 ## 2. Conference slice — review of the planned work
 
-The plan itself (`docs/GatheringConferenceUtcRolloutPlan.md`, conference steps 1–7) is sound and
+The plan itself (`docs/archived/GatheringConferenceUtcRolloutPlan.md`, conference steps 1–7) is sound and
 the gathering slice proved the pattern. Points to fold in:
 
 1. `[ ]` **Urgency note:** the server runs UTC, so `ConferenceView.relevantUntil()`'s

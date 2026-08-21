@@ -14,7 +14,7 @@ import java.time.LocalTime;
  * <p>
  * NOTE: {@code getLocation()} duplicates {@link PlanGatheringRequest#getLocation()}; a shared
  * {@code VenueEventRequest} interface (the {@link HotelStayRequest} analog) is now a real two-user
- * dedup — see docs/PrivateSocialEventPlan.md, deferred pending Ted's call.
+ * dedup — see docs/archived/PrivateSocialEventPlan.md, deferred pending Ted's call.
  */
 public class PlanPrivateEventRequest {
     private String privateEventId;

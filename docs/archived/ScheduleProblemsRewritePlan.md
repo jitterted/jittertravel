@@ -374,9 +374,13 @@ them apart, which is the argument for the acceptance suite in one sentence.
 
 ## Open
 
+> **Archived 2026-08-21.** This plan is history now; its one remaining item was **lifted into
+> `../Cleanup_Tasks.md`** so it stays findable. Nothing below is tracked from this file.
+
 - **The mirror image of D14**: a gap *into* home still spans every day from the last away fact to
   the next home departure. Collapsing it costs `relevantUntil()`, so it needs a decision, not just
-  a symmetric edit.
+  a symmetric edit. → **now tracked in `../Cleanup_Tasks.md` (Open)**; D13 and D14 above are the
+  context to read first.
 - ~~Whether the problem calendar's Travel lane needs revisiting once the phantom bands stop being
   drawn.~~ **Closed 2026-08-20**: Ted read the live calendar with real bands and it looks right;
   the quirks left are minor enough not to write down.

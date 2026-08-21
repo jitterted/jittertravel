@@ -84,7 +84,7 @@ The gap became visible on 2026-08-20. A conference sits in **Lone Tree, CO**; th
 things are wrong there:
 
 1. A conference has no `locationForMatching` (`PlanConferenceRequest:130` always passes `null`), so
-   the two names cannot be reconciled. That is a **separate** fix, tracked in `Cleanup_Tasks.md`.
+   the two names cannot be reconciled. That is a **separate** fix, tracked in `../Cleanup_Tasks.md`.
 2. Even with the names reconciled, **there really is a journey** between the airport and the venue,
    and the app cannot record it. This plan is that record.
 
@@ -135,7 +135,7 @@ public record GroundTransferPlanned(
 
 **Flat, not a sealed `TransferPoint` hierarchy.** A sealed `AirportPoint | PlacePoint` reads better,
 but a polymorphic record inside an event payload needs Jackson type information in the stored JSON,
-and every stored payload is a compatibility commitment (see `Event_Serialization_Contract_Tests.md`).
+and every stored payload is a compatibility commitment (see `../Event_Serialization_Contract_Tests.md`).
 Two `String`s and an `Address` per end cost nothing at rest. The redactor's rule is simple: **if the
 airport code is non-blank, publish the code; otherwise publish city / region / country.** The name is
 never published.
@@ -366,14 +366,14 @@ endpoint resolution, minus the future-date rejection D6 removes. One focused ses
   shipped 2026-08-20**, the day after, as the named fast-follow — see "Cancel, as built" below.
   **Change is still deferred**, and now costs little: correcting a transfer is cancel-then-enter,
   which is two forms rather than one and loses nothing, since both ends are snapshots anyway. It is
-  tracked in `Cleanup_Tasks.md` under **Deferred (until needed)** — not queued, with the trigger
+  tracked in `../Cleanup_Tasks.md` under **Deferred (until needed)** — not queued, with the trigger
   named: re-entering transfers often enough to notice, most likely once a `mode` field lands (D7).
 - **Time ordering on the calendar.** Ted saw a 3:55 PM flight render above the 1:00 PM transfer
   that fed it (2026-08-20) and chose to **leave the lanes as they are**. This is not a ground-
   transfer bug: the calendar lays every kind out in a fixed lane band, so no entry is time-ordered
   against another kind, and reordering `EntryKind` cannot fix it because a transfer runs both ways.
   The itinerary already sorts across kinds by time. Fixing the calendar means abandoning lanes —
-  captured, with the multi-day problem that makes it hard, in `Future_Feature_Slices.md`
+  captured, with the multi-day problem that makes it hard, in `../Future_Feature_Slices.md`
   ("Time-ordered calendar days").
 - A transfer with a **venue endpoint** — no hotel or airport at one end (D12 dropped the free-text
   token). Until then the venue-side hop is recorded hotel-to-hotel or not at all.

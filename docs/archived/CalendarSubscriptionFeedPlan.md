@@ -162,7 +162,9 @@ because nothing is emitted during event replay).
 
 - **Phase 1 (this plan builds):** cancel-deadline reminders only.
 - **Left open (not built now):** a full travel calendar (flights, trains, hotel stays, gatherings,
-  conferences) served from the same feed. See "Extension seam" below.
+  conferences) served from the same feed. See "Extension seam" below. → **Archived 2026-08-21;
+  this Phase 2 was lifted into `../Cleanup_Tasks.md` (Open)** so it stays findable, together with
+  the feed-shape question the extension seam defers to it.
 
 ## Why a subscription feed (vs SMS / email / push)
 

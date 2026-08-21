@@ -10,7 +10,7 @@
 `/planned-gatherings` is a read-only j2html list (with the shared FUTURE/ALL toggle) and there is
 no way to correct a gathering once planned. This slice lets the owner **edit an existing planned
 gathering in place** — same `GatheringId`, full-snapshot overwrite — modeled directly on the
-`ChangeTrain` slice (`docs/ChangeTrainPlan.md`), which is the most recent and most
+`ChangeTrain` slice (`docs/archived/ChangeTrainPlan.md`), which is the most recent and most
 convention-compliant in-place change feature.
 
 Branch note: this work is based on **`2800b83` (production)**, deliberately excluding the

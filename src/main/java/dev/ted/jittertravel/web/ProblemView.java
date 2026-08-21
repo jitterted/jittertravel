@@ -5,7 +5,7 @@ import java.util.Locale;
 /**
  * Which of the two views of the schedule-problems report is showing: the four-column card
  * {@link #LIST}, or the week-row {@link #CALENDAR}. Both live at {@code /schedule-problems},
- * selected by {@code ?view=} — see {@code docs/ProblemCalendarPlan.md}.
+ * selected by {@code ?view=} — see {@code docs/archived/ProblemCalendarPlan.md}.
  */
 public enum ProblemView {
     LIST,

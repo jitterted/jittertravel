@@ -130,7 +130,7 @@ here as `@EventSchema(version = N)` + upcaster chain). Both halves shipped:
   job, so that proposal is obsolete — do not add a second discriminator
   mechanism.)
 - *Version:* a per-row `event_log.schema_version` column (a column, not a
-  payload key — see `LegacyEventEagerMigrationPlan.md`), with the current
+  payload key — see `docs/archived/LegacyEventEagerMigrationPlan.md`), with the current
   version per type hanging off `EventTypes.register(...)`, and
   `EventPayloadUpcaster` climbing one `EventUpcaster` rung per version step
   on every read path. This is the **runtime** guarantee this entry wanted.

@@ -11,7 +11,7 @@
 way to correct a booking. We want to let the owner **edit an existing booked hotel in place**
 — same `HotelBookingId`, full-snapshot overwrite — to fix things like the check-in time or a
 wrong location. Modeled directly on the just-shipped **Change Train** slice
-(`docs/ChangeTrainPlan.md`, `ChangeTrainCommand` / `ChangeTrain` / `ChangeTrainController`).
+(`docs/archived/ChangeTrainPlan.md`, `ChangeTrainCommand` / `ChangeTrain` / `ChangeTrainController`).
 
 This is the *in-place change* model (one `HotelChanged` event overwrites every hotel
 projection), **not** the cancel+replace model in `docs/HotelCancelReplacePlan.md` — that work

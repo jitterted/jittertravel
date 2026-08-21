@@ -383,7 +383,7 @@ The question Ted put: *number of records is not the only useful measure; as more
 public and some private, what is the near-future impact on **coupling** and **testability**?*
 
 The near future is concrete. `docs/ConferenceSubmissionTrackingPlan.md` and
-`docs/PrivateSocialEventPlan.md` between them require at least one more private kind — the
+`docs/archived/PrivateSocialEventPlan.md` between them require at least one more private kind — the
 company-internal speaking engagement, which must **not** be modelled as a conference or gathering.
 Every private kind after it is the same case. So assume: kinds keep arriving, and most new private
 ones collapse publicly to "Busy".

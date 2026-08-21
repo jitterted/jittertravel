@@ -20,14 +20,14 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Event-oriented backup and restore (see {@code docs/EventOrientedBackupRestorePlan.md}). Writes a
+ * Event-oriented backup and restore (see {@code docs/archived/EventOrientedBackupRestorePlan.md}). Writes a
  * single {@code version: 3} JSON document holding the whole {@code command_log} and
  * {@code event_log}, and restores those rows <em>verbatim</em> — same event ids, sequences and
  * timestamps. This supersedes the command-replay import: commands are opaque history here, never
  * re-executed, so nothing has to fake a decision context.
  *
  * <p><strong>Format versions.</strong> {@code version 3} adds the per-event {@code schemaVersion}
- * stamp (see {@code docs/LegacyEventEagerMigrationPlan.md}); {@code version 2} is the pre-stamp
+ * stamp (see {@code docs/archived/LegacyEventEagerMigrationPlan.md}); {@code version 2} is the pre-stamp
  * event-oriented format. Both restore — a v2 event simply carries no stamp (null), exactly like a
  * pre-migration {@code event_log} row — so an older backup is never orphaned by upgrading. Only the
  * long-dead {@code version 1} command-only format is unrestorable.

@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * Pre-deploy boot-replay preflight (see {@code docs/LegacyEventEagerMigrationPlan.md} and the
+ * Pre-deploy boot-replay preflight (see {@code docs/archived/LegacyEventEagerMigrationPlan.md} and the
  * Cleanup-Tasks item). Replays every event in a <em>production copy</em> through the exact read path
  * boot uses — {@link EventPayloadUpcaster#upcast} → {@link EventTypes#classFor} → bind, including zone
  * resolution — and fails if any row cannot be read, <em>before</em> that build is deployed. This is

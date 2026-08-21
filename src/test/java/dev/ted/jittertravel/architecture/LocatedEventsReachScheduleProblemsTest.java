@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * shipped with a city and a time and never reached the projector at all.
  * <p>
  * So this is not a completeness nicety; it is the standing rule from
- * {@code docs/ScheduleProblemsRewritePlan.md} D9, made to fail the build. {@link Event} is
+ * {@code docs/archived/ScheduleProblemsRewritePlan.md} D9, made to fail the build. {@link Event} is
  * deliberately not sealed (see CLAUDE.md on event exhaustiveness), so a compile-time check is not
  * available and a source scan is what is left.
  */
@@ -64,7 +64,7 @@ class LocatedEventsReachScheduleProblemsTest {
                     location trace cannot see them — and every problem after one of them is wrong, \
                     silently. Add a case to its switch that builds a ScheduleTimeline presence \
                     fact: an Occupancy for something Ted attends, a Stay for a booking, a Movement \
-                    for a leg. See docs/ScheduleProblemsRewritePlan.md D9.""")
+                    for a leg. See docs/archived/ScheduleProblemsRewritePlan.md D9.""")
                 .isEmpty();
     }
 

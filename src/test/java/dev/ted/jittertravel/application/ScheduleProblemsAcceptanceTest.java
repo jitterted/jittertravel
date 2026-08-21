@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.tuple;
 
 /**
  * The acceptance suite for schedule-problem detection: three real itineraries Ted supplied, with
- * the problems he expects from each. See {@code docs/ScheduleProblemsRewritePlan.md}.
+ * the problems he expects from each. See {@code docs/archived/ScheduleProblemsRewritePlan.md}.
  * <p>
  * These assert against {@link ScheduleGapProjector#problems()} only — no internals — so they
  * survive the detector being rewritten underneath them, which is the point. The unit-level rules
@@ -312,7 +312,7 @@ class ScheduleProblemsAcceptanceTest {
      * The gap a ground transfer exists to close (Ted, 2026-08-20): the flight lands at DEN, the
      * conference is in Lone Tree, and the journey between them is real but was unrecordable — so
      * {@code /schedule-problems} reported missing travel that no booking could ever satisfy. See
-     * {@code docs/GroundTransferPlan.md}.
+     * {@code docs/archived/GroundTransferPlan.md}.
      */
     @Nested
     class AirportToVenueHop {

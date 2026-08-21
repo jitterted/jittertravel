@@ -167,7 +167,7 @@ clock.
    turns the report into an action list. Designed below.
 
 **Slice 5 ships before slice 4** (Ted, 2026-08-20): "easily fixing the problems is most important."
-The numbers stay as they are — they are identities now, referenced from `Backlog.md` and from
+The numbers stay as they are — they are identities now, referenced from `../Backlog.md` and from
 `ProblemBand`'s javadoc — but the order of work is 5, then 4.
 
 ## Slice 5 — Fix links (both views)
@@ -217,7 +217,7 @@ transfer — the taxi from the airport, the subway to the venue. So the fix list
 nature* for at least one problem type, and the presentation cannot assume "one link, maybe two".
 That is what F9 settles.
 
-The third answer now has a home: **`docs/GroundTransferPlan.md`** (Ted, 2026-08-20) — an
+The third answer now has a home: **`docs/archived/GroundTransferPlan.md`** (Ted, 2026-08-20) — an
 `EntryKind.GROUND_TRANSFER` with its own event, its own redaction branch, and a `Movement` case in
 `ScheduleGapProjector`, so a transfer *closes* the gap rather than silencing it. Its fix item is
 **Add ground transfer** → `/plan-ground-transfer?date=…`, listed after train.
@@ -414,7 +414,7 @@ each.
 ## Open
 
 - ~~What the third answer to a travel gap actually is.~~ **Closed 2026-08-20**: Ted wrote
-  `docs/GroundTransferPlan.md` — the transfer is modelled as its own located entry kind, so it
+  `docs/archived/GroundTransferPlan.md` — the transfer is modelled as its own located entry kind, so it
   contributes a presence fact and *closes* the gap. The rejected alternative was dismissing the gap
   (a `DifferentCityConflictCleared` analogue), which is cheaper but a plaster: `MissingTravel`
   carries no ids, so a dismissal keyed to a city pair and two instants would have to lapse when
@@ -424,3 +424,6 @@ each.
 - Whether a day number should link to `/itinerary?date=`. It is a fix link, so it belongs with
   slice 5 — but as its own step: the day cell is not interactive today, and making it so is a
   change to the grid rather than to a band.
+
+> **Archived 2026-08-21.** Slices 1–5 all shipped. The two questions immediately above were
+> **lifted into `../Cleanup_Tasks.md`** so they stay findable; nothing is tracked from this file.

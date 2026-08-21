@@ -15,7 +15,7 @@ import java.time.ZoneId;
  * <p>
  * Each end resolves its own {@code zone}, so an unresolvable destination is caught as well as an
  * unresolvable origin; the transfer itself is timestamped in the <em>origin's</em> zone (a transfer
- * that crosses a zone boundary is out of scope — see docs/GroundTransferPlan.md).
+ * that crosses a zone boundary is out of scope — see docs/archived/GroundTransferPlan.md).
  */
 public record TransferEndpoint(String airportCode, String name, Address address, ZoneId zone) {
 }

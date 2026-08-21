@@ -3,7 +3,7 @@ package dev.ted.jittertravel.domain;
 /**
  * A short hop with no booking — the taxi from the airport to the hotel, the subway back — has been
  * planned. It exists to fill a missing-travel gap: it enters the schedule timeline as a movement,
- * exactly as a flight or a train leg does. See {@code docs/GroundTransferPlan.md}.
+ * exactly as a flight or a train leg does. See {@code docs/archived/GroundTransferPlan.md}.
  * <p>
  * <strong>Flat, not a sealed {@code TransferPoint} hierarchy.</strong> A sealed
  * {@code AirportPoint | PlacePoint} reads better, but a polymorphic record inside an event payload

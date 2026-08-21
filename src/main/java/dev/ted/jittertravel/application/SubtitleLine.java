@@ -34,7 +34,7 @@ public sealed interface SubtitleLine {
      * (which only rewrites {@code <time data-fmt>}) never re-localizes it. Used only for the
      * redacted private-event time, which is public in the event's own zone by decision — unlike
      * {@link Range}, whose {@code <time>} elements re-localize to the viewer's zone. See
-     * {@code docs/PrivateSocialEventPlan.md}.
+     * {@code docs/archived/PrivateSocialEventPlan.md}.
      */
     record FixedRange(ZonedTimestamp from, ZonedTimestamp to) implements SubtitleLine {}
 }

@@ -23,7 +23,7 @@ import java.util.Set;
  * This replaces a detector that knew only about flights and trains, with conferences bolted on: it
  * could not see that a hotel checkout puts you somewhere, so a checkout could never be one end of a
  * travel gap and never required a bed for the following night. See
- * {@code docs/ScheduleProblemsRewritePlan.md}.
+ * {@code docs/archived/ScheduleProblemsRewritePlan.md}.
  * <p>
  * <strong>Ordering is by local day, then by role — never by stored clock time alone.</strong> A
  * single day routinely holds a checkout, two legs, and a check-in, and hotel check-in times are
@@ -130,7 +130,7 @@ class ScheduleTimeline {
      * the return day of every trip that ends the schedule.
      * <p>
      * Deliberately a set of days and not a list of trips: nothing reads a trip's boundaries, and
-     * the day-label cells ask one question each. See {@code docs/CalendarAwayBandPlan.md}.
+     * the day-label cells ask one question each. See {@code docs/archived/CalendarAwayBandPlan.md}.
      * <p>
      * Note the asymmetry with {@link #missingHotels()}, which is chosen (Ted, 2026-08-20): there,
      * "in transit" only <em>suppresses</em> a demand for a bed, while here it <em>asserts</em>

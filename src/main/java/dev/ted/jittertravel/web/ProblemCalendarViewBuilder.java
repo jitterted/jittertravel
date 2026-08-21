@@ -35,7 +35,7 @@ import static j2html.TagCreator.span;
  * <p>
  * A smaller sibling of {@code CalendarViewBuilder}, deliberately not shared with it: this grid has
  * no entry kinds, no day menus, no edit pencils, no zone toggle and no past-week collapsing, and
- * never will — see {@code docs/ProblemCalendarPlan.md}.
+ * never will — see {@code docs/archived/ProblemCalendarPlan.md}.
  */
 public class ProblemCalendarViewBuilder {
 

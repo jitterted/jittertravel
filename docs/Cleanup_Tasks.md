@@ -9,8 +9,51 @@ Three sections: **Open** is work that is wanted, **Deferred (until needed)** is 
 known but whose need has not arrived — each item names the trigger that would promote it — and
 **Done** is the record.
 
+Some items below were **lifted out of a shipped plan doc** when that doc moved to `docs/archived/`
+(2026-08-21). The archived doc keeps the reasoning and is still worth reading before starting;
+this list is what makes the item findable, because an archived doc is history and nobody scans it
+for open work.
+
 ## Open
 
+- [ ] **A gap *into* home is dated by the wrong end — the mirror image of D14.** Lifted from
+      `archived/ScheduleProblemsRewritePlan.md` (its whole "Open" section) when that plan was
+      archived 2026-08-21. D14 fixed one direction: a gap *out of* home is now dated by the day
+      Ted must be away, not by the landing. The other direction was never done — a gap *into* home
+      still spans every day from the last away fact to the next home departure, so it reads as far
+      longer than it is. **Why this is not a symmetric edit:** collapsing it moves
+      `relevantUntil()` earlier, which changes when the problem drops out of the FUTURE filter, so
+      it needs a decision about what the gap's *end* means before any code moves. Read D13 and D14
+      in the archived plan first — they set the vocabulary this has to fit.
+- [ ] **Change Private Event (the edit flow).** Lifted from `archived/PrivateSocialEventPlan.md`
+      2026-08-21. A private event can be entered but not edited; the parallel is `ChangeGathering`
+      and the archived plan's "Deferred to follow-ups" section names the shape. (The third item on
+      that list, the itinerary entry, **shipped** — `PrivateEventItineraryEntry` is live.)
+- [ ] **`/planned-private-events` list view** with the FUTURE/ALL toggle, so the owner sees
+      upcoming private events in a list and not only on the calendar. Lifted from
+      `archived/PrivateSocialEventPlan.md` 2026-08-21. Follow the shared toggle trio in CLAUDE.md
+      (`TemporalView.relevantUntil` → `timeView.includes` → `TimeFilterToggle.render`), which
+      `TimeFilterToggleConventionTest` enforces. Needs its own `SecurityConfig` matcher and an
+      `AuthorizationMatrixTest` row — it is an OWNER surface, and a new route is public by default.
+- [ ] **The private-event nav card still carries a placeholder icon.** From
+      `archived/PrivateSocialEventPlan.md`: the Font Awesome Pro icon was left pending Ted's pick.
+      Per the standing rule, new nav cards use the fill-based FA Pro SVGs from the travel-icons row.
+- [ ] **Full travel calendar in the subscription feed (Phase 2).** Lifted from
+      `archived/CalendarSubscriptionFeedPlan.md` 2026-08-21, which shipped Phase 1
+      (cancel-deadline reminders) and named this as "left open (not built now)": flights, trains,
+      hotel stays, gatherings and conferences served from the same feed. The assembler seam is
+      already there — today it is just "the assembler returns a `List<ICalEvent>`", and per
+      "no abstraction before the second user" the `ICalEventSource` interface waits for this, the
+      actual second contributor. **Decide feed shape with it**, also deferred to this work: one
+      feed with everything, or scoped feeds (`…/deadlines.ics` vs `…/all.ics`). Watch the token:
+      the feed URL is the only credential, so widening what it serves widens what one leaked URL
+      exposes.
+- [ ] **Two open questions on the problem calendar**, lifted from `archived/ProblemCalendarPlan.md`
+      2026-08-21 (slices 1–5 all shipped):
+      - Should the **calendar become the default view** on `/schedule-problems`, instead of the list?
+      - Should a **day number link to `/itinerary?date=`**? It is a fix link, so it belongs with the
+        slice-5 vocabulary — but as its own step: the day cell is not interactive today, so this
+        changes the grid rather than a band.
 - [ ] **Conferences have no `locationForMatching` — but ask whether that is still a problem
       (Ted, 2026-08-20).** `PlanConferenceRequest:130` always passes `null` for the venue
       `Address`, so the compact constructor falls back to the city and a conference can only ever
@@ -22,7 +65,7 @@ known but whose need has not arrived — each item names the trigger that would 
 
       **Ground transfer may have removed the reason to build this.** The motivating case is now
       answered honestly: there *is* a journey from DEN to a Lone Tree venue, and
-      `GroundTransferPlan.md` lets Ted record it, which closes the gap. Setting the conference's
+      `archived/GroundTransferPlan.md` lets Ted record it, which closes the gap. Setting the conference's
       `locationForMatching` to "Denver" would instead have **hidden a real hop** — the field
       silences the gap rather than answering it, and a silenced gap is indistinguishable from one
       that was never there. That cuts both ways: the same objection applies to using
@@ -99,7 +142,7 @@ known but whose need has not arrived — each item names the trigger that would 
       tables, but `EventStore`'s in-memory list and every projector keep the old data — the app goes
       on serving read models for events that no longer exist, and only a restart clears it. That is
       the known stale-after-truncate bug: the live `reset()`/`rebuildFromPersistence()` rebuild was
-      built and then **reverted** for the email-sender hazard (`EventOrientedBackupRestorePlan.md`),
+      built and then **reverted** for the email-sender hazard (`archived/EventOrientedBackupRestorePlan.md`),
       so a restart is the fix and the app should say so. It bites Ted's standard wipe-then-import
       workflow every time. Detection looks cheap and derivable: the persisted event count (or max
       sequence) being **lower** than what `EventStore` holds in memory can only mean the tables were
@@ -107,8 +150,8 @@ known but whose need has not arrived — each item names the trigger that would 
       `role="alert"`, model attribute from `GeneralController:62`) rather than as a post-deploy task
       — it says the data on screen is wrong *now*. Split out of `PostDeployTaskBannerPlan.md`
       (decision 4, 2026-08-19), which deliberately excludes it.
-- [ ] **Extract a shared admin nav bar.** Every admin page hand-rolls its own: `admin-tasks` and
-      `admin-migrate-conferences` used one shape, `admin-eventlog` another
+- [ ] **Extract a shared admin nav bar.** Every admin page hand-rolls its own: `admin-tasks` uses
+      one shape (as did `admin-migrate-conferences`, retired in `4b9d9d4`), `admin-eventlog` another
       (`<nav><h3><a href="/admin">Admin</a> · <a href="/">JitterTravel</a></h3></nav>`), and
       `migrate-legacy-events` / `database` / `zone-audit` a third — each with its own CSS, and each
       needing the same edit when a link changes (as on 2026-08-19, when four pages had to gain a
@@ -157,8 +200,8 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       **Trigger:** Ted plans a private event on a day a conference runs elsewhere and wants the
       clash surfaced. Until then `/schedule-problems` is quietly incomplete in one direction only,
       which is the safe direction — it under-reports rather than reporting something he cannot act
-      on. See `ScheduleProblemsRewritePlan.md` and `PrivateSocialEventPlan.md`.
-- [ ] **Change a ground transfer** — the other half of D11 in `GroundTransferPlan.md`. Cancel
+      on. See `archived/ScheduleProblemsRewritePlan.md` and `archived/PrivateSocialEventPlan.md`.
+- [ ] **Change a ground transfer** — the other half of D11 in `archived/GroundTransferPlan.md`. Cancel
       shipped 2026-08-20 and took the urgency with it: correcting a transfer is now
       cancel-then-enter, two forms instead of one, and **nothing is lost in the round trip** —
       both ends are snapshots in the event by design, so there is no live reference an edit would
@@ -173,7 +216,7 @@ them is a paragraph, and building either one now would be work ahead of a need. 
 ## Done
 
 - [x] **Cancel ground transfer** (2026-08-20), the day after the slice it followed. D11 in
-      `GroundTransferPlan.md` shipped that slice without cancel, so a mistyped transfer could not be
+      `archived/GroundTransferPlan.md` shipped that slice without cancel, so a mistyped transfer could not be
       removed from inside the app: it stayed on the calendar and kept feeding a false presence fact
       into `/schedule-problems`, where it masked a real missing-travel gap. Built as the task
       described: a `GroundTransferCancelled` event (the id alone — no reason, since a transfer has
@@ -184,7 +227,7 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       `GroundTransferCancellationPropagationTest` pins. Amber, plain confirm, no typed word, as
       specified. Reachable from **both** the itinerary card and the calendar entry (Ted's call): a
       `.cancel-bin` in the edit pencil's slot, OWNER-only, via a new `CalendarEntry.cancelPath` that
-      the redactor drops. Details in `GroundTransferPlan.md` → "Cancel, as built".
+      the redactor drops. Details in `archived/GroundTransferPlan.md` → "Cancel, as built".
 - [x] **Retired `/admin/migrate-conferences`** (2026-08-19). The one-off conference→gathering
       migration had served its purpose — Ted ran it — so the whole write path went: both
       `AdminController` handlers, `ConferenceMigrationService`, the `MigrateConferenceToGathering`
@@ -279,7 +322,7 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       `change-gathering.html` have one form each; there is no `change-private-event` page). The
       other entry kinds (flight, train, gathering, conference, private event) have **no cancel
       action at all** yet — separate, still-open features (`ConferenceCancelled` organizer cancel;
-      gathering cancellation, out of scope in `ChangeGatheringPlan.md`) — and when each ships it
+      gathering cancellation, out of scope in `archived/ChangeGatheringPlan.md`) — and when each ships it
       must land on its own page from the start, per the "errors render on the form page" convention.
       **Correction (same day):** the first pass called this done on the form-vs-link technicality
       and left the "Cancel this booking" **section** (a `.danger-zone` heading + hint + link to the
@@ -306,7 +349,7 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       **Fixed 2026-08-17** (green, 5/5), and the native pre-push MUST-PASS gate now runs the `js`
       tier too so a broken js test can no longer ship unseen.
 - [x] **Add a private social event type** (2026-08-13). Shipped as its own entry kind — see
-      `PrivateSocialEventPlan.md` (done) and the Backlog row. `EntryKind.PRIVATE_EVENT` with a
+      `archived/PrivateSocialEventPlan.md` (done) and the Backlog row. `EntryKind.PRIVATE_EVENT` with a
       `PlanPrivateEvent` command / `PrivateEventPlanned` event / context, `PrivateEventCalendarProjector`,
       a plan form + controller + nav card, and a `PrivateEventItineraryEntry` on `/itinerary`. The
       redactor gets its own `PRIVATE_EVENT` branch: an anonymous viewer sees `Busy`, a zone-labelled
@@ -315,7 +358,7 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       Retires the "private dinner can only be a public GATHERING" leak. Follow-ups still open (edit
       flow, `/planned-private-events` list) live in the plan doc.
 - [x] **Eager-migrate legacy events + per-event schema-version stamp** (2026-08-16). Owning doc
-      `LegacyEventEagerMigrationPlan.md` (now `built`). Added an `event_log.schema_version` column
+      `archived/LegacyEventEagerMigrationPlan.md` (now `built`). Added an `event_log.schema_version` column
       (nullable; per-type version in `EventTypes`, the nine `ZonedTimestamp` types = 2, others = 1);
       the append path stamps new rows, restore carries it verbatim, backup format bumped to **v3**
       (restores v2 and v3, so old backups aren't orphaned). `LegacyEventMigration` +

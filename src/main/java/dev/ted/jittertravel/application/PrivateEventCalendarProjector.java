@@ -15,7 +15,7 @@ import java.util.stream.Stream;
  * Projects {@link PrivateEventPlanned} into the owner's full {@link CalendarEntry}
  * (title, venue, city, time range). Anonymous viewers never see this form — the calendar boundary
  * runs it through {@link CalendarEntryRedactor}, whose PRIVATE_EVENT branch reduces it to
- * "Busy" + time + city. See docs/PrivateSocialEventPlan.md.
+ * "Busy" + time + city. See docs/archived/PrivateSocialEventPlan.md.
  */
 public class PrivateEventCalendarProjector implements EventStreamConsumer {
 

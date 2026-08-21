@@ -4,7 +4,7 @@
 
 Legend: `[x]` done · `[~]` partially done · `[ ]` not started.
 
-The 2026-08-05 review (`docs/UtcDatetimePlanReview.md`) has been **fully folded into this plan** —
+The 2026-08-05 review (`docs/archived/UtcDatetimePlanReview.md`) has been **fully folded into this plan** —
 its bugs, stale-status corrections, missing tests and improvements now live here (section
 references like "review 1.1" point back to the fuller write-ups). This document is the single
 tracker; the review doc is a historical record and its checkboxes are no longer maintained.
@@ -308,8 +308,8 @@ Shipped: `ZonedTimestamp`, `CommonZone`, `LocationZoneResolver`, `AirportZoneRes
 `StationZone`, `FlightEndpointZone`, `ZoneResolutionException`, each with unit tests.
 
 ### 2. Events & commands → `ZonedTimestamp` — `[x]` all five types migrated
-Remaining work is planned in detail in `docs/GatheringConferenceUtcRolloutPlan.md` (previous slice:
-`docs/TrainFlightUtcRolloutPlan.md`).
+Remaining work is planned in detail in `docs/archived/GatheringConferenceUtcRolloutPlan.md` (previous slice:
+`docs/archived/TrainFlightUtcRolloutPlan.md`).
 
 - `[x]` Hotel (`f35b7d6`), train (`daa7107`), flight (`d2884fb`): events, commands, contexts,
   requests and controllers all carry `ZonedTimestamp`.

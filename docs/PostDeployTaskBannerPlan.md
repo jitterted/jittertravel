@@ -9,8 +9,11 @@
 > undeclared id and a second completion and writes through `CommandExecutor.appendEvents`. An
 > OWNER-only amber banner on the home page links to the new `/admin/tasks` page (Thymeleaf, since it
 > posts), where a task is ticked off and completed ones stay greyed with "its declaration can be
-> removed". Two real customers ship declared: the outstanding `event_log.type` normalization and the
-> conference attendance backfill. `/admin/tasks` needed no new `SecurityConfig` matcher — the
+> removed". Two real customers shipped declared: the outstanding `event_log.type` normalization and
+> the conference attendance backfill — **the backfill was run in production 2026-08-21 and its
+> declaration removed the same day, the first time the retirement path was walked**; its
+> `OneOffTaskCompleted` event stays in the log as history and nothing refers to the id. That leaves
+> `event_log.type` normalization as the one declared task. `/admin/tasks` needed no new `SecurityConfig` matcher — the
 > existing `/admin/**` rule covers it — but has its own `AuthorizationMatrixTest` row, and the
 > banner's OWNER-gating has both anonymous and FAMILY cases in `SecurityAuthorizationTest`
 > (mutation-verified: dropping the gate fails exactly those two). Suite green: 1046 unit + 36 js (what IDEA's All Tests reports as 1082).
@@ -40,7 +43,7 @@ A deploy can leave work that only Ted can do, and nothing in the running app say
   the feature **inert** (the feed 404s and reads as a wrong URL). Arguably the highest-value case
   here, because it is the only one that fails silently.
 - **Restart required after a restore** — read models rebuild on restart only (the live rebuild was
-  built then reverted, see `EventOrientedBackupRestorePlan.md`), so a restored database serves stale
+  built then reverted, see `archived/EventOrientedBackupRestorePlan.md`), so a restored database serves stale
   projections until someone restarts it. **Out of scope for this plan** (decision 4): it belongs with
   the read-only banner, because it describes the app running degraded now rather than work to
   schedule.
@@ -126,7 +129,7 @@ question does not get re-opened from scratch.
   it fails for a task Ted simply has not done yet, which is not a code defect — so the limit has to
   be long enough that tripping it really does mean "this has been sitting too long".
 - **Ride the weekly iCal heartbeat.** The feed already fires local alarms on-device and carries a
-  liveness VEVENT (`CalendarSubscriptionFeedPlan.md`). "2 completed tasks still have code shipping"
+  liveness VEVENT (`archived/CalendarSubscriptionFeedPlan.md`). "2 completed tasks still have code shipping"
   is one more line in a mechanism that is already proven, with no scheduler and no new endpoint.
 
 ## The banner

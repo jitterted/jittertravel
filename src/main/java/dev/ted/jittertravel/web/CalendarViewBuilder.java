@@ -51,7 +51,7 @@ public class CalendarViewBuilder {
     /**
      * @param awayDays every day Ted is away from home, from {@code ScheduleGapProjector}. The same
      *                 set for every viewer — the band is public by decision, and nothing about it
-     *                 goes through the redactor. See {@code docs/CalendarAwayBandPlan.md}.
+     *                 goes through the redactor. See {@code docs/archived/CalendarAwayBandPlan.md}.
      */
     public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd, LocalDate today,
                                 boolean isPublicUser, boolean isOwner, Set<LocalDate> awayDays) {
@@ -371,7 +371,7 @@ public class CalendarViewBuilder {
                     ZonedTimeTag.render(to, TIME_OF_DAY_FORMAT));
             // Redacted private-event time: fixed in the event's own zone with a zone label, as
             // plain text so the browser-zone script leaves it alone (it only rewrites
-            // <time data-fmt>). Public in that zone by decision — see docs/PrivateSocialEventPlan.md.
+            // <time data-fmt>). Public in that zone by decision — see docs/archived/PrivateSocialEventPlan.md.
             case SubtitleLine.FixedRange(ZonedTimestamp from, ZonedTimestamp to) ->
                     lineDiv.withText(fixedRangeText(from, to));
         };

@@ -27,7 +27,7 @@ import java.util.List;
  * version 1 through the intervening rungs as no-ops rather than being double-applied.
  *
  * <p><b>Retiring a rung</b> (once every stored row of that type has been permanently migrated past
- * it — see {@code /admin/migrate-legacy-events} and {@code docs/LegacyEventEagerMigrationPlan.md})
+ * it — see {@code /admin/migrate-legacy-events} and {@code docs/archived/LegacyEventEagerMigrationPlan.md})
  * means deleting its {@link EventUpcaster} and dropping it from {@link #standard}. If a row is ever
  * read that still sits below a retired rung, the climb cannot reach the current version and this
  * fails loud rather than binding a stale shape — the signal that the migration was skipped.

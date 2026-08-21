@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * The eager migration bakes the current payload shape and the per-type schema-version stamp into
- * {@code event_log}, once (see {@code docs/LegacyEventEagerMigrationPlan.md}). Legacy rows are seeded
+ * {@code event_log}, once (see {@code docs/archived/LegacyEventEagerMigrationPlan.md}). Legacy rows are seeded
  * verbatim through the restore path — the only way to write a bare-scalar payload with a null stamp,
  * since the append path always stamps and stores the current shape.
  */

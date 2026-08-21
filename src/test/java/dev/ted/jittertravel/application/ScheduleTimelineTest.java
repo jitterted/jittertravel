@@ -225,7 +225,7 @@ class ScheduleTimelineTest {
     /**
      * The days {@code /calendar} stripes as away from home. The rule is the nights, not the days:
      * a night away bands its own day, plus the following day when something brings him home.
-     * See {@code docs/CalendarAwayBandPlan.md}.
+     * See {@code docs/archived/CalendarAwayBandPlan.md}.
      */
     @Nested
     class AwayDays {

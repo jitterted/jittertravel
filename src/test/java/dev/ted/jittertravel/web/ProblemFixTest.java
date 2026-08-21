@@ -66,7 +66,7 @@ class ProblemFixTest {
      * The transfer form takes no typed cities — each end is a select of flight legs and booked
      * hotels — so its link carries the date alone. Preselecting an end is deliberately not
      * attempted: one {@code airport:} value can belong to several legs, so it would silently pick
-     * a trip (GroundTransferPlan.md D13).
+     * a trip (docs/archived/GroundTransferPlan.md D13).
      */
     @Test
     void theGroundTransferFixCarriesOnlyTheDateNeverCities() {

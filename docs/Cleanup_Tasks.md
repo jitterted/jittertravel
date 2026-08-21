@@ -7,16 +7,64 @@ plan doc and its status — including these items — see `Backlog.md`.
 
 ## Open
 
-- [ ] **Conferences have no `locationForMatching`.** `PlanConferenceRequest:130` always passes
-      `null` for the venue `Address`, so the compact constructor falls back to the city and a
-      conference can only ever match on that. A conference in **Lone Tree, CO** therefore never
-      matches the **Denver** that `StaticAirportCityResolver` gives for a `DEN` flight, and
-      `/schedule-problems` reports missing travel between two places that are effectively one
-      (found 2026-08-20). Hotels, gatherings and private events all expose the field on their
-      forms; conferences do not, and there is no Change Conference flow to correct it after the
-      fact. Add the input to the conference venue address (the `fragments/address-paste.html`
-      pattern) and pass it through. Related but separate: `GroundTransferPlan.md`, which records
-      the journey that genuinely does happen between an airport and a venue.
+- [ ] **Conferences have no `locationForMatching` — but ask whether that is still a problem
+      (Ted, 2026-08-20).** `PlanConferenceRequest:130` always passes `null` for the venue
+      `Address`, so the compact constructor falls back to the city and a conference can only ever
+      match on that. A conference in **Lone Tree, CO** therefore never matches the **Denver** that
+      `StaticAirportCityResolver` gives for a `DEN` flight, and `/schedule-problems` reported
+      missing travel between them (found 2026-08-20). Hotels, gatherings and private events all
+      expose the field on their forms; conferences do not, and there is no Change Conference flow
+      to correct it after the fact.
+
+      **Ground transfer may have removed the reason to build this.** The motivating case is now
+      answered honestly: there *is* a journey from DEN to a Lone Tree venue, and
+      `GroundTransferPlan.md` lets Ted record it, which closes the gap. Setting the conference's
+      `locationForMatching` to "Denver" would instead have **hidden a real hop** — the field
+      silences the gap rather than answering it, and a silenced gap is indistinguishable from one
+      that was never there. That cuts both ways: the same objection applies to using
+      `locationForMatching` on a *hotel* to paper over an airport-to-suburb drive.
+
+      What might still justify it: two nearby addresses entered under different city names with
+      **no journey between them at all** — a venue and its hotel in one complex, straddling a
+      municipal boundary. That is narrow, and it is not the case that raised this item.
+
+      **So decide before building.** If it goes ahead, the shape is unchanged: add the input to the
+      conference venue address (the `fragments/address-paste.html` pattern) and pass it through. If
+      it does not, delete this item and say why in `Backlog.md`, so the Lone Tree case does not
+      re-raise it in six months. See the item below: the same reasoning may retire the field from
+      hotels too, in which case adding it to conferences would be building the thing we are removing.
+- [ ] **`locationForMatching` may be droppable from hotels — and from the forms generally
+      (Ted, 2026-08-20).** Raised alongside the conference item above, and the evidence is stronger
+      than expected. Four facts, all checked 2026-08-20:
+
+      1. **`ScheduleGapProjector` is its only reader.** Nothing else in `src/main` consults it; the
+         controllers merely pass it through. It exists to feed one matcher.
+      2. **The geocoder writes it equal to the city.** `AddressParseService:89-95` returns
+         `coalesce(locality)` for *both* `city` and `locationForMatching`, so every address filled
+         by the paste-and-parse widget already has the two identical.
+      3. **`Address`'s compact constructor falls back to `city` when it is blank.** So an absent
+         value and a geocoded value produce the same match.
+      4. Therefore it only ever *does* anything when **hand-edited** — and the hand-edit is exactly
+         the widen-a-suburb-to-its-metro move (Lone Tree → Denver) that ground transfer now
+         answers honestly, and that hides a real journey when used.
+
+      **What would still be lost:** normalizing two spellings of one place — "Frankfurt" vs
+      "Frankfurt am Main" — which is a different job from widening, and a legitimate one. The paste
+      widget already handles it by giving both addresses the same locality; only a **hand-typed**
+      address can still disagree with itself. Judge whether that is worth a field.
+
+      **Two very different scopes, and only the first is cheap:**
+
+      - **Stop offering the input** on the five forms that expose it (`book-hotel`, `change-hotel`,
+        `plan-gathering`, `change-gathering`, `plan-private-event`) and stop the fragment filling
+        it. No event-schema change at all: the field stays in the payload and simply always equals
+        the city. **Reversible** — put the input back and it works again.
+      - **Remove the field from `Address`.** An event-schema change (R6): an upcaster, every
+        golden sample, and **backup-file compatibility** — every exported backup carries it, so
+        this is the kind of change to warn about before making. The field costs nothing at rest,
+        so there is little to gain and a compatibility commitment to lose.
+
+      Recommendation: do the first, live with it, and treat the second as probably-never.
 - [ ] **Cancel ground transfer — the slice shipped 2026-08-20, so this is now due.** D11 in
       `GroundTransferPlan.md` (Ted, 2026-08-20) shipped it without cancel or change, so a
       mistyped transfer cannot be removed from inside the app: it stays on the calendar and keeps

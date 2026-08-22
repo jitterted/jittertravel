@@ -345,14 +345,20 @@ public class CalendarViewBuilder {
         return switch (details) {
             case EntryDetails.Lodging d -> d.mapsUrl();
             case EntryDetails.Gathering d -> d.infoUrl();
+            // A gathering's info URL is public by decision, so it survives into the public model.
+            case EntryDetails.PublicGathering d -> d.infoUrl();
             // A conference has no infoUrl of its own yet (docs/Future_Feature_Slices.md), and the
             // remaining kinds have nowhere to point: a flight, train or transfer is a leg, and a
-            // private event's venue is not published.
+            // private event's venue is not published. Nor does any travel kind publicly — a
+            // PublishableTravel holds nothing at all.
             case EntryDetails.Conference _,
                  EntryDetails.Flight _,
                  EntryDetails.Train _,
                  EntryDetails.GroundTransfer _,
-                 EntryDetails.PrivateEvent _ -> null;
+                 EntryDetails.PrivateEvent _,
+                 EntryDetails.PublicConference _,
+                 EntryDetails.PublishableTravel _,
+                 EntryDetails.Busy _ -> null;
         };
     }
 
@@ -377,6 +383,11 @@ public class CalendarViewBuilder {
             // A conference is declined or cancelled from its own pages, and a private event has no
             // edit flow yet (docs/Cleanup_Tasks.md, "Change Private Event").
             case EntryDetails.Conference _, EntryDetails.PrivateEvent _ -> List.of();
+            // No publishable details type can carry an owner action, so these arms are not a
+            // policy decision the renderer makes — there is nothing there to render. An anonymous
+            // viewer never reaches this method anyway (it is gated on isOwner), and a viewer who
+            // is somehow both would still get nothing.
+            case EntryDetails.Publishable _ -> List.of();
         };
     }
 
@@ -403,11 +414,20 @@ public class CalendarViewBuilder {
             case EntryDetails.Conference d -> d.commitment() == AttendanceCommitment.WATCHING
                     ? List.of(span("Maybe").withClass("entry-maybe-badge"))
                     : List.of();
+            // Both chips are public by decision, so the public model carries them too.
+            case EntryDetails.PublicGathering d -> d.speaking()
+                    ? List.of(span("A Ted Talk").withClass("entry-speaking-badge"))
+                    : List.of();
+            case EntryDetails.PublicConference d -> d.commitment() == AttendanceCommitment.WATCHING
+                    ? List.of(span("Maybe").withClass("entry-maybe-badge"))
+                    : List.of();
             case EntryDetails.Flight _,
                  EntryDetails.Train _,
                  EntryDetails.GroundTransfer _,
                  EntryDetails.Lodging _,
-                 EntryDetails.PrivateEvent _ -> List.of();
+                 EntryDetails.PrivateEvent _,
+                 EntryDetails.PublishableTravel _,
+                 EntryDetails.Busy _ -> List.of();
         };
     }
 

@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
+import dev.ted.jittertravel.application.PublicCalendarProjector;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
@@ -26,6 +27,9 @@ class CalendarWebIntegrationTest {
 
     @MockitoBean
     CalendarAggregator calendarAggregator;
+
+    @MockitoBean
+    PublicCalendarProjector publicCalendarProjector;
 
     @MockitoBean
     ScheduleGapProjector scheduleGapProjector;

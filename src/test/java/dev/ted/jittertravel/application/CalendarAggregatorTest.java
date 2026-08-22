@@ -33,7 +33,7 @@ class CalendarAggregatorTest {
         CalendarEntry hotel = entry(new EntryDetails.Lodging(null, null), "Grand Hotel");
         CalendarEntry gathering = entry(new EntryDetails.Gathering(null, false, null), "Mob Session");
         CalendarEntry privateEvent = entry(new EntryDetails.PrivateEvent(), "Dinner with friends");
-        CalendarEntry groundTransfer = entry(new EntryDetails.GroundTransfer(null, null), "DEN → Marriott Lone Tree");
+        CalendarEntry groundTransfer = entry(new EntryDetails.GroundTransfer(null), "DEN → Marriott Lone Tree");
         given(conferenceProjector.entries()).willReturn(List.of(conference));
         given(flightProjector.entries()).willReturn(List.of(flight));
         given(trainProjector.entries()).willReturn(List.of(train));

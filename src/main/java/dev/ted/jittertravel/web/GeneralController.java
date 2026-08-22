@@ -59,7 +59,8 @@ class GeneralController {
         boolean isFamily = request.isUserInRole("FAMILY");
 
         boolean showItineraryNav = isOwner || isFamily;
-        // Calendar is always visible (content is redacted for anonymous by CalendarEntryRedactor).
+        // Calendar is always visible (anonymous viewers are served PublicCalendarProjector's
+        // entries, which never held a private value).
 
         // Read-only mode means a boot replay or a save failed and writes are now disabled: the
         // page can be silently stale/empty, so surface it to every viewer as a top-of-page banner.

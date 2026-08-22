@@ -638,8 +638,7 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 6, 10, 12, 45),
                 "🚕 DEN → Marriott Lone Tree",
                 lines("12:00 PM"),
-                new EntryDetails.GroundTransfer("DEN → Lone Tree, CO, US",
-                                                "/ground-transfers/gt-123/cancel")
+                new EntryDetails.GroundTransfer("/ground-transfers/gt-123/cancel")
         );
     }
 

@@ -4,11 +4,32 @@ import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.CalendarAggregator;
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.EntryDetails;
+import dev.ted.jittertravel.application.PublicCalendarProjector;
 import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.SubtitleLine;
 import dev.ted.jittertravel.application.ViewerZonePolicy;
+import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.AirportCode;
+import dev.ted.jittertravel.domain.AttendanceBasis;
+import dev.ted.jittertravel.domain.BookingIntent;
+import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
+import dev.ted.jittertravel.domain.ConferenceFormat;
+import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.ConferencePlanned;
+import dev.ted.jittertravel.domain.Event;
+import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.GatheringPlanned;
+import dev.ted.jittertravel.domain.GroundTransferId;
+import dev.ted.jittertravel.domain.GroundTransferPlanned;
+import dev.ted.jittertravel.domain.HotelBooked;
+import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.PrivateEventId;
+import dev.ted.jittertravel.domain.PrivateEventPlanned;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
+import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,12 +40,14 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,10 +55,21 @@ import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
 
 /**
- * Verifies that the calendar applies redaction for anonymous users and shows
- * full details for authenticated users. Unlike the standard @WebMvcTest slice
- * tests, these assert on response body content because the behavior under test
- * is security-driven (which code path the controller takes), not rendering.
+ * Verifies that an anonymous visitor gets the redacted calendar and an authenticated one the full
+ * details. Unlike the standard @WebMvcTest slice tests, these assert on response body content,
+ * because the behavior under test is security-driven — which code path the controller takes — not
+ * rendering.
+ * <p>
+ * <strong>This test is the primary guard on the public calendar.</strong> With
+ * {@code CalendarEntryRedactor} gone there is no compile-time forcing function left downstream of
+ * the projectors, so what stands between an anonymous visitor and Ted's travel details is
+ * {@code PublicCalendarProjector} plus the cases named here. Extend it whenever a kind is added.
+ * <p>
+ * Anonymous fixtures are built by driving <strong>real domain events through a real
+ * {@link PublicCalendarProjector}</strong> and handing the result to the mocked bean — so the
+ * projection logic under test is the production one, not a hand-written entry that could assert
+ * whatever the test wished. Owner and family fixtures stay hand-built {@link CalendarEntry}s,
+ * because that is what the owner's own projectors produce.
  */
 // The secured chain is the only chain, active by default — exactly the production security
 // path this test exercises.
@@ -56,6 +90,9 @@ class CalendarRedactionSecurityTest {
     CalendarAggregator calendarAggregator;
 
     @MockitoBean
+    PublicCalendarProjector publicCalendarProjector;
+
+    @MockitoBean
     ScheduleGapProjector scheduleGapProjector;
 
     @BeforeEach
@@ -66,7 +103,33 @@ class CalendarRedactionSecurityTest {
                 "Grand Hotel cont'd", List.of(new SubtitleLine.Text("Berlin, Germany")),
                 new EntryDetails.Lodging("https://maps.google.com/grand-hotel", null)
         )));
+        anonymousSees(grandHotelBooked(CHECK_IN, CHECK_OUT));
     }
+
+    /**
+     * Point the public projection at these events. The projector is the real one, so what an
+     * anonymous request renders is what production would render for the same event stream.
+     */
+    private void anonymousSees(Event... events) {
+        PublicCalendarProjector projector = new PublicCalendarProjector();
+        projector.handle(Stream.of(events).map(CalendarRedactionSecurityTest::stored));
+        given(publicCalendarProjector.entries()).willReturn(projector.entries());
+    }
+
+    private static StoredEvent stored(Event event) {
+        return new StoredEvent(1, event.getClass(), UUID.randomUUID(),
+                Instant.parse("2026-01-01T00:00:00Z"), event, UUID.randomUUID());
+    }
+
+    private static HotelBooked grandHotelBooked(LocalDateTime checkIn, LocalDateTime checkOut) {
+        return new HotelBooked(HotelBookingId.random(), "Grand Hotel",
+                new Address("1 Hotel St", "Berlin", "", "10115", "Germany", null),
+                ZonedTimestamp.fromLocal(checkIn, BERLIN),
+                ZonedTimestamp.fromLocal(checkOut, BERLIN),
+                BookingIntent.FINAL, "https://maps.google.com/grand-hotel", null);
+    }
+
+    private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
 
     @Test
     @WithMockUser(username = "ted", roles = "OWNER")
@@ -107,22 +170,16 @@ class CalendarRedactionSecurityTest {
     }
 
     @Test
-    void anonymousUserDoesNotSeeHotelEditLink() {
-        // Hotels now carry an OWNER-only editPath; redaction must drop it so the anonymous
-        // calendar never exposes the deep link to the booking's edit page.
-        given(calendarAggregator.allEntries()).willReturn(List.of(new CalendarEntry(
-                CHECK_IN, CHECK_OUT,
-                "Grand Hotel", List.of(new SubtitleLine.Text("Berlin, Germany")),
-                "Grand Hotel cont'd", List.of(new SubtitleLine.Text("Berlin, Germany")),
-                new EntryDetails.Lodging("https://maps.google.com/grand-hotel", "/booked-hotels/abc")
-        )));
-
+    void anonymousUserDoesNotSeeHotelEditLinkOrMapLink() {
+        // The owner's calendar hangs an edit link and a map link off a stay. Neither is built for
+        // an anonymous viewer — EntryDetails.PublicLodging has nowhere to put either — and this
+        // asserts it through the real chain. The href is the secret: the `.edit-pencil` CSS class
+        // is inlined on every calendar page, so assert on the deep link, not the class name.
         assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
                 .hasStatusOk()
                 .bodyText()
-                // The href is the secret — the `.edit-pencil` CSS class is inlined on every
-                // calendar page, so assert on the deep link itself, not the class name.
-                .doesNotContain("/booked-hotels/");
+                .doesNotContain("/booked-hotels/")
+                .doesNotContain("maps.google.com");
     }
 
     @Test
@@ -170,22 +227,21 @@ class CalendarRedactionSecurityTest {
     }
 
     @Test
-    void anonymousUserSeesFlightRouteWithoutTimesOrEditLink() {
-        // A flight used to be able to carry a maps URL, and this test proved the redactor dropped
-        // it. EntryDetails.Flight has nowhere to put one, so that half is now structural rather
-        // than asserted — the remaining claims are the ones a flight can still leak.
-        given(calendarAggregator.allEntries()).willReturn(List.of(new CalendarEntry(
-                DEPARTURE, ARRIVAL,
-                "✈️ SFO→JFK", List.of(new SubtitleLine.Text("9:00 AM → 5:00 PM")),
-                new EntryDetails.Flight("/booked-flights/abc")
-        )));
+    void anonymousUserSeesFlightRouteWithoutTimesFlightNumberOrEditLink() {
+        anonymousSees(new FlightBooked(FlightId.random(), "United", "UA123",
+                new AirportCode("SFO"), ZonedTimestamp.fromLocal(DEPARTURE, DENVER),
+                new AirportCode("JFK"), ZonedTimestamp.fromLocal(ARRIVAL, DENVER)));
 
         assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
                 .hasStatusOk()
                 .bodyText()
+                // Public: the airport codes and the day column.
                 .contains("SFO")
+                // Private: the times of day, the carrier's identifier for the flight, and the
+                // deep link to the booking.
                 .doesNotContain("9:00 AM")
-                .doesNotContain("/booked-flights/abc");
+                .doesNotContain("UA123")
+                .doesNotContain("/booked-flights/");
     }
 
     private static final ZoneId TORONTO = ZoneId.of("America/Toronto");
@@ -205,7 +261,11 @@ class CalendarRedactionSecurityTest {
 
     @Test
     void anonymousUserSeesBusyWithoutTitleOrVenue() {
-        given(calendarAggregator.allEntries()).willReturn(List.of(privateEvent()));
+        anonymousSees(new PrivateEventPlanned(PrivateEventId.random(),
+                "Dinner with the Smiths", "Alo",
+                new Address("5 Dine Way", "Toronto", "ON", "M5V", "Canada", null),
+                ZonedTimestamp.fromLocal(PE_DATE, TORONTO),
+                ZonedTimestamp.fromLocal(PE_DATE.plusHours(3), TORONTO)));
 
         assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
                 .hasStatusOk()
@@ -215,9 +275,8 @@ class CalendarRedactionSecurityTest {
                 .contains("Toronto, Canada")
                 .contains("7:00 PM")
                 .contains("EDT")
-                // Private: the title and the venue never reach anonymous eyes. An owner edit link
-                // is no longer among the risks — EntryDetails.PrivateEvent has nowhere to hold
-                // one, so the entry cannot carry one to be stripped.
+                // Private: the title and the venue. The public projector never reads either, so
+                // the words cannot appear however the entry is rendered.
                 .doesNotContain("Dinner with the Smiths")
                 .doesNotContain("Alo");
     }
@@ -255,7 +314,7 @@ class CalendarRedactionSecurityTest {
 
     @Test
     void anonymousUserSeesGroundTransferWithoutTheHotelOrAnyTime() {
-        given(calendarAggregator.allEntries()).willReturn(List.of(groundTransfer()));
+        anonymousSees(transferToTheMarriott());
 
         assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
                 .hasStatusOk()
@@ -276,7 +335,7 @@ class CalendarRedactionSecurityTest {
      */
     @Test
     void anonymousGroundTransferCarriesNoCancelLink() throws Exception {
-        given(calendarAggregator.allEntries()).willReturn(List.of(groundTransfer()));
+        anonymousSees(transferToTheMarriott());
 
         assertThat(mockMvc.get().uri("/calendar").with(anonymous())
                 .exchange().getResponse().getContentAsString())
@@ -292,12 +351,22 @@ class CalendarRedactionSecurityTest {
      */
     @Test
     void anonymousGroundTransferMarkupCarriesNoDatetimeInstant() throws Exception {
-        given(calendarAggregator.allEntries()).willReturn(List.of(groundTransfer()));
+        anonymousSees(transferToTheMarriott());
 
         assertThat(mockMvc.get().uri("/calendar").with(anonymous())
                 .exchange().getResponse().getContentAsString())
                 .doesNotContain("2026-09-14T18:00")
                 .doesNotContain("2026-09-14T18:45");
+    }
+
+    /** The airport-to-hotel hop, whose owner title reads "DEN → Marriott Lone Tree". */
+    private static GroundTransferPlanned transferToTheMarriott() {
+        return new GroundTransferPlanned(GroundTransferId.of(GT_ID),
+                "DEN", "", new Address("", "Denver", "CO", "", "US", null),
+                "", "Marriott Lone Tree",
+                new Address("6 Sleep St", "Lone Tree", "CO", "80124", "US", null),
+                ZonedTimestamp.fromLocal(GT_DEPARTS, DENVER),
+                ZonedTimestamp.fromLocal(GT_ARRIVES, DENVER));
     }
 
     private static CalendarEntry groundTransfer() {
@@ -307,30 +376,32 @@ class CalendarRedactionSecurityTest {
                 List.of(new SubtitleLine.Range(
                         ZonedTimestamp.fromLocal(GT_DEPARTS, DENVER),
                         ZonedTimestamp.fromLocal(GT_ARRIVES, DENVER))),
-                new EntryDetails.GroundTransfer("DEN → Lone Tree, CO, US",
-                                                "/ground-transfers/" + GT_ID + "/cancel"));
+                new EntryDetails.GroundTransfer("/ground-transfers/" + GT_ID + "/cancel"));
     }
 
+    private static final ZoneId LONDON = ZoneId.of("Europe/London");
     private static final LocalDateTime GATHERING_START = LocalDateTime.of(2026, 7, 5, 18, 0);
     private static final LocalDateTime GATHERING_END = LocalDateTime.of(2026, 7, 5, 21, 0);
 
     @Test
     void anonymousUserSeesSpeakingBadgeOnPublicGathering() {
-        // That Ted is speaking at a gathering is public by decision, so redaction must keep the
-        // badge for anonymous viewers — assert it survives the real security chain.
-        given(calendarAggregator.allEntries()).willReturn(List.of(new CalendarEntry(
-                GATHERING_START, GATHERING_END,
-                "London Java Community", List.of(new SubtitleLine.Text("London, GB")),
-                new EntryDetails.Gathering("https://meetup.com/ljc/events/123", true,
-                                           "/planned-gatherings/abc")
-        )));
+        // That Ted is speaking at a gathering is public by decision, so the badge must reach
+        // anonymous viewers — assert it survives the real security chain.
+        anonymousSees(new GatheringPlanned(GatheringId.random(), "London Java Community",
+                "Skills Matter",
+                new Address("3 Meet Ln", "London", "", "EC1A 1BB", "GB", null),
+                ZonedTimestamp.fromLocal(GATHERING_START, LONDON),
+                ZonedTimestamp.fromLocal(GATHERING_END, LONDON),
+                true, "https://meetup.com/ljc/events/123"));
 
         assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
                 .hasStatusOk()
                 .bodyText()
                 .contains("A Ted Talk")
+                // A gathering is public in full, so the venue and time are public too.
+                .contains("Skills Matter")
                 // The owner edit link is still never public.
-                .doesNotContain("/planned-gatherings/abc");
+                .doesNotContain("/planned-gatherings/");
     }
 
     private static final LocalDateTime CONF_START = LocalDateTime.of(2026, 11, 5, 9, 0);
@@ -343,6 +414,24 @@ class CalendarRedactionSecurityTest {
                 new EntryDetails.Conference(commitment));
     }
 
+    private static final ZoneId AMSTERDAM = ZoneId.of("Europe/Amsterdam");
+    private static final ConferenceId J_FALL = ConferenceId.random();
+
+    private static ConferencePlanned jFallPlanned() {
+        return new ConferencePlanned(J_FALL, "J-Fall",
+                ZonedTimestamp.fromLocal(CONF_START, AMSTERDAM),
+                ZonedTimestamp.fromLocal(CONF_END, AMSTERDAM),
+                "Reehorst",
+                new Address("1 Conf St", "Ede", "", "6710", "Netherlands", null),
+                ConferenceFormat.CALL_FOR_PAPERS);
+    }
+
+    /** A conference Ted has committed to, reached the way production reaches it. */
+    private static ConferenceAttendanceConfirmed jFallConfirmed(AttendanceBasis basis) {
+        return new ConferenceAttendanceConfirmed(J_FALL, basis,
+                Instant.parse("2026-05-01T00:00:00Z"));
+    }
+
     // The chip's own CSS comment names it, so the bare word "Maybe" appears in every calendar
     // response whether or not a chip is rendered. Both directions assert the whole element.
     private static final String MAYBE_CHIP = "<span class=\"entry-maybe-badge\">Maybe</span>";
@@ -351,8 +440,7 @@ class CalendarRedactionSecurityTest {
     void anonymousUserSeesMaybeChipOnSpeculativeConference() {
         // The commitment level is public by decision: an anonymous reader is meant to learn that
         // Ted might be at this one, so the chip must survive the real security chain.
-        given(calendarAggregator.allEntries()).willReturn(
-                List.of(conference(AttendanceCommitment.WATCHING)));
+        anonymousSees(jFallPlanned());
 
         assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
                 .hasStatusOk()
@@ -362,8 +450,7 @@ class CalendarRedactionSecurityTest {
 
     @Test
     void anonymousUserSeesNoChipOnCommittedConference() {
-        given(calendarAggregator.allEntries()).willReturn(
-                List.of(conference(AttendanceCommitment.GOING)));
+        anonymousSees(jFallPlanned(), jFallConfirmed(AttendanceBasis.SPEAKING_ACCEPTED));
 
         assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
                 .hasStatusOk()
@@ -374,10 +461,10 @@ class CalendarRedactionSecurityTest {
 
     @Test
     void anonymousUserNeverSeesWhyTedIsGoing() {
-        // AttendanceBasis is the private half: it never enters a CalendarEntry, so no wording or
+        // AttendanceBasis is the private half, and the confirmation event genuinely carries one
+        // here — the public projector reads the event and never reads that field, so no wording or
         // enum name of it can reach the anonymous page however the entry is rendered.
-        given(calendarAggregator.allEntries()).willReturn(
-                List.of(conference(AttendanceCommitment.GOING)));
+        anonymousSees(jFallPlanned(), jFallConfirmed(AttendanceBasis.SPEAKING_ACCEPTED));
 
         assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
                 .hasStatusOk()
@@ -439,12 +526,7 @@ class CalendarRedactionSecurityTest {
 
     @Test
     void anonymousUserSeesNoCreateLinksEvenForFutureDays() {
-        given(calendarAggregator.allEntries()).willReturn(List.of(new CalendarEntry(
-                FUTURE_CHECK_IN, FUTURE_CHECK_OUT,
-                "Grand Hotel", List.of(new SubtitleLine.Text("Berlin, Germany")),
-                "Grand Hotel cont'd", List.of(new SubtitleLine.Text("Berlin, Germany")),
-                new EntryDetails.Lodging("https://maps.google.com/grand-hotel", null)
-        )));
+        anonymousSees(grandHotelBooked(FUTURE_CHECK_IN, FUTURE_CHECK_OUT));
 
         assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
                 .hasStatusOk()

@@ -50,8 +50,16 @@ Covered by `RestoreSafetyTest`.
 ### Redaction: anonymous viewers are a first-class threat model
 
 The calendar at `/calendar` is the one page anonymous visitors can see, and
-`CalendarEntryRedactor` is the only thing standing between them and Ted's travel details.
+`PublicCalendarProjector` is the only thing standing between them and Ted's travel details.
 Treat it as security code, not formatting code.
+
+**It is an allow-list, not a deny-list** (shipped 2026-08-21, replacing `CalendarEntryRedactor`).
+The public calendar is its own read model, built straight from events by a projector that reads only
+the fields it names — so a field it never reads cannot leak, and forgetting to handle a new event or
+a new field leaves the data *absent* from the public calendar rather than exposed. A leak now takes a
+deliberate line of code. The old redactor was the other way round: it stripped fields from a read
+model that already held the hotel names and booking links, so every new field was public until
+someone remembered to strip it.
 
 **Private, never render for an anonymous viewer:**
 
@@ -66,22 +74,23 @@ Treat it as security code, not formatting code.
   pipeline (talk titles, submitted/accepted/waitlisted/rejected/withdrawn and their dates), CFP
   window dates, and the commitment **basis** — `AttendanceBasis`, i.e. whether Ted is going
   because a talk was accepted, he was invited, or he bought a ticket. The basis is the easy leak,
-  because it re-states the submission outcome; keep it out of `CalendarEntry` entirely rather than
-  stripping it in the redactor.
+  because it re-states the submission outcome; the public projector reads the confirmation event and
+  never reads that field, which is the pattern to copy — do not carry a private value into a view
+  and strip it later.
 
 **Public by decision** (do not "fix" these without asking Ted): the fact that travel is
 happening on a given day, airport codes and city names for flights/trains/hotels, and
 **conferences and gatherings in full** — name, venue, city, `infoUrl`, and start/end times.
 Both are public events Ted speaks at or attends publicly. That Ted is **speaking** at a
-gathering is public too (shipped 2026-08-17): `CalendarEntry.speaking` rides through the
-redactor's GATHERING branch and renders as a "Speaking" badge on the anonymous `/calendar`
+gathering is public too (shipped 2026-08-17): `speaking` is a component of
+`EntryDetails.PublicGathering` and renders as a "Speaking" badge on the anonymous `/calendar`
 (the venue and time are already public, so the badge reveals nothing new). The conference
 half of the speaking badge waits on submission tracking; a **private** talk at a company is
-neither — it has no public venue/time and must get its own redacted `EntryKind`, never be
-modelled as a gathering *or a conference* to earn the badge.
+neither — it has no public venue/time and collapses to `EntryDetails.Busy` like every other
+private kind, never modelled as a gathering *or a conference* to earn the badge.
 
 A conference's **attendance commitment** is public too (shipped 2026-08-19):
-`CalendarEntry.commitment` rides through the redactor's CONFERENCE branch and renders as a
+`commitment` is a component of `EntryDetails.PublicConference` and renders as a
 "Maybe" chip on the anonymous `/calendar` — the same chip owner and family see. It is publishable
 only because `ConferenceCalendarProjector` has **already collapsed** every speculative state
 (CFP not open, submitted and waiting, rejected but undecided, not submitting) into one
@@ -94,44 +103,68 @@ conference leaves the calendar entirely, for everyone.
 The **away band** is public too (shipped 2026-08-20): the turquoise stripe under a day label
 saying Ted is out of town that day renders for every viewer, anonymous included. It reaches the
 calendar as a plain `Set<LocalDate>` from `ScheduleGapProjector.awayDays()`, which never meets
-`CalendarEntryRedactor` — deliberately, so do not "fix" that by routing it through the redactor.
+`PublicCalendarProjector` — deliberately, so do not "fix" that by routing it through the public
+projection.
 The band aggregates only day-granularity facts already public above, and assembling "he is away
 that week" from the public calendar takes no effort (Ted, 2026-08-20). Note what that argument
 rests on: the band says *when*, never *where* or *why*. A future variant that labelled the trip,
 or that banded days no public entry accounts for, would be a new disclosure and needs asking.
 
 **Private social events are their own kind (shipped 2026-08-13).** `EntryKind.PRIVATE_EVENT`
-(a dinner with friends) has its own redacting branch: an anonymous viewer sees `Busy`, a
-zone-labelled time range, and city/country, and nothing else — never the title. Do **not** model
-a private-ish event as a GATHERING to reuse its rendering (gatherings are fully public). Any *new*
-private-ish entry kind must likewise get its own redacting branch, never reuse GATHERING —
-`PRIVATE_EVENT` is the pattern to copy. See `docs/archived/PrivateSocialEventPlan.md`.
+(a dinner with friends) is built publicly as `EntryDetails.Busy`: an anonymous viewer sees `Busy`, a
+zone-labelled time range, and city/country, and nothing else — never the title, which the public
+projector does not read. Do **not** model a private-ish event as a GATHERING to reuse its rendering
+(gatherings are fully public).
+
+**Any *new* private-ish kind reuses `EntryDetails.Busy` — it does not get a public type of its
+own.** That is redaction, not economy: a second private kind with its own public lane would let a
+stranger tell it apart from a dinner by lane alone. Give it its own *owner* details type and its own
+branch in `PublicCalendarProjector` that collapses to `Busy`. See
+`docs/archived/PrivateSocialEventPlan.md`.
 
 **Rules for writing the code:**
 
-1. **Redaction is deny-by-default.** In `CalendarEntryRedactor`, never write a branch that
-   returns `entry` unchanged, and never copy a field through "because it's null today."
-   Every branch constructs a new `CalendarEntry` naming each field explicitly, so adding a
-   field to `CalendarEntry` breaks compilation in the redactor rather than silently
-   publishing it. A pass-through branch means *every future field* leaks.
-2. **On travel entries (FLIGHT, TRAIN, LODGING) a `SubtitleLine` carrying a
-   `ZonedTimestamp` must never survive redaction.** `ZonedTimeTag` emits
+1. **Redaction is deny-by-default, and the default is "don't read it."** In
+   `PublicCalendarProjector`, publish a value only by naming the event field it comes from. Never
+   derive a public entry from an owner `CalendarEntry` — that is the deny-list the allow-list
+   replaced, and it puts the private value one refactor away from the page. If a kind needs
+   something publishable that the event does not carry directly (a transfer's route, whose owner
+   title names a hotel), build it there from the event's own data.
+   **The kind-specific half of a public entry is an `EntryDetails.Publishable`**, and those records
+   have no slot for an edit path, a cancel path, a maps URL or a hotel name — so a future change
+   cannot fill one in by mistake. Every entry the projector builds goes through its private
+   `entry(...)` helper, whose last argument is a `Publishable`; keep it that way, because that is
+   what makes the allow-list a compiler check rather than a convention. Adding a *public* field
+   means adding it to one of those records, which is the moment to ask whether it may be published
+   at all.
+2. **On travel entries (FLIGHT, TRAIN, GROUND_TRANSFER, LODGING) a `SubtitleLine` carrying a
+   `ZonedTimestamp` must never reach the public calendar.** `ZonedTimeTag` emits
    `datetime="<UTC instant>"` into the markup, so a time leaks in the attribute even when
-   the visible text looks harmless. Redacted travel subtitles are `SubtitleLine.Text` or
-   nothing. (Conference and gathering times are public — see above.)
+   the visible text looks harmless. Public travel subtitles are `SubtitleLine.Text` or
+   nothing — today the projector gives flights and trains no subtitle at all, and a transfer only
+   its route. (Conference and gathering times are public — see above. The private event's
+   `FixedRange` is the one deliberate exception, its time being public in its own zone.)
 3. **Every new route is deny-by-default too.** `SecurityConfig` ends in
    `.anyRequest().permitAll()`, so a new `@GetMapping` is public unless you add a matcher.
    Hiding the nav card in `index.html` (`th:if="${showDataEntryNav}"`) is *not* access
    control — the URL is still open. Add the route to `SecurityConfig` **and** to the
    `policy()` matrix in `AuthorizationMatrixTest` in the same change.
-4. **Redaction is chosen at the boundary and applied inward.** The controller derives
-   `isPublicUser` from `request.getRemoteUser()`; renderers must never re-derive viewer
-   identity or reach for `SecurityContextHolder`.
+4. **The audience is chosen at the boundary and applied inward.** `CalendarController` derives
+   `isPublicUser` from `request.getRemoteUser()` and picks the read model — `PublicCalendarProjector`
+   for a stranger, `CalendarAggregator` for everyone else. Renderers must never re-derive viewer
+   identity, reach for `SecurityContextHolder`, or strip anything: `CalendarRenderer` draws exactly
+   what it is handed, and `CalendarRendererTest` pins that.
 5. **Every redaction change needs both tiers of test**: a unit test in
-   `CalendarEntryRedactorTest` asserting the field is gone, and a
-   `CalendarRedactionSecurityTest` case asserting the rendered anonymous body
+   `PublicCalendarProjectorTest` asserting the private value is not in what the projector emits,
+   and a `CalendarRedactionSecurityTest` case asserting the rendered anonymous body
    `doesNotContain` the secret through the real security chain. Assert on *absence* of the
-   private value, not just presence of the placeholder.
+   private value, not just presence of the placeholder. Anonymous fixtures in the security test are
+   built by driving **real events through a real `PublicCalendarProjector`** — never by hand-writing
+   a public `CalendarEntry`, which would let the test assert whatever it wished.
+   `PublicCalendarProjectorTest.everyEntryCarriesOnlyPublishableDetails` is the invariant that
+   replaced the redactor's compile-time forcing function; it is written so that adding a kind does
+   **not** require editing it, and it must stay that way — a test that has to be edited on every
+   change stops guarding, because editing it is exactly what a leaking change would do.
 6. **When in doubt, redact and ask.** A missing detail on a public calendar is a papercut;
    a leaked one is unrecoverable.
 

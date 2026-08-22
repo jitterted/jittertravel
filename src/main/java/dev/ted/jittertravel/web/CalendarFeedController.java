@@ -16,7 +16,7 @@ import java.util.List;
 /**
  * Serves the private iCalendar feed of hotel cancel-deadline reminders (and a probe endpoint for
  * on-device testing). The feed is deliberately <b>unredacted OWNER data</b> — it is NOT run through
- * {@code CalendarEntryRedactor}. The URL token is therefore the <b>only</b> credential; treat it
+ * {@code PublicCalendarProjector}. The URL token is therefore the <b>only</b> credential; treat it
  * like a password.
  * <ul>
  *   <li>Token is a configured secret ({@code jittertravel.calendar-feed.token}). <b>Absent ⇒ the

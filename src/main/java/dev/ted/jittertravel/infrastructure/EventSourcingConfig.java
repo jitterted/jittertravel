@@ -324,6 +324,17 @@ public class EventSourcingConfig {
         return bootstrapper.register(new GatheringCalendarProjector());
     }
 
+    /**
+     * The whole calendar an anonymous visitor may see, built from events on its own rather than
+     * derived from the owner's read model. It is deliberately a peer of the seven owner calendar
+     * projectors and not downstream of them: see the class comment, and decision S2 in
+     * {@code docs/RendererVsProjectorResponsibilities.md}.
+     */
+    @Bean
+    public PublicCalendarProjector publicCalendarProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new PublicCalendarProjector());
+    }
+
     @Bean
     public PrivateEventPlanning privateEventPlanningApplicationService(CommandExecutor commandExecutor,
                                                                        LocationZoneResolver locationZoneResolver) {

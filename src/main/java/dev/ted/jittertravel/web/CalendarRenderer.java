@@ -1,7 +1,6 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarEntry;
-import dev.ted.jittertravel.application.CalendarEntryRedactor;
 import dev.ted.jittertravel.application.ZoneDisplay;
 
 import java.time.LocalDate;
@@ -12,8 +11,6 @@ import java.util.Set;
 import static j2html.TagCreator.*;
 
 public class CalendarRenderer {
-
-    private static final CalendarEntryRedactor REDACTOR = new CalendarEntryRedactor();
 
     private static final String CSS = """
             :root {
@@ -282,15 +279,20 @@ public class CalendarRenderer {
     }
 
     /**
-     * @param awayDays the days to stripe with the away band, from {@code ScheduleGapProjector}.
-     *                 Passed through untouched for every viewer: unlike the entries above it does
-     *                 not meet the redactor, because the band is public by decision.
+     * @param rawEntries already the right entries for this viewer. Nothing is stripped here: an
+     *                   anonymous viewer's entries come from {@code PublicCalendarProjector}, which
+     *                   never built a private value in the first place, and the controller chose
+     *                   between the two read models at the boundary where the viewer is known.
+     *                   {@code isPublicUser} still reaches the builder, but only to decide the
+     *                   day-cell affordances (no create menus for strangers).
+     * @param awayDays   the days to stripe with the away band, from {@code ScheduleGapProjector}.
+     *                   Passed through untouched for every viewer, the band being public by
+     *                   decision.
      */
     public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser, boolean isOwner,
                                 LocalDate from, LocalDate to, ZoneDisplay zoneDisplay, Set<LocalDate> awayDays) {
         List<CalendarEntry> entries = rawEntries.stream()
                 .sorted(Comparator.comparing(CalendarEntry::start))
-                .map(e -> isPublicUser ? REDACTOR.redact(e) : e)
                 .toList();
 
         // Default window: from one week before today (so the calendar always opens near "now",

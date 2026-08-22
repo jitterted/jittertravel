@@ -99,8 +99,19 @@ class CalendarRendererTest {
                 .contains(".calendar-outer { margin: 1rem 0; }");
     }
 
+    /**
+     * The renderer used to redact, and a test here asserted it turned "Grand Hotel" into "Hotel".
+     * It does not any more: redaction moved into {@code PublicCalendarProjector}, and the
+     * controller picks the read model at the boundary. So the claim worth pinning is the opposite
+     * one — the renderer draws exactly what it is handed, for every viewer alike.
+     * <p>
+     * This is CLAUDE.md redaction rule 4 as a test: a renderer must never re-derive viewer identity
+     * or decide what to hide. A renderer that started stripping (or worse, un-stripping) on
+     * {@code isPublicUser} would break here. What an anonymous visitor actually receives is covered
+     * by {@code CalendarRedactionSecurityTest} and {@code PublicCalendarProjectorTest}.
+     */
     @Test
-    void publicUserSeesRedactedHotelName() {
+    void entryContentRendersIdenticallyForEveryViewerBecauseTheRendererStripsNothing() {
         CalendarEntry hotel = new CalendarEntry(
                 LocalDateTime.of(2026, 7, 1, 15, 0),
                 LocalDateTime.of(2026, 7, 5, 11, 0),
@@ -109,11 +120,15 @@ class CalendarRendererTest {
                 new EntryDetails.Lodging("https://maps.google.com/grand", null)
         );
 
-        String html = CalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), true);
+        String anonymous = CalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), true);
+        String family = CalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), false);
 
-        assertThat(html)
-                .contains("Hotel")
-                .doesNotContain("Grand Hotel");
+        String linkedTitle =
+                "<a href=\"https://maps.google.com/grand\" target=\"_blank\" rel=\"noopener\">Grand Hotel</a>";
+        assertThat(anonymous)
+                .as("the renderer draws the entry it was given, whoever is looking")
+                .contains(linkedTitle);
+        assertThat(family).contains(linkedTitle);
     }
 
     @Test
@@ -295,21 +310,6 @@ class CalendarRendererTest {
                 title + " cont'd", lines("continued subtitle for " + title),
                 new EntryDetails.Conference(null)
         );
-    }
-
-    @Test
-    void authenticatedUserSeesFullHotelName() {
-        CalendarEntry hotel = new CalendarEntry(
-                LocalDateTime.of(2026, 7, 1, 15, 0),
-                LocalDateTime.of(2026, 7, 5, 11, 0),
-                "Grand Hotel", lines("Berlin, Germany"),
-                "Grand Hotel cont'd", lines("Berlin, Germany"),
-                new EntryDetails.Lodging("https://maps.google.com/grand", null)
-        );
-
-        String html = CalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), false);
-
-        assertThat(html).contains("Grand Hotel");
     }
 
     private static List<SubtitleLine> lines(String... values) {

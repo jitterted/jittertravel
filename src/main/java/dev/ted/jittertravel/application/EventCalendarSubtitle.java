@@ -12,8 +12,8 @@ import java.util.List;
  * "City, Country", then the start–end time {@link SubtitleLine.Range}. The range keeps its
  * {@link ZonedTimestamp}s so the renderer can emit a {@code <time>} element.
  * <p>
- * This is NOT a redaction path: it is the full owner view. What an anonymous viewer sees is decided
- * per kind by {@link CalendarEntryRedactor}, which never routes through this helper.
+ * This is NOT a redaction path: it is the full owner view. What an anonymous viewer sees is built
+ * separately by {@link PublicCalendarProjector}, which never routes through this helper.
  */
 public class EventCalendarSubtitle {
 

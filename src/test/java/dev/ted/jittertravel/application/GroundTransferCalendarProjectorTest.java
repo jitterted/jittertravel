@@ -62,22 +62,17 @@ class GroundTransferCalendarProjectorTest {
     }
 
     /**
-     * The publishable route still has to exist, because {@code CalendarEntryRedactor} cannot derive
-     * a city from a hotel name — but it rides in a field no renderer reads, so the owner never sees
-     * it. The hotel's name must not appear in it.
+     * The publishable route used to ride along on this entry, in a field no renderer read, because
+     * the redactor could not derive a city from a hotel name. {@code PublicCalendarProjector} now
+     * builds it from the event, so the owner's entry carries nothing on the public calendar's
+     * behalf — and the route must not have leaked into the owner's subtitle on the way out.
      */
     @Test
-    void thePublishableRouteIsCarriedSeparatelyAndNamesNoHotel() {
+    void theOwnerSubtitleIsTheTimesAloneNotTheJourneySpelledOutTwice() {
         projector.handle(Stream.of(stored(airportToHotel())));
 
-        CalendarEntry entry = projector.entries().getFirst();
-        assertThat(details(entry).publicRoute())
-                .as("the icon leads the title only; a subtitle route carries none, as on a flight")
-                .isEqualTo("DEN → Lone Tree, CO, US");
-        assertThat(details(entry).publicRoute())
-                .doesNotContain("Marriott Lone Tree");
-        assertThat(entry.subTitle())
-                .as("and it is not in the owner's subtitle, which is what Ted actually reads")
+        assertThat(projector.entries().getFirst().subTitle())
+                .containsExactly(new SubtitleLine.Range(DEPARTS, ARRIVES))
                 .doesNotContain(new SubtitleLine.Text("DEN → Lone Tree, CO, US"));
     }
 
@@ -91,8 +86,6 @@ class GroundTransferCalendarProjectorTest {
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.mainTitle())
                 .isEqualTo("\uD83D\uDE95 Marriott Lone Tree → DEN");
-        assertThat(details(entry).publicRoute())
-                .isEqualTo("Lone Tree, CO, US → DEN");
     }
 
     @Test

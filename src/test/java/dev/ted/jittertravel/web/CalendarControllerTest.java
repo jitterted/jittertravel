@@ -9,6 +9,7 @@ import dev.ted.jittertravel.application.GatheringCalendarProjector;
 import dev.ted.jittertravel.application.GroundTransferCalendarProjector;
 import dev.ted.jittertravel.application.HotelCalendarProjector;
 import dev.ted.jittertravel.application.PrivateEventCalendarProjector;
+import dev.ted.jittertravel.application.PublicCalendarProjector;
 import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.SubtitleLine;
 import dev.ted.jittertravel.application.TrainCalendarProjector;
@@ -47,6 +48,7 @@ class CalendarControllerTest {
     @Mock GatheringCalendarProjector gatheringProjector;
     @Mock PrivateEventCalendarProjector privateEventProjector;
     @Mock GroundTransferCalendarProjector groundTransferProjector;
+    @Mock PublicCalendarProjector publicCalendarProjector;
     @Mock ScheduleGapProjector scheduleGapProjector;
 
     @Test
@@ -180,7 +182,9 @@ class CalendarControllerTest {
         // the reported bug: the server's UTC clock has already ticked to Monday. With no cookie,
         // the fallback zone keeps today on Sunday; a UTC viewerZone cookie moves it to Monday.
         Clock nearMidnightUtc = Clock.fixed(Instant.parse("2026-08-17T01:00:00Z"), ZoneId.of("UTC"));
-        CalendarController controller = controllerWith(nearMidnightUtc);
+        // A family viewer, so this one reads the owner's entries rather than the public
+        // projection — and it needs no entries either way: the claim is about day labels.
+        CalendarController controller = controller(nearMidnightUtc);
 
         String pacific = controller.getCalendar(familyRequest(null), null, null, null).getBody();
         String utc = controller.getCalendar(familyRequest("UTC"), null, null, null).getBody();
@@ -202,20 +206,63 @@ class CalendarControllerTest {
         return controllerWith(FIXED_CLOCK, entries);
     }
 
+    /**
+     * Every test below issues a {@link #publicRequest()}, so the entries are stubbed on the public
+     * projector — the source the controller reads for an anonymous viewer. The owner projectors are
+     * left unstubbed on purpose: if the controller ever read them for a stranger, these tests would
+     * render an empty calendar and say so.
+     */
     private CalendarController controllerWith(Clock clock, CalendarEntry... entries) {
-        given(conferenceProjector.entries()).willReturn(List.of(entries));
+        given(publicCalendarProjector.entries()).willReturn(List.of(entries));
+        return controller(clock);
+    }
+
+    private CalendarController controller(Clock clock) {
+        return new CalendarController(
+                new CalendarAggregator(conferenceProjector, flightProjector, trainProjector,
+                                       hotelProjector, gatheringProjector, privateEventProjector,
+                                       groundTransferProjector),
+                publicCalendarProjector,
+                scheduleGapProjector,
+                new ViewerZonePolicy(), clock, new ViewerTodayZone(FALLBACK_ZONE));
+    }
+
+    /**
+     * The controller picks the read model, and picking the wrong one is the whole failure mode this
+     * refactor introduced: there is no redactor downstream to catch it any more. Both directions are
+     * asserted, because a controller that always read the public projection would pass a test that
+     * only checked the anonymous side.
+     */
+    @Test
+    void anonymousViewerIsServedThePublicProjectionAndOwnerTheOwnEntries() {
+        given(publicCalendarProjector.entries()).willReturn(List.of(
+                conference("PublicProjection", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8))));
+        given(conferenceProjector.entries()).willReturn(List.of(
+                conference("OwnersOwnEntries", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8))));
         given(flightProjector.entries()).willReturn(List.of());
         given(trainProjector.entries()).willReturn(List.of());
         given(hotelProjector.entries()).willReturn(List.of());
         given(gatheringProjector.entries()).willReturn(List.of());
         given(privateEventProjector.entries()).willReturn(List.of());
         given(groundTransferProjector.entries()).willReturn(List.of());
-        return new CalendarController(
-                new CalendarAggregator(conferenceProjector, flightProjector, trainProjector,
-                                       hotelProjector, gatheringProjector, privateEventProjector,
-                                       groundTransferProjector),
-                scheduleGapProjector,
-                new ViewerZonePolicy(), clock, new ViewerTodayZone(FALLBACK_ZONE));
+        CalendarController controller = controller(FIXED_CLOCK);
+
+        String anonymous = controller.getCalendar(publicRequest(), null, null, null).getBody();
+        String owner = controller.getCalendar(ownerRequest(), null, null, null).getBody();
+
+        assertThat(anonymous)
+                .contains(">PublicProjection<")
+                .doesNotContain(">OwnersOwnEntries<");
+        assertThat(owner)
+                .contains(">OwnersOwnEntries<")
+                .doesNotContain(">PublicProjection<");
+    }
+
+    private static MockHttpServletRequest ownerRequest() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteUser("ted");
+        request.addUserRole("OWNER");
+        return request;
     }
 
     private static MockHttpServletRequest familyRequest(String viewerZoneCookie) {

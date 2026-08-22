@@ -123,8 +123,7 @@ The trigger above is still unfired and still worth watching.
 
 # Second occasion: `CalendarEntry` is growing fields that don't apply (2026-08-19)
 
-**Status: DECIDED 2026-08-19 — S2 + E2. Commit 1 (E2, the reshape) shipped 2026-08-21; commit 2
-(S2, the public projector) is next.** Raised at the start of slice 2 of
+**Status: DONE 2026-08-21 — S2 + E2, both commits shipped.** Raised at the start of slice 2 of
 `docs/ConferenceSubmissionTrackingPlan.md`. The options below are kept for the reasoning trail; the
 decision and its terms are in **"Decision (2026-08-19)"** at the end of this half.
 
@@ -535,6 +534,60 @@ Shipped as designed, both tiers green (1343 unit + 50 js). Three notes worth car
 All six mutations tried against the new tests failed for the right reason (a leaked gathering
 `editPath`, a transfer redacted into the wrong lane, each of the three switches neutered, and a
 details record lying about its kind).
+
+### What commit 2 built (2026-08-21)
+
+`CalendarEntryRedactor` and `CalendarEntryRedactorTest` are **gone**. `PublicCalendarProjector`
+handles all fifteen event types and emits public entries directly; `CalendarController` picks the
+read model by audience; `CalendarRenderer` strips nothing and its `REDACTOR` field is deleted.
+Both tiers green (1346 unit + 50 js).
+
+**Resolving a tension the decision left open.** Term 3 says `kind()` is derived, never stored; term 4
+says the public side collapses to a small fixed set. Those collide, because a collapsing public type
+still has to answer `kind()` for its lane. The resolution: **`EntryDetails.PublishableTravel`, a
+sealed interface over four empty records** (`PublicFlight`, `PublicTrain`, `PublicGroundTransfer`,
+`PublicLodging`). Each answers its own constant kind, so nothing is stored and nothing can drift;
+the renderer's switches match all four in a single arm, so the arm count does not grow either. The
+public set is therefore `PublicConference`, `PublicGathering`, `PublishableTravel` and `Busy` — three
+shapes, as term 4 asked.
+
+**`Busy` collapses the lane as well as the details, and that is redaction rather than economy**: a
+second private kind with a public lane of its own would let a stranger tell it apart from a dinner by
+lane alone. Recorded in CLAUDE.md as a standing rule for new private kinds.
+
+**Term 5's invariant is a compiler check *and* a test.** Inside the projector every entry is built
+through a private `entry(...)` helper whose last argument is an `EntryDetails.Publishable`, so an
+owner details type will not compile onto the public calendar;
+`PublicCalendarProjectorTest.everyEntryCarriesOnlyPublishableDetails` is the runtime backstop, and it
+names no type list, so adding a kind does not require editing it.
+
+**`publicRoute` is deleted.** It existed only because the redactor could not derive a city from a
+hotel name; the public projector builds the route from the event, so the owner's ground-transfer
+entry no longer carries a field on the public calendar's behalf.
+
+**Two test files changed character, both deliberately:**
+
+- `CalendarRedactionSecurityTest` keeps its name and its role — it is now stated in its javadoc to
+  be *the* primary guard, the compile-time forcing function being gone. Its anonymous fixtures are
+  built by driving **real domain events through a real `PublicCalendarProjector`**, so the
+  projection logic under test is production's, not a hand-written entry that could assert whatever
+  the test wished. Owner and family fixtures stay hand-built entries.
+- `CalendarRendererTest.publicUserSeesRedactedHotelName` is **replaced**, not deleted: the renderer
+  no longer redacts, so the claim worth pinning is the opposite one —
+  `entryContentRendersIdenticallyForEveryViewerBecauseTheRendererStripsNothing`, which is redaction
+  rule 4 as a test and would catch a renderer that started re-deriving viewer identity.
+
+**The one-off equivalence check did its job and is gone**, as agreed. It drove one event of every
+kind through both pipelines, rendered each through the real `CalendarRenderer`, and asserted the two
+anonymous pages were byte-for-byte identical — comparing markup rather than records, since the two
+pipelines emit different details types by design. It caught both mutations tried against it (a
+changed lodging title, and a private event's real title published instead of "Busy") before being
+deleted with the redactor.
+
+Three further mutations were verified against the permanent tests, each failing at all three levels
+(projector unit, security chain, and — while it still existed — the equivalence check): a transfer
+publishing its hotel name via `ownerLabel`, a flight's departure/arrival times reaching the public
+subtitle, and the controller reading the owner's entries for an anonymous viewer.
 
 ## Related
 

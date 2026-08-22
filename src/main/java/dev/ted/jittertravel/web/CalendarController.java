@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarAggregator;
+import dev.ted.jittertravel.application.CalendarEntry;
+import dev.ted.jittertravel.application.PublicCalendarProjector;
 import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.ViewerTodayZone;
 import dev.ted.jittertravel.application.ViewerZonePolicy;
@@ -26,16 +28,19 @@ import java.util.List;
 public class CalendarController {
 
     private final CalendarAggregator calendarAggregator;
+    private final PublicCalendarProjector publicCalendarProjector;
     private final ScheduleGapProjector scheduleGapProjector;
     private final ViewerZonePolicy viewerZonePolicy;
     private final Clock clock;
     private final ViewerTodayZone viewerTodayZone;
 
     public CalendarController(CalendarAggregator calendarAggregator,
+                             PublicCalendarProjector publicCalendarProjector,
                              ScheduleGapProjector scheduleGapProjector,
                              ViewerZonePolicy viewerZonePolicy,
                              Clock clock, ViewerTodayZone viewerTodayZone) {
         this.calendarAggregator = calendarAggregator;
+        this.publicCalendarProjector = publicCalendarProjector;
         this.scheduleGapProjector = scheduleGapProjector;
         this.viewerZonePolicy = viewerZonePolicy;
         this.clock = clock;
@@ -57,9 +62,17 @@ public class CalendarController {
         boolean isOwner = request.isUserInRole("OWNER");
         ZoneDisplay zoneDisplay = viewerZonePolicy.forViewer(isOwner, request.isUserInRole("FAMILY"), tz);
         LocalDate today = LocalDate.ofInstant(clock.instant(), todayZone(request));
+        // The audience picks the read model, and it is picked here — at the boundary, where the
+        // viewer is known — not inside a renderer. An anonymous visitor is served the public
+        // projection, which was built from events without ever holding a private value; everyone
+        // else gets the owner's own entries. There is no longer a step in between that has to
+        // remember to strip anything.
+        List<CalendarEntry> entries = isPublicUser
+                ? publicCalendarProjector.entries()
+                : calendarAggregator.allEntries();
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
-                .body(CalendarRenderer.render(calendarAggregator.allEntries(), today,
+                .body(CalendarRenderer.render(entries, today,
                         isPublicUser, isOwner, parseDate(from), parseDate(to), zoneDisplay,
                         scheduleGapProjector.awayDays()));
     }

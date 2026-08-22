@@ -27,7 +27,8 @@ class CalendarAggregatorTest {
 
     @Test
     void allEntriesAreReturnedFromAllProjectors() {
-        CalendarEntry conference = entry(new EntryDetails.Conference(AttendanceCommitment.WATCHING), "JavaOne");
+        CalendarEntry conference = entry(
+                new EntryDetails.Conference(AttendanceCommitment.WATCHING, false), "JavaOne");
         CalendarEntry flight = entry(new EntryDetails.Flight(null), "SFO→FRA");
         CalendarEntry train = entry(new EntryDetails.Train(null), "Eurostar");
         CalendarEntry hotel = entry(new EntryDetails.Lodging(null, null), "Grand Hotel");

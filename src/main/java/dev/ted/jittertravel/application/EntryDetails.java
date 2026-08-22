@@ -24,8 +24,13 @@ public sealed interface EntryDetails {
      * speculative state has already become {@link AttendanceCommitment#WATCHING} in
      * {@link ConferenceCalendarProjector}, and the private {@code AttendanceBasis} never reaches a
      * calendar entry at all. See {@code docs/ConferenceSubmissionTrackingPlan.md}.
+     * <p>
+     * {@code speaking} is public by decision, like a gathering's, but it is set only on a
+     * conference Ted is committed to — see {@link PublicConference}, which explains why. The owner
+     * and public calendars carry the same value here for the same reason they carry the same
+     * commitment chip: one rendering path, one collapse, nothing for a renderer to get wrong.
      */
-    record Conference(AttendanceCommitment commitment) implements EntryDetails {
+    record Conference(AttendanceCommitment commitment, boolean speaking) implements EntryDetails {
         @Override
         public EntryKind kind() {
             return EntryKind.CONFERENCE;
@@ -158,8 +163,19 @@ public sealed interface EntryDetails {
      * {@link ConferenceCalendarProjector} has already collapsed every speculative state into
      * {@link AttendanceCommitment#WATCHING}. There is deliberately no {@code AttendanceBasis} here
      * and no place to put one.
+     * <p>
+     * <strong>{@code speaking} is set only on a conference Ted is committed to</strong>
+     * (Ted, 2026-08-22), and that gate is a redaction rule, not a nicety. Speaking evidence can
+     * exist before he has answered — an invitation he has not taken up — and a "Maybe" entry
+     * wearing a speaking badge would tell a stranger he had been asked to speak somewhere he has
+     * not decided about, which is the submission pipeline leaking one bit at a time. Gated on
+     * commitment, the badge says only what the plan says is public: that Ted speaks at a
+     * conference he is going to.
+     * <p>
+     * Note the badge is <em>not</em> the basis in disguise: "attending without speaking" is an
+     * ordinary thing, so its absence reveals nothing (Ted, 2026-08-12).
      */
-    record PublicConference(AttendanceCommitment commitment) implements Publishable {
+    record PublicConference(AttendanceCommitment commitment, boolean speaking) implements Publishable {
         @Override
         public EntryKind kind() {
             return EntryKind.CONFERENCE;

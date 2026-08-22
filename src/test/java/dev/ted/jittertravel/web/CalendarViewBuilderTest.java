@@ -25,7 +25,7 @@ class CalendarViewBuilderTest {
     // Details for a kind carrying nothing the test cares about: no links, no chips. A test that
     // is about a link or a chip builds its own details inline, so the interesting value is
     // visible at the point it matters.
-    private static final EntryDetails CONFERENCE_DETAILS = new EntryDetails.Conference(null);
+    private static final EntryDetails CONFERENCE_DETAILS = new EntryDetails.Conference(null, false);
     private static final EntryDetails FLIGHT_DETAILS = new EntryDetails.Flight(null);
     private static final EntryDetails TRAIN_DETAILS = new EntryDetails.Train(null);
 
@@ -536,7 +536,7 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 11, 12, 18, 0),
                 "J-Fall", lines("Ede, Netherlands"),
                 "J-Fall cont'd", lines("Ede, Netherlands"),
-                new EntryDetails.Conference(AttendanceCommitment.WATCHING)
+                new EntryDetails.Conference(AttendanceCommitment.WATCHING, false)
         );
 
         String secondWeek = CalendarViewBuilder.render(
@@ -552,12 +552,51 @@ class CalendarViewBuilderTest {
                 .doesNotContain("entry-maybe-badge");
     }
 
+    @Test
+    void aCommittedConferenceTedSpeaksAtWearsTheSpeakingBadge() {
+        String html = CalendarViewBuilder.render(
+                List.of(conference(AttendanceCommitment.GOING, true)),
+                LocalDate.of(2026, 11, 1),
+                LocalDate.of(2026, 11, 8),
+                TODAY,
+                false
+        );
+
+        assertThat(html)
+                .contains("<span class=\"entry-speaking-badge\">A Ted Talk</span>")
+                .doesNotContain("<span class=\"entry-maybe-badge\">Maybe</span>");
+    }
+
+    /**
+     * The renderer draws what it is handed and never re-derives anything — but the pairing it would
+     * take to reach this is not constructible upstream: the projectors set the speaking flag only
+     * on a committed conference, so "Maybe" plus a speaking badge cannot arise.
+     */
+    @Test
+    void aSpeculativeConferenceWearsTheMaybeChipAndNeverBothChips() {
+        String html = CalendarViewBuilder.render(
+                List.of(conference(AttendanceCommitment.WATCHING, true)),
+                LocalDate.of(2026, 11, 1),
+                LocalDate.of(2026, 11, 8),
+                TODAY,
+                false
+        );
+
+        assertThat(html)
+                .contains("<span class=\"entry-maybe-badge\">Maybe</span>")
+                .doesNotContain("<span class=\"entry-speaking-badge\">A Ted Talk</span>");
+    }
+
     private static CalendarEntry conference(AttendanceCommitment commitment) {
+        return conference(commitment, false);
+    }
+
+    private static CalendarEntry conference(AttendanceCommitment commitment, boolean speaking) {
         return new CalendarEntry(
                 LocalDateTime.of(2026, 11, 5, 9, 0),
                 LocalDateTime.of(2026, 11, 5, 18, 0),
                 "J-Fall", lines("Ede, Netherlands"),
-                new EntryDetails.Conference(commitment)
+                new EntryDetails.Conference(commitment, speaking)
         );
     }
 

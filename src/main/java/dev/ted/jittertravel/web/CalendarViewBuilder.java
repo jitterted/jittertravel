@@ -411,16 +411,12 @@ public class CalendarViewBuilder {
             case EntryDetails.Gathering d -> d.speaking()
                     ? List.of(span("A Ted Talk").withClass("entry-speaking-badge"))
                     : List.of();
-            case EntryDetails.Conference d -> d.commitment() == AttendanceCommitment.WATCHING
-                    ? List.of(span("Maybe").withClass("entry-maybe-badge"))
-                    : List.of();
+            case EntryDetails.Conference d -> conferenceBadges(d.commitment(), d.speaking());
             // Both chips are public by decision, so the public model carries them too.
             case EntryDetails.PublicGathering d -> d.speaking()
                     ? List.of(span("A Ted Talk").withClass("entry-speaking-badge"))
                     : List.of();
-            case EntryDetails.PublicConference d -> d.commitment() == AttendanceCommitment.WATCHING
-                    ? List.of(span("Maybe").withClass("entry-maybe-badge"))
-                    : List.of();
+            case EntryDetails.PublicConference d -> conferenceBadges(d.commitment(), d.speaking());
             case EntryDetails.Flight _,
                  EntryDetails.Train _,
                  EntryDetails.GroundTransfer _,
@@ -429,6 +425,24 @@ public class CalendarViewBuilder {
                  EntryDetails.PublishableTravel _,
                  EntryDetails.Busy _ -> List.of();
         };
+    }
+
+    /**
+     * A conference wears at most one chip, and never both: "Maybe" while it is still speculative,
+     * "A Ted Talk" once Ted is committed and speaking. They cannot co-occur, because the projectors
+     * set the speaking flag only on a committed conference — so a badge pair that would say
+     * "he was asked to speak somewhere he has not decided about" is not constructible here.
+     * <p>
+     * A committed conference Ted merely attends wears nothing, which is the right default reading
+     * of a calendar entry.
+     */
+    private static List<DomContent> conferenceBadges(AttendanceCommitment commitment, boolean speaking) {
+        if (commitment == AttendanceCommitment.WATCHING) {
+            return List.of(span("Maybe").withClass("entry-maybe-badge"));
+        }
+        return speaking
+                ? List.of(span("A Ted Talk").withClass("entry-speaking-badge"))
+                : List.of();
     }
 
     /**

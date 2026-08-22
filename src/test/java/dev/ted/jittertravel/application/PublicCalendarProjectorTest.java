@@ -10,6 +10,11 @@ import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
+import dev.ted.jittertravel.domain.InvitedToSpeak;
+import dev.ted.jittertravel.domain.TalkAccepted;
+import dev.ted.jittertravel.domain.TalkRejected;
+import dev.ted.jittertravel.domain.TalkSubmitted;
+import dev.ted.jittertravel.domain.TalkWithdrawn;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightId;
@@ -272,7 +277,7 @@ class PublicCalendarProjectorTest {
         projector.handle(Stream.of(stored(conferencePlanned(ConferenceId.random(), "J-Fall"))));
 
         assertThat(projector.entries().getFirst().details())
-                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.WATCHING));
+                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.WATCHING, false));
     }
 
     @Test
@@ -284,7 +289,7 @@ class PublicCalendarProjectorTest {
                 AttendanceBasis.SPEAKING_ACCEPTED, Instant.parse("2026-05-01T00:00:00Z")))));
 
         assertThat(projector.entries().getFirst().details())
-                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING));
+                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING, true));
     }
 
     /**
@@ -318,6 +323,131 @@ class PublicCalendarProjectorTest {
 
         assertThat(projector.entries()).isEmpty();
     }
+
+    /**
+     * The acceptance commits attendance and makes the badge publishable in one move — there is no
+     * confirmation event here at all.
+     */
+    @Test
+    void anAcceptedTalkPublishesGoingAndSpeaking() {
+        ConferenceId conferenceId = ConferenceId.random();
+        projector.handle(Stream.of(stored(conferencePlanned(conferenceId, "dev2next"))));
+
+        projector.handle(Stream.of(
+                stored(new TalkSubmitted(conferenceId, RECORDED_ON)),
+                stored(new TalkAccepted(conferenceId, RECORDED_ON))));
+
+        assertThat(projector.entries().getFirst().details())
+                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING, true));
+    }
+
+    /**
+     * <strong>The gate.</strong> An unanswered invitation is speaking evidence, and publishing it
+     * would tell a stranger Ted had been asked to speak somewhere he has not decided about. The
+     * published entry is byte-identical to a conference nobody ever invited him to.
+     */
+    @Test
+    void anUnansweredInvitationPublishesNothingAtAll() {
+        ConferenceId invited = ConferenceId.random();
+        ConferenceId untouched = ConferenceId.random();
+        projector.handle(Stream.of(
+                stored(conferencePlanned(invited, "J-Fall")),
+                stored(conferencePlanned(untouched, "J-Fall"))));
+
+        projector.handle(Stream.of(stored(new InvitedToSpeak(invited, RECORDED_ON))));
+
+        assertThat(projector.entries().get(0).details())
+                .as("an invitation Ted has not answered changes nothing an anonymous viewer sees")
+                .isEqualTo(projector.entries().get(1).details());
+        assertThat(projector.entries().getFirst().details())
+                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.WATCHING, false));
+    }
+
+    /** Saying yes is what makes it publishable, and the basis is what says he said yes to speaking. */
+    @Test
+    void anAcceptedInvitationPublishesTheBadgeAndAPlainTicketDoesNot() {
+        ConferenceId speaking = ConferenceId.random();
+        ConferenceId attending = ConferenceId.random();
+        projector.handle(Stream.of(
+                stored(conferencePlanned(speaking, "J-Fall")),
+                stored(conferencePlanned(attending, "J-Fall"))));
+
+        projector.handle(Stream.of(
+                stored(new InvitedToSpeak(speaking, RECORDED_ON)),
+                stored(new ConferenceAttendanceConfirmed(speaking,
+                        AttendanceBasis.SPEAKING_INVITED, RECORDED_ON)),
+                stored(new InvitedToSpeak(attending, RECORDED_ON)),
+                stored(new ConferenceAttendanceConfirmed(attending,
+                        AttendanceBasis.TICKET_PURCHASED, RECORDED_ON))));
+
+        assertThat(projector.entries().get(0).details())
+                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING, true));
+        assertThat(projector.entries().get(1).details())
+                .as("going on a bought ticket after an invitation is attending, not speaking")
+                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING, false));
+    }
+
+    /**
+     * Submission status is OWNER-only in full: a talk out for review, and a talk turned down, both
+     * publish exactly what a conference with no submission publishes.
+     */
+    @Test
+    void aSubmissionAndARejectionAreBothInvisibleToAnAnonymousViewer() {
+        ConferenceId submitted = ConferenceId.random();
+        ConferenceId rejected = ConferenceId.random();
+        ConferenceId untouched = ConferenceId.random();
+        projector.handle(Stream.of(
+                stored(conferencePlanned(submitted, "J-Fall")),
+                stored(conferencePlanned(rejected, "J-Fall")),
+                stored(conferencePlanned(untouched, "J-Fall"))));
+
+        projector.handle(Stream.of(
+                stored(new TalkSubmitted(submitted, RECORDED_ON)),
+                stored(new TalkSubmitted(rejected, RECORDED_ON)),
+                stored(new TalkRejected(rejected, RECORDED_ON))));
+
+        assertThat(projector.entries())
+                .extracting(CalendarEntry::details)
+                .containsOnly(new EntryDetails.PublicConference(AttendanceCommitment.WATCHING, false));
+    }
+
+    /**
+     * The auto-drop reaches the public calendar too: where acceptance was the way in, a rejection
+     * takes the conference off the calendar entirely, exactly as a decline does.
+     */
+    @Test
+    void aRejectionDropsAnAcceptanceRequiredConferenceFromThePublicCalendar() {
+        ConferenceId conferenceId = ConferenceId.random();
+        projector.handle(Stream.of(stored(new ConferencePlanned(conferenceId, "PLoP",
+                zoned(LocalDateTime.of(2026, 10, 12, 9, 0), LONDON),
+                zoned(LocalDateTime.of(2026, 10, 15, 17, 0), LONDON),
+                "Allerton House",
+                new Address("1 Conf St", "Monticello", "", "61856", "USA", null),
+                ConferenceFormat.ACCEPTANCE_REQUIRED))));
+
+        projector.handle(Stream.of(
+                stored(new TalkSubmitted(conferenceId, RECORDED_ON)),
+                stored(new TalkRejected(conferenceId, RECORDED_ON))));
+
+        assertThat(projector.entries()).isEmpty();
+    }
+
+    /** Pulling a talk moves one axis: Ted still goes, so the entry stays and the badge goes. */
+    @Test
+    void withdrawingAnAcceptedTalkKeepsTheEntryAndDropsTheBadge() {
+        ConferenceId conferenceId = ConferenceId.random();
+        projector.handle(Stream.of(stored(conferencePlanned(conferenceId, "dev2next"))));
+
+        projector.handle(Stream.of(
+                stored(new TalkSubmitted(conferenceId, RECORDED_ON)),
+                stored(new TalkAccepted(conferenceId, RECORDED_ON)),
+                stored(new TalkWithdrawn(conferenceId, RECORDED_ON))));
+
+        assertThat(projector.entries().getFirst().details())
+                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING, false));
+    }
+
+    private static final Instant RECORDED_ON = Instant.parse("2026-05-01T00:00:00Z");
 
     private static ConferencePlanned conferencePlanned(ConferenceId conferenceId, String name) {
         return new ConferencePlanned(conferenceId, name,

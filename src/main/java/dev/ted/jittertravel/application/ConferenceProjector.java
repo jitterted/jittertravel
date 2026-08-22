@@ -76,60 +76,40 @@ public class ConferenceProjector implements EventStreamConsumer {
                                         SpeakingStatus.NOT_SPEAKING,
                                         null,
                                         event.format()),
-                                false));
+                                ConferenceProgress.planned(event.format())));
                 // Recording a CFP twice is how a moved deadline is corrected, so this overwrites
                 // rather than ignoring the second one — the last recorded deadline wins.
-                case CfpOpened event ->
-                        update(event.conferenceId(), tracked -> tracked.withCfpClosing(event.closesOn()));
-                // The basis is collapsed to a boolean here and then dropped: whether Ted speaks is
-                // rendered, but *which* speaking basis applies — accepted, or invited — is
-                // submission status, so it never reaches the view at all. It is kept beside the
-                // view rather than on it, so a renderer cannot reach it even by accident.
+                case CfpOpened event -> conferences.computeIfPresent(event.conferenceId(),
+                        (id, tracked) -> tracked.withCfpClosing(event.closesOn()));
+                // The basis is read and immediately collapsed: whether Ted speaks is rendered, but
+                // *which* speaking basis applies — accepted, or invited — is submission status, so
+                // it stays inside ConferenceProgress and never reaches the view at all.
                 case ConferenceAttendanceConfirmed event ->
-                        update(event.conferenceId(),
-                               tracked -> tracked.confirmed(speaking(event.basis())));
+                        update(event.conferenceId(), progress -> progress.confirmed(event.basis()));
                 // The organizers pulled the event: there is no conference left to have a view of.
                 case ConferenceCancelled event -> conferences.remove(event.conferenceId());
                 // Ted said no. The row stays, at NOT_GOING, hidden behind ?dropped=show.
                 case ConferenceAttendanceDeclined event ->
-                        update(event.conferenceId(),
-                               tracked -> tracked.at(AttendanceCommitment.NOT_GOING));
+                        update(event.conferenceId(), ConferenceProgress::declined);
 
-                case TalkSubmitted event ->
-                        update(event.conferenceId(), tracked -> tracked.moveTo(SpeakingStatus.SUBMITTED));
-                // Accepted, so going: the auto-commit.
-                case TalkAccepted event ->
-                        update(event.conferenceId(), tracked -> tracked.moveTo(SpeakingStatus.ACCEPTED)
-                                                                       .at(AttendanceCommitment.GOING));
-                // Turned down. Whether that costs the conference depends on its format.
-                case TalkRejected event ->
-                        update(event.conferenceId(), Tracked::rejected);
-                // Pulling a talk says nothing about attending: commitment is left exactly as it was.
-                case TalkWithdrawn event ->
-                        update(event.conferenceId(), tracked -> tracked.moveTo(SpeakingStatus.WITHDRAWN));
-                // An offer, so it commits nothing until Ted confirms.
-                case InvitedToSpeak event ->
-                        update(event.conferenceId(), tracked -> tracked.moveTo(SpeakingStatus.INVITED));
+                case TalkSubmitted event -> update(event.conferenceId(), ConferenceProgress::submitted);
+                case TalkAccepted event -> update(event.conferenceId(), ConferenceProgress::accepted);
+                case TalkRejected event -> update(event.conferenceId(), ConferenceProgress::rejected);
+                case TalkWithdrawn event -> update(event.conferenceId(), ConferenceProgress::withdrawn);
+                case InvitedToSpeak event -> update(event.conferenceId(), ConferenceProgress::invited);
                 default -> {}
             }
         });
     }
 
-    /** Every fold arm goes through here, so an event for a conference that is gone is a no-op. */
-    private void update(ConferenceId conferenceId, UnaryOperator<Tracked> change) {
-        conferences.computeIfPresent(conferenceId, (id, tracked) -> change.apply(tracked));
-    }
-
     /**
-     * The partition {@link AttendanceBasis}'s three values were chosen for: two speaking bases and
-     * one that is not. Exhaustive, so a fourth basis cannot be added without deciding which side of
-     * the line it falls on.
+     * Every fold arm goes through here: it moves the conference along both axes and rebuilds the
+     * view from the result, so the view can never drift from the facts it is derived from. An event
+     * for a conference that is not here — never planned, or cancelled — is a no-op.
      */
-    private boolean speaking(AttendanceBasis basis) {
-        return switch (basis) {
-            case SPEAKING_ACCEPTED, SPEAKING_INVITED -> true;
-            case TICKET_PURCHASED -> false;
-        };
+    private void update(ConferenceId conferenceId, UnaryOperator<ConferenceProgress> change) {
+        conferences.computeIfPresent(conferenceId,
+                (id, tracked) -> tracked.showing(change.apply(tracked.progress())));
     }
 
     /**
@@ -152,79 +132,35 @@ public class ConferenceProjector implements EventStreamConsumer {
     }
 
     /**
-     * One conference's view plus the one fact the view may not carry: whether the last attendance
-     * confirmation named a speaking basis.
+     * One conference's row, and where that conference stands on both axes.
      * <p>
-     * <strong>Why it is kept out here.</strong> "Which basis" is submission status wearing a
-     * different hat, and CLAUDE.md's redaction rule is that a field which never enters a view
-     * cannot leak from it. The boolean is needed to answer whether Ted speaks at a conference he
-     * was <em>invited</em> to — he does only if he accepted the invitation rather than merely
-     * buying a ticket — but that answer belongs on the view, not its ingredients.
+     * {@link ConferenceProgress} holds one fact the view may not: whether the last attendance
+     * confirmation named a speaking basis. "Which basis" is submission status wearing a different
+     * hat, and CLAUDE.md's redaction rule is that a field which never enters a view cannot leak
+     * from it — so it stays here, and only its consequence reaches the row.
      */
-    private record Tracked(ConferenceView view, boolean confirmationNamedSpeaking) {
+    private record Tracked(ConferenceView view, ConferenceProgress progress) {
 
-        Tracked confirmed(boolean basisIsSpeaking) {
-            return new Tracked(view, basisIsSpeaking).at(AttendanceCommitment.GOING);
-        }
-
-        Tracked moveTo(SpeakingStatus status) {
-            return rebuild(view.commitment(), status);
-        }
-
-        Tracked at(AttendanceCommitment commitment) {
-            return rebuild(commitment, view.speakingStatus());
+        /** The row as this progress makes it: both derived fields recomputed from scratch. */
+        Tracked showing(ConferenceProgress moved) {
+            return new Tracked(new ConferenceView(
+                    view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
+                    view.startDate(), view.endDate(), moved.commitment(), moved.speaking(),
+                    moved.speakingStatus(), view.cfpClosesOn(), view.format()
+            ), moved);
         }
 
         /**
-         * A rejection always moves the speaking axis; it moves the attendance axis only where
-         * acceptance was the way in. The format is the conference's own, from
-         * {@code ConferencePlanned}, so the branch cannot disagree with how the conference was
-         * entered.
+         * A CFP deadline says nothing about either axis: recording one and committing are
+         * independent facts about the same conference, so each carries the other's value through
+         * untouched.
          */
-        Tracked rejected() {
-            return view.format() == ConferenceFormat.ACCEPTANCE_REQUIRED
-                    ? rebuild(AttendanceCommitment.NOT_GOING, SpeakingStatus.REJECTED)
-                    : rebuild(view.commitment(), SpeakingStatus.REJECTED);
-        }
-
         Tracked withCfpClosing(ZonedTimestamp closesOn) {
             return new Tracked(new ConferenceView(
                     view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
                     view.startDate(), view.endDate(), view.commitment(), view.speaking(),
                     view.speakingStatus(), closesOn, view.format()
-            ), confirmationNamedSpeaking);
-        }
-
-        private Tracked rebuild(AttendanceCommitment commitment, SpeakingStatus status) {
-            return new Tracked(new ConferenceView(
-                    view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
-                    view.startDate(), view.endDate(), commitment, speaks(commitment, status),
-                    status, view.cfpClosesOn(), view.format()
-            ), confirmationNamedSpeaking);
-        }
-
-        /**
-         * Whether Ted speaks, recomputed from scratch every time either axis moves — so the answer
-         * cannot drift away from the facts it is derived from.
-         * <p>
-         * <strong>The stream wins wherever it has spoken.</strong> Exhaustive, so a new
-         * {@link SpeakingStatus} cannot be added without deciding whether it counts as speaking.
-         */
-        private boolean speaks(AttendanceCommitment commitment, SpeakingStatus status) {
-            return switch (status) {
-                // The talk is in the program. Nothing else is consulted, and no confirmation is
-                // needed — being accepted is what made him GOING in the first place.
-                case ACCEPTED -> true;
-                // The stream has spoken, and it said no talk: waiting to hear, turned down, or
-                // pulled. A basis claiming otherwise is a stale manual annotation and loses.
-                case SUBMITTED, REJECTED, WITHDRAWN -> false;
-                // An offer he has taken up. Going on a ticket after an invitation is attending,
-                // not speaking, so the basis is what separates the two.
-                case INVITED -> commitment == AttendanceCommitment.GOING && confirmationNamedSpeaking;
-                // The stream is silent, which is every conference recorded before these events
-                // existed. Here the basis is the only evidence there is.
-                case NOT_SPEAKING -> commitment == AttendanceCommitment.GOING && confirmationNamedSpeaking;
-            };
+            ), progress);
         }
     }
 }

@@ -292,7 +292,7 @@ class CalendarControllerTest {
                 end.atTime(17, 0),
                 title, List.of(new SubtitleLine.Text("subtitle for " + title)),
                 title + " cont'd", List.of(new SubtitleLine.Text("continued subtitle for " + title)),
-                new EntryDetails.Conference(null)
+                new EntryDetails.Conference(null, false)
         );
     }
 }

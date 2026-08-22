@@ -45,12 +45,12 @@ class CalendarToggleJsTest extends JsBehaviorTest {
                 LocalDateTime.of(2026, 6, 8, 9, 0),
                 LocalDateTime.of(2026, 6, 8, 17, 0),
                 "Past Conference", List.of(),
-                new EntryDetails.Conference(null));
+                new EntryDetails.Conference(null, false));
         CalendarEntry upcomingConference = new CalendarEntry(
                 LocalDateTime.of(2026, 6, 16, 9, 0),
                 LocalDateTime.of(2026, 6, 16, 17, 0),
                 "Upcoming Conference", List.of(),
-                new EntryDetails.Conference(null));
+                new EntryDetails.Conference(null, false));
         return List.of(pastConference, upcomingConference);
     }
 

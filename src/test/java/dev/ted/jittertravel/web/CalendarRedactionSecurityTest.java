@@ -16,6 +16,11 @@ import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
+import dev.ted.jittertravel.domain.InvitedToSpeak;
+import dev.ted.jittertravel.domain.TalkAccepted;
+import dev.ted.jittertravel.domain.TalkRejected;
+import dev.ted.jittertravel.domain.TalkSubmitted;
+import dev.ted.jittertravel.domain.TalkWithdrawn;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightId;
@@ -411,7 +416,7 @@ class CalendarRedactionSecurityTest {
         return new CalendarEntry(
                 CONF_START, CONF_END,
                 "J-Fall", List.of(new SubtitleLine.Text("Ede, Netherlands")),
-                new EntryDetails.Conference(commitment));
+                new EntryDetails.Conference(commitment, false));
     }
 
     private static final ZoneId AMSTERDAM = ZoneId.of("Europe/Amsterdam");
@@ -425,6 +430,8 @@ class CalendarRedactionSecurityTest {
                 new Address("1 Conf St", "Ede", "", "6710", "Netherlands", null),
                 ConferenceFormat.CALL_FOR_PAPERS);
     }
+
+    private static final Instant RECORDED_ON = Instant.parse("2026-05-01T00:00:00Z");
 
     /** A conference Ted has committed to, reached the way production reaches it. */
     private static ConferenceAttendanceConfirmed jFallConfirmed(AttendanceBasis basis) {
@@ -474,6 +481,130 @@ class CalendarRedactionSecurityTest {
                 .doesNotContain("TICKET_PURCHASED")
                 .doesNotContain("Ticket purchased")
                 .doesNotContain("Invited to speak");
+    }
+
+    // The badge's own CSS comment names it, so both directions assert the whole element.
+    private static final String SPEAKING_BADGE =
+            "<span class=\"entry-speaking-badge\">A Ted Talk</span>";
+
+    /**
+     * That Ted speaks at a conference is public by decision — the venue and the time already are.
+     * Driven all the way from the events that make it true: a submission, then an acceptance, which
+     * commits attendance on its own.
+     */
+    @Test
+    void anonymousUserSeesTheSpeakingBadgeOnAnAcceptedTalk() {
+        anonymousSees(jFallPlanned(),
+                      new TalkSubmitted(J_FALL, RECORDED_ON),
+                      new TalkAccepted(J_FALL, RECORDED_ON));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains(SPEAKING_BADGE)
+                .doesNotContain(MAYBE_CHIP);
+    }
+
+    /**
+     * <strong>The redaction claim this slice turns on.</strong> An invitation Ted has not answered
+     * is speaking evidence, and publishing it would tell a stranger he had been asked to speak
+     * somewhere he has not decided about — the submission pipeline leaking one bit. Gated on
+     * commitment, the entry is indistinguishable from any other "Maybe".
+     */
+    @Test
+    void anonymousUserNeverLearnsOfAnUnansweredSpeakingInvitation() {
+        anonymousSees(jFallPlanned(), new InvitedToSpeak(J_FALL, RECORDED_ON));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains(MAYBE_CHIP)
+                .doesNotContain(SPEAKING_BADGE)
+                .doesNotContain("Invited")
+                .doesNotContain("invitation");
+    }
+
+    /** Saying yes to the invitation is what makes it publishable — and only then. */
+    @Test
+    void anonymousUserSeesTheBadgeOnceAnInvitationIsAccepted() {
+        anonymousSees(jFallPlanned(),
+                      new InvitedToSpeak(J_FALL, RECORDED_ON),
+                      jFallConfirmed(AttendanceBasis.SPEAKING_INVITED));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains(SPEAKING_BADGE);
+    }
+
+    /**
+     * Going to a conference he was invited to, on a bought ticket, is attending — not speaking. The
+     * badge must not appear, or it would say something untrue about the same public facts.
+     */
+    @Test
+    void anInvitationTakenUpAsAPlainTicketWearsNoBadge() {
+        anonymousSees(jFallPlanned(),
+                      new InvitedToSpeak(J_FALL, RECORDED_ON),
+                      jFallConfirmed(AttendanceBasis.TICKET_PURCHASED));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("J-Fall")
+                .doesNotContain(SPEAKING_BADGE);
+    }
+
+    /**
+     * A talk out for review leaves no public mark at all: submission status is OWNER-only, so the
+     * anonymous page cannot tell this conference from one Ted never submitted to.
+     */
+    @Test
+    void anonymousUserCannotTellASubmittedTalkFromNoSubmissionAtAll() {
+        anonymousSees(jFallPlanned(), new TalkSubmitted(J_FALL, RECORDED_ON));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains(MAYBE_CHIP)
+                .doesNotContain(SPEAKING_BADGE)
+                .doesNotContain("Submitted")
+                .doesNotContain("submitted");
+    }
+
+    /** A rejection is the most private thing on the axis, and it leaves no mark either. */
+    @Test
+    void anonymousUserNeverLearnsOfARejection() {
+        anonymousSees(jFallPlanned(),
+                      new TalkSubmitted(J_FALL, RECORDED_ON),
+                      new TalkRejected(J_FALL, RECORDED_ON));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains(MAYBE_CHIP)
+                .doesNotContain(SPEAKING_BADGE)
+                // Capitalised only: the word appears lowercase in a stylesheet comment on every
+                // calendar page, so asserting on it would fail for the wrong reason.
+                .doesNotContain("Rejected");
+    }
+
+    /**
+     * Withdrawing a talk moves one axis only: Ted still goes, so the entry stays — it simply stops
+     * saying he speaks there.
+     */
+    @Test
+    void withdrawingAnAcceptedTalkTakesTheBadgeAwayButNotTheEntry() {
+        anonymousSees(jFallPlanned(),
+                      new TalkSubmitted(J_FALL, RECORDED_ON),
+                      new TalkAccepted(J_FALL, RECORDED_ON),
+                      new TalkWithdrawn(J_FALL, RECORDED_ON));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("J-Fall")
+                .doesNotContain(SPEAKING_BADGE)
+                .doesNotContain(MAYBE_CHIP);
     }
 
     @Test

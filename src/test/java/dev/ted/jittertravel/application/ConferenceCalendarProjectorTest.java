@@ -105,7 +105,7 @@ class ConferenceCalendarProjectorTest {
 
         assertThat(projector.entries().getFirst().details())
                 .as("planning a conference puts it on the watch list, nothing more")
-                .isEqualTo(new EntryDetails.Conference(AttendanceCommitment.WATCHING));
+                .isEqualTo(new EntryDetails.Conference(AttendanceCommitment.WATCHING, false));
     }
 
     @Test
@@ -121,7 +121,8 @@ class ConferenceCalendarProjectorTest {
         assertThat(projector.entries())
                 .singleElement()
                 .extracting(CalendarEntry::details)
-                .isEqualTo(new EntryDetails.Conference(AttendanceCommitment.GOING));
+                .as("confirmed on a speaking basis, so the entry says he speaks there")
+                .isEqualTo(new EntryDetails.Conference(AttendanceCommitment.GOING, true));
     }
 
     @Test
@@ -140,7 +141,7 @@ class ConferenceCalendarProjectorTest {
                         before.start(), before.end(),
                         before.mainTitle(), before.subTitle(),
                         before.continuationTitle(), before.continuationSubTitle(),
-                        new EntryDetails.Conference(AttendanceCommitment.GOING)));
+                        new EntryDetails.Conference(AttendanceCommitment.GOING, true)));
     }
 
     @Test

@@ -20,8 +20,13 @@ import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelChanged;
+import dev.ted.jittertravel.domain.InvitedToSpeak;
 import dev.ted.jittertravel.domain.PrivateEventId;
 import dev.ted.jittertravel.domain.PrivateEventPlanned;
+import dev.ted.jittertravel.domain.TalkAccepted;
+import dev.ted.jittertravel.domain.TalkRejected;
+import dev.ted.jittertravel.domain.TalkSubmitted;
+import dev.ted.jittertravel.domain.TalkWithdrawn;
 import dev.ted.jittertravel.domain.TrainBooked;
 import dev.ted.jittertravel.domain.TrainChanged;
 import dev.ted.jittertravel.domain.TrainStationAddress;
@@ -36,6 +41,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 /**
@@ -69,6 +75,13 @@ import java.util.stream.Stream;
 public class PublicCalendarProjector implements EventStreamConsumer {
 
     private final Map<Object, List<CalendarEntry>> entriesBySubject = new ConcurrentHashMap<>();
+    /**
+     * Where each conference stands on both axes — kept beside the entries, never on them. It holds
+     * exactly the facts an anonymous viewer may not have: the conference's format, where the talk
+     * is in the pipeline, and whether the last confirmation named a speaking reason. Only their
+     * consequences are published, through {@link #publishable}.
+     */
+    private final Map<ConferenceId, ConferenceProgress> progress = new ConcurrentHashMap<>();
     private final TransferEndpointLabel label = new TransferEndpointLabel();
 
     @Override
@@ -76,15 +89,31 @@ public class PublicCalendarProjector implements EventStreamConsumer {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
                 // Conferences are public events in full: name, venue, city and times. Planning one
-                // is putting it on the watch list, so it starts out merely WATCHING; confirming
-                // attendance rewrites the same entry as GOING. The event's AttendanceBasis — why
-                // Ted is going, which is submission status in disguise — is never read here.
-                case ConferencePlanned e -> put(e.conferenceId(), conference(e, AttendanceCommitment.WATCHING));
-                case ConferenceAttendanceConfirmed e -> going(e.conferenceId());
+                // is putting it on the watch list, so it starts out merely WATCHING and with no
+                // speaking badge; later events rewrite the same entry.
+                case ConferencePlanned e -> {
+                    progress.put(e.conferenceId(), ConferenceProgress.planned(e.format()));
+                    put(e.conferenceId(), conference(e, ConferenceProgress.planned(e.format())));
+                }
+                // The event's AttendanceBasis is read to answer one question — does Ted speak here
+                // — and is never carried onto an entry. That answer is published only once he is
+                // committed; see moveTo.
+                case ConferenceAttendanceConfirmed e ->
+                        moveTo(e.conferenceId(), current -> current.confirmed(e.basis()));
                 // A conference Ted has declined, or that its organizers cancelled, leaves the
                 // calendar entirely — for everyone, not just for strangers.
-                case ConferenceCancelled e -> entriesBySubject.remove(e.conferenceId());
-                case ConferenceAttendanceDeclined e -> entriesBySubject.remove(e.conferenceId());
+                case ConferenceCancelled e -> forget(e.conferenceId());
+                case ConferenceAttendanceDeclined e -> forget(e.conferenceId());
+
+                // The submission pipeline is OWNER-only, and none of it is published: what these
+                // move is the collapsed commitment and the speaking badge, nothing else. A talk
+                // that was submitted, turned down or pulled leaves no mark an anonymous viewer can
+                // read — a rejection is indistinguishable from never having submitted.
+                case TalkSubmitted e -> moveTo(e.conferenceId(), ConferenceProgress::submitted);
+                case TalkAccepted e -> moveTo(e.conferenceId(), ConferenceProgress::accepted);
+                case TalkRejected e -> moveTo(e.conferenceId(), ConferenceProgress::rejected);
+                case TalkWithdrawn e -> moveTo(e.conferenceId(), ConferenceProgress::withdrawn);
+                case InvitedToSpeak e -> moveTo(e.conferenceId(), ConferenceProgress::invited);
 
                 // Gatherings are public in full too, speaking marker and info URL included.
                 case GatheringPlanned e -> put(e.gatheringId(), gathering(
@@ -129,7 +158,7 @@ public class PublicCalendarProjector implements EventStreamConsumer {
         });
     }
 
-    private CalendarEntry conference(ConferencePlanned event, AttendanceCommitment commitment) {
+    private CalendarEntry conference(ConferencePlanned event, ConferenceProgress progress) {
         List<SubtitleLine> location = List.of(new SubtitleLine.Text(cityCountry(event.venueAddress())));
         return entry(
                 event.startDate().localDateTime(),
@@ -138,18 +167,58 @@ public class PublicCalendarProjector implements EventStreamConsumer {
                 location,
                 event.name() + " cont'd",
                 location,
-                new EntryDetails.PublicConference(commitment));
+                publishable(progress));
     }
 
-    /** Ted is going: the same entry, no longer speculative. */
-    private void going(ConferenceId conferenceId) {
+    /**
+     * Moves a conference along both axes and rewrites its entry — or removes it, if the move
+     * dropped the conference (Ted declined, or a rejection dropped one where acceptance was the way
+     * in). A conference this projector has never seen is a no-op.
+     */
+    private void moveTo(ConferenceId conferenceId, UnaryOperator<ConferenceProgress> change) {
+        ConferenceProgress moved = progress.computeIfPresent(conferenceId,
+                (id, current) -> change.apply(current));
+        if (moved == null) {
+            return;
+        }
+        if (moved.dropped()) {
+            forget(conferenceId);
+            return;
+        }
         entriesBySubject.computeIfPresent(conferenceId, (id, entries) -> entries.stream()
                 .map(entry -> entry(
                         entry.start(), entry.end(),
                         entry.mainTitle(), entry.subTitle(),
                         entry.continuationTitle(), entry.continuationSubTitle(),
-                        new EntryDetails.PublicConference(AttendanceCommitment.GOING)))
+                        publishable(moved)))
                 .toList());
+    }
+
+    /**
+     * The two publishable facts about where a conference stands, and nothing else.
+     * <p>
+     * <strong>The speaking badge is gated on commitment</strong> (Ted, 2026-08-22). Speaking
+     * evidence can exist before Ted has answered — an unanswered invitation — and a "Maybe" entry
+     * wearing a badge would tell a stranger he had been asked to speak somewhere he has not decided
+     * about. That is the submission pipeline leaking one bit at a time.
+     * <p>
+     * <strong>What enforces it is {@link ConferenceProgress#speaking()}</strong>, which answers
+     * false for an invitation until a confirmation names a speaking reason. The check repeated
+     * here is belt-and-braces and, today, unreachable: the only way to be speaking without being
+     * committed is to have been accepted and then declined, and a dropped conference has already
+     * left this calendar. It is kept because it states the rule at the point of publication, where
+     * the next person will look for it — but the test that guards the rule pins
+     * {@code ConferenceProgress}, not this line.
+     */
+    private EntryDetails.PublicConference publishable(ConferenceProgress progress) {
+        return new EntryDetails.PublicConference(
+                progress.commitment(),
+                progress.commitment() == AttendanceCommitment.GOING && progress.speaking());
+    }
+
+    private void forget(ConferenceId conferenceId) {
+        entriesBySubject.remove(conferenceId);
+        progress.remove(conferenceId);
     }
 
     private CalendarEntry gathering(String title, String venueName, Address location,

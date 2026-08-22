@@ -34,13 +34,19 @@ for open work.
       source-scan alternative (compare the two switches' matched event types, in the style of
       `PublicCalendarBuildsOnlyPublishableEntriesTest`) stays available if this ever proves too easy
       to forget.
-- [ ] **No test covers the `PublicCalendarProjector` bean's registration.** Also from the 2026-08-21
-      review. Every test that renders `/calendar` supplies it as a `@MockitoBean`, so if
-      `bootstrapper.register(...)` in `EventSourcingConfig` were ever reduced to a bare
-      `new PublicCalendarProjector()`, the projector would never be subscribed or replayed, **every
-      anonymous visitor would get a permanently empty calendar**, and the whole suite would still pass.
-      All 22 projector beans share this shape, so the honest fix is one test over the registration
-      list rather than one per bean — but this one now backs the entire public page on its own.
+- [x] **No test covered the `PublicCalendarProjector` bean's registration.** From the 2026-08-21
+      review; **done the same day**. Every test that renders `/calendar` supplies it as a
+      `@MockitoBean`, so reducing `bootstrapper.register(...)` to a bare `new PublicCalendarProjector()`
+      would have left the projector neither subscribed nor replayed — **a permanently empty calendar
+      for every anonymous visitor**, with the whole suite green.
+      Fixed generally rather than for the one bean, as noted: `EveryProjectorBeanIsRegisteredTest`
+      asserts that **every `@Bean` returning an `EventStreamConsumer`** calls
+      `bootstrapper.register(...)` — 23 beans today. The set is derived by **reflection** over
+      `EventSourcingConfig`, so a new projector bean is covered the day it is written and there is no
+      fixture to forget; only "does it call register" is answered by reading source, that call being
+      the whole of what there is to check. A second test pins the guard against its own rot (the
+      config class moving, or the `bootstrapper` parameter being renamed), since either would
+      silently reduce it to checking nothing.
 - [ ] **A gap *into* home is dated by the wrong end — the mirror image of D14.** Lifted from
       `archived/ScheduleProblemsRewritePlan.md` (its whole "Open" section) when that plan was
       archived 2026-08-21. D14 fixed one direction: a gap *out of* home is now dated by the day

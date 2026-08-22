@@ -136,6 +136,12 @@ public class EventSourcingConfig {
         return new ConfirmConferenceAttendance(commandExecutor);
     }
 
+    /** And again: "is this conference still live?" is the only fact recording a CFP needs. */
+    @Bean
+    public OpenCfp openCfpApplicationService(CommandExecutor commandExecutor) {
+        return new OpenCfp(commandExecutor);
+    }
+
     @Bean
     public FlightBooking flightBookingApplicationService(CommandExecutor commandExecutor,
                                                          AirportZoneResolver airportZoneResolver) {

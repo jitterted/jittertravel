@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.domain.CfpOpened;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
@@ -95,6 +96,9 @@ public final class EventTypes {
         register("ConferenceCancelled", ConferenceCancelled.class);
         register("ConferenceAttendanceConfirmed", ConferenceAttendanceConfirmed.class);
         register("ConferenceAttendanceDeclined", ConferenceAttendanceDeclined.class);
+        // Born with a ZonedTimestamp, so there is no pre-zone form of it to upcast: version 1 is
+        // the only shape this event has ever had.
+        register("CfpOpened", CfpOpened.class);
         register("GatheringPlanned", GatheringPlanned.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("GatheringChanged", GatheringChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("PrivateEventPlanned", PrivateEventPlanned.class);

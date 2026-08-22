@@ -221,6 +221,28 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
+    void cfpOpenedCurrentPayloadDeserializes() {
+        // Born with a ZonedTimestamp, so this is version 1 and there is no pre-zone form to upcast.
+        // The zone is the conference's own venue zone, carried so the deadline reads back as the
+        // wall-clock the CFP page stated.
+        String json = """
+                {
+                  "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "closesOn": {"utc": "2026-09-12T21:59:00Z", "zone": "Europe/Amsterdam"}
+                }
+                """;
+
+        CfpOpened event = deserialize(json, CfpOpened.class);
+
+        assertThat(event.conferenceId().id())
+                .isEqualTo(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        assertThat(event.closesOn().utc())
+                .isEqualTo(Instant.parse("2026-09-12T21:59:00Z"));
+        assertThat(event.closesOn().zone())
+                .isEqualTo(ZoneId.of("Europe/Amsterdam"));
+    }
+
+    @Test
     void oneOffTaskCompletedCurrentPayloadDeserializes() {
         // The taskId is a hand-written registry id, not a UUID: it has to survive the code that
         // declared it being deleted, which is the normal end of a post-deploy task's life.

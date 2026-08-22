@@ -252,6 +252,37 @@ class ConferencesRendererTest {
     }
 
     @Test
+    void everyRowLinksToItsCfpPageAndSaysWhenNoDeadlineIsRecordedYet() {
+        ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
+                "Ede", "Netherlands", AttendanceCommitment.WATCHING, false, null);
+
+        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("href=\"/conferences/" + conf.conferenceId().id() + "/cfp\"")
+                .contains(">CFP</a>")
+                .contains("title=\"Record when this conference&#x27;s CFP closes\"");
+    }
+
+    /**
+     * The link does the same job either way, so the word does not change and its slot does not move
+     * — the tick is the only difference, and it says a deadline is already on file.
+     */
+    @Test
+    void aRowWithARecordedDeadlineTicksItsCfpLinkWithoutMovingIt() {
+        ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
+                "Ede", "Netherlands", AttendanceCommitment.WATCHING, false,
+                ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-12T23:59"), ZONE));
+
+        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("href=\"/conferences/" + conf.conferenceId().id() + "/cfp\"")
+                .contains(">CFP ✓</a>")
+                .contains("title=\"Change the recorded CFP deadline\"");
+    }
+
+    @Test
     void theBasisForGoingNeverReachesTheList() {
         // AttendanceBasis is OWNER-private submission status wearing a different hat: it is not
         // carried on ConferenceView at all, so no wording of it can appear here.
@@ -287,12 +318,19 @@ class ConferencesRendererTest {
     private static ConferenceView view(String name, String start, String end,
                                        String city, String country,
                                        AttendanceCommitment commitment, boolean speaking) {
+        return view(name, start, end, city, country, commitment, speaking, null);
+    }
+
+    private static ConferenceView view(String name, String start, String end,
+                                       String city, String country,
+                                       AttendanceCommitment commitment, boolean speaking,
+                                       ZonedTimestamp cfpClosesOn) {
         return new ConferenceView(
                 ConferenceId.random(), name, "Venue",
                 new Address("1 Street", city, "", "", country, null),
                 ZonedTimestamp.fromLocal(LocalDateTime.parse(start), ZONE),
                 ZonedTimestamp.fromLocal(LocalDateTime.parse(end), ZONE),
-                commitment, speaking
+                commitment, speaking, cfpClosesOn
         );
     }
 }

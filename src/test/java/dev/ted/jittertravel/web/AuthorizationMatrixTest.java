@@ -115,6 +115,9 @@ class AuthorizationMatrixTest {
                 // segment only, so without this entry the decline endpoint would fall through to permitAll.
                 arguments("/conferences/abc/decline", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/conferences/abc/confirm", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
+                // CFP dates are on CLAUDE.md's private list — a CFP deadline says Ted is
+                // considering a conference and has not committed — so this is OWNER-only too.
+                arguments("/conferences/abc/cfp", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/planned-gatherings",   Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/planned-gatherings/abc", Outcome.OK,     Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/schedule-problems",    Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),

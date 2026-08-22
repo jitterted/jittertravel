@@ -23,6 +23,12 @@ import java.time.Instant;
  * evidence for conferences recorded before those events existed; if the two ever disagree the
  * stream wins, because the basis is a manual annotation and the events are history. See
  * {@code docs/ConferenceSubmissionTrackingPlan.md}.
+ * <p>
+ * {@code cfpClosesOn} is the CFP deadline if one has been recorded, and {@code null} if not. The
+ * two absences are different questions and the radar asks both: a conference with no CFP recorded
+ * needs Ted to go and find the date, while one whose deadline has passed needs him to decide. Null
+ * means only "not recorded" — never "no CFP exists", which is what {@code ConferenceFormat}
+ * says.
  */
 public record ConferenceView(
         ConferenceId conferenceId,
@@ -32,7 +38,8 @@ public record ConferenceView(
         ZonedTimestamp startDate,
         ZonedTimestamp endDate,
         AttendanceCommitment commitment,
-        boolean speaking
+        boolean speaking,
+        ZonedTimestamp cfpClosesOn
 ) implements TemporalView {
     public String city() { return venueAddress.city(); }
     public String country() { return venueAddress.country(); }

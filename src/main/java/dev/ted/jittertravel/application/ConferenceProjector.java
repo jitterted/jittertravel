@@ -1,11 +1,13 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.AttendanceBasis;
+import dev.ted.jittertravel.domain.CfpOpened;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
@@ -41,9 +43,16 @@ public class ConferenceProjector implements EventStreamConsumer {
                                 event.startDate(),
                                 event.endDate(),
                                 AttendanceCommitment.WATCHING,
-                                // Planning a conference records no speaking evidence either way.
-                                false
+                                // Planning a conference records no speaking evidence either way,
+                                // and says nothing about whether its CFP has opened.
+                                false,
+                                null
                         ));
+                // Recording a CFP twice is how a moved deadline is corrected, so this overwrites
+                // rather than ignoring the second one — the last recorded deadline wins.
+                case CfpOpened event ->
+                        conferences.computeIfPresent(event.conferenceId(),
+                                (id, view) -> withCfpClosing(view, event.closesOn()));
                 // The basis is collapsed to a boolean here and then dropped. Whether Ted speaks is
                 // rendered; *which* speaking basis applies — accepted, or invited — is submission
                 // status, so it never reaches the view at all rather than being carried and hidden.
@@ -60,7 +69,20 @@ public class ConferenceProjector implements EventStreamConsumer {
     private ConferenceView going(ConferenceView view, boolean speaking) {
         return new ConferenceView(
                 view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
-                view.startDate(), view.endDate(), AttendanceCommitment.GOING, speaking
+                view.startDate(), view.endDate(), AttendanceCommitment.GOING, speaking,
+                view.cfpClosesOn()
+        );
+    }
+
+    /**
+     * A CFP deadline says nothing about attendance: confirming and recording a CFP are independent
+     * facts about the same conference, so each carries the other's value through untouched.
+     */
+    private ConferenceView withCfpClosing(ConferenceView view, ZonedTimestamp closesOn) {
+        return new ConferenceView(
+                view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
+                view.startDate(), view.endDate(), view.commitment(), view.speaking(),
+                closesOn
         );
     }
 

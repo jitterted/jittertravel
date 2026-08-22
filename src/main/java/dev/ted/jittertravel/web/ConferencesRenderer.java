@@ -69,6 +69,11 @@ public class ConferencesRenderer {
             .conference-table th:last-child { text-align: center; }
             .conf-decline { color: #b00; text-decoration: none; white-space: nowrap; font-size: 0.9rem; }
             .conf-decline:hover { text-decoration: underline; }
+            /* Three letters, because this is the third nowrap unit in the narrowest column of a
+               table that only just fits. The tick says a deadline is already recorded — the link
+               does the same job either way, so the word does not change and neither does its slot. */
+            .conf-cfp { color: var(--accent-color); text-decoration: none; white-space: nowrap; font-size: 0.9rem; }
+            .conf-cfp:hover { text-decoration: underline; }
             /* One word on purpose: this cell's links are nowrap units, so a longer label
                ("Confirm attendance") widens the table's minimum width and is what would push a
                narrow viewport into the horizontal scroll the comment above rules out. */
@@ -192,8 +197,16 @@ public class ConferencesRenderer {
      */
     private static DomContent actions(ConferenceView conf) {
         String base = "/conferences/" + conf.conferenceId().id();
+        // Three actions, so three links: a menu is only worth its extra click above three
+        // (CLAUDE.md), and this cell has the width for them because each is one short word.
         return div().withClass("conf-actions")
                     .with(confirmSlot(conf, base))
+                    .with(a(conf.cfpClosesOn() == null ? "CFP" : "CFP ✓")
+                            .withClass("conf-cfp")
+                            .withTitle(conf.cfpClosesOn() == null
+                                    ? "Record when this conference's CFP closes"
+                                    : "Change the recorded CFP deadline")
+                            .withHref(base + "/cfp"))
                     .with(a("Decline").withClass("conf-decline")
                             .withHref(base + "/decline"));
     }

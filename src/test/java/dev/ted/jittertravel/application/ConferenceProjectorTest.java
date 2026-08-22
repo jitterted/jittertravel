@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.AttendanceBasis;
+import dev.ted.jittertravel.domain.CfpOpened;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceId;
@@ -175,7 +176,7 @@ class ConferenceProjectorTest {
                 .isEqualTo(new ConferenceView(
                         before.conferenceId(), before.name(), before.venueName(),
                         before.venueAddress(), before.startDate(), before.endDate(),
-                        AttendanceCommitment.GOING, true));
+                        AttendanceCommitment.GOING, true, null));
     }
 
     @Test
@@ -200,6 +201,106 @@ class ConferenceProjectorTest {
                 3, declined.getClass(), UUID.randomUUID(), Instant.now(), declined, UUID.randomUUID())));
 
         assertThat(projector.views(TimeView.ALL, NOW)).isEmpty();
+    }
+
+    @Test
+    void aPlannedConferenceHasNoCfpDeadlineUntilOneIsRecorded() {
+        ConferenceProjector projector = new ConferenceProjector();
+
+        plan(projector, ConferenceId.random());
+
+        assertThat(projector.views(TimeView.ALL, NOW).getFirst().cfpClosesOn())
+                .as("null means 'no CFP recorded', which is a different question from 'no CFP exists'")
+                .isNull();
+    }
+
+    @Test
+    void recordingACfpPutsItsClosingDeadlineOnTheView() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+
+        openCfp(projector, conferenceId, LocalDateTime.of(2026, 9, 12, 23, 59));
+
+        assertThat(projector.views(TimeView.ALL, NOW).getFirst().cfpClosesOn())
+                .isEqualTo(zt(LocalDateTime.of(2026, 9, 12, 23, 59)));
+    }
+
+    /** Organizers move CFP dates routinely, and re-recording is how an extension gets in. */
+    @Test
+    void recordingACfpAgainReplacesTheDeadline() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+        openCfp(projector, conferenceId, LocalDateTime.of(2026, 9, 12, 23, 59));
+
+        openCfp(projector, conferenceId, LocalDateTime.of(2026, 9, 26, 23, 59));
+
+        assertThat(projector.views(TimeView.ALL, NOW).getFirst().cfpClosesOn())
+                .as("the last recorded deadline wins")
+                .isEqualTo(zt(LocalDateTime.of(2026, 9, 26, 23, 59)));
+    }
+
+    /**
+     * Recording a CFP and confirming attendance are independent facts about the same conference, so
+     * neither may quietly reset the other — the case a fold that rebuilt the view from scratch would
+     * get wrong.
+     * <p>
+     * <strong>Both orders, and that is the point.</strong> Testing one order only proves half of it:
+     * whichever event is applied last restores the fields it owns, so a fold that clobbers the other
+     * one still passes. Ted records these in either order — a CFP deadline noted months before he
+     * commits, or a deadline added to a conference he is already going to.
+     */
+    @Test
+    void aCfpDeadlineSurvivesAConfirmationThatFollowsIt() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+
+        openCfp(projector, conferenceId, LocalDateTime.of(2026, 9, 12, 23, 59));
+        confirm(projector, conferenceId, AttendanceBasis.SPEAKING_ACCEPTED);
+
+        ConferenceView view = projector.views(TimeView.ALL, NOW).getFirst();
+        assertThat(view.cfpClosesOn())
+                .as("confirming attendance must not clear the recorded CFP deadline")
+                .isEqualTo(zt(LocalDateTime.of(2026, 9, 12, 23, 59)));
+        assertThat(view.commitment()).isEqualTo(AttendanceCommitment.GOING);
+        assertThat(view.speaking()).isTrue();
+    }
+
+    @Test
+    void aConfirmationSurvivesACfpDeadlineRecordedAfterIt() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+
+        confirm(projector, conferenceId, AttendanceBasis.SPEAKING_ACCEPTED);
+        openCfp(projector, conferenceId, LocalDateTime.of(2026, 9, 12, 23, 59));
+
+        ConferenceView view = projector.views(TimeView.ALL, NOW).getFirst();
+        assertThat(view.commitment())
+                .as("recording a CFP deadline must not un-commit a conference Ted is going to")
+                .isEqualTo(AttendanceCommitment.GOING);
+        assertThat(view.speaking())
+                .as("nor forget that he is speaking at it")
+                .isTrue();
+        assertThat(view.cfpClosesOn()).isEqualTo(zt(LocalDateTime.of(2026, 9, 12, 23, 59)));
+    }
+
+    @Test
+    void aCfpForAnUnknownConferenceAddsNothing() {
+        ConferenceProjector projector = new ConferenceProjector();
+
+        openCfp(projector, ConferenceId.random(), LocalDateTime.of(2026, 9, 12, 23, 59));
+
+        assertThat(projector.views(TimeView.ALL, NOW)).isEmpty();
+    }
+
+    private static void openCfp(ConferenceProjector projector, ConferenceId conferenceId,
+                                LocalDateTime closesOn) {
+        CfpOpened opened = new CfpOpened(conferenceId, zt(closesOn));
+        projector.handle(Stream.of(new StoredEvent(
+                3, opened.getClass(), UUID.randomUUID(), Instant.now(), opened, UUID.randomUUID())));
     }
 
     private static void plan(ConferenceProjector projector, ConferenceId conferenceId) {

@@ -176,7 +176,7 @@ class ConferenceProjectorTest {
                 .isEqualTo(new ConferenceView(
                         before.conferenceId(), before.name(), before.venueName(),
                         before.venueAddress(), before.startDate(), before.endDate(),
-                        AttendanceCommitment.GOING, true, null));
+                        AttendanceCommitment.GOING, true, null, before.format()));
     }
 
     @Test

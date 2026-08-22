@@ -1,8 +1,28 @@
 # Conference Submission Tracking Plan — commitment, speaking status, and the CFP pipeline
 
-> **Status: IN PROGRESS. Slice 1 (`ConferenceFormat`) shipped 2026-08-18; the Decline slice shipped
-> 2026-08-16; slice 2 (commitment) shipped 2026-08-19. Slices 3–5 not started.** Design agreed with
-> Ted in conversation. See `docs/Backlog.md` for the status of everything else.
+> **Status: IN PROGRESS. Slices 1–3 shipped** (`ConferenceFormat` 2026-08-18, the Decline slice
+> 2026-08-16, commitment 2026-08-19, and **slice 3 — CFP + radar + SPEAKER — 2026-08-21**).
+> **Slices 4–5 not started.** Design agreed with Ted in conversation. See `docs/Backlog.md` for the
+> status of everything else.
+>
+> **Slice 3 as built (2026-08-21), in four commits.** `CfpOpened(conferenceId, closesOn)` with the
+> deadline as a `ZonedTimestamp` in the **conference's own venue zone**, taken from the dates
+> `ConferencePlanned` already resolved rather than resolved a second time (Ted's choice of three;
+> real CFPs often close anywhere-on-earth, which is *later* than any venue zone, so this errs toward
+> reminding early). Recorded on its own `/conferences/{id}/cfp` page, reached by a third `CFP` link
+> in the actions cell — three actions, so three links, per the dropdown rule.
+> `ICalEventSource` finally earned itself as the second contributor, with the hotel deadlines lifted
+> out of `CalendarFeedAssembler` unchanged; CFP alarms are **72h + 24h**. `/conferences` became the
+> radar: five groups in urgency order, headed and each carrying one line of guidance —
+> **CFP closes soon / CFP date unknown / Decide / Nothing to submit / Going** (Ted's choice of
+> three shapes). And the `SPEAKER` marker landed beside the commitment chip, derived from
+> `AttendanceBasis` as a **boolean** so accepted-vs-invited never reaches the view.
+>
+> **Two things worth carrying into slice 4.** The radar cannot yet distinguish "submitted, waiting
+> to hear" from "have not submitted" — both fall in `CFP_CLOSES_SOON` — which is precisely what the
+> submission stream fixes. And `CfpDeadlineSource` has **no 4h backstop**, unlike the hotel source:
+> a CFP recorded inside 72h of closing loses both alarms the way a hotel booked inside 24h would,
+> and the hotel source's third alarm exists for exactly that. Revisit if one ever slips past.
 >
 > **Slice 2 as built (2026-08-19).** `AttendanceBasis` (3 values) + `ConferenceAttendanceConfirmed`
 > (basis non-null, fails loud) + `ConfirmConferenceAttendanceCommand`/`Context` + a

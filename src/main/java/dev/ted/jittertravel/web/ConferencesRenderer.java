@@ -2,6 +2,8 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.ConferenceView;
+import dev.ted.jittertravel.application.RadarGroup;
+import dev.ted.jittertravel.application.RadarSection;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
@@ -101,9 +103,24 @@ public class ConferencesRenderer {
             }
             /* The pair wraps together when the column is narrow rather than overflowing it. */
             .conf-going-cell { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
+            /* Each group gets a heading and a line of guidance over its own table. No colour on the
+               headings: this page is an action list, not a problem report, and the rule that every
+               problem wears the same amber is about problems sitting among non-problems. The
+               commitment chips already carry what colour this page needs. */
+            .radar-section { margin-top: 2rem; }
+            .radar-section:first-child { margin-top: 1rem; }
+            .radar-heading {
+                font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+                letter-spacing: 0.06em; color: var(--muted-text); margin: 0;
+            }
+            .radar-guidance { font-size: 0.9rem; color: var(--muted-text); margin: 0.15rem 0 0; }
+            /* The deadline under the name, not in a column of its own — see nameCell. */
+            .conf-cfp-deadline {
+                font-size: 0.8rem; font-weight: 400; color: var(--muted-text); margin-top: 0.15rem;
+            }
             """;
 
-    public static String render(List<ConferenceView> conferences, TimeView activeFilter) {
+    public static String render(List<RadarSection> sections, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
                 Page.head("Conferences", CSS),
                 body(
@@ -111,14 +128,51 @@ public class ConferencesRenderer {
                         h1("Conferences"),
                         div().withClass("conference-container").with(
                                 TimeFilterToggle.render("/conferences", activeFilter),
-                                conferences.isEmpty()
+                                sections.isEmpty()
                                         ? renderEmptyState(activeFilter)
-                                        : renderTable(conferences),
+                                        : div().with(sections.stream()
+                                                             .map(ConferencesRenderer::renderSection)
+                                                             .toList()),
                                 br(),
                                 a("Plan another conference").withHref("/plan-conference")
                         )
                 )
         ).withLang("en").render();
+    }
+
+    /**
+     * A heading, one line saying what to do about the group, and the group's own table. The wording
+     * lives here rather than on {@link RadarGroup}: the enum is the derived fact, and how it is
+     * worded is presentation (CLAUDE.md).
+     * <p>
+     * Exhaustive, so a new group cannot be added without deciding what it tells Ted to do.
+     */
+    private static DomContent renderSection(RadarSection section) {
+        return div().withClass("radar-section").with(
+                h2(heading(section.group())).withClass("radar-heading"),
+                p(guidance(section.group())).withClass("radar-guidance"),
+                renderTable(section.conferences())
+        );
+    }
+
+    private static String heading(RadarGroup group) {
+        return switch (group) {
+            case CFP_CLOSES_SOON -> "CFP closes soon";
+            case CFP_DATE_UNKNOWN -> "CFP date unknown";
+            case DECIDE -> "Decide";
+            case NOTHING_TO_SUBMIT -> "Nothing to submit";
+            case GOING -> "Going";
+        };
+    }
+
+    private static String guidance(RadarGroup group) {
+        return switch (group) {
+            case CFP_CLOSES_SOON -> "Submit, or decide not to.";
+            case CFP_DATE_UNKNOWN -> "Find the deadline and record it, so a reminder can be set.";
+            case DECIDE -> "The CFP has closed. Go as an attendee, or decline.";
+            case NOTHING_TO_SUBMIT -> "Sessions are chosen on the day — just decide whether to go.";
+            case GOING -> "Committed — nothing to do.";
+        };
     }
 
     private static DomContent renderEmptyState(TimeView activeFilter) {
@@ -149,13 +203,33 @@ public class ConferencesRenderer {
 
     private static TrTag renderRow(ConferenceView conf) {
         return tr(
-                td(conf.name()).withClass("conf-name"),
+                td(nameCell(conf)).withClass("conf-name"),
                 td(goingCell(conf)),
                 td(dateTime(conf.startDate())),
                 td(dateTime(conf.endDate())),
                 td(conf.city()),
                 td(conf.country()),
                 td(actions(conf))
+        );
+    }
+
+    /**
+     * The name, and under it the CFP deadline when one is recorded.
+     * <p>
+     * A second line rather than an eighth column: this table already only just fits at ~820px, and a
+     * new column would push it into the horizontal scroll that is ruled out everywhere. It renders in
+     * every group that has a deadline, not only the closing one — a passed deadline is exactly what
+     * "Decide" means, so hiding the date there would remove the reason for the row's group.
+     */
+    private static DomContent nameCell(ConferenceView conf) {
+        if (conf.cfpClosesOn() == null) {
+            return span(conf.name());
+        }
+        return div().with(
+                div(conf.name()),
+                div().withClass("conf-cfp-deadline").with(
+                        span("CFP "),
+                        ZonedTimeTag.renderDateTimeStacking(conf.cfpClosesOn(), DATE_PATTERN, TIME_PATTERN))
         );
     }
 

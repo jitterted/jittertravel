@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
@@ -39,7 +40,8 @@ public record ConferenceView(
         ZonedTimestamp endDate,
         AttendanceCommitment commitment,
         boolean speaking,
-        ZonedTimestamp cfpClosesOn
+        ZonedTimestamp cfpClosesOn,
+        ConferenceFormat format
 ) implements TemporalView {
     public String city() { return venueAddress.city(); }
     public String country() { return venueAddress.country(); }

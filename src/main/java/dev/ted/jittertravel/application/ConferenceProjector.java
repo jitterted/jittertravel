@@ -46,7 +46,8 @@ public class ConferenceProjector implements EventStreamConsumer {
                                 // Planning a conference records no speaking evidence either way,
                                 // and says nothing about whether its CFP has opened.
                                 false,
-                                null
+                                null,
+                                event.format()
                         ));
                 // Recording a CFP twice is how a moved deadline is corrected, so this overwrites
                 // rather than ignoring the second one — the last recorded deadline wins.
@@ -70,7 +71,7 @@ public class ConferenceProjector implements EventStreamConsumer {
         return new ConferenceView(
                 view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
                 view.startDate(), view.endDate(), AttendanceCommitment.GOING, speaking,
-                view.cfpClosesOn()
+                view.cfpClosesOn(), view.format()
         );
     }
 
@@ -82,7 +83,7 @@ public class ConferenceProjector implements EventStreamConsumer {
         return new ConferenceView(
                 view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
                 view.startDate(), view.endDate(), view.commitment(), view.speaking(),
-                closesOn
+                closesOn, view.format()
         );
     }
 

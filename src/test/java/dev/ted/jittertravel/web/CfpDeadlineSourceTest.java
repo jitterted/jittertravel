@@ -5,6 +5,7 @@ import dev.ted.jittertravel.application.ConferenceProjector;
 import dev.ted.jittertravel.application.ConferenceView;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
@@ -101,6 +102,7 @@ class CfpDeadlineSourceTest {
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 6, 17, 0), VENUE_ZONE),
                 AttendanceCommitment.WATCHING,
                 false,
-                cfpClosesOn == null ? null : new ZonedTimestamp(cfpClosesOn, VENUE_ZONE));
+                cfpClosesOn == null ? null : new ZonedTimestamp(cfpClosesOn, VENUE_ZONE),
+                ConferenceFormat.CALL_FOR_PAPERS);
     }
 }

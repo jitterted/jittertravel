@@ -2,8 +2,11 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.ConferenceView;
+import dev.ted.jittertravel.application.RadarGroup;
+import dev.ted.jittertravel.application.RadarSection;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.application.TimeView;
+import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
@@ -22,7 +25,7 @@ class ConferencesRendererTest {
 
     @Test
     void emptyAllListRendersEmptyStateMessage() {
-        String html = ConferencesRenderer.render(List.of(), TimeView.ALL);
+        String html = ConferencesRenderer.render(List.<RadarSection>of(), TimeView.ALL);
 
         assertThat(html)
                 .contains("No conferences yet.")
@@ -31,14 +34,14 @@ class ConferencesRendererTest {
 
     @Test
     void emptyFutureListRendersNoUpcomingMessage() {
-        String html = ConferencesRenderer.render(List.of(), TimeView.FUTURE);
+        String html = ConferencesRenderer.render(List.<RadarSection>of(), TimeView.FUTURE);
 
         assertThat(html).contains("No upcoming conferences.");
     }
 
     @Test
     void activeFilterMarkedOnToggleLink() {
-        String html = ConferencesRenderer.render(List.of(), TimeView.ALL);
+        String html = ConferencesRenderer.render(List.<RadarSection>of(), TimeView.ALL);
 
         assertThat(html)
                 .contains("<a href=\"/conferences?filter=all\" class=\"active\">All</a>")
@@ -47,7 +50,7 @@ class ConferencesRendererTest {
 
     @Test
     void conferenceNameCityAndCountryAreRendered() {
-        String html = ConferencesRenderer.render(List.of(
+        String html = ConferencesRenderer.render(oneSection(
                 view("DDD Europe 2026", "2026-06-07T11:00", "2026-06-10T17:00", "Frankfurt", "Germany")
         ), TimeView.FUTURE);
 
@@ -59,7 +62,7 @@ class ConferencesRendererTest {
 
     @Test
     void startAndEndDatesAreFormatted() {
-        String html = ConferencesRenderer.render(List.of(
+        String html = ConferencesRenderer.render(oneSection(
                 view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "City", "Country")
         ), TimeView.FUTURE);
 
@@ -74,7 +77,7 @@ class ConferencesRendererTest {
 
     @Test
     void tableIsNotWrappedInAHorizontalScroller() {
-        String html = ConferencesRenderer.render(List.of(
+        String html = ConferencesRenderer.render(oneSection(
                 view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "City", "Country")
         ), TimeView.FUTURE);
 
@@ -96,7 +99,7 @@ class ConferencesRendererTest {
         ConferenceView conf = view("Devoxx Morocco", "2026-10-07T09:00", "2026-10-09T17:00",
                 "Marrakesh", "Morocco");
 
-        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("/conferences/" + conf.conferenceId().id() + "/decline")
@@ -108,7 +111,7 @@ class ConferencesRendererTest {
         ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
                 "Ede", "Netherlands", AttendanceCommitment.WATCHING);
 
-        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("<span class=\"conf-commitment conf-commitment--watching\">Maybe</span>")
@@ -121,7 +124,7 @@ class ConferencesRendererTest {
         ConferenceView conf = view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00",
                 "Denver", "USA", AttendanceCommitment.GOING);
 
-        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("<span class=\"conf-commitment conf-commitment--going\">Going</span>")
@@ -134,7 +137,7 @@ class ConferencesRendererTest {
         // Action affordances never move, and an unavailable one is disabled rather than removed:
         // a GOING row fills the first slot with greyed, non-interactive text. Leaving the slot
         // empty slid Decline into it; leaving it invisible left a blank line when the cell wrapped.
-        String html = ConferencesRenderer.render(List.of(
+        String html = ConferencesRenderer.render(oneSection(
                 view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA",
                      AttendanceCommitment.GOING)
         ), TimeView.FUTURE);
@@ -154,7 +157,7 @@ class ConferencesRendererTest {
         // A greyed control with no reason is a dead end. The reason names the *presentation* limit
         // it really is — the domain allows re-confirming with a different basis — and it is a span,
         // so it is neither focusable nor clickable.
-        String html = ConferencesRenderer.render(List.of(
+        String html = ConferencesRenderer.render(oneSection(
                 view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA",
                      AttendanceCommitment.GOING)
         ), TimeView.FUTURE);
@@ -168,7 +171,7 @@ class ConferencesRendererTest {
 
     @Test
     void speculativeRowFillsTheConfirmSlotWithTheRealLinkNotTheDisabledText() {
-        String html = ConferencesRenderer.render(List.of(
+        String html = ConferencesRenderer.render(oneSection(
                 view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "Netherlands",
                      AttendanceCommitment.WATCHING)
         ), TimeView.FUTURE);
@@ -183,7 +186,7 @@ class ConferencesRendererTest {
     @Test
     void actionsHeaderIsCentredAcrossBothSlots() {
         // The header labels the pair, so it belongs over neither link in particular.
-        String html = ConferencesRenderer.render(List.of(
+        String html = ConferencesRenderer.render(oneSection(
                 view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "City", "Country")
         ), TimeView.FUTURE);
 
@@ -199,7 +202,7 @@ class ConferencesRendererTest {
         ConferenceView conf = view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00",
                 "Denver", "USA", AttendanceCommitment.GOING);
 
-        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("href=\"/conferences/" + conf.conferenceId().id() + "/decline\"");
@@ -215,7 +218,7 @@ class ConferencesRendererTest {
         ConferenceView conf = view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00",
                 "Denver", "USA", AttendanceCommitment.GOING, true);
 
-        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
 
         assertThat(html)
                 .as("the marker joins the commitment chip in the Going? column, not replacing it")
@@ -232,7 +235,7 @@ class ConferencesRendererTest {
         ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
                 "Ede", "Netherlands", AttendanceCommitment.WATCHING, true);
 
-        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("<span class=\"conf-commitment conf-commitment--watching\">Maybe</span>")
@@ -244,7 +247,7 @@ class ConferencesRendererTest {
         ConferenceView conf = view("SoCraTes DE", "2026-08-20T09:00", "2026-08-23T17:00",
                 "Soltau", "Germany", AttendanceCommitment.GOING, false);
 
-        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("<span class=\"conf-commitment conf-commitment--going\">Going</span>")
@@ -256,7 +259,7 @@ class ConferencesRendererTest {
         ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
                 "Ede", "Netherlands", AttendanceCommitment.WATCHING, false, null);
 
-        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("href=\"/conferences/" + conf.conferenceId().id() + "/cfp\"")
@@ -274,7 +277,7 @@ class ConferencesRendererTest {
                 "Ede", "Netherlands", AttendanceCommitment.WATCHING, false,
                 ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-12T23:59"), ZONE));
 
-        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("href=\"/conferences/" + conf.conferenceId().id() + "/cfp\"")
@@ -283,10 +286,73 @@ class ConferencesRendererTest {
     }
 
     @Test
+    void eachGroupIsHeadedAndSaysWhatToDoAboutIt() {
+        String html = ConferencesRenderer.render(List.of(
+                new RadarSection(RadarGroup.CFP_CLOSES_SOON, List.of(
+                        view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "Netherlands"))),
+                new RadarSection(RadarGroup.GOING, List.of(
+                        view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA")))
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<h2 class=\"radar-heading\">CFP closes soon</h2>")
+                .contains("<p class=\"radar-guidance\">Submit, or decide not to.</p>")
+                .contains("<h2 class=\"radar-heading\">Going</h2>")
+                .contains("<p class=\"radar-guidance\">Committed — nothing to do.</p>");
+    }
+
+    /**
+     * The whole point of the grouping: a reader scanning down the page meets the group with someone
+     * else's clock running before the one that needs nothing.
+     */
+    @Test
+    void groupsRenderInTheOrderTheyAreGiven() {
+        String html = ConferencesRenderer.render(List.of(
+                new RadarSection(RadarGroup.CFP_CLOSES_SOON, List.of(
+                        view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "Netherlands"))),
+                new RadarSection(RadarGroup.GOING, List.of(
+                        view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA")))
+        ), TimeView.FUTURE);
+
+        assertThat(html.indexOf("CFP closes soon"))
+                .isLessThan(html.indexOf("<h2 class=\"radar-heading\">Going</h2>"));
+    }
+
+    /**
+     * Under the name, not in an eighth column: this table only just fits at ~820px, and a new
+     * column would push it into the horizontal scroll that is ruled out everywhere.
+     */
+    @Test
+    void aRecordedDeadlineRendersUnderTheConferenceNameNotInItsOwnColumn() {
+        ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
+                "Ede", "Netherlands", AttendanceCommitment.WATCHING, false,
+                ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-12T23:59"), ZONE));
+
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<div class=\"conf-cfp-deadline\">")
+                .contains("<span class=\"nowrap\">Sat, Sep 12</span>")
+                // Still seven columns: the header row is what would grow if this became one.
+                .contains("<th>Actions</th>")
+                .doesNotContain("<th>CFP</th>");
+    }
+
+    @Test
+    void aConferenceWithNoRecordedDeadlineRendersNoDeadlineLine() {
+        ConferenceView conf = view("SoCraTes DE", "2026-08-20T09:00", "2026-08-23T17:00",
+                "Soltau", "Germany", AttendanceCommitment.WATCHING, false, null);
+
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
+
+        assertThat(html).doesNotContain("conf-cfp-deadline\">");
+    }
+
+    @Test
     void theBasisForGoingNeverReachesTheList() {
         // AttendanceBasis is OWNER-private submission status wearing a different hat: it is not
         // carried on ConferenceView at all, so no wording of it can appear here.
-        String html = ConferencesRenderer.render(List.of(
+        String html = ConferencesRenderer.render(oneSection(
                 view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA",
                         AttendanceCommitment.GOING)
         ), TimeView.FUTURE);
@@ -299,9 +365,18 @@ class ConferencesRendererTest {
 
     @Test
     void planConferenceLinkIsPresent() {
-        String html = ConferencesRenderer.render(List.of(), TimeView.ALL);
+        String html = ConferencesRenderer.render(List.<RadarSection>of(), TimeView.ALL);
 
         assertThat(html).contains("/plan-conference");
+    }
+
+    /**
+     * Most cases here are about how a <em>row</em> renders, which is independent of its group — so
+     * they wrap their conferences in one arbitrary section. The grouping itself is
+     * {@code ConferenceRadarTest}'s subject; how a group is headed is asserted below.
+     */
+    private static List<RadarSection> oneSection(ConferenceView... conferences) {
+        return List.of(new RadarSection(RadarGroup.CFP_CLOSES_SOON, List.of(conferences)));
     }
 
     private static ConferenceView view(String name, String start, String end,
@@ -325,12 +400,20 @@ class ConferencesRendererTest {
                                        String city, String country,
                                        AttendanceCommitment commitment, boolean speaking,
                                        ZonedTimestamp cfpClosesOn) {
+        return view(name, start, end, city, country, commitment, speaking, cfpClosesOn,
+                    ConferenceFormat.CALL_FOR_PAPERS);
+    }
+
+    private static ConferenceView view(String name, String start, String end,
+                                       String city, String country,
+                                       AttendanceCommitment commitment, boolean speaking,
+                                       ZonedTimestamp cfpClosesOn, ConferenceFormat format) {
         return new ConferenceView(
                 ConferenceId.random(), name, "Venue",
                 new Address("1 Street", city, "", "", country, null),
                 ZonedTimestamp.fromLocal(LocalDateTime.parse(start), ZONE),
                 ZonedTimestamp.fromLocal(LocalDateTime.parse(end), ZONE),
-                commitment, speaking, cfpClosesOn
+                commitment, speaking, cfpClosesOn, format
         );
     }
 }

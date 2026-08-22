@@ -61,7 +61,7 @@ class ConfirmConferenceAttendanceControllerTest {
                 new Address("Bennekomseweg 24", "Ede", "", "6717 LM", "Netherlands", "Ede"),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 5, 9, 0), VENUE_ZONE),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 5, 18, 0), VENUE_ZONE),
-                AttendanceCommitment.WATCHING);
+                AttendanceCommitment.WATCHING, false);
     }
 
     @Test

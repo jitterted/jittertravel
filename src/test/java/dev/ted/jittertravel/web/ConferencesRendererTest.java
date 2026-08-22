@@ -205,6 +205,52 @@ class ConferencesRendererTest {
                 .contains("href=\"/conferences/" + conf.conferenceId().id() + "/decline\"");
     }
 
+    // The chip's own CSS names the class, so a bare "conf-speaker" appears in every response
+    // whether or not a marker renders. Both directions assert the whole element.
+    private static final String SPEAKER_MARKER =
+            "<span class=\"conf-speaker\" title=\"Ted is speaking at this one\">Speaker</span>";
+
+    @Test
+    void aConferenceTedSpeaksAtIsMarkedBesideItsCommitmentChip() {
+        ConferenceView conf = view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00",
+                "Denver", "USA", AttendanceCommitment.GOING, true);
+
+        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+
+        assertThat(html)
+                .as("the marker joins the commitment chip in the Going? column, not replacing it")
+                .contains("<span class=\"conf-commitment conf-commitment--going\">Going</span>")
+                .contains(SPEAKER_MARKER);
+    }
+
+    /**
+     * Speaking and commitment are separate axes: an invitation Ted has not answered yet is a
+     * speculative conference he is nonetheless speaking at, and the row has to say both.
+     */
+    @Test
+    void aSpeculativeConferenceCanAlsoBeMarkedSpeaker() {
+        ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
+                "Ede", "Netherlands", AttendanceCommitment.WATCHING, true);
+
+        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<span class=\"conf-commitment conf-commitment--watching\">Maybe</span>")
+                .contains(SPEAKER_MARKER);
+    }
+
+    @Test
+    void aConferenceTedMerelyAttendsCarriesNoSpeakerMarker() {
+        ConferenceView conf = view("SoCraTes DE", "2026-08-20T09:00", "2026-08-23T17:00",
+                "Soltau", "Germany", AttendanceCommitment.GOING, false);
+
+        String html = ConferencesRenderer.render(List.of(conf), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<span class=\"conf-commitment conf-commitment--going\">Going</span>")
+                .doesNotContain(SPEAKER_MARKER);
+    }
+
     @Test
     void theBasisForGoingNeverReachesTheList() {
         // AttendanceBasis is OWNER-private submission status wearing a different hat: it is not
@@ -235,12 +281,18 @@ class ConferencesRendererTest {
     private static ConferenceView view(String name, String start, String end,
                                        String city, String country,
                                        AttendanceCommitment commitment) {
+        return view(name, start, end, city, country, commitment, false);
+    }
+
+    private static ConferenceView view(String name, String start, String end,
+                                       String city, String country,
+                                       AttendanceCommitment commitment, boolean speaking) {
         return new ConferenceView(
                 ConferenceId.random(), name, "Venue",
                 new Address("1 Street", city, "", "", country, null),
                 ZonedTimestamp.fromLocal(LocalDateTime.parse(start), ZONE),
                 ZonedTimestamp.fromLocal(LocalDateTime.parse(end), ZONE),
-                commitment
+                commitment, speaking
         );
     }
 }

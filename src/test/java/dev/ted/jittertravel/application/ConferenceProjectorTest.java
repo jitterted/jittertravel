@@ -9,6 +9,9 @@ import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -17,6 +20,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 class ConferenceProjectorTest {
 
@@ -171,7 +175,7 @@ class ConferenceProjectorTest {
                 .isEqualTo(new ConferenceView(
                         before.conferenceId(), before.name(), before.venueName(),
                         before.venueAddress(), before.startDate(), before.endDate(),
-                        AttendanceCommitment.GOING));
+                        AttendanceCommitment.GOING, true));
     }
 
     @Test
@@ -205,6 +209,48 @@ class ConferenceProjectorTest {
                 "Venue", new Address("Street", "Denver", "CO", "80202", "USA", null));
         projector.handle(Stream.of(new StoredEvent(
                 1, planned.getClass(), UUID.randomUUID(), Instant.now(), planned, UUID.randomUUID())));
+    }
+
+    /**
+     * The partition {@link AttendanceBasis}'s three values exist for: two speaking, one not. The
+     * view carries the derived boolean and never the basis, so the accepted/invited distinction —
+     * which is submission status — cannot be read back off {@code /conferences}.
+     */
+    @ParameterizedTest(name = "{0} means speaking = {1}")
+    @MethodSource("basesAndWhetherTheyMeanSpeaking")
+    void speakingIsDerivedFromTheBasisAndTheBasisItselfNeverReachesTheView(
+            AttendanceBasis basis, boolean expectedSpeaking) {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+
+        confirm(projector, conferenceId, basis);
+
+        ConferenceView view = projector.views(TimeView.ALL, NOW).getFirst();
+        assertThat(view.speaking())
+                .as("%s", basis)
+                .isEqualTo(expectedSpeaking);
+        assertThat(view.toString())
+                .as("the basis is collapsed to a boolean, never carried")
+                .doesNotContain(basis.name());
+    }
+
+    static Stream<Arguments> basesAndWhetherTheyMeanSpeaking() {
+        return Stream.of(
+                arguments(AttendanceBasis.SPEAKING_ACCEPTED, true),
+                arguments(AttendanceBasis.SPEAKING_INVITED, true),
+                arguments(AttendanceBasis.TICKET_PURCHASED, false));
+    }
+
+    @Test
+    void aMerelyPlannedConferenceRecordsNoSpeakingEvidence() {
+        ConferenceProjector projector = new ConferenceProjector();
+
+        plan(projector, ConferenceId.random());
+
+        assertThat(projector.views(TimeView.ALL, NOW).getFirst().speaking())
+                .as("planning a conference says nothing about whether Ted will speak at it")
+                .isFalse();
     }
 
     private static void confirm(ConferenceProjector projector, ConferenceId conferenceId,

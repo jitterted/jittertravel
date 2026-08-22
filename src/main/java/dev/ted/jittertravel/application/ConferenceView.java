@@ -10,9 +10,19 @@ import java.time.Instant;
  * One conference on the OWNER-only {@code /conferences} list.
  * <p>
  * {@code commitment} is derived by folding the conference's attendance events — see
- * {@link AttendanceCommitment}. The list shows it so the backfill pass can see at a glance which
- * conferences still need confirming; the private {@link dev.ted.jittertravel.domain.AttendanceBasis}
- * is not carried here either, because nothing on this page renders it yet.
+ * {@link AttendanceCommitment}.
+ * <p>
+ * {@code speaking} is derived too, and deliberately a <strong>boolean rather than the
+ * {@link dev.ted.jittertravel.domain.AttendanceBasis} it comes from</strong>: which of the two
+ * speaking bases applies — accepted, or invited — is submission status, and a field that never
+ * enters a view cannot leak from it. Same reasoning as {@code CalendarEntry} carrying only a
+ * collapsed commitment.
+ * <p>
+ * The basis is only a <em>stand-in</em> source. From slice 4 the submission fold
+ * ({@code TalkAccepted}, {@code InvitedToSpeak}) is authoritative, and the basis stays as the
+ * evidence for conferences recorded before those events existed; if the two ever disagree the
+ * stream wins, because the basis is a manual annotation and the events are history. See
+ * {@code docs/ConferenceSubmissionTrackingPlan.md}.
  */
 public record ConferenceView(
         ConferenceId conferenceId,
@@ -21,7 +31,8 @@ public record ConferenceView(
         Address venueAddress,
         ZonedTimestamp startDate,
         ZonedTimestamp endDate,
-        AttendanceCommitment commitment
+        AttendanceCommitment commitment,
+        boolean speaking
 ) implements TemporalView {
     public String city() { return venueAddress.city(); }
     public String country() { return venueAddress.country(); }

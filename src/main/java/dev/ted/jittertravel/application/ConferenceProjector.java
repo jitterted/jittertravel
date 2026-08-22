@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.AttendanceBasis;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
@@ -39,14 +40,16 @@ public class ConferenceProjector implements EventStreamConsumer {
                                 event.venueAddress(),
                                 event.startDate(),
                                 event.endDate(),
-                                AttendanceCommitment.WATCHING
+                                AttendanceCommitment.WATCHING,
+                                // Planning a conference records no speaking evidence either way.
+                                false
                         ));
-                // The basis is read and discarded: this page shows *whether* Ted is going, and why
-                // he is going stays OWNER-private even from the owner's own list until slice 4
-                // gives it somewhere to render.
+                // The basis is collapsed to a boolean here and then dropped. Whether Ted speaks is
+                // rendered; *which* speaking basis applies — accepted, or invited — is submission
+                // status, so it never reaches the view at all rather than being carried and hidden.
                 case ConferenceAttendanceConfirmed event ->
                         conferences.computeIfPresent(event.conferenceId(),
-                                (id, view) -> going(view));
+                                (id, view) -> going(view, speaking(event.basis())));
                 case ConferenceCancelled event -> conferences.remove(event.conferenceId());
                 case ConferenceAttendanceDeclined event -> conferences.remove(event.conferenceId());
                 default -> {}
@@ -54,11 +57,23 @@ public class ConferenceProjector implements EventStreamConsumer {
         });
     }
 
-    private ConferenceView going(ConferenceView view) {
+    private ConferenceView going(ConferenceView view, boolean speaking) {
         return new ConferenceView(
                 view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
-                view.startDate(), view.endDate(), AttendanceCommitment.GOING
+                view.startDate(), view.endDate(), AttendanceCommitment.GOING, speaking
         );
+    }
+
+    /**
+     * The partition {@link AttendanceBasis}'s three values were chosen for: two speaking bases and
+     * one that is not. Exhaustive, so a fourth basis cannot be added without deciding which side of
+     * the line it falls on.
+     */
+    private boolean speaking(AttendanceBasis basis) {
+        return switch (basis) {
+            case SPEAKING_ACCEPTED, SPEAKING_INVITED -> true;
+            case TICKET_PURCHASED -> false;
+        };
     }
 
     public List<ConferenceView> views(TimeView timeView, Instant now) {

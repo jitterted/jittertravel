@@ -53,7 +53,7 @@ class DeclineConferenceControllerTest {
                 new Address("Avenue de France", "Marrakesh", "", "40000", "Morocco", "Marrakesh"),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 7, 9, 0), VENUE_ZONE),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 9, 17, 0), VENUE_ZONE),
-                AttendanceCommitment.WATCHING);
+                AttendanceCommitment.WATCHING, false);
     }
 
     @Test

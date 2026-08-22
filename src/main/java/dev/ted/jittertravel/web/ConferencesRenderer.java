@@ -5,6 +5,7 @@ import dev.ted.jittertravel.application.ConferenceView;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
+import j2html.tags.specialized.DivTag;
 import j2html.tags.specialized.TrTag;
 
 import java.util.List;
@@ -80,6 +81,21 @@ public class ConferencesRenderer {
             }
             .conf-commitment--watching { background: #b45309; color: #ffffff; }
             .conf-commitment--going { background: #166534; color: #ffffff; }
+            /* SPEAKER sits beside the commitment chip in the same column, not in one of its own:
+               it is a second fact about the same question, and a "Maybe" conference Ted has been
+               invited to reads "Maybe SPEAKER". One word, and nowrap, for the reason the Actions
+               column is one word — this table only just fits at ~820px and every extra character
+               in a nowrap unit widens its minimum.
+               Outlined rather than filled, so it reads as an annotation on the chip rather than
+               competing with it: two solid blocks in one cell would look like two chips of equal
+               weight, and the commitment is the answer to the column's question. */
+            .conf-speaker {
+                font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+                padding: 1px 5px; border-radius: 4px; white-space: nowrap;
+                border: 1px solid var(--accent-color); color: var(--accent-color);
+            }
+            /* The pair wraps together when the column is narrow rather than overflowing it. */
+            .conf-going-cell { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
             """;
 
     public static String render(List<ConferenceView> conferences, TimeView activeFilter) {
@@ -129,13 +145,31 @@ public class ConferencesRenderer {
     private static TrTag renderRow(ConferenceView conf) {
         return tr(
                 td(conf.name()).withClass("conf-name"),
-                td(commitmentChip(conf.commitment())),
+                td(goingCell(conf)),
                 td(dateTime(conf.startDate())),
                 td(dateTime(conf.endDate())),
                 td(conf.city()),
                 td(conf.country()),
                 td(actions(conf))
         );
+    }
+
+    /**
+     * The {@code Going?} column answers one question with up to two marks: the commitment chip,
+     * always, and {@code SPEAKER} beside it when Ted is speaking. They are not alternatives — a
+     * speculative conference he has been invited to reads {@code Maybe SPEAKER}.
+     * <p>
+     * <strong>{@code SPEAKER}, not the calendar's "A Ted Talk".</strong> Same fact, two surfaces,
+     * two lengths: a calendar entry owns a whole row of a day column and can afford the playful
+     * wording, while this cell is a nowrap unit in a seven-column table that only just fits.
+     */
+    private static DomContent goingCell(ConferenceView conf) {
+        DivTag cell = div().withClass("conf-going-cell").with(commitmentChip(conf.commitment()));
+        if (conf.speaking()) {
+            cell.with(span("Speaker").withClass("conf-speaker")
+                                     .withTitle("Ted is speaking at this one"));
+        }
+        return cell;
     }
 
     /**

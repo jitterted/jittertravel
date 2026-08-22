@@ -38,20 +38,26 @@ public class OpenCfp {
         commandExecutor.execute(commandId, request, contextFor(conferenceId), command);
     }
 
+    /**
+     * Folds to the conference's own {@link ConferencePlanned} — or null once it is cancelled or
+     * declined — because the two facts this command needs both come off it: that it is live, and
+     * how it forms its program.
+     */
     private OpenCfpContext contextFor(ConferenceId conferenceId) {
-        boolean exists = commandExecutor.eventsForDecision()
+        ConferencePlanned planned = commandExecutor.eventsForDecision()
                 .map(StoredEvent::payload)
-                .reduce(false,
+                .reduce((ConferencePlanned) null,
                         (current, event) -> stillPlanned(current, conferenceId, event),
                         (first, second) -> second);
-        return new OpenCfpContext(exists);
+        return new OpenCfpContext(planned != null,
+                                  planned == null ? null : planned.format());
     }
 
-    private boolean stillPlanned(boolean current, ConferenceId wanted, Object event) {
+    private ConferencePlanned stillPlanned(ConferencePlanned current, ConferenceId wanted, Object event) {
         return switch (event) {
-            case ConferencePlanned e when e.conferenceId().equals(wanted) -> true;
-            case ConferenceCancelled e when e.conferenceId().equals(wanted) -> false;
-            case ConferenceAttendanceDeclined e when e.conferenceId().equals(wanted) -> false;
+            case ConferencePlanned e when e.conferenceId().equals(wanted) -> e;
+            case ConferenceCancelled e when e.conferenceId().equals(wanted) -> null;
+            case ConferenceAttendanceDeclined e when e.conferenceId().equals(wanted) -> null;
             default -> current;
         };
     }

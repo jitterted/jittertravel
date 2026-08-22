@@ -136,10 +136,22 @@ public class EventSourcingConfig {
         return new ConfirmConferenceAttendance(commandExecutor);
     }
 
-    /** And again: "is this conference still live?" is the only fact recording a CFP needs. */
+    /**
+     * Recording a CFP needs two facts, both off the conference's own plan: that it is still live,
+     * and that it forms its program through a call for papers at all.
+     */
     @Bean
     public OpenCfp openCfpApplicationService(CommandExecutor commandExecutor) {
         return new OpenCfp(commandExecutor);
+    }
+
+    /**
+     * The whole speaking axis in one service: the five moves share a state machine and a fold, so
+     * they share a service rather than getting one each ({@link TalkTracking}).
+     */
+    @Bean
+    public TalkTracking talkTrackingApplicationService(CommandExecutor commandExecutor) {
+        return new TalkTracking(commandExecutor);
     }
 
     @Bean

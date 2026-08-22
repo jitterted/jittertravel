@@ -16,8 +16,13 @@ import dev.ted.jittertravel.domain.GroundTransferPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelChanged;
+import dev.ted.jittertravel.domain.InvitedToSpeak;
 import dev.ted.jittertravel.domain.OneOffTaskCompleted;
 import dev.ted.jittertravel.domain.PrivateEventPlanned;
+import dev.ted.jittertravel.domain.TalkAccepted;
+import dev.ted.jittertravel.domain.TalkRejected;
+import dev.ted.jittertravel.domain.TalkSubmitted;
+import dev.ted.jittertravel.domain.TalkWithdrawn;
 import dev.ted.jittertravel.domain.TrainBooked;
 import dev.ted.jittertravel.domain.TrainChanged;
 
@@ -99,6 +104,13 @@ public final class EventTypes {
         // Born with a ZonedTimestamp, so there is no pre-zone form of it to upcast: version 1 is
         // the only shape this event has ever had.
         register("CfpOpened", CfpOpened.class);
+        // The speaking axis. All conference-keyed and all born after the datetime migration, so
+        // each carries a plain Instant of when Ted recorded it and each is at version 1.
+        register("TalkSubmitted", TalkSubmitted.class);
+        register("TalkAccepted", TalkAccepted.class);
+        register("TalkRejected", TalkRejected.class);
+        register("TalkWithdrawn", TalkWithdrawn.class);
+        register("InvitedToSpeak", InvitedToSpeak.class);
         register("GatheringPlanned", GatheringPlanned.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("GatheringChanged", GatheringChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("PrivateEventPlanned", PrivateEventPlanned.class);

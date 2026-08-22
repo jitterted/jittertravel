@@ -242,6 +242,100 @@ class GoldenEventDeserializationTest {
                 .isEqualTo(ZoneId.of("Europe/Amsterdam"));
     }
 
+    /**
+     * The five speaking-axis events share one shape — the conference id and when Ted recorded the
+     * fact — so they are exercised together. Each is asserted on its own so a divergence in one
+     * cannot hide behind the others.
+     */
+    @Test
+    void talkSubmittedCurrentPayloadDeserializes() {
+        String json = """
+                {
+                  "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "submittedOn": "2026-08-22T10:15:00Z"
+                }
+                """;
+
+        TalkSubmitted event = deserialize(json, TalkSubmitted.class);
+
+        assertThat(event.conferenceId().id())
+                .isEqualTo(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        assertThat(event.submittedOn())
+                .isEqualTo(Instant.parse("2026-08-22T10:15:00Z"));
+    }
+
+    @Test
+    void talkAcceptedCurrentPayloadDeserializes() {
+        String json = """
+                {
+                  "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "decidedOn": "2026-08-22T10:15:00Z"
+                }
+                """;
+
+        TalkAccepted event = deserialize(json, TalkAccepted.class);
+
+        assertThat(event.conferenceId().id())
+                .isEqualTo(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        assertThat(event.decidedOn())
+                .isEqualTo(Instant.parse("2026-08-22T10:15:00Z"));
+    }
+
+    @Test
+    void talkRejectedCurrentPayloadDeserializes() {
+        String json = """
+                {
+                  "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "decidedOn": "2026-08-22T10:15:00Z"
+                }
+                """;
+
+        TalkRejected event = deserialize(json, TalkRejected.class);
+
+        assertThat(event.conferenceId().id())
+                .isEqualTo(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        assertThat(event.decidedOn())
+                .isEqualTo(Instant.parse("2026-08-22T10:15:00Z"));
+    }
+
+    /**
+     * No reason field, deliberately — the original draft carried free text and nothing was ever
+     * going to read it. This sample is what would fail if one were added back without a plan.
+     */
+    @Test
+    void talkWithdrawnCurrentPayloadDeserializes() {
+        String json = """
+                {
+                  "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "withdrawnOn": "2026-08-22T10:15:00Z"
+                }
+                """;
+
+        TalkWithdrawn event = deserialize(json, TalkWithdrawn.class);
+
+        assertThat(event.conferenceId().id())
+                .isEqualTo(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        assertThat(event.withdrawnOn())
+                .isEqualTo(Instant.parse("2026-08-22T10:15:00Z"));
+    }
+
+    @Test
+    void invitedToSpeakCurrentPayloadDeserializes() {
+        String json = """
+                {
+                  "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "invitedOn": "2026-08-22T10:15:00Z"
+                }
+                """;
+
+        InvitedToSpeak event = deserialize(json, InvitedToSpeak.class);
+
+        assertThat(event.conferenceId().id())
+                .isEqualTo(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        assertThat(event.invitedOn())
+                .isEqualTo(Instant.parse("2026-08-22T10:15:00Z"));
+    }
+
     @Test
     void oneOffTaskCompletedCurrentPayloadDeserializes() {
         // The taskId is a hand-written registry id, not a UUID: it has to survive the code that

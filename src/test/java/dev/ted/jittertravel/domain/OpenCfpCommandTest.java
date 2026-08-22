@@ -20,7 +20,7 @@ class OpenCfpCommandTest {
         ConferenceId conferenceId = ConferenceId.random();
 
         List<CfpOpened> events = new OpenCfpCommand(conferenceId, CLOSES_ON)
-                .execute(new OpenCfpContext(true))
+                .execute(new OpenCfpContext(true, ConferenceFormat.CALL_FOR_PAPERS))
                 .toList();
 
         assertThat(events).containsExactly(new CfpOpened(conferenceId, CLOSES_ON));
@@ -30,7 +30,7 @@ class OpenCfpCommandTest {
     void unknownConferenceIsRejected() {
         assertThatExceptionOfType(ConferenceNotFound.class)
                 .isThrownBy(() -> new OpenCfpCommand(ConferenceId.random(), CLOSES_ON)
-                        .execute(new OpenCfpContext(false))
+                        .execute(new OpenCfpContext(false, ConferenceFormat.CALL_FOR_PAPERS))
                         .toList());
     }
 
@@ -45,10 +45,24 @@ class OpenCfpCommandTest {
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2020, 1, 1, 12, 0), VENUE_ZONE);
 
         List<CfpOpened> events = new OpenCfpCommand(ConferenceId.random(), longGone)
-                .execute(new OpenCfpContext(true))
+                .execute(new OpenCfpContext(true, ConferenceFormat.CALL_FOR_PAPERS))
                 .toList();
 
         assertThat(events).hasSize(1);
+    }
+
+    /**
+     * An open-space conference chooses its sessions on the day, so there is no call for papers and
+     * no deadline to miss. The dashboard never offers the action on such a row; this is the guard
+     * on the POST itself.
+     */
+    @Test
+    void anOpenSpaceConferenceHasNoCfpToClose() {
+        assertThatExceptionOfType(ConferenceHasNoCfp.class)
+                .isThrownBy(() -> new OpenCfpCommand(ConferenceId.random(), CLOSES_ON)
+                        .execute(new OpenCfpContext(true, ConferenceFormat.OPEN_SPACE))
+                        .toList())
+                .withMessageContaining("no CFP to close");
     }
 
     /**

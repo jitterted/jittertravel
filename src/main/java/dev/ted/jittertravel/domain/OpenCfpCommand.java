@@ -12,8 +12,9 @@ import java.util.stream.Stream;
  * actually opened it — Ted is recording a fact from the world — and the "named for what happened"
  * rule that shaped {@link CfpOpened} is about events, not about who pressed the button.
  * <p>
- * The only refusal is a conference that does not exist — never planned, or since cancelled by the
- * organizers, or declined. There is deliberately <strong>no time gate</strong>: a CFP whose deadline
+ * Two refusals: a conference that does not exist — never planned, or since cancelled by the
+ * organizers, or declined — and an {@code OPEN_SPACE} conference, which chooses its sessions on the
+ * day and therefore has no call for papers to close. There is deliberately <strong>no time gate</strong>: a CFP whose deadline
  * has already passed is still worth recording, because "this closed and I did not submit" is exactly
  * the state the dashboard wants to show, and because backfilling an old conference is a legitimate use.
  * <p>
@@ -31,6 +32,10 @@ public record OpenCfpCommand(
     public Stream<CfpOpened> execute(OpenCfpContext context) {
         if (!context.conferenceExists()) {
             throw new ConferenceNotFound("No conference found to record a CFP for: " + conferenceId);
+        }
+        if (context.format() == ConferenceFormat.OPEN_SPACE) {
+            throw new ConferenceHasNoCfp(
+                    "An open-space conference has no CFP to close: " + conferenceId);
         }
         return Stream.of(new CfpOpened(conferenceId, closesOn));
     }

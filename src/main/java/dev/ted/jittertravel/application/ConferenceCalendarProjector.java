@@ -43,25 +43,15 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                     // Calendar days are venue-local days (decision 7): bucket by the wall-clock
                     // the traveler will read off a clock at the venue, not by UTC.
                     entries.put(event.conferenceId(), new CalendarEntry(
-                            EntryKind.CONFERENCE,
                             event.startDate().localDateTime(),
                             event.endDate().localDateTime(),
                             event.name(),
                             locationLines,
                             event.name() + " cont'd",
                             locationLines,
-                            null,
-                            false,
-                            null,
                             // Planning a conference is putting it on the radar, nothing more: it is
                             // speculative until an attendance confirmation says otherwise.
-                            AttendanceCommitment.WATCHING,
-                            // publicRoute belongs to GROUND_TRANSFER alone: a conference's own
-                            // title and location are public, so there is nothing to carry.
-                            null,
-                            // Nor cancelPath: a conference is declined or cancelled from its own
-                            // pages, not from a link on the calendar entry.
-                            null
+                            new EntryDetails.Conference(AttendanceCommitment.WATCHING)
                     ));
                 }
                 // Ted is going: same entry, no longer speculative. `event.basis()` is deliberately
@@ -78,11 +68,10 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
 
     private CalendarEntry going(CalendarEntry entry) {
         return new CalendarEntry(
-                entry.kind(), entry.start(), entry.end(),
+                entry.start(), entry.end(),
                 entry.mainTitle(), entry.subTitle(),
                 entry.continuationTitle(), entry.continuationSubTitle(),
-                entry.mapsUrl(), entry.speaking(), entry.editPath(),
-                AttendanceCommitment.GOING, entry.publicRoute(), entry.cancelPath()
+                new EntryDetails.Conference(AttendanceCommitment.GOING)
         );
     }
 

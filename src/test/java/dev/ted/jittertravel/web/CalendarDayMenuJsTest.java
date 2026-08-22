@@ -2,7 +2,7 @@ package dev.ted.jittertravel.web;
 
 import com.microsoft.playwright.Locator;
 import dev.ted.jittertravel.application.CalendarEntry;
-import dev.ted.jittertravel.application.EntryKind;
+import dev.ted.jittertravel.application.EntryDetails;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -29,10 +29,10 @@ class CalendarDayMenuJsTest extends JsBehaviorTest {
 
     private static List<CalendarEntry> oneUpcomingConference() {
         CalendarEntry upcoming = new CalendarEntry(
-                EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 20, 9, 0),
                 LocalDateTime.of(2026, 6, 20, 17, 0),
-                "Upcoming Conference", List.of(), null, null, "");
+                "Upcoming Conference", List.of(),
+                new EntryDetails.Conference(null));
         return List.of(upcoming);
     }
 

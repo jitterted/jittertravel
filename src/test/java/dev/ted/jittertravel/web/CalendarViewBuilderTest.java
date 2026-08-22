@@ -2,7 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.CalendarEntry;
-import dev.ted.jittertravel.application.EntryKind;
+import dev.ted.jittertravel.application.EntryDetails;
 import dev.ted.jittertravel.application.SubtitleLine;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
@@ -21,6 +21,13 @@ class CalendarViewBuilderTest {
     // "today" pinned far before every range below, so existing assertions see
     // neither is-past nor is-today markup. Past/today behavior has dedicated tests.
     private static final LocalDate TODAY = LocalDate.of(2020, 1, 1);
+
+    // Details for a kind carrying nothing the test cares about: no links, no chips. A test that
+    // is about a link or a chip builds its own details inline, so the interesting value is
+    // visible at the point it matters.
+    private static final EntryDetails CONFERENCE_DETAILS = new EntryDetails.Conference(null);
+    private static final EntryDetails FLIGHT_DETAILS = new EntryDetails.Flight(null);
+    private static final EntryDetails TRAIN_DETAILS = new EntryDetails.Train(null);
 
     @Test
     void emptyNonCollapsedWeekRendersOneEmptyLaneBandForBreathingRoom() {
@@ -174,14 +181,13 @@ class CalendarViewBuilderTest {
     @Test
     void conferenceEntryRendersWithTitleAndLocation() {
         CalendarEntry conf = new CalendarEntry(
-                EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 2, 9, 0),
                 LocalDateTime.of(2026, 6, 4, 17, 0),
                 "DevConf",
                 lines("(Portland, USA)"),
                 "DevConf cont'd",
                 lines("(Portland, USA)"),
-                null
+                CONFERENCE_DETAILS
         );
 
         String html = CalendarViewBuilder.render(
@@ -203,25 +209,23 @@ class CalendarViewBuilderTest {
     void flightAndConferenceAcrossWeekBoundaryRenderInSeparateLanes() {
         // Flight UA59: SFO->FRA, departs Sat 2026-06-06 13:55, arrives Sun 2026-06-07 09:45.
         CalendarEntry flight = new CalendarEntry(
-                EntryKind.FLIGHT,
                 LocalDateTime.of(2026, 6, 6, 13, 55),
                 LocalDateTime.of(2026, 6, 7, 9, 45),
                 "✈️ SFO\u2192FRA",
                 lines("Departs 1:55 PM"),
                 null,
                 lines("Arr 9:45 AM"),
-                null
+                FLIGHT_DETAILS
         );
         // Conference DDD Europe 2026: Sun 2026-06-07 11:00 -> Wed 2026-06-10 17:00.
         CalendarEntry conf = new CalendarEntry(
-                EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 7, 11, 0),
                 LocalDateTime.of(2026, 6, 10, 17, 0),
                 "DDD Europe 2026",
                 lines("(Frankfurt, Germany)"),
                 "DDD Europe 2026 cont'd",
                 lines("(Frankfurt, Germany)"),
-                null
+                CONFERENCE_DETAILS
         );
 
         String html = CalendarViewBuilder.render(
@@ -254,20 +258,18 @@ class CalendarViewBuilderTest {
     @Test
     void overlappingEntriesInSameLaneStackIntoSubRows() {
         CalendarEntry a = new CalendarEntry(
-                EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 2, 9, 0),
                 LocalDateTime.of(2026, 6, 4, 17, 0),
                 "ConfA", lines("(City, Country)"),
                 "ConfA cont'd", lines("(City, Country)"),
-                null
+                CONFERENCE_DETAILS
         );
         CalendarEntry b = new CalendarEntry(
-                EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 3, 9, 0),
                 LocalDateTime.of(2026, 6, 5, 17, 0),
                 "ConfB", lines("(City, Country)"),
                 "ConfB cont'd", lines("(City, Country)"),
-                null
+                CONFERENCE_DETAILS
         );
 
         String html = CalendarViewBuilder.render(
@@ -287,14 +289,13 @@ class CalendarViewBuilderTest {
     @Test
     void lodgingEntryWithMapsUrlRendersTitleAsLink() {
         CalendarEntry hotel = new CalendarEntry(
-                EntryKind.LODGING,
                 LocalDateTime.of(2026, 6, 10, 15, 0),
                 LocalDateTime.of(2026, 6, 12, 11, 0),
                 "Grand Hotel Berlin",
                 lines("Berlin, DE"),
                 "Grand Hotel Berlin cont'd",
                 lines("Berlin, DE"),
-                "https://maps.google.com/?q=Grand+Hotel+Berlin"
+                new EntryDetails.Lodging("https://maps.google.com/?q=Grand+Hotel+Berlin", null)
         );
 
         String html = CalendarViewBuilder.render(
@@ -314,20 +315,18 @@ class CalendarViewBuilderTest {
     void fixedLaneOrderingPlacesConferencesAboveFlights() {
         // Both occupy the same week so we have two lanes stacked.
         CalendarEntry conf = new CalendarEntry(
-                EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 8, 9, 0),
                 LocalDateTime.of(2026, 6, 8, 17, 0),
                 "Conf", lines("(City, Country)"),
                 "Conf cont'd", lines("(City, Country)"),
-                null
+                CONFERENCE_DETAILS
         );
         CalendarEntry flight = new CalendarEntry(
-                EntryKind.FLIGHT,
                 LocalDateTime.of(2026, 6, 9, 9, 0),
                 LocalDateTime.of(2026, 6, 9, 13, 0),
                 "✈️ A→B", lines("Departs 9:00 AM"),
                 null, lines("Arr 1:00 PM"),
-                null
+                FLIGHT_DETAILS
         );
 
         String html = CalendarViewBuilder.render(
@@ -397,12 +396,11 @@ class CalendarViewBuilderTest {
         // Conference Mon-Wed 2026-06-01..03; today is Mon 2026-06-15, so its week
         // (Sun 2026-06-14..) is current and the conference week is a prior week.
         CalendarEntry conf = new CalendarEntry(
-                EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 1, 9, 0),
                 LocalDateTime.of(2026, 6, 3, 17, 0),
                 "PastConf", lines("(City, Country)"),
                 "PastConf cont'd", lines("(City, Country)"),
-                null
+                CONFERENCE_DETAILS
         );
 
         String html = CalendarViewBuilder.render(
@@ -427,12 +425,11 @@ class CalendarViewBuilderTest {
     @Test
     void currentAndFutureWeeksAreNotCollapsedAndHaveNoBadges() {
         CalendarEntry conf = new CalendarEntry(
-                EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 16, 9, 0),
                 LocalDateTime.of(2026, 6, 16, 17, 0),
                 "FutureConf", lines("(City, Country)"),
                 "FutureConf cont'd", lines("(City, Country)"),
-                null
+                CONFERENCE_DETAILS
         );
 
         String html = CalendarViewBuilder.render(
@@ -451,14 +448,11 @@ class CalendarViewBuilderTest {
     @Test
     void gatheringEntryRendersWithGatheringCssClass() {
         CalendarEntry gathering = new CalendarEntry(
-                EntryKind.GATHERING,
                 LocalDateTime.of(2026, 6, 10, 18, 0),
                 LocalDateTime.of(2026, 6, 10, 21, 0),
                 "London Java Community",
                 lines("Skills Matter", "London, GB"),
-                null,
-                null,
-                "https://meetup.com/ljc/events/123"
+                new EntryDetails.Gathering("https://meetup.com/ljc/events/123", false, null)
         );
 
         String html = CalendarViewBuilder.render(
@@ -482,17 +476,11 @@ class CalendarViewBuilderTest {
     @Test
     void speakingGatheringRendersSpeakingBadge() {
         CalendarEntry gathering = new CalendarEntry(
-                EntryKind.GATHERING,
                 LocalDateTime.of(2026, 6, 10, 18, 0),
                 LocalDateTime.of(2026, 6, 10, 21, 0),
                 "London Java Community",
                 lines("Skills Matter", "London, GB"),
-                null,
-                null,
-                "https://meetup.com/ljc/events/123",
-                true,
-                null,
-                null
+                new EntryDetails.Gathering("https://meetup.com/ljc/events/123", true, null)
         );
 
         String html = CalendarViewBuilder.render(
@@ -544,12 +532,11 @@ class CalendarViewBuilderTest {
         // Like the title and the pencil, the chip belongs to the entry's own segment: repeating it
         // on every week the conference spans would read as a second, separate maybe.
         CalendarEntry multiWeek = new CalendarEntry(
-                EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 11, 5, 9, 0),
                 LocalDateTime.of(2026, 11, 12, 18, 0),
                 "J-Fall", lines("Ede, Netherlands"),
                 "J-Fall cont'd", lines("Ede, Netherlands"),
-                null, false, null, AttendanceCommitment.WATCHING
+                new EntryDetails.Conference(AttendanceCommitment.WATCHING)
         );
 
         String secondWeek = CalendarViewBuilder.render(
@@ -567,11 +554,10 @@ class CalendarViewBuilderTest {
 
     private static CalendarEntry conference(AttendanceCommitment commitment) {
         return new CalendarEntry(
-                EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 11, 5, 9, 0),
                 LocalDateTime.of(2026, 11, 5, 18, 0),
                 "J-Fall", lines("Ede, Netherlands"),
-                null, null, null, false, null, commitment
+                new EntryDetails.Conference(commitment)
         );
     }
 
@@ -648,35 +634,23 @@ class CalendarViewBuilderTest {
 
     private static CalendarEntry transferWithCancelPath() {
         return new CalendarEntry(
-                EntryKind.GROUND_TRANSFER,
                 LocalDateTime.of(2026, 6, 10, 12, 0),
                 LocalDateTime.of(2026, 6, 10, 12, 45),
                 "🚕 DEN → Marriott Lone Tree",
                 lines("12:00 PM"),
-                null,
-                null,
-                null,
-                false,
-                null,
-                null,
-                "DEN → Lone Tree, CO, US",
-                "/ground-transfers/gt-123/cancel"
+                new EntryDetails.GroundTransfer("DEN → Lone Tree, CO, US",
+                                                "/ground-transfers/gt-123/cancel")
         );
     }
 
     private static CalendarEntry gatheringWithEditPath() {
         return new CalendarEntry(
-                EntryKind.GATHERING,
                 LocalDateTime.of(2026, 6, 10, 18, 0),
                 LocalDateTime.of(2026, 6, 10, 21, 0),
                 "London Java Community",
                 lines("Skills Matter", "London, GB"),
-                null,
-                null,
-                "https://meetup.com/ljc/events/123",
-                false,
-                "/planned-gatherings/g-123",
-                null
+                new EntryDetails.Gathering("https://meetup.com/ljc/events/123", false,
+                                           "/planned-gatherings/g-123")
         );
     }
 
@@ -687,12 +661,11 @@ class CalendarViewBuilderTest {
         ZonedTimestamp departure = zoned(LocalDateTime.of(2026, 6, 10, 9, 0), "America/Los_Angeles");
         ZonedTimestamp arrival = zoned(LocalDateTime.of(2026, 6, 10, 10, 30), "America/Los_Angeles");
         CalendarEntry flight = new CalendarEntry(
-                EntryKind.FLIGHT,
                 departure.localDateTime(),
                 arrival.localDateTime(),
                 "SFO to LAX",
                 List.of(new SubtitleLine.Range(departure, arrival)),
-                null, null, null
+                FLIGHT_DETAILS
         );
 
         String html = CalendarViewBuilder.render(
@@ -714,12 +687,11 @@ class CalendarViewBuilderTest {
         // The overnight-leg shape: London 10:00 PM BST is 21:00Z.
         ZonedTimestamp departure = zoned(LocalDateTime.of(2026, 6, 10, 22, 0), "Europe/London");
         CalendarEntry train = new CalendarEntry(
-                EntryKind.TRAIN,
                 departure.localDateTime(),
                 departure.localDateTime(),
                 "London to Paris",
                 List.of(new SubtitleLine.At("Departs", departure)),
-                null, null, null
+                TRAIN_DETAILS
         );
 
         String html = CalendarViewBuilder.render(
@@ -740,12 +712,11 @@ class CalendarViewBuilderTest {
         // makes the entry's min-content width the whole route. The <wbr> lets the codes stack
         // in a narrow column; the visible text is unchanged.
         CalendarEntry flight = new CalendarEntry(
-                EntryKind.FLIGHT,
                 LocalDateTime.of(2026, 6, 10, 9, 0),
                 LocalDateTime.of(2026, 6, 10, 13, 0),
                 "✈️ SFO→MUC",
                 lines("9:00 AM"),
-                null, null, null
+                FLIGHT_DETAILS
         );
 
         String html = CalendarViewBuilder.render(
@@ -762,12 +733,11 @@ class CalendarViewBuilderTest {
     @Test
     void spacedRouteArrowIsLeftAloneBecauseItAlreadyBreaksAtItsSpaces() {
         CalendarEntry train = new CalendarEntry(
-                EntryKind.TRAIN,
                 LocalDateTime.of(2026, 6, 10, 9, 0),
                 LocalDateTime.of(2026, 6, 10, 13, 0),
                 "🚄 Frankfurt → Paris",
                 lines("9:00 AM"),
-                null, null, null
+                TRAIN_DETAILS
         );
 
         String html = CalendarViewBuilder.render(

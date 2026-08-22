@@ -19,8 +19,8 @@ import java.util.stream.Stream;
  * <p>
  * The publishable form of the route ({@code DEN → Lone Tree, CO, US}) still has to exist, because
  * {@link CalendarEntryRedactor} cannot derive a city from a hotel name. It rides in
- * {@code CalendarEntry.publicRoute}, which no renderer reads — the redactor's GROUND_TRANSFER
- * branch is its only consumer.
+ * {@link EntryDetails.GroundTransfer#publicRoute()}, which no renderer reads — the redactor's
+ * ground-transfer branch is its only consumer.
  */
 public class GroundTransferCalendarProjector implements EventStreamConsumer {
 
@@ -50,24 +50,18 @@ public class GroundTransferCalendarProjector implements EventStreamConsumer {
         // Bucketed on the transfer-zone local day; both ends share one zone, so a transfer is
         // normally a single day column.
         return new CalendarEntry(
-                EntryKind.GROUND_TRANSFER,
                 e.departsAt().localDateTime(),
                 e.arrivesAt().localDateTime(),
                 TAXI + route(label.ownerLabel(e.originAirportCode(), e.originName(), e.origin()),
                              label.ownerLabel(e.destinationAirportCode(), e.destinationName(), e.destination())),
                 List.of(new SubtitleLine.Range(e.departsAt(), e.arrivesAt())),
-                null,
-                null,
-                null,
-                false,
-                null,
-                null,
-                route(label.publicLabel(e.originAirportCode(), e.origin()),
-                      label.publicLabel(e.destinationAirportCode(), e.destination())),
-                // A transfer has nothing to edit — correcting one means removing it and entering
-                // it again — so its owner action is cancel, and the calendar carries the link. The
-                // renderer gates it on isOwner and the redactor drops it.
-                "/ground-transfers/" + e.groundTransferId().id() + "/cancel"
+                new EntryDetails.GroundTransfer(
+                        route(label.publicLabel(e.originAirportCode(), e.origin()),
+                              label.publicLabel(e.destinationAirportCode(), e.destination())),
+                        // A transfer has nothing to edit — correcting one means removing it and
+                        // entering it again — so its owner action is cancel, and the calendar
+                        // carries the link. The renderer gates it on isOwner; the redactor drops it.
+                        "/ground-transfers/" + e.groundTransferId().id() + "/cancel")
         );
     }
 

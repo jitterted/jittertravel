@@ -123,7 +123,8 @@ The trigger above is still unfired and still worth watching.
 
 # Second occasion: `CalendarEntry` is growing fields that don't apply (2026-08-19)
 
-**Status: DECIDED 2026-08-19 — S2 + E2. Nothing implemented.** Raised at the start of slice 2 of
+**Status: DECIDED 2026-08-19 — S2 + E2. Commit 1 (E2, the reshape) shipped 2026-08-21; commit 2
+(S2, the public projector) is next.** Raised at the start of slice 2 of
 `docs/ConferenceSubmissionTrackingPlan.md`. The options below are kept for the reasoning trail; the
 decision and its terms are in **"Decision (2026-08-19)"** at the end of this half.
 
@@ -486,9 +487,54 @@ collapses every speculative state to `WATCHING` before the entry is built, which
 wants. If anything slice 2 is a small argument *for* S2: `CalendarEntryRedactorTest`'s new loop is
 precisely the "invariant test that grows with the kinds" the decision section warned about.
 
-### Still open
+### The commit split — decided 2026-08-21: **E2 first**
 
-- The commit split within the refactor itself (E2 first as a pure reshape, then S2; or the reverse).
+Two commits, in this order:
+
+1. **E2 as a pure reshape**, no behaviour change. `CalendarEntry` loses its kind-specific fields to a
+   sealed `EntryDetails`; the seven projectors, the redactor and `CalendarViewBuilder` follow.
+2. **S2**, the security change: `PublicCalendarProjector` plus the public details types, the
+   controller choosing its source by audience, and `CalendarEntryRedactor` deleted.
+
+**Why this order.** The reshape is the large mechanical diff — around seventy construction sites
+across ten test files — and putting it first means it lands with the redactor's compile-time forcing
+function still armed. The security change is then a small, focused diff that can be read on its own.
+The reverse order gets the deletion out of the way with nothing thrown away, but it removes the guard
+*before* the big diff, which is backwards.
+
+The cost, paid knowingly: `publicRoute` lives in `EntryDetails.GroundTransfer` for exactly one
+commit, and the redactor is retargeted onto the details types and then deleted. About fifteen lines
+of throwaway.
+
+**One-off migration check** (Ted, 2026-08-21): commit 2 adds a temporary test asserting that
+`PublicCalendarProjector`'s output equals `redactor.redact(ownerEntry)` for every kind's fixtures,
+and deletes it together with the redactor in that same commit. `CalendarRedactionSecurityTest` covers
+only the cases it names; this proves the rewrite changed nothing an anonymous viewer sees.
+
+### What commit 1 built (2026-08-21)
+
+Shipped as designed, both tiers green (1343 unit + 50 js). Three notes worth carrying into commit 2:
+
+- **The record was worse than this document recorded.** Ground transfer had landed since, so
+  `CalendarEntry` was **13 fields with four convenience constructors**, not 11 with two — and there
+  are **seven** calendar projectors, not six. It is now **7 fields with one** convenience
+  constructor (the no-continuation case), and `kind()` is derived.
+- **Three redaction tests became unwriteable, which is the point.**
+  `conferenceSpeakingIsDropped` and `commitmentIsDroppedFromEveryNonConferenceKind` are **deleted**:
+  no non-conference details type has a commitment, and `EntryDetails.Conference` has no `speaking`,
+  so neither case can be constructed. The second was the "test that grows with the kinds" this
+  document warned about; it is replaced by `redactionNeverChangesTheKind`, which states one
+  invariant over a fixture list. Two assertions in `CalendarRedactionSecurityTest` went the same way
+  (a flight's maps URL, a private event's edit link) and carry a comment saying the guarantee is now
+  structural.
+- **`CalendarViewBuilder` gained three exhaustive switches** — `titleLink`, `ownerActions`,
+  `badges` — instead of reading four flat fields. A new kind cannot be added without deciding, for
+  each, what it renders. Along the way the gathering's link stopped being called `mapsUrl`: it is an
+  `infoUrl` and always was, and three test names said so already.
+
+All six mutations tried against the new tests failed for the right reason (a leaked gathering
+`editPath`, a transfer redacted into the wrong lane, each of the three switches neutered, and a
+details record lying about its kind).
 
 ## Related
 

@@ -52,9 +52,9 @@ class PrivateEventCalendarProjectorTest {
         assertThat(entry.end()).isEqualTo(LocalDateTime.of(2026, 7, 10, 22, 0));
         assertThat(entry.continuationTitle()).isNull();
         assertThat(entry.continuationSubTitle()).isNull();
-        // A private event has no maps URL and no owner edit link on the calendar.
-        assertThat(entry.mapsUrl()).isNull();
-        assertThat(entry.editPath()).isNull();
+        // A private event has no maps URL and no owner edit link on the calendar — and cannot
+        // acquire one by accident, because its details record has nowhere to put either.
+        assertThat(entry.details()).isEqualTo(new EntryDetails.PrivateEvent());
     }
 
     @Test

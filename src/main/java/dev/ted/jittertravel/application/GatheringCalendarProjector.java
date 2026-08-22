@@ -52,24 +52,14 @@ public class GatheringCalendarProjector implements EventStreamConsumer {
         // `editPath` is the OWNER-only deep link to the edit page; the renderer gates it on
         // isOwner and the redactor drops it, so it never reaches an anonymous viewer.
         return new CalendarEntry(
-                EntryKind.GATHERING,
                 startsAt.localDateTime(),
                 endsAt.localDateTime(),
                 title,
                 subtitle.venueLocationAndTime(venueName, location, startsAt, endsAt),
-                null,
-                null,
-                infoUrl.isBlank() ? null : infoUrl,
-                speaking,
-                "/planned-gatherings/" + gatheringId.id(),
-                // Attendance commitment applies to conferences only: a gathering Ted has planned is
-                // one he is going to, so there is no speculative state to mark.
-                null,
-                // publicRoute belongs to GROUND_TRANSFER alone: a gathering is public in full.
-                null,
-                // Nor cancelPath: a gathering is edited (and cancelled) from its own page, reached
-                // by the edit pencil above.
-                null
+                new EntryDetails.Gathering(
+                        infoUrl.isBlank() ? null : infoUrl,
+                        speaking,
+                        "/planned-gatherings/" + gatheringId.id())
         );
     }
 

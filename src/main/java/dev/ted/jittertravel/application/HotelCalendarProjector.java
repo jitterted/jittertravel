@@ -45,15 +45,13 @@ public class HotelCalendarProjector implements EventStreamConsumer {
         // the redactor drops it, so it never reaches an anonymous viewer.
         String editPath = "/booked-hotels/" + hotelBookingId.id();
         entriesById.put(hotelBookingId, new CalendarEntry(
-                EntryKind.LODGING,
                 checkIn,
                 checkOut,
                 hotelName,
                 locationLines,
                 hotelName + " cont'd",
                 locationLines,
-                mapsUrl,
-                editPath
+                new EntryDetails.Lodging(mapsUrl, editPath)
         ));
     }
 

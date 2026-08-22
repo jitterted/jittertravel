@@ -27,13 +27,13 @@ class CalendarAggregatorTest {
 
     @Test
     void allEntriesAreReturnedFromAllProjectors() {
-        CalendarEntry conference = entry(EntryKind.CONFERENCE, "JavaOne");
-        CalendarEntry flight = entry(EntryKind.FLIGHT, "SFO→FRA");
-        CalendarEntry train = entry(EntryKind.TRAIN, "Eurostar");
-        CalendarEntry hotel = entry(EntryKind.LODGING, "Grand Hotel");
-        CalendarEntry gathering = entry(EntryKind.GATHERING, "Mob Session");
-        CalendarEntry privateEvent = entry(EntryKind.PRIVATE_EVENT, "Dinner with friends");
-        CalendarEntry groundTransfer = entry(EntryKind.GROUND_TRANSFER, "DEN → Marriott Lone Tree");
+        CalendarEntry conference = entry(new EntryDetails.Conference(AttendanceCommitment.WATCHING), "JavaOne");
+        CalendarEntry flight = entry(new EntryDetails.Flight(null), "SFO→FRA");
+        CalendarEntry train = entry(new EntryDetails.Train(null), "Eurostar");
+        CalendarEntry hotel = entry(new EntryDetails.Lodging(null, null), "Grand Hotel");
+        CalendarEntry gathering = entry(new EntryDetails.Gathering(null, false, null), "Mob Session");
+        CalendarEntry privateEvent = entry(new EntryDetails.PrivateEvent(), "Dinner with friends");
+        CalendarEntry groundTransfer = entry(new EntryDetails.GroundTransfer(null, null), "DEN → Marriott Lone Tree");
         given(conferenceProjector.entries()).willReturn(List.of(conference));
         given(flightProjector.entries()).willReturn(List.of(flight));
         given(trainProjector.entries()).willReturn(List.of(train));
@@ -68,7 +68,7 @@ class CalendarAggregatorTest {
         assertThat(aggregator.allEntries()).isEmpty();
     }
 
-    private static CalendarEntry entry(EntryKind kind, String title) {
-        return new CalendarEntry(kind, START, END, title, List.of(), title + " cont'd", List.of(), null);
+    private static CalendarEntry entry(EntryDetails details, String title) {
+        return new CalendarEntry(START, END, title, List.of(), title + " cont'd", List.of(), details);
     }
 }

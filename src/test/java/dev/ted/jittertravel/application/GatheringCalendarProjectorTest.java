@@ -54,7 +54,7 @@ class GatheringCalendarProjectorTest {
         assertThat(entry.end()).isEqualTo(LocalDateTime.of(2026, 7, 10, 21, 0));
         assertThat(entry.continuationTitle()).isNull();
         assertThat(entry.continuationSubTitle()).isNull();
-        assertThat(entry.speaking())
+        assertThat(details(entry).speaking())
                 .as("speaking gathering keeps its speaking flag on the calendar entry")
                 .isTrue();
     }
@@ -74,7 +74,7 @@ class GatheringCalendarProjectorTest {
 
         projector.handle(Stream.of(stored(event)));
 
-        assertThat(projector.entries().getFirst().speaking())
+        assertThat(details(projector.entries().getFirst()).speaking())
                 .as("a gathering Ted only attends is not marked speaking")
                 .isFalse();
     }
@@ -95,29 +95,29 @@ class GatheringCalendarProjectorTest {
 
         projector.handle(Stream.of(stored(planned), stored(changed)));
 
-        assertThat(projector.entries().getFirst().speaking())
+        assertThat(details(projector.entries().getFirst()).speaking())
                 .as("editing a gathering overwrites its speaking flag")
                 .isFalse();
     }
 
     @Test
-    void gatheringWithInfoUrlSetsItAsMapsUrl() {
+    void gatheringWithInfoUrlCarriesItOnTheEntry() {
         GatheringCalendarProjector projector = new GatheringCalendarProjector();
 
         projector.handle(Stream.of(stored(gathering(GatheringId.random(), "Meetup",
                 DATE, "https://meetup.com/events/123"))));
 
-        assertThat(projector.entries().getFirst().mapsUrl())
+        assertThat(details(projector.entries().getFirst()).infoUrl())
                 .isEqualTo("https://meetup.com/events/123");
     }
 
     @Test
-    void gatheringWithBlankInfoUrlHasNullMapsUrl() {
+    void gatheringWithBlankInfoUrlCarriesNone() {
         GatheringCalendarProjector projector = new GatheringCalendarProjector();
 
         projector.handle(Stream.of(stored(gathering(GatheringId.random(), "Meetup", DATE, ""))));
 
-        assertThat(projector.entries().getFirst().mapsUrl()).isNull();
+        assertThat(details(projector.entries().getFirst()).infoUrl()).isNull();
     }
 
     @Test
@@ -184,11 +184,11 @@ class GatheringCalendarProjectorTest {
                                        ukTime(DATE.plusWeeks(1), LocalTime.of(20, 0)))));
         assertThat(entry.start()).isEqualTo(LocalDateTime.of(2026, 7, 17, 17, 30));
         assertThat(entry.end()).isEqualTo(LocalDateTime.of(2026, 7, 17, 20, 0));
-        assertThat(entry.mapsUrl()).isEqualTo("https://new.example.com");
+        assertThat(details(entry).infoUrl()).isEqualTo("https://new.example.com");
     }
 
     @Test
-    void gatheringChangedToBlankInfoUrlClearsTheMapsUrl() {
+    void gatheringChangedToBlankInfoUrlClearsIt() {
         GatheringCalendarProjector projector = new GatheringCalendarProjector();
         GatheringId gatheringId = GatheringId.random();
 
@@ -198,7 +198,7 @@ class GatheringCalendarProjectorTest {
                         new Address("1 Street", "London", "", "EC1A 1BB", "GB", null),
                         ukTime(DATE, START), ukTime(DATE, END), false, ""))));
 
-        assertThat(projector.entries().getFirst().mapsUrl()).isNull();
+        assertThat(details(projector.entries().getFirst()).infoUrl()).isNull();
     }
 
     @Test
@@ -208,8 +208,13 @@ class GatheringCalendarProjectorTest {
 
         projector.handle(Stream.of(stored(gathering(id, "Meetup", DATE, ""))));
 
-        assertThat(projector.entries().getFirst().editPath())
+        assertThat(details(projector.entries().getFirst()).editPath())
                 .isEqualTo("/planned-gatherings/" + id.id());
+    }
+
+    /** Every entry this projector emits is a gathering, so the cast is the test's own assertion. */
+    private static EntryDetails.Gathering details(CalendarEntry entry) {
+        return (EntryDetails.Gathering) entry.details();
     }
 
     private static GatheringPlanned gathering(GatheringId id, String title, LocalDate date, String infoUrl) {

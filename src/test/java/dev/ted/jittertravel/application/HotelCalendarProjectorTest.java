@@ -82,7 +82,7 @@ class HotelCalendarProjectorTest {
 
         projector.handle(Stream.of(stored(event)));
 
-        assertThat(projector.entries().getFirst().editPath())
+        assertThat(((EntryDetails.Lodging) projector.entries().getFirst().details()).editPath())
                 .isEqualTo("/booked-hotels/" + id.id());
     }
 

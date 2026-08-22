@@ -103,9 +103,9 @@ class ConferenceCalendarProjectorTest {
 
         projector.handle(Stream.of(stored(sampleConference("J-Fall", LocalDateTime.of(2026, 11, 5, 9, 0)))));
 
-        assertThat(projector.entries().getFirst().commitment())
+        assertThat(projector.entries().getFirst().details())
                 .as("planning a conference puts it on the radar, nothing more")
-                .isEqualTo(AttendanceCommitment.WATCHING);
+                .isEqualTo(new EntryDetails.Conference(AttendanceCommitment.WATCHING));
     }
 
     @Test
@@ -120,8 +120,8 @@ class ConferenceCalendarProjectorTest {
 
         assertThat(projector.entries())
                 .singleElement()
-                .extracting(CalendarEntry::commitment)
-                .isEqualTo(AttendanceCommitment.GOING);
+                .extracting(CalendarEntry::details)
+                .isEqualTo(new EntryDetails.Conference(AttendanceCommitment.GOING));
     }
 
     @Test
@@ -137,11 +137,10 @@ class ConferenceCalendarProjectorTest {
 
         assertThat(projector.entries().getFirst())
                 .isEqualTo(new CalendarEntry(
-                        before.kind(), before.start(), before.end(),
+                        before.start(), before.end(),
                         before.mainTitle(), before.subTitle(),
                         before.continuationTitle(), before.continuationSubTitle(),
-                        before.mapsUrl(), before.speaking(), before.editPath(),
-                        AttendanceCommitment.GOING));
+                        new EntryDetails.Conference(AttendanceCommitment.GOING)));
     }
 
     @Test

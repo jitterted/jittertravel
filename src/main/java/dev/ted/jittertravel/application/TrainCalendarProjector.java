@@ -56,7 +56,7 @@ public class TrainCalendarProjector implements EventStreamConsumer {
         String route = "🚄 " + dep.city() + " → " + arr.city();
         SubtitleLine departs = new SubtitleLine.At("Departs", departure);
         SubtitleLine arrives = new SubtitleLine.At("Arrives", arrival);
-        String editPath = "/booked-trains/" + tripId.id();
+        EntryDetails details = new EntryDetails.Train("/booked-trains/" + tripId.id());
 
         boolean sameDay = depDt.toLocalDate().equals(arrDt.toLocalDate());
         if (sameDay) {
@@ -64,18 +64,15 @@ public class TrainCalendarProjector implements EventStreamConsumer {
             List<SubtitleLine> subtitle = serviceId.isEmpty()
                     ? List.of(timeRange)
                     : List.of(new SubtitleLine.Text(serviceId), timeRange);
-            return List.of(new CalendarEntry(
-                    EntryKind.TRAIN, depDt, arrDt,
-                    route, subtitle,
-                    null, null, null, editPath));
+            return List.of(new CalendarEntry(depDt, arrDt, route, subtitle, details));
         }
 
         List<SubtitleLine> depSubtitle = serviceId.isEmpty()
                 ? List.of(departs)
                 : List.of(new SubtitleLine.Text(serviceId), departs);
         return List.of(
-                new CalendarEntry(EntryKind.TRAIN, depDt, depDt, route, depSubtitle, null, null, null, editPath),
-                new CalendarEntry(EntryKind.TRAIN, arrDt, arrDt, route, List.of(arrives), null, null, null, editPath)
+                new CalendarEntry(depDt, depDt, route, depSubtitle, details),
+                new CalendarEntry(arrDt, arrDt, route, List.of(arrives), details)
         );
     }
 

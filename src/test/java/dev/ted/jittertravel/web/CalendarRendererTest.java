@@ -1,7 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarEntry;
-import dev.ted.jittertravel.application.EntryKind;
+import dev.ted.jittertravel.application.EntryDetails;
 import dev.ted.jittertravel.application.SubtitleLine;
 import dev.ted.jittertravel.application.ZoneDisplay;
 import org.junit.jupiter.api.Test;
@@ -102,12 +102,11 @@ class CalendarRendererTest {
     @Test
     void publicUserSeesRedactedHotelName() {
         CalendarEntry hotel = new CalendarEntry(
-                EntryKind.LODGING,
                 LocalDateTime.of(2026, 7, 1, 15, 0),
                 LocalDateTime.of(2026, 7, 5, 11, 0),
                 "Grand Hotel", lines("Berlin, Germany"),
                 "Grand Hotel cont'd", lines("Berlin, Germany"),
-                "https://maps.google.com/grand"
+                new EntryDetails.Lodging("https://maps.google.com/grand", null)
         );
 
         String html = CalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), true);
@@ -120,11 +119,10 @@ class CalendarRendererTest {
     @Test
     void ownerSeesEditLinkOnTrainEntry() {
         CalendarEntry train = new CalendarEntry(
-                EntryKind.TRAIN,
                 LocalDateTime.of(2026, 7, 1, 9, 0),
                 LocalDateTime.of(2026, 7, 1, 13, 0),
                 "🚄 London → Manchester", lines("9:00 AM → 1:00 PM"),
-                null, null, null, "/booked-trains/trip-123"
+                new EntryDetails.Train("/booked-trains/trip-123")
         );
 
         String html = CalendarRenderer.render(List.of(train), LocalDate.of(2026, 6, 11), false, true);
@@ -135,11 +133,10 @@ class CalendarRendererTest {
     @Test
     void nonOwnerSeesNoEditLinkOnTrainEntry() {
         CalendarEntry train = new CalendarEntry(
-                EntryKind.TRAIN,
                 LocalDateTime.of(2026, 7, 1, 9, 0),
                 LocalDateTime.of(2026, 7, 1, 13, 0),
                 "🚄 London → Manchester", lines("9:00 AM → 1:00 PM"),
-                null, null, null, "/booked-trains/trip-123"
+                new EntryDetails.Train("/booked-trains/trip-123")
         );
 
         String html = CalendarRenderer.render(List.of(train), LocalDate.of(2026, 6, 11), false, false);
@@ -150,11 +147,10 @@ class CalendarRendererTest {
     @Test
     void ownerSeesEditLinkOnFlightEntry() {
         CalendarEntry flight = new CalendarEntry(
-                EntryKind.FLIGHT,
                 LocalDateTime.of(2026, 7, 1, 9, 0),
                 LocalDateTime.of(2026, 7, 1, 13, 0),
                 "✈️ SFO→JFK", lines("9:00 AM → 1:00 PM"),
-                null, null, null, "/booked-flights/flight-123"
+                new EntryDetails.Flight("/booked-flights/flight-123")
         );
 
         String html = CalendarRenderer.render(List.of(flight), LocalDate.of(2026, 6, 11), false, true);
@@ -293,24 +289,22 @@ class CalendarRendererTest {
 
     private static CalendarEntry conference(String title, LocalDate start, LocalDate end) {
         return new CalendarEntry(
-                EntryKind.CONFERENCE,
                 start.atTime(9, 0),
                 end.atTime(17, 0),
                 title, lines("subtitle for " + title),
                 title + " cont'd", lines("continued subtitle for " + title),
-                null
+                new EntryDetails.Conference(null)
         );
     }
 
     @Test
     void authenticatedUserSeesFullHotelName() {
         CalendarEntry hotel = new CalendarEntry(
-                EntryKind.LODGING,
                 LocalDateTime.of(2026, 7, 1, 15, 0),
                 LocalDateTime.of(2026, 7, 5, 11, 0),
                 "Grand Hotel", lines("Berlin, Germany"),
                 "Grand Hotel cont'd", lines("Berlin, Germany"),
-                "https://maps.google.com/grand"
+                new EntryDetails.Lodging("https://maps.google.com/grand", null)
         );
 
         String html = CalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), false);

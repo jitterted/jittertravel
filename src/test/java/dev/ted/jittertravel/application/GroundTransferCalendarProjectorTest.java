@@ -71,10 +71,10 @@ class GroundTransferCalendarProjectorTest {
         projector.handle(Stream.of(stored(airportToHotel())));
 
         CalendarEntry entry = projector.entries().getFirst();
-        assertThat(entry.publicRoute())
+        assertThat(details(entry).publicRoute())
                 .as("the icon leads the title only; a subtitle route carries none, as on a flight")
                 .isEqualTo("DEN → Lone Tree, CO, US");
-        assertThat(entry.publicRoute())
+        assertThat(details(entry).publicRoute())
                 .doesNotContain("Marriott Lone Tree");
         assertThat(entry.subTitle())
                 .as("and it is not in the owner's subtitle, which is what Ted actually reads")
@@ -91,17 +91,19 @@ class GroundTransferCalendarProjectorTest {
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.mainTitle())
                 .isEqualTo("\uD83D\uDE95 Marriott Lone Tree → DEN");
-        assertThat(entry.publicRoute())
+        assertThat(details(entry).publicRoute())
                 .isEqualTo("Lone Tree, CO, US → DEN");
     }
 
     @Test
-    void aTransferCarriesNoMapsUrlNoEditLinkAndNoContinuation() {
+    void aTransferCarriesNoTitleLinkNoEditLinkAndNoContinuation() {
         projector.handle(Stream.of(stored(airportToHotel())));
 
         CalendarEntry entry = projector.entries().getFirst();
-        assertThat(entry.mapsUrl()).isNull();
-        assertThat(entry.editPath()).isNull();
+        // Neither is expressible: EntryDetails.GroundTransfer has no maps URL and no edit path —
+        // the only link it can carry is the cancel one asserted below.
+        assertThat(entry.details())
+                .isInstanceOf(EntryDetails.GroundTransfer.class);
         assertThat(entry.continuationTitle()).isNull();
         assertThat(entry.continuationSubTitle()).isNull();
     }
@@ -120,8 +122,13 @@ class GroundTransferCalendarProjectorTest {
                 "", "Marriott Lone Tree", HOTEL,
                 DEPARTS, ARRIVES))));
 
-        assertThat(projector.entries().getFirst().cancelPath())
+        assertThat(details(projector.entries().getFirst()).cancelPath())
                 .isEqualTo("/ground-transfers/11111111-2222-3333-4444-555555555555/cancel");
+    }
+
+    /** Every entry this projector emits is a transfer, so the cast is the test's own assertion. */
+    private static EntryDetails.GroundTransfer details(CalendarEntry entry) {
+        return (EntryDetails.GroundTransfer) entry.details();
     }
 
     private static GroundTransferPlanned airportToHotel() {

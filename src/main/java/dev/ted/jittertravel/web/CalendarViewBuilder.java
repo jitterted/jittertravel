@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.CalendarEntry;
+import dev.ted.jittertravel.application.EntryDetails;
 import dev.ted.jittertravel.application.EntryKind;
 import dev.ted.jittertravel.application.SubtitleLine;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -310,23 +311,14 @@ public class CalendarViewBuilder {
             // The title is a plain text link only when it navigates *out* (maps); editing is
             // never the title itself but a separate pencil appended after it, so a link on the
             // title always means "go look at this elsewhere" and the pencil always means "edit".
+            String titleLink = isContinuation ? null : titleLink(entry.details());
             List<DomContent> titleParts = breakableTitle(title);
-            DomContent titleText = entry.mapsUrl() != null && !isContinuation
-                    ? a().with(titleParts).withHref(entry.mapsUrl()).withTarget("_blank").withRel("noopener")
+            DomContent titleText = titleLink != null
+                    ? a().with(titleParts).withHref(titleLink).withTarget("_blank").withRel("noopener")
                     : span().with(titleParts);
             DivTag titleDiv = div().withClass("entry-title").with(titleText);
-            if (entry.editPath() != null && isOwner && !isContinuation) {
-                // OWNER-only deep link to the entry's edit page — every editable kind
-                // (flights, trains, hotels, gatherings) sets editPath; the redactor drops it.
-                titleDiv.with(editPencil(entry.editPath(), "Edit"));
-            }
-            // The same slot, with a different verb: a ground transfer has nothing to edit — the
-            // way to correct one is to remove it and enter it again — so its owner action is
-            // cancel. No kind sets both paths, so the icon never moves between rows. Anonymous and
-            // family viewers get nothing at all here rather than a greyed control: the link itself
-            // would disclose that the surface exists (CLAUDE.md, affordances vs authorization).
-            if (entry.cancelPath() != null && isOwner && !isContinuation) {
-                titleDiv.with(cancelBin(entry.cancelPath(), "Cancel"));
+            if (isOwner && !isContinuation) {
+                titleDiv.with(ownerActions(entry.details()));
             }
             div.with(titleDiv);
         }
@@ -335,23 +327,88 @@ public class CalendarViewBuilder {
                 div.with(renderSubtitleLine(line));
             }
         }
-        // Public "speaking" marker: that Ted speaks at a gathering is public by decision (the
-        // venue and time already are), so it renders for every viewer — the redactor keeps
-        // `speaking` on the GATHERING branch. Only on the entry's own (non-continuation) segment,
-        // like the title and pencil.
-        if (entry.speaking() && !isContinuation) {
-            div.with(span("A Ted Talk").withClass("entry-speaking-badge"));
-        }
-        // Public "Maybe" chip on a speculative conference — the same chip for owner, family and
-        // anonymous viewers, because the projector already collapsed every speculative state
-        // (CFP pending, submitted, rejected-but-undecided) into WATCHING before it got here.
-        // Only the speculative case is marked: "Ted is going" is the default reading of a calendar
-        // entry, so a "Going" chip would be noise on every committed conference. Non-conference
-        // kinds carry a null commitment and never match.
-        if (entry.commitment() == AttendanceCommitment.WATCHING && !isContinuation) {
-            div.with(span("Maybe").withClass("entry-maybe-badge"));
+        if (!isContinuation) {
+            div.with(badges(entry.details()));
         }
         return div;
+    }
+
+    /**
+     * Where the entry's title navigates to, or {@code null} when it is plain text. A linked title
+     * always means "go look at this elsewhere" — the map for a hotel, the event's own page for a
+     * gathering. Editing is never the title itself but a separate pencil appended after it.
+     * <p>
+     * Exhaustive over {@link EntryDetails} rather than defaulted, so a new kind cannot be added
+     * without deciding whether its title links out.
+     */
+    private static String titleLink(EntryDetails details) {
+        return switch (details) {
+            case EntryDetails.Lodging d -> d.mapsUrl();
+            case EntryDetails.Gathering d -> d.infoUrl();
+            // A conference has no infoUrl of its own yet (docs/Future_Feature_Slices.md), and the
+            // remaining kinds have nowhere to point: a flight, train or transfer is a leg, and a
+            // private event's venue is not published.
+            case EntryDetails.Conference _,
+                 EntryDetails.Flight _,
+                 EntryDetails.Train _,
+                 EntryDetails.GroundTransfer _,
+                 EntryDetails.PrivateEvent _ -> null;
+        };
+    }
+
+    /**
+     * The OWNER-only action icons for an entry, in one fixed slot after the title.
+     * <p>
+     * Most kinds offer an edit pencil. A ground transfer has nothing to edit — the way to correct
+     * one is to remove it and enter it again — so its action is a cancel bin in that same slot,
+     * with a different verb. No kind offers both, so the icon never moves between rows. Anonymous
+     * and family viewers get nothing at all here rather than a greyed control: the link itself
+     * would disclose that the surface exists (CLAUDE.md, affordances vs authorization).
+     */
+    private static List<DomContent> ownerActions(EntryDetails details) {
+        return switch (details) {
+            case EntryDetails.Lodging d -> pencil(d.editPath());
+            case EntryDetails.Gathering d -> pencil(d.editPath());
+            case EntryDetails.Flight d -> pencil(d.editPath());
+            case EntryDetails.Train d -> pencil(d.editPath());
+            case EntryDetails.GroundTransfer d -> d.cancelPath() == null
+                    ? List.of()
+                    : List.of(cancelBin(d.cancelPath(), "Cancel"));
+            // A conference is declined or cancelled from its own pages, and a private event has no
+            // edit flow yet (docs/Cleanup_Tasks.md, "Change Private Event").
+            case EntryDetails.Conference _, EntryDetails.PrivateEvent _ -> List.of();
+        };
+    }
+
+    private static List<DomContent> pencil(String editPath) {
+        return editPath == null ? List.of() : List.of(editPencil(editPath, "Edit"));
+    }
+
+    /**
+     * The public chips an entry wears, rendered on its own (non-continuation) segment only, like
+     * the title and the pencil.
+     * <p>
+     * Both are public by decision. That Ted <em>speaks</em> at a gathering reveals nothing the
+     * already-public venue and time do not. The conference "Maybe" chip is publishable only
+     * because {@code ConferenceCalendarProjector} has already collapsed every speculative state
+     * (CFP pending, submitted, rejected-but-undecided) into {@code WATCHING} before it got here.
+     * Only the speculative case is marked: "Ted is going" is the default reading of a calendar
+     * entry, so a "Going" chip would be noise on every committed conference.
+     */
+    private static List<DomContent> badges(EntryDetails details) {
+        return switch (details) {
+            case EntryDetails.Gathering d -> d.speaking()
+                    ? List.of(span("A Ted Talk").withClass("entry-speaking-badge"))
+                    : List.of();
+            case EntryDetails.Conference d -> d.commitment() == AttendanceCommitment.WATCHING
+                    ? List.of(span("Maybe").withClass("entry-maybe-badge"))
+                    : List.of();
+            case EntryDetails.Flight _,
+                 EntryDetails.Train _,
+                 EntryDetails.GroundTransfer _,
+                 EntryDetails.Lodging _,
+                 EntryDetails.PrivateEvent _ -> List.of();
+        };
     }
 
     /**

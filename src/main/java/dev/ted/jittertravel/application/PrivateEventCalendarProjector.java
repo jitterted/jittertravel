@@ -36,14 +36,11 @@ public class PrivateEventCalendarProjector implements EventStreamConsumer {
         // Bucketed on the event-zone local day, like a gathering. Uses the shared owner-subtitle
         // builder ([venue?, city, Range]); the redactor derives the anonymous view from it.
         return new CalendarEntry(
-                EntryKind.PRIVATE_EVENT,
                 e.startsAt().localDateTime(),
                 e.endsAt().localDateTime(),
                 e.title(),
                 subtitle.venueLocationAndTime(e.venueName(), e.location(), e.startsAt(), e.endsAt()),
-                null,
-                null,
-                null
+                new EntryDetails.PrivateEvent()
         );
     }
 

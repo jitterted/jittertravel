@@ -60,41 +60,31 @@ public class FlightCalendarProjector implements EventStreamConsumer {
         // Each endpoint keeps its own airport zone; the renderer formats and can re-localize it.
         boolean sameDay = depLocal.toLocalDate().equals(arrLocal.toLocalDate());
 
+        EntryDetails details = new EntryDetails.Flight(editPath);
+
         if (sameDay) {
             return List.of(new CalendarEntry(
-                    EntryKind.FLIGHT,
                     depLocal,
                     arrLocal,
                     route,
                     List.of(new SubtitleLine.Range(departureDateTime, arrivalDateTime)),
-                    null,
-                    null,
-                    null,
-                    editPath
+                    details
             ));
         }
 
         CalendarEntry departureEntry = new CalendarEntry(
-                EntryKind.FLIGHT,
                 depLocal,
                 depLocal,
                 route,
                 List.of(new SubtitleLine.At("Departs", departureDateTime)),
-                null,
-                null,
-                null,
-                editPath
+                details
         );
         CalendarEntry arrivalEntry = new CalendarEntry(
-                EntryKind.FLIGHT,
                 arrLocal,
                 arrLocal,
                 route,
                 List.of(new SubtitleLine.At("Arrives", arrivalDateTime)),
-                null,
-                null,
-                null,
-                editPath
+                details
         );
         return List.of(departureEntry, arrivalEntry);
     }

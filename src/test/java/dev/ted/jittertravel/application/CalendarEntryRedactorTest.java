@@ -10,6 +10,20 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Two tests that used to live here are gone, and their absence is the point: with the
+ * kind-specific fields moved into {@link EntryDetails}, neither case can be <em>constructed</em>
+ * any more, let alone leak.
+ * <ul>
+ *   <li>{@code conferenceSpeakingIsDropped} — {@code EntryDetails.Conference} has no
+ *       {@code speaking} component, so a conference cannot carry a speaking marker to be dropped.
+ *       When submission tracking gives it one, that test comes back with the field.</li>
+ *   <li>{@code commitmentIsDroppedFromEveryNonConferenceKind} — a commitment now exists only on
+ *       {@code EntryDetails.Conference}, so no other kind can hold one. That loop was flagged in
+ *       {@code docs/RendererVsProjectorResponsibilities.md} as a test that grows with the kinds;
+ *       it is replaced by {@link #redactionNeverChangesTheKind()}, which does not.</li>
+ * </ul>
+ */
 class CalendarEntryRedactorTest {
 
     private static final LocalDateTime START = LocalDateTime.of(2026, 7, 1, 14, 0);
@@ -21,28 +35,26 @@ class CalendarEntryRedactorTest {
     @Test
     void lodgingHidesHotelNameMapsUrlAndEditPath() {
         CalendarEntry hotel = new CalendarEntry(
-                EntryKind.LODGING, START, END,
+                START, END,
                 "Marriott Grand", lines("Berlin, Germany"),
                 "Marriott Grand cont'd", lines("Berlin, Germany"),
-                "https://maps.google.com/marriott",
-                "/booked-hotels/abc"
+                new EntryDetails.Lodging("https://maps.google.com/marriott", "/booked-hotels/abc")
         );
 
         CalendarEntry redacted = redactor.redact(hotel);
 
         assertThat(redacted.mainTitle()).isEqualTo("Hotel");
         assertThat(redacted.continuationTitle()).isEqualTo("Hotel cont'd");
-        assertThat(redacted.mapsUrl()).isNull();
-        assertThat(redacted.editPath()).isNull();
+        assertThat(redacted.details()).isEqualTo(new EntryDetails.Lodging(null, null));
     }
 
     @Test
     void lodgingPreservesLocationSubTitle() {
         CalendarEntry hotel = new CalendarEntry(
-                EntryKind.LODGING, START, END,
+                START, END,
                 "Marriott Grand", lines("Berlin, Germany"),
                 "Marriott Grand cont'd", lines("Berlin, Germany"),
-                "https://maps.google.com/marriott"
+                new EntryDetails.Lodging("https://maps.google.com/marriott", null)
         );
 
         CalendarEntry redacted = redactor.redact(hotel);
@@ -54,10 +66,9 @@ class CalendarEntryRedactorTest {
     @Test
     void flightHidesTimesButKeepsRoute() {
         CalendarEntry flight = new CalendarEntry(
-                EntryKind.FLIGHT, START, END,
+                START, END,
                 "✈️ SFO→JFK", lines("9:00 AM → 5:00 PM"),
-                null, null, "https://maps.google.com/sfo-terminal-2",
-                "/booked-flights/abc"
+                new EntryDetails.Flight("/booked-flights/abc")
         );
 
         CalendarEntry redacted = redactor.redact(flight);
@@ -65,17 +76,15 @@ class CalendarEntryRedactorTest {
         assertThat(redacted.mainTitle()).isEqualTo("✈️ SFO→JFK");
         assertThat(redacted.subTitle()).isNull();
         assertThat(redacted.continuationSubTitle()).isNull();
-        assertThat(redacted.mapsUrl()).isNull();
-        assertThat(redacted.editPath()).isNull();
+        assertThat(redacted.details()).isEqualTo(new EntryDetails.Flight(null));
     }
 
     @Test
     void trainHidesTimesAndServiceIdButKeepsRoute() {
         CalendarEntry train = new CalendarEntry(
-                EntryKind.TRAIN, START, START,
+                START, START,
                 "🚄 London → Paris", lines("TGV123", "9:00 AM → 2:30 PM"),
-                null, null, null,
-                "/booked-trains/abc"
+                new EntryDetails.Train("/booked-trains/abc")
         );
 
         CalendarEntry redacted = redactor.redact(train);
@@ -83,17 +92,16 @@ class CalendarEntryRedactorTest {
         assertThat(redacted.mainTitle()).isEqualTo("🚄 London → Paris");
         assertThat(redacted.subTitle()).isNull();
         assertThat(redacted.continuationSubTitle()).isNull();
-        assertThat(redacted.mapsUrl()).isNull();
-        assertThat(redacted.editPath()).isNull();
+        assertThat(redacted.details()).isEqualTo(new EntryDetails.Train(null));
     }
 
     @Test
-    void conferenceKeepsPublicDetailsButDropsEditPath() {
+    void conferenceKeepsItsPublicNameAndLocation() {
         CalendarEntry conference = new CalendarEntry(
-                EntryKind.CONFERENCE, START, END,
+                START, END,
                 "DDD Europe 2026", lines("Frankfurt, Germany"),
                 "DDD Europe 2026 cont'd", lines("Frankfurt, Germany"),
-                "https://dddeurope.com", "/plan-conference/abc"
+                new EntryDetails.Conference(AttendanceCommitment.GOING)
         );
 
         CalendarEntry redacted = redactor.redact(conference);
@@ -102,29 +110,27 @@ class CalendarEntryRedactorTest {
         assertThat(redacted.subTitle()).isEqualTo(lines("Frankfurt, Germany"));
         assertThat(redacted.continuationTitle()).isEqualTo("DDD Europe 2026 cont'd");
         assertThat(redacted.continuationSubTitle()).isEqualTo(lines("Frankfurt, Germany"));
-        assertThat(redacted.mapsUrl()).isEqualTo("https://dddeurope.com");
-        assertThat(redacted.editPath()).isNull();
     }
 
     /**
-     * Gatherings are public events, like conferences: name, venue, and times all stay visible.
-     * A future "private social event" kind will need its own, redacting branch.
+     * Gatherings are public events, like conferences: name, venue, info URL and times all stay
+     * visible. Private social events are the separate {@link EntryDetails.PrivateEvent} kind below.
      */
     @Test
     void gatheringKeepsPublicDetailsButDropsEditPath() {
         CalendarEntry gathering = new CalendarEntry(
-                EntryKind.GATHERING, START, END,
+                START, END,
                 "London Java Community", lines("Skills Matter", "London, GB"),
-                null, null, "https://meetup.com/events/123",
-                "/planned-gatherings/abc"
+                new EntryDetails.Gathering("https://meetup.com/events/123", false,
+                                           "/planned-gatherings/abc")
         );
 
         CalendarEntry redacted = redactor.redact(gathering);
 
         assertThat(redacted.mainTitle()).isEqualTo("London Java Community");
         assertThat(redacted.subTitle()).isEqualTo(lines("Skills Matter", "London, GB"));
-        assertThat(redacted.mapsUrl()).isEqualTo("https://meetup.com/events/123");
-        assertThat(redacted.editPath()).isNull();
+        assertThat(redacted.details())
+                .isEqualTo(new EntryDetails.Gathering("https://meetup.com/events/123", false, null));
     }
 
     /**
@@ -135,38 +141,18 @@ class CalendarEntryRedactorTest {
     @Test
     void gatheringSpeakingFlagSurvivesRedaction() {
         CalendarEntry gathering = new CalendarEntry(
-                EntryKind.GATHERING, START, END,
+                START, END,
                 "London Java Community", lines("Skills Matter", "London, GB"),
-                null, null, "https://meetup.com/events/123",
-                true, "/planned-gatherings/abc", null
+                new EntryDetails.Gathering("https://meetup.com/events/123", true,
+                                           "/planned-gatherings/abc")
         );
 
         CalendarEntry redacted = redactor.redact(gathering);
 
-        assertThat(redacted.speaking())
+        assertThat(gathering(redacted).speaking())
                 .as("speaking is public, so it survives redaction for anonymous viewers")
                 .isTrue();
-        assertThat(redacted.editPath()).isNull();
-    }
-
-    /**
-     * Conferences carry no speaking marker today, and the branch drops it explicitly (rather than
-     * defaulting), so a conference never renders a speaking badge until submission tracking lands.
-     */
-    @Test
-    void conferenceSpeakingIsDropped() {
-        CalendarEntry conference = new CalendarEntry(
-                EntryKind.CONFERENCE, START, END,
-                "DDD Europe 2026", lines("Frankfurt, Germany"),
-                null, null, "https://dddeurope.com",
-                true, "/plan-conference/abc", AttendanceCommitment.GOING
-        );
-
-        CalendarEntry redacted = redactor.redact(conference);
-
-        assertThat(redacted.speaking())
-                .as("conferences drop speaking until submission tracking exists")
-                .isFalse();
+        assertThat(gathering(redacted).editPath()).isNull();
     }
 
     /**
@@ -176,38 +162,29 @@ class CalendarEntryRedactorTest {
     @Test
     void conferenceCommitmentSurvivesRedaction() {
         CalendarEntry conference = new CalendarEntry(
-                EntryKind.CONFERENCE, START, END,
+                START, END,
                 "J-Fall", lines("Ede, Netherlands"),
-                null, null, null,
-                false, "/plan-conference/abc", AttendanceCommitment.WATCHING
+                new EntryDetails.Conference(AttendanceCommitment.WATCHING)
         );
 
         CalendarEntry redacted = redactor.redact(conference);
 
-        assertThat(redacted.commitment())
+        assertThat(redacted.details())
                 .as("the collapsed commitment level is public, so it survives redaction")
-                .isEqualTo(AttendanceCommitment.WATCHING);
+                .isEqualTo(new EntryDetails.Conference(AttendanceCommitment.WATCHING));
     }
 
     /**
-     * Commitment applies to conferences alone. Every other branch names it explicitly as null
-     * rather than copying {@code entry.commitment()} through, so a projector that one day stamps a
-     * commitment onto the wrong kind cannot publish it by accident.
+     * Redaction removes content; it never re-files an entry into a different lane. This replaces
+     * the old per-kind commitment loop: it states one invariant over every kind, and adding a kind
+     * extends the fixture rather than the claim.
      */
     @Test
-    void commitmentIsDroppedFromEveryNonConferenceKind() {
-        for (EntryKind kind : List.of(EntryKind.LODGING, EntryKind.FLIGHT, EntryKind.TRAIN,
-                                      EntryKind.GATHERING, EntryKind.PRIVATE_EVENT)) {
-            CalendarEntry entry = new CalendarEntry(
-                    kind, START, END,
-                    "Whatever", lines("Somewhere"),
-                    null, null, null,
-                    false, null, AttendanceCommitment.WATCHING, null, null
-            );
-
-            assertThat(redactor.redact(entry).commitment())
-                    .as("commitment must not survive redaction on " + kind)
-                    .isNull();
+    void redactionNeverChangesTheKind() {
+        for (CalendarEntry entry : oneOfEveryKind()) {
+            assertThat(redactor.redact(entry).kind())
+                    .as("redacting a " + entry.kind() + " must leave it in its own lane")
+                    .isEqualTo(entry.kind());
         }
     }
 
@@ -222,13 +199,12 @@ class CalendarEntryRedactorTest {
         ZonedTimestamp start = torontoTime(19, 0);
         ZonedTimestamp end = torontoTime(22, 0);
         CalendarEntry privateEvent = new CalendarEntry(
-                EntryKind.PRIVATE_EVENT, START, END,
+                START, END,
                 "Dinner with the Smiths", List.of(
                         new SubtitleLine.Text("Alo"),
                         new SubtitleLine.Text("Toronto, Canada"),
                         new SubtitleLine.Range(start, end)),
-                null, null, null,
-                "/planned-private-events/abc"
+                new EntryDetails.PrivateEvent()
         );
 
         CalendarEntry redacted = redactor.redact(privateEvent);
@@ -242,8 +218,6 @@ class CalendarEntryRedactorTest {
                 .doesNotContain(new SubtitleLine.Text("Alo"));
         assertThat(redacted.continuationTitle()).isNull();
         assertThat(redacted.continuationSubTitle()).isNull();
-        assertThat(redacted.mapsUrl()).isNull();
-        assertThat(redacted.editPath()).isNull();
     }
 
     /**
@@ -256,26 +230,24 @@ class CalendarEntryRedactorTest {
         ZonedTimestamp departs = torontoTime(12, 0);
         ZonedTimestamp arrives = torontoTime(12, 45);
         CalendarEntry transfer = new CalendarEntry(
-                EntryKind.GROUND_TRANSFER, START, END,
-                "\uD83D\uDE95 DEN → Marriott Lone Tree", List.of(new SubtitleLine.Range(departs, arrives)),
-                null, null, null,
-                false, null, null, "DEN → Lone Tree, CO, US",
-                "/ground-transfers/11111111-2222-3333-4444-555555555555/cancel"
+                START, END,
+                "🚕 DEN → Marriott Lone Tree", List.of(new SubtitleLine.Range(departs, arrives)),
+                new EntryDetails.GroundTransfer("DEN → Lone Tree, CO, US",
+                        "/ground-transfers/11111111-2222-3333-4444-555555555555/cancel")
         );
 
         CalendarEntry redacted = redactor.redact(transfer);
 
-        assertThat(redacted.mainTitle()).isEqualTo("\uD83D\uDE95 Ground transfer");
+        assertThat(redacted.mainTitle()).isEqualTo("🚕 Ground transfer");
         assertThat(redacted.mainTitle()).doesNotContain("Marriott Lone Tree");
         assertThat(redacted.subTitle())
                 .isEqualTo(List.of(new SubtitleLine.Text("DEN → Lone Tree, CO, US")));
         assertThat(redacted.continuationTitle()).isNull();
         assertThat(redacted.continuationSubTitle()).isNull();
-        assertThat(redacted.mapsUrl()).isNull();
-        assertThat(redacted.editPath()).isNull();
-        // The owner's cancel link is an action on an OWNER-only surface: publishing it would tell a
-        // stranger both that the surface exists and the id of the transfer behind it.
-        assertThat(redacted.cancelPath()).isNull();
+        // The publishable route has done its job by now, and the owner's cancel link is an action
+        // on an OWNER-only surface: publishing it would tell a stranger both that the surface
+        // exists and the id of the transfer behind it.
+        assertThat(redacted.details()).isEqualTo(new EntryDetails.GroundTransfer(null, null));
     }
 
     /**
@@ -286,18 +258,37 @@ class CalendarEntryRedactorTest {
     @Test
     void noTimestampBearingSubtitleSurvivesOnAGroundTransfer() {
         CalendarEntry transfer = new CalendarEntry(
-                EntryKind.GROUND_TRANSFER, START, END,
+                START, END,
                 "DEN → Marriott Lone Tree", List.of(
                         new SubtitleLine.Range(torontoTime(12, 0), torontoTime(12, 45)),
                         new SubtitleLine.At("Departs", torontoTime(12, 0)),
                         new SubtitleLine.FixedRange(torontoTime(12, 0), torontoTime(12, 45))),
-                null, null, null,
-                false, null, null, "DEN → Lone Tree, CO, US", null
+                new EntryDetails.GroundTransfer("DEN → Lone Tree, CO, US", null)
         );
 
         assertThat(redactor.redact(transfer).subTitle())
                 .allMatch(SubtitleLine.Text.class::isInstance,
                           "every surviving subtitle line is plain text");
+    }
+
+    /** One entry per {@link EntryKind}, so a kind-wide claim can be stated once. */
+    private static List<CalendarEntry> oneOfEveryKind() {
+        return List.of(
+                entryWith(new EntryDetails.Conference(AttendanceCommitment.WATCHING)),
+                entryWith(new EntryDetails.Gathering("https://example.com", true, "/edit")),
+                entryWith(new EntryDetails.PrivateEvent()),
+                entryWith(new EntryDetails.Flight("/edit")),
+                entryWith(new EntryDetails.Train("/edit")),
+                entryWith(new EntryDetails.GroundTransfer("A → B", "/cancel")),
+                entryWith(new EntryDetails.Lodging("https://maps.example.com", "/edit")));
+    }
+
+    private static CalendarEntry entryWith(EntryDetails details) {
+        return new CalendarEntry(START, END, "Whatever", lines("Somewhere"), details);
+    }
+
+    private static EntryDetails.Gathering gathering(CalendarEntry entry) {
+        return (EntryDetails.Gathering) entry.details();
     }
 
     private static ZonedTimestamp torontoTime(int hour, int minute) {

@@ -2,7 +2,7 @@ package dev.ted.jittertravel.web;
 
 import com.microsoft.playwright.Locator;
 import dev.ted.jittertravel.application.CalendarEntry;
-import dev.ted.jittertravel.application.EntryKind;
+import dev.ted.jittertravel.application.EntryDetails;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -42,15 +42,15 @@ class CalendarToggleJsTest extends JsBehaviorTest {
      */
     private static List<CalendarEntry> twoConferences() {
         CalendarEntry pastConference = new CalendarEntry(
-                EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 8, 9, 0),
                 LocalDateTime.of(2026, 6, 8, 17, 0),
-                "Past Conference", List.of(), null, null, "");
+                "Past Conference", List.of(),
+                new EntryDetails.Conference(null));
         CalendarEntry upcomingConference = new CalendarEntry(
-                EntryKind.CONFERENCE,
                 LocalDateTime.of(2026, 6, 16, 9, 0),
                 LocalDateTime.of(2026, 6, 16, 17, 0),
-                "Upcoming Conference", List.of(), null, null, "");
+                "Upcoming Conference", List.of(),
+                new EntryDetails.Conference(null));
         return List.of(pastConference, upcomingConference);
     }
 

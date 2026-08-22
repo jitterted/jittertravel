@@ -3,7 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.CalendarAggregator;
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.ConferenceCalendarProjector;
-import dev.ted.jittertravel.application.EntryKind;
+import dev.ted.jittertravel.application.EntryDetails;
 import dev.ted.jittertravel.application.FlightCalendarProjector;
 import dev.ted.jittertravel.application.GatheringCalendarProjector;
 import dev.ted.jittertravel.application.GroundTransferCalendarProjector;
@@ -241,12 +241,11 @@ class CalendarControllerTest {
 
     private static CalendarEntry conference(String title, LocalDate start, LocalDate end) {
         return new CalendarEntry(
-                EntryKind.CONFERENCE,
                 start.atTime(9, 0),
                 end.atTime(17, 0),
                 title, List.of(new SubtitleLine.Text("subtitle for " + title)),
                 title + " cont'd", List.of(new SubtitleLine.Text("continued subtitle for " + title)),
-                null
+                new EntryDetails.Conference(null)
         );
     }
 }

@@ -7,7 +7,15 @@ import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferencePlanned;
+import dev.ted.jittertravel.domain.Event;
+import dev.ted.jittertravel.domain.InvitedToSpeak;
+import dev.ted.jittertravel.domain.SpeakingStatus;
+import dev.ted.jittertravel.domain.TalkAccepted;
+import dev.ted.jittertravel.domain.TalkRejected;
+import dev.ted.jittertravel.domain.TalkSubmitted;
+import dev.ted.jittertravel.domain.TalkWithdrawn;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
@@ -29,6 +37,7 @@ class ConferenceProjectorTest {
     // ALL ignores now; any instant works for those cases.
     private static final Instant NOW = Instant.parse("2020-01-01T00:00:00Z");
     private static final Instant CONFIRMED_ON = Instant.parse("2026-08-19T16:45:00Z");
+    private static final Instant RECORDED_ON = Instant.parse("2026-08-22T10:15:00Z");
     // The test JVM is pinned to UTC (pom.xml), so fixtures name a venue zone explicitly —
     // otherwise "is it over?" would accidentally agree with the server and prove nothing.
     private static final ZoneId VENUE_ZONE = ZoneId.of("America/Los_Angeles");
@@ -202,7 +211,8 @@ class ConferenceProjectorTest {
                 .isEqualTo(new ConferenceView(
                         before.conferenceId(), before.name(), before.venueName(),
                         before.venueAddress(), before.startDate(), before.endDate(),
-                        AttendanceCommitment.GOING, true, null, before.format()));
+                        AttendanceCommitment.GOING, true, SpeakingStatus.NOT_SPEAKING,
+                        null, before.format()));
     }
 
     @Test
@@ -330,10 +340,15 @@ class ConferenceProjectorTest {
     }
 
     private static void plan(ConferenceProjector projector, ConferenceId conferenceId) {
+        plan(projector, conferenceId, ConferenceFormat.CALL_FOR_PAPERS);
+    }
+
+    private static void plan(ConferenceProjector projector, ConferenceId conferenceId,
+                             ConferenceFormat format) {
         ConferencePlanned planned = new ConferencePlanned(
                 conferenceId, "dev2next",
                 zt(LocalDateTime.of(2026, 9, 28, 9, 0)), zt(LocalDateTime.of(2026, 10, 1, 17, 0)),
-                "Venue", new Address("Street", "Denver", "CO", "80202", "USA", null));
+                "Venue", new Address("Street", "Denver", "CO", "80202", "USA", null), format);
         projector.handle(Stream.of(new StoredEvent(
                 1, planned.getClass(), UUID.randomUUID(), Instant.now(), planned, UUID.randomUUID())));
     }
@@ -378,6 +393,171 @@ class ConferenceProjectorTest {
         assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW).getFirst().speaking())
                 .as("planning a conference says nothing about whether Ted will speak at it")
                 .isFalse();
+    }
+
+    /**
+     * The auto-commit: an acceptance makes Ted GOING on its own, with no
+     * {@link ConferenceAttendanceConfirmed} anywhere in the stream. Submitting the talk was
+     * already the opt-in, so the acceptance completes a decision rather than posing a new one.
+     */
+    @Test
+    void anAcceptedTalkCommitsAttendanceWithNoConfirmationEvent() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+        talk(projector, 2, new TalkSubmitted(conferenceId, RECORDED_ON));
+
+        talk(projector, 3, new TalkAccepted(conferenceId, RECORDED_ON));
+
+        ConferenceView view = only(projector);
+        assertThat(view.commitment()).isEqualTo(AttendanceCommitment.GOING);
+        assertThat(view.speakingStatus()).isEqualTo(SpeakingStatus.ACCEPTED);
+        assertThat(view.speaking())
+                .as("accepted means speaking, with no basis to consult")
+                .isTrue();
+    }
+
+    /**
+     * An invitation is an offer, so it commits nothing on its own. That is the whole difference
+     * from an acceptance, and it is why an unanswered invitation cannot reach the public calendar's
+     * speaking badge.
+     */
+    @Test
+    void anInvitationCommitsNothingUntilItIsAccepted() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+
+        talk(projector, 2, new InvitedToSpeak(conferenceId, RECORDED_ON));
+
+        assertThat(only(projector).commitment()).isEqualTo(AttendanceCommitment.WATCHING);
+        assertThat(only(projector).speaking())
+                .as("invited is not yet speaking — he has not said yes")
+                .isFalse();
+
+        confirm(projector, conferenceId, AttendanceBasis.SPEAKING_INVITED);
+
+        assertThat(only(projector).commitment()).isEqualTo(AttendanceCommitment.GOING);
+        assertThat(only(projector).speaking()).isTrue();
+    }
+
+    /**
+     * Going to a conference he was invited to, on a bought ticket, is attending — not speaking.
+     * The basis is what separates the two, which is why it has to be folded even though it never
+     * reaches the view.
+     */
+    @Test
+    void anInvitationTakenUpAsAPlainTicketIsNotSpeaking() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+        talk(projector, 2, new InvitedToSpeak(conferenceId, RECORDED_ON));
+
+        confirm(projector, conferenceId, AttendanceBasis.TICKET_PURCHASED);
+
+        assertThat(only(projector).commitment()).isEqualTo(AttendanceCommitment.GOING);
+        assertThat(only(projector).speaking()).isFalse();
+    }
+
+    /**
+     * The auto-drop. Acceptance <em>gated</em> attendance at this conference (PLoP), so a rejection
+     * takes the conference with it — there is no going anyway.
+     */
+    @Test
+    void aRejectionDropsAConferenceWhereAcceptanceWasRequired() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId, ConferenceFormat.ACCEPTANCE_REQUIRED);
+        talk(projector, 2, new TalkSubmitted(conferenceId, RECORDED_ON));
+
+        talk(projector, 3, new TalkRejected(conferenceId, RECORDED_ON));
+
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW))
+                .as("it leaves the default view of the list, like a decline")
+                .isEmpty();
+        assertThat(projector.views(TimeView.ALL, DroppedView.SHOW, NOW))
+                .singleElement()
+                .extracting(ConferenceView::commitment)
+                .isEqualTo(AttendanceCommitment.NOT_GOING);
+    }
+
+    /**
+     * The same event at a conference that does not require acceptance leaves it merely watched,
+     * with a decision to make: go as an attendee, or drop it. This is the rejected-but-undecided
+     * state the two-axis model exists to represent.
+     */
+    @Test
+    void aRejectionLeavesACallForPapersConferenceStillWatched() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId, ConferenceFormat.CALL_FOR_PAPERS);
+        talk(projector, 2, new TalkSubmitted(conferenceId, RECORDED_ON));
+
+        talk(projector, 3, new TalkRejected(conferenceId, RECORDED_ON));
+
+        assertThat(only(projector).commitment()).isEqualTo(AttendanceCommitment.WATCHING);
+        assertThat(only(projector).speakingStatus()).isEqualTo(SpeakingStatus.REJECTED);
+    }
+
+    /**
+     * Pulling a talk moves one axis only. Ted keeps his hotel and his flights — he is simply not
+     * speaking any more.
+     */
+    @Test
+    void withdrawingAnAcceptedTalkLeavesHimGoing() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+        talk(projector, 2, new TalkSubmitted(conferenceId, RECORDED_ON));
+        talk(projector, 3, new TalkAccepted(conferenceId, RECORDED_ON));
+
+        talk(projector, 4, new TalkWithdrawn(conferenceId, RECORDED_ON));
+
+        assertThat(only(projector).commitment())
+                .as("withdrawing a talk says nothing about attending")
+                .isEqualTo(AttendanceCommitment.GOING);
+        assertThat(only(projector).speaking()).isFalse();
+    }
+
+    /**
+     * The stream is authoritative and the basis is only the fallback: a conference backfilled as
+     * "going because a talk was accepted" stops counting as speaking the moment the stream says the
+     * talk was in fact turned down.
+     */
+    @Test
+    void theSubmissionStreamOverridesTheBasisWhenTheyDisagree() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+        confirm(projector, conferenceId, AttendanceBasis.SPEAKING_ACCEPTED);
+        assertThat(only(projector).speaking()).isTrue();
+
+        talk(projector, 3, new TalkSubmitted(conferenceId, RECORDED_ON));
+        talk(projector, 4, new TalkRejected(conferenceId, RECORDED_ON));
+
+        assertThat(only(projector).speaking())
+                .as("the events are history; the basis is a manual annotation and loses")
+                .isFalse();
+    }
+
+    /** A talk event for a conference nobody planned changes nothing. */
+    @Test
+    void aTalkEventForAnUnknownConferenceAddsNothing() {
+        ConferenceProjector projector = new ConferenceProjector();
+
+        talk(projector, 1, new TalkSubmitted(ConferenceId.random(), RECORDED_ON));
+
+        assertThat(projector.views(TimeView.ALL, DroppedView.SHOW, NOW)).isEmpty();
+    }
+
+    private static ConferenceView only(ConferenceProjector projector) {
+        return projector.views(TimeView.ALL, DroppedView.SHOW, NOW).getFirst();
+    }
+
+    private static void talk(ConferenceProjector projector, long sequence, Event payload) {
+        projector.handle(Stream.of(new StoredEvent(
+                sequence, payload.getClass(), UUID.randomUUID(), Instant.now(), payload,
+                UUID.randomUUID())));
     }
 
     private static void confirm(ConferenceProjector projector, ConferenceId conferenceId,

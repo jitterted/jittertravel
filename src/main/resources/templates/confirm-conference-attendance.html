@@ -105,21 +105,24 @@
             <legend>Why are you going?</legend>
 
             <label class="choice">
-                <input type="radio" name="basis" value="SPEAKING_ACCEPTED"/>
+                <input type="radio" name="basis" value="SPEAKING_ACCEPTED"
+                       th:checked="${chosen != null and chosen.name() == 'SPEAKING_ACCEPTED'}"/>
                 <span class="label">A talk was accepted
                     <span class="hint">You submitted, and they said yes.</span>
                 </span>
             </label>
 
             <label class="choice">
-                <input type="radio" name="basis" value="SPEAKING_INVITED"/>
+                <input type="radio" name="basis" value="SPEAKING_INVITED"
+                       th:checked="${chosen != null and chosen.name() == 'SPEAKING_INVITED'}"/>
                 <span class="label">Invited to speak
                     <span class="hint">No CFP &mdash; the organizers asked you.</span>
                 </span>
             </label>
 
             <label class="choice">
-                <input type="radio" name="basis" value="TICKET_PURCHASED"/>
+                <input type="radio" name="basis" value="TICKET_PURCHASED"
+                       th:checked="${chosen != null and chosen.name() == 'TICKET_PURCHASED'}"/>
                 <span class="label">Ticket purchased
                     <span class="hint">Going as an attendee, whatever happened with a talk.</span>
                 </span>

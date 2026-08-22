@@ -8,6 +8,7 @@ import dev.ted.jittertravel.application.ReadOnlyModeException;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ConferenceNotFound;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
@@ -56,7 +57,8 @@ class OpenCfpControllerTest {
                 new Address("Bennekomseweg 24", "Ede", "", "6717 LM", "Netherlands", "Ede"),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 5, 9, 0), VENUE_ZONE),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 5, 18, 0), VENUE_ZONE),
-                AttendanceCommitment.WATCHING, false, cfpClosesOn, ConferenceFormat.CALL_FOR_PAPERS);
+                AttendanceCommitment.WATCHING, false, SpeakingStatus.NOT_SPEAKING,
+                cfpClosesOn, ConferenceFormat.CALL_FOR_PAPERS);
     }
 
     @Test

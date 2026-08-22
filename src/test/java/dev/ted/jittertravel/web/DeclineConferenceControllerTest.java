@@ -7,6 +7,7 @@ import dev.ted.jittertravel.application.ConferenceView;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ConferenceNotFound;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
@@ -54,7 +55,8 @@ class DeclineConferenceControllerTest {
                 new Address("Avenue de France", "Marrakesh", "", "40000", "Morocco", "Marrakesh"),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 7, 9, 0), VENUE_ZONE),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 9, 17, 0), VENUE_ZONE),
-                AttendanceCommitment.WATCHING, false, null, ConferenceFormat.CALL_FOR_PAPERS);
+                AttendanceCommitment.WATCHING, false, SpeakingStatus.NOT_SPEAKING,
+                null, ConferenceFormat.CALL_FOR_PAPERS);
     }
 
     @Test

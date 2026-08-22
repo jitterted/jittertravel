@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Record Talk</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .summary {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.9rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }
+        .summary .name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .summary .line { font-size: 0.9rem; color: var(--muted-text); margin-top: 0.15rem; }
+
+        p.explain { font-size: 0.9rem; color: var(--text-color); margin: 0 0 1rem; }
+
+        p.error {
+            font-size: 0.9rem;
+            color: #b00;
+            margin: 0 0 1rem;
+        }
+
+        fieldset {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.9rem 1.1rem;
+            margin: 0 0 1.25rem;
+        }
+        legend { font-size: 0.8rem; color: var(--muted-text); padding: 0 0.35rem; }
+
+        .choice { display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.7rem; }
+        .choice:last-child { margin-bottom: 0; }
+        .choice input { margin-top: 0.25rem; }
+        .choice .label { font-size: 0.95rem; }
+        .choice .hint { display: block; font-size: 0.8rem; color: var(--muted-text); }
+
+        .actions { display: flex; align-items: center; gap: 1.25rem; }
+
+        button.primary {
+            background: var(--accent-color);
+            color: #fff;
+            border: 1px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        button.primary:hover { opacity: 0.88; }
+
+        .back-link { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/conferences">Conferences</a>
+    </nav>
+
+    <h1>Record Talk</h1>
+
+    <div class="summary">
+        <div class="name" th:text="${conference.name()}">Conference Name</div>
+        <div class="line" th:text="${conference.city() + ', ' + conference.country()}">City, Country</div>
+        <div class="line">
+            <span th:text="${#temporals.format(conference.startDate().localDateTime(), 'EEE, MMM d, yyyy')}">start</span>
+            &ndash;
+            <span th:text="${#temporals.format(conference.endDate().localDateTime(), 'EEE, MMM d, yyyy')}">end</span>
+        </div>
+        <div class="line" th:if="${conference.cfpClosesOn() != null}">
+            CFP closes
+            <span th:text="${#temporals.format(conference.cfpClosesOn().localDateTime(), 'EEE, MMM d, yyyy')}">deadline</span>
+        </div>
+    </div>
+
+    <p class="explain">
+        Records what has already happened with your talk. It never says when the organizers decided
+        &mdash; only when you wrote it down. Talk titles, dates and outcomes stay private: none of
+        this reaches the public calendar.
+    </p>
+
+    <p class="error" th:if="${error}" th:text="${error}">Choose what happened with the talk.</p>
+
+    <!-- Only the moves that are legal from where this conference stands are offered, and the
+         wording is written out here rather than looped off TalkOutcome: how a value is worded is
+         presentation, so it does not belong on the enum. RecordTalkControllerTest posts every
+         value, including ones this page would not have offered. -->
+    <form th:action="@{|/conferences/${conference.conferenceId().id()}/talk|}" method="post">
+        <fieldset>
+            <legend>What happened with the talk?</legend>
+
+            <label class="choice" th:if="${outcomes.contains(T(dev.ted.jittertravel.web.TalkOutcome).SUBMITTED)}">
+                <input type="radio" name="outcome" value="SUBMITTED"
+                       th:checked="${chosen != null and chosen.name() == 'SUBMITTED'}"/>
+                <span class="label">Submitted
+                    <span class="hint">You sent a talk to the CFP.</span>
+                </span>
+            </label>
+
+            <label class="choice" th:if="${outcomes.contains(T(dev.ted.jittertravel.web.TalkOutcome).ACCEPTED)}">
+                <input type="radio" name="outcome" value="ACCEPTED"
+                       th:checked="${chosen != null and chosen.name() == 'ACCEPTED'}"/>
+                <span class="label">Accepted
+                    <span class="hint">They said yes &mdash; this also records that you are going.</span>
+                </span>
+            </label>
+
+            <label class="choice" th:if="${outcomes.contains(T(dev.ted.jittertravel.web.TalkOutcome).REJECTED)}">
+                <input type="radio" name="outcome" value="REJECTED"
+                       th:checked="${chosen != null and chosen.name() == 'REJECTED'}"/>
+                <span class="label">Rejected
+                    <span class="hint">They said no. You can still go as an attendee.</span>
+                </span>
+            </label>
+
+            <label class="choice" th:if="${outcomes.contains(T(dev.ted.jittertravel.web.TalkOutcome).WITHDRAWN)}">
+                <input type="radio" name="outcome" value="WITHDRAWN"
+                       th:checked="${chosen != null and chosen.name() == 'WITHDRAWN'}"/>
+                <span class="label">Withdrawn
+                    <span class="hint">You pulled it. Says nothing about whether you still go.</span>
+                </span>
+            </label>
+
+            <label class="choice" th:if="${outcomes.contains(T(dev.ted.jittertravel.web.TalkOutcome).INVITED)}">
+                <input type="radio" name="outcome" value="INVITED"
+                       th:checked="${chosen != null and chosen.name() == 'INVITED'}"/>
+                <span class="label">Invited to speak
+                    <span class="hint">No CFP &mdash; the organizers asked you. Say yes separately.</span>
+                </span>
+            </label>
+        </fieldset>
+
+        <div class="actions">
+            <button type="submit" class="primary">Record it</button>
+            <a class="back-link" th:href="@{/conferences}">Cancel &mdash; back to the list</a>
+        </div>
+    </form>
+
+</div>
+</body>
+</html>

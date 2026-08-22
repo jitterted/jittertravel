@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.ConferenceFormat;
+import dev.ted.jittertravel.domain.SpeakingStatus;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -64,9 +65,23 @@ public class ConferenceDashboard {
         if (conference.commitment() == AttendanceCommitment.GOING) {
             return DashboardGroup.GOING;
         }
+        // The speaking axis is asked before the CFP clock: once a talk is in, the deadline has
+        // nothing left to say, and once it is turned down the deadline cannot bring it back.
+        if (conference.speakingStatus() == SpeakingStatus.INVITED) {
+            return DashboardGroup.INVITED;
+        }
+        if (conference.speakingStatus() == SpeakingStatus.SUBMITTED) {
+            return DashboardGroup.WAITING_TO_HEAR;
+        }
+        if (conference.speakingStatus() == SpeakingStatus.REJECTED) {
+            return DashboardGroup.DECIDE;
+        }
         if (conference.format() == ConferenceFormat.OPEN_SPACE) {
             return DashboardGroup.NOTHING_TO_SUBMIT;
         }
+        // Nothing submitted, or a talk withdrawn — either way the CFP is the open question again,
+        // and whether it has closed is what decides between finding the date, submitting, and
+        // deciding to go anyway.
         if (conference.cfpClosesOn() == null) {
             return DashboardGroup.CFP_DATE_UNKNOWN;
         }

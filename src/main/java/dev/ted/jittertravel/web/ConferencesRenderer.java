@@ -6,6 +6,9 @@ import dev.ted.jittertravel.application.DashboardGroup;
 import dev.ted.jittertravel.application.DashboardSection;
 import dev.ted.jittertravel.application.DroppedView;
 import dev.ted.jittertravel.application.TimeView;
+import dev.ted.jittertravel.domain.AttendanceBasis;
+import dev.ted.jittertravel.domain.ConferenceFormat;
+import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
 import j2html.tags.specialized.DivTag;
@@ -51,38 +54,26 @@ public class ConferencesRenderer {
             .conference-table tbody tr:last-child td { border-bottom: none; }
             .conference-table tbody tr:hover { background-color: var(--hover-bg); }
             .conf-name { font-weight: 500; color: var(--accent-color); }
-            /* Action affordances never move, and one that is merely unavailable is shown disabled
-               rather than removed. The cell holds two virtual slots — Confirm, then Decline — and
-               every row fills both: on a GOING row Confirm is greyed, non-interactive text with a
-               title saying why. So Decline is in the second slot in every row, and both stay
-               left-justified within their own slot.
-               Slots rather than right-aligning the cell (reads oddly, and drags the header flush
-               right) or a real second column (another cell costs 32px of padding, and this table
-               only just fits at ~820px). The disabled text sizes the slot exactly, so no guessed
-               width in rem/ch can drift when the label or font changes — and it replaced an
-               invisible placeholder, which left a blank line wherever the cell wrapped. */
+            /* The actions a row carries are decided by the state machine, so their number and
+               their words change between rows — the fixed Confirm/Decline slots this replaced no
+               longer make sense, because most of these moves are meaningless in most states rather
+               than unavailable for now. Left-justified, wrapping onto a second line where the
+               column is narrow. */
             .conf-actions { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; }
-            /* Its own rule rather than `.conf-confirm` plus a modifier: sharing the link class
-               would inherit the accent colour and the hover underline, and a single-class modifier
-               defined earlier in the sheet loses to them. */
-            .conf-confirm-disabled {
-                color: var(--muted-text); cursor: default;
-                white-space: nowrap; font-size: 0.9rem;
-            }
-            /* Header centred across both slots — it labels the pair, not either one. */
-            .conference-table th:last-child { text-align: center; }
             .conf-decline { color: #b00; text-decoration: none; white-space: nowrap; font-size: 0.9rem; }
             .conf-decline:hover { text-decoration: underline; }
-            /* Three letters, because this is the third nowrap unit in the narrowest column of a
-               table that only just fits. The tick says a deadline is already recorded — the link
-               does the same job either way, so the word does not change and neither does its slot. */
-            .conf-cfp { color: var(--accent-color); text-decoration: none; white-space: nowrap; font-size: 0.9rem; }
+            /* The CFP line under the conference name is itself the link that records or changes
+               the deadline — it is a property of the conference, not a move in the submission
+               state machine, so it is not in the actions cell. It inherits the muted deadline
+               styling rather than the accent colour: it sits under the name, and a second coloured
+               link there would compete with the name for the eye. */
+            .conf-cfp { color: inherit; text-decoration: none; }
             .conf-cfp:hover { text-decoration: underline; }
-            /* One word on purpose: this cell's links are nowrap units, so a longer label
-               ("Confirm attendance") widens the table's minimum width and is what would push a
-               narrow viewport into the horizontal scroll the comment above rules out. */
-            .conf-confirm { color: var(--accent-color); text-decoration: none; white-space: nowrap; font-size: 0.9rem; }
-            .conf-confirm:hover { text-decoration: underline; }
+            /* Action labels are nowrap units, so each extra character widens the table's minimum
+               width — the reason they are one or two short words. They wrap onto further lines
+               rather than pushing a narrow viewport into a horizontal scroll. */
+            .conf-action { color: var(--accent-color); text-decoration: none; white-space: nowrap; font-size: 0.9rem; }
+            .conf-action:hover { text-decoration: underline; }
             /* Same two words the public calendar uses, so the list and the calendar agree. */
             .conf-commitment {
                 font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
@@ -195,9 +186,11 @@ public class ConferencesRenderer {
     private static String heading(DashboardGroup group) {
         return switch (group) {
             case CFP_CLOSES_SOON -> "CFP closes soon";
+            case INVITED -> "Invited";
             case CFP_DATE_UNKNOWN -> "CFP date unknown";
             case DECIDE -> "Decide";
             case NOTHING_TO_SUBMIT -> "Nothing to submit";
+            case WAITING_TO_HEAR -> "Waiting to hear";
             case GOING -> "Going";
             case DROPPED -> "Dropped";
         };
@@ -206,9 +199,11 @@ public class ConferencesRenderer {
     private static String guidance(DashboardGroup group) {
         return switch (group) {
             case CFP_CLOSES_SOON -> "Submit, or decide not to.";
+            case INVITED -> "They asked you to speak. Say yes, or decline.";
             case CFP_DATE_UNKNOWN -> "Find the deadline and record it, so a reminder can be set.";
-            case DECIDE -> "The CFP has closed. Go as an attendee, or decline.";
+            case DECIDE -> "No talk this time. Go as an attendee, or decline.";
             case NOTHING_TO_SUBMIT -> "Sessions are chosen on the day — just decide whether to go.";
+            case WAITING_TO_HEAR -> "Submitted. Record what they say when they say it.";
             case GOING -> "Committed — nothing to do.";
             case DROPPED -> "Said no to these. Kept as a record for next year.";
         };
@@ -261,15 +256,52 @@ public class ConferencesRenderer {
      * "Decide" means, so hiding the date there would remove the reason for the row's group.
      */
     private static DomContent nameCell(ConferenceView conf) {
-        if (conf.cfpClosesOn() == null) {
-            return span(conf.name());
-        }
         return div().with(
                 div(conf.name()),
-                div().withClass("conf-cfp-deadline").with(
-                        span("CFP "),
-                        ZonedTimeTag.renderDateTimeStacking(conf.cfpClosesOn(), DATE_PATTERN, TIME_PATTERN))
+                cfpLine(conf)
         );
+    }
+
+    /**
+     * The CFP deadline under the name, and the deadline <em>is</em> the affordance for recording or
+     * changing it — which is why this is not an action in the actions cell (Ted, 2026-08-22). A
+     * closing date is a property of the conference, like its venue, not a move in the submission
+     * state machine, and keeping it out is what lets every state fit in three actions.
+     * <p>
+     * A conference with no deadline recorded still shows the line, because "not recorded" is the
+     * state the CFP-date-unknown group exists to prompt about — an absent line would hide the very
+     * job that group is asking for. An open-space conference shows nothing at all: it has no call
+     * for papers, and the command refuses to record one.
+     */
+    private static DomContent cfpLine(ConferenceView conf) {
+        if (conf.format() == ConferenceFormat.OPEN_SPACE) {
+            return span();
+        }
+        // A dropped conference keeps its deadline as a record but not as a link: recording a CFP
+        // for a conference Ted declined is refused by the domain, so a link there would lead
+        // nowhere. Nothing to show at all if no deadline was ever recorded.
+        if (conf.commitment() == AttendanceCommitment.NOT_GOING) {
+            return conf.cfpClosesOn() == null
+                    ? span()
+                    : div().withClass("conf-cfp-deadline").with(
+                            span("CFP "),
+                            ZonedTimeTag.renderDateTimeStacking(
+                                    conf.cfpClosesOn(), DATE_PATTERN, TIME_PATTERN));
+        }
+        String href = "/conferences/" + conf.conferenceId().id() + "/cfp";
+        if (conf.cfpClosesOn() == null) {
+            return div().withClass("conf-cfp-deadline").with(
+                    a("CFP date unknown").withClass("conf-cfp")
+                                         .withTitle("Record when this conference's CFP closes")
+                                         .withHref(href));
+        }
+        return div().withClass("conf-cfp-deadline").with(
+                a().withClass("conf-cfp")
+                   .withTitle("Change the recorded CFP deadline")
+                   .withHref(href)
+                   .with(span("CFP "),
+                         ZonedTimeTag.renderDateTimeStacking(
+                                 conf.cfpClosesOn(), DATE_PATTERN, TIME_PATTERN)));
     }
 
     /**
@@ -306,10 +338,25 @@ public class ConferencesRenderer {
     }
 
     /**
-     * Confirming is offered only while a conference is still speculative: once it is GOING the
-     * action has nothing left to say, and re-confirming to correct the basis is a slice-4 concern
-     * (nothing renders the basis yet). Declining stays available either way — changing your mind
-     * about a conference you committed to is exactly what it is for.
+     * <strong>The state machine decides what a row offers.</strong> Each state has at most three
+     * moves, so they are links and never a menu — and, unlike the fixed Confirm/CFP/Decline slots
+     * this replaced, an action that does not apply is <em>absent</em> rather than greyed.
+     * <p>
+     * That is a deliberate exception to "an unavailable action is shown disabled, with the reason"
+     * (CLAUDE.md), taken with Ted on 2026-08-22: that rule is about an action that has been or
+     * will be available to this viewer, and most moves here are not merely unavailable-for-now but
+     * meaningless — "Accepted" on a conference nothing was submitted to names an event that could
+     * never be true. Carrying nine greyed labels on every row to keep positions fixed would say
+     * less, not more. Recording the CFP deadline is <em>not</em> in this cell at all: it is a
+     * property of the conference rather than a move, and it lives under the name.
+     * <p>
+     * Every action is a link to a page that hosts the actual POST form, never a POST from here —
+     * this renderer is j2html, and the project keeps POST forms in Thymeleaf so renderers stay
+     * clear of Spring's CSRF plumbing. The link carries the choice, so the page opens with it
+     * already selected and the second click is a confirmation rather than a decision.
+     * <p>
+     * The labels are past tense, because that is what this app does: it records what has already
+     * happened in the world. "Ticket Bought", not "Buy ticket" (Ted, 2026-08-22).
      */
     private static DomContent actions(ConferenceView conf) {
         String base = "/conferences/" + conf.conferenceId().id();
@@ -320,43 +367,68 @@ public class ConferencesRenderer {
         if (conf.commitment() == AttendanceCommitment.NOT_GOING) {
             return div().withClass("conf-actions");
         }
-        // Three actions, so three links: a menu is only worth its extra click above three
-        // (CLAUDE.md), and this cell has the width for them because each is one short word.
-        return div().withClass("conf-actions")
-                    .with(confirmSlot(conf, base))
-                    .with(a(conf.cfpClosesOn() == null ? "CFP" : "CFP ✓")
-                            .withClass("conf-cfp")
-                            .withTitle(conf.cfpClosesOn() == null
-                                    ? "Record when this conference's CFP closes"
-                                    : "Change the recorded CFP deadline")
-                            .withHref(base + "/cfp"))
-                    .with(a("Decline").withClass("conf-decline")
-                            .withHref(base + "/decline"));
+        DivTag cell = div().withClass("conf-actions");
+        if (conf.commitment() == AttendanceCommitment.GOING) {
+            // Committed. The only talk-side move left is pulling a talk that is in the program —
+            // which changes nothing about attending.
+            if (conf.speakingStatus() == SpeakingStatus.ACCEPTED) {
+                cell.with(talkLink(base, TalkOutcome.WITHDRAWN, "Withdrawn",
+                        "Record that you pulled your talk. You are still going."));
+            }
+            return cell.with(declineLink(base));
+        }
+        return switch (conf.speakingStatus()) {
+            // Submitted and waiting: the only moves are what the organizers say, and pulling it.
+            case SUBMITTED -> cell
+                    .with(talkLink(base, TalkOutcome.ACCEPTED, "Accepted",
+                            "They said yes. This also records that you are going."))
+                    .with(talkLink(base, TalkOutcome.REJECTED, "Rejected", "They said no."))
+                    .with(talkLink(base, TalkOutcome.WITHDRAWN, "Withdrawn", "You pulled it."));
+            // An open offer. Saying yes is a confirmation naming the invitation as the reason,
+            // which is what separates speaking there from merely attending.
+            case INVITED -> cell
+                    .with(confirmLink(base, AttendanceBasis.SPEAKING_INVITED, "Invitation Accepted",
+                            "Say yes: you are going, and you are speaking."))
+                    .with(declineLink(base));
+            // Turned down. On an ACCEPTANCE_REQUIRED conference this row is not here at all — it
+            // was dropped — so this is the go-anyway case.
+            case REJECTED -> cell
+                    .with(confirmLink(base, AttendanceBasis.TICKET_PURCHASED, "Ticket Bought",
+                            "Going as an attendee after all."))
+                    .with(declineLink(base));
+            // Nothing outstanding: submitting is on the table again wherever there is a CFP.
+            case NOT_SPEAKING, WITHDRAWN -> {
+                if (conf.format() != ConferenceFormat.OPEN_SPACE) {
+                    cell.with(talkLink(base, TalkOutcome.SUBMITTED, "Submitted",
+                            "Record that you submitted a talk."));
+                }
+                yield cell
+                        .with(confirmLink(base, AttendanceBasis.TICKET_PURCHASED, "Ticket Bought",
+                                "Going as an attendee."))
+                        .with(declineLink(base));
+            }
+            // Accepted while still merely watching cannot happen: accepting commits attendance,
+            // so the GOING branch above has already returned.
+            case ACCEPTED -> cell.with(declineLink(base));
+        };
     }
 
-    /**
-     * The first slot always exists, so the second one — Decline — cannot move. On a GOING
-     * conference Confirm is greyed rather than removed: an action that is unavailable *for now*
-     * stays visible with the reason attached, so the row's vocabulary does not change under the
-     * reader.
-     * <p>
-     * The reason names a <em>presentation</em> limit, not a rule: the domain deliberately allows
-     * re-confirming with a different basis (ticket bought, then talk accepted — see
-     * {@code ConfirmConferenceAttendanceCommand}), and this becomes a live link again in slice 4,
-     * when the basis finally has somewhere to render. A tooltip claiming "not allowed" would be
-     * a lie about the model.
-     * <p>
-     * A {@code span}, never a disabled {@code <a>}: it is not focusable and cannot be activated,
-     * which is exactly the intent.
-     */
-    private static DomContent confirmSlot(ConferenceView conf, String base) {
-        if (conf.commitment() == AttendanceCommitment.WATCHING) {
-            return a("Confirm").withClass("conf-confirm").withHref(base + "/confirm");
-        }
-        return span("Confirm").withClass("conf-confirm-disabled")
-                              .withTitle("Already confirmed. Changing why you're going "
-                                       + "arrives with submission tracking.")
-                              .attr("aria-disabled", "true");
+    private static DomContent talkLink(String base, TalkOutcome outcome, String label, String title) {
+        return a(label).withClass("conf-action")
+                       .withTitle(title)
+                       .withHref(base + "/talk?outcome=" + outcome.name());
+    }
+
+    private static DomContent confirmLink(String base, AttendanceBasis basis, String label, String title) {
+        return a(label).withClass("conf-action")
+                       .withTitle(title)
+                       .withHref(base + "/confirm?basis=" + basis.name());
+    }
+
+    private static DomContent declineLink(String base) {
+        return a("Decline").withClass("conf-decline")
+                           .withTitle("Record that you are not going.")
+                           .withHref(base + "/decline");
     }
 
     private static DomContent dateTime(ZonedTimestamp when) {

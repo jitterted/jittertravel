@@ -51,8 +51,16 @@ public class ConfirmConferenceAttendanceController {
         this.clock = clock;
     }
 
+    /**
+     * {@code ?basis=} arrives from the dashboard's row actions, which know why Ted is going before
+     * he gets here — "Ticket Bought" and "Invitation Accepted" are two different reasons reaching
+     * the same page. The radio opens already selected, so the click on this page is a confirmation
+     * rather than the same decision asked twice. Bare (or with a value that is not a basis), the
+     * page asks as it always did.
+     */
     @GetMapping("/conferences/{conferenceId}/confirm")
     public String confirmAttendanceForm(@PathVariable("conferenceId") String conferenceIdString,
+                                        @RequestParam(value = "basis", required = false) String basisParam,
                                         Model model) {
         Optional<ConferenceView> maybe = lookup(conferenceIdString);
         if (maybe.isEmpty()) {
@@ -62,6 +70,7 @@ public class ConfirmConferenceAttendanceController {
             return "redirect:/conferences";
         }
         model.addAttribute("conference", maybe.get());
+        model.addAttribute("chosen", parseBasis(basisParam).orElse(null));
         return "confirm-conference-attendance";
     }
 
@@ -77,6 +86,7 @@ public class ConfirmConferenceAttendanceController {
             }
             // The error belongs on the page hosting the form — /conferences cannot show it.
             model.addAttribute("conference", maybe.get());
+            model.addAttribute("chosen", null);
             model.addAttribute("error", "Choose why you are going.");
             return "confirm-conference-attendance";
         }

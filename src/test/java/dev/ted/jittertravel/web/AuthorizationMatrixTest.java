@@ -118,6 +118,10 @@ class AuthorizationMatrixTest {
                 // CFP dates are on CLAUDE.md's private list — a CFP deadline says Ted is
                 // considering a conference and has not committed — so this is OWNER-only too.
                 arguments("/conferences/abc/cfp", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
+                // The submission pipeline is the most private thing the conference model holds:
+                // talk titles, outcomes and their dates are all on CLAUDE.md's private list, and
+                // this page names the outcome in its query string.
+                arguments("/conferences/abc/talk", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/planned-gatherings",   Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/planned-gatherings/abc", Outcome.OK,     Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/schedule-problems",    Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),

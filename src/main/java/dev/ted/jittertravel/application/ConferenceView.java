@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.Instant;
@@ -19,11 +20,17 @@ import java.time.Instant;
  * enters a view cannot leak from it. Same reasoning as {@code CalendarEntry} carrying only a
  * collapsed commitment.
  * <p>
- * The basis is only a <em>stand-in</em> source. From slice 4 the submission fold
- * ({@code TalkAccepted}, {@code InvitedToSpeak}) is authoritative, and the basis stays as the
- * evidence for conferences recorded before those events existed; if the two ever disagree the
- * stream wins, because the basis is a manual annotation and the events are history. See
- * {@code docs/ConferenceSubmissionTrackingPlan.md}.
+ * <strong>The submission stream is authoritative for it, and the basis is only the fallback.</strong>
+ * Where {@code speakingStatus} has anything to say — accepted, submitted, rejected, withdrawn — it
+ * decides, because those are history; the basis decides only where the stream is silent, which is
+ * exactly the conferences recorded before those events existed. An invitation is the one case
+ * needing both: it is speaking only once Ted said yes, which is a confirmation carrying
+ * {@code SPEAKING_INVITED}.
+ * <p>
+ * {@code speakingStatus} is where the talk stands, and it is what the dashboard groups and its
+ * per-row actions read. OWNER-only, like the whole axis — see
+ * {@link dev.ted.jittertravel.domain.SpeakingStatus}. It is <em>not</em> a second opinion about
+ * {@code speaking}: that boolean is derived from this together with the commitment.
  * <p>
  * {@code cfpClosesOn} is the CFP deadline if one has been recorded, and {@code null} if not. The
  * two absences are different questions and the dashboard asks both: a conference with no CFP recorded
@@ -40,6 +47,7 @@ public record ConferenceView(
         ZonedTimestamp endDate,
         AttendanceCommitment commitment,
         boolean speaking,
+        SpeakingStatus speakingStatus,
         ZonedTimestamp cfpClosesOn,
         ConferenceFormat format
 ) implements TemporalView {

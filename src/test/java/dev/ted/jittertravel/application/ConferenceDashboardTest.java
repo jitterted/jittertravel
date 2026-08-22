@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
@@ -149,6 +150,69 @@ class ConferenceDashboardTest {
                 .isEqualTo(DashboardGroup.DROPPED);
     }
 
+    /**
+     * The speaking axis is asked before the CFP clock. Each of these three rows has an open
+     * deadline, so under the CFP question alone all three would read "CFP closes soon" — which is
+     * exactly what the dashboard could not tell apart before the submission stream existed.
+     */
+    @Test
+    void whereTheTalkStandsBeatsWhatTheCfpClockSays() {
+        Instant openDeadline = NOW.plus(Duration.ofDays(30));
+        List<DashboardSection> sections = dashboard.sections(List.of(
+                conference("J-Fall", AttendanceCommitment.WATCHING, SpeakingStatus.SUBMITTED,
+                           ConferenceFormat.CALL_FOR_PAPERS, openDeadline),
+                conference("PLoP", AttendanceCommitment.WATCHING, SpeakingStatus.INVITED,
+                           ConferenceFormat.CALL_FOR_PAPERS, openDeadline),
+                conference("ExploreDDD", AttendanceCommitment.WATCHING, SpeakingStatus.REJECTED,
+                           ConferenceFormat.CALL_FOR_PAPERS, openDeadline)
+        ), NOW);
+
+        assertThat(namesIn(sections, DashboardGroup.WAITING_TO_HEAR)).containsExactly("J-Fall");
+        assertThat(namesIn(sections, DashboardGroup.INVITED)).containsExactly("PLoP");
+        assertThat(namesIn(sections, DashboardGroup.DECIDE)).containsExactly("ExploreDDD");
+        assertThat(namesIn(sections, DashboardGroup.CFP_CLOSES_SOON)).isEmpty();
+    }
+
+    /**
+     * An invitation comes second, below a closing CFP but above everything else: it has no
+     * published deadline, but there is a person waiting for an answer. Waiting-to-hear sinks
+     * almost to the bottom for the opposite reason — nobody is waiting on Ted.
+     */
+    @Test
+    void invitationsAreNearTheTopAndWaitingToHearIsNearTheBottom() {
+        Instant openDeadline = NOW.plus(Duration.ofDays(30));
+        List<DashboardSection> sections = dashboard.sections(List.of(
+                conference("J-Fall", AttendanceCommitment.WATCHING, SpeakingStatus.SUBMITTED,
+                           ConferenceFormat.CALL_FOR_PAPERS, openDeadline),
+                going("dev2next", ConferenceFormat.CALL_FOR_PAPERS, null),
+                conference("PLoP", AttendanceCommitment.WATCHING, SpeakingStatus.INVITED,
+                           ConferenceFormat.CALL_FOR_PAPERS, null),
+                watching("Devoxx", ConferenceFormat.CALL_FOR_PAPERS, openDeadline)
+        ), NOW);
+
+        assertThat(sections)
+                .extracting(DashboardSection::group)
+                .containsExactly(DashboardGroup.CFP_CLOSES_SOON, DashboardGroup.INVITED,
+                                 DashboardGroup.WAITING_TO_HEAR, DashboardGroup.GOING);
+    }
+
+    /**
+     * A withdrawn talk puts the conference back where it was: the CFP is the open question again,
+     * and re-submitting is on the table wherever it is still open.
+     */
+    @Test
+    void aWithdrawnTalkFallsBackToTheCfpQuestion() {
+        List<DashboardSection> sections = dashboard.sections(List.of(
+                conference("J-Fall", AttendanceCommitment.WATCHING, SpeakingStatus.WITHDRAWN,
+                           ConferenceFormat.CALL_FOR_PAPERS, NOW.plus(Duration.ofDays(30)))
+        ), NOW);
+
+        assertThat(sections)
+                .singleElement()
+                .extracting(DashboardSection::group)
+                .isEqualTo(DashboardGroup.CFP_CLOSES_SOON);
+    }
+
     /** Last of all: it is a record to look back on, not work to do. */
     @Test
     void droppedConferencesComeAfterEveryOtherGroup() {
@@ -182,6 +246,12 @@ class ConferenceDashboardTest {
 
     private static ConferenceView conference(String name, AttendanceCommitment commitment,
                                              ConferenceFormat format, Instant cfpClosesOn) {
+        return conference(name, commitment, SpeakingStatus.NOT_SPEAKING, format, cfpClosesOn);
+    }
+
+    private static ConferenceView conference(String name, AttendanceCommitment commitment,
+                                             SpeakingStatus speakingStatus,
+                                             ConferenceFormat format, Instant cfpClosesOn) {
         return new ConferenceView(
                 ConferenceId.random(),
                 name,
@@ -191,6 +261,7 @@ class ConferenceDashboardTest {
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 6, 17, 0), ZONE),
                 commitment,
                 false,
+                speakingStatus,
                 cfpClosesOn == null ? null : new ZonedTimestamp(cfpClosesOn, ZONE),
                 format);
     }

@@ -9,6 +9,7 @@ import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
@@ -107,93 +108,174 @@ class ConferencesRendererTest {
                 .contains(">Decline</a>");
     }
 
+    /**
+     * Nothing submitted and a CFP to submit to: the three moves are recording a submission, buying
+     * a ticket, and saying no. Labels are past tense throughout, because the app records what has
+     * already happened.
+     */
     @Test
-    void speculativeConferenceShowsMaybeAndOffersConfirmAttendance() {
+    void aWatchedConferenceWithACfpOffersSubmittedTicketBoughtAndDecline() {
         ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
                 "Ede", "Netherlands", AttendanceCommitment.WATCHING);
 
         String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
+        String base = "/conferences/" + conf.conferenceId().id();
 
         assertThat(html)
                 .contains("<span class=\"conf-commitment conf-commitment--watching\">Maybe</span>")
-                .contains("href=\"/conferences/" + conf.conferenceId().id() + "/confirm\"")
-                .contains(">Confirm</a>");
+                .contains("href=\"" + base + "/talk?outcome=SUBMITTED\"")
+                .contains(">Submitted</a>")
+                .contains("href=\"" + base + "/confirm?basis=TICKET_PURCHASED\"")
+                .contains(">Ticket Bought</a>")
+                .contains("href=\"" + base + "/decline\"");
     }
 
+    /** No CFP to submit to, so that move is not offered at all. */
     @Test
-    void committedConferenceShowsGoingAndDropsTheConfirmLink() {
+    void anOpenSpaceConferenceIsNotOfferedASubmission() {
+        String html = ConferencesRenderer.render(oneSection(
+                view("SoCraTes DE", "2026-08-20T09:00", "2026-08-23T17:00", "Soltau", "Germany",
+                     AttendanceCommitment.WATCHING, false, SpeakingStatus.NOT_SPEAKING, null,
+                     ConferenceFormat.OPEN_SPACE)
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .doesNotContain("outcome=SUBMITTED")
+                .contains(">Ticket Bought</a>");
+    }
+
+    /** Submitted and waiting: the moves are what the organizers say, and pulling it. */
+    @Test
+    void aSubmittedTalkOffersTheOutcomesAndAWithdrawal() {
+        ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
+                "Ede", "Netherlands", AttendanceCommitment.WATCHING, false,
+                SpeakingStatus.SUBMITTED, null, ConferenceFormat.CALL_FOR_PAPERS);
+
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
+        String base = "/conferences/" + conf.conferenceId().id();
+
+        assertThat(html)
+                .contains("href=\"" + base + "/talk?outcome=ACCEPTED\"")
+                .contains("href=\"" + base + "/talk?outcome=REJECTED\"")
+                .contains("href=\"" + base + "/talk?outcome=WITHDRAWN\"")
+                // Deciding not to go while a talk is out is withdrawing it; Decline becomes
+                // available in the state that follows. This is what keeps every row at three.
+                .doesNotContain(base + "/decline");
+    }
+
+    /**
+     * An invitation is an offer. Saying yes is a confirmation that names the invitation as the
+     * reason — which is what separates speaking there from merely turning up.
+     */
+    @Test
+    void anInvitationOffersAcceptingItOrDeclining() {
+        ConferenceView conf = view("PLoP", "2026-10-12T09:00", "2026-10-15T17:00",
+                "Allerton", "USA", AttendanceCommitment.WATCHING, false,
+                SpeakingStatus.INVITED, null, ConferenceFormat.CALL_FOR_PAPERS);
+
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
+        String base = "/conferences/" + conf.conferenceId().id();
+
+        assertThat(html)
+                .contains("href=\"" + base + "/confirm?basis=SPEAKING_INVITED\"")
+                .contains(">Invitation Accepted</a>")
+                .contains("href=\"" + base + "/decline\"")
+                .doesNotContain("outcome=ACCEPTED");
+    }
+
+    /** Turned down, still watching: go as an attendee, or say no. */
+    @Test
+    void aRejectedTalkOffersGoingAnywayOrDeclining() {
+        ConferenceView conf = view("ExploreDDD", "2026-09-14T09:00", "2026-09-16T17:00",
+                "Denver", "USA", AttendanceCommitment.WATCHING, false,
+                SpeakingStatus.REJECTED, null, ConferenceFormat.CALL_FOR_PAPERS);
+
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
+        String base = "/conferences/" + conf.conferenceId().id();
+
+        assertThat(html)
+                .contains("href=\"" + base + "/confirm?basis=TICKET_PURCHASED\"")
+                .contains("href=\"" + base + "/decline\"")
+                .doesNotContain("outcome=SUBMITTED");
+    }
+
+    /**
+     * Committed on a bought ticket: nothing is left on the speaking axis, so the row is down to
+     * changing his mind about going.
+     */
+    @Test
+    void aCommittedConferenceOffersOnlyDecline() {
         ConferenceView conf = view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00",
                 "Denver", "USA", AttendanceCommitment.GOING);
 
         String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
+        String base = "/conferences/" + conf.conferenceId().id();
 
         assertThat(html)
                 .contains("<span class=\"conf-commitment conf-commitment--going\">Going</span>")
-                .doesNotContain("/confirm\"")
-                .doesNotContain(">Confirm</a>");
+                .contains("href=\"" + base + "/decline\"")
+                .doesNotContain("/confirm?")
+                .doesNotContain("/talk?");
     }
 
+    /**
+     * The one talk-side move left once a talk is in the program. Pulling it says nothing about
+     * attending, which is why Decline is still there beside it.
+     */
     @Test
-    void declineKeepsItsPlaceOnRowsThatHaveNoConfirmLink() {
-        // Action affordances never move, and an unavailable one is disabled rather than removed:
-        // a GOING row fills the first slot with greyed, non-interactive text. Leaving the slot
-        // empty slid Decline into it; leaving it invisible left a blank line when the cell wrapped.
-        String html = ConferencesRenderer.render(oneSection(
-                view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA",
-                     AttendanceCommitment.GOING)
-        ), TimeView.FUTURE);
+    void anAcceptedTalkCanStillBeWithdrawnWhileGoing() {
+        ConferenceView conf = view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00",
+                "Denver", "USA", AttendanceCommitment.GOING, true,
+                SpeakingStatus.ACCEPTED, null, ConferenceFormat.CALL_FOR_PAPERS);
+
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
+        String base = "/conferences/" + conf.conferenceId().id();
 
         assertThat(html)
-                .contains("<span class=\"conf-confirm-disabled\"")
-                .contains(">Confirm</span>")
-                .contains("color: var(--muted-text); cursor: default;")
-                // Visible, not the old invisible placeholder.
-                .doesNotContain("visibility: hidden")
-                // Left-justified within their slots, never flush right.
-                .doesNotContain("justify-content: flex-end");
+                .contains("href=\"" + base + "/talk?outcome=WITHDRAWN\"")
+                .contains("href=\"" + base + "/decline\"");
     }
 
+    /**
+     * No state offers more than three, which is what keeps the actions cell to plain links: a menu
+     * is only worth its extra click above three (CLAUDE.md), and this table only just fits.
+     */
     @Test
-    void disabledConfirmSaysWhyItIsUnavailableAndCannotBeActivated() {
-        // A greyed control with no reason is a dead end. The reason names the *presentation* limit
-        // it really is — the domain allows re-confirming with a different basis — and it is a span,
-        // so it is neither focusable nor clickable.
-        String html = ConferencesRenderer.render(oneSection(
-                view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA",
-                     AttendanceCommitment.GOING)
-        ), TimeView.FUTURE);
+    void noStateOffersMoreThanThreeActions() {
+        List<ConferenceView> everyState = List.of(
+                view("watching", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
+                     AttendanceCommitment.WATCHING, false, SpeakingStatus.NOT_SPEAKING, null,
+                     ConferenceFormat.CALL_FOR_PAPERS),
+                view("submitted", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
+                     AttendanceCommitment.WATCHING, false, SpeakingStatus.SUBMITTED, null,
+                     ConferenceFormat.CALL_FOR_PAPERS),
+                view("invited", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
+                     AttendanceCommitment.WATCHING, false, SpeakingStatus.INVITED, null,
+                     ConferenceFormat.CALL_FOR_PAPERS),
+                view("rejected", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
+                     AttendanceCommitment.WATCHING, false, SpeakingStatus.REJECTED, null,
+                     ConferenceFormat.CALL_FOR_PAPERS),
+                view("withdrawn", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
+                     AttendanceCommitment.WATCHING, false, SpeakingStatus.WITHDRAWN, null,
+                     ConferenceFormat.CALL_FOR_PAPERS),
+                view("accepted", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
+                     AttendanceCommitment.GOING, true, SpeakingStatus.ACCEPTED, null,
+                     ConferenceFormat.CALL_FOR_PAPERS),
+                view("going", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
+                     AttendanceCommitment.GOING, false, SpeakingStatus.NOT_SPEAKING, null,
+                     ConferenceFormat.CALL_FOR_PAPERS));
 
-        assertThat(html)
-                .contains("title=\"Already confirmed. Changing why you&#x27;re going "
-                          + "arrives with submission tracking.\"")
-                .contains("aria-disabled=\"true\"")
-                .doesNotContain(">Confirm</a>");
+        for (ConferenceView conf : everyState) {
+            String cell = actionsCellOf(ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE));
+            assertThat(cell.split("<a ").length - 1)
+                    .as("actions offered on a '%s' row", conf.name())
+                    .isLessThanOrEqualTo(3);
+        }
     }
 
-    @Test
-    void speculativeRowFillsTheConfirmSlotWithTheRealLinkNotTheDisabledText() {
-        String html = ConferencesRenderer.render(oneSection(
-                view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "Netherlands",
-                     AttendanceCommitment.WATCHING)
-        ), TimeView.FUTURE);
-
-        assertThat(html)
-                .contains(">Confirm</a>")
-                // The class name alone appears in the stylesheet on every page; only the element
-                // is a claim about this row.
-                .doesNotContain("<span class=\"conf-confirm-disabled\"");
-    }
-
-    @Test
-    void actionsHeaderIsCentredAcrossBothSlots() {
-        // The header labels the pair, so it belongs over neither link in particular.
-        String html = ConferencesRenderer.render(oneSection(
-                view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "City", "Country")
-        ), TimeView.FUTURE);
-
-        assertThat(html)
-                .contains(".conference-table th:last-child { text-align: center; }")
-                .doesNotContain("th:last-child { text-align: right; }");
+    private static String actionsCellOf(String html) {
+        int start = html.indexOf("<div class=\"conf-actions\">");
+        return html.substring(start, html.indexOf("</td>", start));
     }
 
     @Test
@@ -255,8 +337,13 @@ class ConferencesRendererTest {
                 .doesNotContain(SPEAKER_MARKER);
     }
 
+    /**
+     * Recording the deadline is reached from under the name, not from the actions cell: it is a
+     * property of the conference rather than a move in the submission state machine, and keeping
+     * it out is what lets every state fit in three actions.
+     */
     @Test
-    void everyRowLinksToItsCfpPageAndSaysWhenNoDeadlineIsRecordedYet() {
+    void aConferenceWithNoDeadlineSaysSoUnderItsNameAndLinksThere() {
         ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
                 "Ede", "Netherlands", AttendanceCommitment.WATCHING, false, null);
 
@@ -264,16 +351,14 @@ class ConferencesRendererTest {
 
         assertThat(html)
                 .contains("href=\"/conferences/" + conf.conferenceId().id() + "/cfp\"")
-                .contains(">CFP</a>")
-                .contains("title=\"Record when this conference&#x27;s CFP closes\"");
+                .contains(">CFP date unknown</a>")
+                .contains("title=\"Record when this conference&#x27;s CFP closes\"")
+                // In the name cell, never the actions cell.
+                .doesNotContain("<div class=\"conf-actions\"><a class=\"conf-cfp\"");
     }
 
-    /**
-     * The link does the same job either way, so the word does not change and its slot does not move
-     * — the tick is the only difference, and it says a deadline is already on file.
-     */
     @Test
-    void aRowWithARecordedDeadlineTicksItsCfpLinkWithoutMovingIt() {
+    void aRecordedDeadlineIsItselfTheLinkToChangeIt() {
         ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
                 "Ede", "Netherlands", AttendanceCommitment.WATCHING, false,
                 ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-12T23:59"), ZONE));
@@ -282,8 +367,22 @@ class ConferencesRendererTest {
 
         assertThat(html)
                 .contains("href=\"/conferences/" + conf.conferenceId().id() + "/cfp\"")
-                .contains(">CFP ✓</a>")
-                .contains("title=\"Change the recorded CFP deadline\"");
+                .contains("title=\"Change the recorded CFP deadline\"")
+                .contains("<span class=\"nowrap\">Sat, Sep 12</span>");
+    }
+
+    /** An open-space conference has no call for papers, so there is nothing to record. */
+    @Test
+    void anOpenSpaceConferenceShowsNoCfpLineAtAll() {
+        String html = ConferencesRenderer.render(oneSection(
+                view("SoCraTes DE", "2026-08-20T09:00", "2026-08-23T17:00", "Soltau", "Germany",
+                     AttendanceCommitment.WATCHING, false, SpeakingStatus.NOT_SPEAKING, null,
+                     ConferenceFormat.OPEN_SPACE)
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .doesNotContain("/cfp\"")
+                .doesNotContain("CFP date unknown");
     }
 
     @Test
@@ -337,16 +436,6 @@ class ConferencesRendererTest {
                 // Still seven columns: the header row is what would grow if this became one.
                 .contains("<th>Actions</th>")
                 .doesNotContain("<th>CFP</th>");
-    }
-
-    @Test
-    void aConferenceWithNoRecordedDeadlineRendersNoDeadlineLine() {
-        ConferenceView conf = view("SoCraTes DE", "2026-08-20T09:00", "2026-08-23T17:00",
-                "Soltau", "Germany", AttendanceCommitment.WATCHING, false, null);
-
-        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
-
-        assertThat(html).doesNotContain("conf-cfp-deadline\">");
     }
 
     @Test
@@ -483,12 +572,21 @@ class ConferencesRendererTest {
                                        String city, String country,
                                        AttendanceCommitment commitment, boolean speaking,
                                        ZonedTimestamp cfpClosesOn, ConferenceFormat format) {
+        return view(name, start, end, city, country, commitment, speaking,
+                    SpeakingStatus.NOT_SPEAKING, cfpClosesOn, format);
+    }
+
+    private static ConferenceView view(String name, String start, String end,
+                                       String city, String country,
+                                       AttendanceCommitment commitment, boolean speaking,
+                                       SpeakingStatus speakingStatus,
+                                       ZonedTimestamp cfpClosesOn, ConferenceFormat format) {
         return new ConferenceView(
                 ConferenceId.random(), name, "Venue",
                 new Address("1 Street", city, "", "", country, null),
                 ZonedTimestamp.fromLocal(LocalDateTime.parse(start), ZONE),
                 ZonedTimestamp.fromLocal(LocalDateTime.parse(end), ZONE),
-                commitment, speaking, cfpClosesOn, format
+                commitment, speaking, speakingStatus, cfpClosesOn, format
         );
     }
 }

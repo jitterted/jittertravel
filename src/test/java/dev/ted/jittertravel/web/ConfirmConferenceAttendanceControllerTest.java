@@ -8,6 +8,7 @@ import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.AttendanceBasis;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ConferenceNotFound;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
@@ -62,7 +63,8 @@ class ConfirmConferenceAttendanceControllerTest {
                 new Address("Bennekomseweg 24", "Ede", "", "6717 LM", "Netherlands", "Ede"),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 5, 9, 0), VENUE_ZONE),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 5, 18, 0), VENUE_ZONE),
-                AttendanceCommitment.WATCHING, false, null, ConferenceFormat.CALL_FOR_PAPERS);
+                AttendanceCommitment.WATCHING, false, SpeakingStatus.NOT_SPEAKING,
+                null, ConferenceFormat.CALL_FOR_PAPERS);
     }
 
     @Test
@@ -75,6 +77,34 @@ class ConfirmConferenceAttendanceControllerTest {
                 .bodyText()
                 .contains("J-Fall")
                 .contains("Ede, Netherlands");
+    }
+
+    /**
+     * The dashboard's row actions already know the reason — "Ticket Bought" and "Invitation
+     * Accepted" are two different reasons reaching this one page — so the radio opens selected and
+     * the click here is a confirmation rather than the same decision asked twice.
+     */
+    @Test
+    void aBasisInTheQueryStringArrivesPreselected() {
+        UUID conferenceId = UUID.randomUUID();
+        given(projector.findById(any())).willReturn(Optional.of(viewFor(conferenceId)));
+
+        assertThat(mockMvc.get().uri("/conferences/" + conferenceId + "/confirm?basis=TICKET_PURCHASED"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("value=\"TICKET_PURCHASED\" checked")
+                .doesNotContain("value=\"SPEAKING_ACCEPTED\" checked");
+    }
+
+    @Test
+    void anUnrecognisedBasisLeavesThePageAsking() {
+        UUID conferenceId = UUID.randomUUID();
+        given(projector.findById(any())).willReturn(Optional.of(viewFor(conferenceId)));
+
+        assertThat(mockMvc.get().uri("/conferences/" + conferenceId + "/confirm?basis=ATTENDING_ANYWAY"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain(" checked");
     }
 
     @ParameterizedTest

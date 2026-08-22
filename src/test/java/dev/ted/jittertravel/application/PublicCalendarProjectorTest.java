@@ -380,11 +380,14 @@ class PublicCalendarProjectorTest {
                 stored(new ConferenceAttendanceConfirmed(attending,
                         AttendanceBasis.TICKET_PURCHASED, RECORDED_ON))));
 
-        assertThat(projector.entries().get(0).details())
-                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING, true));
-        assertThat(projector.entries().get(1).details())
+        // Order-independent: both conferences start at the same moment, so entries() has no
+        // defined order between them — the claim is about the pair, not their positions.
+        assertThat(projector.entries())
+                .extracting(CalendarEntry::details)
                 .as("going on a bought ticket after an invitation is attending, not speaking")
-                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING, false));
+                .containsExactlyInAnyOrder(
+                        new EntryDetails.PublicConference(AttendanceCommitment.GOING, true),
+                        new EntryDetails.PublicConference(AttendanceCommitment.GOING, false));
     }
 
     /**

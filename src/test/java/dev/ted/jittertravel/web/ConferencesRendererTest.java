@@ -91,8 +91,10 @@ class ConferencesRendererTest {
                 .doesNotContain("max-width: 100ch")
                 // The seven columns need the whole viewport: measured 2026-08-19, the old
                 // `margin: 2rem; padding: 0 1rem` gutter made this page scroll sideways at ~860px,
-                // and giving those 96px back to the table makes it fit at ~820px.
-                .contains(".conference-container { margin: 2rem 0; padding: 0; }")
+                // and giving those 96px back to the table makes it fit at ~820px. The claim is
+                // about the *horizontal* gutter — the vertical margin is spacing and moves freely
+                // (see theFilterRowOwnsTheGapUnderTheHeading...).
+                .contains(".conference-container { margin: 0 0 2rem; padding: 0; }")
                 .doesNotContain("padding: 0 1rem");
     }
 
@@ -451,6 +453,38 @@ class ConferencesRendererTest {
                 .doesNotContain("SPEAKING_ACCEPTED")
                 .doesNotContain("TICKET_PURCHASED")
                 .doesNotContain("SPEAKING_INVITED");
+    }
+
+    /**
+     * The dropped switch is a control, not a sentence: it was plain muted text and read as words
+     * left dangling beside the toggle. It takes the shared toggle's padding, font-size and radius
+     * so the two read as a pair, and stays outlined rather than filled.
+     */
+    @Test
+    void theDroppedToggleIsStyledAsAControlBesideTheTimeToggle() {
+        String html = ConferencesRenderer.render(
+                List.<DashboardSection>of(), TimeView.ALL, DroppedView.HIDE);
+
+        assertThat(html)
+                .contains("padding: 6px 16px; font-size: 0.9rem;")
+                .contains("border: 1px solid var(--border-color); border-radius: 6px;")
+                .contains(".dropped-toggle:hover { background-color: var(--header-bg);");
+    }
+
+    /**
+     * The filter row owns the gap under the heading. Both halves matter: the container must not add
+     * a top margin of its own, and the shared toggle's must be cancelled — a flex item's margin
+     * does not collapse, so the three stacked into 3rem of empty space under the title.
+     */
+    @Test
+    void theFilterRowOwnsTheGapUnderTheHeadingSoTheMarginsCannotStack() {
+        String html = ConferencesRenderer.render(
+                List.<DashboardSection>of(), TimeView.ALL, DroppedView.HIDE);
+
+        assertThat(html)
+                .contains(".conference-container { margin: 0 0 2rem; padding: 0; }")
+                .contains(".conference-filters .time-toggle { margin-top: 0; }")
+                .doesNotContain(".conference-container { margin: 2rem 0;");
     }
 
     @Test

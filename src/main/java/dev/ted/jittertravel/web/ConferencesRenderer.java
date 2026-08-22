@@ -36,7 +36,11 @@ public class ConferencesRenderer {
     // keeps its rhythm. The sibling list pages still have their gutters; this one has one column
     // more than they do.
     private static final String CSS = """
-            .conference-container { margin: 2rem 0; padding: 0; }
+            /* No top margin: the filter row below sets the gap under the heading itself, so the
+               two cannot stack. They did — the flex row stopped .time-toggle's own 1rem top margin
+               from collapsing through the container the way it does on the sibling list pages,
+               leaving 3rem of nothing under the title. */
+            .conference-container { margin: 0 0 2rem; padding: 0; }
             .conference-table {
                 width: 100%; border-collapse: collapse; text-align: left;
                 margin-top: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -109,9 +113,26 @@ public class ConferencesRenderer {
             }
             .dashboard-guidance { font-size: 0.9rem; color: var(--muted-text); margin: 0.15rem 0 0; }
             /* The two filters sit on one line and wrap together on a narrow viewport. */
-            .conference-filters { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
-            .dropped-toggle { font-size: 0.85rem; color: var(--muted-text); text-decoration: none; }
-            .dropped-toggle:hover { text-decoration: underline; }
+            /* The two filters sit on one line and wrap together on a narrow viewport. The row owns
+               the gap under the heading; .time-toggle's own top margin is cancelled here, because
+               a flex item's margin does not collapse and the two would add up. */
+            .conference-filters {
+                display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-top: 1rem;
+            }
+            .conference-filters .time-toggle { margin-top: 0; }
+            /* A control, not a sentence. It was plain muted text and read as words left dangling
+               beside the toggle — nothing said it could be clicked. It borrows .time-toggle's
+               padding, font-size and radius so the two line up as a pair of controls, but stays
+               outlined rather than filled: this one is a switch with an off state, and the segment
+               beside it is the answer to the page's main question. */
+            .dropped-toggle {
+                display: inline-flex; align-items: center;
+                padding: 6px 16px; font-size: 0.9rem;
+                border: 1px solid var(--border-color); border-radius: 6px;
+                background-color: var(--surface, #fff); color: var(--muted-text);
+                text-decoration: none; white-space: nowrap;
+            }
+            .dropped-toggle:hover { background-color: var(--header-bg); color: var(--text-color); }
             /* The deadline under the name, not in a column of its own — see nameCell. */
             .conf-cfp-deadline {
                 font-size: 0.8rem; font-weight: 400; color: var(--muted-text); margin-top: 0.15rem;

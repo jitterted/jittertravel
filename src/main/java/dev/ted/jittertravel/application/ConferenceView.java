@@ -26,7 +26,7 @@ import java.time.Instant;
  * {@code docs/ConferenceSubmissionTrackingPlan.md}.
  * <p>
  * {@code cfpClosesOn} is the CFP deadline if one has been recorded, and {@code null} if not. The
- * two absences are different questions and the radar asks both: a conference with no CFP recorded
+ * two absences are different questions and the dashboard asks both: a conference with no CFP recorded
  * needs Ted to go and find the date, while one whose deadline has passed needs him to decide. Null
  * means only "not recorded" — never "no CFP exists", which is what {@code ConferenceFormat}
  * says.

@@ -2,8 +2,8 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.ConferenceView;
-import dev.ted.jittertravel.application.RadarGroup;
-import dev.ted.jittertravel.application.RadarSection;
+import dev.ted.jittertravel.application.DashboardGroup;
+import dev.ted.jittertravel.application.DashboardSection;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.ConferenceFormat;
@@ -25,7 +25,7 @@ class ConferencesRendererTest {
 
     @Test
     void emptyAllListRendersEmptyStateMessage() {
-        String html = ConferencesRenderer.render(List.<RadarSection>of(), TimeView.ALL);
+        String html = ConferencesRenderer.render(List.<DashboardSection>of(), TimeView.ALL);
 
         assertThat(html)
                 .contains("No conferences yet.")
@@ -34,14 +34,14 @@ class ConferencesRendererTest {
 
     @Test
     void emptyFutureListRendersNoUpcomingMessage() {
-        String html = ConferencesRenderer.render(List.<RadarSection>of(), TimeView.FUTURE);
+        String html = ConferencesRenderer.render(List.<DashboardSection>of(), TimeView.FUTURE);
 
         assertThat(html).contains("No upcoming conferences.");
     }
 
     @Test
     void activeFilterMarkedOnToggleLink() {
-        String html = ConferencesRenderer.render(List.<RadarSection>of(), TimeView.ALL);
+        String html = ConferencesRenderer.render(List.<DashboardSection>of(), TimeView.ALL);
 
         assertThat(html)
                 .contains("<a href=\"/conferences?filter=all\" class=\"active\">All</a>")
@@ -288,17 +288,17 @@ class ConferencesRendererTest {
     @Test
     void eachGroupIsHeadedAndSaysWhatToDoAboutIt() {
         String html = ConferencesRenderer.render(List.of(
-                new RadarSection(RadarGroup.CFP_CLOSES_SOON, List.of(
+                new DashboardSection(DashboardGroup.CFP_CLOSES_SOON, List.of(
                         view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "Netherlands"))),
-                new RadarSection(RadarGroup.GOING, List.of(
+                new DashboardSection(DashboardGroup.GOING, List.of(
                         view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA")))
         ), TimeView.FUTURE);
 
         assertThat(html)
-                .contains("<h2 class=\"radar-heading\">CFP closes soon</h2>")
-                .contains("<p class=\"radar-guidance\">Submit, or decide not to.</p>")
-                .contains("<h2 class=\"radar-heading\">Going</h2>")
-                .contains("<p class=\"radar-guidance\">Committed — nothing to do.</p>");
+                .contains("<h2 class=\"dashboard-heading\">CFP closes soon</h2>")
+                .contains("<p class=\"dashboard-guidance\">Submit, or decide not to.</p>")
+                .contains("<h2 class=\"dashboard-heading\">Going</h2>")
+                .contains("<p class=\"dashboard-guidance\">Committed — nothing to do.</p>");
     }
 
     /**
@@ -308,14 +308,14 @@ class ConferencesRendererTest {
     @Test
     void groupsRenderInTheOrderTheyAreGiven() {
         String html = ConferencesRenderer.render(List.of(
-                new RadarSection(RadarGroup.CFP_CLOSES_SOON, List.of(
+                new DashboardSection(DashboardGroup.CFP_CLOSES_SOON, List.of(
                         view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "Netherlands"))),
-                new RadarSection(RadarGroup.GOING, List.of(
+                new DashboardSection(DashboardGroup.GOING, List.of(
                         view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA")))
         ), TimeView.FUTURE);
 
         assertThat(html.indexOf("CFP closes soon"))
-                .isLessThan(html.indexOf("<h2 class=\"radar-heading\">Going</h2>"));
+                .isLessThan(html.indexOf("<h2 class=\"dashboard-heading\">Going</h2>"));
     }
 
     /**
@@ -365,7 +365,7 @@ class ConferencesRendererTest {
 
     @Test
     void planConferenceLinkIsPresent() {
-        String html = ConferencesRenderer.render(List.<RadarSection>of(), TimeView.ALL);
+        String html = ConferencesRenderer.render(List.<DashboardSection>of(), TimeView.ALL);
 
         assertThat(html).contains("/plan-conference");
     }
@@ -373,10 +373,10 @@ class ConferencesRendererTest {
     /**
      * Most cases here are about how a <em>row</em> renders, which is independent of its group — so
      * they wrap their conferences in one arbitrary section. The grouping itself is
-     * {@code ConferenceRadarTest}'s subject; how a group is headed is asserted below.
+     * {@code ConferenceDashboardTest}'s subject; how a group is headed is asserted below.
      */
-    private static List<RadarSection> oneSection(ConferenceView... conferences) {
-        return List.of(new RadarSection(RadarGroup.CFP_CLOSES_SOON, List.of(conferences)));
+    private static List<DashboardSection> oneSection(ConferenceView... conferences) {
+        return List.of(new DashboardSection(DashboardGroup.CFP_CLOSES_SOON, List.of(conferences)));
     }
 
     private static ConferenceView view(String name, String start, String end,

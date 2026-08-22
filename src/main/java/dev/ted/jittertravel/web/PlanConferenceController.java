@@ -3,7 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.ConferencePlanning;
 import dev.ted.jittertravel.application.ReadOnlyModeException;
 import dev.ted.jittertravel.application.ConferenceProjector;
-import dev.ted.jittertravel.application.ConferenceRadar;
+import dev.ted.jittertravel.application.ConferenceDashboard;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.CommonZone;
@@ -37,7 +37,7 @@ public class PlanConferenceController {
     private static final Logger log = LoggerFactory.getLogger(PlanConferenceController.class);
     private final ConferencePlanning applicationService;
     private final ConferenceProjector projector;
-    private final ConferenceRadar radar = new ConferenceRadar();
+    private final ConferenceDashboard dashboard = new ConferenceDashboard();
     private final Clock clock;
 
     public PlanConferenceController(ConferencePlanning applicationService,
@@ -117,7 +117,7 @@ public class PlanConferenceController {
         Instant now = Instant.now(clock);
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
-                .body(ConferencesRenderer.render(radar.sections(projector.views(timeView, now), now), timeView));
+                .body(ConferencesRenderer.render(dashboard.sections(projector.views(timeView, now), now), timeView));
     }
 
 }

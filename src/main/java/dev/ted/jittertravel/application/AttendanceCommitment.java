@@ -2,7 +2,7 @@ package dev.ted.jittertravel.application;
 
 /**
  * How committed Ted is to a conference, <em>derived</em> by folding the conference's own events —
- * never stored on any of them. A conference goes on the radar as {@link #WATCHING} and becomes
+ * never stored on any of them. A conference goes on the list as {@link #WATCHING} and becomes
  * {@link #GOING} when attendance is confirmed.
  * <p>
  * This is the one attendance fact that is <strong>public</strong>: every speculative state (CFP not
@@ -20,7 +20,7 @@ package dev.ted.jittertravel.application;
  * a read-model label. See {@code docs/ConferenceSubmissionTrackingPlan.md}.
  */
 public enum AttendanceCommitment {
-    /** On the radar, not committed — renders as a public "Maybe" chip. */
+    /** Being watched, not committed — renders as a public "Maybe" chip. */
     WATCHING,
     /** Going. Renders as a plain entry: "Ted is going" is the default reading of a calendar entry. */
     GOING

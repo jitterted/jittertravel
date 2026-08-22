@@ -36,7 +36,7 @@ class OpenCfpCommandTest {
 
     /**
      * A CFP whose deadline has already passed is still worth recording: "this closed and I did not
-     * submit" is a state the radar shows, and backfilling an old conference is a legitimate use. The
+     * submit" is a state the dashboard shows, and backfilling an old conference is a legitimate use. The
      * guarantee is structural — {@link OpenCfpContext} carries no clock to consult.
      */
     @Test

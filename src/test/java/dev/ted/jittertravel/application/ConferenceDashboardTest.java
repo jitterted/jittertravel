@@ -17,16 +17,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * The five real conferences the plan is grounded in, sorted into what each needs next.
  */
-class ConferenceRadarTest {
+class ConferenceDashboardTest {
 
     private static final Instant NOW = Instant.parse("2026-07-01T12:00:00Z");
     private static final ZoneId ZONE = ZoneId.of("Europe/Amsterdam");
 
-    private final ConferenceRadar radar = new ConferenceRadar();
+    private final ConferenceDashboard dashboard = new ConferenceDashboard();
 
     @Test
     void sortsTheRealConferencesIntoTheirGroups() {
-        List<RadarSection> sections = radar.sections(List.of(
+        List<DashboardSection> sections = dashboard.sections(List.of(
                 watching("J-Fall", ConferenceFormat.CALL_FOR_PAPERS, NOW.plus(Duration.ofDays(30))),
                 watching("PLoP", ConferenceFormat.ACCEPTANCE_REQUIRED, null),
                 watching("ExploreDDD", ConferenceFormat.CALL_FOR_PAPERS, NOW.minus(Duration.ofDays(5))),
@@ -35,17 +35,17 @@ class ConferenceRadarTest {
         ), NOW);
 
         assertThat(sections)
-                .extracting(RadarSection::group)
+                .extracting(DashboardSection::group)
                 .as("declaration order is urgency order: someone else's clock first, nothing owed last")
-                .containsExactly(RadarGroup.CFP_CLOSES_SOON, RadarGroup.CFP_DATE_UNKNOWN,
-                                 RadarGroup.DECIDE, RadarGroup.NOTHING_TO_SUBMIT, RadarGroup.GOING);
+                .containsExactly(DashboardGroup.CFP_CLOSES_SOON, DashboardGroup.CFP_DATE_UNKNOWN,
+                                 DashboardGroup.DECIDE, DashboardGroup.NOTHING_TO_SUBMIT, DashboardGroup.GOING);
         assertThat(sections).allSatisfy(section ->
                 assertThat(section.conferences()).hasSize(1));
-        assertThat(namesIn(sections, RadarGroup.CFP_CLOSES_SOON)).containsExactly("J-Fall");
-        assertThat(namesIn(sections, RadarGroup.CFP_DATE_UNKNOWN)).containsExactly("PLoP");
-        assertThat(namesIn(sections, RadarGroup.DECIDE)).containsExactly("ExploreDDD");
-        assertThat(namesIn(sections, RadarGroup.NOTHING_TO_SUBMIT)).containsExactly("SoCraTes DE");
-        assertThat(namesIn(sections, RadarGroup.GOING)).containsExactly("dev2next");
+        assertThat(namesIn(sections, DashboardGroup.CFP_CLOSES_SOON)).containsExactly("J-Fall");
+        assertThat(namesIn(sections, DashboardGroup.CFP_DATE_UNKNOWN)).containsExactly("PLoP");
+        assertThat(namesIn(sections, DashboardGroup.DECIDE)).containsExactly("ExploreDDD");
+        assertThat(namesIn(sections, DashboardGroup.NOTHING_TO_SUBMIT)).containsExactly("SoCraTes DE");
+        assertThat(namesIn(sections, DashboardGroup.GOING)).containsExactly("dev2next");
     }
 
     /**
@@ -55,14 +55,14 @@ class ConferenceRadarTest {
      */
     @Test
     void aCommittedConferenceIsGoingEvenWithACfpStillOpen() {
-        List<RadarSection> sections = radar.sections(List.of(
+        List<DashboardSection> sections = dashboard.sections(List.of(
                 going("dev2next", ConferenceFormat.CALL_FOR_PAPERS, NOW.plus(Duration.ofDays(30)))
         ), NOW);
 
         assertThat(sections)
                 .singleElement()
-                .extracting(RadarSection::group)
-                .isEqualTo(RadarGroup.GOING);
+                .extracting(DashboardSection::group)
+                .isEqualTo(DashboardGroup.GOING);
     }
 
     /**
@@ -71,12 +71,12 @@ class ConferenceRadarTest {
      */
     @Test
     void theClosingGroupIsSortedBySoonestDeadlineNotByConferenceDate() {
-        List<RadarSection> sections = radar.sections(List.of(
+        List<DashboardSection> sections = dashboard.sections(List.of(
                 watching("Closes Later", ConferenceFormat.CALL_FOR_PAPERS, NOW.plus(Duration.ofDays(60))),
                 watching("Closes Tomorrow", ConferenceFormat.CALL_FOR_PAPERS, NOW.plus(Duration.ofDays(1)))
         ), NOW);
 
-        assertThat(namesIn(sections, RadarGroup.CFP_CLOSES_SOON))
+        assertThat(namesIn(sections, DashboardGroup.CFP_CLOSES_SOON))
                 .containsExactly("Closes Tomorrow", "Closes Later");
     }
 
@@ -90,48 +90,48 @@ class ConferenceRadarTest {
         List<ConferenceView> conferences =
                 List.of(watching("J-Fall", ConferenceFormat.CALL_FOR_PAPERS, deadline));
 
-        assertThat(radar.sections(conferences, NOW))
+        assertThat(dashboard.sections(conferences, NOW))
                 .singleElement()
-                .extracting(RadarSection::group)
-                .isEqualTo(RadarGroup.CFP_CLOSES_SOON);
-        assertThat(radar.sections(conferences, deadline.plus(Duration.ofSeconds(1))))
+                .extracting(DashboardSection::group)
+                .isEqualTo(DashboardGroup.CFP_CLOSES_SOON);
+        assertThat(dashboard.sections(conferences, deadline.plus(Duration.ofSeconds(1))))
                 .singleElement()
-                .extracting(RadarSection::group)
-                .isEqualTo(RadarGroup.DECIDE);
+                .extracting(DashboardSection::group)
+                .isEqualTo(DashboardGroup.DECIDE);
     }
 
     @Test
     void anOpenSpaceConferenceNeverAsksForACfpDate() {
-        List<RadarSection> sections = radar.sections(List.of(
+        List<DashboardSection> sections = dashboard.sections(List.of(
                 watching("SoCraTes DE", ConferenceFormat.OPEN_SPACE, null)
         ), NOW);
 
         assertThat(sections)
                 .singleElement()
-                .extracting(RadarSection::group)
+                .extracting(DashboardSection::group)
                 .as("there is no CFP to find a date for")
-                .isEqualTo(RadarGroup.NOTHING_TO_SUBMIT);
+                .isEqualTo(DashboardGroup.NOTHING_TO_SUBMIT);
     }
 
     @Test
     void groupsWithNoConferencesAreLeftOutEntirely() {
-        List<RadarSection> sections = radar.sections(List.of(
+        List<DashboardSection> sections = dashboard.sections(List.of(
                 going("dev2next", ConferenceFormat.CALL_FOR_PAPERS, null)
         ), NOW);
 
         assertThat(sections)
                 .as("a heading over nothing is noise on a page whose job is to be scanned")
                 .singleElement()
-                .extracting(RadarSection::group)
-                .isEqualTo(RadarGroup.GOING);
+                .extracting(DashboardSection::group)
+                .isEqualTo(DashboardGroup.GOING);
     }
 
     @Test
     void noConferencesAtAllMeansNoSections() {
-        assertThat(radar.sections(List.of(), NOW)).isEmpty();
+        assertThat(dashboard.sections(List.of(), NOW)).isEmpty();
     }
 
-    private static List<String> namesIn(List<RadarSection> sections, RadarGroup group) {
+    private static List<String> namesIn(List<DashboardSection> sections, DashboardGroup group) {
         return sections.stream()
                 .filter(section -> section.group() == group)
                 .flatMap(section -> section.conferences().stream())

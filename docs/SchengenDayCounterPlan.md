@@ -511,7 +511,7 @@ migrations to gatherings, whose days are still counted through the gathering eve
 
 **Still needed by hand, and not inferable:** conferences already accepted but *future* at ship time.
 Absence of a decline says nothing there. On current data that is a handful of entries and a few clicks
-in the radar view.
+in the dashboard view.
 
 ## Known limitations, to state rather than fix
 

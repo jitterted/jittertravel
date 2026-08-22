@@ -1,7 +1,7 @@
 # Conference Submission Tracking Plan — commitment, speaking status, and the CFP pipeline
 
 > **Status: IN PROGRESS. Slices 1–3 shipped** (`ConferenceFormat` 2026-08-18, the Decline slice
-> 2026-08-16, commitment 2026-08-19, and **slice 3 — CFP + radar + SPEAKER — 2026-08-21**).
+> 2026-08-16, commitment 2026-08-19, and **slice 3 — CFP + dashboard + SPEAKER — 2026-08-21**).
 > **Slices 4–5 not started.** Design agreed with Ted in conversation. See `docs/Backlog.md` for the
 > status of everything else.
 >
@@ -13,12 +13,12 @@
 > in the actions cell — three actions, so three links, per the dropdown rule.
 > `ICalEventSource` finally earned itself as the second contributor, with the hotel deadlines lifted
 > out of `CalendarFeedAssembler` unchanged; CFP alarms are **72h + 24h**. `/conferences` became the
-> radar: five groups in urgency order, headed and each carrying one line of guidance —
+> dashboard: five groups in urgency order, headed and each carrying one line of guidance —
 > **CFP closes soon / CFP date unknown / Decide / Nothing to submit / Going** (Ted's choice of
 > three shapes). And the `SPEAKER` marker landed beside the commitment chip, derived from
 > `AttendanceBasis` as a **boolean** so accepted-vs-invited never reaches the view.
 >
-> **Two things worth carrying into slice 4.** The radar cannot yet distinguish "submitted, waiting
+> **Two things worth carrying into slice 4.** The dashboard cannot yet distinguish "submitted, waiting
 > to hear" from "have not submitted" — both fall in `CFP_CLOSES_SOON` — which is precisely what the
 > submission stream fixes. And `CfpDeadlineSource` has **no 4h backstop**, unlike the hotel source:
 > a CFP recorded inside 72h of closing loses both alarms the way a hotel booked inside 24h would,
@@ -175,7 +175,7 @@ Two streams. Commitment events key on the existing `ConferenceId`; submissions g
 
 | Event | Notes |
 |---|---|
-| `ConferencePlanned` (exists) | Renamed from `ConferenceTentativelyPlanned` 2026-08-19 (old wire ids aliased in `EventTypes`). Reads as "on my radar" — the `WATCHING` entry point. |
+| `ConferencePlanned` (exists) | Renamed from `ConferenceTentativelyPlanned` 2026-08-19 (old wire ids aliased in `EventTypes`). Reads as "worth watching" — the `WATCHING` entry point. |
 | `CfpWindowRecorded(conferenceId, opensOn, closesOn)` | Optional; either date may be absent. Drives `CFP_PENDING` → `CFP_OPEN` and the "submit before you lose it" nudge. |
 | `ConferenceAttendanceCommitted(conferenceId, basis, committedOn)` | `basis` ∈ `SPEAKING_ACCEPTED`, `SPEAKING_INVITED`, `TICKET_PURCHASED` (`ATTENDING_ANYWAY` dropped 2026-08-19). **Owner-only.** |
 | `ConferenceAttendanceDeclined(conferenceId, reason, declinedOn)` | *Ted* decided not to go. Distinct from a rejection and from an organizer cancellation. |
@@ -314,7 +314,7 @@ label.
 
 The surviving three partition cleanly into speaking (`SPEAKING_ACCEPTED`, `SPEAKING_INVITED`) and
 not (`TICKET_PURCHASED`), which is exactly the read the slice-4 conference speaking badge needs —
-and, before it, the `SPEAKER` marker on the `/conferences` radar (see below).
+and, before it, the `SPEAKER` marker on the `/conferences` dashboard (see below).
 `basis` stays **OWNER-only and never enters `CalendarEntry`** regardless.
 
 ### The public calendar label — a "Maybe" chip, speculative only (Ted, 2026-08-19)
@@ -340,7 +340,7 @@ Talk" speaking badge shows only in the exceptional case.
 
 **The same chip for owner and anonymous viewers.** One rendering path, one collapse, nothing for the
 redactor to get wrong. Richer per-conference status (submitted / waitlisted / decide) belongs on the
-conference radar list in slice 3, not on the calendar.
+conference dashboard list in slice 3, not on the calendar.
 
 A styling-only distinction (muted vs. solid) was rejected: it is invisible to anyone who does not
 already know the convention, and muted conventionally reads as *cancelled*.
@@ -382,7 +382,7 @@ construction. It says nothing about the *public* conference speaking badge on `/
 remains a separate slice-4 decision — see "Redaction" below and the gathering precedent.
 
 **Sequencing.** Shippable any time after slice 2 (the basis exists now), but it belongs with
-**slice 3**, which reworks this list into the radar and therefore the column layout; its source then
+**slice 3**, which reworks this list into the dashboard and therefore the column layout; its source then
 flips to the submission fold in **slice 4** with the rest of the pipeline.
 
 ### The `tentative` → `conferences` realignment (Ted, 2026-08-19)
@@ -487,12 +487,12 @@ The original bottom-up order is re-cut so the CFP-season payoff and the backfill
    SoCraTes are reachable after this slice, but J-Fall's `CfpOpened` row needs slice 3.
    **SHIPPED 2026-08-19** — see "Slice 2 as built" at the top. `TalkAccepted` auto-commit and
    `InvitedToSpeak` offer-to-commit moved to slice 4 with the events they fold.
-3. **`CfpOpened` + the CFP-deadline iCal source (72h + 24h)** + the radar view grouped by derived
+3. **`CfpOpened` + the CFP-deadline iCal source (72h + 24h)** + the dashboard view grouped by derived
    status, `OPEN_SPACE` in a "nothing to submit" group. Pulls the deadline reminder forward because
    that is the concrete CFP-season value. Also lands the **`SPEAKER` marker in the `Going?`
    column**, basis-sourced for now (see "The `/conferences` speaking marker").
 4. **The submission stream** (`TalkSubmitted` / `TalkAccepted` / `TalkRejected` / `TalkWaitlisted` /
-   `TalkWithdrawn`, conference-keyed) + the pipeline actions on the radar, incl. the
+   `TalkWithdrawn`, conference-keyed) + the pipeline actions on the dashboard, incl. the
    `ACCEPTANCE_REQUIRED` auto-drop-on-reject fork and the `CALL_FOR_PAPERS` "decide" affordance. The
    conference **speaking badge** unlocks here, and the `Going?` column's `SPEAKER` marker re-sources
    from this fold instead of `AttendanceBasis`.
@@ -596,7 +596,7 @@ lands with the ceiling. Adding it later is a second schema bump on `ConferencePl
 
 ### Read models
 
-`ConferenceProjector` / `ConferenceView` become the conference **radar**: grouped
+`ConferenceProjector` / `ConferenceView` become the conference **dashboard**: grouped
 by derived status, with the actions inline (`WATCHING` → Submit / Buy ticket / Drop; `SUBMITTED` →
 Accepted / Waitlisted / Rejected / Withdraw; `REJECTED` → Go anyway / Drop), and a derived
 `speaking` boolean on the view rendering as **`SPEAKER`** in the `Going?` column. Keep the
@@ -616,7 +616,7 @@ once the two status dimensions exist, every conference already in the app is a b
 that — i.e. how the existing conferences get their real `attendance`/`speaking` state instead of all
 defaulting to `WATCHING`/`NOT_SPEAKING`. Options to weigh when the time comes: a one-off admin
 back-entry pass (append the commitment/submission events by hand from memory), a small guided
-"catch up" UI on the radar view, or accept the default and only enrich going forward. Decide before
+"catch up" UI on the dashboard view, or accept the default and only enrich going forward. Decide before
 step 2 ships so the calendar doesn't briefly mislabel conferences Ted is actually committed to.
 
 The `DeclineConferenceAttendance` slice shipped 2026-08-16 (the `ConferenceAttendanceDeclined` event,
@@ -635,7 +635,7 @@ rework here.
 2. Commitment events, handlers, and the derived `attendance` fold. `CalendarEntry.commitment`, the
    redactor branch, and both tiers of redaction test land here — this is the slice that makes the
    calendar tell the truth.
-3. `CfpWindowRecorded` + the radar view grouped by derived status.
+3. `CfpWindowRecorded` + the dashboard view grouped by derived status.
 4. The submission stream and its pipeline actions.
 5. `ScheduleGapProjector` and Schengen ceiling filtering by attendance.
 

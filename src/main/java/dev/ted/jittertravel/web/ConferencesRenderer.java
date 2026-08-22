@@ -2,8 +2,8 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.ConferenceView;
-import dev.ted.jittertravel.application.RadarGroup;
-import dev.ted.jittertravel.application.RadarSection;
+import dev.ted.jittertravel.application.DashboardGroup;
+import dev.ted.jittertravel.application.DashboardSection;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
@@ -107,20 +107,20 @@ public class ConferencesRenderer {
                headings: this page is an action list, not a problem report, and the rule that every
                problem wears the same amber is about problems sitting among non-problems. The
                commitment chips already carry what colour this page needs. */
-            .radar-section { margin-top: 2rem; }
-            .radar-section:first-child { margin-top: 1rem; }
-            .radar-heading {
+            .dashboard-section { margin-top: 2rem; }
+            .dashboard-section:first-child { margin-top: 1rem; }
+            .dashboard-heading {
                 font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
                 letter-spacing: 0.06em; color: var(--muted-text); margin: 0;
             }
-            .radar-guidance { font-size: 0.9rem; color: var(--muted-text); margin: 0.15rem 0 0; }
+            .dashboard-guidance { font-size: 0.9rem; color: var(--muted-text); margin: 0.15rem 0 0; }
             /* The deadline under the name, not in a column of its own — see nameCell. */
             .conf-cfp-deadline {
                 font-size: 0.8rem; font-weight: 400; color: var(--muted-text); margin-top: 0.15rem;
             }
             """;
 
-    public static String render(List<RadarSection> sections, TimeView activeFilter) {
+    public static String render(List<DashboardSection> sections, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
                 Page.head("Conferences", CSS),
                 body(
@@ -142,20 +142,20 @@ public class ConferencesRenderer {
 
     /**
      * A heading, one line saying what to do about the group, and the group's own table. The wording
-     * lives here rather than on {@link RadarGroup}: the enum is the derived fact, and how it is
+     * lives here rather than on {@link DashboardGroup}: the enum is the derived fact, and how it is
      * worded is presentation (CLAUDE.md).
      * <p>
      * Exhaustive, so a new group cannot be added without deciding what it tells Ted to do.
      */
-    private static DomContent renderSection(RadarSection section) {
-        return div().withClass("radar-section").with(
-                h2(heading(section.group())).withClass("radar-heading"),
-                p(guidance(section.group())).withClass("radar-guidance"),
+    private static DomContent renderSection(DashboardSection section) {
+        return div().withClass("dashboard-section").with(
+                h2(heading(section.group())).withClass("dashboard-heading"),
+                p(guidance(section.group())).withClass("dashboard-guidance"),
                 renderTable(section.conferences())
         );
     }
 
-    private static String heading(RadarGroup group) {
+    private static String heading(DashboardGroup group) {
         return switch (group) {
             case CFP_CLOSES_SOON -> "CFP closes soon";
             case CFP_DATE_UNKNOWN -> "CFP date unknown";
@@ -165,7 +165,7 @@ public class ConferencesRenderer {
         };
     }
 
-    private static String guidance(RadarGroup group) {
+    private static String guidance(DashboardGroup group) {
         return switch (group) {
             case CFP_CLOSES_SOON -> "Submit, or decide not to.";
             case CFP_DATE_UNKNOWN -> "Find the deadline and record it, so a reminder can be set.";

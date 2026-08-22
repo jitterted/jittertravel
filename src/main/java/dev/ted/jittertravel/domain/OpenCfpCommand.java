@@ -15,7 +15,7 @@ import java.util.stream.Stream;
  * The only refusal is a conference that does not exist — never planned, or since cancelled by the
  * organizers, or declined. There is deliberately <strong>no time gate</strong>: a CFP whose deadline
  * has already passed is still worth recording, because "this closed and I did not submit" is exactly
- * the state the radar wants to show, and because backfilling an old conference is a legitimate use.
+ * the state the dashboard wants to show, and because backfilling an old conference is a legitimate use.
  * <p>
  * <strong>Recording twice is allowed</strong>, and is how a deadline extension gets in — organizers
  * move CFP dates routinely. The fold takes the last one, so there is no prior state to consult and

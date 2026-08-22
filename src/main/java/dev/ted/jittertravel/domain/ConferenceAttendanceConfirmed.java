@@ -3,7 +3,7 @@ package dev.ted.jittertravel.domain;
 import java.time.Instant;
 
 /**
- * Ted is going to a conference he had on his radar — the commitment half of the pair whose other
+ * Ted is going to a conference he had been watching — the commitment half of the pair whose other
  * half is {@link ConferenceAttendanceDeclined}. Both are <em>his</em> decisions, and both stay
  * distinct from {@link ConferenceCancelled} (the organizers pulled the event).
  * <p>

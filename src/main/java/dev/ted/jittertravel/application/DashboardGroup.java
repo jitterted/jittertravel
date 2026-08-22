@@ -20,7 +20,7 @@ package dev.ted.jittertravel.application;
  * "submitted, waiting to hear", which today is indistinguishable from "have not submitted" and so
  * falls in {@link #CFP_CLOSES_SOON} either way.
  */
-public enum RadarGroup {
+public enum DashboardGroup {
 
     /** A recorded deadline that has not passed. The only group with someone else's clock running. */
     CFP_CLOSES_SOON,

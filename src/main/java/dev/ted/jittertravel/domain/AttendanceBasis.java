@@ -15,7 +15,7 @@ package dev.ted.jittertravel.domain;
  * <p>The three partition cleanly into speaking ({@link #SPEAKING_ACCEPTED},
  * {@link #SPEAKING_INVITED}) and not ({@link #TICKET_PURCHASED}), which is the read the slice-4
  * conference speaking badge will need — and, before it, the {@code SPEAKER} marker planned for the
- * OWNER-only {@code /conferences} radar, which carries a derived {@code speaking} boolean rather
+ * OWNER-only {@code /conferences} dashboard, which carries a derived {@code speaking} boolean rather
  * than this enum for the same reason {@code CalendarEntry} carries only a collapsed commitment.
  *
  * <p>No display label here, deliberately: how a basis is worded belongs to the presentation layer

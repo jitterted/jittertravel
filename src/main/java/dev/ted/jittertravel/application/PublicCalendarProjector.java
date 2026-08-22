@@ -76,7 +76,7 @@ public class PublicCalendarProjector implements EventStreamConsumer {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
                 // Conferences are public events in full: name, venue, city and times. Planning one
-                // is putting it on the radar, so it starts out merely WATCHING; confirming
+                // is putting it on the watch list, so it starts out merely WATCHING; confirming
                 // attendance rewrites the same entry as GOING. The event's AttendanceBasis — why
                 // Ted is going, which is submission status in disguise — is never read here.
                 case ConferencePlanned e -> put(e.conferenceId(), conference(e, AttendanceCommitment.WATCHING));

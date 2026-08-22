@@ -480,7 +480,7 @@ class CalendarRedactionSecurityTest {
     @WithMockUser(username = "ted", roles = "OWNER")
     void ownerSeesTheSameMaybeChipAsAnonymousViewers() {
         // One rendering path, one collapse: richer per-conference status belongs on the conference
-        // radar, not on the calendar, so there is nothing for the redactor to get wrong here.
+        // dashboard, not on the calendar, so there is nothing for the redactor to get wrong here.
         given(calendarAggregator.allEntries()).willReturn(
                 List.of(conference(AttendanceCommitment.WATCHING)));
 

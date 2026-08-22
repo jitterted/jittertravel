@@ -5,7 +5,7 @@ package dev.ted.jittertravel.domain;
  * a {@link GatheringPlanned}, which is a few hours on one day.
  * <p>
  * Whether Ted is actually <em>going</em> is not recorded here: attendance commitment is derived by
- * folding the later commitment events, so this is the entry point onto the radar and nothing more.
+ * folding the later commitment events, so this is the entry point onto the watch list and nothing more.
  * (Named {@code ConferenceTentativelyPlanned} until 2026-08-19, when "tentative" became that derived
  * status; {@code EventTypes} aliases the old wire ids.)
  * <p>

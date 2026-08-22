@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Records that Ted is going to a conference he had on his radar.
+ * Records that Ted is going to a conference he had been watching.
  * <p>
  * Mirrors {@link DeclineConference}: it folds its one decision fact from the authoritative event
  * stream rather than a projector (R1 in {@code EventSourcingRulesHeuristics.md}), so the executor is

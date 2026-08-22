@@ -104,7 +104,7 @@ class ConferenceCalendarProjectorTest {
         projector.handle(Stream.of(stored(sampleConference("J-Fall", LocalDateTime.of(2026, 11, 5, 9, 0)))));
 
         assertThat(projector.entries().getFirst().details())
-                .as("planning a conference puts it on the radar, nothing more")
+                .as("planning a conference puts it on the watch list, nothing more")
                 .isEqualTo(new EntryDetails.Conference(AttendanceCommitment.WATCHING));
     }
 

@@ -49,7 +49,7 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                             locationLines,
                             event.name() + " cont'd",
                             locationLines,
-                            // Planning a conference is putting it on the radar, nothing more: it is
+                            // Planning a conference is putting it on the watch list, nothing more: it is
                             // speculative until an attendance confirmation says otherwise.
                             new EntryDetails.Conference(AttendanceCommitment.WATCHING)
                     ));

@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.stream.Stream;
 
 /**
- * Records that Ted is going to a conference he had on his radar, emitting
+ * Records that Ted is going to a conference he had been watching, emitting
  * {@link ConferenceAttendanceConfirmed}.
  * <p>
  * The only refusal is a conference that does not exist (never planned, or already cancelled by the

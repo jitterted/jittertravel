@@ -205,7 +205,7 @@ class ProblemBandTest {
 
         assertThat(ProblemBand.from(problem))
                 .extracting(ProblemBand::fixes)
-                .isEqualTo(ProblemFix.forProblem(problem));
+                .isEqualTo(ProblemFix.forProblem(problem, FixOrigin.PROBLEM_CALENDAR));
     }
 
     @Test
@@ -234,7 +234,7 @@ class ProblemBandTest {
                 GatheringId.random(), ConferenceId.random());
 
         assertThat(ProblemBand.from(problem).fixes())
-                .isEqualTo(ProblemFix.forProblem(problem));
+                .isEqualTo(ProblemFix.forProblem(problem, FixOrigin.PROBLEM_CALENDAR));
     }
 
 }

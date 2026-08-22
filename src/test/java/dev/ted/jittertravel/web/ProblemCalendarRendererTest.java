@@ -184,13 +184,13 @@ class ProblemCalendarRendererTest {
         String html = render(
                 List.of(missingHotel("Chicago", 15, 18)),
                 List.of(conference("dev2next", "Chicago", 15, 17),
-                        new ScheduleContext.Stay("Chicago",
+                        new ScheduleContext.Stay("Reichshof", "Chicago",
                                 LocalDate.of(2026, 7, 15), LocalDate.of(2026, 7, 18))));
 
         assertThat(html)
                 .contains("grid-row: 2 / span 3;")
                 .contains("padding-bottom: 1.15em;")
-                .contains("<span class=\"pc-context-label\">Hotel, Chicago · Jul 15–18</span>")
+                .contains("<span class=\"pc-context-label\">Reichshof, Chicago · Jul 15–18</span>")
                 .contains("<span class=\"pc-context-label\">dev2next, Chicago · Jul 15–17</span>");
     }
 
@@ -339,7 +339,8 @@ class ProblemCalendarRendererTest {
         String html = render(missingHotel("London", 15, 18));
 
         assertThat(html)
-                .contains("<a href=\"/book-hotel?city=London&amp;checkIn=2026-07-15&amp;checkOut=2026-07-18\" "
+                .contains("<a href=\"/book-hotel?city=London&amp;checkIn=2026-07-15&amp;checkOut=2026-07-18"
+                          + "&amp;problem=hotel%7CLondon%7C2026-07-15%7C2026-07-18&amp;from=calendar\" "
                           + "class=\"pc-band-link\">")
                 .contains("<span class=\"pc-band-fix\">Book hotel &rarr;</span>")
                 .as("one answer needs no menu, and a band that only looks clickable is a hidden affordance")
@@ -366,9 +367,12 @@ class ProblemCalendarRendererTest {
     /**
      * C3, stated as a test: the band and the list card link to the same place, because both read
      * {@code ProblemFix.forProblem}. Two URL builders is how the two views drift apart.
+     * <p>
+     * The one thing they differ in is deliberate — each view's links come back to <em>that</em>
+     * view, so the Back link on the form does not move Ted to the other one.
      */
     @Test
-    void aBandAndItsListCardOfferTheSameHrefs() {
+    void aBandAndItsListCardOfferTheSameHrefsApartFromWhereTheyComeBackTo() {
         ScheduleProblem problem = missingTravel("London", 15, "Berlin", 16);
 
         String calendar = render(problem);
@@ -376,11 +380,18 @@ class ProblemCalendarRendererTest {
 
         // A travel gap has three answers, so the band keeps a menu while the card lists its links:
         // different controls, deliberately, but the same destinations.
-        for (ProblemFix fix : ProblemFix.forProblem(problem)) {
-            assertThat(calendar).contains("<a href=\"" + fix.href().replace("&", "&amp;") + "\" "
-                                          + "class=\"disclosure-menu-item\">" + fix.label() + "</a>");
-            assertThat(list).contains("<a href=\"" + fix.href().replace("&", "&amp;") + "\" "
-                                      + "class=\"fix-summary\">" + fix.label() + " &rarr;</a>");
+        List<ProblemFix> fromCalendar = ProblemFix.forProblem(problem, FixOrigin.PROBLEM_CALENDAR);
+        List<ProblemFix> fromList = ProblemFix.forProblem(problem, FixOrigin.PROBLEM_LIST);
+        for (int fix = 0; fix < fromCalendar.size(); fix++) {
+            ProblemFix bandFix = fromCalendar.get(fix);
+            ProblemFix cardFix = fromList.get(fix);
+            assertThat(bandFix.href().replace("&from=calendar", ""))
+                    .as("the two views must not build two different URLs for one fix")
+                    .isEqualTo(cardFix.href().replace("&from=list", ""));
+            assertThat(calendar).contains("<a href=\"" + bandFix.href().replace("&", "&amp;") + "\" "
+                                          + "class=\"disclosure-menu-item\">" + bandFix.label() + "</a>");
+            assertThat(list).contains("<a href=\"" + cardFix.href().replace("&", "&amp;") + "\" "
+                                      + "class=\"fix-summary\">" + cardFix.label() + " &rarr;</a>");
         }
     }
 

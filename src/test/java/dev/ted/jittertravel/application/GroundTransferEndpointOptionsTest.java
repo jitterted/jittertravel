@@ -98,19 +98,43 @@ class GroundTransferEndpointOptionsTest {
                                  tuple("2026-10-02", "11:00"));
     }
 
+    /**
+     * Both ends offer the same stay, each naming the moment that can apply to it: you leave a hotel
+     * at check-out and reach one at check-in. The date is what makes the option matchable at all —
+     * against the schedule problem that sent Ted here, and against a second stay in the same city.
+     */
     @Test
-    void aBookedHotelIsOfferedAtBothEndsAndCarriesNoTimes() {
+    void aBookedHotelIsOfferedAtBothEndsCarryingTheMomentThatAppliesToEachEnd() {
         given(bookedHotel(LONE_TREE, "Marriott Lone Tree", "Lone Tree",
                 "2026-09-14", "2026-09-18"));
 
         GroundTransferEndpointChoices choices = options.choicesAt(NOW);
 
-        TransferEndpointOption hotel = new TransferEndpointOption(
-                "hotel:" + LONE_TREE.id(), "Marriott Lone Tree — Lone Tree", "", "");
-        assertThat(choices.hotels()).containsExactly(hotel);
-        assertThat(hotel.prefillDate())
-                .as("a check-in time is not when a taxi runs, so a hotel prefills nothing")
-                .isEmpty();
+        assertThat(choices.checkOuts()).containsExactly(new TransferEndpointOption(
+                "hotel:" + LONE_TREE.id(),
+                "Marriott Lone Tree — Lone Tree · check out Fri Sep 18, 11:00 AM",
+                "Lone Tree", "2026-09-18", "11:00"));
+        assertThat(choices.checkIns()).containsExactly(new TransferEndpointOption(
+                "hotel:" + LONE_TREE.id(),
+                "Marriott Lone Tree — Lone Tree · check in Mon Sep 14, 3:00 PM",
+                "Lone Tree", "2026-09-14", "15:00"));
+    }
+
+    /**
+     * Two stays in one city were one unreadable choice twice over — the case that forced the dates
+     * on (Ted, 2026-08-21).
+     */
+    @Test
+    void twoStaysInOneCityAreToldApartByTheirDates() {
+        HotelBookingId second = HotelBookingId.random();
+        given(bookedHotel(LONE_TREE, "Marriott Lone Tree", "Lone Tree", "2026-09-14", "2026-09-18"),
+              bookedHotel(second, "Hyatt Lone Tree", "Lone Tree", "2026-09-20", "2026-09-22"));
+
+        assertThat(options.choicesAt(NOW).checkOuts())
+                .extracting(TransferEndpointOption::label)
+                .as("chronological, so the stay Ted is thinking about is where he expects it")
+                .containsExactly("Marriott Lone Tree — Lone Tree · check out Fri Sep 18, 11:00 AM",
+                                 "Hyatt Lone Tree — Lone Tree · check out Tue Sep 22, 11:00 AM");
     }
 
     @Test
@@ -118,8 +142,10 @@ class GroundTransferEndpointOptionsTest {
         given(bookedHotel(LONE_TREE, "Marriott Lone Tree", "Lone Tree", "2026-09-14", "2026-09-18"),
               new HotelBookingCancelled(LONE_TREE, "changed plans"));
 
-        assertThat(options.choicesAt(NOW).hotels())
-                .isEmpty();
+        GroundTransferEndpointChoices cancelled = options.choicesAt(NOW);
+
+        assertThat(cancelled.checkOuts()).isEmpty();
+        assertThat(cancelled.checkIns()).isEmpty();
     }
 
     /**
@@ -173,9 +199,9 @@ class GroundTransferEndpointOptionsTest {
         given(bookedHotel(LONE_TREE, "Marriott Lone Tree", "Lone Tree",
                 "2026-08-28", "2026-09-01"));
 
-        assertThat(options.choicesAt(NOW).hotels())
+        assertThat(options.choicesAt(NOW).checkOuts())
                 .extracting(TransferEndpointOption::label)
-                .containsExactly("Marriott Lone Tree — Lone Tree");
+                .containsExactly("Marriott Lone Tree — Lone Tree · check out Tue Sep 1, 11:00 AM");
     }
 
     @Test
@@ -183,8 +209,10 @@ class GroundTransferEndpointOptionsTest {
         given(bookedHotel(LONE_TREE, "Marriott Lone Tree", "Lone Tree",
                 "2026-08-28", "2026-08-31"));
 
-        assertThat(options.choicesAt(NOW).hotels())
-                .isEmpty();
+        GroundTransferEndpointChoices gone = options.choicesAt(NOW);
+
+        assertThat(gone.checkOuts()).isEmpty();
+        assertThat(gone.checkIns()).isEmpty();
     }
 
     @Test
@@ -197,17 +225,30 @@ class GroundTransferEndpointOptionsTest {
 
         assertThat(choices.arrivals()).isEmpty();
         assertThat(choices.departures()).isEmpty();
-        assertThat(choices.hotels()).isEmpty();
+        assertThat(choices.checkOuts()).isEmpty();
+        assertThat(choices.checkIns()).isEmpty();
     }
 
+    /**
+     * Mid-stay, so its check-in is already behind us — and it is still offered at both ends: the
+     * ride to a gathering and back is a transfer, and the "To" list is filtered on check-out for
+     * exactly this reason. Note what the prefill then does: choosing it moves the date field back
+     * to the day he arrived. That is the known weak spot of the hotel prefill (Ted, 2026-08-21),
+     * which is why the label says which moment it is filling in.
+     */
     @Test
-    void anOngoingStayIsStillOffered() {
+    void anOngoingStayIsStillOfferedAtBothEndsThoughItsCheckInHasPassed() {
         given(bookedHotel(LONE_TREE, "Marriott Lone Tree", "Lone Tree",
                 "2026-08-30", "2026-09-04"));
 
-        assertThat(options.choicesAt(NOW).hotels())
+        GroundTransferEndpointChoices choices = options.choicesAt(NOW);
+
+        assertThat(choices.checkOuts())
                 .extracting(TransferEndpointOption::label)
-                .containsExactly("Marriott Lone Tree — Lone Tree");
+                .containsExactly("Marriott Lone Tree — Lone Tree · check out Fri Sep 4, 11:00 AM");
+        assertThat(choices.checkIns())
+                .extracting(TransferEndpointOption::prefillDate)
+                .containsExactly("2026-08-30");
     }
 
     @Test

@@ -7,9 +7,9 @@ import java.nio.file.Path;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * JS-behavior tests for the ground-transfer form's prefill script: choosing a flight leg fills in
+ * JS-behavior tests for the ground-transfer form's prefill script: choosing an endpoint fills in
  * when it happens, so the times never have to be remembered or looked up in another tab (Ted,
- * 2026-08-20).
+ * 2026-08-20; extended to hotels 2026-08-21).
  * <p>
  * The <strong>script</strong> is lifted verbatim out of the shipped template, so there is no second
  * copy to drift. The <strong>markup</strong> is built here instead of rendered, because the options
@@ -29,8 +29,17 @@ class GroundTransferPrefillJsTest extends JsBehaviorTest {
     private static final String DEPARTURE_OPTION =
             "<option value=\"airport:SFO\" data-date=\"2026-09-18\" data-time=\"14:00\">"
             + "SFO depart 2:00 PM</option>";
-    private static final String HOTEL_OPTION =
-            "<option value=\"hotel:abc\" data-date=\"\" data-time=\"\">Marriott Lone Tree</option>";
+    // A hotel carries a moment too, since 2026-08-21: its check-out on the "From" side and its
+    // check-in on the "To" side, which is why the two sides get different options here.
+    private static final String HOTEL_CHECK_OUT_OPTION =
+            "<option value=\"hotel:abc\" data-date=\"2026-09-16\" data-time=\"11:00\">"
+            + "Marriott Lone Tree check out 11:00 AM</option>";
+    private static final String HOTEL_CHECK_IN_OPTION =
+            "<option value=\"hotel:abc\" data-date=\"2026-09-13\" data-time=\"15:00\">"
+            + "Marriott Lone Tree check in 3:00 PM</option>";
+    /** An option with no moment behind it — the script must leave the form untouched for one. */
+    private static final String MOMENTLESS_OPTION =
+            "<option value=\"hotel:xyz\" data-date=\"\" data-time=\"\">Somewhere, sometime</option>";
 
     @Test
     void choosingAnArrivalFillsInTheDateAndTheDepartureTime() {
@@ -93,11 +102,33 @@ class GroundTransferPrefillJsTest extends JsBehaviorTest {
         assertThat(valueOf("arrivalTime")).isEqualTo("23:00");
     }
 
+    /** Leaving a hotel: the ride starts when he checks out. */
     @Test
-    void choosingAHotelChangesNothingBecauseAHotelHasNoTimes() {
+    void choosingAHotelToLeaveFillsInItsCheckOut() {
         loadForm("2026-08-20", "09:00", "09:45");
 
         page.selectOption("#origin", "hotel:abc");
+
+        assertThat(valueOf("date")).isEqualTo("2026-09-16");
+        assertThat(valueOf("departureTime")).isEqualTo("11:00");
+    }
+
+    /** Arriving at one: the ride has to get him there by check-in. */
+    @Test
+    void choosingAHotelToArriveAtFillsInItsCheckIn() {
+        loadForm("2026-08-20", "09:00", "09:45");
+
+        page.selectOption("#destination", "hotel:abc");
+
+        assertThat(valueOf("date")).isEqualTo("2026-09-13");
+        assertThat(valueOf("arrivalTime")).isEqualTo("15:00");
+    }
+
+    @Test
+    void choosingAnOptionWithNoMomentLeavesEveryFieldAlone() {
+        loadForm("2026-08-20", "09:00", "09:45");
+
+        page.selectOption("#origin", "hotel:xyz");
 
         assertThat(valueOf("date")).isEqualTo("2026-08-20");
         assertThat(valueOf("departureTime")).isEqualTo("09:00");
@@ -122,9 +153,11 @@ class GroundTransferPrefillJsTest extends JsBehaviorTest {
                   <option value=""></option>
                   %s
                   %s
+                  %s
                 </select>
                 <select id="destination" name="destination">
                   <option value=""></option>
+                  %s
                   %s
                   %s
                 </select>
@@ -133,8 +166,8 @@ class GroundTransferPrefillJsTest extends JsBehaviorTest {
                 <input type="time" id="arrivalTime" name="arrivalTime" value="%s"/>
                 %s
                 </body></html>
-                """.formatted(ARRIVAL_OPTION, HOTEL_OPTION,
-                              DEPARTURE_OPTION, HOTEL_OPTION,
+                """.formatted(ARRIVAL_OPTION, HOTEL_CHECK_OUT_OPTION, MOMENTLESS_OPTION,
+                              DEPARTURE_OPTION, HOTEL_CHECK_IN_OPTION, MOMENTLESS_OPTION,
                               date, departureTime, arrivalTime,
                               shippedPrefillScript()));
     }

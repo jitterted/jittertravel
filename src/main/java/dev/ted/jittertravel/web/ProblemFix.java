@@ -20,6 +20,10 @@ import java.util.List;
  * and nothing here is a new route. That is why this slice adds no {@code SecurityConfig} matcher
  * and no {@code AuthorizationMatrixTest} row: the matrix is keyed by path, a query parameter cannot
  * escape a path matcher, and every target is already an OWNER surface.
+ * <p>
+ * Every href also carries {@code ?problem=} and {@code ?from=} (see {@link #explaining}), which is
+ * what lets the landing page show the banner saying <em>why you are here</em> — the prefill puts
+ * the right values in the inputs, and the banner is the sentence that made them the right ones.
  */
 public record ProblemFix(String label, String href) {
 
@@ -29,7 +33,29 @@ public record ProblemFix(String label, String href) {
      * rather than dropping it (CLAUDE.md: an action that cannot be triggered is disabled, not
      * removed).
      */
-    public static List<ProblemFix> forProblem(ScheduleProblem problem) {
+    public static List<ProblemFix> forProblem(ScheduleProblem problem, FixOrigin origin) {
+        return fixesFor(problem).stream()
+                .map(fix -> fix.explaining(problem, origin))
+                .toList();
+    }
+
+    /**
+     * The {@code ?problem=} reference and the {@code ?from=} origin, appended in one place so a new
+     * fix cannot forget them: without the reference the landing page cannot say why you are here,
+     * and without the origin its Back link guesses at which surface you left.
+     * <p>
+     * Neither parameter changes where the link goes — every target is an existing OWNER-only GET
+     * page, and a query parameter cannot escape a path matcher — so this still adds no
+     * {@code SecurityConfig} matcher and no {@code AuthorizationMatrixTest} row.
+     */
+    private ProblemFix explaining(ScheduleProblem problem, FixOrigin origin) {
+        String separator = href.contains("?") ? "&" : "?";
+        return new ProblemFix(label, href + separator
+                                     + "problem=" + encode(ProblemRef.of(problem).key())
+                                     + "&from=" + origin.param());
+    }
+
+    private static List<ProblemFix> fixesFor(ScheduleProblem problem) {
         return switch (problem) {
             case ScheduleProblem.MissingHotel missingHotel -> List.of(bookHotel(missingHotel));
             case ScheduleProblem.MissingTravel missingTravel -> travelFixes(missingTravel);

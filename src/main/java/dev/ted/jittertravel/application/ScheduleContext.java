@@ -41,7 +41,14 @@ public sealed interface ScheduleContext {
     record Travel(String fromCity, String toCity, LocalDate firstDay, LocalDate lastDay) implements ScheduleContext {
     }
 
-    /** A hotel stay that <em>exists</em> — the counterpart to a {@link ScheduleProblem.MissingHotel}. */
-    record Stay(String city, LocalDate firstDay, LocalDate lastDay) implements ScheduleContext {
+    /**
+     * A hotel stay that <em>exists</em> — the counterpart to a {@link ScheduleProblem.MissingHotel}.
+     * <p>
+     * It names the hotel, not just the city, because the reader has to match it against something:
+     * on {@code /plan-ground-transfer} the endpoint select offers hotels <em>by name</em>, and a
+     * context line saying only "Denver" leaves two stays in one city indistinguishable (Ted,
+     * 2026-08-21).
+     */
+    record Stay(String hotelName, String city, LocalDate firstDay, LocalDate lastDay) implements ScheduleContext {
     }
 }

@@ -190,7 +190,8 @@ class ScheduleProblemsRendererTest {
 
         assertThat(html)
                 // The whole anchor, with & escaped as the markup really has it.
-                .contains("<a href=\"/book-hotel?city=Johannesberg&amp;checkIn=2026-09-10&amp;checkOut=2026-09-14\" "
+                .contains("<a href=\"/book-hotel?city=Johannesberg&amp;checkIn=2026-09-10&amp;checkOut=2026-09-14"
+                          + "&amp;problem=hotel%7CJohannesberg%7C2026-09-10%7C2026-09-14&amp;from=list\" "
                           + "class=\"fix-summary\">Book hotel &rarr;</a>")
                 .doesNotContain("<details class=\"disclosure-menu\">");
     }
@@ -217,11 +218,14 @@ class ScheduleProblemsRendererTest {
 
         // Three answers is not more than three, so they are links rather than a menu.
         assertThat(html)
-                .contains("<a href=\"/book-flight?fromCity=Denver&amp;toCity=Lone+Tree&amp;date=2026-09-15\" "
+                .contains("<a href=\"/book-flight?fromCity=Denver&amp;toCity=Lone+Tree&amp;date=2026-09-15"
+                          + "&amp;problem=travel%7CDenver%7C2026-09-14T17%3A30%3A00Z%7CLone+Tree%7C2026-09-15T15%3A00%3A00Z&amp;from=list\" "
                           + "class=\"fix-summary\">Book flight &rarr;</a>")
-                .contains("<a href=\"/book-train?fromCity=Denver&amp;toCity=Lone+Tree&amp;date=2026-09-15\" "
+                .contains("<a href=\"/book-train?fromCity=Denver&amp;toCity=Lone+Tree&amp;date=2026-09-15"
+                          + "&amp;problem=travel%7CDenver%7C2026-09-14T17%3A30%3A00Z%7CLone+Tree%7C2026-09-15T15%3A00%3A00Z&amp;from=list\" "
                           + "class=\"fix-summary\">Book train &rarr;</a>")
-                .contains("<a href=\"/plan-ground-transfer?date=2026-09-15\" "
+                .contains("<a href=\"/plan-ground-transfer?date=2026-09-15"
+                          + "&amp;problem=travel%7CDenver%7C2026-09-14T17%3A30%3A00Z%7CLone+Tree%7C2026-09-15T15%3A00%3A00Z&amp;from=list\" "
                           + "class=\"fix-summary\">Ground transfer &rarr;</a>")
                 .doesNotContain("<details class=\"disclosure-menu\">");
         assertThat(html.indexOf("Book flight"))
@@ -260,10 +264,13 @@ class ScheduleProblemsRendererTest {
                 List.of(new ScheduleProblem.DuplicateStay(first, "Reichshof", "Hamburg", BookingIntent.FINAL),
                         new ScheduleProblem.DuplicateStay(second, "Park Hotel", "Soltau", BookingIntent.TENTATIVE)))));
 
+        // The cancel page has no query string of its own, so the problem reference opens one.
+        String reference = "?problem=dup%7C2026-08-26%7C2026-08-28%7C" + first.id() + "%2C" + second.id()
+                           + "&amp;from=list";
         assertThat(html)
-                .contains("<a href=\"/booked-hotels/" + first.id() + "/cancel\" "
+                .contains("<a href=\"/booked-hotels/" + first.id() + "/cancel" + reference + "\" "
                           + "class=\"fix-summary\">Cancel &quot;Reichshof&quot; &rarr;</a>")
-                .contains("<a href=\"/booked-hotels/" + second.id() + "/cancel\" "
+                .contains("<a href=\"/booked-hotels/" + second.id() + "/cancel" + reference + "\" "
                           + "class=\"fix-summary\">Cancel &quot;Park Hotel&quot; &rarr;</a>")
                 .as("two stays is not more than three, so no menu")
                 .doesNotContain("<details class=\"disclosure-menu\">");

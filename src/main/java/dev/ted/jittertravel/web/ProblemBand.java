@@ -113,7 +113,7 @@ public record ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, 
         return new ProblemBand(Marker.BED, checkIn, lastNight,
                 "No hotel — " + missingHotel.city(),
                 detail(nightsBetween(checkIn, lastNight), missingHotel.conferenceName()),
-                ProblemFix.forProblem(missingHotel));
+                ProblemFix.forProblem(missingHotel, FixOrigin.PROBLEM_CALENDAR));
     }
 
     /**
@@ -128,7 +128,7 @@ public record ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, 
                 duplicateHotel.stays().size() + " hotels — " + hotels,
                 nightsBetween(duplicateHotel.firstNight(), duplicateHotel.lastNight())
                 + " nights booked twice",
-                ProblemFix.forProblem(duplicateHotel));
+                ProblemFix.forProblem(duplicateHotel, FixOrigin.PROBLEM_CALENDAR));
     }
 
     /**
@@ -156,7 +156,7 @@ public record ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, 
         return new ProblemBand(Marker.TRAVEL, firstDay, lastDay,
                 "No travel — " + missingTravel.fromCity() + " → " + missingTravel.toCity(),
                 detail,
-                ProblemFix.forProblem(missingTravel));
+                ProblemFix.forProblem(missingTravel, FixOrigin.PROBLEM_CALENDAR));
     }
 
     /**
@@ -168,7 +168,7 @@ public record ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, 
         return new ProblemBand(Marker.CLASH_CITY, conflict.date(), conflict.date(),
                 "City clash — " + conflict.gatheringName() + " · " + conflict.conferenceName(),
                 conflict.gatheringCity() + " vs " + conflict.conferenceCity(),
-                ProblemFix.forProblem(conflict));
+                ProblemFix.forProblem(conflict, FixOrigin.PROBLEM_CALENDAR));
     }
 
     /**

@@ -3,6 +3,8 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.GroundTransferEndpointChoices;
 import dev.ted.jittertravel.application.GroundTransferEndpointOptions;
 import dev.ted.jittertravel.application.GroundTransferPlanning;
+import dev.ted.jittertravel.application.ScheduleGapProjector;
+import dev.ted.jittertravel.application.ScheduleProblem;
 import dev.ted.jittertravel.application.SameTransferEndpoints;
 import dev.ted.jittertravel.application.UnknownTransferEndpoint;
 import dev.ted.jittertravel.application.ZoneResolutionException;
@@ -20,6 +22,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Controller
@@ -27,13 +30,16 @@ public class PlanGroundTransferController {
 
     private final GroundTransferPlanning groundTransferPlanning;
     private final GroundTransferEndpointOptions endpointOptions;
+    private final ScheduleGapProjector scheduleGapProjector;
     private final Clock clock;
 
     public PlanGroundTransferController(GroundTransferPlanning groundTransferPlanning,
                                         GroundTransferEndpointOptions endpointOptions,
+                                        ScheduleGapProjector scheduleGapProjector,
                                         Clock clock) {
         this.groundTransferPlanning = groundTransferPlanning;
         this.endpointOptions = endpointOptions;
+        this.scheduleGapProjector = scheduleGapProjector;
         this.clock = clock;
     }
 
@@ -46,19 +52,48 @@ public class PlanGroundTransferController {
         return endpointOptions.choicesAt(Instant.now(clock));
     }
 
+    /**
+     * {@code ?date=} from the calendar day-menu seeds the day (D9); it never filters the endpoint
+     * options (D10). {@code ?problem=} comes from a "Ground transfer" fix link on
+     * {@code /schedule-problems} and does more: the gap it names says which two places this hop is
+     * between, so the selects can open already on them (D16, Ted 2026-08-21). Both are optional and
+     * both defaults are unchanged, so the index nav card and the day-menu link behave as before.
+     * <p>
+     * {@code endpointChoices} is taken as a parameter rather than rebuilt: it is the very list the
+     * page is about to render, so a preselected token is guaranteed to be an option that is there.
+     */
     @GetMapping("/plan-ground-transfer")
     public String planGroundTransferForm(Model model,
-                                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+                                         @ModelAttribute("endpointChoices") GroundTransferEndpointChoices endpointChoices,
+                                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                                         @RequestParam(required = false) String problem) {
         PlanGroundTransferRequest request = new PlanGroundTransferRequest();
         request.setGroundTransferId(UUID.randomUUID().toString());
-        // ?date= from the calendar day-menu seeds the day (D9); it never filters the endpoint
-        // options (D10). Absent, the default is today: a transfer is normally added to a trip
-        // already under way, which is exactly why it has no future-date rule.
+        // Absent a date, the default is today: a transfer is normally added to a trip already under
+        // way, which is exactly why it has no future-date rule.
         request.setDate(date != null ? date : LocalDate.now(clock));
         request.setDepartureTime(LocalTime.of(12, 0));
         request.setArrivalTime(LocalTime.of(12, 45));
+        // now is captured here at the boundary; the gap is read from the same report the banner
+        // above the form is read from, so the two cannot describe different problems.
+        gapNamedBy(problem, clock.instant())
+                .ifPresent(gap -> new GroundTransferPreselection(endpointChoices, gap).applyTo(request));
         model.addAttribute("planGroundTransfer", request);
         return "plan-ground-transfer";
+    }
+
+    /**
+     * The missing-travel gap {@code problem} names, if it names one that is still open. Any other
+     * kind of problem, and a key matching nothing at all, preselects nothing — the same silence the
+     * banner keeps.
+     */
+    private Optional<ScheduleProblem.MissingTravel> gapNamedBy(String problem, Instant now) {
+        if (problem == null || problem.isBlank()) {
+            return Optional.empty();
+        }
+        return new ProblemRef(problem).findIn(scheduleGapProjector.problems(now))
+                .filter(ScheduleProblem.MissingTravel.class::isInstance)
+                .map(ScheduleProblem.MissingTravel.class::cast);
     }
 
     @PostMapping("/plan-ground-transfer")

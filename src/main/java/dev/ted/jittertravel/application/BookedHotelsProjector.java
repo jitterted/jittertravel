@@ -49,6 +49,7 @@ public class BookedHotelsProjector implements EventStreamConsumer {
                 hotelBookingId,
                 hotelName,
                 address.city(),
+                address.locationForMatching(),
                 address.country(),
                 checkIn,
                 checkOut,

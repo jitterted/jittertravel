@@ -21,6 +21,19 @@ import java.util.Locale;
  * still {@code airport:<CODE>}: a transfer is between places, not between flights, so nothing about
  * the stored event changes.
  * <p>
+ * <strong>Hotels are split by direction too</strong> (Ted, 2026-08-21), and carry a moment for the
+ * same reason: leaving a hotel the moment is its check-out, arriving at one its check-in, and the
+ * label names which — {@code Reichshof — Hamburg · check out Wed Sep 16, 11:00 AM}. The date was
+ * what forced this: a bare {@code Reichshof — Hamburg} cannot be matched against the schedule
+ * problem that sent Ted here, and two stays in one city are the same line twice. Both lists hold
+ * the same stays; only the moment differs.
+ * <p>
+ * The prefill is a weaker claim here than on a leg, and knowing that matters: a stay is a range,
+ * so a ride to a gathering mid-stay happens on neither of those days, and choosing such a hotel
+ * moves the date field to one that is merely plausible. It is on trial for exactly that reason
+ * (Ted, 2026-08-21) — the label says out loud which moment it is filling in, so a wrong one is
+ * visible rather than silent, and dropping it later is deleting the two prefill arguments.
+ * <p>
  * <strong>Everything from today onward, with no date window (D10, widened by D14).</strong> "Near
  * that date" was considered and dropped — it was undefined, and on a plain GET the server has no
  * date to be near. What replaced it, {@code relevantUntil} not yet past, turned out to be too tight
@@ -65,7 +78,8 @@ public class GroundTransferEndpointOptions {
         return new GroundTransferEndpointChoices(
                 legOptions(flights, now, LegEnd.ARRIVAL),
                 legOptions(flights, now, LegEnd.DEPARTURE),
-                hotelOptions(now));
+                hotelOptions(now, StayEnd.CHECK_OUT),
+                hotelOptions(now, StayEnd.CHECK_IN));
     }
 
     private List<TransferEndpointOption> legOptions(List<BookedFlightView> flights, Instant now,
@@ -79,6 +93,7 @@ public class GroundTransferEndpointOptions {
             options.add(new TransferEndpointOption(
                     GroundTransferEndpointResolver.AIRPORT_PREFIX + end.airportCodeOf(flight),
                     label(flight, end, moment),
+                    airportCities.cityFor(end.airportCodeOf(flight)),
                     moment.localDateTime().toLocalDate().toString(),
                     INPUT_TIME.format(moment.localDateTime())));
         }
@@ -97,7 +112,13 @@ public class GroundTransferEndpointOptions {
                + " (" + flight.airline() + " " + flight.flightNumber() + ")";
     }
 
-    private List<TransferEndpointOption> hotelOptions(Instant now) {
+    /**
+     * The stays offered at one end. Both ends offer the same stays and filter them the same way —
+     * on <em>check-out</em>, whichever end this is, because that is what says the stay is over.
+     * Filtering the "To" list on check-in instead would drop the hotel you are riding to the moment
+     * you had arrived, which is exactly when the ride gets written down.
+     */
+    private List<TransferEndpointOption> hotelOptions(Instant now, StayEnd end) {
         return bookedHotels.views(TimeView.ALL, now).stream()
                 // Checked out this morning still counts: the ride to the airport is the transfer
                 // being recorded, and it is normally written down long after the taxi door shut.
@@ -105,11 +126,24 @@ public class GroundTransferEndpointOptions {
                 // A cancelled stay keeps a tombstone row on /booked-hotels so the cancellation is
                 // visible; it is not a place Ted can be dropped off.
                 .filter(hotel -> !hotel.cancelled())
-                .sorted(Comparator.comparing(BookedHotelView::hotelName))
-                .map(hotel -> new TransferEndpointOption(
-                        GroundTransferEndpointResolver.HOTEL_PREFIX + hotel.hotelBookingId().id(),
-                        hotel.hotelName() + " — " + hotel.city()))
+                // Chronological, like the legs above and for the same reason — now that each option
+                // carries a moment, alphabetical order puts the stay Ted is thinking about anywhere.
+                .sorted(Comparator.comparing(hotel -> end.momentOf(hotel).utc()))
+                .map(hotel -> stayOption(hotel, end))
                 .toList();
+    }
+
+    private TransferEndpointOption stayOption(BookedHotelView hotel, StayEnd end) {
+        ZonedTimestamp moment = end.momentOf(hotel);
+        return new TransferEndpointOption(
+                GroundTransferEndpointResolver.HOTEL_PREFIX + hotel.hotelBookingId().id(),
+                hotel.hotelName() + " — " + hotel.city()
+                + " · " + end.verb() + " " + LEG_MOMENT.format(moment.localDateTime()),
+                // The schedule's own location for the stay, which the label's city is not always:
+                // a gap says Johannesberg where the address says Rückersbach.
+                hotel.locationForMatching(),
+                moment.localDateTime().toLocalDate().toString(),
+                INPUT_TIME.format(moment.localDateTime()));
     }
 
     /**
@@ -121,6 +155,25 @@ public class GroundTransferEndpointOptions {
     private boolean isBeforeToday(ZonedTimestamp moment, Instant now) {
         return moment.localDateTime().toLocalDate()
                 .isBefore(LocalDate.ofInstant(now, moment.zone()));
+    }
+
+    /**
+     * Which end of a stay a transfer can touch: you leave a hotel at check-out and reach one at
+     * check-in. The label says which, because unlike a flight's the moment is a guess.
+     */
+    private enum StayEnd {
+        CHECK_OUT {
+            @Override ZonedTimestamp momentOf(BookedHotelView hotel) { return hotel.checkOut(); }
+            @Override String verb() { return "check out"; }
+        },
+        CHECK_IN {
+            @Override ZonedTimestamp momentOf(BookedHotelView hotel) { return hotel.checkIn(); }
+            @Override String verb() { return "check in"; }
+        };
+
+        abstract ZonedTimestamp momentOf(BookedHotelView hotel);
+
+        abstract String verb();
     }
 
     /**

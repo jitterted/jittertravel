@@ -15,6 +15,12 @@ import java.time.Instant;
  * controller boundary and renderers take no clock. Both are display-only: a stay is cancellable at
  * any time no matter what the deadline says.
  * <p>
+ * {@code locationForMatching} is the address field of the same name — the place the <em>schedule</em>
+ * reasons about this stay in, which is not always {@code city} (a venue in a hamlet is matched to
+ * the town everything else names). It is never displayed; it exists so the ground-transfer form can
+ * preselect the stay a missing-travel gap is about, and a gap says Johannesberg where the address
+ * says Rückersbach.
+ * <p>
  * {@code cancelled} marks a stay that has been cancelled. Unlike every other hotel read model, this
  * one keeps a tombstone row rather than dropping the booking, so the list can show what happened;
  * {@code cancellationReason} is the free text from the cancellation ({@code ""} when none was
@@ -24,6 +30,7 @@ public record BookedHotelView(
         HotelBookingId hotelBookingId,
         String hotelName,
         String city,
+        String locationForMatching,
         String country,
         ZonedTimestamp checkIn,
         ZonedTimestamp checkOut,
@@ -55,7 +62,8 @@ public record BookedHotelView(
 
     /** A copy with the advisory deadline evaluated against {@code now}. */
     BookedHotelView withDeadlineEvaluatedAt(Instant now) {
-        return new BookedHotelView(hotelBookingId, hotelName, city, country, checkIn, checkOut,
+        return new BookedHotelView(hotelBookingId, hotelName, city, locationForMatching, country,
+                checkIn, checkOut,
                 status, mapsUrl, cancelBy,
                 cancelBy != null && !now.isBefore(cancelBy.utc()),
                 cancelled, cancellationReason);
@@ -63,7 +71,8 @@ public record BookedHotelView(
 
     /** A copy marked cancelled, carrying the reason the cancellation recorded. */
     BookedHotelView cancelledWith(String reason) {
-        return new BookedHotelView(hotelBookingId, hotelName, city, country, checkIn, checkOut,
+        return new BookedHotelView(hotelBookingId, hotelName, city, locationForMatching, country,
+                checkIn, checkOut,
                 status, mapsUrl, cancelBy, cancelDeadlinePassed,
                 true, reason);
     }

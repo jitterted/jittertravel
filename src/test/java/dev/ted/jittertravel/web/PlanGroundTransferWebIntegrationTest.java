@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.GroundTransferEndpointChoices;
 import dev.ted.jittertravel.application.GroundTransferEndpointOptions;
 import dev.ted.jittertravel.application.GroundTransferPlanning;
 import dev.ted.jittertravel.application.SameTransferEndpoints;
+import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.TransferEndpointOption;
 import dev.ted.jittertravel.application.UnknownTransferEndpoint;
 import dev.ted.jittertravel.application.ZoneResolutionException;
@@ -49,6 +50,15 @@ class PlanGroundTransferWebIntegrationTest {
     @MockitoBean
     GroundTransferEndpointOptions endpointOptions;
 
+    /**
+     * The form reads the report only to preselect from a {@code ?problem=} gap; none of these cases
+     * sends one, so it answers with nothing. The preselection itself is covered by
+     * {@link GroundTransferPreselectionTest} and end to end in
+     * {@link ProblemContextBannerWebIntegrationTest}.
+     */
+    @MockitoBean
+    ScheduleGapProjector scheduleGapProjector;
+
     @MockitoBean
     Clock clock;
 
@@ -59,11 +69,16 @@ class PlanGroundTransferWebIntegrationTest {
         given(endpointOptions.choicesAt(any())).willReturn(new GroundTransferEndpointChoices(
                 List.of(new TransferEndpointOption("airport:DEN",
                         "DEN — Denver · arrive Mon Sep 14, 11:30 AM (UA 59)",
-                        "2026-09-14", "11:30")),
+                        "Denver", "2026-09-14", "11:30")),
                 List.of(new TransferEndpointOption("airport:SFO",
                         "SFO — San Francisco · depart Fri Sep 18, 2:00 PM (UA 60)",
-                        "2026-09-18", "14:00")),
-                List.of(new TransferEndpointOption(HOTEL_TOKEN, "Marriott Lone Tree — Lone Tree"))));
+                        "San Francisco", "2026-09-18", "14:00")),
+                List.of(new TransferEndpointOption(HOTEL_TOKEN,
+                        "Marriott Lone Tree — Lone Tree · check out Fri Sep 18, 11:00 AM",
+                        "Lone Tree", "2026-09-18", "11:00")),
+                List.of(new TransferEndpointOption(HOTEL_TOKEN,
+                        "Marriott Lone Tree — Lone Tree · check in Mon Sep 14, 3:00 PM",
+                        "Lone Tree", "2026-09-14", "15:00"))));
     }
 
     @Test
@@ -85,7 +100,9 @@ class PlanGroundTransferWebIntegrationTest {
                 .contains("<optgroup label=\"Flight arrivals\">")
                 .contains("<optgroup label=\"Flight departures\">")
                 .contains("<optgroup label=\"Hotels\">")
-                .contains("<option value=\"" + HOTEL_TOKEN + "\">Marriott Lone Tree — Lone Tree</option>");
+                .as("the From select offers the stay by its check-out, the To select by its check-in")
+                .contains("Marriott Lone Tree — Lone Tree · check out Fri Sep 18, 11:00 AM")
+                .contains("Marriott Lone Tree — Lone Tree · check in Mon Sep 14, 3:00 PM");
     }
 
     /**
@@ -106,19 +123,29 @@ class PlanGroundTransferWebIntegrationTest {
                 .contains("DEN — Denver · arrive Mon Sep 14, 11:30 AM (UA 59)");
     }
 
+    /**
+     * A hotel carries the same contract as a leg since 2026-08-21 — its check-out on the "From"
+     * side and its check-in on the "To" side. Without the attributes the option list and the
+     * prefill script disagree silently.
+     */
     @Test
-    void aHotelOptionCarriesNoTimesToPrefill() {
+    void eachHotelOptionCarriesTheMomentThatAppliesToItsEndOfTheHop() {
         assertThat(mockMvc.get().uri("/plan-ground-transfer"))
                 .hasStatusOk()
                 .bodyText()
-                .as("a check-in time is not when a taxi runs")
-                .contains("<option value=\"" + HOTEL_TOKEN + "\">Marriott Lone Tree — Lone Tree</option>");
+                // The attribute pair pinned to the label it belongs to. The opening tag sits on the
+                // line above in the template, so the value= attribute is not part of this string.
+                .contains("data-date=\"2026-09-18\" data-time=\"11:00\">"
+                          + "Marriott Lone Tree — Lone Tree · check out Fri Sep 18, 11:00 AM</option>")
+                .contains("data-date=\"2026-09-14\" data-time=\"15:00\">"
+                          + "Marriott Lone Tree — Lone Tree · check in Mon Sep 14, 3:00 PM</option>")
+                .contains("<option value=\"" + HOTEL_TOKEN + "\"");
     }
 
     @Test
     void withNothingBookedTheFormSaysSoRatherThanOfferingEmptySelects() {
         given(endpointOptions.choicesAt(any()))
-                .willReturn(new GroundTransferEndpointChoices(List.of(), List.of(), List.of()));
+                .willReturn(new GroundTransferEndpointChoices(List.of(), List.of(), List.of(), List.of()));
 
         assertThat(mockMvc.get().uri("/plan-ground-transfer"))
                 .hasStatusOk()

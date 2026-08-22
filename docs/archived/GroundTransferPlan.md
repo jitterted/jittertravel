@@ -5,7 +5,9 @@ scoping) and D15 (state the journey once) added and built the same day**, after 
 decisions (D9–D12) before coding; **all of D1–D12 were settled** (Ted, 2026-08-20) and all were
 built as written. Suite green at 1183 (default tier) + 43 (js tier). The one deliberate omission was
 cancel/change, per D11; **cancel shipped 2026-08-20** as its named fast-follow (see "Cancel, as
-built" below, suite green at 1246 + 48), and change stays deferred.
+built" below, suite green at 1246 + 48), and change stays deferred. **Amended 2026-08-21 by D16
+(hotels named by date, and split by direction like legs) and D17 (a fix link preselects both ends)**
+— see the end of "As built".
 
 ## As built — where it differs from the plan above
 
@@ -55,6 +57,7 @@ asked for once he had used the form and read the result. Everything else is the 
     moment instead of by the flight's departure, so a flight already in the air still offers the
     airport it is about to land at — the trip-already-under-way case D6 exists for. Hotels keep the
     shared FUTURE filter, and still prefill nothing: a check-in time is not when a taxi runs.
+    (**Reversed by D16, 2026-08-21** — hotels now prefill too. The filter is unchanged.)
 - **D14 (Ted, 2026-08-20): the endpoint lists run from *today* onward, not from *now*.** D10's
   "`relevantUntil` not yet past" was right about having no date window but too tight to the minute
   for how a transfer is actually entered: you land at 11:30 and write the taxi up that evening, by
@@ -71,6 +74,52 @@ asked for once he had used the form and read the result. Everything else is the 
   hotel booking cancelled between GET and POST) and `SameTransferEndpoints`. An airport code the
   table does not know surfaces as the existing `ZoneResolutionException` — it *is* one. All four
   error paths re-render the form, as specified.
+
+- **D17 (Ted, 2026-08-21): a fix link preselects both endpoints when the gap settles them —
+  reversing D13's "deliberately not preselected".** Arriving from `/schedule-problems`, the form now
+  opens with "From" and "To" already chosen, and the date and times that go with them. The banner
+  above it already names the gap; leaving the selects empty underneath made Ted read both lists and
+  match them back **by city**, which is work the schedule has already done and which fails outright
+  when two stays share a city.
+  - **What made it safe was the day, not the city.** The original objection stands on its own — one
+    city maps to zero, one, or many tokens — but a gap also carries the days it spans. A candidate
+    is an endpoint in the gap's city **whose own moment falls inside those days**: leaving
+    Johannesberg on Sep 13 there is one stay checking out, and arriving in Frankfurt one checking
+    in. `GroundTransferEndpointChoices.originFor`/`destinationFor` answer with **exactly one
+    candidate or none** — never a best guess, because a wrong endpoint writes a
+    `GroundTransferPlanned` that removes the very gap it was entered to close, and nothing
+    afterwards says the schedule is still broken. Two hotels in one city that day settle nothing and
+    the form asks.
+  - **Each end is settled independently**: half an answer is worth having, and an unsettled end
+    keeps its placeholder and its default time.
+  - **Matching is on the schedule's own location**, so `BookedHotelView` gained
+    `locationForMatching` and `TransferEndpointOption` gained `city` — a gap says Johannesberg where
+    the address says Rückersbach, and matching a scraped label would tie this to punctuation.
+  - The times come from the matched options (check-out at one end, check-in at the other), and the
+    far end is pushed 45 minutes past the near one if the pair would otherwise invert — the same
+    rule, and the same 45 minutes, the inline script uses.
+- **D16 (Ted, 2026-08-21): a hotel endpoint is named by its dates, and the two ends offer different
+  moments — reversing the "hotels prefill nothing" half of D13.** A bare `Marriott Lone Tree — Lone
+  Tree` cannot be matched against anything: not against the schedule problem that sent Ted to the
+  form (whose banner names the stay and its nights), and not against a second stay in the same city.
+  So each option now reads `Marriott Lone Tree — Lone Tree · check out Fri Sep 18, 11:00 AM`, and
+  the hotel lists are **split by direction** exactly as the legs are: "From" offers each stay by its
+  **check-out**, "To" by its **check-in** — you leave a hotel when you check out and reach one when
+  you check in. `GroundTransferEndpointChoices` therefore carries four lists (`arrivals`,
+  `departures`, `checkOuts`, `checkIns`), and the `<option>` carries `data-date`/`data-time` at both
+  ends, so the existing prefill script needed no change beyond its comment.
+  - **The filter is unchanged, on purpose.** Both lists still drop a stay by its **check-out** day,
+    never by check-in: filtering the "To" list on check-in would delete the hotel you are riding to
+    the moment you arrived, which is exactly when the ride gets written down.
+  - **Ordering changed to chronological**, matching the legs, since alphabetical order puts the stay
+    Ted is thinking about anywhere once each option carries a moment.
+  - **The prefill here is a weaker claim than a leg's, and it is on trial.** A stay is a range: a
+    ride to a gathering mid-stay happens on neither of those days, and choosing such a hotel moves
+    the date field to a day that is merely plausible — backwards, for an ongoing stay. Ted asked to
+    try it anyway (*"if prefill doesn't work for me, we can remove it"*). That is why the label
+    always says **which** moment it is filling in, so a wrong one is visible rather than silent.
+    Removing it later is deleting the two prefill arguments in `stayOption` and the `th:attr` on the
+    hotel `<option>`s; the dates in the label stay regardless, since they are what Ted asked for.
 
 ## Why
 

@@ -142,7 +142,8 @@ class ItineraryRendererTest {
         String html = renderNightWithoutABed(true);
 
         assertThat(html)
-                .contains("<a href=\"/book-hotel?city=Denver&amp;checkIn=2026-06-01&amp;checkOut=2026-06-05\">"
+                .contains("<a href=\"/book-hotel?city=Denver&amp;checkIn=2026-06-01&amp;checkOut=2026-06-05"
+                          + "&amp;problem=hotel%7CDenver%7C2026-06-01%7C2026-06-05&amp;from=itinerary\">"
                           + "Book hotel &rarr;</a>");
     }
 

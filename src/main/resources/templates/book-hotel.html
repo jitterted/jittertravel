@@ -124,6 +124,8 @@
 
     <h1>Book Hotel</h1>
 
+    <div th:replace="~{fragments/problem-context :: problemContext}"></div>
+
     <form th:action="@{/book-hotel}" th:object="${bookHotel}" method="post">
         <input type="hidden" th:field="*{hotelBookingId}"/>
 

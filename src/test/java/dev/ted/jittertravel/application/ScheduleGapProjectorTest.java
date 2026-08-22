@@ -1406,7 +1406,7 @@ class ScheduleGapProjectorTest {
                     .containsExactlyInAnyOrder(
                             new ScheduleContext.Conference("Conf", "AMS", SEP_15, SEP_17),
                             new ScheduleContext.Gathering("AMS JUG", "AMS", SEP_16, SEP_16),
-                            new ScheduleContext.Stay("AMS", SEP_15, SEP_17),
+                            new ScheduleContext.Stay("Hotel", "AMS", SEP_15, SEP_17),
                             new ScheduleContext.Travel(LON, AMS, SEP_15, SEP_15));
         }
 

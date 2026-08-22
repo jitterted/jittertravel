@@ -115,6 +115,7 @@ class CalendarFeedAssemblerTest {
                 HotelBookingId.of(BOOKING_UUID),
                 name,
                 "Berlin",
+                "Berlin",
                 "Germany",
                 new ZonedTimestamp(Instant.parse("2026-08-01T14:00:00Z"), ZoneOffset.UTC),
                 new ZonedTimestamp(Instant.parse("2026-08-03T10:00:00Z"), ZoneOffset.UTC),

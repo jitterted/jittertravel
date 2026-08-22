@@ -51,7 +51,7 @@ class BookedHotelsRendererTest {
     void rowRendersEditLinkToBookingEditPage() {
         HotelBookingId id = HotelBookingId.random();
         BookedHotelView view = new BookedHotelView(
-                id, "Grand Hotel", "Berlin", "Germany",
+                id, "Grand Hotel", "Berlin", "Berlin", "Germany",
                 CHECK_IN, CHECK_OUT, BookingIntent.FINAL, "https://maps.google.com/",
                 null, false, false, "");
 
@@ -66,7 +66,7 @@ class BookedHotelsRendererTest {
     void rowRendersCancelLinkToDedicatedCancelPage() {
         HotelBookingId id = HotelBookingId.random();
         BookedHotelView view = new BookedHotelView(
-                id, "Grand Hotel", "Berlin", "Germany",
+                id, "Grand Hotel", "Berlin", "Berlin", "Germany",
                 CHECK_IN, CHECK_OUT, BookingIntent.FINAL, "https://maps.google.com/",
                 null, false, false, "");
 
@@ -253,7 +253,7 @@ class BookedHotelsRendererTest {
         return new BookedHotelView(
                 HotelBookingId.random(),
                 name,
-                "Berlin", "Germany",
+                "Berlin", "Berlin", "Germany",
                 CHECK_IN, CHECK_OUT,
                 status,
                 mapsUrl,
@@ -268,7 +268,7 @@ class BookedHotelsRendererTest {
         return new BookedHotelView(
                 HotelBookingId.random(),
                 name,
-                "Berlin", "Germany",
+                "Berlin", "Berlin", "Germany",
                 CHECK_IN, CHECK_OUT,
                 BookingIntent.FINAL,
                 "https://maps.google.com/grand",

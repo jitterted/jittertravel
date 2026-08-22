@@ -110,6 +110,8 @@
 
     <h1>Book Train Trip</h1>
 
+    <div th:replace="~{fragments/problem-context :: problemContext}"></div>
+
     <form th:action="@{/book-train}" th:object="${bookTrain}" method="post">
         <input type="hidden" th:field="*{trainTripId}"/>
 

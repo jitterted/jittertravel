@@ -300,3 +300,42 @@ body {
     white-space: nowrap;
 }
 .parse-btn:hover { opacity: 0.88; }
+/* The "why you are here" banner (templates/fragments/problem-context.html): what the fix link Ted
+   clicked was about, shown above the form it landed on.
+
+   Amber fill, whatever kind of problem it is — the same rule the problem calendar follows (Ted,
+   2026-08-21): the first thing a marker has to say is "something here is wrong", and the kind is
+   the second question. Kind survives as the 4px left edge, in the hue its column wears in the list
+   view, so the banner and the band that was clicked read as the same thing. Amber, never red: a
+   missing hotel is entirely recoverable — red is reserved for the irreversible. */
+.problem-context {
+    background: #fef3c7;
+    color: #78350f;
+    border-left: 4px solid #b45309;
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+}
+.problem-context--bed { border-left-color: #1d4ed8; }
+.problem-context--travel { border-left-color: #b45309; }
+.problem-context--duplicate { border-left-color: #c2410c; }
+.problem-context--clash-city { border-left-color: #7c3aed; }
+.problem-context--clash-scheduling { border-left-color: #dc2626; }
+
+.problem-context-title { font-weight: 600; }
+.problem-context-detail { margin-top: 2px; }
+.problem-context-causes {
+    margin: 0.4rem 0 0;
+    padding-left: 1.1rem;
+    opacity: 0.9;
+}
+.problem-context-causes li { margin: 1px 0; }
+.problem-context-back {
+    display: inline-block;
+    margin-top: 0.5rem;
+    color: #78350f;
+    text-decoration: none;
+    font-weight: 600;
+}
+.problem-context-back:hover { text-decoration: underline; }

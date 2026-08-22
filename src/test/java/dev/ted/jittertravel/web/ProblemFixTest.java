@@ -24,24 +24,36 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ProblemFixTest {
 
     private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
+    /**
+     * The reference and origin every fix for {@link #missingTravel()} carries: the gap named by its
+     * two cities and the two instants that bound it, so the page it lands on can say why you are
+     * here, plus the surface to come back to.
+     */
+    private static final String TRAVEL_REFERENCE =
+            "&problem=travel%7CDenver%7C2026-09-14T17%3A30%3A00Z"
+            + "%7CLone+Tree%7C2026-09-15T15%3A00%3A00Z&from=list";
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
 
     @Test
     void aMissingHotelOffersBookingOneForItsCityAndItsExactNights() {
         List<ProblemFix> fixes = ProblemFix.forProblem(new ScheduleProblem.MissingHotel(
-                "Johannesberg", LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 14), "JCON"));
+                "Johannesberg", LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 14), "JCON"),
+                FixOrigin.PROBLEM_LIST);
 
         assertThat(fixes).containsExactly(new ProblemFix("Book hotel",
-                "/book-hotel?city=Johannesberg&checkIn=2026-09-10&checkOut=2026-09-14"));
+                "/book-hotel?city=Johannesberg&checkIn=2026-09-10&checkOut=2026-09-14"
+                + "&problem=hotel%7CJohannesberg%7C2026-09-10%7C2026-09-14&from=list"));
     }
 
     @Test
     void aCityWithASpaceIsPercentEncodedSoTheFormReceivesItWhole() {
         List<ProblemFix> fixes = ProblemFix.forProblem(new ScheduleProblem.MissingHotel(
-                "Lone Tree", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18), ""));
+                "Lone Tree", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18), ""),
+                FixOrigin.PROBLEM_LIST);
 
         assertThat(fixes.getFirst().href())
-                .isEqualTo("/book-hotel?city=Lone+Tree&checkIn=2026-09-14&checkOut=2026-09-18");
+                .isEqualTo("/book-hotel?city=Lone+Tree&checkIn=2026-09-14&checkOut=2026-09-18"
+                           + "&problem=hotel%7CLone+Tree%7C2026-09-14%7C2026-09-18&from=list");
     }
 
     /**
@@ -51,15 +63,15 @@ class ProblemFixTest {
      */
     @Test
     void aMissingTravelGapOffersFlightThenTrainThenGroundTransfer() {
-        List<ProblemFix> fixes = ProblemFix.forProblem(missingTravel());
+        List<ProblemFix> fixes = ProblemFix.forProblem(missingTravel(), FixOrigin.PROBLEM_LIST);
 
         assertThat(fixes).containsExactly(
                 new ProblemFix("Book flight",
-                        "/book-flight?fromCity=Denver&toCity=Lone+Tree&date=2026-09-15"),
+                        "/book-flight?fromCity=Denver&toCity=Lone+Tree&date=2026-09-15" + TRAVEL_REFERENCE),
                 new ProblemFix("Book train",
-                        "/book-train?fromCity=Denver&toCity=Lone+Tree&date=2026-09-15"),
+                        "/book-train?fromCity=Denver&toCity=Lone+Tree&date=2026-09-15" + TRAVEL_REFERENCE),
                 new ProblemFix("Ground transfer",
-                        "/plan-ground-transfer?date=2026-09-15"));
+                        "/plan-ground-transfer?date=2026-09-15" + TRAVEL_REFERENCE));
     }
 
     /**
@@ -70,7 +82,7 @@ class ProblemFixTest {
      */
     @Test
     void theGroundTransferFixCarriesOnlyTheDateNeverCities() {
-        ProblemFix transfer = ProblemFix.forProblem(missingTravel()).getLast();
+        ProblemFix transfer = ProblemFix.forProblem(missingTravel(), FixOrigin.PROBLEM_LIST).getLast();
 
         assertThat(transfer.href())
                 .doesNotContain("fromCity")
@@ -92,8 +104,8 @@ class ProblemFixTest {
                 "Tokyo",
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 16, 9, 0), TOKYO));
 
-        assertThat(ProblemFix.forProblem(crossesTheDateLine).getFirst().href())
-                .endsWith("&date=2026-09-16");
+        assertThat(ProblemFix.forProblem(crossesTheDateLine, FixOrigin.PROBLEM_LIST).getFirst().href())
+                .contains("&date=2026-09-16&problem=");
     }
 
     /**
@@ -108,13 +120,18 @@ class ProblemFixTest {
         List<ProblemFix> fixes = ProblemFix.forProblem(new ScheduleProblem.DuplicateHotel(
                 LocalDate.of(2026, 8, 26), LocalDate.of(2026, 8, 28),
                 List.of(new ScheduleProblem.DuplicateStay(reichshof, "Reichshof", "Hamburg", BookingIntent.FINAL),
-                        new ScheduleProblem.DuplicateStay(parkHotel, "Park Hotel", "Soltau", BookingIntent.TENTATIVE))));
+                        new ScheduleProblem.DuplicateStay(parkHotel, "Park Hotel", "Soltau", BookingIntent.TENTATIVE))),
+                FixOrigin.PROBLEM_CALENDAR);
 
+        // A cancel link has no query string of its own, so the reference opens one with '?'.
+        String reference = "?problem=dup%7C2026-08-26%7C2026-08-28"
+                           + "%7C11111111-1111-1111-1111-111111111111%2C22222222-2222-2222-2222-222222222222"
+                           + "&from=calendar";
         assertThat(fixes).containsExactly(
                 new ProblemFix("Cancel \"Reichshof\"",
-                        "/booked-hotels/11111111-1111-1111-1111-111111111111/cancel"),
+                        "/booked-hotels/11111111-1111-1111-1111-111111111111/cancel" + reference),
                 new ProblemFix("Cancel \"Park Hotel\"",
-                        "/booked-hotels/22222222-2222-2222-2222-222222222222/cancel"));
+                        "/booked-hotels/22222222-2222-2222-2222-222222222222/cancel" + reference));
     }
 
     @Test
@@ -124,7 +141,7 @@ class ProblemFixTest {
 
         List<ProblemFix> fixes = ProblemFix.forProblem(new ScheduleProblem.DifferentCityConflict(
                 "Aachen JUG", "Aachen", "DDD Europe", "Antwerp",
-                LocalDate.of(2026, 6, 11), gathering, conference));
+                LocalDate.of(2026, 6, 11), gathering, conference), FixOrigin.PROBLEM_LIST);
 
         assertThat(fixes).containsExactly(new ProblemFix("Clear this conflict",
                 "/clear-conflict"
@@ -134,7 +151,10 @@ class ProblemFixTest {
                 + "&gatheringCity=Aachen"
                 + "&conferenceName=DDD+Europe"
                 + "&conferenceCity=Antwerp"
-                + "&date=2026-06-11"));
+                + "&date=2026-06-11"
+                + "&problem=city%7C33333333-3333-3333-3333-333333333333"
+                + "%7C44444444-4444-4444-4444-444444444444%7C2026-06-11"
+                + "&from=list"));
     }
 
     /**
@@ -152,7 +172,34 @@ class ProblemFixTest {
                         ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 9, 10, 0), TOKYO),
                         ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 9, 12, 0), TOKYO)));
 
-        assertThat(ProblemFix.forProblem(conflict)).isEmpty();
+        assertThat(ProblemFix.forProblem(conflict, FixOrigin.PROBLEM_LIST)).isEmpty();
+    }
+
+    /**
+     * The itinerary offers the same fix as the report, and its links have to come back to the
+     * itinerary — landing on a report Ted was not reading is its own small loss of place.
+     */
+    @Test
+    void aFixClickedOnTheItineraryComesBackToTheItinerary() {
+        List<ProblemFix> fixes = ProblemFix.forProblem(new ScheduleProblem.MissingHotel(
+                "Denver", LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 5), ""),
+                FixOrigin.ITINERARY);
+
+        assertThat(fixes.getFirst().href()).endsWith("&from=itinerary");
+    }
+
+    /**
+     * The reference rides on <em>every</em> fix, not just the ones that happen to prefill: it is
+     * appended in one place precisely so a new fix cannot ship without it and land on a page that
+     * cannot say why you are there.
+     */
+    @Test
+    void everyFixCarriesTheReferenceToTheProblemItFixes() {
+        assertThat(ProblemFix.forProblem(missingTravel(), FixOrigin.PROBLEM_CALENDAR))
+                .isNotEmpty()
+                .allSatisfy(fix -> assertThat(fix.href())
+                        .contains("&problem=travel%7CDenver%7C")
+                        .endsWith("&from=calendar"));
     }
 
     private static ScheduleProblem.MissingTravel missingTravel() {

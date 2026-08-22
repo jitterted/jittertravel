@@ -226,6 +226,42 @@ The first thing a marker has to say is "something here is wrong".
 Known violations still open, with the mechanism for each, are listed in `docs/Cleanup_Tasks.md`
 ("Action affordances that still move").
 
+### A fix link carries its problem with it
+
+Every href `ProblemFix` builds ends in `?problem=<key>&from=<origin>`, appended in one place
+(`ProblemFix.explaining`) so a new fix cannot ship without them. On the page it lands on,
+`ProblemContextAdvice` resolves the key against `ScheduleGapProjector.problems(now)` and the shared
+fragment `fragments/problem-context.html` renders the banner: the problem in the report's own words,
+the surrounding `ScheduleContext`, and a Back link to the surface the link was clicked on.
+
+**Why:** the prefill was never the gap — `/book-hotel` already arrived with the right city and the
+right nights. What was missing is the sentence that made them the right values, and Ted was opening
+a second tab to re-read the report he had just left (2026-08-21). Full reasoning in
+`docs/ProblemContextOnFixPagesPlan.md`.
+
+**Adding a new fix target — three things, or the banner silently is not there:**
+
+1. Include the fragment in its template:
+   `<div th:replace="~{fragments/problem-context :: problemContext}"></div>`, above the form.
+2. Add its path to `TEMPLATE_FOR_PATH` in `ProblemContextFragmentConventionTest`. That test walks
+   every href `ProblemFix` can emit, so an unlisted path fails it — deliberately, because the
+   wiring is an advice no controller mentions and nothing else would notice.
+3. Keep the route **OWNER-only**. The banner prints hotel cities, gathering names and exact arrival
+   times — the content of a report `SecurityConfig` gates at OWNER. This is a standing condition on
+   all six current targets, not a one-time check.
+
+**The link carries a reference, never the words.** `ProblemRef` derives the key from the problem's
+own content in an exhaustive switch (problems have no id — they are recomputed from events every
+batch), so a new `ScheduleProblem` variant cannot be added without deciding how it is referenced. A
+key matching nothing — hand-edited, bookmarked, or naming a problem since fixed — renders **no
+banner** and leaves the form exactly as it was; that is the whole error path. Never put the sentence
+in the query string: a URL can be edited, and it goes stale the moment the problem is fixed in
+another tab.
+
+**The wording is reused, never rewritten.** The banner reads `ProblemBand` and `ContextBand` — the
+problem calendar's own view types — so it cannot disagree with the band that was clicked. A second
+copy of the phrasing is a second copy to drift.
+
 ### Presentation formatting stays out of the domain
 
 Display strings are presentation, not domain. A domain type (`Address`, `ZonedTimestamp`, an

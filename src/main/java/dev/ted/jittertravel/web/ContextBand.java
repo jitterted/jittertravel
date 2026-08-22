@@ -32,8 +32,11 @@ public record ContextBand(String label, LocalDate firstDay, LocalDate lastDay) {
                     new ContextBand(named(name, city, first, last), first, last);
             case ScheduleContext.Travel(String fromCity, String toCity, LocalDate first, LocalDate last) ->
                     new ContextBand(fromCity + " → " + toCity + " · " + dayRange(first, last), first, last);
-            case ScheduleContext.Stay(String city, LocalDate first, LocalDate last) ->
-                    new ContextBand("Hotel, " + city + " · " + dayRange(first, last), first, last);
+            // Named like the others, and for the same reason they are: "Hotel, Denver" cannot be
+            // matched against anything — not against the hotel select on the ground-transfer form,
+            // and not against a second stay in the same city.
+            case ScheduleContext.Stay(String hotelName, String city, LocalDate first, LocalDate last) ->
+                    new ContextBand(named(hotelName, city, first, last), first, last);
         };
     }
 

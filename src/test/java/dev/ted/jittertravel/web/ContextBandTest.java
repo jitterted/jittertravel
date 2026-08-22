@@ -35,12 +35,17 @@ class ContextBandTest {
         assertThat(band.label()).isEqualTo("London → Berlin · Sep 14");
     }
 
+    /**
+     * The hotel by name, like every other context kind: the reader has to match this against the
+     * hotel select on the ground-transfer form, and two stays in one city are otherwise the same
+     * line twice.
+     */
     @Test
-    void stayLabelSaysHotelSoItIsNotReadAsAGap() {
-        ContextBand band = ContextBand.from(new ScheduleContext.Stay("Chicago",
+    void stayLabelNamesTheHotelAndItsCity() {
+        ContextBand band = ContextBand.from(new ScheduleContext.Stay("Reichshof", "Chicago",
                 LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18)));
 
-        assertThat(band.label()).isEqualTo("Hotel, Chicago · Sep 14–18");
+        assertThat(band.label()).isEqualTo("Reichshof, Chicago · Sep 14–18");
     }
 
     @Test

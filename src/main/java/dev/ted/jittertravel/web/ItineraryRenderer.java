@@ -187,7 +187,7 @@ public class ItineraryRenderer {
                 div("No hotel booked").withClass("whereabouts-detail")
         );
         if (isOwner) {
-            ProblemFix.forProblem(gap).forEach(fix -> row.with(
+            ProblemFix.forProblem(gap, FixOrigin.ITINERARY).forEach(fix -> row.with(
                     div().withClass("whereabouts-fix").with(
                             a().withHref(fix.href()).with(text(fix.label()), rawHtml(" &rarr;")))));
         }

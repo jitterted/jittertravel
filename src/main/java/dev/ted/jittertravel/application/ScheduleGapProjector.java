@@ -234,7 +234,8 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                     privateEvent.firstDay(), privateEvent.lastDay()));
         }
         for (ScheduleTimeline.Stay stay : hotelStays.values()) {
-            context.add(new ScheduleContext.Stay(stay.city(), stay.checkInDay(), stay.checkOutDay()));
+            context.add(new ScheduleContext.Stay(stay.hotelName(), stay.city(),
+                    stay.checkInDay(), stay.checkOutDay()));
         }
         for (ScheduleTimeline.Movement leg : allLegs()) {
             context.add(new ScheduleContext.Travel(leg.fromCity(), leg.toCity(),

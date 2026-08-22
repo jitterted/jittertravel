@@ -87,6 +87,8 @@
 
     <h1>Clear City Conflict</h1>
 
+    <div th:replace="~{fragments/problem-context :: problemContext}"></div>
+
     <div class="conflict-summary">
         <div class="label">Conflict on
             <span th:text="${clearConflictRequest.date != null

@@ -111,6 +111,8 @@
 
     <h1>Plan Ground Transfer</h1>
 
+    <div th:replace="~{fragments/problem-context :: problemContext}"></div>
+
     <p class="hint" style="margin-bottom: 1rem;">
         A short hop with no booking — the taxi from the airport to the hotel, the subway back. It
         fills a missing-travel gap on Schedule Problems. Anonymous calendar visitors see only
@@ -141,14 +143,15 @@
                                 th:text="${opt.label()}"
                                 th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>
                     </optgroup>
-                    <optgroup label="Hotels" th:if="${!endpointChoices.hotels.empty}">
-                        <option th:each="opt : ${endpointChoices.hotels}"
+                    <optgroup label="Hotels" th:if="${!endpointChoices.checkOuts.empty}">
+                        <option th:each="opt : ${endpointChoices.checkOuts}"
                                 th:value="${opt.token()}"
-                                th:text="${opt.label()}"></option>
+                                th:text="${opt.label()}"
+                                th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>
                     </optgroup>
                 </select>
             </label>
-            <span class="hint">Only flights you <em>land</em> on are offered here &mdash; picking one fills in when it gets in</span>
+            <span class="hint">Only flights you <em>land</em> on are offered here &mdash; picking one fills in when it gets in, and a hotel fills in its check-out</span>
             <span class="error"
                   th:if="${#fields.hasErrors('origin')}"
                   th:errors="*{origin}"></span>
@@ -165,14 +168,15 @@
                                 th:text="${opt.label()}"
                                 th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>
                     </optgroup>
-                    <optgroup label="Hotels" th:if="${!endpointChoices.hotels.empty}">
-                        <option th:each="opt : ${endpointChoices.hotels}"
+                    <optgroup label="Hotels" th:if="${!endpointChoices.checkIns.empty}">
+                        <option th:each="opt : ${endpointChoices.checkIns}"
                                 th:value="${opt.token()}"
-                                th:text="${opt.label()}"></option>
+                                th:text="${opt.label()}"
+                                th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>
                     </optgroup>
                 </select>
             </label>
-            <span class="hint">Only flights you <em>leave</em> on are offered here &mdash; picking one fills in when it goes</span>
+            <span class="hint">Only flights you <em>leave</em> on are offered here &mdash; picking one fills in when it goes, and a hotel fills in its check-in</span>
             <span class="error"
                   th:if="${#fields.hasErrors('destination')}"
                   th:errors="*{destination}"></span>
@@ -216,11 +220,12 @@
 
 </div>
 <script>
-    // Picking a flight leg fills in when it happens, so the times never have to be remembered or
-    // looked up in another tab. The leg's own date and time ride on its <option> as data-date /
-    // data-time (GroundTransferEndpointOptions); a hotel carries neither, so choosing one changes
-    // nothing. "From" only ever offers arrivals and "To" only departures, so each end has exactly
-    // one time that can apply to it and there is nothing to disambiguate here.
+    // Picking an endpoint fills in when it happens, so the times never have to be remembered or
+    // looked up in another tab. The moment rides on its <option> as data-date / data-time
+    // (GroundTransferEndpointOptions): a flight leg's arrival or departure, a hotel's check-out on
+    // the "From" side and its check-in on the "To" side. Each end offers only the endpoints whose
+    // moment can apply to it, so there is exactly one time per choice and nothing to disambiguate
+    // here. An option with no moment simply changes nothing.
     (function () {
         var dateField = document.getElementById('date');
         var departureField = document.getElementById('departureTime');

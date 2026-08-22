@@ -81,6 +81,8 @@
 
     <h1>Cancel Hotel Booking</h1>
 
+    <div th:replace="~{fragments/problem-context :: problemContext}"></div>
+
     <div class="summary">
         <div class="name" th:text="${booking.hotelName()}">Hotel Name</div>
         <div class="line" th:text="${booking.address().city() + ', ' + booking.address().country()}">City, Country</div>

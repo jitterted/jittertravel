@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<!--
+  The "why you are here" banner: when a form page was reached from a fix link on
+  /schedule-problems (either view) or from the missing-hotel row on /itinerary, it says what the
+  problem was, what the schedule holds around it, and offers the way back.
+
+  The prefill was never the gap — /book-hotel arrives with the right city and the right nights
+  already in its inputs. What was missing is the sentence that made those the right values, and
+  Ted was opening a second tab to re-read it.
+
+  ${problemContext} is supplied by ProblemContextAdvice on every request carrying ?problem=, and
+  is null otherwise — so a page reached any other way renders exactly as it did before. The
+  wording comes from ProblemBand and ContextBand, the problem calendar's own view types, so this
+  banner cannot disagree with the band that was clicked.
+
+  Enforced by ProblemContextFragmentConventionTest: every page a ProblemFix href can reach must
+  include this fragment.
+-->
+<body>
+<th:block th:fragment="problemContext">
+    <div class="problem-context" th:if="${problemContext != null}"
+         th:classappend="${'problem-context--' + problemContext.markerModifier()}">
+        <div class="problem-context-title" th:text="${problemContext.title()}">No hotel &mdash; Denver</div>
+        <div class="problem-context-detail" th:text="${problemContext.detail()}">3 nights &middot; dev2next</div>
+        <ul class="problem-context-causes" th:unless="${problemContext.contextLines().isEmpty()}">
+            <li th:each="line : ${problemContext.contextLines()}" th:text="${line}">dev2next, Denver</li>
+        </ul>
+        <a class="problem-context-back" th:href="${problemContext.backHref()}">
+            <span>&larr;</span> <span th:text="${problemContext.backLabel()}">Back to schedule problems</span>
+        </a>
+    </div>
+</th:block>
+</body>
+</html>

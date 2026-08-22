@@ -153,14 +153,18 @@ for open work.
       disclosure menu lets the owner add an entry for a specific day; the itinerary has no such
       affordance. Add the same per-day "add an entry" dropdown to the itinerary so a day can be
       populated directly from that surface (OWNER-only; reuse the `DAY_MENU` pattern).
-- [ ] **Action affordances that still move (general rule: they must not).** Fixed on `/conferences`
-      2026-08-19 by giving the actions cell two virtual slots: a row with nothing to confirm shows
-      greyed, non-interactive `Confirm` text with a title saying why, so Decline keeps the second
-      slot and both stay left-justified within their own, header centred across the pair. (Two
-      earlier attempts rejected: flush-right alignment reads as off and drags the header right, and
-      an *invisible* placeholder left a blank line wherever the cell wrapped.) The standing rule and
-      its state-vs-authorization split are now in CLAUDE.md. Two other places still have the moving
-      defect and were left alone:
+- [ ] **Action affordances that still move (general rule: they must not).** The standing rule and
+      its state-vs-authorization split are in CLAUDE.md.
+      **`/conferences` no longer follows it, deliberately (Ted, 2026-08-22).** The two-slot fix of
+      2026-08-19 — greyed, non-interactive `Confirm` text so Decline could not move — was removed
+      with slice 4 of the conference plan, which made the row's actions a *state machine*: what a
+      conference offers depends on where its talk stands, and most of those moves are not
+      unavailable-for-now but meaningless (`Accepted` on a conference nothing was submitted to
+      names an event that could never be true). Carrying nine greyed labels on every row to hold
+      positions fixed would say less, not more. That is the nuance Ted agreed to: **the state
+      machine wins where the two rules disagree**, and the disable-don't-hide rule keeps its force
+      wherever an action is genuinely the same action, merely not available yet. Two other places
+      still have the plain moving defect and were left alone:
       - `PlannedGatheringsRenderer.actionsCell` (`PlannedGatheringsRenderer.java:157`) stacks an
         optional `Event page →` above an always-present `Edit` in a column flex
         (`.gathering-actions`, CSS at `:57`), so **Edit sits on the first line on gatherings with no

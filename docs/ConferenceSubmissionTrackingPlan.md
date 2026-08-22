@@ -1,9 +1,41 @@
 # Conference Submission Tracking Plan — commitment, speaking status, and the CFP pipeline
 
-> **Status: IN PROGRESS. Slices 1–3 shipped** (`ConferenceFormat` 2026-08-18, the Decline slice
-> 2026-08-16, commitment 2026-08-19, and **slice 3 — CFP + dashboard + SPEAKER — 2026-08-21**).
-> **Slices 4–5 not started.** Design agreed with Ted in conversation. See `docs/Backlog.md` for the
+> **Status: IN PROGRESS. Slices 1–4 shipped** (`ConferenceFormat` 2026-08-18, the Decline slice
+> 2026-08-16, commitment 2026-08-19, **slice 3 — CFP + dashboard + SPEAKER — 2026-08-21**, and
+> **slice 4 — the submission stream — 2026-08-22**).
+> **Slice 5 not started.** Design agreed with Ted in conversation. See `docs/Backlog.md` for the
 > status of everything else.
+>
+> **Slice 4 as built (2026-08-22), in five commits.** Decisions taken with Ted before any code:
+>
+> - **No waitlisting.** An outcome is accepted or rejected, nothing between — Ted has never met a
+>   waitlist. Dropping it also settled the fold: the plan's "best-outcome-wins" existed to reconcile
+>   three proposals to one conference, but it breaks the ordinary case, since `Submitted → Rejected`
+>   would fold back to `SUBMITTED` and the rejection would never surface. **The last submission event
+>   wins**, which is right for every sequence the dashboard can produce.
+> - **"Radar" became "dashboard"** — the word was this document's coinage, carried into slice 3's
+>   class names, and did not read to Ted as a name for what `/conferences` is. Its own commit.
+> - **Past-tense action labels**: "Ticket Bought", not "Buy ticket". This app records what already
+>   happened in the world.
+> - **The state machine decides what a row offers**, and an action that does not apply is absent
+>   rather than greyed — the nuance to "affordances never move" recorded in CLAUDE.md. No state
+>   reaches four actions, so they stay links. Recording the CFP deadline left the actions cell and
+>   became the deadline line under the name, which is what makes that fit.
+> - **The public speaking badge is gated on commitment.** An unanswered invitation is speaking
+>   evidence, and publishing it would announce that Ted was asked to speak somewhere he has not
+>   decided about. See CLAUDE.md.
+> - **The dropped toggle was built now** rather than deferred: `?dropped=show` beside `?filter=`,
+>   `AttendanceCommitment.NOT_GOING`, and Decline stops removing rows from the dashboard (it still
+>   removes them everywhere else). This is the "Where a dropped conference goes" decision below,
+>   shipped in full.
+>
+> **What that leaves for slice 5**, unchanged: `datesConfirmed`, `ScheduleGapProjector` filtering by
+> attendance, and the Schengen ceiling.
+>
+> **One thing worth carrying forward.** `ConferenceProgress` now holds the rules both axes share,
+> because three read models needed them and one of the three is the anonymous calendar, where two
+> copies disagreeing means leaking. Slice 5 filters the schedule by attendance — a fourth reader of
+> the same question — so extend that rather than folding commitment a fourth time.
 >
 > **Slice 3 as built (2026-08-21), in four commits.** `CfpOpened(conferenceId, closesOn)` with the
 > deadline as a `ZonedTimestamp` in the **conference's own venue zone**, taken from the dates
@@ -18,9 +50,10 @@
 > three shapes). And the `SPEAKER` marker landed beside the commitment chip, derived from
 > `AttendanceBasis` as a **boolean** so accepted-vs-invited never reaches the view.
 >
-> **Two things worth carrying into slice 4.** The dashboard cannot yet distinguish "submitted, waiting
-> to hear" from "have not submitted" — both fall in `CFP_CLOSES_SOON` — which is precisely what the
-> submission stream fixes. And `CfpDeadlineSource` has **no 4h backstop**, unlike the hotel source:
+> **Two things worth carrying into slice 4.** The first is **done**: the dashboard could not
+> distinguish "submitted, waiting to hear" from "have not submitted" — both fell in
+> `CFP_CLOSES_SOON` — and slice 4's `WAITING_TO_HEAR` group is precisely that fix. The second is
+> **still open**: `CfpDeadlineSource` has **no 4h backstop**, unlike the hotel source:
 > a CFP recorded inside 72h of closing loses both alarms the way a hotel booked inside 24h would,
 > and the hotel source's third alarm exists for exactly that. Revisit if one ever slips past.
 >
@@ -491,11 +524,14 @@ The original bottom-up order is re-cut so the CFP-season payoff and the backfill
    status, `OPEN_SPACE` in a "nothing to submit" group. Pulls the deadline reminder forward because
    that is the concrete CFP-season value. Also lands the **`SPEAKER` marker in the `Going?`
    column**, basis-sourced for now (see "The `/conferences` speaking marker").
-4. **The submission stream** (`TalkSubmitted` / `TalkAccepted` / `TalkRejected` / `TalkWaitlisted` /
-   `TalkWithdrawn`, conference-keyed) + the pipeline actions on the dashboard, incl. the
+4. **The submission stream** (`TalkSubmitted` / `TalkAccepted` / `TalkRejected` / `TalkWithdrawn` /
+   `InvitedToSpeak`, conference-keyed) + the pipeline actions on the dashboard, incl. the
    `ACCEPTANCE_REQUIRED` auto-drop-on-reject fork and the `CALL_FOR_PAPERS` "decide" affordance. The
    conference **speaking badge** unlocks here, and the `Going?` column's `SPEAKER` marker re-sources
    from this fold instead of `AttendanceBasis`.
+   **SHIPPED 2026-08-22** — see "Slice 4 as built" at the top. `TalkWaitlisted` was dropped (an
+   outcome is accepted or rejected), and the dropped-conference toggle was pulled forward into this
+   slice rather than left unscheduled.
 5. **`ScheduleGapProjector` + Schengen ceiling** filtering by attendance (only `GOING` occupies the
    schedule; speculative feeds the ceiling).
 
@@ -655,6 +691,13 @@ rework here.
   then reverted.
 
 ## Where a dropped conference goes
+
+> **SHIPPED 2026-08-22 with slice 4**, exactly as decided below: `?dropped=show` beside `?filter=`,
+> `AttendanceCommitment.NOT_GOING`, a `DROPPED` group last on the dashboard, and Decline no longer
+> removing the row from `/conferences` (it still removes it from every other read model). A
+> conference dropped by a `TalkRejected` at an `ACCEPTANCE_REQUIRED` conference lands there too. A
+> dropped row carries **no actions at all** — the domain refuses every command against a declined
+> conference, so a greyed control would advertise a capability that does not exist.
 
 **Decision (Ted, 2026-08-12).** A `NOT_GOING` conference:
 

@@ -70,13 +70,15 @@ someone remembered to strip it.
 - carrier/service identifiers — flight numbers, train `serviceId`, booking references
 - links into owner/family surfaces (`/itinerary`, `/booked-*`, `/planned-*`)
 - the whole `/schedule-problems` report (conflict/gap times, names, internal ids) — OWNER-only
-- everything about a conference *except* the collapsed commitment level: the submission
-  pipeline (talk titles, submitted/accepted/waitlisted/rejected/withdrawn and their dates), CFP
-  window dates, and the commitment **basis** — `AttendanceBasis`, i.e. whether Ted is going
-  because a talk was accepted, he was invited, or he bought a ticket. The basis is the easy leak,
-  because it re-states the submission outcome; the public projector reads the confirmation event and
-  never reads that field, which is the pattern to copy — do not carry a private value into a view
-  and strip it later.
+- everything about a conference *except* the collapsed commitment level and the speaking badge
+  below: the submission pipeline (talk titles, submitted/accepted/rejected/withdrawn and their
+  dates, and **that an invitation has arrived**), CFP window dates, and the commitment **basis** —
+  `AttendanceBasis`, i.e. whether Ted is going because a talk was accepted, he was invited, or he
+  bought a ticket. The basis is the easy leak, because it re-states the submission outcome; the
+  public projector reads the confirmation event only to answer whether Ted speaks and never carries
+  that field onto a view, which is the pattern to copy — do not carry a private value into a view
+  and strip it later. `SpeakingStatus` and `ConferenceFormat` are the same: they live in
+  `ConferenceProgress` beside the entries, never on one.
 
 **Public by decision** (do not "fix" these without asking Ted): the fact that travel is
 happening on a given day, airport codes and city names for flights/trains/hotels, and
@@ -85,7 +87,7 @@ Both are public events Ted speaks at or attends publicly. That Ted is **speaking
 gathering is public too (shipped 2026-08-17): `speaking` is a component of
 `EntryDetails.PublicGathering` and renders as a "Speaking" badge on the anonymous `/calendar`
 (the venue and time are already public, so the badge reveals nothing new). The conference
-half of the speaking badge waits on submission tracking; a **private** talk at a company is
+conference half **shipped 2026-08-22** — see below; a **private** talk at a company is
 neither — it has no public venue/time and collapses to `EntryDetails.Busy` like every other
 private kind, never modelled as a gathering *or a conference* to earn the badge.
 
@@ -98,7 +100,29 @@ only because `ConferenceCalendarProjector` has **already collapsed** every specu
 `AttendanceBasis` is read there and discarded rather than carried and stripped. If you ever
 un-collapse that enum — add a value that a viewer could map back to a submission outcome — the
 chip stops being publishable. `GOING` renders no chip, and a declined or organizer-cancelled
-conference leaves the calendar entirely, for everyone.
+conference leaves the calendar entirely, for everyone. **A conference dropped by a rejection does
+too** (shipped 2026-08-22): where `ConferenceFormat.ACCEPTANCE_REQUIRED` made acceptance the way
+in, a `TalkRejected` removes it from both calendars — it stays only on the OWNER dashboard, behind
+`?dropped=show`.
+
+That **Ted is speaking at a conference** is public as well (shipped 2026-08-22): `speaking` is a
+component of `EntryDetails.PublicConference` and renders as the same "A Ted Talk" badge a gathering
+wears. Two conditions on it, and both are load-bearing:
+
+- **It is published only for a conference Ted is committed to.** Speaking evidence can exist before
+  he has answered — an `InvitedToSpeak` he has not taken up — and a "Maybe" entry wearing the badge
+  would tell a stranger he was asked to speak somewhere he has not decided about. That is the
+  submission pipeline leaking one bit at a time. Going on a bought ticket after an invitation is
+  *attending*, so the confirmation's basis is what separates the two.
+- **The stream decides, and only its conclusion is published.** `ConferenceProgress.speaking()` is
+  where the rule lives (`PublicCalendarProjector` repeats the commitment check at the point of
+  publication, which is belt-and-braces and today unreachable). Nothing else about the pipeline
+  reaches a calendar: a submitted talk, a rejection and a withdrawal move only the collapsed
+  commitment and this badge, so an anonymous viewer cannot tell a rejected conference from one Ted
+  never submitted to.
+
+Its absence reveals nothing, which is what makes it publishable at all: "attending without
+speaking" is an ordinary thing (Ted, 2026-08-12).
 
 The **away band** is public too (shipped 2026-08-20): the turquoise stripe under a day label
 saying Ted is out of town that day renders for every viewer, anonymous included. It reaches the
@@ -234,10 +258,21 @@ OWNER surfaces — render **nothing at all**. A greyed control is itself a discl
 stranger the surface exists and that Ted has one. Hiding by permission stays hiding; see the
 redaction rules above, which win wherever the two appear to disagree.
 
-Worked example, `ConferencesRenderer.confirmSlot`: a `WATCHING` row gets a live `Confirm` link, a
-`GOING` row gets greyed `Confirm` text titled "Already confirmed. Changing why you're going arrives
-with submission tracking." — a *presentation* limit, honestly stated, since the domain does allow
-re-confirming with a different basis. Decline therefore occupies the same slot in both.
+**The second split — a state *machine* wins over rule 2 (Ted, 2026-08-22).** Where what a row
+offers is decided by a state machine, an action that does not apply is **absent**, not greyed. The
+distinction is whether the action is the same action merely unavailable yet ("already confirmed",
+"no next page" — grey it, say why) or one that would be *meaningless* in this state: `Accepted` on
+a conference nothing was submitted to names an event that could never be true, and greying it
+promises a capability that does not exist. Carrying every move on every row to hold positions fixed
+says less, not more.
+
+Worked example, `ConferencesRenderer.actions`: each row shows only the moves legal from where its
+talk stands — `Submitted · Ticket Bought · Decline` while nothing is out, `Accepted · Rejected ·
+Withdrawn` while one is, `Decline` alone once he is committed. No state reaches four, which is what
+keeps them links rather than a menu. Recording the CFP deadline was moved *out* of that cell for the
+same reason: it is a property of the conference, not a move, so it hangs off the deadline line under
+the name. (This replaced a two-slot greyed-`Confirm` arrangement from 2026-08-19; see
+`docs/Cleanup_Tasks.md` for why it went.)
 
 **A third rule, about dropdowns (Ted, 2026-08-21): use one only above three choices, or where
 space is genuinely constrained — and if you are unsure, ask.** Up to three actions are rendered as

@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.ConferenceView;
 import dev.ted.jittertravel.application.DashboardGroup;
 import dev.ted.jittertravel.application.DashboardSection;
+import dev.ted.jittertravel.application.DroppedView;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.ConferenceFormat;
@@ -361,6 +362,80 @@ class ConferencesRendererTest {
                 .doesNotContain("SPEAKING_ACCEPTED")
                 .doesNotContain("TICKET_PURCHASED")
                 .doesNotContain("SPEAKING_INVITED");
+    }
+
+    @Test
+    void droppedToggleOffersToShowDroppedConferencesAndKeepsTheActiveTimeFilter() {
+        String html = ConferencesRenderer.render(
+                List.<DashboardSection>of(), TimeView.ALL, DroppedView.HIDE);
+
+        assertThat(html)
+                .contains("<a class=\"dropped-toggle\" href=\"/conferences?filter=all&amp;dropped=show\">"
+                          + "Show dropped</a>")
+                .doesNotContain("Hide dropped");
+    }
+
+    @Test
+    void showingDroppedConferencesOffersToHideThemAgain() {
+        String html = ConferencesRenderer.render(
+                List.<DashboardSection>of(), TimeView.FUTURE, DroppedView.SHOW);
+
+        assertThat(html)
+                .contains("<a class=\"dropped-toggle\" href=\"/conferences?filter=future\">"
+                          + "Hide dropped</a>")
+                .doesNotContain("Show dropped");
+    }
+
+    /**
+     * The two filters are independent, so neither toggle may reset the other: switching
+     * Upcoming/All while dropped conferences are shown has to keep showing them.
+     */
+    @Test
+    void theTimeToggleCarriesTheDroppedFilterThrough() {
+        String html = ConferencesRenderer.render(
+                List.<DashboardSection>of(), TimeView.FUTURE, DroppedView.SHOW);
+
+        assertThat(html)
+                .contains("href=\"/conferences?filter=all&amp;dropped=show\"")
+                .contains("href=\"/conferences?filter=future&amp;dropped=show\"");
+    }
+
+    @Test
+    void aDroppedConferenceWearsANotGoingChip() {
+        String html = ConferencesRenderer.render(List.of(
+                new DashboardSection(DashboardGroup.DROPPED, List.of(
+                        view("PLoP", "2026-10-12T09:00", "2026-10-15T17:00", "Allerton", "USA",
+                                AttendanceCommitment.NOT_GOING)))
+        ), TimeView.ALL, DroppedView.SHOW);
+
+        assertThat(html)
+                .contains("<span class=\"conf-commitment conf-commitment--dropped\">Not going</span>")
+                .contains("<h2 class=\"dashboard-heading\">Dropped</h2>")
+                .contains("<p class=\"dashboard-guidance\">Said no to these. "
+                          + "Kept as a record for next year.</p>");
+    }
+
+    /**
+     * Every command against a declined conference is refused by the domain, so the row carries no
+     * action at all — not even a disabled one, which would advertise a capability that does not
+     * exist. This is the state machine deciding what a row offers, which is the one case where an
+     * affordance may legitimately be absent rather than greyed.
+     */
+    @Test
+    void aDroppedConferenceOffersNoActions() {
+        String html = ConferencesRenderer.render(List.of(
+                new DashboardSection(DashboardGroup.DROPPED, List.of(
+                        view("PLoP", "2026-10-12T09:00", "2026-10-15T17:00", "Allerton", "USA",
+                                AttendanceCommitment.NOT_GOING)))
+        ), TimeView.ALL, DroppedView.SHOW);
+
+        // Asserted as whole hrefs, not the bare words: "Confirm, then Decline" appears in the
+        // stylesheet's own comment, so doesNotContain("Decline") would fail for the wrong reason.
+        assertThat(html)
+                .contains("<div class=\"conf-actions\"></div>")
+                .doesNotContain("/decline\"")
+                .doesNotContain("/confirm\"")
+                .doesNotContain("/cfp\"");
     }
 
     @Test

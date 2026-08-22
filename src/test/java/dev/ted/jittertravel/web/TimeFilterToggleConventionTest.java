@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.DroppedView;
 import dev.ted.jittertravel.application.TimeView;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
@@ -59,11 +60,27 @@ class TimeFilterToggleConventionTest {
                 .containsPattern("\\?filter=all\" class=\"active\"");
     }
 
+    /**
+     * Every discovered renderer is invoked with an empty row list and the filter under test. A view
+     * with a second, independent filter of its own gets that filter's default here — this test is
+     * about the shared FUTURE/ALL toggle, and the other filter's own behaviour belongs to the
+     * view's own test.
+     */
     private static String render(Method renderer, TimeView activeFilter) throws Exception {
         Object[] args = Stream.of(renderer.getParameterTypes())
-                .map(type -> type == TimeView.class ? activeFilter : List.of())
+                .map(type -> defaultArgumentFor(type, activeFilter))
                 .toArray();
         return (String) renderer.invoke(null, args);
+    }
+
+    private static Object defaultArgumentFor(Class<?> type, TimeView activeFilter) {
+        if (type == TimeView.class) {
+            return activeFilter;
+        }
+        if (type == DroppedView.class) {
+            return DroppedView.HIDE;
+        }
+        return List.of();
     }
 
     private static List<Method> listViewRenderMethods() throws Exception {

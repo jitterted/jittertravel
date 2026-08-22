@@ -52,12 +52,15 @@ public class ConferenceDashboard {
     }
 
     /**
-     * <strong>Commitment is asked first, and that ordering is the rule.</strong> A conference Ted is
-     * going to needs nothing from him whatever its CFP is doing — he has already decided, and
+     * <strong>Commitment is asked first, and that ordering is the rule.</strong> A conference Ted
+     * has answered — going, or dropped — needs nothing from him whatever its CFP is doing, and
      * showing it under "CFP closes soon" would be nagging about a question he answered. Everything
-     * below this line is therefore about a conference still merely watched.
+     * below those two lines is therefore about a conference still merely watched.
      */
     private DashboardGroup groupFor(ConferenceView conference, Instant now) {
+        if (conference.commitment() == AttendanceCommitment.NOT_GOING) {
+            return DashboardGroup.DROPPED;
+        }
         if (conference.commitment() == AttendanceCommitment.GOING) {
             return DashboardGroup.GOING;
         }

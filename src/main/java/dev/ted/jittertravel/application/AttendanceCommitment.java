@@ -11,10 +11,12 @@ package dev.ted.jittertravel.application;
  * submission status. The collapse happens in the projector, so the private detail — the
  * {@link dev.ted.jittertravel.domain.AttendanceBasis} — never enters a view at all.
  * <p>
- * There is deliberately no {@code NOT_GOING} value. A declined or organizer-cancelled conference
- * leaves every read model entirely, for every viewer, so "not going" is represented by absence
- * rather than by a value that no renderer could ever be handed. It earns a value here the day
- * something has to render a dropped conference (the plan's eventual "dropped" toggle), not before.
+ * <strong>{@link #NOT_GOING} exists only because one surface renders it.</strong> It was left out
+ * until 2026-08-22, when the OWNER-only {@code /conferences} dashboard gained its dropped group:
+ * a conference Ted declined stays on that list, behind {@code ?dropped=show}, so "looked at it,
+ * said no" is a record next year's entry can benefit from. Everywhere else — the calendar, the
+ * itinerary — a declined conference still leaves entirely, for every viewer, so those read models
+ * never construct this value and no {@code CalendarEntry} can carry it.
  * <p>
  * Lives in {@code application} rather than {@code domain} because no command branches on it: it is
  * a read-model label. See {@code docs/ConferenceSubmissionTrackingPlan.md}.
@@ -23,5 +25,12 @@ public enum AttendanceCommitment {
     /** Being watched, not committed — renders as a public "Maybe" chip. */
     WATCHING,
     /** Going. Renders as a plain entry: "Ted is going" is the default reading of a calendar entry. */
-    GOING
+    GOING,
+
+    /**
+     * Ted declined. <strong>Dashboard-only</strong>, and never public: a dropped conference is
+     * absent from the calendar rather than marked on it, so an anonymous viewer cannot tell a
+     * declined conference from one that was never planned.
+     */
+    NOT_GOING
 }

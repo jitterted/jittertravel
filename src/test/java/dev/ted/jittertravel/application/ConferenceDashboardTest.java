@@ -131,6 +131,39 @@ class ConferenceDashboardTest {
         assertThat(dashboard.sections(List.of(), NOW)).isEmpty();
     }
 
+    /**
+     * Dropped is asked before everything else for the same reason going is: Ted has answered this
+     * one, so what its CFP is doing no longer decides anything. Note the deadline here is still
+     * open — under the CFP question alone this row would land in "CFP closes soon".
+     */
+    @Test
+    void aDroppedConferenceIsDroppedWhateverItsCfpIsDoing() {
+        List<DashboardSection> sections = dashboard.sections(List.of(
+                conference("PLoP", AttendanceCommitment.NOT_GOING,
+                           ConferenceFormat.CALL_FOR_PAPERS, NOW.plus(Duration.ofDays(30)))
+        ), NOW);
+
+        assertThat(sections)
+                .singleElement()
+                .extracting(DashboardSection::group)
+                .isEqualTo(DashboardGroup.DROPPED);
+    }
+
+    /** Last of all: it is a record to look back on, not work to do. */
+    @Test
+    void droppedConferencesComeAfterEveryOtherGroup() {
+        List<DashboardSection> sections = dashboard.sections(List.of(
+                conference("PLoP", AttendanceCommitment.NOT_GOING, ConferenceFormat.CALL_FOR_PAPERS, null),
+                going("dev2next", ConferenceFormat.CALL_FOR_PAPERS, null),
+                watching("J-Fall", ConferenceFormat.CALL_FOR_PAPERS, NOW.plus(Duration.ofDays(30)))
+        ), NOW);
+
+        assertThat(sections)
+                .extracting(DashboardSection::group)
+                .containsExactly(DashboardGroup.CFP_CLOSES_SOON, DashboardGroup.GOING,
+                                 DashboardGroup.DROPPED);
+    }
+
     private static List<String> namesIn(List<DashboardSection> sections, DashboardGroup group) {
         return sections.stream()
                 .filter(section -> section.group() == group)

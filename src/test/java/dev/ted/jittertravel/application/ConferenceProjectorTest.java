@@ -5,6 +5,7 @@ import dev.ted.jittertravel.domain.AttendanceBasis;
 import dev.ted.jittertravel.domain.CfpOpened;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
+import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -49,13 +50,13 @@ class ConferenceProjectorTest {
 
         projector.handle(Stream.of(storedEvent));
 
-        assertThat(projector.views(TimeView.ALL, NOW))
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW))
                 .hasSize(1);
-        assertThat(projector.views(TimeView.ALL, NOW).getFirst().conferenceId())
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW).getFirst().conferenceId())
                 .isEqualTo(conferenceId);
-        assertThat(projector.views(TimeView.ALL, NOW).getFirst().name())
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW).getFirst().name())
                 .isEqualTo("Conference Name");
-        assertThat(projector.views(TimeView.ALL, NOW).getFirst().city())
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW).getFirst().city())
                 .isEqualTo("Venue City");
     }
 
@@ -86,7 +87,7 @@ class ConferenceProjectorTest {
                 new StoredEvent(2, earlierEvent.getClass(), UUID.randomUUID(), Instant.now(), earlierEvent, UUID.randomUUID())
         ));
 
-        assertThat(projector.views(TimeView.ALL, NOW))
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW))
                 .hasSize(2)
                 .extracting(ConferenceView::name)
                 .containsExactly("Earlier Conference", "Later Conference");
@@ -106,16 +107,16 @@ class ConferenceProjectorTest {
 
         // "Now" is a moment, read against the venue's own zone — not the server's.
         Instant nowInstant = now.atZone(VENUE_ZONE).toInstant();
-        assertThat(projector.views(TimeView.FUTURE, nowInstant))
+        assertThat(projector.views(TimeView.FUTURE, DroppedView.HIDE, nowInstant))
                 .extracting(ConferenceView::name)
                 .containsExactly("In Progress");
-        assertThat(projector.views(TimeView.ALL, nowInstant))
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, nowInstant))
                 .extracting(ConferenceView::name)
                 .containsExactlyInAnyOrder("In Progress", "Finished");
     }
 
     @Test
-    void decliningAttendanceRemovesTheConferenceFromTheList() {
+    void decliningAttendanceKeepsTheConferenceAsDropped() {
         ConferenceProjector projector = new ConferenceProjector();
         Address address = new Address("Street", "City", "State", "Postal", "Country", null);
         ConferenceId conferenceId = ConferenceId.random();
@@ -125,7 +126,7 @@ class ConferenceProjectorTest {
                 "Venue", address);
         projector.handle(Stream.of(new StoredEvent(
                 1, planned.getClass(), UUID.randomUUID(), Instant.now(), planned, UUID.randomUUID())));
-        assertThat(projector.views(TimeView.ALL, NOW))
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW))
                 .hasSize(1);
 
         ConferenceAttendanceDeclined declined = new ConferenceAttendanceDeclined(
@@ -133,8 +134,33 @@ class ConferenceProjectorTest {
         projector.handle(Stream.of(new StoredEvent(
                 2, declined.getClass(), UUID.randomUUID(), Instant.now(), declined, UUID.randomUUID())));
 
-        assertThat(projector.views(TimeView.ALL, NOW))
-                .as("a declined conference leaves the conferences list, like a cancelled one")
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW))
+                .as("a declined conference is out of the default view of the list")
+                .isEmpty();
+
+        assertThat(projector.views(TimeView.ALL, DroppedView.SHOW, NOW))
+                .as("but it is still there, and asking for dropped conferences finds it")
+                .singleElement()
+                .extracting(ConferenceView::commitment)
+                .isEqualTo(AttendanceCommitment.NOT_GOING);
+    }
+
+    /**
+     * The one place a decline behaves differently from an organizer cancellation. Ted's own "no" is
+     * an answer worth keeping — next year's entry benefits from it — while a cancelled conference
+     * is not a conference any more, so nothing is left to have a view of.
+     */
+    @Test
+    void aConferenceCancelledByOrganizersIsGoneEvenWhenDroppedOnesAreAskedFor() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+
+        ConferenceCancelled cancelled = new ConferenceCancelled(conferenceId, "Organizers pulled it");
+        projector.handle(Stream.of(new StoredEvent(
+                2, cancelled.getClass(), UUID.randomUUID(), Instant.now(), cancelled, UUID.randomUUID())));
+
+        assertThat(projector.views(TimeView.ALL, DroppedView.SHOW, NOW))
                 .isEmpty();
     }
 
@@ -143,7 +169,7 @@ class ConferenceProjectorTest {
         ConferenceProjector projector = new ConferenceProjector();
         plan(projector, ConferenceId.random());
 
-        assertThat(projector.views(TimeView.ALL, NOW))
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW))
                 .singleElement()
                 .extracting(ConferenceView::commitment)
                 .isEqualTo(AttendanceCommitment.WATCHING);
@@ -157,7 +183,7 @@ class ConferenceProjectorTest {
 
         confirm(projector, conferenceId, AttendanceBasis.SPEAKING_ACCEPTED);
 
-        assertThat(projector.views(TimeView.ALL, NOW))
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW))
                 .singleElement()
                 .extracting(ConferenceView::commitment)
                 .isEqualTo(AttendanceCommitment.GOING);
@@ -168,11 +194,11 @@ class ConferenceProjectorTest {
         ConferenceProjector projector = new ConferenceProjector();
         ConferenceId conferenceId = ConferenceId.random();
         plan(projector, conferenceId);
-        ConferenceView before = projector.views(TimeView.ALL, NOW).getFirst();
+        ConferenceView before = projector.views(TimeView.ALL, DroppedView.HIDE, NOW).getFirst();
 
         confirm(projector, conferenceId, AttendanceBasis.SPEAKING_ACCEPTED);
 
-        assertThat(projector.views(TimeView.ALL, NOW).getFirst())
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW).getFirst())
                 .isEqualTo(new ConferenceView(
                         before.conferenceId(), before.name(), before.venueName(),
                         before.venueAddress(), before.startDate(), before.endDate(),
@@ -185,7 +211,7 @@ class ConferenceProjectorTest {
 
         confirm(projector, ConferenceId.random(), AttendanceBasis.TICKET_PURCHASED);
 
-        assertThat(projector.views(TimeView.ALL, NOW)).isEmpty();
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW)).isEmpty();
     }
 
     @Test
@@ -200,7 +226,7 @@ class ConferenceProjectorTest {
         projector.handle(Stream.of(new StoredEvent(
                 3, declined.getClass(), UUID.randomUUID(), Instant.now(), declined, UUID.randomUUID())));
 
-        assertThat(projector.views(TimeView.ALL, NOW)).isEmpty();
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW)).isEmpty();
     }
 
     @Test
@@ -209,7 +235,7 @@ class ConferenceProjectorTest {
 
         plan(projector, ConferenceId.random());
 
-        assertThat(projector.views(TimeView.ALL, NOW).getFirst().cfpClosesOn())
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW).getFirst().cfpClosesOn())
                 .as("null means 'no CFP recorded', which is a different question from 'no CFP exists'")
                 .isNull();
     }
@@ -222,7 +248,7 @@ class ConferenceProjectorTest {
 
         openCfp(projector, conferenceId, LocalDateTime.of(2026, 9, 12, 23, 59));
 
-        assertThat(projector.views(TimeView.ALL, NOW).getFirst().cfpClosesOn())
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW).getFirst().cfpClosesOn())
                 .isEqualTo(zt(LocalDateTime.of(2026, 9, 12, 23, 59)));
     }
 
@@ -236,7 +262,7 @@ class ConferenceProjectorTest {
 
         openCfp(projector, conferenceId, LocalDateTime.of(2026, 9, 26, 23, 59));
 
-        assertThat(projector.views(TimeView.ALL, NOW).getFirst().cfpClosesOn())
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW).getFirst().cfpClosesOn())
                 .as("the last recorded deadline wins")
                 .isEqualTo(zt(LocalDateTime.of(2026, 9, 26, 23, 59)));
     }
@@ -260,7 +286,7 @@ class ConferenceProjectorTest {
         openCfp(projector, conferenceId, LocalDateTime.of(2026, 9, 12, 23, 59));
         confirm(projector, conferenceId, AttendanceBasis.SPEAKING_ACCEPTED);
 
-        ConferenceView view = projector.views(TimeView.ALL, NOW).getFirst();
+        ConferenceView view = projector.views(TimeView.ALL, DroppedView.HIDE, NOW).getFirst();
         assertThat(view.cfpClosesOn())
                 .as("confirming attendance must not clear the recorded CFP deadline")
                 .isEqualTo(zt(LocalDateTime.of(2026, 9, 12, 23, 59)));
@@ -277,7 +303,7 @@ class ConferenceProjectorTest {
         confirm(projector, conferenceId, AttendanceBasis.SPEAKING_ACCEPTED);
         openCfp(projector, conferenceId, LocalDateTime.of(2026, 9, 12, 23, 59));
 
-        ConferenceView view = projector.views(TimeView.ALL, NOW).getFirst();
+        ConferenceView view = projector.views(TimeView.ALL, DroppedView.HIDE, NOW).getFirst();
         assertThat(view.commitment())
                 .as("recording a CFP deadline must not un-commit a conference Ted is going to")
                 .isEqualTo(AttendanceCommitment.GOING);
@@ -293,7 +319,7 @@ class ConferenceProjectorTest {
 
         openCfp(projector, ConferenceId.random(), LocalDateTime.of(2026, 9, 12, 23, 59));
 
-        assertThat(projector.views(TimeView.ALL, NOW)).isEmpty();
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW)).isEmpty();
     }
 
     private static void openCfp(ConferenceProjector projector, ConferenceId conferenceId,
@@ -327,7 +353,7 @@ class ConferenceProjectorTest {
 
         confirm(projector, conferenceId, basis);
 
-        ConferenceView view = projector.views(TimeView.ALL, NOW).getFirst();
+        ConferenceView view = projector.views(TimeView.ALL, DroppedView.HIDE, NOW).getFirst();
         assertThat(view.speaking())
                 .as("%s", basis)
                 .isEqualTo(expectedSpeaking);
@@ -349,7 +375,7 @@ class ConferenceProjectorTest {
 
         plan(projector, ConferenceId.random());
 
-        assertThat(projector.views(TimeView.ALL, NOW).getFirst().speaking())
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW).getFirst().speaking())
                 .as("planning a conference says nothing about whether Ted will speak at it")
                 .isFalse();
     }

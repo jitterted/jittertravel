@@ -42,5 +42,12 @@ public enum DashboardGroup {
     NOTHING_TO_SUBMIT,
 
     /** Committed. Nothing is owed here; it is on the list so the page is the whole picture. */
-    GOING
+    GOING,
+
+    /**
+     * Ted said no. Last, and hidden altogether unless {@code ?dropped=show} asks for it: this is a
+     * record to look back on, not work to do. Only reachable through {@link DroppedView#SHOW}, so
+     * the group is absent from the default page rather than merely empty.
+     */
+    DROPPED
 }

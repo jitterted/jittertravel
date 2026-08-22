@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.ConferencePlanning;
 import dev.ted.jittertravel.application.ReadOnlyModeException;
 import dev.ted.jittertravel.application.ConferenceProjector;
 import dev.ted.jittertravel.application.ConferenceDashboard;
+import dev.ted.jittertravel.application.DroppedView;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.CommonZone;
@@ -110,14 +111,23 @@ public class PlanConferenceController {
         return "redirect:/conferences";
     }
 
+    /**
+     * Two independent filters, each its own parameter: {@code ?filter=} asks when, and
+     * {@code ?dropped=} asks whether to include the conferences Ted said no to. Both fall back to
+     * their default on an unrecognised value, so a hand-edited URL renders rather than erroring.
+     */
     @GetMapping("/conferences")
     public ResponseEntity<String> conferences(
-            @RequestParam(required = false) String filter) {
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String dropped) {
         TimeView timeView = TimeView.fromParam(filter);
+        DroppedView droppedView = DroppedView.fromParam(dropped);
         Instant now = Instant.now(clock);
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
-                .body(ConferencesRenderer.render(dashboard.sections(projector.views(timeView, now), now), timeView));
+                .body(ConferencesRenderer.render(
+                        dashboard.sections(projector.views(timeView, droppedView, now), now),
+                        timeView, droppedView));
     }
 
 }

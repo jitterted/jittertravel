@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.ConferenceView;
 import dev.ted.jittertravel.application.DashboardGroup;
 import dev.ted.jittertravel.application.DashboardSection;
+import dev.ted.jittertravel.application.DroppedView;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
@@ -11,6 +12,7 @@ import j2html.tags.specialized.DivTag;
 import j2html.tags.specialized.TrTag;
 
 import java.util.List;
+import java.util.Locale;
 
 import static j2html.TagCreator.*;
 
@@ -88,6 +90,7 @@ public class ConferencesRenderer {
             }
             .conf-commitment--watching { background: #b45309; color: #ffffff; }
             .conf-commitment--going { background: #166534; color: #ffffff; }
+            .conf-commitment--dropped { background: var(--header-bg); color: var(--muted-text); }
             /* SPEAKER sits beside the commitment chip in the same column, not in one of its own:
                it is a second fact about the same question, and a "Maybe" conference Ted has been
                invited to reads "Maybe SPEAKER". One word, and nowrap, for the reason the Actions
@@ -114,6 +117,10 @@ public class ConferencesRenderer {
                 letter-spacing: 0.06em; color: var(--muted-text); margin: 0;
             }
             .dashboard-guidance { font-size: 0.9rem; color: var(--muted-text); margin: 0.15rem 0 0; }
+            /* The two filters sit on one line and wrap together on a narrow viewport. */
+            .conference-filters { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+            .dropped-toggle { font-size: 0.85rem; color: var(--muted-text); text-decoration: none; }
+            .dropped-toggle:hover { text-decoration: underline; }
             /* The deadline under the name, not in a column of its own — see nameCell. */
             .conf-cfp-deadline {
                 font-size: 0.8rem; font-weight: 400; color: var(--muted-text); margin-top: 0.15rem;
@@ -121,13 +128,29 @@ public class ConferencesRenderer {
             """;
 
     public static String render(List<DashboardSection> sections, TimeView activeFilter) {
+        return render(sections, activeFilter, DroppedView.HIDE);
+    }
+
+    /**
+     * The page under both of its filters. They are independent parameters and each toggle carries
+     * the other's value through, so changing one never silently resets the other — see
+     * {@link DroppedView} for why they are not one parameter.
+     * <p>
+     * The two-argument overload above is what {@code TimeFilterToggleConventionTest} discovers and
+     * exercises; it is the default view, dropped conferences hidden.
+     */
+    public static String render(List<DashboardSection> sections, TimeView activeFilter,
+                                DroppedView activeDropped) {
         return "<!DOCTYPE html>\n" + html(
                 Page.head("Conferences", CSS),
                 body(
                         Page.viewNav(Page.NavAudience.OWNER, "/conferences"),
                         h1("Conferences"),
                         div().withClass("conference-container").with(
-                                TimeFilterToggle.render("/conferences", activeFilter),
+                                div().withClass("conference-filters").with(
+                                        TimeFilterToggle.render("/conferences", activeFilter,
+                                                activeDropped == DroppedView.SHOW ? "&dropped=show" : ""),
+                                        droppedToggle(activeFilter, activeDropped)),
                                 sections.isEmpty()
                                         ? renderEmptyState(activeFilter)
                                         : div().with(sections.stream()
@@ -138,6 +161,20 @@ public class ConferencesRenderer {
                         )
                 )
         ).withLang("en").render();
+    }
+
+    /**
+     * One link, not a two-segment control like the FUTURE/ALL toggle: this filter answers a yes/no
+     * question, so a second segment would only ever say what the reader is already looking at.
+     * It sits beside the time toggle and carries the active time filter through.
+     */
+    private static DomContent droppedToggle(TimeView activeFilter, DroppedView activeDropped) {
+        String filterQuery = "?filter=" + activeFilter.name().toLowerCase(Locale.ENGLISH);
+        return activeDropped == DroppedView.SHOW
+                ? a("Hide dropped").withClass("dropped-toggle")
+                                   .withHref("/conferences" + filterQuery)
+                : a("Show dropped").withClass("dropped-toggle")
+                                   .withHref("/conferences" + filterQuery + "&dropped=show");
     }
 
     /**
@@ -162,6 +199,7 @@ public class ConferencesRenderer {
             case DECIDE -> "Decide";
             case NOTHING_TO_SUBMIT -> "Nothing to submit";
             case GOING -> "Going";
+            case DROPPED -> "Dropped";
         };
     }
 
@@ -172,6 +210,7 @@ public class ConferencesRenderer {
             case DECIDE -> "The CFP has closed. Go as an attendee, or decline.";
             case NOTHING_TO_SUBMIT -> "Sessions are chosen on the day — just decide whether to go.";
             case GOING -> "Committed — nothing to do.";
+            case DROPPED -> "Said no to these. Kept as a record for next year.";
         };
     }
 
@@ -260,6 +299,9 @@ public class ConferencesRenderer {
         return switch (commitment) {
             case WATCHING -> span("Maybe").withClass("conf-commitment conf-commitment--watching");
             case GOING -> span("Going").withClass("conf-commitment conf-commitment--going");
+            // Muted rather than red: dropping a conference is a decision, not a problem, and the
+            // rule that every problem wears the same amber is about problems among non-problems.
+            case NOT_GOING -> span("Not going").withClass("conf-commitment conf-commitment--dropped");
         };
     }
 
@@ -271,6 +313,13 @@ public class ConferencesRenderer {
      */
     private static DomContent actions(ConferenceView conf) {
         String base = "/conferences/" + conf.conferenceId().id();
+        // A dropped conference has no live action: the domain refuses every command against a
+        // declined conference, so there is nothing here that could be triggered — not even in a
+        // disabled form, which would promise a capability that does not exist. Going after all
+        // means planning it again.
+        if (conf.commitment() == AttendanceCommitment.NOT_GOING) {
+            return div().withClass("conf-actions");
+        }
         // Three actions, so three links: a menu is only worth its extra click above three
         // (CLAUDE.md), and this cell has the width for them because each is one short word.
         return div().withClass("conf-actions")

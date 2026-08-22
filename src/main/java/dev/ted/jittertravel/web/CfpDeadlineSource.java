@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ConferenceProjector;
 import dev.ted.jittertravel.application.ConferenceView;
+import dev.ted.jittertravel.application.DroppedView;
 import dev.ted.jittertravel.application.TimeView;
 import org.springframework.stereotype.Component;
 
@@ -48,7 +49,9 @@ public class CfpDeadlineSource implements ICalEventSource {
 
     @Override
     public List<ICalEvent> events(Instant now) {
-        return projector.views(TimeView.ALL, now).stream()
+        // DroppedView.HIDE, and it matters: a CFP reminder for a conference Ted has said no to is
+        // an alarm on his phone for a decision he already made.
+        return projector.views(TimeView.ALL, DroppedView.HIDE, now).stream()
                 .filter(view -> view.cfpClosesOn() != null)
                 .filter(view -> view.cfpClosesOn().utc().isAfter(now))
                 .map(this::cfpEvent)

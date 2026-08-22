@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.ConferenceProjector;
 import dev.ted.jittertravel.application.ConferenceView;
+import dev.ted.jittertravel.application.DroppedView;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceFormat;
@@ -68,7 +69,7 @@ class CfpDeadlineSourceTest {
      */
     @Test
     void theDeadlineIsWhatIsFilteredOnNotWhetherTheConferenceHasHappened() {
-        given(projector.views(TimeView.ALL, NOW))
+        given(projector.views(TimeView.ALL, DroppedView.HIDE, NOW))
                 .willReturn(List.of(conference("J-Fall", NOW.plus(Duration.ofDays(30)))));
 
         assertThat(source.events(NOW)).hasSize(1);
@@ -83,7 +84,10 @@ class CfpDeadlineSourceTest {
     }
 
     private void givenConferences(ConferenceView... views) {
-        given(projector.views(TimeView.ALL, NOW)).willReturn(List.of(views));
+        // The exact filters are the claim: every conference whenever it happens (the deadline is
+        // what matters, not the dates), but never one Ted has dropped — an alarm for a decision he
+        // already made.
+        given(projector.views(TimeView.ALL, DroppedView.HIDE, NOW)).willReturn(List.of(views));
     }
 
     private ICalEvent onlyEvent() {

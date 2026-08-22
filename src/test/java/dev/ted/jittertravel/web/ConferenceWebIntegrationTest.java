@@ -127,7 +127,7 @@ class ConferenceWebIntegrationTest {
 
     @Test
     void conferencesPageRendersOk() {
-        given(projector.views(any(), any())).willReturn(List.of());
+        given(projector.views(any(), any(), any())).willReturn(List.of());
 
         assertThat(mockMvc.get().uri("/conferences"))
                 .hasStatusOk();

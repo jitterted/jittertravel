@@ -16,6 +16,26 @@ for open work.
 
 ## Open
 
+- [ ] **Nothing enforces that the public calendar handles the same events the owner's does.** Raised
+      by review of the S2 refactor, 2026-08-21. `PublicCalendarProjector` and the seven owner
+      calendar projectors are in exact parity today (16 event types each), and the plan
+      (`RendererVsProjectorResponsibilities.md`) accepted "event handling is written twice" as a known
+      cost — but the `default -> {}` arm makes an omission **silent in the dangerous direction**. Add a
+      `GatheringCancelled` handled only on the owner side and the gathering vanishes for Ted while
+      **staying on the anonymous calendar indefinitely**, with every test green. The standing guard for
+      projector-exhaustiveness here is lifecycle-propagation scenario tests (sealing `Event` was
+      rejected — see the rule in `EventSourcingRulesHeuristics.md`), so the cheap version is: for each
+      removal event, a scenario asserting it leaves **both** read models. A source-scan convention test
+      comparing the two switches' matched types is the thorough version, in the style of
+      `PublicCalendarBuildsOnlyPublishableEntriesTest`. **Ask Ted which** — the first fits the
+      established preference, the second actually can't be forgotten.
+- [ ] **No test covers the `PublicCalendarProjector` bean's registration.** Also from the 2026-08-21
+      review. Every test that renders `/calendar` supplies it as a `@MockitoBean`, so if
+      `bootstrapper.register(...)` in `EventSourcingConfig` were ever reduced to a bare
+      `new PublicCalendarProjector()`, the projector would never be subscribed or replayed, **every
+      anonymous visitor would get a permanently empty calendar**, and the whole suite would still pass.
+      All 22 projector beans share this shape, so the honest fix is one test over the registration
+      list rather than one per bean — but this one now backs the entire public page on its own.
 - [ ] **A gap *into* home is dated by the wrong end — the mirror image of D14.** Lifted from
       `archived/ScheduleProblemsRewritePlan.md` (its whole "Open" section) when that plan was
       archived 2026-08-21. D14 fixed one direction: a gap *out of* home is now dated by the day

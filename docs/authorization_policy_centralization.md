@@ -30,7 +30,7 @@ statement — read it, not this, when the two disagree.
 | Route(s)                                                                 | OWNER | FAMILY | Anonymous |
 |--------------------------------------------------------------------------|:-----:|:------:|:---------:|
 | `/` (home)                                                               |  ✅   |  ✅    |    ✅     |
-| `/calendar` (redacted for anonymous via `CalendarEntryRedactor`)         |  ✅   |  ✅    |    ✅     |
+| `/calendar` (anonymous served `PublicCalendarProjector`'s entries)       |  ✅   |  ✅    |    ✅     |
 | `/itinerary`, `/itinerary/**`                                            |  ✅   |  ✅    |   login   |
 | Bookings lists: `/booked-flights`, `/booked-trains`, `/booked-hotels`, `/conferences`, `/planned-gatherings` |  ✅   | denied |   login   |
 | Data entry: `/book-*`, `/plan-conference`, `/plan-gathering`, `/plan-private-event`, `/clear-conflict` (each with `/**`), `/api/parse-address` |  ✅   | denied |   login   |

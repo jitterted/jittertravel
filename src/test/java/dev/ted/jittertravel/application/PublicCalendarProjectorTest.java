@@ -44,10 +44,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@link #everyEntryCarriesOnlyPublishableDetails()}, the one invariant that replaced the
  * redactor's compile-time forcing function.
  * <p>
- * That test is written so it does <strong>not</strong> need editing when a kind is added: it states
- * "whatever this projector emits carries {@link EntryDetails.Publishable} details", not a list of
- * permitted types. A test that must be edited on every change stops guarding, because editing it is
- * exactly what a leaking change would do.
+ * Its assertion is written so it does <strong>not</strong> need editing when a kind is added: it
+ * states "whatever this projector emits carries {@link EntryDetails.Publishable} details", not a
+ * list of permitted types. A test that must be edited on every change stops guarding, because
+ * editing it is exactly what a leaking change would do.
+ * <p>
+ * The <strong>fixture</strong> is the other half, and it is not self-maintaining — which is why
+ * {@link #theEveryKindFixtureCoversEveryKind()} exists to fail until a new kind is added to it. A
+ * kind-agnostic assertion over a fixture that has quietly stopped covering the new kind guards
+ * nothing at all.
  */
 class PublicCalendarProjectorTest {
 
@@ -60,8 +65,13 @@ class PublicCalendarProjectorTest {
     /**
      * The replacement for redaction rule 1's compile-time check. Inside the projector the same
      * claim is a compiler check — every entry is built through a helper taking a
-     * {@code Publishable} — and this is the runtime backstop that survives a refactor of those
-     * helpers.
+     * {@code Publishable}, enforced by {@code PublicCalendarBuildsOnlyPublishableEntriesTest} —
+     * and this is the runtime backstop.
+     * <p>
+     * The <em>assertion</em> names no types, so it does not need editing when a kind is added. The
+     * <em>fixture</em> does, and {@link #theEveryKindFixtureCoversEveryKind()} below is what forces
+     * that: without it this test would silently stop covering the new kind, which is precisely the
+     * failure mode a replacement for a compile-time check must not have.
      */
     @Test
     void everyEntryCarriesOnlyPublishableDetails() {
@@ -72,6 +82,26 @@ class PublicCalendarProjectorTest {
                 .allSatisfy(entry -> assertThat(entry.details())
                         .as("a %s entry reached the public calendar", entry.kind())
                         .isInstanceOf(EntryDetails.Publishable.class));
+    }
+
+    /**
+     * Adding an {@link EntryKind} breaks this until {@link #oneOfEveryKind()} feeds the projector
+     * an event that produces one — which is the point. It is the difference between "the assertion
+     * is kind-agnostic" and "the test actually covers every kind", and only the second is worth
+     * anything as a security guard.
+     * <p>
+     * A kind that is deliberately never published would fail here too. That is the right place to
+     * have the argument: exempt it explicitly, in this test, where the exemption is visible.
+     */
+    @Test
+    void theEveryKindFixtureCoversEveryKind() {
+        projector.handle(oneOfEveryKind().stream());
+
+        assertThat(projector.entries())
+                .as("every EntryKind must appear on the public calendar fixture, or the invariant "
+                    + "test above is not exercising it")
+                .extracting(CalendarEntry::kind)
+                .contains(EntryKind.values());
     }
 
     @Test

@@ -4,10 +4,10 @@
 **Opened:** 2026-08-18, out of the "seven controllers gained a `ScheduleGapProjector`" complaint.
 **Reopened:** 2026-08-19, on a second and different occasion — `CalendarEntry` growing a field that
 applies to one `EntryKind` only. See **"Second occasion"** below; the original discussion is
-unchanged above it. **That occasion is DECIDED: S2 + E2** (one public calendar projector; core
-record plus a sealed `EntryDetails`, with `kind()` derived from the details). Nothing implemented
-yet. The *original* question at the top of this document — renderer vs. projector responsibilities
-in general — remains open and undecided.
+unchanged above it. **That occasion is DONE: S2 + E2 shipped 2026-08-21** in two commits — one
+public calendar projector (which deleted `CalendarEntryRedactor`), and a core record plus a sealed
+`EntryDetails` with `kind()` derived from the details. The *original* question at the top of this
+document — renderer vs. projector responsibilities in general — remains open and undecided.
 **Question to pick up:** *what is the job of a renderer, versus the job of a projector, and which of
 them should a controller depend on?*
 
@@ -538,7 +538,7 @@ details record lying about its kind).
 ### What commit 2 built (2026-08-21)
 
 `CalendarEntryRedactor` and `CalendarEntryRedactorTest` are **gone**. `PublicCalendarProjector`
-handles all fifteen event types and emits public entries directly; `CalendarController` picks the
+handles all sixteen event types and emits public entries directly; `CalendarController` picks the
 read model by audience; `CalendarRenderer` strips nothing and its `REDACTOR` field is deleted.
 Both tiers green (1346 unit + 50 js).
 

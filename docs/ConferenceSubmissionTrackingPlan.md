@@ -19,10 +19,12 @@
 > accepted" is recorded, and the fold takes the last one.
 >
 > **Sequencing decided 2026-08-19: slice 2 shipped *before* the S2 + E2 calendar refactor** of
-> `RendererVsProjectorResponsibilities.md`. So `commitment` is, for now, one more nullable field on
-> the flat `CalendarEntry` (null = not applicable on the five non-conference kinds) rather than a
-> `ConferenceDetails`. Two small reviewable diffs instead of one large one; the field is expected to
-> move into the sealed `EntryDetails` when that refactor lands.
+> `RendererVsProjectorResponsibilities.md`. Two small reviewable diffs instead of one large one.
+> **That refactor has since landed (2026-08-21)**, so `commitment` is no longer a nullable field on a
+> flat `CalendarEntry`: it is a component of `EntryDetails.Conference` for the owner and
+> `EntryDetails.PublicConference` for anonymous viewers, and `CalendarEntryRedactor` is gone. Read the
+> box at **"Consequences elsewhere → Redaction"** before starting slice 3 or 4 — it says what that
+> changes for the work still to come.
 >
 > **What slice 2 did *not* build:** `TalkAccepted`'s auto-commit and `InvitedToSpeak`'s
 > offer-to-commit. Those events land in slice 4, so their arms of the fold land with them — there is
@@ -481,16 +483,37 @@ The original bottom-up order is re-cut so the CFP-season payoff and the backfill
 
 ### Redaction
 
-- `CalendarEntryRedactor` copies conferences through field-by-field. Adding a `commitment` field to
-  `CalendarEntry` **breaks every branch's compilation**, which is the intended forcing function
-  (redaction rule 1). **As built:** the two existing convenience constructors default it to `null`
-  ("not applicable"), so the five non-conference projectors are untouched, and the conference
-  projector names it through the canonical constructor. Every redactor branch names it too — the
-  CONFERENCE branch passes it through, the other five write `null` — and a test asserts the drop on
-  each of those five kinds, so a projector that one day stamps a commitment onto the wrong kind
-  still cannot publish it.
-- The redacted conference branch keeps name, venue, city, dates, `infoUrl`, and `commitment`, and
-  names every other field explicitly.
+> **⚠️ The mechanism described below was replaced on 2026-08-21 — read this box before slice 3 or 4.**
+> `CalendarEntryRedactor` is **deleted**. The public calendar is no longer the owner's read model with
+> fields stripped out; it is its own read model, built from events by `PublicCalendarProjector`
+> (decision S2 + E2, `docs/RendererVsProjectorResponsibilities.md`). **What that changes for the
+> slices still to come:**
+> - There is no redactor branch to add. To publish something new about a conference, add it to
+>   `EntryDetails.PublicConference` **and** read it in the projector's `ConferencePlanned` /
+>   `ConferenceAttendanceConfirmed` arms. To keep something private, simply never read it — a field
+>   the projector does not read cannot leak, and needs no test proving it was stripped.
+> - The **conference speaking badge** (slice 4) is a component on `EntryDetails.PublicConference`,
+>   the way `speaking` already is on `EntryDetails.PublicGathering`.
+> - Tests: `PublicCalendarProjectorTest` replaces `CalendarEntryRedactorTest` everywhere it is named
+>   below, and its `theEveryKindFixtureCoversEveryKind` must keep covering every kind.
+>   `CalendarRedactionSecurityTest` is unchanged in role and is now explicitly the primary guard —
+>   its anonymous fixtures are built by driving **real events through a real projector**.
+> - The **collapse precondition still binds**: `AttendanceCommitment` may be published only while it
+>   cannot be mapped back to a submission outcome. Slice 4 adds the submission stream, so that is the
+>   slice most likely to break it — re-read "Public by decision" in CLAUDE.md before touching the enum.
+>
+> The historical account below is kept for the reasoning, not as instructions.
+
+- `CalendarEntryRedactor` copied conferences through field-by-field. Adding a `commitment` field to
+  `CalendarEntry` **broke every branch's compilation**, which was the intended forcing function
+  (redaction rule 1). **As built:** the two existing convenience constructors defaulted it to `null`
+  ("not applicable"), so the five non-conference projectors were untouched, and the conference
+  projector named it through the canonical constructor. Every redactor branch named it too — the
+  CONFERENCE branch passed it through, the other five wrote `null` — and a test asserted the drop on
+  each of those five kinds. *(Both that pass-through and that test are gone: no non-conference
+  details type has a commitment any more, so the case cannot be constructed.)*
+- The redacted conference branch kept name, venue, city, dates, `infoUrl`, and `commitment`, and
+  named every other field explicitly.
 - `NOT_GOING` and organizer-cancelled conferences render for **nobody** — they leave the calendar
   entirely, as `ConferenceCancelled` already does.
 - **`CLAUDE.md` must be amended in the same change.** *(Done 2026-08-19 with slice 2: the private
@@ -504,8 +527,8 @@ The original bottom-up order is re-cut so the CFP-season payoff and the backfill
   company-internal talk must not be modelled as a conference or gathering. The section is accurate
   today (nothing is built), so it is not stale yet — it becomes stale the moment step 2 lands, or the
   gathering speaking badge ships, whichever comes first.
-- Both tiers of test, per redaction rule 5: a `CalendarEntryRedactorTest` case per private field,
-  and `CalendarRedactionSecurityTest` cases asserting the anonymous body `doesNotContain` a talk
+- Both tiers of test, per redaction rule 5: a `PublicCalendarProjectorTest` case asserting the
+  private field is absent from what the projector emits, and `CalendarRedactionSecurityTest` cases asserting the anonymous body `doesNotContain` a talk
   title, a rejection, a CFP date, and a commitment basis — asserting absence of the private value,
   not presence of a placeholder.
 
@@ -604,7 +627,7 @@ rework here.
   an organizer cancellation must each move every read model that shows conferences.
 - **Derived-status tests** over event sequences, including accept-then-decline, submit-then-withdraw,
   and reject-then-go-anyway.
-- **`CalendarEntryRedactorTest` + `CalendarRedactionSecurityTest`**, as above.
+- **`PublicCalendarProjectorTest` + `CalendarRedactionSecurityTest`**, as above.
 - **`AuthorizationMatrixTest`** rows for every new route.
 - **`@WebMvcTest`** slices for new controllers; `@WithMockUser`, and `.with(csrf())` on every POST.
   Any Thymeleaf-rendering endpoint needs one — template errors only surface at render time.

@@ -195,7 +195,7 @@ cities, gathering names, exact arrival times, the whole content of a report `Sec
 at OWNER. If a fix target is ever opened to FAMILY or anonymous, the banner must not render on it.
 Write that down next to the fragment.
 
-Nothing here touches `CalendarEntryRedactor`, `/calendar`, or any public surface.
+Nothing here touches the public calendar projection, `/calendar`, or any public surface.
 
 ## Slices (all three shipped 2026-08-21)
 

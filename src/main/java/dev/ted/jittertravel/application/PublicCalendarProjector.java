@@ -53,8 +53,11 @@ import java.util.stream.Stream;
  * Two consequences worth stating, because they are the reason this shape was chosen:
  * <ul>
  *   <li>Every entry is built through {@link #entry}, whose last argument is an
- *       {@link EntryDetails.Publishable}. The compiler will not let an owner details type — the
- *       ones with slots for edit paths and maps URLs — reach the public calendar at all.</li>
+ *       {@link EntryDetails.Publishable}, so the compiler refuses an owner details type — the ones
+ *       with slots for edit paths and maps URLs. Note what that rests on: {@code CalendarEntry}'s
+ *       own constructor is public and takes any {@code EntryDetails}, so the check holds only while
+ *       {@code entry(...)} is the sole way in. {@code PublicCalendarBuildsOnlyPublishableEntriesTest}
+ *       is what keeps it that way, and without it this would be a convention, not a check.</li>
  *   <li>The public model may differ in <em>shape</em>, not only in content: a private event is
  *       built as "Busy" from the start rather than reverse-engineered out of the owner's subtitle,
  *       and a declined or cancelled conference is simply never added.</li>

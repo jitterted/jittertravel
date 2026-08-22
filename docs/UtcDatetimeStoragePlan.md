@@ -409,7 +409,7 @@ Original spec, still authoritative for the conference type:
   - The calendar needed structured subtitles: `CalendarEntry.subTitle()` is now a
     `List<SubtitleLine>` (`Text` / `At` / `Range`) instead of pre-formatted strings, so the
     flight and train lanes keep their moments through to the renderer. Rippled through all five
-    calendar projectors, `CalendarEntryRedactor` and their tests.
+    calendar projectors, `PublicCalendarProjector` and their tests.
 - `[x]` Bug R3's fix landed with the `ScheduleProblemsRenderer` work — see R3 above.
 - `[x]` Browser-zone upgrade script (`BrowserZoneScript`), role switch (`ViewerZonePolicy` →
   `ZoneDisplay`), and the anonymous `?tz=` toggle (`ZoneToggle`, CSS in `site.css`), wired into

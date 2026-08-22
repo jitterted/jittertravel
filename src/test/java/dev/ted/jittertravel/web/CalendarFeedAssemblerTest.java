@@ -1,74 +1,56 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.BookedHotelView;
-import dev.ted.jittertravel.application.BookedHotelsProjector;
-import dev.ted.jittertravel.application.TimeView;
-import dev.ted.jittertravel.domain.BookingIntent;
-import dev.ted.jittertravel.domain.HotelBookingId;
-import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
+/**
+ * The assembler's own job, now that the deadline logic lives in {@link ICalEventSource}s: compose
+ * every source's contribution and add the liveness heartbeat, which belongs to no source because it
+ * is about the feed itself rather than anything Ted booked.
+ * <p>
+ * What each source contributes is its own test — {@link HotelCancelDeadlineSourceTest},
+ * {@link CfpDeadlineSourceTest}. What matters here is that <em>none of them is dropped</em>, which
+ * is the failure this composition can have and they cannot.
+ */
 class CalendarFeedAssemblerTest {
 
     private static final Instant NOW = Instant.parse("2026-07-01T12:00:00Z");
-    private static final UUID BOOKING_UUID = UUID.fromString("00000000-0000-0000-0000-0000000000ab");
 
-    private final BookedHotelsProjector projector = mock(BookedHotelsProjector.class);
-    private final CalendarFeedAssembler assembler = new CalendarFeedAssembler(projector);
+    private final HotelCancelDeadlineSource hotelDeadlines = mock(HotelCancelDeadlineSource.class);
+    private final CfpDeadlineSource cfpDeadlines = mock(CfpDeadlineSource.class);
+    private final CalendarFeedAssembler assembler =
+            new CalendarFeedAssembler(hotelDeadlines, cfpDeadlines);
 
+    /**
+     * The regression this guards is a source silently missing from the feed — which looks exactly
+     * like "no deadlines right now" and so never announces itself.
+     */
     @Test
-    void futureDeadlineBecomesOneVeventCarrying48h24hAnd4hAlarms() {
-        Instant deadline = NOW.plus(Duration.ofDays(10));
-        givenBookings(hotel("Grand Hotel", deadline, false));
+    void everySourcesEventsReachTheFeed() {
+        given(hotelDeadlines.events(NOW)).willReturn(List.of(event("hotel-1@jittertravel")));
+        given(cfpDeadlines.events(NOW)).willReturn(List.of(event("cfp-1@jittertravel")));
 
-        ICalEvent deadlineEvent = onlyDeadlineEvent();
-
-        assertThat(deadlineEvent.uid()).isEqualTo(BOOKING_UUID + "-cancelby@jittertravel");
-        assertThat(deadlineEvent.start()).isEqualTo(deadline);
-        assertThat(deadlineEvent.summary()).isEqualTo("Free-cancel deadline: Grand Hotel");
-        assertThat(deadlineEvent.alarmTriggers())
-                .containsExactly("-PT48H", "-PT24H", "-PT4H");
+        assertThat(assembler.feed(NOW))
+                .extracting(ICalEvent::uid)
+                .contains("hotel-1@jittertravel", "cfp-1@jittertravel");
     }
 
     @Test
-    void bookingWithoutADeadlineProducesNoDeadlineEvent() {
-        givenBookings(hotel("No Deadline Inn", null, false));
-
-        assertThat(deadlineEvents()).isEmpty();
-    }
-
-    @Test
-    void cancelledBookingIsExcludedEvenWithAFutureDeadline() {
-        givenBookings(hotel("Cancelled Hotel", NOW.plus(Duration.ofDays(5)), true));
-
-        assertThat(deadlineEvents()).isEmpty();
-    }
-
-    @Test
-    void pastDeadlineIsExcluded() {
-        givenBookings(hotel("Yesterday Hotel", NOW.minus(Duration.ofHours(1)), false));
-
-        assertThat(deadlineEvents()).isEmpty();
-    }
-
-    @Test
-    void feedAlwaysContainsTheLivenessHeartbeatEvenWithNoBookings() {
-        givenBookings();
+    void feedAlwaysContainsTheLivenessHeartbeatEvenWithNothingToRemind() {
+        given(hotelDeadlines.events(NOW)).willReturn(List.of());
+        given(cfpDeadlines.events(NOW)).willReturn(List.of());
 
         List<ICalEvent> feed = assembler.feed(NOW);
 
         assertThat(feed).hasSize(1);
-        ICalEvent heartbeat = feed.get(0);
+        ICalEvent heartbeat = feed.getFirst();
         assertThat(heartbeat.uid()).startsWith("heartbeat-").endsWith("@jittertravel");
         assertThat(heartbeat.alarmTriggers()).containsExactly("-PT5M");
     }
@@ -93,37 +75,8 @@ class CalendarFeedAssemblerTest {
         assertThat(probe.alarmTriggers()).containsExactly("-PT5M");
     }
 
-    private void givenBookings(BookedHotelView... views) {
-        given(projector.views(TimeView.ALL, NOW)).willReturn(List.of(views));
-    }
-
-    private List<ICalEvent> deadlineEvents() {
-        return assembler.feed(NOW).stream()
-                .filter(event -> event.uid().endsWith("-cancelby@jittertravel"))
-                .toList();
-    }
-
-    private ICalEvent onlyDeadlineEvent() {
-        List<ICalEvent> events = deadlineEvents();
-        assertThat(events).hasSize(1);
-        return events.get(0);
-    }
-
-    private static BookedHotelView hotel(String name, Instant cancelBy, boolean cancelled) {
-        ZonedTimestamp cancelByTs = cancelBy == null ? null : new ZonedTimestamp(cancelBy, ZoneOffset.UTC);
-        return new BookedHotelView(
-                HotelBookingId.of(BOOKING_UUID),
-                name,
-                "Berlin",
-                "Berlin",
-                "Germany",
-                new ZonedTimestamp(Instant.parse("2026-08-01T14:00:00Z"), ZoneOffset.UTC),
-                new ZonedTimestamp(Instant.parse("2026-08-03T10:00:00Z"), ZoneOffset.UTC),
-                BookingIntent.FINAL,
-                "https://maps.example.com/grand",
-                cancelByTs,
-                false,
-                cancelled,
-                "");
+    private static ICalEvent event(String uid) {
+        return new ICalEvent(uid, NOW.plus(Duration.ofDays(1)), NOW.plus(Duration.ofDays(1)),
+                "Something", "", List.of());
     }
 }

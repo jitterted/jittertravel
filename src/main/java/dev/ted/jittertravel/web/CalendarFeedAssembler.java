@@ -1,8 +1,5 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.BookedHotelView;
-import dev.ted.jittertravel.application.BookedHotelsProjector;
-import dev.ted.jittertravel.application.TimeView;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -13,23 +10,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Assembles the {@code List<ICalEvent>} the calendar feed serves. Phase 1 wires exactly one
- * contributor of booking-derived events — hotel free-cancellation deadlines — plus a recurring
- * liveness heartbeat. Per "no abstraction before the second user" there is no {@code ICalEventSource}
- * interface yet; that arrives with the second contributor (flights, trains, …).
+ * Assembles the {@code List<ICalEvent>} the calendar feed serves: every {@link ICalEventSource}'s
+ * contribution, plus a recurring liveness heartbeat that belongs to no source because it is about
+ * the feed itself rather than about anything Ted booked.
  * <p>
- * The feed is a pure projection of current bookings evaluated against {@code now} (captured at the
- * controller boundary). Nothing is emitted or scheduled server-side; the device fires the alarms.
+ * <strong>The sources are named, not collection-injected.</strong> Asking Spring for a
+ * {@code List<ICalEventSource>} would wire them by type and make the feed's contents depend on which
+ * beans happen to exist; naming them keeps "what is in the feed" a decision written down in one
+ * place — which matters, because every source widens what one leaked feed URL exposes. Adding a
+ * third means editing this constructor, deliberately.
+ * <p>
+ * The feed is a pure projection evaluated against {@code now} (captured at the controller boundary).
+ * Nothing is emitted or scheduled server-side; the device fires the alarms.
  */
 @Component
 public class CalendarFeedAssembler {
-
-    /**
-     * Three alarms per deadline. 48h and 24h give early warning; 4h is the backstop that also covers
-     * a booking made less than 24h before its deadline (iOS silently skips the already-past 48h/24h
-     * alarms and still fires the 4h one).
-     */
-    static final List<String> DEADLINE_ALARMS = List.of("-PT48H", "-PT24H", "-PT4H");
 
     /** The heartbeat and probe both fire ~5 minutes before their (near-future) start. */
     private static final List<String> SHORT_ALARM = List.of("-PT5M");
@@ -48,46 +43,20 @@ public class CalendarFeedAssembler {
 
     private static final DateTimeFormatter UID_DATE =
             DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC);
-    private static final DateTimeFormatter DESCRIPTION_DATE =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-    private final BookedHotelsProjector projector;
+    private final List<ICalEventSource> sources;
 
-    public CalendarFeedAssembler(BookedHotelsProjector projector) {
-        this.projector = projector;
+    public CalendarFeedAssembler(HotelCancelDeadlineSource hotelCancelDeadlines,
+                                 CfpDeadlineSource cfpDeadlines) {
+        this.sources = List.of(hotelCancelDeadlines, cfpDeadlines);
     }
 
-    /** The real feed: every live cancel-deadline, plus the always-present liveness heartbeat. */
+    /** The real feed: every source's live deadlines, plus the always-present liveness heartbeat. */
     public List<ICalEvent> feed(Instant now) {
-        List<ICalEvent> events = new ArrayList<>(cancelDeadlineEvents(now));
+        List<ICalEvent> events = new ArrayList<>();
+        sources.forEach(source -> events.addAll(source.events(now)));
         events.add(heartbeatEvent(now));
         return events;
-    }
-
-    private List<ICalEvent> cancelDeadlineEvents(Instant now) {
-        return projector.views(TimeView.ALL, now).stream()
-                .filter(view -> !view.cancelled())
-                .filter(view -> view.cancelBy() != null)
-                .filter(view -> view.cancelBy().utc().isAfter(now))
-                .map(this::deadlineEvent)
-                .toList();
-    }
-
-    private ICalEvent deadlineEvent(BookedHotelView view) {
-        Instant deadline = view.cancelBy().utc();
-        return new ICalEvent(
-                view.hotelBookingId().id() + "-cancelby@jittertravel",
-                deadline,
-                deadline.plus(EVENT_DURATION),
-                "Free-cancel deadline: " + view.hotelName(),
-                deadlineDescription(view),
-                DEADLINE_ALARMS);
-    }
-
-    private String deadlineDescription(BookedHotelView view) {
-        String checkIn = DESCRIPTION_DATE.format(view.checkIn().atEntryZone());
-        String checkOut = DESCRIPTION_DATE.format(view.checkOut().atEntryZone());
-        return view.city() + " — check-in " + checkIn + ", check-out " + checkOut;
     }
 
     ICalEvent heartbeatEvent(Instant now) {

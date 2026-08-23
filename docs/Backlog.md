@@ -171,11 +171,10 @@ follow-up of their own had that follow-up **lifted into `Cleanup_Tasks.md` first
 never drops an open item.
 
 Rows with **no** `archived/` prefix are still in `docs/`, each for its own reason:
-`UtcDatetimeStoragePlan.md` still owns an open decision (alpha-2 zone aliases);
+`UtcDatetimeStoragePlan.md` still owns an open decision (alpha-2 zone aliases), and
 `EventPayloadUpcasterDesign.md` is a live how-to — how to add and retire an upcaster rung — not a
-finished plan; and `ProblemContextOnFixPagesPlan.md` is simply an archiving candidate nobody has
-moved yet. One row has no doc at all: a finished sub-item of a plan that is still in progress, which
-can never be archived on its own.
+finished plan. One row has no doc at all: a finished sub-item of a plan that is still in progress,
+which can never be archived on its own.
 
 | Doc | Landed |
 |---|---|
@@ -200,7 +199,7 @@ can never be archived on its own.
 | `archived/CalendarAwayBandPlan.md` | `done 2026-08-21` (`d4a9a3f`) — turquoise away stripe on `/calendar`. No tail: the schedule-problems variant was **closed** by Ted 2026-08-21, not deferred. |
 | `archived/EventTypeColumnNormalizationPlan.md` | built 2026-08-19, **run in production 2026-08-21** — `event_log.type` now holds one spelling per type. The `EventTypes` aliases **stay** (append-only; a pre-normalization backup still restores the old names). Two unconfirmed post-click runbook steps → `Cleanup_Tasks.md`. Keeps the rollback analysis, which is the reason the runbook says to take a backup **first**. |
 | `archived/SessionizePrefillPlan.md` | `done 2026-08-23` — paste a Sessionize URL on `/plan-conference` and fill the form: the deadline exactly, from the `.ics`; everything else scraped by regex, best-effort. Keeps **why regex and not jsoup**, why the planned two-slice split had to be abandoned (the deadline field is read in the venue zone, which only the scrape supplies), and the one place here where **blank beats a defensible value**. No tail. |
-| `ProblemContextOnFixPagesPlan.md` | `done 2026-08-21` — a fix link now lands on a form that says *why*, via `?problem=<key>` resolved against the live report. Keeps the reference-not-the-words rule and the `@ControllerAdvice` decision. **Open: none — so it is a candidate for `archived/`; still in `docs/` only because nobody has moved it.** |
+| `archived/ProblemContextOnFixPagesPlan.md` | `done 2026-08-21` — a fix link now lands on a form that says *why*, via `?problem=<key>` resolved against the live report. Keeps the reference-not-the-words rule (a URL can lie and can go stale; a lookup cannot), the reuse-the-wording rule, and the `@ControllerAdvice` decision. Its one named follow-up, ground-transfer endpoint prefill, was lifted to `Cleanup_Tasks.md` (Deferred) when it was archived 2026-08-23. |
 | — (no doc of its own) | `infoUrl` on conferences, `done 2026-08-22` — shipped inside conference slice 4b; the detail is in the **Shipped without an owning plan doc** section below, and the owning plan is still in progress. |
 | `EventPayloadUpcasterDesign.md` | Reference doc for the read-time version-ladder. The upcaster framework `archived/LegacyEventEagerMigrationPlan.md` deferred, now built (2026-08-18): `EventPayloadUpcaster` is a composite of per-`(type × step)` `EventUpcaster` rungs. How-to-add / how-to-retire a rung lives here. |
 

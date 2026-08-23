@@ -260,7 +260,7 @@ Two halves, both shipped:
   banner uses and asks the choices for an unambiguous candidate at each end — **exactly one or
   none**, per **D17**. This was the half Ted actually meant by "prefill"; the date/time filling
   below was a misread of the request, kept because it still helps a hand-picked endpoint.
-- **The options name their dates.** Covered by **D16** in `docs/archived/GroundTransferPlan.md`: the
+- **The options name their dates.** Covered by **D16** in `GroundTransferPlan.md`: the
   hotel lists split by direction like the flight legs, each option reading
   `Reichshof — Hamburg · check out Fri Sep 18, 11:00 AM`, and prefilling that moment. The prefill
   half is **on trial** at Ted's request — a stay is a range, so choosing an ongoing stay moves the
@@ -272,7 +272,7 @@ Two halves, both shipped:
 **Ground-transfer endpoint prefill.** `/plan-ground-transfer` receives only `?date=`, because the
 gap knows *cities* while the form takes *endpoint tokens* (`airport:DEN`, `hotel:<bookingId>`) and
 one city maps to zero, one, or many of them — recorded as D13 in
-`docs/archived/GroundTransferPlan.md`. Preselecting the wrong one is not a wasted click: it writes a
+`GroundTransferPlan.md`. Preselecting the wrong one is not a wasted click: it writes a
 `GroundTransferPlanned` event that **removes the very gap it was entered to close**. The safe
 version — preselect only on an unambiguous single match, group the candidates otherwise, say so when
 there are none — is a separate plan, and it helps one problem kind where this one helps all of them.

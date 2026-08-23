@@ -227,6 +227,18 @@ Items with a known shape and a named trigger, deliberately **not** queued: the c
 them is a paragraph, and building either one now would be work ahead of a need. Move an item up to
 **Open** when its trigger fires — do not treat this section as a backlog to work down.
 
+- [ ] **Ground-transfer endpoint prefill from a fix link.** Lifted from
+      `archived/ProblemContextOnFixPagesPlan.md` 2026-08-23, when that doc was archived — it was
+      the one piece of future work that doc still named, and nothing else tracked it. Today
+      `/plan-ground-transfer` receives only `?date=` from a fix link, because the gap knows
+      **cities** while the form takes **endpoint tokens** (`airport:DEN`, `hotel:<bookingId>`), and
+      one city maps to zero, one or many of them. **Why this is not a wasted click if it guesses
+      wrong:** preselecting the wrong endpoint writes a `GroundTransferPlanned` event that *removes
+      the very gap it was entered to close* — the failure hides itself. The safe shape is named in
+      both docs: preselect only on an unambiguous single match, group the candidates when there are
+      several, say so when there are none. Reasoning is D13 in `archived/GroundTransferPlan.md`.
+      **Trigger:** Ted following a travel-gap fix link to `/plan-ground-transfer` often enough that
+      re-picking both ends annoys — most likely alongside the Change-a-ground-transfer item above.
 - [ ] **Private events in `DifferentCityConflict`** — tabled by Ted 2026-08-20, and it outlived the
       slice it was pencilled into: it was to ride along with problem-calendar slice 4, but slice 4
       shipped 2026-08-20 as clash *markers* only, so this now has no home but this list.

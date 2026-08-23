@@ -313,7 +313,7 @@ the surrounding `ScheduleContext`, and a Back link to the surface the link was c
 **Why:** the prefill was never the gap — `/book-hotel` already arrived with the right city and the
 right nights. What was missing is the sentence that made them the right values, and Ted was opening
 a second tab to re-read the report he had just left (2026-08-21). Full reasoning in
-`docs/ProblemContextOnFixPagesPlan.md`.
+`docs/archived/ProblemContextOnFixPagesPlan.md`.
 
 **Adding a new fix target — three things, or the banner silently is not there:**
 

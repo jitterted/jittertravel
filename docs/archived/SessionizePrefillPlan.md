@@ -1,20 +1,62 @@
 # Sessionize Prefill Plan — paste a URL, fill in what we can, correct the rest
 
-> **Status: DESIGNED, nothing built.** Designed 2026-08-22 from Ted's question ("how hard would it
+> **Status: BUILT 2026-08-23.** Designed 2026-08-22 from Ted's question ("how hard would it
 > be?"), against the live `https://sessionize.com/jfokus-2027/` page and its `.ics`, both fetched
-> and read on that date.
+> and read on that date — and both re-fetched on 2026-08-23 as the test fixtures, unchanged.
+>
+> **Slices 1 and 2 shipped together, which the plan said not to do.** The reason is a contradiction
+> inside this document, found while starting Slice 1 and put to Ted before any code:
+>
+> - `ConferencePlanning` stamps the CFP deadline with `command.startDate().zone()` — the **venue**
+>   zone, resolved from `venueCity`/`venueCountry`. So `cfpClosesOn` on the form is venue-local.
+> - This plan's Slice 1 says "before a single line of HTML gets parsed", and its option (a) says the
+>   deadline is filled in the zone resolved from the **scraped** city/country. Those cannot both hold:
+>   with no scrape there is no zone, and writing the `.ics` UTC wall clock into a venue-local field
+>   shifts the deadline silently — `06:30Z` would land as 06:30 Stockholm, two hours early.
+>
+> A silent two-hour shift is the one thing best-effort explicitly does not licence, so the split was
+> the thing that had to give. **Ted's call: build both slices as one widget** (2026-08-23), which
+> makes the zone question disappear — city and country are always there.
+>
+> **One rule replaces option (a)'s fallback, and it is the one deliberate departure from this plan.**
+> Where the text says an unresolvable zone should "return the UTC wall-clock and have the widget say
+> which zone it is showing", the built widget **leaves the deadline blank** and says the deadline
+> could not be worked out. Fill-beats-blank holds everywhere else; it does not hold here, because a
+> deadline in the wrong zone looks exactly like a deadline in the right one. `cfpSubmissionUrl` goes
+> blank with it, since the pair with no deadline is refused at submit (`CfpDeadlineMissing`).
+>
+> **What shipped:** `SessionizePrefillService` (slug validation as the SSRF gate, the `.ics` read for
+> the deadline, JDK regex for the page, `LocationZoneResolver` for the venue zone),
+> `GET /api/sessionize-prefill` (OWNER-only in `SecurityConfig`, with its `ApiAccessDeniedSecurityTest`
+> case), `fragments/sessionize-prefill.html` at the top of `/plan-conference`, and the two paste-row
+> CSS rules the URL input needed. Both tiers green (1614 + 61); eight mutations verified, including
+> the field-swap that would put a Sessionize link in the public `infoUrl` — caught in **both** the
+> `js` tier and the convention test, which is the one CI runs.
+>
+> **Also this session, unrelated to the widget but adjacent:** `CfpDeadlineSource` gained its **4h**
+> alarm (72h + 24h + 4h), the backstop `../ConferenceSubmissionTrackingPlan.md` had left open. Ted's
+> reason went beyond the backstop: 4h before close is when a last-second submission actually happens.
+>
+> **Not built, and not needed:** nothing. The "what this deliberately does not do" list below stands
+> as written — no re-checking of moved deadlines, no session/speaker fetching, no second platform.
 >
 > **Slice 0 is no longer an assumption — it SHIPPED 2026-08-22**, before any of this, as slice 4b of
-> `ConferenceSubmissionTrackingPlan.md`. `/plan-conference` now carries **Conference Page**,
+> `../ConferenceSubmissionTrackingPlan.md`. `/plan-conference` now carries **Conference Page**,
 > **Closes On** and **Submit At**; one submit produces `PlanConference` then `OpenCfp`; the deadline
-> takes the zone the plan resolved; and `OPEN_SPACE` + a CFP is a field error. Two things there
-> differ from what this doc specified, and both matter to the widget:
+> takes the zone the plan resolved; and `OPEN_SPACE` + a CFP is a field error. **Slice 0 below was
+> re-read against the built form and rewritten** — it now carries the real field names, in order, as
+> the table the widget must match. Three things there differ from what this doc specified, and all
+> three matter to the widget:
 >
 > - The refusals happen **before the first command**, so a rejected submit writes nothing at all —
 >   the "not atomic, but recoverable" caveat in Slice 0 below now applies only to a failure the form
 >   cannot foresee.
 > - There is a **third field**: `cfpSubmissionUrl`, on `CfpOpened`. The pasted Sessionize URL is
->   itself a defensible value for it, which the prefill should fill in rather than discard.
+>   itself a defensible value for it, which the prefill should fill in rather than discard — and the
+>   form's placeholder for it is already `https://sessionize.com/jfall-2027/`.
+> - A **second refusal** joined the first: `CfpDeadlineMissing`, for a submission URL with no
+>   deadline. The prefill can produce exactly that pair, so it is a constraint on the widget, not
+>   just on the form.
 >
 > **No open questions remain.** `infoUrl` shipped on `ConferencePlanned` in the same change, so the
 > scraped website URL has a field to land in; and the button reads **"Fill from Sessionize"** (both
@@ -33,7 +75,7 @@
 > The doc was called `SessionizeCfpImportPlan.md` until the first of those decisions: it is not an
 > import, and it is not only about the CFP.
 >
-> Companion to `ConferenceSubmissionTrackingPlan.md`, which owns `CfpOpened` and everything
+> Companion to `../ConferenceSubmissionTrackingPlan.md`, which owns `CfpOpened` and everything
 > downstream of it. This doc owns only *how the values get into the form*.
 
 ## The point
@@ -142,29 +184,68 @@ failure mode of a hallucinated venue is worse than a blank field.
 
 ## Design
 
-### Slice 0 — prerequisite (assumed, not designed here): the CFP deadline on the plan form
+### Slice 0 — the CFP on the plan form: BUILT 2026-08-22
 
-Ted's framing is that `/plan-conference` grows a place for CFP information so it is all one page.
-This plan assumes that and does not design it, but the prefill's shape depends on four facts about it,
-so they are recorded here:
+No longer a prerequisite to assume; it shipped as slice 4b of `../ConferenceSubmissionTrackingPlan.md`,
+and `ConferencePlanning`'s javadoc cites this doc for the reasoning. **The prefill now has a real
+form to write into, and its exact shape is what the widget must match.** All four facts this plan
+depended on held; one turned out better than specified.
 
-1. **Two commands, one submit.** `PlanConferenceCommand` and `OpenCfpCommand` are separate commands
-   producing separate events. Both must go through `CommandExecutor` (CLAUDE.md), which means **two
-   command rows and two commandIds**, both captured at the boundary like every other
-   nondeterministic input.
-2. **Order is forced.** `OpenCfp` folds the stream for a live `ConferencePlanned` before it will emit,
-   so the plan command must land first. Not atomic: if the second fails, the conference exists with no
-   CFP. That is **recoverable** — `/conferences/{id}/cfp` still exists and is exactly the repair — so
-   it is an acceptable failure, but the controller should say what happened rather than redirect
-   silently (errors render on the form page).
-3. **Do not resolve the zone twice.** `PlanConferenceHandler` already resolves the venue zone and
-   stamps it on the command's `startDate()`. The CFP deadline takes *that* zone. Resolving from the
-   address a second time could only disagree with the first — the same reasoning `OpenCfpController`
-   already records for the standalone page.
-4. **`OPEN_SPACE` + a deadline throws `ConferenceHasNoCfp`.** An open-space conference has no CFP to
-   close. The form must not submit a deadline when that radio is selected, and the controller must map
-   the exception to a **field error**, not a 500. (Today it is described as unreachable because the
-   dashboard offers no such action; one form carrying both makes it reachable.)
+**What the form looks like now** — in order, top to bottom, with the property name the widget writes
+by (`th:field` emits `name="<property>"`):
+
+| Fieldset | Label on the form | Property | Prefilled from |
+|---|---|---|---|
+| — | Conference Name | `name` | `og:title`, suffix stripped |
+| — | Conference Page *(optional)* | `infoUrl` | the `navy-link` anchor — **public** |
+| — | Start Date / End Date | `startDate` / `endDate` | scraped date + a guessed time |
+| Format | radio buttons | `format` | **never** — left alone |
+| Call for Papers | Closes On *(optional)* | `cfpClosesOn` | the `.ics` `DTSTART` |
+| Call for Papers | Submit At *(optional)* | `cfpSubmissionUrl` | **the pasted URL** — private |
+| Venue | Venue Name | `venueName` | first `<span class="block">` |
+| Venue | Street / City / State / Country / Postal Code | `venueStreet` `venueCity` `venueState` `venueCountry` `venuePostalCode` | city + country only |
+| — | Time zone | `zone` | **never** — see below |
+
+Four consequences for the widget, each from something the form actually decided:
+
+1. **The names are `venue`-prefixed, and one is `venueState`, not `venueRegion`.** The widget writes
+   siblings by `name` the way the address widget does, so these strings are the interface. Note that
+   `plan-conference.html` deliberately does **not** include the shared address-paste fragment — its
+   fields are `*{venueStreet}` rather than `*{street}`, so `AddressPasteFragmentConventionTest` does
+   not fire on it. The two widgets are independent; adding one does not imply the other.
+2. **Leave `zone` on "derive from location".** The prefill fills city and country, and Sweden resolves
+   (`LocationZoneResolver:235`); picking a `CommonZone` explicitly would override a resolution that is
+   about to be correct. If the city does not resolve, the existing `ZoneResolutionException` path
+   already re-prompts on submit — that is the designed repair, and the prefill should not pre-empt it.
+3. **The CFP fieldset is always visible, including for Open Space** — the form says why: hiding it as
+   the radio changes would move every field below it, and the server refuses the impossible
+   combination anyway. So the prefill *can* fill `cfpClosesOn` while `OPEN_SPACE` is selected, and
+   nothing stops it. That is exactly why the widget should say so at fill time rather than let the
+   submit come back with `ConferenceHasNoCfp` — the round trip is avoidable and the contradiction is
+   visible at the moment it is created.
+4. **The form already assumes Sessionize.** "Submit At" carries the placeholder
+   `https://sessionize.com/jfall-2027/`. The field the prefill fills for free was written with this
+   source in mind, which is a good sign the two halves agree.
+
+**The four facts, as they landed:**
+
+1. **Two commands, one submit** — as specified. `ConferencePlanning` takes `OpenCfp` as a
+   collaborator and issues `PlanConferenceCommand` then `OpenCfpCommand`, both through
+   `CommandExecutor`, with the second `commandId` captured at the boundary and passed in (unused when
+   the form carried no CFP).
+2. **Order is forced, and non-atomicity shrank to almost nothing.** This is the improvement:
+   `refuseImpossibleCfp` checks everything knowable *from the form alone* **before the first command
+   runs**, so a rejected submit writes nothing and re-renders with a field error. The
+   "conference planned, CFP failed" gap now only opens on a failure the form cannot foresee, and
+   `/conferences/{id}/cfp` remains the repair.
+3. **The zone is resolved once** — as specified. The CFP deadline takes the zone off the dates
+   `PlanConferenceHandler` just stamped, never a second resolution from the address.
+4. **`OPEN_SPACE` + a CFP is a field error** — as specified, and a second refusal joined it:
+   `CfpDeadlineMissing`, for a submission URL with no deadline. `CfpOpened` is built around its
+   deadline and cannot carry a URL alone, and dropping what Ted typed is the worse of the two
+   options. **The prefill can produce exactly this combination** — a Sessionize page whose `.ics`
+   fails to parse still yields a pasted submission URL — so the widget must not fill `Submit At`
+   unless it also filled `Closes On`.
 
 ### Slice 1 — the deadline, from the `.ics` (the valuable half)
 
@@ -232,6 +313,10 @@ Same service, second method: `Optional<SessionizeConference> conference(String s
   different fields holding two different URLs, and the widget writes both in one action — which is
   precisely the situation where a copy-paste of the wrong field name leaks. Pin them apart in the
   `js` test.
+  **One constraint, and the prefill is the thing most likely to trip it:** `Submit At` must not be
+  filled unless `Closes On` was too, or the submit comes back with `CfpDeadlineMissing`. That is not
+  hypothetical here — a reachable Sessionize page whose `.ics` fails to parse yields exactly that
+  pair, a URL with no deadline. So the free field is free only when the `.ics` half succeeded.
 - **Re-pasting overwrites what was found, and only what was found.** This is exactly the `set()`
   semantic the address widget already has — it writes a field only when the incoming value is
   non-empty — so a second paste refreshes the six fields the page knows about and leaves Ted's typed
@@ -295,11 +380,17 @@ token to thread" comment.
 file, for the reason that fragment's own comment gives (per-page copies drifted, and the drift
 reached the user as a wrong error message).
 
-One difference from the address widget worth writing down: it fills sibling inputs **by `name`**, and
-the conference form's names are `venueName`, `venueCity`, `venueCountry`, not `city`/`country`. Note
-also that `plan-conference.html` does **not** currently include the address-paste fragment — its
-fields are `venueStreet` etc. rather than `th:field="*{street}"`, so that convention test does not
-fire on it. The two widgets are independent; do not assume one implies the other.
+**Where it goes on the form: at the top, above Conference Name.** It fills fields in four of the
+form's five sections, so it belongs above all of them — and that is where the address widget sits on
+the forms that host it, so the placement is already familiar. Reuse the form's existing `hint` and
+`optional` classes rather than inventing styles.
+
+It fills sibling inputs **by `name`**, exactly as the address widget does; the property names are the
+interface and they are listed in the Slice 0 table above. Two traps in that list: the region field is
+**`venueState`**, not `venueRegion`, and every venue name is **`venue`-prefixed** — a widget copied
+from the address fragment and not renamed would silently write to nothing at all, since `[name="city"]`
+does not exist on this form. **Assert each field by name in the `js` test**, which is the only tier
+that would catch a `querySelector` that quietly matches nothing.
 
 **Security:** add `/api/sessionize-prefill` beside `/api/parse-address` in `SecurityConfig`
 (`hasRole("OWNER")`) in the same change, and add a case to `ApiAccessDeniedSecurityTest`. Note that
@@ -364,15 +455,26 @@ so files rather than inline text blocks. Mutation-verify every assertion.
   degrades the prefill instead of breaking the page.
 - **Slice 0: already built** (2026-08-22), so it costs this plan nothing. Same for `infoUrl`.
 
-**Ship Slice 1 first, on its own.** The deadline is the exact, durable half — and it now arrives
-alongside `cfpSubmissionUrl`, which is free, so Slice 1 fills three fields (name, deadline,
-submission URL) before a single line of HTML gets parsed. Slice 2 is the one that can rot, and
-holding it back one commit keeps the two kinds of failure separately diagnosable.
+**~~Ship Slice 1 first, on its own.~~ Superseded 2026-08-23 — they shipped together.** The argument
+was that the deadline is the exact, durable half, so holding the scrape back one commit keeps the two
+kinds of failure separately diagnosable. It does not survive contact with the form: the deadline
+field is read in the **venue** zone, and the venue only arrives with the scrape, so a scrape-free
+Slice 1 could fill the deadline only by writing it in the wrong zone. See the status block at the top
+for the whole reasoning and Ted's decision.
+
+What the argument was right about is preserved another way: the `.ics` half and the HTML half fail
+**independently at runtime**, not merely in separate commits. A page whose markup is unrecognisable
+still yields the name from the calendar file; an `.ics` that will not parse still leaves nine scraped
+fields filled. `SessionizePrefillServiceTest` pins both directions.
 
 ## Decided
 
-All 2026-08-22, with Ted.
+All 2026-08-22 with Ted, except the last, which is 2026-08-23.
 
+- **Slices 1 and 2 ship as one widget** (2026-08-23). The split assumed the deadline could be filled
+  without the scrape; it cannot, because the form reads it in the venue zone. And the corollary rule:
+  **an unresolvable venue zone leaves the deadline blank**, not filled in UTC — the one place in this
+  plan where blank beats a defensible value, because a shifted deadline is invisible on the form.
 - **Best-effort prefill, not a perfect import.** Fill as much as can be found; he corrects the rest.
   Fill beats blank wherever there is a defensible value. This settles **Slice 2 as in scope**, and
   settles the scraped start/end times as **`09:00` / `17:00`, labelled as guesses**.
@@ -389,8 +491,8 @@ All 2026-08-22, with Ted.
 
 ## Open questions
 
-**None.** Everything this plan needed a decision on has one, and both prerequisites
-(Slice 0, `infoUrl`) are built. It is ready to implement as written: **Slice 1, then Slice 2.**
+**None.** Everything this plan needed a decision on has one, and it is **built** (2026-08-23) —
+as one widget rather than as Slice 1 then Slice 2, for the reason in the status block.
 
 Decisions that would reopen it, so they are worth naming: a field that needs real HTML structure
 rather than a labelled leaf value (revisit jsoup — by **asking**, not deciding), or Sessionize

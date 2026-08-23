@@ -51,7 +51,11 @@ public class SecurityConfig {
                                 "/plan-private-event", "/plan-private-event/**",
                                 "/plan-ground-transfer", "/plan-ground-transfer/**",
                                 "/clear-conflict", "/clear-conflict/**",
-                                "/api/parse-address").hasRole("OWNER")
+                                "/api/parse-address",
+                                // The prefill's own input is private: a Sessionize URL says Ted is
+                                // thinking of submitting there, which is the submission pipeline in
+                                // one field. Public page or not, who is reading it stays OWNER-only.
+                                "/api/sessionize-prefill").hasRole("OWNER")
                         // Per-item edit pages must be ordered before the list matchers below.
                         // A single * matches one path segment only, so per-item *actions* need
                         // their own entry alongside the page (as /booked-flights/*/lookup does).

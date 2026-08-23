@@ -26,7 +26,8 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
  * sequencing and the refusals — that the plan lands first, that the deadline is stamped with the
  * zone the plan already resolved, and that neither impossible combination writes anything at all.
  * <p>
- * See {@code docs/SessionizePrefillPlan.md}, Slice 0, which specified this shape before it existed.
+ * See {@code docs/archived/SessionizePrefillPlan.md}, Slice 0, which specified this shape before it
+ * existed.
  */
 class ConferencePlanningTest {
 

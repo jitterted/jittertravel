@@ -16,12 +16,14 @@ the docs below shipped with a follow-up still named inside them, and each of tho
 **lifted into `../Cleanup_Tasks.md` first**, with a pointer back here for the reasoning. Archiving
 never drops an open item — if a doc still owns work nobody else tracks, it stays in `docs/`.
 
-Established 2026-08-21, when the eighteen docs below moved in one pass.
+Established 2026-08-21, when eighteen docs moved in one pass. Anything added since arrived one at a
+time, on the day its last open item closed.
 
 ## What's here
 
 | Doc | Landed | Note |
 |---|---|---|
+| `SessionizePrefillPlan.md` | 2026-08-23 | Paste a Sessionize URL on `/plan-conference` and fill the form. Keeps the reasoning for **regex over jsoup** (and the rules that make that honest — per-field isolation, `&amp;` decoded last), and for why the planned Slice 1 / Slice 2 split **had to be abandoned**: the deadline field is read in the venue zone, which only the scrape supplies. Also the one place this codebase says **blank beats a defensible value** — an unresolvable zone leaves the deadline empty, because a shifted deadline looks exactly like a correct one. No follow-ups; its "deliberately does not do" list is non-goals, not deferred work. |
 | `CalendarAwayBandPlan.md` | 2026-08-21 (`d4a9a3f`) | Turquoise away stripe on `/calendar`. Its one hypothetical follow-up — the same band on `/schedule-problems` — was **closed** by Ted, not deferred. |
 | `EventTypeColumnNormalizationPlan.md` | built 2026-08-19, **run in production 2026-08-21** | `event_log.type` now holds one spelling per type. Keeps the runbook, the rollback analysis, and why the `EventTypes` aliases must **stay** append-only afterwards. Two unconfirmed post-click steps → `../Cleanup_Tasks.md`. |
 | `GroundTransferPlan.md` | 2026-08-20 | The taxi/subway/shuttle hop that no entry kind could record; plan + cancel. **Change** is in `../Cleanup_Tasks.md` (Deferred, with its trigger). |

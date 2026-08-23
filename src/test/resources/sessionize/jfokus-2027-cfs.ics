@@ -1,0 +1,24 @@
+BEGIN:VCALENDAR
+PRODID:-//github.com/ical-org/ical.net//NONSGML ical.net 4.0//EN
+VERSION:2.0
+BEGIN:VEVENT
+CREATED:20260823T133911Z
+DESCRIPTION:This is a reminder to submit a session to Jfokus 2027.\nSet th
+ e alarm/notification to ensure you don't miss it!\nSessions can be submit
+ ted at https://sessionize.com/jfokus-2027/
+DTEND:20261001T063000Z
+DTSTAMP:20260823T133911Z
+DTSTART:20261001T063000Z
+LAST-MODIFIED:20260823T133911Z
+LOCATION:https://sessionize.com/jfokus-2027
+SEQUENCE:0
+SUMMARY:Jfokus 2027: deadline to submit a session
+UID:a7454df4-8e1d-4779-a2ce-2be3e3e08c99
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Reminder
+SUMMARY:Jfokus 2027: deadline to submit a session
+TRIGGER:-P2D
+END:VALARM
+END:VEVENT
+END:VCALENDAR

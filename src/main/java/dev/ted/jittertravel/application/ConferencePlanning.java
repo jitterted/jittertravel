@@ -15,7 +15,7 @@ import java.util.UUID;
 /**
  * Plans a conference — and, when the form carried one, records its CFP in the same submit.
  * <p>
- * <strong>Two commands, one submit</strong> ({@code docs/SessionizePrefillPlan.md}, Slice 0).
+ * <strong>Two commands, one submit</strong> ({@code docs/archived/SessionizePrefillPlan.md}, Slice 0).
  * {@code PlanConferenceCommand} and {@code OpenCfpCommand} stay separate commands producing
  * separate events, so {@code CfpOpened} is unchanged by having a second way in and the audit trail
  * carries two command rows with two commandIds — both captured at the boundary, like every other

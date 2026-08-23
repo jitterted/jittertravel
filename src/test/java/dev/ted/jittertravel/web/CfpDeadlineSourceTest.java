@@ -33,7 +33,7 @@ class CfpDeadlineSourceTest {
     private final CfpDeadlineSource source = new CfpDeadlineSource(projector);
 
     @Test
-    void aFutureCfpDeadlineBecomesOneVeventCarrying72hAnd24hAlarms() {
+    void aFutureCfpDeadlineBecomesOneVeventCarrying72h24hAnd4hAlarms() {
         Instant deadline = NOW.plus(Duration.ofDays(30));
         givenConferences(conference("J-Fall", deadline));
 
@@ -43,8 +43,9 @@ class CfpDeadlineSourceTest {
         assertThat(event.start()).isEqualTo(deadline);
         assertThat(event.summary()).isEqualTo("CFP closes: J-Fall");
         assertThat(event.alarmTriggers())
-                .as("72h to decide and write, 24h as the now-or-never nudge")
-                .containsExactly("-PT72H", "-PT24H");
+                .as("72h to decide and write, 24h as the now-or-never nudge, "
+                    + "4h for the last-second submission and as the backstop for a late-recorded CFP")
+                .containsExactly("-PT72H", "-PT24H", "-PT4H");
     }
 
     @Test

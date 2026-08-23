@@ -120,6 +120,10 @@
     <form th:action="@{/plan-conference}" th:object="${planConference}" method="post">
         <input type="hidden" th:field="*{conferenceId}"/>
 
+        <!-- Above everything, because it fills fields in four of the sections below — and because
+             that is where the address widget sits on the forms that host it. -->
+        <div th:replace="~{fragments/sessionize-prefill :: sessionizePrefill}"></div>
+
         <div class="field" style="margin-bottom: 0.75rem;">
             <label>
                 Conference Name

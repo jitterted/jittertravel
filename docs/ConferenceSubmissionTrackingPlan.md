@@ -18,7 +18,7 @@
 >   submitting is still on the table. Chosen over the narrower "rejected only" because it also makes
 >   `Going` distinguish an accepted talk from an invitation taken up from a ticket bought.
 > - **`infoUrl` landed on `ConferencePlanned`** — the long-open Backlog item, and the answer to
->   `SessionizePrefillPlan.md`'s open question 1. Public, per CLAUDE.md, so it reaches
+>   `archived/SessionizePrefillPlan.md`'s open question 1. Public, per CLAUDE.md, so it reaches
 >   `EntryDetails.Conference` *and* `EntryDetails.PublicConference` and the title links out on both
 >   calendars, the itinerary and `/conferences`.
 > - **`submissionUrl` landed on `CfpOpened`**, not on the conference: it is the same fact as the
@@ -32,7 +32,7 @@
 >   non-null field has to be *stored*, a missing URL has an obvious empty meaning.
 >   `ConferenceUrlFieldCompatibilityTest` pins both directions and that the versions did not move.
 >
-> **Slice 0 of `SessionizePrefillPlan.md` is now built**, exactly as that doc specified it: one
+> **Slice 0 of `archived/SessionizePrefillPlan.md` is now built**, exactly as that doc specified it: one
 > submit produces `PlanConference` **then** `OpenCfp`, two commandIds captured at the boundary, the
 > deadline stamped with the zone `PlanConferenceHandler` already resolved, and `OPEN_SPACE` + a CFP
 > refused as a field error. One correction to that spec: the refusals were moved **ahead of the
@@ -95,9 +95,10 @@
 > **Two things worth carrying into slice 4.** The first is **done**: the dashboard could not
 > distinguish "submitted, waiting to hear" from "have not submitted" — both fell in
 > `CFP_CLOSES_SOON` — and slice 4's `WAITING_TO_HEAR` group is precisely that fix. The second is
-> **still open**: `CfpDeadlineSource` has **no 4h backstop**, unlike the hotel source:
-> a CFP recorded inside 72h of closing loses both alarms the way a hotel booked inside 24h would,
-> and the hotel source's third alarm exists for exactly that. Revisit if one ever slips past.
+> **done 2026-08-22**: `CfpDeadlineSource` had **no 4h backstop**, unlike the hotel source — a CFP
+> recorded inside 72h of closing lost both alarms the way a hotel booked inside 24h would. It now
+> carries **72h + 24h + 4h**, and Ted's reason for the third is not only the backstop: 4h before
+> close *is* when a last-second submission happens.
 >
 > **Slice 2 as built (2026-08-19).** `AttendanceBasis` (3 values) + `ConferenceAttendanceConfirmed`
 > (basis non-null, fails loud) + `ConfirmConferenceAttendanceCommand`/`Context` + a
@@ -531,10 +532,12 @@ There is a handful of conferences and Ted knows each one's state, so this is min
 the actions exist — decided **before** slice 2 ships so the calendar never briefly mislabels a
 committed conference.
 
-### CFP closing deadline rides the existing iCal feed (72h + 24h)
+### CFP closing deadline rides the existing iCal feed (72h + 24h, and 4h from 2026-08-22)
 
 `CfpOpened.closesOn` is structurally identical to a hotel `cancelBy` — a deadline not to miss — so it
-becomes a VEVENT at the closing instant with **two `VALARM`s, 72h and 24h before** (Ted, 2026-08-18),
+becomes a VEVENT at the closing instant with **`VALARM`s 72h and 24h before** (Ted, 2026-08-18) and
+**a third at 4h** (Ted, 2026-08-22 — the last-second submission window, and the backstop for a CFP
+recorded inside 72h of closing, which would otherwise fire nothing),
 fired locally by iOS exactly like the hotel cancel-deadline reminders. No scheduler; a pure
 projection over the event. Safe on the private side: CFP dates are OWNER-only, and that feed is
 already token-gated **unredacted owner data** (never the public `/calendar`).

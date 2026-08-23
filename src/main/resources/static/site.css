@@ -262,10 +262,11 @@ body {
 }
 .booking-form .lookup-btn:hover { opacity: 0.88; }
 
-/* The shared address paste-and-parse widget (see templates/fragments/address-paste.html).
-   Lives here rather than in each form's <style> so the markup, its script, and its styling
-   travel together — the widget was duplicated across four forms and drifted. Pages still
-   supply their own .error rule, which #parseError borrows. */
+/* The paste-and-fill widgets: the shared address one (templates/fragments/address-paste.html)
+   and the Sessionize conference prefill (templates/fragments/sessionize-prefill.html), which
+   share this row. Styling lives here rather than in each form's <style> so the markup, its
+   script, and its styling travel together — the address widget was duplicated across four forms
+   and drifted. Pages still supply their own .error rule, which the widgets' error divs borrow. */
 .paste-row {
     display: flex;
     gap: 0.5rem;
@@ -284,6 +285,24 @@ body {
     box-sizing: border-box;
 }
 .paste-row textarea:focus {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 1px;
+    border-color: transparent;
+}
+/* The Sessionize widget pastes one URL, so it is an input rather than a textarea. min-width: 0
+   is load-bearing: a flex item defaults to min-width auto, and its long placeholder would
+   otherwise refuse to shrink and push the row past a narrow viewport. */
+.paste-row input[type=url] {
+    flex: 1;
+    min-width: 0;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+.paste-row input[type=url]:focus {
     outline: 2px solid var(--accent-color);
     outline-offset: 1px;
     border-color: transparent;

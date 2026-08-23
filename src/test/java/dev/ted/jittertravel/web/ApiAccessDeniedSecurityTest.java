@@ -3,6 +3,8 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.infrastructure.AddressParseService;
 import dev.ted.jittertravel.infrastructure.AddressParseService.ParsedAddress;
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
+import dev.ted.jittertravel.infrastructure.SessionizePrefillService;
+import dev.ted.jittertravel.infrastructure.SessionizePrefillService.SessionizePrefill;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -24,16 +26,21 @@ import static org.mockito.Mockito.when;
  * than the 302-redirect-to-home that other pages get. A redirect reads as a 200 to a fetch()
  * caller and masks the failure.
  */
-@WebMvcTest(AddressParseController.class)
+@WebMvcTest({AddressParseController.class, SessionizePrefillController.class})
 @Import(SecurityConfig.class)
 @TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass"})
 class ApiAccessDeniedSecurityTest {
+
+    private static final String SESSIONIZE_URL = "https://sessionize.com/jfokus-2027/";
 
     @Autowired
     MockMvcTester mockMvc;
 
     @MockitoBean
     AddressParseService parseService;
+
+    @MockitoBean
+    SessionizePrefillService prefillService;
 
     @Test
     @WithMockUser(roles = "FAMILY")
@@ -48,6 +55,23 @@ class ApiAccessDeniedSecurityTest {
         when(parseService.parse(anyString()))
                 .thenReturn(Optional.of(new ParsedAddress("", "", "", "", "", "")));
         assertThat(mockMvc.get().uri("/api/parse-address?q={q}", "Berlin"))
+                .hasStatusOk();
+    }
+
+    @Test
+    @WithMockUser(roles = "FAMILY")
+    void forbiddenSessionizePrefillReturns403NotRedirect() {
+        assertThat(mockMvc.get().uri("/api/sessionize-prefill?url={url}", SESSIONIZE_URL))
+                .as("the pasted URL says Ted is thinking of submitting there — OWNER-only")
+                .hasStatus(403);
+    }
+
+    @Test
+    @WithMockUser(roles = "OWNER")
+    void ownerSessionizePrefillIsAllowed() {
+        when(prefillService.prefill(anyString()))
+                .thenReturn(Optional.of(new SessionizePrefill("", "", "", "", "", "", "", "", "", "")));
+        assertThat(mockMvc.get().uri("/api/sessionize-prefill?url={url}", SESSIONIZE_URL))
                 .hasStatusOk();
     }
 }

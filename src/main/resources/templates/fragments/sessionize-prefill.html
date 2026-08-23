@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<!--
+  The "paste a Sessionize URL, press Fill" widget for /plan-conference. Markup and script live
+  together here for the same reason the address widget's do: per-page copies drift, and the drift
+  reaches the user as a wrong error message.
+
+  It writes into sibling inputs by name — name, infoUrl, startDate, endDate, cfpClosesOn,
+  cfpSubmissionUrl, venueName, venueCity, venueCountry. Note the venue fields are venue-prefixed
+  on this form (there is no bare [name="city"]), so a copy of the address fragment that was not
+  renamed would silently write to nothing at all.
+
+  Two of those are a public/private pair written in the same action: infoUrl is the conference's
+  own site and renders to every viewer, cfpSubmissionUrl is on CLAUDE.md's private list because a
+  Sessionize link is the submission pipeline in one field. One swapped field name here is a leak,
+  which is why SessionizePrefillJsTest pins each to its own field by name.
+
+  It is a prefill, so it is allowed to be wrong — nothing is written until Ted submits a form he
+  can see. What it must not do is fill a field wrongly in a way he would not notice, which is why
+  a deadline whose zone could not be worked out is left blank and said out loud instead.
+
+  Enforced by SessionizePrefillFragmentConventionTest; behavior covered by SessionizePrefillJsTest.
+-->
+<body>
+<th:block th:fragment="sessionizePrefill">
+    <div class="paste-row">
+        <input type="url" id="sessionizeUrl"
+               placeholder="Paste a Sessionize URL, e.g. https://sessionize.com/jfokus-2027/"/>
+        <button type="button" class="parse-btn" id="sessionizeBtn">Fill from Sessionize</button>
+    </div>
+    <div id="sessionizeError" class="error" style="display:none"></div>
+    <div id="sessionizeReport" class="hint" style="display:none"></div>
+    <script>
+        document.getElementById('sessionizeBtn').addEventListener('click', async () => {
+            const raw = document.getElementById('sessionizeUrl').value.trim();
+            if (!raw) return;
+            const btn = document.getElementById('sessionizeBtn');
+            const errorEl = document.getElementById('sessionizeError');
+            const reportEl = document.getElementById('sessionizeReport');
+            btn.textContent = '…';
+            btn.disabled = true;
+            errorEl.style.display = 'none';
+            errorEl.textContent = '';
+            reportEl.style.display = 'none';
+            reportEl.textContent = '';
+            const fail = (message) => { errorEl.textContent = message; errorEl.style.display = 'block'; };
+            try {
+                // GET with ?url= — the endpoint is read-only and deliberately outside CSRF's scope.
+                const resp = await fetch('/api/sessionize-prefill?url=' + encodeURIComponent(raw));
+                if (resp.status === 404 || resp.status === 405) {
+                    // Not a result about the page: this page and the endpoint disagree.
+                    fail('Sessionize prefill is unavailable — this is a wiring problem, not your URL.');
+                    return;
+                }
+                if (!resp.ok) {
+                    fail('Could not read that page — check it is a sessionize.com conference URL, or fill the fields in yourself.');
+                    return;
+                }
+                const d = await resp.json();
+                // Writes only what came back, so re-pasting refreshes what Sessionize knows and
+                // leaves the street and postal code you typed alone.
+                let filled = 0;
+                const set = (name, val) => {
+                    if (!val) return;
+                    const el = document.querySelector('[name="' + name + '"]');
+                    if (el) { el.value = val; filled++; }
+                };
+                set('name', d.name);
+                set('infoUrl', d.infoUrl);
+                set('startDate', d.startDate);
+                set('endDate', d.endDate);
+                set('cfpClosesOn', d.cfpClosesOn);
+                set('cfpSubmissionUrl', d.cfpSubmissionUrl);
+                set('venueName', d.venueName);
+                set('venueCity', d.venueCity);
+                set('venueCountry', d.venueCountry);
+
+                // Say what happened. Partial fills are the normal case, so without this a field
+                // left blank by a restyled page is indistinguishable from one Sessionize never had.
+                const notes = [];
+                if (d.startDate || d.endDate) {
+                    notes.push('start and end times are guesses');
+                }
+                if (d.cfpClosesOn) {
+                    notes.push('CFP closes ' + d.cfpClosesOn.slice(11) + ' ' + d.deadlineZone);
+                } else {
+                    notes.push('the CFP deadline could not be worked out — fill Closes On in yourself');
+                }
+                notes.push("street and postal code aren't on the page");
+                const format = document.querySelector('[name="format"]:checked');
+                if (d.cfpClosesOn && format && format.value === 'OPEN_SPACE') {
+                    // A Sessionize call-for-speakers page is proof the conference has a CFP, and
+                    // the submit refuses the pair — better said here than after a round trip.
+                    notes.push('this page has a call for speakers, so Open Space is not the format');
+                }
+                reportEl.textContent = 'Filled ' + filled + ' field' + (filled === 1 ? '' : 's')
+                                       + ' from Sessionize — ' + notes.join('; ') + '.';
+                reportEl.style.display = 'block';
+            } catch (e) {
+                fail('Fill failed — check your connection and try again.');
+            } finally {
+                btn.textContent = 'Fill from Sessionize';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</th:block>
+</body>
+</html>

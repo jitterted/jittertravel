@@ -1,7 +1,17 @@
 # Schengen Day Counter Plan — 90/180 tracking on the calendar and in the planning forms
 
-> **Status: OPEN (planned 2026-08-12, amended 2026-08-12). Nothing built.** Design agreed with Ted;
-> implementation not started. See `docs/Backlog.md` for the current status of everything else.
+> **Status: OPEN (planned 2026-08-12, amended 2026-08-12 and 2026-08-23). Nothing built.** Design
+> agreed with Ted; implementation not started. See `docs/Backlog.md` for the current status of
+> everything else.
+>
+> **Amendment 3 (2026-08-23): this plan gains `datesConfirmed`, and its one dependency is now met.**
+> `datesConfirmed` on `ConferencePlanned` moved here from `ConferenceSubmissionTrackingPlan.md`,
+> where it had been deferred twice and was sitting in a slice whose other contents were this plan's
+> anyway. It is a field on that plan's event, but this is the only plan that reads it, and it is in
+> no code yet — so it simply lands with the ceiling, at step 4. That plan's slice 5 was re-cut to the
+> one thing it actually owns (its gap projector filtering by attendance).
+> Separately, the **commitment dependency is satisfied**: slices 1–4 of that plan shipped between
+> 2026-08-18 and 2026-08-22, so `AttendanceCommitment` is live and nothing here is blocked on it.
 >
 > **Amendment 1 (2026-08-12):** the counter produces **two** numbers, a confirmed floor and a
 > worst-case ceiling, and gains explicit per-gap *assumed stays*. Driven by
@@ -310,9 +320,31 @@ number: `ConferencePlanned` / `ConferenceCancelled`, `GatheringPlanned` /
 Plus, from this amendment: `ConferenceAttendanceCommitted` and `ConferenceAttendanceDeclined` (which
 set determines a conference's days), and `SchengenStayAssumed` /
 `SchengenStayAssumptionWithdrawn` (ceiling only). A conference whose dates are **provisional**
-(`datesConfirmed == false`, per `ConferenceSubmissionTrackingPlan.md`) still counts toward the
-ceiling, but the surface must mark the contribution as guessed — a ceiling built from last year's
-dates should not read as fact.
+(`datesConfirmed == false`) still counts toward the ceiling, but the surface must mark the
+contribution as guessed — a ceiling built from last year's dates should not read as fact.
+
+### `datesConfirmed` on `ConferencePlanned` — this plan's field to add (moved here 2026-08-23)
+
+A conference slot held before the CFP opens usually carries **last year's dates**, and this plan is
+the only thing that reads them as a number rather than showing them. So `ConferencePlanned` needs a
+`datesConfirmed` flag (or the inverse, `datesProvisional`) marking a guess wherever it is counted.
+
+**It is a field on another plan's event, but it is work for this one.** It was deferred out of
+`ConferenceSubmissionTrackingPlan.md`'s slice 1 (Ted, 2026-08-18) because shipping a form control
+months ahead of the behaviour that reads it is a papercut with no payoff, and it sat in that plan's
+slice 5 until 2026-08-23 — which left a field waiting on a consumer in a *different* plan and made
+that plan look unfinishable. It is in no code at all today, so nothing has to be migrated: it simply
+lands with the ceiling, here.
+
+**What adding it costs**, carried over from that plan: a second schema bump on `ConferencePlanned`
+(**v3→v4**) with its own upcaster increment (absent→provisional), exactly like the `format`
+increment that shaped the version-ladder — see `EventPayloadUpcasterDesign.md`. Absent means
+*provisional*, not confirmed: an existing row was entered before anyone was asked the question, and
+a guess wrongly counted as fact is the failure this flag exists to prevent. Plus the form control on
+`/plan-conference` and the "guessed" marking on whichever surface shows the ceiling.
+
+**Sequencing:** with **step 4** (`SchengenPresenceProjector`), which is where conference dates first
+become part of a number. Earlier than that it is again a control with nothing reading it.
 
 ## The pre-submit warning
 
@@ -412,11 +444,16 @@ nullable value and render nothing when absent — renderers must never re-derive
 
 ## Build order
 
-**Dependency:** the floor/ceiling split needs a way to tell a committed conference from a speculative
-one, which arrives with step 2 of `ConferenceSubmissionTrackingPlan.md` (the commitment events).
-Steps 1–2 here are independent and can go first either way; step 3 onward should follow it. Building
-the counter against today's all-tentative model would produce a floor of zero for every conference,
-which is worse than no number at all.
+**Dependency: satisfied since 2026-08-19.** The floor/ceiling split needs a way to tell a committed
+conference from a speculative one, which arrived with step 2 of `ConferenceSubmissionTrackingPlan.md`
+(the commitment events); slices 1–4 of that plan have all shipped, so `AttendanceCommitment` is live
+and nothing here waits on it any more. The concern that motivated the dependency — building the
+counter against an all-tentative model, giving every conference a floor of zero — no longer applies.
+**Read the commitment through `ConferenceProgress`**, which is where that plan put the shared rules
+precisely so that readers cannot disagree; do not fold the commitment events again here.
+
+**And this plan now owns `datesConfirmed`** (moved 2026-08-23) — see the section above. It is a field
+on `ConferencePlanned`, but this is the only plan that reads it.
 
 1. `SchengenArea` — country membership, **and** airport membership (the boolean described above).
    Both halves are needed from the start now that tier 1 leads.
@@ -425,7 +462,10 @@ which is worse than no number at all.
 3. **Envelope derivation** — external crossings from flights and trains, entry → next exit pairing,
    open-envelope detection. This is the floor's spine, so it comes before the fallback union.
 4. `SchengenPresenceProjector` — tier-2 fallback for days no envelope covers: conferences (both sets,
-   keyed on attendance), gatherings, hotels.
+   keyed on attendance), gatherings, hotels. **`datesConfirmed` lands here** (v3→v4 on
+   `ConferencePlanned` + upcaster + form control + the "guessed" marking) — this is the step where
+   conference dates first become part of a number, and moving it any earlier repeats the mistake that
+   kept it unbuilt: a form control with nothing reading it.
 5. `/api/schengen-preview` + `SecurityConfig` matcher + `AuthorizationMatrixTest` row.
 6. Form panel and JS on both templates.
 7. Calendar strip, owner-only, showing the range.

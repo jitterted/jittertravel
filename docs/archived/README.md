@@ -16,6 +16,12 @@ the docs below shipped with a follow-up still named inside them, and each of tho
 **lifted into `../Cleanup_Tasks.md` first**, with a pointer back here for the reasoning. Archiving
 never drops an open item — if a doc still owns work nobody else tracks, it stays in `docs/`.
 
+**Moving the file is only half of it — `../Backlog.md` has to move too.** Its row leaves
+**Open features**, gets cut to one line, and lands under **Done**; add a row here at the same time.
+Skipping that is how eleven finished items were still filed under "Open features" on 2026-08-23,
+which is exactly the thing that table exists not to do. The full checklist is in `../Backlog.md`'s
+own intro, so there is one copy of it.
+
 Established 2026-08-21, when eighteen docs moved in one pass. Anything added since arrived one at a
 time, on the day its last open item closed.
 

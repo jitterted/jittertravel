@@ -5,7 +5,7 @@ package dev.ted.jittertravel.domain;
  * {@link ConferenceAttendanceConfirmed}. <strong>OWNER-only.</strong> It must never reach a
  * {@code CalendarEntry}: the public calendar shows the collapsed commitment level and nothing more,
  * because "going because a talk was accepted" versus "going because I bought a ticket" is exactly
- * the submission status that {@code docs/ConferenceSubmissionTrackingPlan.md} keeps private.
+ * the submission status that {@code docs/archived/ConferenceSubmissionTrackingPlan.md} keeps private.
  *
  * <p>Three values, not four: the dropped {@code ATTENDING_ANYWAY} named the same fact as
  * {@link #TICKET_PURCHASED} (buying a ticket <em>is</em> how "I'll go anyway" happens, Ted

@@ -406,6 +406,89 @@ class ScheduleGapProjectorTest {
                     .as("declining the conference clears its schedule problems, like a cancellation")
                     .isEmpty();
         }
+
+        @Test
+        void anOrganizerCancellationClearsItsMissingHotelProblem() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            ConferenceId conferenceId = ConferenceId.random();
+            projector.handle(Stream.of(stored(conferenceWithId(conferenceId, "Marrakesh", SEP_15, SEP_17))));
+
+            projector.handle(Stream.of(stored(new ConferenceCancelled(conferenceId, "Venue lost"))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                    .as("a conference the organizers called off books no rooms")
+                    .isEmpty();
+        }
+
+        @Test
+        void aRejectionClearsThemWhereAcceptanceWasTheWayIn() {
+            // The drop is DERIVED — no event says NOT_GOING — so this projector only sees it by
+            // folding the same rules the calendars fold. Before this was fixed, a PLoP-style
+            // rejection took the conference off both calendars and left it here, asking for a
+            // hotel for a trip Ted is no longer taking.
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            ConferenceId conferenceId = ConferenceId.random();
+            projector.handle(Stream.of(stored(conferenceWithId(
+                    conferenceId, "Allerton", SEP_15, SEP_17, ConferenceFormat.ACCEPTANCE_REQUIRED))));
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                    .as("before the rejection it is an ordinary trip with no bed booked")
+                    .isNotEmpty();
+
+            projector.handle(Stream.of(
+                    stored(new TalkSubmitted(conferenceId, Instant.parse("2026-08-01T10:00:00Z"))),
+                    stored(new TalkRejected(conferenceId, Instant.parse("2026-08-16T18:30:00Z")))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                    .as("acceptance was the way in, so the rejection ends the trip — "
+                        + "the report gets quieter, not louder")
+                    .isEmpty();
+        }
+
+        @Test
+        void aRejectionLeavesTheProblemsWhereTedCanStillGoAnyway() {
+            // The other side of the same fold, and the reason it must be a fold and not "any
+            // TalkRejected removes it": at a call-for-papers conference a rejection decides
+            // nothing about attending, so the trip — and its missing bed — is still real.
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            ConferenceId conferenceId = ConferenceId.random();
+            projector.handle(Stream.of(
+                    stored(conferenceWithId(conferenceId, "Marrakesh", SEP_15, SEP_17,
+                                            ConferenceFormat.CALL_FOR_PAPERS)),
+                    stored(new TalkSubmitted(conferenceId, Instant.parse("2026-08-01T10:00:00Z"))),
+                    stored(new TalkRejected(conferenceId, Instant.parse("2026-08-16T18:30:00Z")))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                    .as("rejected but undecided is still a trip he may take")
+                    .isNotEmpty();
+        }
+
+        @Test
+        void aConferenceTedHasNotCommittedToStillOccupiesTheSchedule() {
+            // Pinned deliberately (Ted, 2026-08-23). A conference with no confirmation is
+            // WATCHING — the "Maybe" chip on the calendar — and it goes on raising problems.
+            // Filtering those out would also empty the away band, which shares this timeline and
+            // is commitment-blind by decision: "if it is on the schedule, it counts as away…
+            // a future reader should not fix the two into agreement"
+            // (docs/archived/CalendarAwayBandPlan.md, decision 5).
+            // A home is configured so the away band has an opinion at all: with none, it yields
+            // no days by design, and the second assertion below would pass for the wrong reason.
+            ScheduleGapProjector projector =
+                    new ScheduleGapProjector(IDENTITY, new HomeCities(List.of(LON)));
+
+            projector.handle(Stream.of(stored(conference("Marrakesh", SEP_15, SEP_17))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                    .as("only a DROPPED conference leaves the schedule; a merely watched one stays")
+                    .isNotEmpty();
+            assertThat(projector.awayDays())
+                    .as("and the away band it shares a timeline with still stripes those days")
+                    .contains(SEP_15, SEP_16);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -1651,6 +1734,15 @@ class ScheduleGapProjectorTest {
         return new ConferencePlanned(id, "Conf",
                 zt(start.atStartOfDay()), zt(end.atStartOfDay()), "Venue",
                 new Address("1 Street", city, "", "00000", "XX", null));
+    }
+
+    /** The format matters only where a rejection decides attendance — see the rejection cases. */
+    private static ConferencePlanned conferenceWithId(ConferenceId id, String city,
+                                                      LocalDate start, LocalDate end,
+                                                      ConferenceFormat format) {
+        return new ConferencePlanned(id, "Conf",
+                zt(start.atStartOfDay()), zt(end.atStartOfDay()), "Venue",
+                new Address("1 Street", city, "", "00000", "XX", null), format);
     }
 
     private static GatheringPlanned gatheringWithId(GatheringId id, String city, String title,

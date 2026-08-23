@@ -9,7 +9,7 @@ package dev.ted.jittertravel.application;
  * <p>
  * These are derived per request, never stored: the same conference moves between groups as its
  * deadline passes, with no event and no write. That is the point of deriving status rather than
- * storing it ({@code docs/ConferenceSubmissionTrackingPlan.md}).
+ * storing it ({@code docs/archived/ConferenceSubmissionTrackingPlan.md}).
  * <p>
  * No headings or guidance text here, deliberately — how a group is worded belongs to the renderer
  * (CLAUDE.md, "Presentation formatting stays out of the domain"; the rule is about display strings,

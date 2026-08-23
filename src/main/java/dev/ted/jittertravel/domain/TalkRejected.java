@@ -5,7 +5,7 @@ import java.time.Instant;
 /**
  * The organizers turned down a talk Ted submitted. <strong>Theirs, not his</strong> — kept distinct
  * from {@link ConferenceAttendanceDeclined}, which is Ted deciding not to go. Conflating the two
- * was the exact merge {@code docs/ConferenceSubmissionTrackingPlan.md} forbids.
+ * was the exact merge {@code docs/archived/ConferenceSubmissionTrackingPlan.md} forbids.
  * <p>
  * <strong>What it means depends on the conference's {@link ConferenceFormat}, and that branch is
  * in the read models, not here:</strong>

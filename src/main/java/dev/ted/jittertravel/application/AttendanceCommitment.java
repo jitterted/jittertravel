@@ -19,7 +19,7 @@ package dev.ted.jittertravel.application;
  * never construct this value and no {@code CalendarEntry} can carry it.
  * <p>
  * Lives in {@code application} rather than {@code domain} because no command branches on it: it is
- * a read-model label. See {@code docs/ConferenceSubmissionTrackingPlan.md}.
+ * a read-model label. See {@code docs/archived/ConferenceSubmissionTrackingPlan.md}.
  */
 public enum AttendanceCommitment {
     /** Being watched, not committed — renders as a public "Maybe" chip. */

@@ -101,7 +101,7 @@ prerequisite to any slice that needs to remove/retract a booking.
 
 Conferences have event-specific web pages just like gatherings. Add `infoUrl: String` (empty string when absent) to `ConferencePlanned` and the plan-conference form.
 
-**Shipped as designed**, as slice 4b of `ConferenceSubmissionTrackingPlan.md`: the empty-string-when-absent shape needed no schema bump and no upcaster (the compact constructor normalizes, as `GatheringPlanned` always has). **Public** — it reaches `EntryDetails.PublicConference` as well as `EntryDetails.Conference`, so the title links out on the anonymous calendar too, which is what CLAUDE.md's "conferences in full" already said. Rendered on both calendars, the itinerary and `/conferences`.
+**Shipped as designed**, as slice 4b of `archived/ConferenceSubmissionTrackingPlan.md`: the empty-string-when-absent shape needed no schema bump and no upcaster (the compact constructor normalizes, as `GatheringPlanned` always has). **Public** — it reaches `EntryDetails.PublicConference` as well as `EntryDetails.Conference`, so the title links out on the anonymous calendar too, which is what CLAUDE.md's "conferences in full" already said. Rendered on both calendars, the itinerary and `/conferences`.
 
 **Not built with it:** any way to change it afterwards — there is no change-conference flow, so it is plan-time only. The neighbouring `mapsUrl` item below is untouched.
 

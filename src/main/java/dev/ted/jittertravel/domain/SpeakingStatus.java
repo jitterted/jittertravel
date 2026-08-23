@@ -3,7 +3,7 @@ package dev.ted.jittertravel.domain;
 /**
  * Where Ted's talk stands with one conference — <em>derived</em> by folding that conference's
  * submission events, never stored on any of them. The speaking axis of the two-dimensional model
- * in {@code docs/ConferenceSubmissionTrackingPlan.md}; the other axis is
+ * in {@code docs/archived/ConferenceSubmissionTrackingPlan.md}; the other axis is
  * {@code AttendanceCommitment}, and the two are independent except at two documented points
  * ({@link TalkAccepted} commits attendance, {@link InvitedToSpeak} deliberately does not).
  *

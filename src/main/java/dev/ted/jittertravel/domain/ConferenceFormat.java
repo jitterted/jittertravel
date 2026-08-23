@@ -9,7 +9,7 @@ import java.util.Locale;
  *
  * <p>The value answers the one question "how do you get on the program," and the speaking pipeline
  * downstream branches on it: whether there is a CFP to submit to at all, and what a rejection means
- * for attendance. See {@code docs/ConferenceSubmissionTrackingPlan.md}.
+ * for attendance. See {@code docs/archived/ConferenceSubmissionTrackingPlan.md}.
  */
 public enum ConferenceFormat {
     /** Open CFP; attend regardless of the submission outcome (dev2next, ExploreDDD, J-Fall). */

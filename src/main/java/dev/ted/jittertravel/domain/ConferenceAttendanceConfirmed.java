@@ -15,7 +15,7 @@ import java.time.Instant;
  * The {@code basis} is the private half of this event: the collapsed commitment level is public
  * (it renders as the absence of a "Maybe" chip on {@code /calendar}), but <em>why</em> Ted is going
  * is submission status wearing a different hat, so it must never enter a {@code CalendarEntry}.
- * See {@code docs/ConferenceSubmissionTrackingPlan.md} and CLAUDE.md.
+ * See {@code docs/archived/ConferenceSubmissionTrackingPlan.md} and CLAUDE.md.
  *
  * @param basis       why he is going. Never null: it is the whole point of the event, and unlike a
  *                    free-text reason there is no sensible empty value, so an absent one fails loud

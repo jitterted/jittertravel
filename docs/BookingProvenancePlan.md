@@ -56,6 +56,6 @@ deadline and nothing about the channel.
 Provenance is **OWNER-only**, no discussion needed: CLAUDE.md already classes booking references and
 any URL that resolves to a booking as private, and the channel names the vendor holding Ted's
 reservation. It must **never** enter `CalendarEntry`. The safe pattern is the one slice 2 of
-`ConferenceSubmissionTrackingPlan.md` used for `AttendanceBasis` — keep it out of the calendar's
+`archived/ConferenceSubmissionTrackingPlan.md` used for `AttendanceBasis` — keep it out of the calendar's
 read model entirely rather than carrying it and stripping it in the redactor. If it ever reaches a
 view, it needs a `CalendarRedactionSecurityTest` case asserting its absence for anonymous viewers.

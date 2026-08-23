@@ -25,7 +25,7 @@ import java.util.UUID;
 
 /**
  * Records where Ted's talk stands with a conference — the whole speaking axis of
- * {@code docs/ConferenceSubmissionTrackingPlan.md}.
+ * {@code docs/archived/ConferenceSubmissionTrackingPlan.md}.
  * <p>
  * <strong>One service for five moves, unlike the one-slice-one-service pattern elsewhere.</strong>
  * They are a single state machine over a single stream: they fold the identical facts and differ

@@ -6,7 +6,7 @@ import java.time.Instant;
  * Ted has decided not to attend a conference he had planned. This is <em>his</em> decision — kept
  * deliberately distinct from {@link ConferenceCancelled} (the organizers cancelled the event) and
  * from a talk rejection. Conflating "I changed my mind" with "the organizers cancelled" was the
- * exact merge {@code docs/ConferenceSubmissionTrackingPlan.md} forbids: the two are different facts
+ * exact merge {@code docs/archived/ConferenceSubmissionTrackingPlan.md} forbids: the two are different facts
  * with different downstream meaning, so they get different events.
  * <p>
  * Today a declined conference leaves every read model (calendar, itinerary, schedule-problems,

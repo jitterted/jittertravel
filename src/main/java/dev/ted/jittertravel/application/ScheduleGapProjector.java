@@ -16,6 +16,7 @@ import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 /**
@@ -27,6 +28,23 @@ import java.util.stream.Stream;
  * to the location trace and silently breaks every problem after it; {@code
  * LocatedEventsReachScheduleProblemsTest} enforces that. See
  * {@code docs/archived/ScheduleProblemsRewritePlan.md}.
+ *
+ * <p><strong>A conference leaves the schedule when it is dropped, and only then.</strong> Three
+ * things can drop one, and the third is why this projector folds {@link ConferenceProgress} rather
+ * than watching for a removal event: the organizers cancel it, Ted declines it, or a
+ * {@code TalkRejected} arrives at a conference where acceptance was the way in — and that last one
+ * is <em>derived</em>, with no event to say so. Before this fold, such a conference left both
+ * calendars and the dashboard while still asking here for a hotel and raising city conflicts for a
+ * trip Ted was no longer taking. This is the fourth read model to ask that question, so it asks the
+ * shared rules rather than restating them.
+ *
+ * <p><strong>A conference Ted has not committed to still occupies the schedule</strong> (Ted,
+ * 2026-08-23) — {@code WATCHING} is not {@code NOT_GOING}, and the "Maybe" chip goes on raising
+ * problems. That is not an oversight to tidy up later: {@link #awayDays()} is built from this same
+ * timeline and is <strong>commitment-blind by decision</strong> — "if it is on the schedule, it
+ * counts as away… a future reader should not fix the two into agreement"
+ * ({@code docs/archived/CalendarAwayBandPlan.md}, decision 5). Filtering to committed conferences
+ * here would quietly empty the away band on the one page anonymous visitors can see.
  */
 public class ScheduleGapProjector implements EventStreamConsumer {
 
@@ -36,7 +54,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     private final Map<TrainTripId, ScheduleTimeline.Movement> trainLegs = new ConcurrentHashMap<>();
     private final Map<GroundTransferId, ScheduleTimeline.Movement> groundTransfers = new ConcurrentHashMap<>();
     private final Map<HotelBookingId, ScheduleTimeline.Stay> hotelStays = new ConcurrentHashMap<>();
-    private final Map<ConferenceId, ScheduleTimeline.Occupancy> conferences = new ConcurrentHashMap<>();
+    private final Map<ConferenceId, TrackedConference> conferences = new ConcurrentHashMap<>();
     private final Map<GatheringId, ScheduleTimeline.Occupancy> gatherings = new ConcurrentHashMap<>();
     private final Map<PrivateEventId, ScheduleTimeline.Occupancy> privateEvents = new ConcurrentHashMap<>();
     private final Set<ClearedConflict> clearedConflicts = new HashSet<>();
@@ -102,11 +120,28 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                         e.hotelBookingId(), e.hotelName(), e.address().locationForMatching(),
                         e.checkIn(), e.checkOut(), e.bookingIntent()));
                 case HotelBookingCancelled e -> hotelStays.remove(e.hotelBookingId());
-                case ConferencePlanned e -> conferences.put(e.conferenceId(),
+                // A planned conference occupies the schedule immediately, whatever Ted has
+                // committed to — see the class comment on why only a *dropped* one leaves.
+                case ConferencePlanned e -> conferences.put(e.conferenceId(), new TrackedConference(
                         new ScheduleTimeline.Occupancy(e.name(), e.venueAddress().locationForMatching(),
-                                e.startDate(), e.endDate(), ScheduleTimeline.Occupancy.Kind.CONFERENCE));
+                                e.startDate(), e.endDate(), ScheduleTimeline.Occupancy.Kind.CONFERENCE),
+                        ConferenceProgress.planned(e.format())));
+                // The organizers called it off: there is no event to be at, so it does not come back.
                 case ConferenceCancelled e -> conferences.remove(e.conferenceId());
-                case ConferenceAttendanceDeclined e -> conferences.remove(e.conferenceId());
+
+                // Everything below moves the conference along the two axes and lets
+                // ConferenceProgress decide whether that dropped it. Only `declined` and
+                // `rejected` can, but the whole fold is kept so this stays the same reader as the
+                // other three — a partial fold would answer a later question wrongly.
+                case ConferenceAttendanceDeclined e ->
+                        moveConference(e.conferenceId(), ConferenceProgress::declined);
+                case ConferenceAttendanceConfirmed e ->
+                        moveConference(e.conferenceId(), progress -> progress.confirmed(e.basis()));
+                case TalkSubmitted e -> moveConference(e.conferenceId(), ConferenceProgress::submitted);
+                case TalkAccepted e -> moveConference(e.conferenceId(), ConferenceProgress::accepted);
+                case TalkRejected e -> moveConference(e.conferenceId(), ConferenceProgress::rejected);
+                case TalkWithdrawn e -> moveConference(e.conferenceId(), ConferenceProgress::withdrawn);
+                case InvitedToSpeak e -> moveConference(e.conferenceId(), ConferenceProgress::invited);
                 case GatheringPlanned e -> gatherings.put(e.gatheringId(),
                         new ScheduleTimeline.Occupancy(e.title(), e.location().locationForMatching(),
                                 e.startsAt(), e.endsAt(), ScheduleTimeline.Occupancy.Kind.GATHERING));
@@ -210,9 +245,41 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                && !cachedAwayDays.contains(date);
     }
 
+    /**
+     * Moves one conference along both axes, and drops it from the schedule if that move dropped it.
+     * An event for a conference this projector has never seen is a no-op.
+     */
+    private void moveConference(ConferenceId conferenceId,
+                                UnaryOperator<ConferenceProgress> change) {
+        conferences.computeIfPresent(conferenceId, (id, tracked) -> {
+            ConferenceProgress moved = change.apply(tracked.progress());
+            return moved.dropped() ? null : tracked.movedTo(moved);
+        });
+    }
+
+    /**
+     * Where a conference is, and where it stands.
+     * <p>
+     * The progress is held only to answer {@link ConferenceProgress#dropped()}: nothing about the
+     * submission pipeline reaches a {@link ScheduleProblem}, and nothing should — the report names
+     * conferences, cities and dates, never talks.
+     */
+    private record TrackedConference(ScheduleTimeline.Occupancy occupancy, ConferenceProgress progress) {
+        TrackedConference movedTo(ConferenceProgress moved) {
+            return new TrackedConference(occupancy, moved);
+        }
+    }
+
+    /** Every conference still on the schedule, which since a drop removes it is all of them. */
+    private List<ScheduleTimeline.Occupancy> occupiedConferences() {
+        return conferences.values().stream()
+                .map(TrackedConference::occupancy)
+                .toList();
+    }
+
     private ScheduleTimeline timeline() {
         List<ScheduleTimeline.Occupancy> occupancies = new ArrayList<>();
-        occupancies.addAll(conferences.values());
+        occupancies.addAll(occupiedConferences());
         occupancies.addAll(gatherings.values());
         occupancies.addAll(privateEvents.values());
         return new ScheduleTimeline(List.copyOf(hotelStays.values()), occupancies,
@@ -221,7 +288,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
 
     private List<ScheduleContext> computeContext() {
         List<ScheduleContext> context = new ArrayList<>();
-        for (ScheduleTimeline.Occupancy conference : conferences.values()) {
+        for (ScheduleTimeline.Occupancy conference : occupiedConferences()) {
             context.add(new ScheduleContext.Conference(conference.name(), conference.city(),
                     conference.firstDay(), conference.lastDay()));
         }
@@ -319,9 +386,9 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         for (Map.Entry<GatheringId, ScheduleTimeline.Occupancy> ge : gatherings.entrySet()) {
             GatheringId gatheringId = ge.getKey();
             ScheduleTimeline.Occupancy gathering = ge.getValue();
-            for (Map.Entry<ConferenceId, ScheduleTimeline.Occupancy> ce : conferences.entrySet()) {
+            for (Map.Entry<ConferenceId, TrackedConference> ce : conferences.entrySet()) {
                 ConferenceId conferenceId = ce.getKey();
-                ScheduleTimeline.Occupancy conference = ce.getValue();
+                ScheduleTimeline.Occupancy conference = ce.getValue().occupancy();
                 boolean differentCity = !gathering.city().equalsIgnoreCase(conference.city());
                 boolean alreadyCleared = clearedConflicts.contains(new ClearedConflict(gatheringId, conferenceId));
                 if (gathering.overlapsWith(conference) && differentCity && !alreadyCleared) {

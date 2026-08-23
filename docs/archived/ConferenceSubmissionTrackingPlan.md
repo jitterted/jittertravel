@@ -1,10 +1,39 @@
 # Conference Submission Tracking Plan — commitment, speaking status, and the CFP pipeline
 
-> **Status: IN PROGRESS. Slices 1–4 shipped** (`ConferenceFormat` 2026-08-18, the Decline slice
+> **Status: DONE 2026-08-23.** All five slices shipped; this plan owns no remaining work.
+>
+> **Slices 1–4 shipped** (`ConferenceFormat` 2026-08-18, the Decline slice
 > 2026-08-16, commitment 2026-08-19, **slice 3 — CFP + dashboard + SPEAKER — 2026-08-21**, and
 > **slice 4 — the submission stream — 2026-08-22**).
-> **Slice 5 not started**, and it is now one thing: `ScheduleGapProjector` filtering by attendance.
-> See `docs/Backlog.md` for the status of everything else.
+> **Slice 5 shipped 2026-08-23**, and with it the plan. See `../Backlog.md` for the status of
+> everything else.
+>
+> **Slice 5 as built (2026-08-23), and it is narrower than the re-cut said.** Building it turned up
+> a collision the plan had not seen: `ScheduleGapProjector` builds **one** timeline that feeds four
+> read models — problems, context, `awayDays()` and `atHomeOn` — so "only `GOING` occupies the
+> schedule" would also have emptied the **away band**, which
+> `CalendarAwayBandPlan.md` decision 5 makes commitment-blind on purpose ("if it is on the
+> schedule, it counts as away… a future reader should not fix the two into agreement"), on the one
+> page anonymous visitors can see. Put to Ted, who took the narrow half:
+>
+> - **A dropped conference leaves the schedule** — the defect. Three things drop one, and the third
+>   is why this needs a fold: organizers cancel it, Ted declines it, or a `TalkRejected` lands where
+>   acceptance was the way in — and that last is *derived*, with no event. Such a conference left
+>   both calendars and the dashboard while still asking for a hotel and raising city conflicts for a
+>   trip Ted was not taking.
+> - **A `WATCHING` conference still occupies the schedule.** `WATCHING` is not `NOT_GOING`; the
+>   "Maybe" chip goes on raising problems, and decision 5 stands. Pinned by a test that says so and
+>   cites it, because the tempting "fix" is exactly the one that would break the band.
+>
+> The fold goes through `ConferenceProgress` — the fourth read model to ask, as slice 4's
+> carry-forward note asked for — so the rules are asked, never restated. Both tiers green (1618 +
+> 61); four mutations verified, one of which (filtering to `GOING`) failed 22 tests and so also
+> measured what the wider option would have cost: `ConferenceAttendanceConfirmed` added to some 45
+> fixtures.
+>
+> **Left undone, deliberately:** the noise a merely-watched conference makes on
+> `/schedule-problems`. If that turns out to be the thing that actually bothers Ted, it is a fresh
+> question — and the answer is not the one-line filter, because of the band.
 >
 > **Slice 5 re-cut 2026-08-23**, because Ted read it and could not tell what it was — fairly, since
 > this document said two different things about it (the build order named two items, the slice-4 note
@@ -14,10 +43,10 @@
 > - **`ScheduleGapProjector` filters by attendance** — this plan's own work, self-contained.
 >   **Stays, and is now the entirety of slice 5.**
 > - **`datesConfirmed`** — a v3→v4 field on `ConferencePlanned`. **Moved to
->   `SchengenDayCounterPlan.md`.** It was deferred out of slice 1 precisely because its only consumer
+>   `../SchengenDayCounterPlan.md`.** It was deferred out of slice 1 precisely because its only consumer
 >   is the Schengen ceiling, and parking it here left a field waiting on a consumer in a different
 >   plan; it is still in no code at all. It belongs with the thing that reads it.
-> - **The Schengen ceiling** — never this plan's to build. `SchengenDayCounterPlan.md` owns it, and
+> - **The Schengen ceiling** — never this plan's to build. `../SchengenDayCounterPlan.md` owns it, and
 >   already carries the rule that speculative conferences feed the ceiling and not the floor.
 >   **Moved**, leaving only the pointer.
 >
@@ -37,7 +66,7 @@
 >   submitting is still on the table. Chosen over the narrower "rejected only" because it also makes
 >   `Going` distinguish an accepted talk from an invitation taken up from a ticket bought.
 > - **`infoUrl` landed on `ConferencePlanned`** — the long-open Backlog item, and the answer to
->   `archived/SessionizePrefillPlan.md`'s open question 1. Public, per CLAUDE.md, so it reaches
+>   `SessionizePrefillPlan.md`'s open question 1. Public, per CLAUDE.md, so it reaches
 >   `EntryDetails.Conference` *and* `EntryDetails.PublicConference` and the title links out on both
 >   calendars, the itinerary and `/conferences`.
 > - **`submissionUrl` landed on `CfpOpened`**, not on the conference: it is the same fact as the
@@ -51,7 +80,7 @@
 >   non-null field has to be *stored*, a missing URL has an obvious empty meaning.
 >   `ConferenceUrlFieldCompatibilityTest` pins both directions and that the versions did not move.
 >
-> **Slice 0 of `archived/SessionizePrefillPlan.md` is now built**, exactly as that doc specified it: one
+> **Slice 0 of `SessionizePrefillPlan.md` is now built**, exactly as that doc specified it: one
 > submit produces `PlanConference` **then** `OpenCfp`, two commandIds captured at the boundary, the
 > deadline stamped with the zone `PlanConferenceHandler` already resolved, and `OPEN_SPACE` + a CFP
 > refused as a field error. One correction to that spec: the refusals were moved **ahead of the
@@ -135,7 +164,7 @@
 > accepted" is recorded, and the fold takes the last one.
 >
 > **Sequencing decided 2026-08-19: slice 2 shipped *before* the S2 + E2 calendar refactor** of
-> `RendererVsProjectorResponsibilities.md`. Two small reviewable diffs instead of one large one.
+> `../RendererVsProjectorResponsibilities.md`. Two small reviewable diffs instead of one large one.
 > **That refactor has since landed (2026-08-21)**, so `commitment` is no longer a nullable field on a
 > flat `CalendarEntry`: it is a component of `EntryDetails.Conference` for the owner and
 > `EntryDetails.PublicConference` for anonymous viewers, and `CalendarEntryRedactor` is gone. Read the
@@ -152,7 +181,7 @@
 > with **radio buttons** (Ted's UI preference), defaulting to CALL_FOR_PAPERS. **`datesConfirmed` was
 > deferred** out of slice 1 — its only consumer is the Schengen ceiling, so it lands with that rather
 > than shipping a form control months ahead of its behaviour. (It was parked in slice 5 until
-> 2026-08-23, and now lives in `SchengenDayCounterPlan.md`.)
+> 2026-08-23, and now lives in `../SchengenDayCounterPlan.md`.)
 >
 > **How the default reaches legacy rows — decided this session (choice A).** An absent `format` is
 > injected as CALL_FOR_PAPERS by the **read-time upcaster** as an *independent* schema increment
@@ -163,7 +192,7 @@
 > upcasts before binding. This was chosen over a compact-constructor null-default so the value is
 > stored/migrated/versioned (a domain-behavioural field, not a read-time ghost) through the one
 > general-purpose payload-migration mechanism — the version-ladder of `EventUpcaster` rungs described
-in `EventPayloadUpcasterDesign.md` (this migration, `format` v2→v3, is the `ConferenceFormatUpcaster`
+in `../EventPayloadUpcasterDesign.md` (this migration, `format` v2→v3, is the `ConferenceFormatUpcaster`
 rung that shaped that framework out of the previously single-class upcaster).
 >
 > **Slice 2 decisions taken 2026-08-19, before any code:** `AttendanceBasis` is **three values**
@@ -295,7 +324,7 @@ and would break existing backup files. A single `ConferenceStatusChanged(status,
 genuinely different facts ("organizers rejected me" vs. "I changed my mind"), give talk titles
 nowhere to live, and could not represent three submissions to one conference. Explicit events also
 cost far less than they used to: `ImportableCommand` and the command-replay round-trip plumbing were
-deleted with `archived/EventOrientedBackupRestorePlan.md`, so a new command is now just the command, the
+deleted with `EventOrientedBackupRestorePlan.md`, so a new command is now just the command, the
 handler, and the projector branch.
 
 ### Derived status, not stored status
@@ -361,7 +390,7 @@ Existing conferences default absent→`CALL_FOR_PAPERS` via the upcaster — the
 CFP action rather than silently hiding it); the backfill pass re-marks SoCraTes to `OPEN_SPACE` and
 PLoP to `ACCEPTANCE_REQUIRED` once. **Shipped 2026-08-18** as slice 1 (schema bump to v3 on
 `ConferencePlanned`); `datesConfirmed` was **deferred** to the plan that consumes it
-(`SchengenDayCounterPlan.md`, via slice 5 until the 2026-08-23 re-cut), so slice 1 was
+(`../SchengenDayCounterPlan.md`, via slice 5 until the 2026-08-23 re-cut), so slice 1 was
 `ConferenceFormat` alone.
 
 ### Event names are "what happened", not CRUD (Ted, 2026-08-18)
@@ -565,7 +594,7 @@ projection over the event. Safe on the private side: CFP dates are OWNER-only, a
 already token-gated **unredacted owner data** (never the public `/calendar`).
 
 Architecturally this is the moment the deferred `ICalEventSource` abstraction earns itself:
-`archived/CalendarSubscriptionFeedPlan.md` deliberately held it back "until the 2nd contributor (no abstraction
+`CalendarSubscriptionFeedPlan.md` deliberately held it back "until the 2nd contributor (no abstraction
 before 2nd user)." **CFP deadlines are that second contributor** — so introduce `ICalEventSource`
 cleanly here, alongside the existing hotel-cancel source, rather than speculatively earlier.
 
@@ -579,7 +608,7 @@ The original bottom-up order is re-cut so the CFP-season payoff and the backfill
    v3; upcaster injects absent format→`CALL_FOR_PAPERS` as an independent increment). **SHIPPED
    2026-08-18.** `datesConfirmed` was split out (its only consumer is the Schengen ceiling), so this
    slice was format alone; it sat in slice 5 until 2026-08-23 and now belongs to
-   `SchengenDayCounterPlan.md`.
+   `../SchengenDayCounterPlan.md`.
 2. **Commitment fold + `ConferenceAttendanceConfirmed`** + `CalendarEntry.commitment` + the "Maybe"
    chip + the redactor branch + both tiers of redaction test + CLAUDE.md amend. This is the slice
    that makes the calendar tell the truth, and the slice the **backfill runs through** — so the
@@ -600,9 +629,10 @@ The original bottom-up order is re-cut so the CFP-season payoff and the backfill
    **SHIPPED 2026-08-22** — see "Slice 4 as built" at the top. `TalkWaitlisted` was dropped (an
    outcome is accepted or rejected), and the dropped-conference toggle was pulled forward into this
    slice rather than left unscheduled.
-5. **`ScheduleGapProjector` filters by attendance** — only a `GOING` conference occupies the
-   schedule. **This is the whole of slice 5, and it is the last of this plan** (re-cut 2026-08-23;
-   see below).
+5. **`ScheduleGapProjector` drops a dropped conference** — folded through `ConferenceProgress`, so
+   the derived `NOT_GOING` from a rejection removes it exactly as a decline already did. A
+   `WATCHING` conference still occupies the schedule. **SHIPPED 2026-08-23** — see "Slice 5 as
+   built" at the top for why it is this and not "only `GOING` occupies".
 
 ## Consequences elsewhere in the codebase
 
@@ -611,7 +641,7 @@ The original bottom-up order is re-cut so the CFP-season payoff and the backfill
 > **⚠️ The mechanism described below was replaced on 2026-08-21 — read this box before slice 3 or 4.**
 > `CalendarEntryRedactor` is **deleted**. The public calendar is no longer the owner's read model with
 > fields stripped out; it is its own read model, built from events by `PublicCalendarProjector`
-> (decision S2 + E2, `docs/RendererVsProjectorResponsibilities.md`). **What that changes for the
+> (decision S2 + E2, `../RendererVsProjectorResponsibilities.md`). **What that changes for the
 > slices still to come:**
 > - There is no redactor branch to add. To publish something new about a conference, add it to
 >   `EntryDetails.PublicConference` **and** read it in the projector's `ConferencePlanned` /
@@ -665,32 +695,43 @@ endpoints are OWNER-only. Add the matcher to `SecurityConfig` **and** the `polic
 control. Per the `index.html` convention, ask Ted which nav group, which Font Awesome Pro fill-based
 SVG from the travel-icons row, and what background before adding a card.
 
-### `ScheduleGapProjector` — slice 5, and the whole of it
+### `ScheduleGapProjector` — slice 5 (SHIPPED 2026-08-23)
 
-Only `GOING` conferences should occupy the schedule. A slot Ted is merely holding must not raise a
-different-city conflict or a lodging gap against travel he has actually booked.
+The original wording: *only `GOING` conferences should occupy the schedule; a slot Ted is merely
+holding must not raise a different-city conflict or a lodging gap against travel he has actually
+booked.* **That is not what shipped**, and the reason is in the box at the top: the away band shares
+this timeline and is commitment-blind by decision, so filtering to `GOING` would have emptied it on
+a public page. What shipped is the defect half — a **dropped** conference leaves the schedule, a
+**watched** one does not.
 
-**Since slice 4 this is a defect, not just a missing feature.** `ScheduleGapProjector` puts every
+**Since slice 4 the drop half was a defect, not just a missing feature.** `ScheduleGapProjector` puts every
 `ConferencePlanned` on the timeline and takes it off again only for `ConferenceCancelled` and
 `ConferenceAttendanceDeclined` — the two facts that arrive as *events*. But slice 4's auto-drop is
 **derived**: `ConferenceProgress` turns a `TalkRejected` at an `ACCEPTANCE_REQUIRED` conference into
-`NOT_GOING` with no event to show for it. So that conference now leaves both calendars and moves to
-the dashboard's dropped group while **still** occupying the schedule, where it can raise a missing
+`NOT_GOING` with no event to show for it. So that conference left both calendars and moved to
+the dashboard's dropped group while **still** occupying the schedule, where it could raise a missing
 hotel or a different-city conflict for a trip Ted is not taking. A rejection is exactly when the
 report should get quieter, not louder.
 
-**The shape of the fix, from slice 4's own carry-forward note:** `ConferenceProgress` already holds
-this rule for the three read models that ask it, one of which is the anonymous calendar — which is
-why the rule lives in one place rather than three. The gap projector is the **fourth** reader of the
-same question, so it should fold commitment through `ConferenceProgress` too, not grow a fifth copy
-of "is Ted going to this one". That is the whole of the work: the projector needs the derived
-commitment rather than the raw presence of a `ConferencePlanned`.
+**The fix, from slice 4's own carry-forward note:** `ConferenceProgress` already held this rule for
+the three read models that ask it, one of which is the anonymous calendar — which is why the rule
+lives in one place rather than three. The gap projector is the **fourth** reader of the same
+question, so it folds commitment through `ConferenceProgress` rather than growing a fifth copy of
+"is Ted going to this one". **As built:** the conferences map holds a `TrackedConference`
+(occupancy + progress), every conference event moves the progress, and a move that returns
+`dropped()` removes it — the same `computeIfPresent`-returning-null idiom
+`ConferenceCalendarProjector` uses. `ConferenceAttendanceDeclined` stopped being its own removal and
+became one more move, so there is now a single rule for leaving rather than two. The whole fold is
+kept even though only `declined` and `rejected` can drop: a partial fold would answer a later
+question wrongly, and nothing about the pipeline reaches a `ScheduleProblem` regardless.
 
-**Watch the lifecycle test.** Per this plan's own testing rules, a decline, a rejection and an
-organizer cancellation must each move every read model that shows conferences — and the gap projector
-is one that a rejection currently does not move. That is the test worth writing first.
+**The lifecycle test came first**, per this plan's own testing rules: a decline, a rejection and an
+organizer cancellation must each move every read model that shows conferences, and the gap projector
+was one a rejection did not move. Four cases now — the three removals, plus the `CALL_FOR_PAPERS`
+rejection that must **not** remove, which is what forces the fold to be a fold rather than "any
+`TalkRejected` removes it". A fifth pins that a watched conference stays, and cites decision 5.
 
-### Schengen counter — owned by `SchengenDayCounterPlan.md`, never built here
+### Schengen counter — owned by `../SchengenDayCounterPlan.md`, never built here
 
 Speculative conferences feed the **ceiling**, not the floor. `NOT_GOING`, rejected-and-dropped,
 withdrawn, and organizer-cancelled conferences must be excluded from the ceiling too, or it inflates
@@ -702,7 +743,7 @@ decides what to do with them. It was listed under slice 5 until 2026-08-23, whic
 as though it owed a counter it was never going to build.
 
 **The scope of that dependency is narrow, and worth knowing before building for it.** After the
-2026-08-12 amendment, `SchengenDayCounterPlan.md` derives its floor from *border-crossing envelopes*
+2026-08-12 amendment, `../SchengenDayCounterPlan.md` derives its floor from *border-crossing envelopes*
 where travel is booked, and falls back to conference/hotel dates only where it is not. So commitment
 changes the Schengen number **only for conferences no envelope covers**. Once flights bracket a
 conference, its days are already counted and the `WATCHING` / `GOING` label is irrelevant to the count
@@ -712,7 +753,7 @@ conference, its days are already counted and the `WATCHING` / `GOING` label is i
 There is also **nothing to backfill for past conferences**: measured over the same data, conferences
 contribute zero unique past Schengen days. See "Historical data" in that doc.
 
-### `datesConfirmed` — moved to `SchengenDayCounterPlan.md` (2026-08-23)
+### `datesConfirmed` — moved to `../SchengenDayCounterPlan.md` (2026-08-23)
 
 A slot held before the CFP opens usually carries *last year's* dates, so `ConferencePlanned` needs a
 `datesConfirmed` flag (or the inverse, `datesProvisional`) marking a guess wherever it is counted.
@@ -838,7 +879,7 @@ titles, CFP dates, decision dates, and every free-text reason.
 internal corporate engagement has no public venue or time, and must **not** be modelled as a
 conference or gathering to get a speaking badge — it needs its own `EntryKind`, exactly as the private
 social event does. This is the same trap CLAUDE.md already flags for private dinners: reusing
-GATHERING for a private-ish thing publishes it in full. See `docs/archived/PrivateSocialEventPlan.md` for the
+GATHERING for a private-ish thing publishes it in full. See `PrivateSocialEventPlan.md` for the
 sibling pattern; a private speaking engagement is a second instance of it, not a variation of this
 plan.
 

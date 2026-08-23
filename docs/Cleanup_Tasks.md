@@ -227,6 +227,18 @@ Items with a known shape and a named trigger, deliberately **not** queued: the c
 them is a paragraph, and building either one now would be work ahead of a need. Move an item up to
 **Open** when its trigger fires — do not treat this section as a backlog to work down.
 
+- [ ] **No way to change a conference.** Lifted from `archived/ConferenceSubmissionTrackingPlan.md`
+      2026-08-23, when that plan was archived — it names this gap and nothing else tracked it.
+      There is no `ChangeConferenceController` to match `ChangeGathering`, so a conference's name,
+      dates, venue and **`infoUrl`** are set once at plan time and cannot be corrected. Known and
+      accepted when `infoUrl` was placed on `ConferencePlanned` (slice 4b, 2026-08-22): the CFP half
+      has a repair path (`/conferences/{id}/cfp`, which re-records and replaces), and the conference
+      half has none. Related: the `locationForMatching` item above says the same thing from the
+      other end — a conference cannot be corrected after the fact either way.
+      **Trigger:** Ted needing to fix a conference he has already entered — a moved venue, a
+      corrected date, or an `infoUrl` he did not have when he planned it. Cancel-and-re-enter is not
+      the workaround it is for a ground transfer, because a conference carries a CFP, a talk
+      pipeline and a commitment that would all have to be re-recorded.
 - [ ] **Ground-transfer endpoint prefill from a fix link.** Lifted from
       `archived/ProblemContextOnFixPagesPlan.md` 2026-08-23, when that doc was archived — it was
       the one piece of future work that doc still named, and nothing else tracked it. Today

@@ -35,7 +35,7 @@ import java.util.stream.Stream;
  * {@link dev.ted.jittertravel.domain.AttendanceBasis} — why Ted is going, which is submission
  * status in disguise — and where his talk stands are read and discarded. A field that never enters
  * the view cannot leak from it (CLAUDE.md redaction rule 1). See
- * {@code docs/ConferenceSubmissionTrackingPlan.md}.
+ * {@code docs/archived/ConferenceSubmissionTrackingPlan.md}.
  * <p>
  * <strong>A dropped conference leaves the calendar entirely</strong> — whether Ted declined it or
  * a rejection dropped it at a conference where acceptance was the way in. This is where that

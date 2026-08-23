@@ -5,7 +5,7 @@
 > everything else.
 >
 > **Amendment 3 (2026-08-23): this plan gains `datesConfirmed`, and its one dependency is now met.**
-> `datesConfirmed` on `ConferencePlanned` moved here from `ConferenceSubmissionTrackingPlan.md`,
+> `datesConfirmed` on `ConferencePlanned` moved here from `archived/ConferenceSubmissionTrackingPlan.md`,
 > where it had been deferred twice and was sitting in a slice whose other contents were this plan's
 > anyway. It is a field on that plan's event, but this is the only plan that reads it, and it is in
 > no code yet — so it simply lands with the ceiling, at step 4. That plan's slice 5 was re-cut to the
@@ -15,7 +15,7 @@
 >
 > **Amendment 1 (2026-08-12):** the counter produces **two** numbers, a confirmed floor and a
 > worst-case ceiling, and gains explicit per-gap *assumed stays*. Driven by
-> `ConferenceSubmissionTrackingPlan.md`, which splits conferences into committed and speculative.
+> `archived/ConferenceSubmissionTrackingPlan.md`, which splits conferences into committed and speculative.
 >
 > **Amendment 2 (2026-08-12), verified against the 2026-08-11 backup:** presence is an **evidence
 > hierarchy**, not a single union — external border crossings first, dated sources as fallback, Ted's
@@ -163,12 +163,12 @@ the past with a missing leg would fall to tier 2. Date has nothing to do with it
 envelope covers.** Once flights bracket a conference, its days are already inside the envelope and
 the `WATCHING` / `GOING` label changes nothing here (it still matters on the calendar). On the
 2026-08-11 data that is exactly one conference — Agile Testing Days, November. So the dependency on
-`ConferenceSubmissionTrackingPlan.md` is real but narrow.
+`archived/ConferenceSubmissionTrackingPlan.md` is real but narrow.
 
 "Live speculative" means `WATCHING` — including submitted-and-waiting and rejected-but-undecided.
 It excludes declined, withdrawn-and-not-going, and organizer-cancelled conferences: counting dead
 entries inflates the ceiling until it means nothing. See
-`ConferenceSubmissionTrackingPlan.md` for where those states come from.
+`archived/ConferenceSubmissionTrackingPlan.md` for where those states come from.
 
 Because presence is a union rather than a sum, two speculative conferences in the same week do not
 double-count. The ceiling is genuinely "the most days you could possibly burn", not an unreachable
@@ -330,7 +330,7 @@ the only thing that reads them as a number rather than showing them. So `Confere
 `datesConfirmed` flag (or the inverse, `datesProvisional`) marking a guess wherever it is counted.
 
 **It is a field on another plan's event, but it is work for this one.** It was deferred out of
-`ConferenceSubmissionTrackingPlan.md`'s slice 1 (Ted, 2026-08-18) because shipping a form control
+`archived/ConferenceSubmissionTrackingPlan.md`'s slice 1 (Ted, 2026-08-18) because shipping a form control
 months ahead of the behaviour that reads it is a papercut with no payoff, and it sat in that plan's
 slice 5 until 2026-08-23 — which left a field waiting on a consumer in a *different* plan and made
 that plan look unfinishable. It is in no code at all today, so nothing has to be migrated: it simply
@@ -445,7 +445,7 @@ nullable value and render nothing when absent — renderers must never re-derive
 ## Build order
 
 **Dependency: satisfied since 2026-08-19.** The floor/ceiling split needs a way to tell a committed
-conference from a speculative one, which arrived with step 2 of `ConferenceSubmissionTrackingPlan.md`
+conference from a speculative one, which arrived with step 2 of `archived/ConferenceSubmissionTrackingPlan.md`
 (the commitment events); slices 1–4 of that plan have all shipped, so `AttendanceCommitment` is live
 and nothing here waits on it any more. The concern that motivated the dependency — building the
 counter against an all-tentative model, giving every conference a floor of zero — no longer applies.

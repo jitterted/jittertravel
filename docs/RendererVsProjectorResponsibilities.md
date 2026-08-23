@@ -124,7 +124,7 @@ The trigger above is still unfired and still worth watching.
 # Second occasion: `CalendarEntry` is growing fields that don't apply (2026-08-19)
 
 **Status: DONE 2026-08-21 — S2 + E2, both commits shipped.** Raised at the start of slice 2 of
-`docs/ConferenceSubmissionTrackingPlan.md`. The options below are kept for the reasoning trail; the
+`archived/ConferenceSubmissionTrackingPlan.md`. The options below are kept for the reasoning trail; the
 decision and its terms are in **"Decision (2026-08-19)"** at the end of this half.
 
 ## How this came up
@@ -382,7 +382,7 @@ warning fires or boot replay is measurably slow.
 The question Ted put: *number of records is not the only useful measure; as more kinds arrive, some
 public and some private, what is the near-future impact on **coupling** and **testability**?*
 
-The near future is concrete. `docs/ConferenceSubmissionTrackingPlan.md` and
+The near future is concrete. `archived/ConferenceSubmissionTrackingPlan.md` and
 `docs/archived/PrivateSocialEventPlan.md` between them require at least one more private kind — the
 company-internal speaking engagement, which must **not** be modelled as a conference or gathering.
 Every private kind after it is the same case. So assume: kinds keep arriving, and most new private
@@ -591,7 +591,7 @@ subtitle, and the controller reading the owner's entries for an anonymous viewer
 
 ## Related
 
-- `docs/ConferenceSubmissionTrackingPlan.md` — slice 2, the change that raised the second occasion
+- `archived/ConferenceSubmissionTrackingPlan.md` — slice 2, the change that raised the second occasion
 - `CLAUDE.md` — "Redaction: anonymous viewers are a first-class threat model"; rules 1, 2 and 5 are
   the constraints every option above has to satisfy
 - `docs/Cleanup_Tasks.md` — the nav standardization entry, including the revert and its reasoning

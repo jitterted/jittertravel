@@ -23,7 +23,7 @@ public sealed interface EntryDetails {
      * A conference. {@code commitment} is the collapsed, publishable attendance level — every
      * speculative state has already become {@link AttendanceCommitment#WATCHING} in
      * {@link ConferenceCalendarProjector}, and the private {@code AttendanceBasis} never reaches a
-     * calendar entry at all. See {@code docs/ConferenceSubmissionTrackingPlan.md}.
+     * calendar entry at all. See {@code docs/archived/ConferenceSubmissionTrackingPlan.md}.
      * <p>
      * {@code speaking} is public by decision, like a gathering's, but it is set only on a
      * conference Ted is committed to — see {@link PublicConference}, which explains why. The owner
@@ -212,7 +212,7 @@ public sealed interface EntryDetails {
      * subtitle the city and a zone-labelled time; this record holds nothing.
      * <p>
      * <strong>Every private kind collapses to this one</strong> — the company-internal speaking
-     * engagement that {@code docs/ConferenceSubmissionTrackingPlan.md} anticipates included. That
+     * engagement that {@code docs/archived/ConferenceSubmissionTrackingPlan.md} anticipates included. That
      * is not economy but redaction: giving a second private kind its own public lane would let a
      * stranger tell it apart from a dinner by lane alone.
      */

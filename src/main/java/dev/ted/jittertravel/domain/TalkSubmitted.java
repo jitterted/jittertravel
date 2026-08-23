@@ -9,7 +9,7 @@ import java.time.Instant;
  * title: for calendaring it does not matter whether Ted submitted one proposal or three, so this
  * reads as "I submitted (one or more talks) to this CFP". When per-talk state earns its keep — a
  * page that lists proposals by title — add the id and the title then, not before
- * ({@code docs/ConferenceSubmissionTrackingPlan.md}).
+ * ({@code docs/archived/ConferenceSubmissionTrackingPlan.md}).
  * <p>
  * <strong>The talk title is deliberately absent, and that is also a redaction property.</strong>
  * Titles are on the private list in CLAUDE.md; an event that never carries one cannot leak one.

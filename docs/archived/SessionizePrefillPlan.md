@@ -34,14 +34,14 @@
 > `js` tier and the convention test, which is the one CI runs.
 >
 > **Also this session, unrelated to the widget but adjacent:** `CfpDeadlineSource` gained its **4h**
-> alarm (72h + 24h + 4h), the backstop `../ConferenceSubmissionTrackingPlan.md` had left open. Ted's
+> alarm (72h + 24h + 4h), the backstop `ConferenceSubmissionTrackingPlan.md` had left open. Ted's
 > reason went beyond the backstop: 4h before close is when a last-second submission actually happens.
 >
 > **Not built, and not needed:** nothing. The "what this deliberately does not do" list below stands
 > as written — no re-checking of moved deadlines, no session/speaker fetching, no second platform.
 >
 > **Slice 0 is no longer an assumption — it SHIPPED 2026-08-22**, before any of this, as slice 4b of
-> `../ConferenceSubmissionTrackingPlan.md`. `/plan-conference` now carries **Conference Page**,
+> `ConferenceSubmissionTrackingPlan.md`. `/plan-conference` now carries **Conference Page**,
 > **Closes On** and **Submit At**; one submit produces `PlanConference` then `OpenCfp`; the deadline
 > takes the zone the plan resolved; and `OPEN_SPACE` + a CFP is a field error. **Slice 0 below was
 > re-read against the built form and rewritten** — it now carries the real field names, in order, as
@@ -75,7 +75,7 @@
 > The doc was called `SessionizeCfpImportPlan.md` until the first of those decisions: it is not an
 > import, and it is not only about the CFP.
 >
-> Companion to `../ConferenceSubmissionTrackingPlan.md`, which owns `CfpOpened` and everything
+> Companion to `ConferenceSubmissionTrackingPlan.md`, which owns `CfpOpened` and everything
 > downstream of it. This doc owns only *how the values get into the form*.
 
 ## The point
@@ -186,7 +186,7 @@ failure mode of a hallucinated venue is worse than a blank field.
 
 ### Slice 0 — the CFP on the plan form: BUILT 2026-08-22
 
-No longer a prerequisite to assume; it shipped as slice 4b of `../ConferenceSubmissionTrackingPlan.md`,
+No longer a prerequisite to assume; it shipped as slice 4b of `ConferenceSubmissionTrackingPlan.md`,
 and `ConferencePlanning`'s javadoc cites this doc for the reasoning. **The prefill now has a real
 form to write into, and its exact shape is what the widget must match.** All four facts this plan
 depended on held; one turned out better than specified.

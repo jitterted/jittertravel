@@ -6,7 +6,7 @@ package dev.ted.jittertravel.domain;
  * The opening <em>is</em> the event, which is why there is no separate "CFP window recorded" fact
  * carrying both ends: an earlier draft had {@code CfpWindowRecorded(opensOn, closesOn)} and it was
  * renamed here because a window is a shape, not something that happened
- * ({@code docs/ConferenceSubmissionTrackingPlan.md}). Nothing yet needs "watch for this CFP to
+ * ({@code docs/archived/ConferenceSubmissionTrackingPlan.md}). Nothing yet needs "watch for this CFP to
  * open" — Ted records a CFP once it is already open — so the opening date has nowhere to be used
  * and is not stored.
  * <p>

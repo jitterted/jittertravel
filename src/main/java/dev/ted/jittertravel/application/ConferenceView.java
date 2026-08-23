@@ -37,6 +37,14 @@ import java.time.Instant;
  * needs Ted to go and find the date, while one whose deadline has passed needs him to decide. Null
  * means only "not recorded" — never "no CFP exists", which is what {@code ConferenceFormat}
  * says.
+ * <p>
+ * {@code cfpSubmissionUrl} is where the talk goes — {@code ""} when unrecorded, since it is a string
+ * and absence has an empty sentinel, unlike the deadline whose absence is a question the dashboard
+ * groups by. <strong>OWNER-only</strong>, like everything else CFP-shaped: this view backs
+ * {@code /conferences} and nothing else, and no calendar read model may carry it.
+ * <p>
+ * {@code infoUrl} is the opposite — the conference's own public page, published in full on the
+ * anonymous calendar. It is here so the dashboard's name can link to it.
  */
 public record ConferenceView(
         ConferenceId conferenceId,
@@ -49,7 +57,9 @@ public record ConferenceView(
         boolean speaking,
         SpeakingStatus speakingStatus,
         ZonedTimestamp cfpClosesOn,
-        ConferenceFormat format
+        String cfpSubmissionUrl,
+        ConferenceFormat format,
+        String infoUrl
 ) implements TemporalView {
     public String city() { return venueAddress.city(); }
     public String country() { return venueAddress.country(); }

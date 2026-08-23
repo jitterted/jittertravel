@@ -1,8 +1,30 @@
-package dev.ted.jittertravel.domain;
+package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.AirportZoneResolver;
 import dev.ted.jittertravel.application.LocationZoneResolver;
-import dev.ted.jittertravel.infrastructure.EventPayloadUpcaster;
+import dev.ted.jittertravel.domain.AttendanceBasis;
+import dev.ted.jittertravel.domain.CfpOpened;
+import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
+import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
+import dev.ted.jittertravel.domain.ConferenceFormat;
+import dev.ted.jittertravel.domain.ConferencePlanned;
+import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightChanged;
+import dev.ted.jittertravel.domain.GatheringChanged;
+import dev.ted.jittertravel.domain.GatheringPlanned;
+import dev.ted.jittertravel.domain.GroundTransferCancelled;
+import dev.ted.jittertravel.domain.GroundTransferPlanned;
+import dev.ted.jittertravel.domain.HotelBooked;
+import dev.ted.jittertravel.domain.HotelChanged;
+import dev.ted.jittertravel.domain.InvitedToSpeak;
+import dev.ted.jittertravel.domain.OneOffTaskCompleted;
+import dev.ted.jittertravel.domain.PrivateEventPlanned;
+import dev.ted.jittertravel.domain.TalkAccepted;
+import dev.ted.jittertravel.domain.TalkRejected;
+import dev.ted.jittertravel.domain.TalkSubmitted;
+import dev.ted.jittertravel.domain.TalkWithdrawn;
+import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
@@ -176,6 +198,50 @@ class GoldenEventDeserializationTest {
         assertThat(event.format())
                 .as("a v3 payload's format is read verbatim from the payload")
                 .isEqualTo(ConferenceFormat.OPEN_SPACE);
+        assertThat(event.infoUrl())
+                .as("this sample predates infoUrl, and an absent one must read back as the empty "
+                    + "sentinel — which is what let the field ship with no schema bump")
+                .isEmpty();
+    }
+
+    /**
+     * The conference's own web page, added 2026-08-22. Deliberately a <em>second</em> sample rather
+     * than a field added to the one above: that one is now the pre-{@code infoUrl} shape and has to
+     * keep binding, since it is what every row written before that date looks like.
+     * <p>
+     * Note the version is still 3. An optional String with an empty-sentinel default needs no rung —
+     * the contrast with {@code format} above, which is behavioural and non-null and therefore had to
+     * be stored rather than invented at read time.
+     */
+    @Test
+    void conferencePlannedWithInfoUrlDeserializes() {
+        String json = """
+                {
+                  "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "name": "J-Fall",
+                  "startDate": {"utc": "2026-11-05T08:00:00Z", "zone": "Europe/Amsterdam"},
+                  "endDate": {"utc": "2026-11-05T17:00:00Z", "zone": "Europe/Amsterdam"},
+                  "venueName": "Reehorst",
+                  "venueAddress": {
+                    "street": "Bennekomseweg 24",
+                    "city": "Ede",
+                    "region": "",
+                    "country": "Netherlands",
+                    "postalCode": "6717 LM",
+                    "locationForMatching": "Ede"
+                  },
+                  "format": "CALL_FOR_PAPERS",
+                  "infoUrl": "https://jfall.nl/"
+                }
+                """;
+
+        ConferencePlanned event = deserialize(json, ConferencePlanned.class);
+
+        assertThat(event.infoUrl())
+                .as("the conference's own public page is read verbatim")
+                .isEqualTo("https://jfall.nl/");
+        assertThat(event.name())
+                .isEqualTo("J-Fall");
     }
 
     @Test
@@ -240,6 +306,38 @@ class GoldenEventDeserializationTest {
                 .isEqualTo(Instant.parse("2026-09-12T21:59:00Z"));
         assertThat(event.closesOn().zone())
                 .isEqualTo(ZoneId.of("Europe/Amsterdam"));
+        assertThat(event.submissionUrl())
+                .as("every CFP recorded before 2026-08-22 is this shape — a deadline and nothing "
+                    + "else — and an absent URL must read back as the empty sentinel")
+                .isEmpty();
+    }
+
+    /**
+     * Where the talk is submitted, added 2026-08-22 beside the deadline rather than on the
+     * conference: one CFP is one fact, and re-recording replaces both together.
+     * <p>
+     * <strong>OWNER-only</strong>, unlike {@code ConferencePlanned.infoUrl} above — a Sessionize
+     * link says Ted is considering submitting somewhere. Nothing enforces that here; this sample
+     * pins the wire shape, and {@code PublicCalendarProjectorTest} plus
+     * {@code CalendarRedactionSecurityTest} pin that it never reaches an anonymous page.
+     */
+    @Test
+    void cfpOpenedWithSubmissionUrlDeserializes() {
+        String json = """
+                {
+                  "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "closesOn": {"utc": "2026-09-12T21:59:00Z", "zone": "Europe/Amsterdam"},
+                  "submissionUrl": "https://sessionize.com/jfall-2027/"
+                }
+                """;
+
+        CfpOpened event = deserialize(json, CfpOpened.class);
+
+        assertThat(event.submissionUrl())
+                .isEqualTo("https://sessionize.com/jfall-2027/");
+        assertThat(event.closesOn().utc())
+                .as("the deadline is unaffected by the field beside it")
+                .isEqualTo(Instant.parse("2026-09-12T21:59:00Z"));
     }
 
     /**

@@ -50,6 +50,11 @@ class OpenCfpControllerTest {
     ConferenceProjector projector;
 
     private static ConferenceView viewFor(UUID conferenceId, ZonedTimestamp cfpClosesOn) {
+        return viewFor(conferenceId, cfpClosesOn, "");
+    }
+
+    private static ConferenceView viewFor(UUID conferenceId, ZonedTimestamp cfpClosesOn,
+                                          String cfpSubmissionUrl) {
         return new ConferenceView(
                 ConferenceId.of(conferenceId),
                 "J-Fall",
@@ -58,7 +63,7 @@ class OpenCfpControllerTest {
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 5, 9, 0), VENUE_ZONE),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 5, 18, 0), VENUE_ZONE),
                 AttendanceCommitment.WATCHING, false, SpeakingStatus.NOT_SPEAKING,
-                cfpClosesOn, ConferenceFormat.CALL_FOR_PAPERS);
+                cfpClosesOn, cfpSubmissionUrl, ConferenceFormat.CALL_FOR_PAPERS, "");
     }
 
     @Test
@@ -135,6 +140,65 @@ class OpenCfpControllerTest {
                 .as("the venue's zone, not the server's")
                 .isEqualTo(VENUE_ZONE);
         assertThat(request.getValue().conferenceId()).isEqualTo(conferenceId);
+    }
+
+    /**
+     * The submission page is recorded with the deadline — one CFP, one form, one command — so it
+     * has to survive the trip through the request into the service.
+     */
+    @Test
+    void postCarriesTheSubmissionUrlThrough() {
+        UUID conferenceId = UUID.randomUUID();
+        given(projector.findById(ConferenceId.of(conferenceId)))
+                .willReturn(Optional.of(viewFor(conferenceId, null)));
+
+        assertThat(mockMvc.post().uri("/conferences/{id}/cfp", conferenceId)
+                .param("closesOn", "2026-09-12T23:59")
+                .param("submissionUrl", "https://sessionize.com/jfall-2027/")
+                .with(csrf()))
+                .hasStatus3xxRedirection();
+
+        ArgumentCaptor<OpenCfpRequest> request = ArgumentCaptor.forClass(OpenCfpRequest.class);
+        then(openCfp).should().openCfp(any(), request.capture(), any());
+
+        assertThat(request.getValue().submissionUrl())
+                .isEqualTo("https://sessionize.com/jfall-2027/");
+    }
+
+    /** An omitted field is absent, never null — the empty sentinel the event normalizes to. */
+    @Test
+    void postWithNoSubmissionUrlRecordsTheEmptySentinel() {
+        UUID conferenceId = UUID.randomUUID();
+        given(projector.findById(ConferenceId.of(conferenceId)))
+                .willReturn(Optional.of(viewFor(conferenceId, null)));
+
+        assertThat(mockMvc.post().uri("/conferences/{id}/cfp", conferenceId)
+                .param("closesOn", "2026-09-12T23:59")
+                .with(csrf()))
+                .hasStatus3xxRedirection();
+
+        ArgumentCaptor<OpenCfpRequest> request = ArgumentCaptor.forClass(OpenCfpRequest.class);
+        then(openCfp).should().openCfp(any(), request.capture(), any());
+
+        assertThat(request.getValue().submissionUrl()).isEmpty();
+    }
+
+    /**
+     * Both halves prefill, for the same reason: re-recording replaces both, so the one that is not
+     * being changed must not come back blank.
+     */
+    @Test
+    void anAlreadyRecordedSubmissionUrlPrefillsTheFieldToo() {
+        UUID conferenceId = UUID.randomUUID();
+        given(projector.findById(ConferenceId.of(conferenceId)))
+                .willReturn(Optional.of(viewFor(conferenceId,
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 12, 23, 59), VENUE_ZONE),
+                        "https://sessionize.com/jfall-2027/")));
+
+        assertThat(mockMvc.get().uri("/conferences/{id}/cfp", conferenceId))
+                .hasStatusOk()
+                .bodyText()
+                .contains("value=\"https://sessionize.com/jfall-2027/\"");
     }
 
     @Test

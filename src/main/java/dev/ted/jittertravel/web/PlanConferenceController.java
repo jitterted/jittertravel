@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.CfpDeadlineMissing;
 import dev.ted.jittertravel.application.ConferencePlanning;
 import dev.ted.jittertravel.application.ReadOnlyModeException;
 import dev.ted.jittertravel.application.ConferenceProjector;
@@ -9,6 +10,7 @@ import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.ConferenceFormat;
+import dev.ted.jittertravel.domain.ConferenceHasNoCfp;
 import dev.ted.jittertravel.domain.DateRangeNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
 import org.slf4j.Logger;
@@ -90,12 +92,21 @@ public class PlanConferenceController {
         }
 
         try {
-            // now is captured at the boundary as an Instant; the zone is resolved inward.
-            applicationService.planConference(command, Instant.now(clock));
+            // now and the CFP commandId are the nondeterministic inputs, both captured here at the
+            // boundary; the zone is resolved inward. The second id is minted whether or not the
+            // form carried a CFP — it costs nothing unused, and branching on the form's contents
+            // out here would put the decision in the wrong place.
+            applicationService.planConference(command, Instant.now(clock), UUID.randomUUID());
         } catch (DateRangeNotInFuture e) {
             bindingResult.rejectValue("startDate", "future", e.getMessage());
         } catch (InvalidDateRange e) {
             bindingResult.rejectValue("endDate", "afterStartDate", e.getMessage());
+        } catch (ConferenceHasNoCfp e) {
+            // Refused before anything was written, so re-rendering the form is safe: no conference
+            // was planned, and submitting again is a first attempt rather than a duplicate.
+            bindingResult.rejectValue("cfpClosesOn", "openSpaceHasNoCfp", e.getMessage());
+        } catch (CfpDeadlineMissing e) {
+            bindingResult.rejectValue("cfpClosesOn", "cfpDeadlineMissing", e.getMessage());
         } catch (ZoneResolutionException e) {
             bindingResult.rejectValue("zone", "zoneUnresolved",
                     "Could not determine the time zone from the location — please choose one.");
@@ -115,6 +126,10 @@ public class PlanConferenceController {
      * Two independent filters, each its own parameter: {@code ?filter=} asks when, and
      * {@code ?dropped=} asks whether to include the conferences Ted said no to. Both fall back to
      * their default on an unrecognised value, so a hand-edited URL renders rather than erroring.
+     * <p>
+     * The dropped count is asked for separately, and on purpose: the toolbar's switch reads
+     * "Show dropped <em>n</em>" whether they are in or out, so its number cannot come from the rows
+     * that {@code ?dropped=} let through.
      */
     @GetMapping("/conferences")
     public ResponseEntity<String> conferences(
@@ -127,7 +142,7 @@ public class PlanConferenceController {
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
                 .body(ConferencesRenderer.render(
                         dashboard.sections(projector.views(timeView, droppedView, now), now),
-                        timeView, droppedView));
+                        timeView, droppedView, projector.droppedCount(timeView, now)));
     }
 
 }

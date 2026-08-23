@@ -26,6 +26,31 @@ class OpenCfpCommandTest {
         assertThat(events).containsExactly(new CfpOpened(conferenceId, CLOSES_ON));
     }
 
+    /**
+     * The submission page rides on the same event as the deadline — one CFP, one fact — so it is
+     * carried through the command rather than recorded separately.
+     */
+    @Test
+    void emitsCfpOpenedCarryingWhereTheTalkIsSubmitted() {
+        ConferenceId conferenceId = ConferenceId.random();
+
+        List<CfpOpened> events =
+                new OpenCfpCommand(conferenceId, CLOSES_ON, "https://sessionize.com/jfall-2027/")
+                        .execute(new OpenCfpContext(true, ConferenceFormat.CALL_FOR_PAPERS))
+                        .toList();
+
+        assertThat(events).containsExactly(
+                new CfpOpened(conferenceId, CLOSES_ON, "https://sessionize.com/jfall-2027/"));
+    }
+
+    /** A CFP whose page is unknown is still a CFP: the URL is optional, the deadline is not. */
+    @Test
+    void aMissingSubmissionUrlBecomesTheEmptySentinel() {
+        CfpOpened event = new CfpOpened(ConferenceId.random(), CLOSES_ON, null);
+
+        assertThat(event.submissionUrl()).isEmpty();
+    }
+
     @Test
     void unknownConferenceIsRejected() {
         assertThatExceptionOfType(ConferenceNotFound.class)

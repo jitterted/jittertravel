@@ -25,8 +25,14 @@ import java.util.stream.Stream;
  */
 public record OpenCfpCommand(
         ConferenceId conferenceId,
-        ZonedTimestamp closesOn
+        ZonedTimestamp closesOn,
+        String submissionUrl
 ) implements DomainCommand<OpenCfpContext> {
+
+    /** Convenience overload for call sites that do not record where the talk is submitted. */
+    public OpenCfpCommand(ConferenceId conferenceId, ZonedTimestamp closesOn) {
+        this(conferenceId, closesOn, "");
+    }
 
     @Override
     public Stream<CfpOpened> execute(OpenCfpContext context) {
@@ -37,6 +43,6 @@ public record OpenCfpCommand(
             throw new ConferenceHasNoCfp(
                     "An open-space conference has no CFP to close: " + conferenceId);
         }
-        return Stream.of(new CfpOpened(conferenceId, closesOn));
+        return Stream.of(new CfpOpened(conferenceId, closesOn, submissionUrl));
     }
 }

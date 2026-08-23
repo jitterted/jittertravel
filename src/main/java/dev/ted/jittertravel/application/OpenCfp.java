@@ -34,7 +34,8 @@ public class OpenCfp {
 
     public void openCfp(UUID commandId, OpenCfpRequest request, ZonedTimestamp closesOn) {
         ConferenceId conferenceId = ConferenceId.of(request.conferenceId());
-        OpenCfpCommand command = new OpenCfpCommand(conferenceId, closesOn);
+        OpenCfpCommand command =
+                new OpenCfpCommand(conferenceId, closesOn, request.submissionUrl());
         commandExecutor.execute(commandId, request, contextFor(conferenceId), command);
     }
 

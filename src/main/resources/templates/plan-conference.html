@@ -76,6 +76,22 @@
             color: #b00;
         }
 
+        .hint {
+            font-size: 0.8rem;
+            color: var(--muted-text);
+            margin-top: 2px;
+        }
+
+        /* Says a field may be left blank without making the label itself quieter — the label is
+           still what the eye lands on. */
+        .optional {
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+            opacity: 0.75;
+            font-style: italic;
+        }
+
         button[type=submit] {
             background: var(--accent-color);
             color: #fff;
@@ -112,6 +128,15 @@
             <span class="error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
         </div>
 
+        <!-- The conference's own page. Public, like the venue and the dates: it is a public event.
+             Not to be confused with the CFP's submission page below, which is private. -->
+        <div class="field" style="margin-bottom: 0.75rem;">
+            <label>
+                Conference Page <span class="optional">optional</span>
+                <input type="url" th:field="*{infoUrl}" placeholder="https://jfall.nl/"/>
+            </label>
+        </div>
+
         <div class="field-row" style="margin-bottom: 0.75rem;">
             <div class="field">
                 <label>
@@ -141,6 +166,41 @@
                            style="width: auto;"/>
                     <span th:text="${cf.label()}">Call for Papers</span>
                 </label>
+            </div>
+        </fieldset>
+
+        <!-- The CFP, recorded on the same page rather than on a second one (Ted, 2026-08-22). This
+             half becomes a separate command after the conference is planned; leaving it blank is
+             the ordinary case, since a CFP often opens long after the conference is on the list.
+             Always visible, including for Open Space: hiding it as the radio changes would move
+             every field below it, and the server refuses the impossible combination anyway. -->
+        <fieldset>
+            <legend>Call for Papers</legend>
+
+            <p class="hint" style="margin: 0 0 0.6rem;">
+                Optional. Leave blank if the CFP is not open yet, or if you have not found the
+                deadline — the conference shows under <em>CFP date unknown</em> and you can record
+                it later. An open-space conference has no CFP at all.
+            </p>
+
+            <div class="field">
+                <label>
+                    Closes On <span class="optional">optional</span>
+                    <input type="datetime-local" th:field="*{cfpClosesOn}"/>
+                </label>
+                <span class="error"
+                      th:if="${#fields.hasErrors('cfpClosesOn')}"
+                      th:errors="*{cfpClosesOn}"></span>
+                <div class="hint">In the conference's own local time, like its start and end.</div>
+            </div>
+
+            <div class="field">
+                <label>
+                    Submit At <span class="optional">optional</span>
+                    <input type="url" th:field="*{cfpSubmissionUrl}"
+                           placeholder="https://sessionize.com/jfall-2027/"/>
+                </label>
+                <div class="hint">Needs the closing date too — it is recorded with it.</div>
             </div>
         </fieldset>
 

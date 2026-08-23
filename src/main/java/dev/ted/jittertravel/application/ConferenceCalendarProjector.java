@@ -49,6 +49,7 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
                 case ConferencePlanned event -> {
+                    String infoUrl = event.infoUrl().isBlank() ? null : event.infoUrl();
                     String location = event.venueAddress().city() + ", " + event.venueAddress().country();
                     List<SubtitleLine> locationLines = List.of(new SubtitleLine.Text(location));
                     // Calendar days are venue-local days (decision 7): bucket by the wall-clock
@@ -63,8 +64,8 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                             // Planning a conference is putting it on the watch list, nothing more:
                             // it is speculative until an attendance confirmation says otherwise,
                             // and it records no speaking evidence either way.
-                            new EntryDetails.Conference(AttendanceCommitment.WATCHING, false)
-                    ), ConferenceProgress.planned(event.format())));
+                            new EntryDetails.Conference(AttendanceCommitment.WATCHING, false, infoUrl)
+                    ), ConferenceProgress.planned(event.format()), infoUrl));
                 }
                 // Ted is going. `event.basis()` is read only to answer whether he speaks, and is
                 // never carried onto the entry — see the class comment.
@@ -110,16 +111,19 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
      * One conference's calendar entry, and where that conference stands on both axes.
      * {@link ConferenceProgress} holds what the entry may not — the format, where the talk stands,
      * and whether the last confirmation named a speaking basis — so none of it can reach a view.
+     * <p>
+     * {@code infoUrl} rides here rather than being read back off the entry every rebuild: it moves
+     * with neither axis, and null when there is none.
      */
-    private record Tracked(CalendarEntry entry, ConferenceProgress progress) {
+    private record Tracked(CalendarEntry entry, ConferenceProgress progress, String infoUrl) {
 
         Tracked showing(ConferenceProgress moved) {
             return new Tracked(new CalendarEntry(
                     entry.start(), entry.end(),
                     entry.mainTitle(), entry.subTitle(),
                     entry.continuationTitle(), entry.continuationSubTitle(),
-                    new EntryDetails.Conference(moved.commitment(), speakingBadge(moved))
-            ), moved);
+                    new EntryDetails.Conference(moved.commitment(), speakingBadge(moved), infoUrl)
+            ), moved, infoUrl);
         }
 
         /**

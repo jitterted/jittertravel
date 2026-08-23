@@ -82,17 +82,26 @@ public class PublicCalendarProjector implements EventStreamConsumer {
      * consequences are published, through {@link #publishable}.
      */
     private final Map<ConferenceId, ConferenceProgress> progress = new ConcurrentHashMap<>();
+    /**
+     * Each conference's own public web page, remembered beside its entries so that a later event —
+     * a confirmation, a rejection — can rewrite them without re-reading the plan. It is the
+     * mirror image of {@link #progress}: that map holds what may never be published, this one holds
+     * the single published value that moves with neither axis.
+     */
+    private final Map<ConferenceId, String> conferenceInfoUrls = new ConcurrentHashMap<>();
     private final TransferEndpointLabel label = new TransferEndpointLabel();
 
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
-                // Conferences are public events in full: name, venue, city and times. Planning one
-                // is putting it on the watch list, so it starts out merely WATCHING and with no
-                // speaking badge; later events rewrite the same entry.
+                // Conferences are public events in full: name, venue, city, times, and the
+                // conference's own web page. Planning one is putting it on the watch list, so it
+                // starts out merely WATCHING and with no speaking badge; later events rewrite the
+                // same entry.
                 case ConferencePlanned e -> {
                     progress.put(e.conferenceId(), ConferenceProgress.planned(e.format()));
+                    conferenceInfoUrls.put(e.conferenceId(), e.infoUrl());
                     put(e.conferenceId(), conference(e, ConferenceProgress.planned(e.format())));
                 }
                 // The event's AttendanceBasis is read to answer one question — does Ted speak here
@@ -167,7 +176,9 @@ public class PublicCalendarProjector implements EventStreamConsumer {
                 location,
                 event.name() + " cont'd",
                 location,
-                publishable(progress));
+                // The URL is named off the event here, which is the allow-list rule: a public value
+                // is published only by naming the event field it comes from.
+                publishable(progress, event.infoUrl()));
     }
 
     /**
@@ -190,12 +201,13 @@ public class PublicCalendarProjector implements EventStreamConsumer {
                         entry.start(), entry.end(),
                         entry.mainTitle(), entry.subTitle(),
                         entry.continuationTitle(), entry.continuationSubTitle(),
-                        publishable(moved)))
+                        publishable(moved, conferenceInfoUrls.getOrDefault(conferenceId, ""))))
                 .toList());
     }
 
     /**
-     * The two publishable facts about where a conference stands, and nothing else.
+     * The two publishable facts about where a conference stands, plus the conference's own public
+     * page, and nothing else.
      * <p>
      * <strong>The speaking badge is gated on commitment</strong> (Ted, 2026-08-22). Speaking
      * evidence can exist before Ted has answered — an unanswered invitation — and a "Maybe" entry
@@ -210,15 +222,19 @@ public class PublicCalendarProjector implements EventStreamConsumer {
      * the next person will look for it — but the test that guards the rule pins
      * {@code ConferenceProgress}, not this line.
      */
-    private EntryDetails.PublicConference publishable(ConferenceProgress progress) {
+    private EntryDetails.PublicConference publishable(ConferenceProgress progress, String infoUrl) {
         return new EntryDetails.PublicConference(
                 progress.commitment(),
-                progress.commitment() == AttendanceCommitment.GOING && progress.speaking());
+                progress.commitment() == AttendanceCommitment.GOING && progress.speaking(),
+                // Blank becomes null so a title with nowhere to point stays plain text, exactly as
+                // a gathering's does.
+                infoUrl.isBlank() ? null : infoUrl);
     }
 
     private void forget(ConferenceId conferenceId) {
         entriesBySubject.remove(conferenceId);
         progress.remove(conferenceId);
+        conferenceInfoUrls.remove(conferenceId);
     }
 
     private CalendarEntry gathering(String title, String venueName, Address location,

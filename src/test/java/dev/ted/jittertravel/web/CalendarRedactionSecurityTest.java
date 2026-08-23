@@ -12,6 +12,7 @@ import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.AttendanceBasis;
 import dev.ted.jittertravel.domain.BookingIntent;
+import dev.ted.jittertravel.domain.CfpOpened;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
@@ -416,19 +417,24 @@ class CalendarRedactionSecurityTest {
         return new CalendarEntry(
                 CONF_START, CONF_END,
                 "J-Fall", List.of(new SubtitleLine.Text("Ede, Netherlands")),
-                new EntryDetails.Conference(commitment, false));
+                new EntryDetails.Conference(commitment, false, null));
     }
 
     private static final ZoneId AMSTERDAM = ZoneId.of("Europe/Amsterdam");
     private static final ConferenceId J_FALL = ConferenceId.random();
 
     private static ConferencePlanned jFallPlanned() {
+        return jFallPlanned("");
+    }
+
+    private static ConferencePlanned jFallPlanned(String infoUrl) {
         return new ConferencePlanned(J_FALL, "J-Fall",
                 ZonedTimestamp.fromLocal(CONF_START, AMSTERDAM),
                 ZonedTimestamp.fromLocal(CONF_END, AMSTERDAM),
                 "Reehorst",
                 new Address("1 Conf St", "Ede", "", "6710", "Netherlands", null),
-                ConferenceFormat.CALL_FOR_PAPERS);
+                ConferenceFormat.CALL_FOR_PAPERS,
+                infoUrl);
     }
 
     private static final Instant RECORDED_ON = Instant.parse("2026-05-01T00:00:00Z");
@@ -453,6 +459,53 @@ class CalendarRedactionSecurityTest {
                 .hasStatusOk()
                 .bodyText()
                 .contains(MAYBE_CHIP);
+    }
+
+    /**
+     * A conference's own page is public by decision, so an anonymous visitor gets the link — the
+     * venue and the times already are, and CLAUDE.md lists {@code infoUrl} among what a conference
+     * publishes in full. Asserted through the real security chain, on the whole anchor.
+     */
+    @Test
+    void anonymousUserGetsTheConferencesOwnPageLink() {
+        anonymousSees(jFallPlanned("https://jfall.nl/"));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("href=\"https://jfall.nl/\"")
+                .contains("J-Fall");
+    }
+
+    /**
+     * <strong>The CFP never reaches an anonymous page — its submission URL least of all.</strong>
+     * A deadline says Ted is considering a conference he has not committed to; a link to the page
+     * he would submit on says it more loudly, and it is the kind of value that looks harmless in
+     * markup. Both are recorded here as real events so the claim is about what the projector does
+     * with them, not about a fixture that never carried them.
+     * <p>
+     * The public link is asserted alongside deliberately: this is the case where the two URLs sit
+     * on the same conference, which is where confusing them would show.
+     */
+    @Test
+    void anonymousUserNeverSeesTheCfpDeadlineOrItsSubmissionUrl() {
+        anonymousSees(jFallPlanned("https://jfall.nl/"),
+                      new CfpOpened(J_FALL,
+                                    ZonedTimestamp.fromLocal(
+                                            LocalDateTime.of(2026, 9, 12, 23, 59), AMSTERDAM),
+                                    "https://sessionize.com/jfall-2027/"));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("href=\"https://jfall.nl/\"")
+                .doesNotContain("sessionize.com")
+                .doesNotContain("https://sessionize.com/jfall-2027/")
+                // The deadline itself, in every form the markup could carry it: the rendered day,
+                // and the UTC instant a <time datetime=...> would emit.
+                .doesNotContain("2026-09-12")
+                .doesNotContain("2026-09-12T21:59")
+                .doesNotContain("CFP");
     }
 
     @Test

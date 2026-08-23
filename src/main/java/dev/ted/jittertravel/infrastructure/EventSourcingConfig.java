@@ -113,10 +113,16 @@ public class EventSourcingConfig {
         return new OneOffTasks(registry, projector, commandExecutor);
     }
 
+    /**
+     * Takes {@link OpenCfp} because the plan form can carry a CFP: one submit, two commands, plan
+     * first (see {@link ConferencePlanning}). Delegating rather than building the second command
+     * here is what reuses that service's open-space refusal instead of writing it a second time.
+     */
     @Bean
     public ConferencePlanning conferenceApplicationService(CommandExecutor commandExecutor,
-                                                          LocationZoneResolver locationZoneResolver) {
-        return new ConferencePlanning(commandExecutor, locationZoneResolver);
+                                                          LocationZoneResolver locationZoneResolver,
+                                                          OpenCfp openCfp) {
+        return new ConferencePlanning(commandExecutor, locationZoneResolver, openCfp);
     }
 
     /**

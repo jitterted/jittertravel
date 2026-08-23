@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.AttendanceBasis;
 import dev.ted.jittertravel.domain.BookingIntent;
+import dev.ted.jittertravel.domain.CfpOpened;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
@@ -277,7 +278,68 @@ class PublicCalendarProjectorTest {
         projector.handle(Stream.of(stored(conferencePlanned(ConferenceId.random(), "J-Fall"))));
 
         assertThat(projector.entries().getFirst().details())
-                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.WATCHING, false));
+                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.WATCHING, false, null));
+    }
+
+    /**
+     * A conference's own page is public by decision, like its venue and its times — CLAUDE.md lists
+     * {@code infoUrl} among the things a conference publishes in full. It is read off the event by
+     * name, which is the allow-list rule.
+     */
+    @Test
+    void aConferencesOwnPageIsPublished() {
+        projector.handle(Stream.of(stored(
+                conferencePlanned(ConferenceId.random(), "J-Fall", "https://jfall.nl/"))));
+
+        assertThat(projector.entries().getFirst().details())
+                .isEqualTo(new EntryDetails.PublicConference(
+                        AttendanceCommitment.WATCHING, false, "https://jfall.nl/"));
+    }
+
+    /**
+     * The page survives a later move, because it is a property of the conference rather than a
+     * position on either axis — and the rebuild in {@code moveTo} has no event to re-read it from.
+     * A regression here would silently drop the link the first time Ted confirmed attendance.
+     */
+    @Test
+    void theConferencesOwnPageSurvivesALaterMove() {
+        ConferenceId conferenceId = ConferenceId.random();
+        projector.handle(Stream.of(stored(
+                conferencePlanned(conferenceId, "J-Fall", "https://jfall.nl/"))));
+
+        projector.handle(Stream.of(stored(new ConferenceAttendanceConfirmed(conferenceId,
+                AttendanceBasis.TICKET_PURCHASED, RECORDED_ON))));
+
+        assertThat(projector.entries().getFirst().details())
+                .isEqualTo(new EntryDetails.PublicConference(
+                        AttendanceCommitment.GOING, false, "https://jfall.nl/"));
+    }
+
+    /**
+     * <strong>The CFP is not published, URL and all.</strong> A link to Ted's talk-submission page
+     * says he is considering submitting somewhere, which is the pipeline the public calendar exists
+     * to keep out — and unlike the deadline, a URL would look harmless in the markup. The
+     * projector simply does not read {@code CfpOpened}, so this asserts on the whole entry rather
+     * than on one field: nothing about the CFP reached it.
+     */
+    @Test
+    void nothingAboutTheCfpReachesThePublicEntry() {
+        ConferenceId conferenceId = ConferenceId.random();
+        projector.handle(Stream.of(stored(
+                conferencePlanned(conferenceId, "J-Fall", "https://jfall.nl/"))));
+
+        projector.handle(Stream.of(stored(new CfpOpened(conferenceId,
+                zoned(LocalDateTime.of(2026, 9, 12, 23, 59), LONDON),
+                "https://sessionize.com/jfall-2027/"))));
+
+        CalendarEntry entry = projector.entries().getFirst();
+        assertThat(entry.details())
+                .as("the CFP moved nothing at all")
+                .isEqualTo(new EntryDetails.PublicConference(
+                        AttendanceCommitment.WATCHING, false, "https://jfall.nl/"));
+        assertThat(entry.toString())
+                .doesNotContain("sessionize")
+                .doesNotContain("2026-09-12");
     }
 
     @Test
@@ -289,7 +351,7 @@ class PublicCalendarProjectorTest {
                 AttendanceBasis.SPEAKING_ACCEPTED, Instant.parse("2026-05-01T00:00:00Z")))));
 
         assertThat(projector.entries().getFirst().details())
-                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING, true));
+                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING, true, null));
     }
 
     /**
@@ -338,7 +400,7 @@ class PublicCalendarProjectorTest {
                 stored(new TalkAccepted(conferenceId, RECORDED_ON))));
 
         assertThat(projector.entries().getFirst().details())
-                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING, true));
+                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING, true, null));
     }
 
     /**
@@ -360,7 +422,7 @@ class PublicCalendarProjectorTest {
                 .as("an invitation Ted has not answered changes nothing an anonymous viewer sees")
                 .isEqualTo(projector.entries().get(1).details());
         assertThat(projector.entries().getFirst().details())
-                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.WATCHING, false));
+                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.WATCHING, false, null));
     }
 
     /** Saying yes is what makes it publishable, and the basis is what says he said yes to speaking. */
@@ -386,8 +448,8 @@ class PublicCalendarProjectorTest {
                 .extracting(CalendarEntry::details)
                 .as("going on a bought ticket after an invitation is attending, not speaking")
                 .containsExactlyInAnyOrder(
-                        new EntryDetails.PublicConference(AttendanceCommitment.GOING, true),
-                        new EntryDetails.PublicConference(AttendanceCommitment.GOING, false));
+                        new EntryDetails.PublicConference(AttendanceCommitment.GOING, true, null),
+                        new EntryDetails.PublicConference(AttendanceCommitment.GOING, false, null));
     }
 
     /**
@@ -411,7 +473,7 @@ class PublicCalendarProjectorTest {
 
         assertThat(projector.entries())
                 .extracting(CalendarEntry::details)
-                .containsOnly(new EntryDetails.PublicConference(AttendanceCommitment.WATCHING, false));
+                .containsOnly(new EntryDetails.PublicConference(AttendanceCommitment.WATCHING, false, null));
     }
 
     /**
@@ -447,18 +509,24 @@ class PublicCalendarProjectorTest {
                 stored(new TalkWithdrawn(conferenceId, RECORDED_ON))));
 
         assertThat(projector.entries().getFirst().details())
-                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING, false));
+                .isEqualTo(new EntryDetails.PublicConference(AttendanceCommitment.GOING, false, null));
     }
 
     private static final Instant RECORDED_ON = Instant.parse("2026-05-01T00:00:00Z");
 
     private static ConferencePlanned conferencePlanned(ConferenceId conferenceId, String name) {
+        return conferencePlanned(conferenceId, name, "");
+    }
+
+    private static ConferencePlanned conferencePlanned(ConferenceId conferenceId, String name,
+                                                       String infoUrl) {
         return new ConferencePlanned(conferenceId, name,
                 zoned(LocalDateTime.of(2026, 11, 5, 9, 0), LONDON),
                 zoned(LocalDateTime.of(2026, 11, 6, 17, 0), LONDON),
                 "Grand Venue",
                 new Address("1 Conf St", "Ede", "", "6710", "Netherlands", null),
-                ConferenceFormat.CALL_FOR_PAPERS);
+                ConferenceFormat.CALL_FOR_PAPERS,
+                infoUrl);
     }
 
     /** One event of every kind the public calendar can show. */

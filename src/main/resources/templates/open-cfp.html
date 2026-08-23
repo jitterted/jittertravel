@@ -37,7 +37,8 @@
             font-size: 0.8rem;
             color: var(--muted-text);
         }
-        .field input[type=datetime-local] {
+        .field input[type=datetime-local],
+        .field input[type=url] {
             padding: 0.35rem 0.5rem;
             border: 1px solid var(--border-color);
             border-radius: 5px;
@@ -112,6 +113,21 @@
             <div class="hint">
                 In the conference's local time
                 (<span th:text="${conference.startDate().zone().getId()}">zone</span>).
+            </div>
+        </div>
+
+        <!-- Recorded with the deadline because it is the same fact: this CFP is open, it closes
+             then, the talk goes there. Re-recording replaces both together. -->
+        <div class="field">
+            <label>
+                Submit at
+                <input type="url" name="submissionUrl"
+                       placeholder="https://sessionize.com/jfall-2027/"
+                       th:value="${submissionUrl}"/>
+            </label>
+            <div class="hint">
+                Optional — where the talk is submitted. It appears beside the deadline on the
+                conference list.
             </div>
         </div>
 

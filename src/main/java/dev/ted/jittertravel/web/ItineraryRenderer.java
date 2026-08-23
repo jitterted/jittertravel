@@ -348,9 +348,14 @@ public class ItineraryRenderer {
                 ? "Day " + e.dayNumber() + " of " + e.totalDays()
                 : "Conference";
         String location = e.venueAddress().city() + ", " + e.venueAddress().country();
+        // The conference's own page hangs off the title, exactly as a gathering's does; with none
+        // recorded the title stays plain text rather than becoming a link to nowhere.
+        DomContent titleContent = e.infoUrl().isBlank()
+                ? new Text(e.name())
+                : a(e.name()).withHref(e.infoUrl()).withTarget("_blank").withRel("noopener");
         return div().withClass("entry-card entry-card--conference").with(
                 div(kindLabel).withClass("entry-kind entry-kind--conference"),
-                div(e.name()).withClass("entry-title"),
+                div().withClass("entry-title").with(titleContent),
                 div(e.venueName()).withClass("entry-detail"),
                 div(location).withClass("entry-detail entry-location")
         );

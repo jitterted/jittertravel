@@ -72,7 +72,10 @@ someone remembered to strip it.
 - the whole `/schedule-problems` report (conflict/gap times, names, internal ids) — OWNER-only
 - everything about a conference *except* the collapsed commitment level and the speaking badge
   below: the submission pipeline (talk titles, submitted/accepted/rejected/withdrawn and their
-  dates, and **that an invitation has arrived**), CFP window dates, and the commitment **basis** —
+  dates, and **that an invitation has arrived**), CFP window dates **and the page the talk is
+  submitted on** (`CfpOpened.submissionUrl`, added 2026-08-22 — a Sessionize link is the submission
+  pipeline in one field, and unlike a date it looks harmless in markup; `PublicCalendarProjector`
+  does not read `CfpOpened` at all, which is what keeps both out), and the commitment **basis** —
   `AttendanceBasis`, i.e. whether Ted is going because a talk was accepted, he was invited, or he
   bought a ticket. The basis is the easy leak, because it re-states the submission outcome; the
   public projector reads the confirmation event only to answer whether Ted speaks and never carries
@@ -83,6 +86,11 @@ someone remembered to strip it.
 **Public by decision** (do not "fix" these without asking Ted): the fact that travel is
 happening on a given day, airport codes and city names for flights/trains/hotels, and
 **conferences and gatherings in full** — name, venue, city, `infoUrl`, and start/end times.
+A conference's `infoUrl` was on this list before a conference had one; it **shipped 2026-08-22**
+as a field on `ConferencePlanned` and a component of both `EntryDetails.Conference` and
+`EntryDetails.PublicConference`, so the title links out for every viewer. Do not confuse it with
+the CFP's `submissionUrl` above: one is the conference's public page, the other says Ted is
+thinking of submitting there.
 Both are public events Ted speaks at or attends publicly. That Ted is **speaking** at a
 gathering is public too (shipped 2026-08-17): `speaking` is a component of
 `EntryDetails.PublicGathering` and renders as a "Speaking" badge on the anonymous `/calendar`

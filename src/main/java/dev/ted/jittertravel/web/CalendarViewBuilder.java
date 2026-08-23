@@ -347,16 +347,18 @@ public class CalendarViewBuilder {
             case EntryDetails.Gathering d -> d.infoUrl();
             // A gathering's info URL is public by decision, so it survives into the public model.
             case EntryDetails.PublicGathering d -> d.infoUrl();
-            // A conference has no infoUrl of its own yet (docs/Future_Feature_Slices.md), and the
-            // remaining kinds have nowhere to point: a flight, train or transfer is a leg, and a
-            // private event's venue is not published. Nor does any travel kind publicly — a
+            // And so does a conference's, for the same reason: it is a public event, and its own
+            // page is on the published list in CLAUDE.md. Owner and anonymous get the same link —
+            // it is the CFP submission URL that is private, and that never reaches an entry.
+            case EntryDetails.Conference d -> d.infoUrl();
+            case EntryDetails.PublicConference d -> d.infoUrl();
+            // The remaining kinds have nowhere to point: a flight, train or transfer is a leg, and
+            // a private event's venue is not published. Nor does any travel kind publicly — a
             // PublishableTravel holds nothing at all.
-            case EntryDetails.Conference _,
-                 EntryDetails.Flight _,
+            case EntryDetails.Flight _,
                  EntryDetails.Train _,
                  EntryDetails.GroundTransfer _,
                  EntryDetails.PrivateEvent _,
-                 EntryDetails.PublicConference _,
                  EntryDetails.PublishableTravel _,
                  EntryDetails.Busy _ -> null;
         };

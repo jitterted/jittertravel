@@ -75,7 +75,7 @@ class PlanConferenceCommandTest {
         // A non-default format (OPEN_SPACE) proves it rides through rather than being defaulted.
         PlanConferenceCommand command = new PlanConferenceCommand(
                 conferenceId, "Successful Conference", start, end, "Moscone Center", VENUE,
-                ConferenceFormat.OPEN_SPACE);
+                ConferenceFormat.OPEN_SPACE, "https://successful.example/");
 
         ConferencePlanned event = command
                 .execute(new PlanConferenceContext(instantAt(LocalDateTime.of(2026, 5, 16, 10, 0))))
@@ -97,6 +97,25 @@ class PlanConferenceCommandTest {
         assertThat(event.format())
                 .as("the chosen conference format rides onto the event")
                 .isEqualTo(ConferenceFormat.OPEN_SPACE);
+        assertThat(event.infoUrl())
+                .as("the conference's own public page rides onto the event")
+                .isEqualTo("https://successful.example/");
+    }
+
+    /** No page recorded is the ordinary case, and its sentinel is the empty string, never null. */
+    @Test
+    void aConferenceWithNoPageOfItsOwnCarriesTheEmptySentinel() {
+        PlanConferenceCommand command = new PlanConferenceCommand(
+                ConferenceId.random(), "Quiet Conference",
+                zt(LocalDateTime.of(2026, 5, 20, 9, 0)), zt(LocalDateTime.of(2026, 5, 22, 17, 0)),
+                "Moscone Center", VENUE, ConferenceFormat.CALL_FOR_PAPERS, null);
+
+        ConferencePlanned event = command
+                .execute(new PlanConferenceContext(instantAt(LocalDateTime.of(2026, 5, 16, 10, 0))))
+                .toList()
+                .getFirst();
+
+        assertThat(event.infoUrl()).isEmpty();
     }
 
     @Test

@@ -490,6 +490,25 @@ class ItineraryRendererTest {
         assertThat(html).contains("Day 2 of 3");
     }
 
+    /** Same treatment a gathering's title already gets: the conference's own page, in a new tab. */
+    @Test
+    void conferenceTitleLinksToItsOwnPageWhenThereIsOne() {
+        String html = renderWithEntry(conference(1, 1, "https://jitterconf.example/"));
+
+        assertThat(html)
+                .contains("<div class=\"entry-title\">"
+                          + "<a href=\"https://jitterconf.example/\" target=\"_blank\" "
+                          + "rel=\"noopener\">JitterConf 2026</a></div>");
+    }
+
+    @Test
+    void conferenceWithNoPageOfItsOwnKeepsAPlainTitle() {
+        String html = renderWithEntry(conference(1, 1));
+
+        assertThat(html)
+                .contains("<div class=\"entry-title\">JitterConf 2026</div>");
+    }
+
     @Test
     void conferenceShowsNameVenueAndLocation() {
         String html = renderWithEntry(conference(1, 1));
@@ -794,9 +813,13 @@ class ItineraryRendererTest {
     }
 
     private static ConferenceItineraryEntry conference(int dayNumber, int totalDays) {
+        return conference(dayNumber, totalDays, "");
+    }
+
+    private static ConferenceItineraryEntry conference(int dayNumber, int totalDays, String infoUrl) {
         Address venue = new Address("747 Howard St", "San Francisco", "CA", "94103", "US", null);
         return new ConferenceItineraryEntry("JitterConf 2026", "Moscone Center", venue,
-                dayNumber, totalDays, JUN_1.atTime(9, 0));
+                dayNumber, totalDays, JUN_1.atTime(9, 0), infoUrl);
     }
 
     private static GatheringItineraryEntry gathering(String title, boolean speaking, String infoUrl) {

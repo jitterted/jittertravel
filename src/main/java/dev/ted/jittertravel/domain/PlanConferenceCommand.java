@@ -9,8 +9,22 @@ public record PlanConferenceCommand(
         ZonedTimestamp endDate,
         String venueName,
         Address venueAddress,
-        ConferenceFormat format
+        ConferenceFormat format,
+        String infoUrl
 ) implements DomainCommand<PlanConferenceContext> {
+
+    public PlanConferenceCommand {
+        if (infoUrl == null) {
+            infoUrl = "";
+        }
+    }
+
+    /** Convenience overload for call sites that do not set the conference's own web page. */
+    public PlanConferenceCommand(ConferenceId conferenceId, String name,
+                                 ZonedTimestamp startDate, ZonedTimestamp endDate,
+                                 String venueName, Address venueAddress, ConferenceFormat format) {
+        this(conferenceId, name, startDate, endDate, venueName, venueAddress, format, "");
+    }
 
     @Override
     public Stream<ConferencePlanned> execute(PlanConferenceContext context) {
@@ -27,6 +41,6 @@ public record PlanConferenceCommand(
             throw new InvalidDateRange("End date must be on or after start date");
         }
         return Stream.of(new ConferencePlanned(
-                conferenceId, name, startDate, endDate, venueName, venueAddress, format));
+                conferenceId, name, startDate, endDate, venueName, venueAddress, format, infoUrl));
     }
 }

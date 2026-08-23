@@ -29,8 +29,13 @@ public sealed interface EntryDetails {
      * conference Ted is committed to — see {@link PublicConference}, which explains why. The owner
      * and public calendars carry the same value here for the same reason they carry the same
      * commitment chip: one rendering path, one collapse, nothing for a renderer to get wrong.
+     * <p>
+     * {@code infoUrl} is the conference's own web page, which the renderer hangs off the title
+     * exactly as it does a gathering's. Public, and carried identically on {@link PublicConference}
+     * — the owner is not shown less than a stranger is. {@code null} when none was recorded.
      */
-    record Conference(AttendanceCommitment commitment, boolean speaking) implements EntryDetails {
+    record Conference(AttendanceCommitment commitment, boolean speaking, String infoUrl)
+            implements EntryDetails {
         @Override
         public EntryKind kind() {
             return EntryKind.CONFERENCE;
@@ -174,8 +179,20 @@ public sealed interface EntryDetails {
      * <p>
      * Note the badge is <em>not</em> the basis in disguise: "attending without speaking" is an
      * ordinary thing, so its absence reveals nothing (Ted, 2026-08-12).
+     * <p>
+     * <strong>{@code infoUrl} is the conference's own public page</strong> (2026-08-22), published
+     * for the same reason its venue and times are: it is a public event, and CLAUDE.md lists a
+     * conference's {@code infoUrl} among the things published in full. It comes off
+     * {@code ConferencePlanned.infoUrl()} by name, never from an owner entry. {@code null} when
+     * none was recorded, which is how a title with nowhere to point stays plain text.
+     * <p>
+     * <strong>Do not confuse it with the CFP submission URL</strong>, which is the opposite: a link
+     * to Ted's talk-submission page says he is considering submitting, which is the pipeline this
+     * whole record exists to keep out. That URL lives on {@code CfpOpened}, an event this projector
+     * does not read at all.
      */
-    record PublicConference(AttendanceCommitment commitment, boolean speaking) implements Publishable {
+    record PublicConference(AttendanceCommitment commitment, boolean speaking, String infoUrl)
+            implements Publishable {
         @Override
         public EntryKind kind() {
             return EntryKind.CONFERENCE;

@@ -61,13 +61,18 @@ public class OpenCfpController {
         model.addAttribute("closesOn", conference.cfpClosesOn() == null
                 ? null
                 : conference.cfpClosesOn().localDateTime());
+        // Prefilled for the same reason the deadline is: re-recording replaces both, so both start
+        // from what was recorded rather than blanking the half that was not being changed.
+        model.addAttribute("submissionUrl", conference.cfpSubmissionUrl());
         return "open-cfp";
     }
 
     @PostMapping("/conferences/{conferenceId}/cfp")
     public String openCfp(@PathVariable("conferenceId") String conferenceIdString,
                           @RequestParam("closesOn")
-                          @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm") LocalDateTime closesOn) {
+                          @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm") LocalDateTime closesOn,
+                          @RequestParam(name = "submissionUrl", required = false)
+                          String submissionUrl) {
         Optional<ConferenceView> maybe = lookup(conferenceIdString);
         if (maybe.isEmpty()) {
             return "redirect:/conferences";
@@ -78,7 +83,7 @@ public class OpenCfpController {
             // commandId is the nondeterministic input, captured here at the boundary; the deadline's
             // zone comes from the conference's own dates rather than the clock or the resolver.
             applicationService.openCfp(UUID.randomUUID(),
-                    new OpenCfpRequest(conference.conferenceId().id(), closesOn),
+                    new OpenCfpRequest(conference.conferenceId().id(), closesOn, submissionUrl),
                     ZonedTimestamp.fromLocal(closesOn, conference.startDate().zone()));
         } catch (ConferenceNotFound e) {
             // Cancelled or declined in another tab between the lookup above and the write.

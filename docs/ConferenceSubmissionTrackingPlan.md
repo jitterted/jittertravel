@@ -6,6 +6,48 @@
 > **Slice 5 not started.** Design agreed with Ted in conversation. See `docs/Backlog.md` for the
 > status of everything else.
 >
+> **Slice 4b — the two URLs and the CFP on the plan form (2026-08-22).** A follow-on to slice 4,
+> from Ted using the dashboard: recording a `Rejected` left the row showing the CFP deadline, which
+> is the wrong thing to show a conference that turned the talk down — and worse, the `Decide` group
+> holds *two* situations (a rejection, and a CFP that closed with nothing submitted) whose rows read
+> identically. Four decisions taken before any code:
+>
+> - **The line under the name says where the talk stands**, and the deadline is what it says before
+>   anything has. `SUBMITTED`/`ACCEPTED`/`REJECTED`/`INVITED` each get their own words; `NOT_SPEAKING`
+>   and `WITHDRAWN` keep the deadline and its link, because those are exactly the two states where
+>   submitting is still on the table. Chosen over the narrower "rejected only" because it also makes
+>   `Going` distinguish an accepted talk from an invitation taken up from a ticket bought.
+> - **`infoUrl` landed on `ConferencePlanned`** — the long-open Backlog item, and the answer to
+>   `SessionizePrefillPlan.md`'s open question 1. Public, per CLAUDE.md, so it reaches
+>   `EntryDetails.Conference` *and* `EntryDetails.PublicConference` and the title links out on both
+>   calendars, the itinerary and `/conferences`.
+> - **`submissionUrl` landed on `CfpOpened`**, not on the conference: it is the same fact as the
+>   deadline ("this CFP is open, it closes then, submit there"), so one event, one form section on
+>   both pages that record a CFP, and re-recording replaces both together. The cost, accepted: a
+>   submission URL cannot be recorded without a deadline, since `CfpOpened` is built around one.
+>   **OWNER-only** — see the CLAUDE.md amend.
+> - **Neither field needed a schema bump or an upcaster.** Both normalize null → `""` in the compact
+>   constructor, `GatheringPlanned`-style, so every pre-existing backup still restores. The contrast
+>   with `format` (slice 1, which took an upcaster and a version bump) is the rule: a behavioural
+>   non-null field has to be *stored*, a missing URL has an obvious empty meaning.
+>   `ConferenceUrlFieldCompatibilityTest` pins both directions and that the versions did not move.
+>
+> **Slice 0 of `SessionizePrefillPlan.md` is now built**, exactly as that doc specified it: one
+> submit produces `PlanConference` **then** `OpenCfp`, two commandIds captured at the boundary, the
+> deadline stamped with the zone `PlanConferenceHandler` already resolved, and `OPEN_SPACE` + a CFP
+> refused as a field error. One correction to that spec: the refusals were moved **ahead of the
+> first command**, into `ConferencePlanning.refuseImpossibleCfp`, because refusing after the plan
+> had landed would leave a planned conference behind a re-renderable form — and re-submitting it
+> would plan the conference twice. The domain's own `ConferenceHasNoCfp` stays as the backstop for a
+> direct POST. `CfpDeadlineMissing` is new, in `application` beside `ZoneResolutionException`, for
+> the URL-without-a-deadline case.
+>
+> **Still not built here:** any way to *change* a conference. There is no `ChangeConferenceController`
+> to match `ChangeGathering`, so `infoUrl` — like the name, the dates and the venue — is set once at
+> plan time. That was known and accepted when `infoUrl` was placed on `ConferencePlanned`; the CFP
+> half has a repair path (`/conferences/{id}/cfp`) and the conference half does not.
+>
+
 > **Slice 4 as built (2026-08-22), in five commits.** Decisions taken with Ted before any code:
 >
 > - **No waitlisting.** An outcome is accepted or rejected, nothing between — Ted has never met a

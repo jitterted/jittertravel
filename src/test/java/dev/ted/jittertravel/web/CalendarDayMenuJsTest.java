@@ -32,7 +32,7 @@ class CalendarDayMenuJsTest extends JsBehaviorTest {
                 LocalDateTime.of(2026, 6, 20, 9, 0),
                 LocalDateTime.of(2026, 6, 20, 17, 0),
                 "Upcoming Conference", List.of(),
-                new EntryDetails.Conference(null, false));
+                new EntryDetails.Conference(null, false, null));
         return List.of(upcoming);
     }
 

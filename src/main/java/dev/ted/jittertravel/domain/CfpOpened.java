@@ -26,13 +26,30 @@ package dev.ted.jittertravel.domain;
  * <p>
  * Recording a CFP twice is how a moved deadline is corrected; the fold takes the last one.
  * <p>
- * <strong>OWNER-only.</strong> CFP dates are on the private list in CLAUDE.md — they say Ted is
- * considering a conference and has not committed — so no field of this event may reach a
- * {@code CalendarEntry}. {@code PublicCalendarProjector} does not read it.
+ * <strong>{@code submissionUrl} is where the talk goes</strong> — the Sessionize (or other) page
+ * the CFP is run on. It rides here rather than on {@link ConferencePlanned} because it is the same
+ * fact as the deadline: the CFP is open, it closes then, you submit there. One event means one form
+ * section on both pages that record a CFP, and one way to change it — re-recording replaces the URL
+ * along with the date, the way an extension already replaces the date. {@code ""} when not known;
+ * normalized in the compact constructor rather than upcast, since a missing URL has an obvious empty
+ * sentinel (CLAUDE.md, "No null Strings in domain"). No schema bump: a pre-2026-08-22 payload binds
+ * with a null and comes out {@code ""}, so older backups restore unchanged.
+ * <p>
+ * The consequence to know: {@code closesOn} is required, so <strong>a submission URL cannot be
+ * recorded without a deadline</strong>. That is deliberate — the deadline is what the event is for —
+ * and in practice a CFP page always states one.
+ * <p>
+ * <strong>OWNER-only, both fields.</strong> CFP dates are on the private list in CLAUDE.md — they
+ * say Ted is considering a conference and has not committed — and the submission URL says the same
+ * thing more loudly: a link to his talk-submission page for a conference he has not answered about
+ * is the submission pipeline itself. So no field of this event may reach a {@code CalendarEntry}.
+ * {@code PublicCalendarProjector} does not read it. Contrast {@link ConferencePlanned#infoUrl()},
+ * the conference's own public page, which is published in full.
  */
 public record CfpOpened(
         ConferenceId conferenceId,
-        ZonedTimestamp closesOn
+        ZonedTimestamp closesOn,
+        String submissionUrl
 ) implements Event {
 
     public CfpOpened {
@@ -41,5 +58,16 @@ public record CfpOpened(
                     "closesOn must not be null — the closing deadline is the whole point of "
                     + "recording that a CFP is open");
         }
+        if (submissionUrl == null) {
+            submissionUrl = "";
+        }
+    }
+
+    /**
+     * Convenience overload for call sites that predate {@code submissionUrl}. Not used by Jackson,
+     * which binds through the canonical three-argument constructor.
+     */
+    public CfpOpened(ConferenceId conferenceId, ZonedTimestamp closesOn) {
+        this(conferenceId, closesOn, "");
     }
 }

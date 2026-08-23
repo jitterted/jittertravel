@@ -80,6 +80,11 @@ class TimeFilterToggleConventionTest {
         if (type == DroppedView.class) {
             return DroppedView.HIDE;
         }
+        // A count a view carries about its own second filter — zero is the empty-list equivalent,
+        // and reflective invoke rejects a List where an int is declared.
+        if (type == int.class) {
+            return 0;
+        }
         return List.of();
     }
 

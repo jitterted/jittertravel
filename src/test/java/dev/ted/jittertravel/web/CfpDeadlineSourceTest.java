@@ -109,6 +109,8 @@ class CfpDeadlineSourceTest {
                 false,
                 SpeakingStatus.NOT_SPEAKING,
                 cfpClosesOn == null ? null : new ZonedTimestamp(cfpClosesOn, VENUE_ZONE),
-                ConferenceFormat.CALL_FOR_PAPERS);
+                "",
+                ConferenceFormat.CALL_FOR_PAPERS,
+                "");
     }
 }

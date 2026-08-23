@@ -1,8 +1,10 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.CfpDeadlineMissing;
 import dev.ted.jittertravel.application.ConferencePlanning;
 import dev.ted.jittertravel.application.ConferenceProjector;
 import dev.ted.jittertravel.application.ZoneResolutionException;
+import dev.ted.jittertravel.domain.ConferenceHasNoCfp;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,6 +66,79 @@ class ConferenceWebIntegrationTest {
     }
 
     /**
+     * The CFP half of the form has to actually render — a Thymeleaf mistake in a new block only
+     * surfaces at render time. Both fields, and the two hints that say they may be left blank.
+     * <p>
+     * They render whatever format is selected, including open space: hiding a field as a radio
+     * changes would move every field below it, and the server refuses the impossible combination
+     * anyway (see the two cases below).
+     */
+    @Test
+    void formCarriesTheCfpFieldsAndTheConferencesOwnPage() {
+        given(conferencePlanning.isReadOnly()).willReturn(false);
+
+        assertThat(mockMvc.get().uri("/plan-conference"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<legend>Call for Papers</legend>")
+                .contains("name=\"cfpClosesOn\"")
+                .contains("name=\"cfpSubmissionUrl\"")
+                .contains("name=\"infoUrl\"")
+                .contains("placeholder=\"https://sessionize.com/jfall-2027/\"");
+    }
+
+    /**
+     * The refusal renders on the form the traveler is looking at, as a field error — not a 500, and
+     * not a redirect to a page that cannot show it. {@code ConferencePlanningTest} pins that nothing
+     * was written before it threw; this pins what Ted sees.
+     */
+    @Test
+    void anOpenSpaceConferenceWithACfpRerendersTheFormWithAFieldError() {
+        given(conferencePlanning.isReadOnly()).willReturn(false);
+        willThrow(new ConferenceHasNoCfp(
+                "An open-space conference chooses its sessions on the day — there is no call for papers"))
+                .given(conferencePlanning).planConference(any(), any(), any());
+
+        assertThat(mockMvc.post().uri("/plan-conference")
+                .with(csrf())
+                .param("conferenceId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("name", "SoCraTes DE")
+                .param("startDate", "2026-08-20T09:00")
+                .param("endDate", "2026-08-23T17:00")
+                .param("format", "OPEN_SPACE")
+                .param("cfpClosesOn", "2026-06-14T23:59")
+                .param("venueName", "Hotel Park Soltau")
+                .param("venueCity", "Soltau")
+                .param("venueCountry", "Germany"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("there is no call for papers")
+                .contains("name=\"cfpClosesOn\"");
+    }
+
+    @Test
+    void aSubmissionUrlWithNoDeadlineRerendersTheFormWithAFieldError() {
+        given(conferencePlanning.isReadOnly()).willReturn(false);
+        willThrow(new CfpDeadlineMissing(
+                "Recording where the talk is submitted needs the closing date too"))
+                .given(conferencePlanning).planConference(any(), any(), any());
+
+        assertThat(mockMvc.post().uri("/plan-conference")
+                .with(csrf())
+                .param("conferenceId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("name", "J-Fall")
+                .param("startDate", "2026-11-05T09:00")
+                .param("endDate", "2026-11-05T18:00")
+                .param("cfpSubmissionUrl", "https://sessionize.com/jfall-2027/")
+                .param("venueName", "Reehorst")
+                .param("venueCity", "Ede")
+                .param("venueCountry", "Netherlands"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("needs the closing date too");
+    }
+
+    /**
      * The zone picker is the only escape hatch when a venue's location can't be resolved, so the
      * form has to actually render it — and a Thymeleaf mistake in that block only surfaces at
      * render time, never at compile time.
@@ -88,7 +163,7 @@ class ConferenceWebIntegrationTest {
     void anUnresolvableVenueRerendersTheFormWithAZoneFieldError() {
         given(conferencePlanning.isReadOnly()).willReturn(false);
         willThrow(new ZoneResolutionException("Springfield, Freedonia"))
-                .given(conferencePlanning).planConference(any(), any());
+                .given(conferencePlanning).planConference(any(), any(), any());
 
         assertThat(mockMvc.post().uri("/plan-conference")
                 .with(csrf())

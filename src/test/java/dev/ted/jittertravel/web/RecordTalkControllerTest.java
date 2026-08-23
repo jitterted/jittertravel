@@ -65,7 +65,7 @@ class RecordTalkControllerTest {
                 new Address("Bennekomseweg 24", "Ede", "", "6717 LM", "Netherlands", "Ede"),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 5, 9, 0), VENUE_ZONE),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 5, 18, 0), VENUE_ZONE),
-                AttendanceCommitment.WATCHING, false, status, null, format);
+                AttendanceCommitment.WATCHING, false, status, null, "", format, "");
     }
 
     private UUID givenConference(SpeakingStatus status, ConferenceFormat format) {

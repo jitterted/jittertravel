@@ -48,7 +48,7 @@ class PlanConferenceControllerTest {
 
     // The form GET only reads isReadOnly() and the clock; the projector is unused here.
     private ConferencePlanning writableService() {
-        return new ConferencePlanning(null, null) {
+        return new ConferencePlanning(null, null, null) {
             @Override public boolean isReadOnly() { return false; }
         };
     }

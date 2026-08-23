@@ -35,7 +35,8 @@ public class PlanConferenceHandler {
                 zonedOrNull(request.getEndDate(), zone),
                 request.getVenueName(),
                 venueAddress,
-                ConferenceFormat.fromParam(request.getFormat())
+                ConferenceFormat.fromParam(request.getFormat()),
+                request.getInfoUrl()
         );
     }
 

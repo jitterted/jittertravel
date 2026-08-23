@@ -263,6 +263,8 @@ class ConferenceDashboardTest {
                 false,
                 speakingStatus,
                 cfpClosesOn == null ? null : new ZonedTimestamp(cfpClosesOn, ZONE),
-                format);
+                "",
+                format,
+                "");
     }
 }

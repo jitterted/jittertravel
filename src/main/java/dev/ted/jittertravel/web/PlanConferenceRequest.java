@@ -26,6 +26,15 @@ public class PlanConferenceRequest {
     // CALL_FOR_PAPERS so a submit that somehow omits it still binds; the handler re-derives the
     // default too (ConferenceFormat.fromParam).
     private String format = "CALL_FOR_PAPERS";
+    // The conference's own web page. Public, and optional — "" when absent, like a gathering's.
+    private String infoUrl;
+    // The CFP half of the form, and the reason one submit can produce two commands: these do not
+    // reach PlanConferenceCommand at all, they become an OpenCfpCommand after it. Both optional
+    // and both absent together; a URL without a deadline is refused, since CfpOpened is built
+    // around the deadline (see ConferencePlanning).
+    @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
+    private LocalDateTime cfpClosesOn;
+    private String cfpSubmissionUrl;
 
     public PlanConferenceRequest() {
     }
@@ -126,6 +135,30 @@ public class PlanConferenceRequest {
         this.format = format;
     }
 
+    public String getInfoUrl() {
+        return infoUrl;
+    }
+
+    public void setInfoUrl(String infoUrl) {
+        this.infoUrl = infoUrl;
+    }
+
+    public LocalDateTime getCfpClosesOn() {
+        return cfpClosesOn;
+    }
+
+    public void setCfpClosesOn(LocalDateTime cfpClosesOn) {
+        this.cfpClosesOn = cfpClosesOn;
+    }
+
+    public String getCfpSubmissionUrl() {
+        return cfpSubmissionUrl;
+    }
+
+    public void setCfpSubmissionUrl(String cfpSubmissionUrl) {
+        this.cfpSubmissionUrl = cfpSubmissionUrl;
+    }
+
     public Address getVenueAddress() {
         return new Address(venueStreet, venueCity, venueState, venuePostalCode, venueCountry, null);
     }
@@ -145,6 +178,7 @@ public class PlanConferenceRequest {
                 ", venuePostalCode='" + venuePostalCode + '\'' +
                 ", zone='" + zone + '\'' +
                 ", format='" + format + '\'' +
+                ", infoUrl='" + infoUrl + '\'' +
                 '}';
     }
 }

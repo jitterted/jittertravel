@@ -26,6 +26,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -212,7 +213,7 @@ class ConferenceProjectorTest {
                         before.conferenceId(), before.name(), before.venueName(),
                         before.venueAddress(), before.startDate(), before.endDate(),
                         AttendanceCommitment.GOING, true, SpeakingStatus.NOT_SPEAKING,
-                        null, before.format()));
+                        null, "", before.format(), before.infoUrl()));
     }
 
     @Test
@@ -332,9 +333,77 @@ class ConferenceProjectorTest {
         assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW)).isEmpty();
     }
 
+    /**
+     * The submission URL rides on the CFP, so it lands and is replaced with the deadline rather
+     * than separately — recording the CFP again is how both are corrected.
+     */
+    @Test
+    void theSubmissionUrlLandsWithTheDeadlineAndIsReplacedWithIt() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+
+        openCfp(projector, conferenceId, LocalDateTime.of(2026, 9, 12, 23, 59),
+                "https://sessionize.com/dev2next-2027/");
+
+        assertThat(onlyView(projector).cfpSubmissionUrl())
+                .isEqualTo("https://sessionize.com/dev2next-2027/");
+
+        openCfp(projector, conferenceId, LocalDateTime.of(2026, 10, 3, 23, 59),
+                "https://cfp.dev2next.com/");
+
+        assertThat(onlyView(projector).cfpSubmissionUrl())
+                .as("the last recorded CFP wins, URL and deadline together")
+                .isEqualTo("https://cfp.dev2next.com/");
+        assertThat(onlyView(projector).cfpClosesOn().localDateTime())
+                .isEqualTo(LocalDateTime.of(2026, 10, 3, 23, 59));
+    }
+
+    /** A CFP recorded without a URL leaves the empty sentinel, never a null. */
+    @Test
+    void aCfpWithNoSubmissionUrlLeavesTheEmptyString() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId);
+
+        openCfp(projector, conferenceId, LocalDateTime.of(2026, 9, 12, 23, 59));
+
+        assertThat(onlyView(projector).cfpSubmissionUrl()).isEmpty();
+    }
+
+    /**
+     * The conference's own page comes off the plan and survives every later move, because it is a
+     * property of the conference rather than a position on either axis.
+     */
+    @Test
+    void theConferencesOwnPageComesOffThePlanAndSurvivesTheOtherEvents() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId, ConferenceFormat.CALL_FOR_PAPERS, "https://dev2next.com/");
+
+        assertThat(onlyView(projector).infoUrl()).isEqualTo("https://dev2next.com/");
+
+        confirm(projector, conferenceId, AttendanceBasis.TICKET_PURCHASED);
+
+        assertThat(onlyView(projector).infoUrl())
+                .as("confirming attendance says nothing about the conference's web page")
+                .isEqualTo("https://dev2next.com/");
+    }
+
+    private static ConferenceView onlyView(ConferenceProjector projector) {
+        List<ConferenceView> views = projector.views(TimeView.ALL, DroppedView.HIDE, NOW);
+        assertThat(views).hasSize(1);
+        return views.getFirst();
+    }
+
     private static void openCfp(ConferenceProjector projector, ConferenceId conferenceId,
                                 LocalDateTime closesOn) {
-        CfpOpened opened = new CfpOpened(conferenceId, zt(closesOn));
+        openCfp(projector, conferenceId, closesOn, "");
+    }
+
+    private static void openCfp(ConferenceProjector projector, ConferenceId conferenceId,
+                                LocalDateTime closesOn, String submissionUrl) {
+        CfpOpened opened = new CfpOpened(conferenceId, zt(closesOn), submissionUrl);
         projector.handle(Stream.of(new StoredEvent(
                 3, opened.getClass(), UUID.randomUUID(), Instant.now(), opened, UUID.randomUUID())));
     }
@@ -345,10 +414,16 @@ class ConferenceProjectorTest {
 
     private static void plan(ConferenceProjector projector, ConferenceId conferenceId,
                              ConferenceFormat format) {
+        plan(projector, conferenceId, format, "");
+    }
+
+    private static void plan(ConferenceProjector projector, ConferenceId conferenceId,
+                             ConferenceFormat format, String infoUrl) {
         ConferencePlanned planned = new ConferencePlanned(
                 conferenceId, "dev2next",
                 zt(LocalDateTime.of(2026, 9, 28, 9, 0)), zt(LocalDateTime.of(2026, 10, 1, 17, 0)),
-                "Venue", new Address("Street", "Denver", "CO", "80202", "USA", null), format);
+                "Venue", new Address("Street", "Denver", "CO", "80202", "USA", null), format,
+                infoUrl);
         projector.handle(Stream.of(new StoredEvent(
                 1, planned.getClass(), UUID.randomUUID(), Instant.now(), planned, UUID.randomUUID())));
     }
@@ -538,6 +613,57 @@ class ConferenceProjectorTest {
         assertThat(only(projector).speaking())
                 .as("the events are history; the basis is a manual annotation and loses")
                 .isFalse();
+    }
+
+    /**
+     * The count the dashboard's "Show dropped <em>n</em>" switch reads. It has to survive the very
+     * filter that removes the rows it counts — the switch reports how many the page is holding
+     * back, which is precisely what the page cannot show.
+     */
+    @Test
+    void droppedCountCountsTheConferencesTheDefaultViewLeavesOut() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId going = ConferenceId.random();
+        ConferenceId dropped = ConferenceId.random();
+        plan(projector, going);
+        plan(projector, dropped);
+        decline(projector, dropped);
+
+        assertThat(projector.views(TimeView.ALL, DroppedView.HIDE, NOW))
+                .as("the dropped one is off the page")
+                .hasSize(1);
+        assertThat(projector.droppedCount(TimeView.ALL, NOW))
+                .as("and the switch can still say how many are off it")
+                .isEqualTo(1);
+    }
+
+    /**
+     * Filtered by time, like the rows are: the switch says how many the <em>dropped</em> filter is
+     * holding back, not how many exist — so a conference already past does not inflate it while the
+     * page is showing upcoming ones.
+     */
+    @Test
+    void droppedCountObeysTheTimeFilter() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        // dev2next runs 2026-09-28 to 2026-10-01, so this instant is well past it.
+        Instant afterItEnded = Instant.parse("2027-01-01T00:00:00Z");
+        plan(projector, conferenceId);
+        decline(projector, conferenceId);
+
+        assertThat(projector.droppedCount(TimeView.ALL, afterItEnded))
+                .as("ALL counts it")
+                .isEqualTo(1);
+        assertThat(projector.droppedCount(TimeView.FUTURE, afterItEnded))
+                .as("FUTURE does not: the page it would be on is not showing it either")
+                .isZero();
+    }
+
+    private static void decline(ConferenceProjector projector, ConferenceId conferenceId) {
+        ConferenceAttendanceDeclined declined = new ConferenceAttendanceDeclined(
+                conferenceId, "Schedule clash", Instant.parse("2026-08-16T18:30:00Z"));
+        projector.handle(Stream.of(new StoredEvent(
+                5, declined.getClass(), UUID.randomUUID(), Instant.now(), declined, UUID.randomUUID())));
     }
 
     /** A talk event for a conference nobody planned changes nothing. */

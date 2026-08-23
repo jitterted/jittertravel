@@ -25,7 +25,7 @@ class CalendarViewBuilderTest {
     // Details for a kind carrying nothing the test cares about: no links, no chips. A test that
     // is about a link or a chip builds its own details inline, so the interesting value is
     // visible at the point it matters.
-    private static final EntryDetails CONFERENCE_DETAILS = new EntryDetails.Conference(null, false);
+    private static final EntryDetails CONFERENCE_DETAILS = new EntryDetails.Conference(null, false, null);
     private static final EntryDetails FLIGHT_DETAILS = new EntryDetails.Flight(null);
     private static final EntryDetails TRAIN_DETAILS = new EntryDetails.Train(null);
 
@@ -536,7 +536,7 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 11, 12, 18, 0),
                 "J-Fall", lines("Ede, Netherlands"),
                 "J-Fall cont'd", lines("Ede, Netherlands"),
-                new EntryDetails.Conference(AttendanceCommitment.WATCHING, false)
+                new EntryDetails.Conference(AttendanceCommitment.WATCHING, false, null)
         );
 
         String secondWeek = CalendarViewBuilder.render(
@@ -587,6 +587,48 @@ class CalendarViewBuilderTest {
                 .doesNotContain("<span class=\"entry-speaking-badge\">A Ted Talk</span>");
     }
 
+    /**
+     * A conference's own page hangs off its title, exactly as a gathering's does — both are public
+     * events, and CLAUDE.md publishes a conference in full, {@code infoUrl} included. Owner and
+     * anonymous entries reach this same code, which is why the details type carries it rather than
+     * the renderer deciding.
+     */
+    @Test
+    void conferenceTitleLinksToItsOwnPage() {
+        CalendarEntry conference = new CalendarEntry(
+                LocalDateTime.of(2026, 11, 5, 9, 0),
+                LocalDateTime.of(2026, 11, 5, 18, 0),
+                "J-Fall", lines("Ede, Netherlands"),
+                new EntryDetails.Conference(AttendanceCommitment.WATCHING, false, "https://jfall.nl/")
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(conference),
+                LocalDate.of(2026, 11, 1),
+                LocalDate.of(2026, 11, 8),
+                TODAY,
+                true
+        );
+
+        assertThat(html).contains("href=\"https://jfall.nl/\"");
+    }
+
+    @Test
+    void conferenceWithNoPageOfItsOwnHasNoTitleLink() {
+        String html = CalendarViewBuilder.render(
+                List.of(conference(AttendanceCommitment.WATCHING)),
+                LocalDate.of(2026, 11, 1),
+                LocalDate.of(2026, 11, 8),
+                TODAY,
+                true
+        );
+
+        assertThat(html)
+                .contains("J-Fall")
+                .as("no page recorded means no link, not a link to nowhere")
+                .doesNotContain("<a href=\"http");
+    }
+
     private static CalendarEntry conference(AttendanceCommitment commitment) {
         return conference(commitment, false);
     }
@@ -596,7 +638,7 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 11, 5, 9, 0),
                 LocalDateTime.of(2026, 11, 5, 18, 0),
                 "J-Fall", lines("Ede, Netherlands"),
-                new EntryDetails.Conference(commitment, speaking)
+                new EntryDetails.Conference(commitment, speaking, null)
         );
     }
 

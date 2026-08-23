@@ -75,12 +75,15 @@ public class ConferenceProjector implements EventStreamConsumer {
                                         false,
                                         SpeakingStatus.NOT_SPEAKING,
                                         null,
-                                        event.format()),
+                                        "",
+                                        event.format(),
+                                        event.infoUrl()),
                                 ConferenceProgress.planned(event.format())));
                 // Recording a CFP twice is how a moved deadline is corrected, so this overwrites
-                // rather than ignoring the second one — the last recorded deadline wins.
+                // rather than ignoring the second one — the last recorded CFP wins, submission URL
+                // included: the two are one fact, and a re-record replaces both together.
                 case CfpOpened event -> conferences.computeIfPresent(event.conferenceId(),
-                        (id, tracked) -> tracked.withCfpClosing(event.closesOn()));
+                        (id, tracked) -> tracked.withCfp(event.closesOn(), event.submissionUrl()));
                 // The basis is read and immediately collapsed: whether Ted speaks is rendered, but
                 // *which* speaking basis applies — accepted, or invited — is submission status, so
                 // it stays inside ConferenceProgress and never reaches the view at all.
@@ -127,6 +130,23 @@ public class ConferenceProjector implements EventStreamConsumer {
                 .toList();
     }
 
+    /**
+     * How many conferences {@link DroppedView#HIDE} is leaving out, under the time filter in force.
+     * <p>
+     * The dashboard's toolbar needs this <em>while they are hidden</em>: its switch reads
+     * "Show dropped <em>n</em>" in both states, reporting what the page is currently showing rather
+     * than what a click would do, so the number cannot be counted from the rows that rendered.
+     * Filtered by {@link TimeView} for the same reason the rows are — the switch says how many the
+     * <em>other</em> filter is holding back, not how many exist.
+     */
+    public int droppedCount(TimeView timeView, Instant now) {
+        return (int) conferences.values().stream()
+                .map(Tracked::view)
+                .filter(view -> timeView.includes(view, now))
+                .filter(view -> view.commitment() == AttendanceCommitment.NOT_GOING)
+                .count();
+    }
+
     public Optional<ConferenceView> findById(ConferenceId conferenceId) {
         return Optional.ofNullable(conferences.get(conferenceId)).map(Tracked::view);
     }
@@ -146,20 +166,21 @@ public class ConferenceProjector implements EventStreamConsumer {
             return new Tracked(new ConferenceView(
                     view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
                     view.startDate(), view.endDate(), moved.commitment(), moved.speaking(),
-                    moved.speakingStatus(), view.cfpClosesOn(), view.format()
+                    moved.speakingStatus(), view.cfpClosesOn(), view.cfpSubmissionUrl(),
+                    view.format(), view.infoUrl()
             ), moved);
         }
 
         /**
-         * A CFP deadline says nothing about either axis: recording one and committing are
-         * independent facts about the same conference, so each carries the other's value through
-         * untouched.
+         * A CFP says nothing about either axis: recording one and committing are independent facts
+         * about the same conference, so each carries the other's value through untouched.
          */
-        Tracked withCfpClosing(ZonedTimestamp closesOn) {
+        Tracked withCfp(ZonedTimestamp closesOn, String submissionUrl) {
             return new Tracked(new ConferenceView(
                     view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
                     view.startDate(), view.endDate(), view.commitment(), view.speaking(),
-                    view.speakingStatus(), closesOn, view.format()
+                    view.speakingStatus(), closesOn, submissionUrl,
+                    view.format(), view.infoUrl()
             ), progress);
         }
     }

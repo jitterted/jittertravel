@@ -243,12 +243,34 @@ Colour carries meaning, and it is not decorative (Ted, 2026-08-19):
 A warning *about* a destructive operation follows the operation, not the tone of the sentence: it
 is red, never amber.
 
+**"Destructive" means the data is actually gone** (Ted, 2026-08-24) — direct writes against stored
+data, admin operations, and anything unrecoverable: truncating the database, a migration that
+rewrites or renames stored rows, deleting rows. It does **not** mean "a domain action with a scary
+name".
+
+**Recording a `*Cancelled` after a `*Booked` is not destruction.** That is the whole point of event
+sourcing: the cancellation is a *new event appended* to a log that still holds the booking. Nothing
+is overwritten and nothing is lost — the event log, the timeline and `/admin/eventlog` all still show
+the stay, and an undo is a future event away, not a restore from backup. So cancelling a hotel, a
+conference or a ground transfer is an **ordinary domain action**, however final it feels in the UI.
+
 **Every destructive action takes a typed confirmation** — a short all-caps word in a text input
 next to a **red** button, matching the Danger Zone on `/admin/database` (type `DELETE`) and
 `/admin/migrate-legacy-events` (type `MIGRATE`). The controller compares the word exactly and
 re-renders the page with the error when it does not match, writing nothing; a disabled-looking
 button alone is not a gate, because the POST is still reachable. The word goes in the input's
 placeholder and in a hint line, so nobody has to guess it.
+
+**Do not add a typed word to a `*Cancelled` action.** Per the paragraph above it destroys nothing,
+and spending the gate there is what makes it noise on `/admin/database`, where it is the only thing
+standing between a misclick and the whole event log. The two current gates are both admin
+operations, and that is the level this rule lives at.
+
+**The two tests are separate, and a cancel can fail one and pass the other.** The typed word asks
+*"is stored data destroyed?"*; the colour asks *"can Ted put this back from inside the app?"*.
+Cancelling a hotel destroys nothing (no word) but has no in-app undo today — the "Undo Cancel Hotel
+Booking" slice is unbuilt — so its red button and red warning are correct as they stand. Ship the
+undo and the colour question reopens; the typed-word question never applied.
 
 ### Action affordances: never move, and disable rather than hide — but only for *state*
 

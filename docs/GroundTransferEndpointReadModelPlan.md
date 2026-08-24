@@ -1,6 +1,7 @@
 # Ground Transfer Endpoints — a dedicated read model, and trains as endpoints
 
-Status: `in progress` — designed 2026-08-23. **Slice 1 shipped 2026-08-23**; slices 2 and 3 open.
+Status: `in progress` — designed 2026-08-23. **Slices 1 and 2 shipped 2026-08-23**; slice 3, which
+is the one that fixes the reported bug, is open.
 **Prerequisite: done.** `archived/CuratedResolversToDomainPlan.md` shipped 2026-08-23, so
 `AirportCityResolver` is in `domain` and slice 1's `Place` can take one — the airport arm of the
 derivation is written once, inside `Place`, as the slice assumes.
@@ -193,17 +194,57 @@ now pins it.
 projector to drive alongside `ScheduleGapProjector`, and for trains it would fail until slice 3 —
 which is the bug, not a broken test. It belongs with slice 2 (flights and hotels) and slice 3.
 
-### Slice 2 — `TransferEndpointProjector` (flights and hotels only)
+### Slice 2 — `TransferEndpointProjector` (flights and hotels only) — `shipped 2026-08-23`
 
 New `EventStreamConsumer` over `FlightBooked`/`FlightChanged`, `HotelBooked`/`HotelChanged`/
-`HotelBookingCancelled`. Row: subject key, end, token, label parts, `Place`, the moment
-(`ZonedTimestamp`, so the day filter can read its zone). A cancelled hotel is **removed**, so the
-`filter(hotel -> !hotel.cancelled())` in the options class goes away rather than moving.
+`HotelBookingCancelled`, registered in `EventSourcingConfig`. A cancelled hotel is **removed**, so
+the `filter(hotel -> !hotel.cancelled())` in the options class became no code at all. All fifteen
+existing `GroundTransferEndpointOptionsTest` cases passed unchanged against the new read model,
+which is the "no behaviour change" evidence.
 
-`GroundTransferEndpointOptions` drops to one dependency (plus `AirportCityResolver` for the label's
-city) and keeps the `now` filter, the direction split and the label formatting. Registered in
-`EventSourcingConfig`; `EveryProjectorBeanIsRegisteredTest` covers it by reflection with no fixture
-edit. **Still no behaviour change** — flights and hotels must render exactly as before.
+**`GroundTransferEndpointOptions` dropped to *one* dependency, not the "one plus
+`AirportCityResolver`" this plan predicted.** The prediction assumed the options class would still
+resolve an airport's city for the label. It does not: the row carries the label's city, so the
+resolver moved wholly into the projector and the options class no longer names a kind of travel
+anywhere. It is now exactly the three things that need `now` or are about the form — the day filter,
+the ordering, the label.
+
+**The row carries two pairs that look like duplication and are not.** Both were near-miss silent
+behaviour changes, and both are pinned by their own test:
+
+- **`city` vs `place`.** For a flight they are the same value. For a hotel the label says the
+  *address's* city ("SeminarZentrum Rückersbach — Rückersbach", the words on the building) while the
+  schedule matches on `locationForMatching` ("Johannesberg", the town everything else names). The old
+  code did this too, three lines apart, with a comment. Collapsing them breaks the label or — the
+  silent half — the preselection.
+- **`moment` vs `offeredUntil`.** `moment` is what the end is *about*: the prefill, and what the
+  label names. `offeredUntil` is the moment whose local day decides whether the endpoint is still
+  worth showing. A flight's are equal. A stay's are not: **both** its ends are filtered on
+  *check-out*, so the hotel you are riding toward does not vanish from the "To" list the instant you
+  arrive — which is when the ride gets written down. That asymmetry was a comment on a private
+  method before; now it is a field the projector sets and a test names.
+
+**One deliberate behaviour change, and the only one.** Ordering is now the endpoint's own *instant*
+for all four lists. It was previously the instant for hotels and the **local wall clock** for flight
+legs (they were sorted on the prefill strings, which the old comment admitted was a convenience).
+The two differ only across zones, where the wall-clock version is wrong: a London landing at 09:00
+BST happened before a Denver landing at 08:00 MDT, and reading the two clocks side by side says the
+opposite. Nothing tested it either way; `arrivalsInDifferentZonesAreOrderedByWhenTheyActuallyHappened`
+now does.
+
+**Verified:** 1654 unit + 61 js green on a `clean` run, with `JitterTravelApplicationTests.contextLoads`
+proving the bean wires and registers for real. Six mutations, each caught by its own assertions and
+several by both tiers at once — which is the shape to want, the read model stating a fact and the
+form's behaviour depending on it:
+
+| Mutation | Caught by |
+|---|---|
+| check-in row `offeredUntil` ← check-in | `bothEndsOfAStayAreOfferedUntilItsCheckOut` + `anOngoingStayIsStillOffered…` |
+| hotel `city` ← `place.value()` | `aStayCarriesItsAddressCityForTheLabel…` |
+| cancel removes only the check-out row | `aCancelledStayLeavesNoRowAtEitherEnd` + `aCancelledStayIsNotSomewhereTedCanBeDroppedOff` |
+| sort ← local wall clock | `arrivalsInDifferentZonesAreOrderedByWhenTheyActuallyHappened` |
+| arrival/departure swapped | 12 tests across both tiers |
+| `RowKey` ignoring its `end` | 21 tests across both tiers |
 
 ### Slice 3 — trains
 

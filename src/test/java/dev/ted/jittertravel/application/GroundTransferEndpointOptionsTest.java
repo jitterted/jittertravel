@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -32,10 +31,10 @@ class GroundTransferEndpointOptionsTest {
     private static final Instant NOW = Instant.parse("2026-09-01T20:00:00Z");
     private static final HotelBookingId LONE_TREE = HotelBookingId.random();
 
-    private final BookedFlightsProjector flights = new BookedFlightsProjector();
-    private final BookedHotelsProjector hotels = new BookedHotelsProjector();
+    private final TransferEndpointProjector endpoints =
+            new TransferEndpointProjector(new StaticAirportCityResolver());
     private final GroundTransferEndpointOptions options =
-            new GroundTransferEndpointOptions(flights, hotels, new StaticAirportCityResolver());
+            new GroundTransferEndpointOptions(endpoints);
 
     /**
      * The direction rule Ted set (2026-08-20): you never travel <em>from</em> an airport you are
@@ -97,6 +96,26 @@ class GroundTransferEndpointOptionsTest {
                 .extracting(TransferEndpointOption::prefillDate, TransferEndpointOption::prefillTime)
                 .containsExactly(tuple("2026-09-14", "11:30"),
                                  tuple("2026-10-02", "11:00"));
+    }
+
+    /**
+     * Chronological means <em>actually</em> chronological, which only shows up across zones: this
+     * London landing at 09:00 BST (08:00Z) happened before this Denver landing at 08:00 MDT
+     * (14:00Z), and reading the two local clocks side by side would order them the other way round.
+     * The old ordering sorted flight legs on their prefill strings — local wall clock — and hotels
+     * on their instants; unifying on the instant is the one thing slice 2 changed on purpose.
+     */
+    @Test
+    void arrivalsInDifferentZonesAreOrderedByWhenTheyActuallyHappened() {
+        given(new FlightBooked(FlightId.random(), "Airline", "F1",
+                      AirportCode.of("JFK"), at("2026-09-14 03:00"),
+                      AirportCode.of("LHR"), london("2026-09-14 09:00")),
+              flight("SFO", "DEN", "2026-09-14 06:00", "2026-09-14 08:00"));
+
+        assertThat(options.choicesAt(NOW).arrivals())
+                .extracting(TransferEndpointOption::token)
+                .as("08:00Z in London beats 14:00Z in Denver, whatever the two clocks read")
+                .containsExactly("airport:LHR", "airport:DEN");
     }
 
     /**
@@ -260,11 +279,7 @@ class GroundTransferEndpointOptionsTest {
     }
 
     private void given(Event... events) {
-        List<StoredEvent> stored = Stream.of(events)
-                .map(GroundTransferEndpointOptionsTest::stored)
-                .toList();
-        flights.handle(stored.stream());
-        hotels.handle(stored.stream());
+        endpoints.handle(Stream.of(events).map(GroundTransferEndpointOptionsTest::stored));
     }
 
     private static FlightBooked flight(String from, String to, String departure, String arrival) {
@@ -282,6 +297,11 @@ class GroundTransferEndpointOptionsTest {
     private static ZonedTimestamp at(String dayAndTime) {
         return ZonedTimestamp.fromLocal(
                 LocalDateTime.parse(dayAndTime.replace(' ', 'T')), DENVER);
+    }
+
+    private static ZonedTimestamp london(String dayAndTime) {
+        return ZonedTimestamp.fromLocal(
+                LocalDateTime.parse(dayAndTime.replace(' ', 'T')), ZoneId.of("Europe/London"));
     }
 
     private static StoredEvent stored(Event event) {

@@ -389,13 +389,20 @@ public class EventSourcingConfig {
                 airportCityResolver, airportZoneResolver, locationZoneResolver);
     }
 
+    /**
+     * The ground-transfer form's own read model — endpoints, not flights and stays converted into
+     * endpoints. It resolves an airport's city as it reads, which is why it takes the table.
+     */
+    @Bean
+    public TransferEndpointProjector transferEndpointProjector(ProjectorBootstrapper bootstrapper,
+                                                               AirportCityResolver airportCityResolver) {
+        return bootstrapper.register(new TransferEndpointProjector(airportCityResolver));
+    }
+
     @Bean
     public GroundTransferEndpointOptions groundTransferEndpointOptions(
-            BookedFlightsProjector bookedFlightsProjector,
-            BookedHotelsProjector bookedHotelsProjector,
-            AirportCityResolver airportCityResolver) {
-        return new GroundTransferEndpointOptions(bookedFlightsProjector, bookedHotelsProjector,
-                airportCityResolver);
+            TransferEndpointProjector transferEndpointProjector) {
+        return new GroundTransferEndpointOptions(transferEndpointProjector);
     }
 
     /** No {@code now} anywhere on this path: a ground transfer has no future-date rule (D6). */

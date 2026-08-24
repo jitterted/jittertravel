@@ -1,21 +1,22 @@
 package dev.ted.jittertravel.application;
 
-import dev.ted.jittertravel.domain.AirportCityResolver;
-import dev.ted.jittertravel.domain.AirportCode;
-import dev.ted.jittertravel.domain.Place;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * The endpoints the ground-transfer form offers: the flight legs Ted is already on, and the hotels
- * he has already booked.
+ * The endpoints the ground-transfer form offers, out of {@link TransferEndpointProjector}: what is
+ * still worth showing today, in the order Ted will look for it, with the label he reads.
+ * <p>
+ * <strong>Everything that is a fact about the event now lives in the read model</strong> — which end
+ * a flight leg or a stay can serve, its place, its moments. What is left here is everything that
+ * needs {@code now} or is about the form: the day filter, the ordering, and the label. That split is
+ * D4, and it is why this class no longer names a kind of travel anywhere.
  * <p>
  * <strong>Flight legs, split by direction.</strong> "From" lists arrivals and "To" lists
  * departures, because you only travel away from an airport you landed at and toward one you fly out
@@ -51,8 +52,10 @@ import java.util.Locale;
  * form survive the whole of the day it is about. Yesterday still drops off.
  * <p>
  * A flight leg is scoped by its <em>own</em> moment rather than by the flight's departure, so a
- * flight still in the air offers the airport it is about to land at. {@code ?date=} prefills the
- * date input only; it never filters these options.
+ * flight still in the air offers the airport it is about to land at; a stay is scoped by its
+ * check-out at both ends. Which moment answers that question per kind is
+ * {@link TransferEndpointRow#offeredUntil()}, decided where the event is read. {@code ?date=}
+ * prefills the date input only; it never filters these options.
  */
 public class GroundTransferEndpointOptions {
 
@@ -61,96 +64,54 @@ public class GroundTransferEndpointOptions {
     private static final DateTimeFormatter INPUT_TIME =
             DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH);
 
-    private final BookedFlightsProjector bookedFlights;
-    private final BookedHotelsProjector bookedHotels;
-    private final AirportCityResolver airportCities;
+    private final TransferEndpointProjector endpoints;
 
-    public GroundTransferEndpointOptions(BookedFlightsProjector bookedFlights,
-                                         BookedHotelsProjector bookedHotels,
-                                         AirportCityResolver airportCities) {
-        this.bookedFlights = bookedFlights;
-        this.bookedHotels = bookedHotels;
-        this.airportCities = airportCities;
+    public GroundTransferEndpointOptions(TransferEndpointProjector endpoints) {
+        this.endpoints = endpoints;
     }
 
     public GroundTransferEndpointChoices choicesAt(Instant now) {
-        // ALL, then filtered below: the shared FUTURE filter judges a flight by its departure (so
-        // it drops the arrival airport of a flight still in the air) and judges both to the minute
-        // (so today's endpoints vanish part-way through today). See the class comment.
-        List<BookedFlightView> flights = bookedFlights.views(TimeView.ALL, now);
         return new GroundTransferEndpointChoices(
-                legOptions(flights, now, LegEnd.ARRIVAL),
-                legOptions(flights, now, LegEnd.DEPARTURE),
-                hotelOptions(now, StayEnd.CHECK_OUT),
-                hotelOptions(now, StayEnd.CHECK_IN));
-    }
-
-    private List<TransferEndpointOption> legOptions(List<BookedFlightView> flights, Instant now,
-                                                    LegEnd end) {
-        List<TransferEndpointOption> options = new ArrayList<>();
-        for (BookedFlightView flight : flights) {
-            ZonedTimestamp moment = end.momentOf(flight);
-            if (isBeforeToday(moment, now)) {
-                continue;
-            }
-            String code = end.airportCodeOf(flight);
-            // One derivation for both uses: the schedule's place for this airport, which the label
-            // then names out loud. Deriving it twice is how the two quietly stop agreeing.
-            String city = Place.of(AirportCode.of(code), airportCities).value();
-            options.add(new TransferEndpointOption(
-                    GroundTransferEndpointResolver.AIRPORT_PREFIX + code,
-                    label(flight, end, moment, code, city),
-                    city,
-                    moment.localDateTime().toLocalDate().toString(),
-                    INPUT_TIME.format(moment.localDateTime())));
-        }
-        // Chronological, so the leg Ted is thinking about is where he expects it. Sorting on the
-        // prefill strings works because both are fixed-width and already zero-padded.
-        options.sort(Comparator.comparing(TransferEndpointOption::prefillDate)
-                             .thenComparing(TransferEndpointOption::prefillTime));
-        return List.copyOf(options);
-    }
-
-    /** e.g. {@code DEN — Denver · arrive Sun Sep 14, 11:30 AM (UA 59)}. */
-    private String label(BookedFlightView flight, LegEnd end, ZonedTimestamp moment,
-                         String code, String city) {
-        return code + " — " + city
-               + " · " + end.verb() + " " + LEG_MOMENT.format(moment.localDateTime())
-               + " (" + flight.airline() + " " + flight.flightNumber() + ")";
+                optionsFor(TransferEnd.FLIGHT_ARRIVAL, now),
+                optionsFor(TransferEnd.FLIGHT_DEPARTURE, now),
+                optionsFor(TransferEnd.HOTEL_CHECK_OUT, now),
+                optionsFor(TransferEnd.HOTEL_CHECK_IN, now));
     }
 
     /**
-     * The stays offered at one end. Both ends offer the same stays and filter them the same way —
-     * on <em>check-out</em>, whichever end this is, because that is what says the stay is over.
-     * Filtering the "To" list on check-in instead would drop the hotel you are riding to the moment
-     * you had arrived, which is exactly when the ride gets written down.
+     * Chronological by the endpoint's own instant, so the leg or stay Ted is thinking about is where
+     * he expects it. It is the absolute order rather than a wall-clock one, which matters exactly
+     * when a list spans zones: a London landing at 08:00 BST happened before a Denver landing at
+     * 08:00 MDT, and reading the two local clocks side by side would say the opposite.
      */
-    private List<TransferEndpointOption> hotelOptions(Instant now, StayEnd end) {
-        return bookedHotels.views(TimeView.ALL, now).stream()
-                // Checked out this morning still counts: the ride to the airport is the transfer
-                // being recorded, and it is normally written down long after the taxi door shut.
-                .filter(hotel -> !isBeforeToday(hotel.checkOut(), now))
-                // A cancelled stay keeps a tombstone row on /booked-hotels so the cancellation is
-                // visible; it is not a place Ted can be dropped off.
-                .filter(hotel -> !hotel.cancelled())
-                // Chronological, like the legs above and for the same reason — now that each option
-                // carries a moment, alphabetical order puts the stay Ted is thinking about anywhere.
-                .sorted(Comparator.comparing(hotel -> end.momentOf(hotel).utc()))
-                .map(hotel -> stayOption(hotel, end))
+    private List<TransferEndpointOption> optionsFor(TransferEnd end, Instant now) {
+        return endpoints.rowsFor(end).stream()
+                .filter(row -> !isBeforeToday(row.offeredUntil(), now))
+                .sorted(Comparator.comparing(row -> row.moment().utc()))
+                .map(this::option)
                 .toList();
     }
 
-    private TransferEndpointOption stayOption(BookedHotelView hotel, StayEnd end) {
-        ZonedTimestamp moment = end.momentOf(hotel);
+    private TransferEndpointOption option(TransferEndpointRow row) {
         return new TransferEndpointOption(
-                GroundTransferEndpointResolver.HOTEL_PREFIX + hotel.hotelBookingId().id(),
-                hotel.hotelName() + " — " + hotel.city()
-                + " · " + end.verb() + " " + LEG_MOMENT.format(moment.localDateTime()),
-                // The schedule's own location for the stay, which the label's city is not always:
-                // a gap says Johannesberg where the address says Rückersbach.
-                hotel.locationForMatching(),
-                moment.localDateTime().toLocalDate().toString(),
-                INPUT_TIME.format(moment.localDateTime()));
+                row.token(),
+                label(row),
+                // The schedule's own place for this endpoint, which the label's city is not always:
+                // a gap says Johannesberg where the hotel's address says Rückersbach.
+                row.place().value(),
+                row.moment().localDateTime().toLocalDate().toString(),
+                INPUT_TIME.format(row.moment().localDateTime()));
+    }
+
+    /**
+     * e.g. {@code DEN — Denver · arrive Sun Sep 14, 11:30 AM (UA 59)}, or the same without the
+     * parenthesis for a stay, which has no service to name.
+     */
+    private String label(TransferEndpointRow row) {
+        String label = row.name() + " — " + row.city()
+                       + " · " + row.end().verb() + " "
+                       + LEG_MOMENT.format(row.moment().localDateTime());
+        return row.detail().isBlank() ? label : label + " (" + row.detail() + ")";
     }
 
     /**
@@ -162,53 +123,5 @@ public class GroundTransferEndpointOptions {
     private boolean isBeforeToday(ZonedTimestamp moment, Instant now) {
         return moment.localDateTime().toLocalDate()
                 .isBefore(LocalDate.ofInstant(now, moment.zone()));
-    }
-
-    /**
-     * Which end of a stay a transfer can touch: you leave a hotel at check-out and reach one at
-     * check-in. The label says which, because unlike a flight's the moment is a guess.
-     */
-    private enum StayEnd {
-        CHECK_OUT {
-            @Override ZonedTimestamp momentOf(BookedHotelView hotel) { return hotel.checkOut(); }
-            @Override String verb() { return "check out"; }
-        },
-        CHECK_IN {
-            @Override ZonedTimestamp momentOf(BookedHotelView hotel) { return hotel.checkIn(); }
-            @Override String verb() { return "check in"; }
-        };
-
-        abstract ZonedTimestamp momentOf(BookedHotelView hotel);
-
-        abstract String verb();
-    }
-
-    /**
-     * Which end of a flight a transfer can touch. {@code BookedFlightView} exposes its airports
-     * only through the display {@code route} ({@code "DEN→SJC"}), which
-     * {@code BookedFlightsProjector} builds from the two codes — so that is where they are read
-     * back from.
-     */
-    private enum LegEnd {
-        ARRIVAL {
-            @Override ZonedTimestamp momentOf(BookedFlightView flight) { return flight.arrivalDateTime(); }
-            @Override String airportCodeOf(BookedFlightView flight) { return codes(flight)[1]; }
-            @Override String verb() { return "arrive"; }
-        },
-        DEPARTURE {
-            @Override ZonedTimestamp momentOf(BookedFlightView flight) { return flight.departureDateTime(); }
-            @Override String airportCodeOf(BookedFlightView flight) { return codes(flight)[0]; }
-            @Override String verb() { return "depart"; }
-        };
-
-        abstract ZonedTimestamp momentOf(BookedFlightView flight);
-
-        abstract String airportCodeOf(BookedFlightView flight);
-
-        abstract String verb();
-
-        static String[] codes(BookedFlightView flight) {
-            return flight.route().split("→");
-        }
     }
 }

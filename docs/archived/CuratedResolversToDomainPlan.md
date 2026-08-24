@@ -251,7 +251,11 @@ rather than a blacklist of Spring and Jackson. That is what makes it cover the f
 serialization and presentation clauses at once, and it is what makes a *new* dependency — some
 library nobody has thought of — fail on arrival rather than after someone remembers to add it.
 
-**Verified:** 1623 unit (1620 + the 3 new) + 61 js green. All three mutation-verified in one run:
+**Verified:** 1628 unit + 61 js green, on a `clean` run. (The commit message says 1623 — that came
+from an incremental build taken minutes after three test classes were moved between packages, which
+undercounted by five. `./mvnw -o clean test` is the number to quote after a package move; the
+incremental one is not wrong so much as not counting what you think it is.) All three
+mutation-verified in one run:
 a Spring import on `AirportCityResolver`, a `Math.random()` field on `StaticAirportCityResolver`, and
 a `FlightId.random()` field on `BookFlightHandler` each failed exactly its own method and no other.
 

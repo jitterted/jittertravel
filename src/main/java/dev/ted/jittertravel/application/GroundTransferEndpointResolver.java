@@ -7,6 +7,7 @@ import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.InvalidAirportCode;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
+import dev.ted.jittertravel.domain.Place;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
 
 import java.util.Locale;
@@ -74,7 +75,9 @@ public class GroundTransferEndpointResolver {
 
     private TransferEndpoint airportEndpoint(String rawCode) {
         AirportCode airport = parseAirportCode(rawCode);
-        String city = airportCities.cityFor(airport.code());
+        // The same derivation the gap report and the options list use, so what gets frozen into the
+        // event is the place the schedule will look for when it decides the gap is closed.
+        String city = Place.of(airport, airportCities).value();
         // Throws ZoneResolutionException for a well-formed code the curated table does not know,
         // which is the only way an airport token can be stale — the options only ever offer
         // airports that appear on a booked flight.

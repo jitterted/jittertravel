@@ -133,6 +133,22 @@ class GroundTransferEndpointChoicesTest {
         assertThat(choices.originFor(johannesbergToFrankfurt())).contains(seminarZentrum);
     }
 
+    /**
+     * One end of the comparison is a curated table's spelling and the other is what Ted typed into
+     * an address, so case is exactly what differs between them. Both sides are derived as
+     * {@code Place}s and compared with {@code Place.matches}; swap that for the record's own
+     * {@code equals} and this gap silently stops preselecting anything.
+     */
+    @Test
+    void aCandidateWhoseCityIsSpelledInAnotherCaseStillSettlesTheGap() {
+        TransferEndpointOption shoutedCity = stay("hotel:seminarzentrum", "SeminarZentrum",
+                "JOHANNESBERG", "2026-09-13", "11:00");
+        GroundTransferEndpointChoices choices = new GroundTransferEndpointChoices(
+                List.of(), List.of(), List.of(shoutedCity), List.of());
+
+        assertThat(choices.originFor(johannesbergToFrankfurt())).contains(shoutedCity);
+    }
+
     private static ScheduleProblem.MissingTravel johannesbergToFrankfurt() {
         return new ScheduleProblem.MissingTravel(
                 "Johannesberg", at("2026-09-09T17:00"),

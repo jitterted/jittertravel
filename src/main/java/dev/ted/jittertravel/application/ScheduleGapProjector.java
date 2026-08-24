@@ -97,33 +97,32 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                         e.departureAirport(), e.departureDateTime(),
                         e.arrivalAirport(), e.arrivalDateTime()));
                 case TrainBooked e -> trainLegs.put(e.tripId(), new ScheduleTimeline.Movement(
-                        e.departureStation().city(), e.departureDateTime(),
-                        e.arrivalStation().city(), e.arrivalDateTime()));
+                        Place.of(e.departureStation()).value(), e.departureDateTime(),
+                        Place.of(e.arrivalStation()).value(), e.arrivalDateTime()));
                 case TrainChanged e -> trainLegs.put(e.tripId(), new ScheduleTimeline.Movement(
-                        e.departureStation().city(), e.departureDateTime(),
-                        e.arrivalStation().city(), e.arrivalDateTime()));
+                        Place.of(e.departureStation()).value(), e.departureDateTime(),
+                        Place.of(e.arrivalStation()).value(), e.arrivalDateTime()));
                 // The whole point of a ground transfer: it is a leg like any other, so the gap it
-                // fills stops being reported. Both ends compare on locationForMatching — the hotel's
-                // own, or the airport's city — which is what the timeline matches conferences and
-                // stays against.
+                // fills stops being reported. Both ends are Places — the hotel's own, or the
+                // airport's city — which is what the timeline matches conferences and stays against.
                 case GroundTransferPlanned e -> groundTransfers.put(e.groundTransferId(),
                         new ScheduleTimeline.Movement(
-                                e.origin().locationForMatching(), e.departsAt(),
-                                e.destination().locationForMatching(), e.arrivesAt()));
+                                Place.of(e.origin()).value(), e.departsAt(),
+                                Place.of(e.destination()).value(), e.arrivesAt()));
                 // The point of cancelling: a wrong transfer must stop asserting that the hop
                 // happened, or it goes on masking the missing-travel gap it was entered to close.
                 case GroundTransferCancelled e -> groundTransfers.remove(e.groundTransferId());
                 case HotelBooked e -> hotelStays.put(e.hotelBookingId(), new ScheduleTimeline.Stay(
-                        e.hotelBookingId(), e.hotelName(), e.address().locationForMatching(),
+                        e.hotelBookingId(), e.hotelName(), Place.of(e.address()).value(),
                         e.checkIn(), e.checkOut(), e.bookingIntent()));
                 case HotelChanged e -> hotelStays.put(e.hotelBookingId(), new ScheduleTimeline.Stay(
-                        e.hotelBookingId(), e.hotelName(), e.address().locationForMatching(),
+                        e.hotelBookingId(), e.hotelName(), Place.of(e.address()).value(),
                         e.checkIn(), e.checkOut(), e.bookingIntent()));
                 case HotelBookingCancelled e -> hotelStays.remove(e.hotelBookingId());
                 // A planned conference occupies the schedule immediately, whatever Ted has
                 // committed to — see the class comment on why only a *dropped* one leaves.
                 case ConferencePlanned e -> conferences.put(e.conferenceId(), new TrackedConference(
-                        new ScheduleTimeline.Occupancy(e.name(), e.venueAddress().locationForMatching(),
+                        new ScheduleTimeline.Occupancy(e.name(), Place.of(e.venueAddress()).value(),
                                 e.startDate(), e.endDate(), ScheduleTimeline.Occupancy.Kind.CONFERENCE),
                         ConferenceProgress.planned(e.format())));
                 // The organizers called it off: there is no event to be at, so it does not come back.
@@ -143,15 +142,15 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 case TalkWithdrawn e -> moveConference(e.conferenceId(), ConferenceProgress::withdrawn);
                 case InvitedToSpeak e -> moveConference(e.conferenceId(), ConferenceProgress::invited);
                 case GatheringPlanned e -> gatherings.put(e.gatheringId(),
-                        new ScheduleTimeline.Occupancy(e.title(), e.location().locationForMatching(),
+                        new ScheduleTimeline.Occupancy(e.title(), Place.of(e.location()).value(),
                                 e.startsAt(), e.endsAt(), ScheduleTimeline.Occupancy.Kind.GATHERING));
                 case GatheringChanged e -> gatherings.put(e.gatheringId(),
-                        new ScheduleTimeline.Occupancy(e.title(), e.location().locationForMatching(),
+                        new ScheduleTimeline.Occupancy(e.title(), Place.of(e.location()).value(),
                                 e.startsAt(), e.endsAt(), ScheduleTimeline.Occupancy.Kind.GATHERING));
                 // A private event places Ted somewhere exactly as a gathering does; only who may
                 // see it differs, and that is the redactor's problem, not this one's.
                 case PrivateEventPlanned e -> privateEvents.put(e.privateEventId(),
-                        new ScheduleTimeline.Occupancy(e.title(), e.location().locationForMatching(),
+                        new ScheduleTimeline.Occupancy(e.title(), Place.of(e.location()).value(),
                                 e.startsAt(), e.endsAt(), ScheduleTimeline.Occupancy.Kind.PRIVATE_EVENT));
                 case DifferentCityConflictCleared e ->
                         clearedConflicts.add(new ClearedConflict(e.gatheringId(), e.conferenceId()));
@@ -346,8 +345,8 @@ public class ScheduleGapProjector implements EventStreamConsumer {
 
     private ScheduleTimeline.Movement flightLeg(AirportCode dep, ZonedTimestamp depDt,
                                                 AirportCode arr, ZonedTimestamp arrDt) {
-        return new ScheduleTimeline.Movement(cityResolver.cityFor(dep.code()), depDt,
-                cityResolver.cityFor(arr.code()), arrDt);
+        return new ScheduleTimeline.Movement(Place.of(dep, cityResolver).value(), depDt,
+                Place.of(arr, cityResolver).value(), arrDt);
     }
 
     /**

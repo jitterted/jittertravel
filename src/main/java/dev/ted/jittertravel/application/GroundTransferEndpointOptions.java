@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.AirportCityResolver;
+import dev.ted.jittertravel.domain.AirportCode;
+import dev.ted.jittertravel.domain.Place;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.Instant;
@@ -91,10 +93,14 @@ public class GroundTransferEndpointOptions {
             if (isBeforeToday(moment, now)) {
                 continue;
             }
+            String code = end.airportCodeOf(flight);
+            // One derivation for both uses: the schedule's place for this airport, which the label
+            // then names out loud. Deriving it twice is how the two quietly stop agreeing.
+            String city = Place.of(AirportCode.of(code), airportCities).value();
             options.add(new TransferEndpointOption(
-                    GroundTransferEndpointResolver.AIRPORT_PREFIX + end.airportCodeOf(flight),
-                    label(flight, end, moment),
-                    airportCities.cityFor(end.airportCodeOf(flight)),
+                    GroundTransferEndpointResolver.AIRPORT_PREFIX + code,
+                    label(flight, end, moment, code, city),
+                    city,
                     moment.localDateTime().toLocalDate().toString(),
                     INPUT_TIME.format(moment.localDateTime())));
         }
@@ -106,9 +112,9 @@ public class GroundTransferEndpointOptions {
     }
 
     /** e.g. {@code DEN — Denver · arrive Sun Sep 14, 11:30 AM (UA 59)}. */
-    private String label(BookedFlightView flight, LegEnd end, ZonedTimestamp moment) {
-        String code = end.airportCodeOf(flight);
-        return code + " — " + airportCities.cityFor(code)
+    private String label(BookedFlightView flight, LegEnd end, ZonedTimestamp moment,
+                         String code, String city) {
+        return code + " — " + city
                + " · " + end.verb() + " " + LEG_MOMENT.format(moment.localDateTime())
                + " (" + flight.airline() + " " + flight.flightNumber() + ")";
     }

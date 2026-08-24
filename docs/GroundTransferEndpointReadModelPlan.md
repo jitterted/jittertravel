@@ -1,6 +1,6 @@
 # Ground Transfer Endpoints — a dedicated read model, and trains as endpoints
 
-Status: `open` — designed 2026-08-23, nothing built.
+Status: `in progress` — designed 2026-08-23. **Slice 1 shipped 2026-08-23**; slices 2 and 3 open.
 **Prerequisite: done.** `archived/CuratedResolversToDomainPlan.md` shipped 2026-08-23, so
 `AirportCityResolver` is in `domain` and slice 1's `Place` can take one — the airport arm of the
 derivation is written once, inside `Place`, as the slice assumes.
@@ -139,11 +139,59 @@ to `SecurityConfig` or `AuthorizationMatrixTest`.
 
 ## Slices
 
-### Slice 1 — `Place`
+### Slice 1 — `Place` — `shipped 2026-08-23`
 
-`Place` + factories + `matches`. `ScheduleGapProjector`'s hotel/train/transfer arms and the
-endpoint options' hotel/airport arms derive through it. **No behaviour change** — the existing
-suite is the safety net.
+`Place` + factories + `matches`. **No behaviour change** — the existing suite was the safety net,
+and 1639 unit + 61 js are green on a `clean` run.
+
+**Wider than the sentence above, deliberately.** Every place that turns an event field into a
+matching place goes through `Place`, not only the four kinds in the divergence table:
+
+| Where | Was | Now |
+|---|---|---|
+| `ScheduleGapProjector` — trains | `e.departureStation().city()` | `Place.of(station)` |
+| `ScheduleGapProjector` — transfers, hotels, **conferences, gatherings, private events** | `…locationForMatching()` | `Place.of(address)` |
+| `ScheduleGapProjector.flightLeg` | `cityResolver.cityFor(code)` | `Place.of(code, cityResolver)` |
+| `BookedHotelsProjector` | `address.locationForMatching()` | `Place.of(address)` |
+| `GroundTransferEndpointOptions` — airports | `airportCities.cityFor(code)`, **twice** | one `Place`, used for the option and its label |
+| `GroundTransferEndpointResolver.airportEndpoint` | `airportCities.cityFor(code)` | `Place.of(airport, airportCities)` |
+| `GroundTransferEndpointChoices.theOnlyCandidate` | `equalsIgnoreCase` | `Place.matches` |
+
+The conference/gathering/private-event arms were not in the table because they are not
+*endpoints* — but they are the same `locationForMatching` rule, and they are compared against
+movement places by the very same projector. Routing four `Address` arms through `Place` and leaving
+three beside them spelled out would have been worse than either extreme. The resolver's airport arm
+matters most of the three airport sites: it is the **write** path, so what it derives is frozen into
+the event the gap report later looks for.
+
+Two derivations that stayed put, both correct as they are: the resolver copies a hotel's `Address`
+**verbatim** (re-deriving it there could disagree with the stay it connects to), and
+`ScheduleGapProjector`'s gathering-vs-conference different-city check compares two `Occupancy`
+strings that were *already* built from `Place` — D2 keeps `Place` out of `Occupancy` itself.
+
+**On `Place.value()` being unwrapped immediately at every call site:** that is the point, not a
+smell. D2 says the type does not travel; what had to stop being written twice is *which field
+becomes the place*, and after this it is written once.
+
+**One trap the type carries, pinned by a test:** the record's generated `equals` is case-sensitive
+while `matches` is not, so two Places that match are not equal. `PlaceTest` asserts exactly that, so
+a later "simplification" to `equals` shows its cost.
+
+Mutation-verified beyond `PlaceTest`: pointing `Place.of(Address)` at `city()` and
+`Place.of(TrainStationAddress)` at `name()` fails 12 tests across `ScheduleGapProjectorTest` and
+`ScheduleProblemsAcceptanceTest`; pointing the airport factory at the raw code fails those **plus**
+`GroundTransferEndpointOptionsTest` and
+`PlanGroundTransferHandlerTest.anAirportTokenResolvesToItsCodeAndItsCityAsTheMatchLocation` — which
+is what proves all three airport sites are live rather than dead code beside the old expression.
+
+**One gap this inherited and closed:** nothing covered the case-insensitive compare — swapping
+`equalsIgnoreCase` for `equals` left the whole suite green, and had done since long before this
+slice. `GroundTransferEndpointChoicesTest.aCandidateWhoseCityIsSpelledInAnotherCaseStillSettlesTheGap`
+now pins it.
+
+**Not in this slice:** the agreement invariant from the Tests section below. It wants an endpoint
+projector to drive alongside `ScheduleGapProjector`, and for trains it would fail until slice 3 —
+which is the bug, not a broken test. It belongs with slice 2 (flights and hotels) and slice 3.
 
 ### Slice 2 — `TransferEndpointProjector` (flights and hotels only)
 

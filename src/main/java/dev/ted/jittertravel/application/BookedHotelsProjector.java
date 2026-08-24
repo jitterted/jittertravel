@@ -6,6 +6,7 @@ import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelChanged;
+import dev.ted.jittertravel.domain.Place;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.AddressRenderer;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
@@ -49,7 +50,9 @@ public class BookedHotelsProjector implements EventStreamConsumer {
                 hotelBookingId,
                 hotelName,
                 address.city(),
-                address.locationForMatching(),
+                // The schedule's place for this stay, which the ground-transfer form matches a gap
+                // against — derived by the same rule ScheduleGapProjector uses, not alongside it.
+                Place.of(address).value(),
                 address.country(),
                 checkIn,
                 checkOut,

@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.Place;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.LocalDate;
@@ -72,8 +73,11 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
         LocalDate closed = localDay(gap.nextDepartureAt());
         LocalDate from = opened.isBefore(closed) ? opened : closed;
         LocalDate until = opened.isBefore(closed) ? closed : opened;
+        // Both sides were derived by Place's rules — the gap's end and the option's city — so they
+        // are compared by Place's rule too, rather than by a case-fold written out here.
+        Place gapPlace = new Place(city);
         List<TransferEndpointOption> candidates = offered.stream()
-                .filter(option -> option.city().equalsIgnoreCase(city))
+                .filter(option -> new Place(option.city()).matches(gapPlace))
                 .filter(option -> withinDays(option, from, until))
                 .toList();
         return candidates.size() == 1 ? Optional.of(candidates.getFirst()) : Optional.empty();

@@ -18,6 +18,7 @@ import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.domain.InvitedToSpeak;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.OneOffTaskCompleted;
+import dev.ted.jittertravel.domain.PrivateEventCancelled;
 import dev.ted.jittertravel.domain.PrivateEventPlanned;
 import dev.ted.jittertravel.domain.TalkAccepted;
 import dev.ted.jittertravel.domain.TalkRejected;
@@ -807,6 +808,42 @@ class GoldenEventDeserializationTest {
                 .isEqualTo("2026-09-15T19:00");
         assertThat(event.endsAt().localDateTime().toString())
                 .isEqualTo("2026-09-15T22:00");
+    }
+
+    @Test
+    void privateEventCancelledSampleDeserializes() {
+        // The id and an optional note. Unlike a cancelled transfer, which records none, a private
+        // event's cancellation is worth a sentence — "rescheduled to Friday" is a fact about the
+        // evening. Nothing keys off it.
+        String json = """
+                {
+                  "privateEventId": {"id": "88888888-8888-8888-8888-888888888888"},
+                  "reason": "Rescheduled to Friday"
+                }
+                """;
+
+        PrivateEventCancelled event = deserialize(json, PrivateEventCancelled.class);
+
+        assertThat(event.privateEventId().id())
+                .isEqualTo(UUID.fromString("88888888-8888-8888-8888-888888888888"));
+        assertThat(event.reason())
+                .isEqualTo("Rescheduled to Friday");
+    }
+
+    @Test
+    void privateEventCancelledWithNoReasonDeserializesToTheEmptyString() {
+        // The reason is optional, so a payload written without one must not produce a null String
+        // (no-null-Strings rule) — the compact constructor is what makes that true on the way in.
+        String json = """
+                {
+                  "privateEventId": {"id": "88888888-8888-8888-8888-888888888888"}
+                }
+                """;
+
+        PrivateEventCancelled event = deserialize(json, PrivateEventCancelled.class);
+
+        assertThat(event.reason())
+                .isEmpty();
     }
 
     @Test

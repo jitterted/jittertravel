@@ -16,6 +16,9 @@ import dev.ted.jittertravel.domain.GroundTransferPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.PrivateEventCancelled;
+import dev.ted.jittertravel.domain.PrivateEventId;
+import dev.ted.jittertravel.domain.PrivateEventPlanned;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -62,6 +65,7 @@ class CalendarRemovalPropagationTest {
     static Stream<Arguments> removalScenarios() {
         HotelBookingId bookingId = HotelBookingId.random();
         GroundTransferId transferId = GroundTransferId.random();
+        PrivateEventId privateEventId = PrivateEventId.random();
         ConferenceId cancelledConference = ConferenceId.random();
         ConferenceId declinedConference = ConferenceId.random();
         ConferenceId confirmedThenCancelled = ConferenceId.random();
@@ -73,6 +77,9 @@ class CalendarRemovalPropagationTest {
                 arguments("a cancelled ground transfer",
                         List.of(transferPlanned(transferId)),
                         new GroundTransferCancelled(transferId)),
+                arguments("a cancelled private event",
+                        List.of(privateEventPlanned(privateEventId)),
+                        new PrivateEventCancelled(privateEventId, "rescheduled to Friday")),
                 arguments("an organizer-cancelled conference",
                         List.of(conferencePlanned(cancelledConference, "PLoP")),
                         new ConferenceCancelled(cancelledConference, "organizers pulled it")),
@@ -159,6 +166,13 @@ class CalendarRemovalPropagationTest {
                 new Address("6 Sleep St", "Lone Tree", "CO", "80124", "US", null),
                 zoned(LocalDateTime.of(2026, 7, 5, 12, 0), DENVER),
                 zoned(LocalDateTime.of(2026, 7, 5, 12, 45), DENVER), "");
+    }
+
+    private static PrivateEventPlanned privateEventPlanned(PrivateEventId privateEventId) {
+        return new PrivateEventPlanned(privateEventId, "Dinner with the Smiths", "Chez Moi",
+                new Address("1 Eat St", "Lone Tree", "CO", "80124", "US", null),
+                zoned(LocalDateTime.of(2026, 7, 6, 19, 0), DENVER),
+                zoned(LocalDateTime.of(2026, 7, 6, 22, 0), DENVER));
     }
 
     private static ConferencePlanned conferencePlanned(ConferenceId conferenceId, String name) {

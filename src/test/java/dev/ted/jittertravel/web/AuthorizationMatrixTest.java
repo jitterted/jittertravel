@@ -109,6 +109,9 @@ class AuthorizationMatrixTest {
                 // Same shape for the transfer's only per-item action: there is no
                 // "/ground-transfers/*" page to fall back on, so this matcher is the whole gate.
                 arguments("/ground-transfers/abc/cancel", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
+                // And again for the private event: no "/planned-private-events/*" page exists yet
+                // either, so this matcher is the whole gate. The evening's title is on that page.
+                arguments("/planned-private-events/abc/cancel", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/conferences", Outcome.OK,      Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/conferences/abc", Outcome.OK,   Outcome.DENIED_HOME,  Outcome.LOGIN),
                 // A per-item action needs its own matcher: "/conferences/*" matches one

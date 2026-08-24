@@ -60,8 +60,10 @@ for open work.
       (2026-08-24), not by this list.** It outgrew a cleanup line: the plan puts **Cancel** in
       front of the edit as slice 1, because a private event has no booking (so the common
       correction is removing a wrong entry) and a wrong one is a false presence fact in
-      `ScheduleGapProjector` with no way out today. Cancel is linked from the **itinerary**,
-      OWNER-only. Read the plan, not this bullet. Lifted here from
+      `ScheduleGapProjector`. **Slice 1 shipped 2026-08-24** — cancel is live, linked from the
+      **itinerary**, OWNER-only; the edit flow itself (slice 2) is what is still open here, and it
+      brings the pencil *and* the calendar's bin with it. Read the plan, not this bullet. Lifted
+      here from
       `archived/PrivateSocialEventPlan.md` 2026-08-21; the third item on that list, the itinerary
       entry, **shipped** — `PrivateEventItineraryEntry` is live.
 - [ ] **`/planned-private-events` list view** with the FUTURE/ALL toggle, so the owner sees

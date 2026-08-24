@@ -7,6 +7,7 @@ import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GroundTransferId;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.PrivateEventId;
 import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
@@ -665,6 +666,35 @@ class ItineraryRendererTest {
                 .contains("<time datetime=\"2026-06-01T21:00:00Z\" data-fmt=\"h:mm a\">10:00 PM</time>");
     }
 
+    /**
+     * There is no edit page for a private event yet, so the owner's action in the pencil's slot is
+     * a cancel — the same arrangement a ground transfer has, and for a related reason: a wrong
+     * private event keeps asserting Ted is in that city.
+     */
+    @Test
+    void privateEventCarriesTheOwnersCancelBinInThePencilsSlot() {
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(privateEvent("Dinner with the Smiths", "Chez Moi")), List.of(), List.of()),
+                MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains("<a class=\"cancel-bin\""
+                          + " href=\"/planned-private-events/66666666-7777-8888-9999-aaaaaaaaaaaa/cancel\""
+                          + " title=\"Cancel private event\">");
+    }
+
+    @Test
+    void familyViewersGetNoPrivateEventCancelBinAtAllRatherThanAGreyedOne() {
+        // Hiding by permission stays hiding: a greyed control would itself disclose that the
+        // OWNER-only cancel surface exists (CLAUDE.md, affordances vs authorization). The card
+        // itself is still there — family may read the evening, just not cancel it.
+        String html = renderWithEntry(privateEvent("Dinner with the Smiths", "Chez Moi"));
+
+        assertThat(html)
+                .contains("Dinner with the Smiths")
+                .doesNotContain("/planned-private-events/");
+    }
+
     // --- Ground transfer ---
 
     @Test
@@ -846,8 +876,11 @@ class ItineraryRendererTest {
                 zoned(JUN_1.atTime(LocalTime.of(21, 0)), LONDON));
     }
 
+    private static final PrivateEventId PRIVATE_EVENT_ID =
+            PrivateEventId.of(UUID.fromString("66666666-7777-8888-9999-aaaaaaaaaaaa"));
+
     private static PrivateEventItineraryEntry privateEvent(String title, String venueName) {
-        return new PrivateEventItineraryEntry(title, venueName, "London", "GB",
+        return new PrivateEventItineraryEntry(PRIVATE_EVENT_ID, title, venueName, "London", "GB",
                 zoned(JUN_1.atTime(LocalTime.of(19, 0)), LONDON),
                 zoned(JUN_1.atTime(LocalTime.of(22, 0)), LONDON));
     }

@@ -152,6 +152,10 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 case PrivateEventPlanned e -> privateEvents.put(e.privateEventId(),
                         new ScheduleTimeline.Occupancy(e.title(), Place.of(e.location()).value(),
                                 e.startsAt(), e.endsAt(), ScheduleTimeline.Occupancy.Kind.PRIVATE_EVENT));
+                // The point of cancelling, and the reason cancel was built before edit: a wrong
+                // private event must stop asserting Ted is in that city, or it goes on shaping
+                // away days and hiding the night it appears to account for.
+                case PrivateEventCancelled e -> privateEvents.remove(e.privateEventId());
                 case DifferentCityConflictCleared e ->
                         clearedConflicts.add(new ClearedConflict(e.gatheringId(), e.conferenceId()));
                 default -> {}

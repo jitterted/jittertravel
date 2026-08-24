@@ -45,6 +45,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                         e.gatheringId(), e.title(), e.venueName(), e.location(),
                         e.speaking(), e.infoUrl(), e.startsAt(), e.endsAt()));
                 case PrivateEventPlanned e -> privateEventEntries.put(e.privateEventId(), toPrivateEventEntry(e));
+                case PrivateEventCancelled(PrivateEventId privateEventId, String _) -> privateEventEntries.remove(privateEventId);
                 case GroundTransferPlanned e -> groundTransferEntries.put(e.groundTransferId(), toGroundTransferEntry(e));
                 case GroundTransferCancelled e -> groundTransferEntries.remove(e.groundTransferId());
                 default -> {}
@@ -236,6 +237,7 @@ public class ItineraryProjector implements EventStreamConsumer {
 
     private static PrivateEventItineraryEntry toPrivateEventEntry(PrivateEventPlanned e) {
         return new PrivateEventItineraryEntry(
+                e.privateEventId(),
                 e.title(), e.venueName(),
                 e.location().city(), e.location().country(),
                 e.startsAt(), e.endsAt());

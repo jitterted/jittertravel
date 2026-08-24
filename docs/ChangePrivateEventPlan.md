@@ -1,7 +1,9 @@
 # Plan: Change Private Event — cancel first, then edit
 
-> **Status: `open`** — planned 2026-08-24 (Ted), nothing built. **Every open question was answered
-> the same day** (see "Answered by Ted" below), so this is ready to build as written. This doc now **owns** the
+> **Status: `partial`** — planned 2026-08-24 (Ted), **slice 1 (Cancel) shipped the same day**;
+> slice 2 (the edit flow) is unbuilt. Every open question was answered before building (see
+> "Answered by Ted" below), and the slice went in as written — see "What shipped" under slice 1 for
+> the two places the code says something the plan did not. This doc now **owns** the
 > "Change Private Event (the edit flow)" line that has lived in `Cleanup_Tasks.md` since
 > 2026-08-21; that entry becomes a pointer here. The `/planned-private-events` **list view** is a
 > separate, still-unowned item and stays in `Cleanup_Tasks.md` — see "Not in this plan" below.
@@ -132,7 +134,25 @@ backup stays at **v3**. Old backups restore untouched. If an `infrastructure` ed
 
 ---
 
-## Slice 1 — Cancel Private Event
+## Slice 1 — Cancel Private Event — **SHIPPED 2026-08-24**
+
+### What shipped
+
+Everything in the four phases below, as written. Suite green both tiers (**1724** unit + **61**
+js), and every new or changed test mutation-verified in three rounds — the five removal branches
+knocked out together (7 failures, one per case), then the renderer's `isOwner` guard both ways, the
+`SecurityConfig` matcher, the controller's reason parameter, the command's reason, and the event's
+null→`""` normalization.
+
+Two notes for whoever builds slice 2:
+
+- **`ScheduleGapProjector` needed no new plumbing.** Removing the occupancy from the existing map
+  was the whole change, and the observable proof is `SchedulingConflict`: a gathering and a dinner
+  at the same hour clash, and cancelling the dinner clears it. That test is what shows the
+  occupancy left the *state* rather than just a calendar.
+- **No nav card, deliberately.** The cancel page is reached from the itinerary bin and nowhere
+  else; `index.html` gains nothing. The private event's nav card still carries its placeholder icon
+  (`Cleanup_Tasks.md`), which is untouched by this slice.
 
 ### Phase 1 — Domain
 

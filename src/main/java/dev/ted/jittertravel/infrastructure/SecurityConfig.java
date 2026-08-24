@@ -64,6 +64,11 @@ public class SecurityConfig {
                                 "/booked-trains/*", "/booked-hotels/*",
                                 "/booked-hotels/*/cancel",
                                 "/ground-transfers/*/cancel",
+                                // Same shape again: the private event's only per-item action, with
+                                // no "/planned-private-events/*" page behind it yet, so this
+                                // matcher is the whole gate. The bare path is reserved for the
+                                // list view and the edit page (docs/ChangePrivateEventPlan.md D4).
+                                "/planned-private-events/*/cancel",
                                 "/conferences/*", "/conferences/*/decline",
                                 "/conferences/*/confirm", "/conferences/*/cfp",
                                 // Submission status is the most private thing the conference model

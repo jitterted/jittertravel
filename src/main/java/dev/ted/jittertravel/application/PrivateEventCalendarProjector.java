@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.PrivateEventCancelled;
 import dev.ted.jittertravel.domain.PrivateEventId;
 import dev.ted.jittertravel.domain.PrivateEventPlanned;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
@@ -27,6 +28,9 @@ public class PrivateEventCalendarProjector implements EventStreamConsumer {
         eventStream.forEach(storedEvent -> {
             switch (storedEvent.payload()) {
                 case PrivateEventPlanned e -> entries.put(e.privateEventId(), toEntry(e));
+                // Cancellation is a hard removal, so the entry leaves the owner's calendar rather
+                // than staying on it greyed out: see PrivateEventCancelled.
+                case PrivateEventCancelled e -> entries.remove(e.privateEventId());
                 default -> { /* not a private-event event */ }
             }
         });

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Cancel Private Event</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .summary {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.9rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }
+        .summary .name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .summary .line { font-size: 0.9rem; color: var(--muted-text); margin-top: 0.15rem; }
+
+        p.warning { font-size: 0.9rem; color: var(--text-color); margin: 0 0 1rem; }
+
+        .field { margin-bottom: 1rem; }
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+        .field input[type=text] {
+            padding: 0.35rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+
+        .actions { display: flex; align-items: center; gap: 1.25rem; }
+
+        /* Amber, not red: planning the evening again puts it back, so this is recoverable from
+           inside the app — red is reserved for what is not. */
+        button.confirm {
+            background: #b45309;
+            color: #fff;
+            border: 1px solid #b45309;
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        button.confirm:hover { opacity: 0.88; }
+
+        .keep-link { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
+        .keep-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/itinerary">Itinerary</a>
+    </nav>
+
+    <h1>Cancel Private Event</h1>
+
+    <div class="summary">
+        <div class="name" th:text="${privateEvent.title()}">Dinner with friends</div>
+        <!-- Venue only when one was recorded: an empty line would say less in more space. -->
+        <div class="line" th:if="${!privateEvent.venueName().isBlank()}" th:text="${privateEvent.venueName()}">venue</div>
+        <div class="line" th:text="${privateEvent.city() + (privateEvent.country().isBlank() ? '' : ', ' + privateEvent.country())}">city</div>
+        <div class="line" th:text="${#temporals.format(privateEvent.startsAt(), 'EEE, MMM d, yyyy')}">date</div>
+        <div class="line">
+            <span th:text="${#temporals.format(privateEvent.startsAt(), 'h:mm a')}">time</span>
+            &ndash;
+            <span th:text="${#temporals.format(privateEvent.endsAt(), 'h:mm a')}">time</span>
+        </div>
+    </div>
+
+    <p class="warning">
+        Cancelling removes the event from the calendar and the itinerary, and drops it from the
+        schedule-problems report — so a night it appeared to account for may show up as a gap
+        again. The event log keeps the record, including the reason. To put it back, plan the
+        event again.
+    </p>
+
+    <form th:action="@{|/planned-private-events/${privateEvent.privateEventId().id()}/cancel|}" method="post">
+        <div class="field">
+            <label>
+                Reason (optional)
+                <input type="text" name="reason" th:value="${reason}"
+                       placeholder="Rescheduled to Friday, entered by mistake…"/>
+            </label>
+        </div>
+
+        <div class="actions">
+            <button type="submit" class="confirm">Cancel this event</button>
+            <a class="keep-link" th:href="@{|/itinerary?date=${#temporals.format(privateEvent.startsAt(), 'yyyy-MM-dd')}|}">Keep it — back to the itinerary</a>
+        </div>
+    </form>
+
+</div>
+</body>
+</html>

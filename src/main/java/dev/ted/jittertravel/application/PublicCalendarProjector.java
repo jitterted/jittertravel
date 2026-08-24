@@ -22,6 +22,7 @@ import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.domain.InvitedToSpeak;
 import dev.ted.jittertravel.domain.PrivateEventId;
+import dev.ted.jittertravel.domain.PrivateEventCancelled;
 import dev.ted.jittertravel.domain.PrivateEventPlanned;
 import dev.ted.jittertravel.domain.TalkAccepted;
 import dev.ted.jittertravel.domain.TalkRejected;
@@ -135,6 +136,9 @@ public class PublicCalendarProjector implements EventStreamConsumer {
                 // A private event is built as "Busy" here, never as a full entry that something
                 // later trims: the title and the venue are simply not read.
                 case PrivateEventPlanned e -> put(e.privateEventId(), busy(e));
+                // Not politeness: a cancelled private event left here is a "Busy" block telling an
+                // anonymous viewer where Ted is on a day he is not there.
+                case PrivateEventCancelled e -> entriesBySubject.remove(e.privateEventId());
 
                 // Airport codes and the day are public; the departure and arrival times are not,
                 // so a flight's subtitle is left off entirely rather than filtered. The multi-day

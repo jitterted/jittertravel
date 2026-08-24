@@ -214,7 +214,7 @@ public class ItineraryRenderer {
             case HotelItineraryEntry e -> renderHotel(e, isOwner);
             case GatheringItineraryEntry e -> renderGathering(e, isOwner);
             case ConferenceItineraryEntry e -> renderConference(e);
-            case PrivateEventItineraryEntry e -> renderPrivateEvent(e);
+            case PrivateEventItineraryEntry e -> renderPrivateEvent(e, isOwner);
             case GroundTransferItineraryEntry e -> renderGroundTransfer(e, isOwner);
         };
     }
@@ -400,12 +400,25 @@ public class ItineraryRenderer {
         return card;
     }
 
-    private static DivTag renderPrivateEvent(PrivateEventItineraryEntry e) {
+    /**
+     * There is no edit page yet, so the owner's action in the pencil's slot is a cancel — as on a
+     * ground transfer, and for a related reason: a wrong private event keeps asserting that Ted is
+     * in that city, which shapes away days and hides the night it appears to account for.
+     * <p>
+     * The bin is OWNER-only, and for a family viewer it is <em>absent</em> rather than greyed:
+     * greying says "this exists but not for you now", and family will never cancel Ted's dinner.
+     */
+    private static DivTag renderPrivateEvent(PrivateEventItineraryEntry e, boolean isOwner) {
         // Itinerary is OWNER/FAMILY only, so full detail is fine here — redaction is an
         // anonymous-calendar concern. No title link: a private event has no public info URL.
+        DivTag title = div().withClass("entry-title").with(span(e.title()));
+        if (isOwner) {
+            title.with(cancelBin("/planned-private-events/" + e.privateEventId().id() + "/cancel",
+                    "Cancel private event"));
+        }
         return div().withClass("entry-card entry-card--private-event").with(
                 div("Private").withClass("entry-kind entry-kind--private-event"),
-                div().withClass("entry-title").with(span(e.title())),
+                title,
                 div(e.venueLocation()).withClass("entry-detail"),
                 div().withClass("entry-detail").with(
                         ZonedTimeTag.render(e.anchorDateTime(), TIME_FORMAT),

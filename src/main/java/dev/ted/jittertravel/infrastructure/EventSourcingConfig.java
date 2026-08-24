@@ -374,6 +374,22 @@ public class EventSourcingConfig {
         return bootstrapper.register(new PrivateEventCalendarProjector());
     }
 
+    /** The cancel confirmation page's read model: one event, by id, gone once it is cancelled. */
+    @Bean
+    public PrivateEventDetailsViewProjector privateEventDetailsViewProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new PrivateEventDetailsViewProjector());
+    }
+
+    /**
+     * No projector dependency, for the same reason as {@link CancelGroundTransfer} below:
+     * {@link CancelPrivateEvent} folds its one decision fact from the event stream (R1), not from a
+     * read model. No {@code now} either — cancelling is not time-gated.
+     */
+    @Bean
+    public CancelPrivateEvent cancelPrivateEventApplicationService(CommandExecutor commandExecutor) {
+        return new CancelPrivateEvent(commandExecutor);
+    }
+
     /**
      * The endpoint resolver holds every lookup a transfer endpoint token can need: the hotel's
      * address (a snapshot source), and the airport city/zone tables. Ted cleared the dependency

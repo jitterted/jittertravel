@@ -68,6 +68,24 @@ class CancelPrivateEventControllerTest {
                 .contains("10:00 PM");
     }
 
+    /**
+     * Backing out returns to the list this page is reached from, not to the itinerary — the same
+     * shape {@code decline-conference.html} has always had. Nothing pinned this link before, which
+     * is exactly how it could be retargeted with nobody noticing.
+     */
+    @Test
+    void keepLinkGoesBackToThePlannedPrivateEventsList() {
+        UUID privateEventId = UUID.randomUUID();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(viewFor(privateEventId)));
+
+        assertThat(mockMvc.get().uri("/planned-private-events/" + privateEventId + "/cancel"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"keep-link\" href=\"/planned-private-events\">"
+                          + "Keep it — back to the list</a>")
+                .doesNotContain("Keep it — back to the itinerary");
+    }
+
     /** A venue is optional on a private event; an empty line would say less in more space. */
     @Test
     void getOmitsTheVenueLineWhenNoneWasRecorded() {

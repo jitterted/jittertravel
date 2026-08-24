@@ -66,18 +66,16 @@ for open work.
       here from
       `archived/PrivateSocialEventPlan.md` 2026-08-21; the third item on that list, the itinerary
       entry, **shipped** — `PrivateEventItineraryEntry` is live.
-- [ ] **`/planned-private-events` list view** with the FUTURE/ALL toggle, so the owner sees
-      upcoming private events in a list and not only on the calendar. Lifted from
-      `archived/PrivateSocialEventPlan.md` 2026-08-21. Follow the shared toggle trio in CLAUDE.md
-      (`TemporalView.relevantUntil` → `timeView.includes` → `TimeFilterToggle.render`), which
-      `TimeFilterToggleConventionTest` enforces. Needs its own `SecurityConfig` matcher and an
-      `AuthorizationMatrixTest` row — it is an OWNER surface, and a new route is public by default.
-      **Stays here, and is not a prerequisite for `ChangePrivateEventPlan.md`**: cancel is reached
-      from the itinerary and edit from the calendar/itinerary pencil, so neither slice waits on a
-      list. That plan's D4 keeps the bare `/planned-private-events` path free for this.
-- [ ] **The private-event nav card still carries a placeholder icon.** From
-      `archived/PrivateSocialEventPlan.md`: the Font Awesome Pro icon was left pending Ted's pick.
-      Per the standing rule, new nav cards use the fill-based FA Pro SVGs from the travel-icons row.
+- [x] **`/planned-private-events` list view — SHIPPED 2026-08-24**, and it outgrew this list on
+      the way: it is now owned by `PlannedPrivateEventsListPlan.md`, not by this bullet. Read the
+      plan, not this line. The reason it was worth more than "one more list": a private event's
+      `street`, `region` and `postalCode` were carried by `PrivateEventPlanned` and read by **no
+      view at all**, so the address Ted typed into the plan form went to the log and never came
+      back. Lifted here from `archived/PrivateSocialEventPlan.md` 2026-08-21.
+- [x] **The private-event nav card's placeholder icon — SETTLED 2026-08-24.** Ted's answer ("🍴")
+      picked FA Pro `utensils`, which is the SVG the `/plan-private-event` card was already
+      carrying — the placeholder turned out to be the right icon. The new `/planned-private-events`
+      card uses the same one. From `archived/PrivateSocialEventPlan.md`.
 - [ ] **Full travel calendar in the subscription feed (Phase 2).** Lifted from
       `archived/CalendarSubscriptionFeedPlan.md` 2026-08-21, which shipped Phase 1
       (cancel-deadline reminders) and named this as "left open (not built now)": flights, trains,

@@ -114,7 +114,7 @@
 
         <div class="actions">
             <button type="submit" class="confirm">Cancel this event</button>
-            <a class="keep-link" th:href="@{|/itinerary?date=${#temporals.format(privateEvent.startsAt(), 'yyyy-MM-dd')}|}">Keep it — back to the itinerary</a>
+            <a class="keep-link" th:href="@{/planned-private-events}">Keep it — back to the list</a>
         </div>
     </form>
 

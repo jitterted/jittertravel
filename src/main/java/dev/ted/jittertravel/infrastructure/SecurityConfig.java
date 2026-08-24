@@ -64,10 +64,11 @@ public class SecurityConfig {
                                 "/booked-trains/*", "/booked-hotels/*",
                                 "/booked-hotels/*/cancel",
                                 "/ground-transfers/*/cancel",
-                                // Same shape again: the private event's only per-item action, with
-                                // no "/planned-private-events/*" page behind it yet, so this
-                                // matcher is the whole gate. The bare path is reserved for the
-                                // list view and the edit page (docs/ChangePrivateEventPlan.md D4).
+                                // Same shape again: the private event's only per-item action. A
+                                // single * matches one segment, so this needs its own entry even
+                                // now that the bare /planned-private-events list exists below.
+                                // The edit page will take "/planned-private-events/*"
+                                // (docs/ChangePrivateEventPlan.md D4).
                                 "/planned-private-events/*/cancel",
                                 "/conferences/*", "/conferences/*/decline",
                                 "/conferences/*/confirm", "/conferences/*/cfp",
@@ -78,7 +79,10 @@ public class SecurityConfig {
                         // Booking lists: OWNER-only (FAMILY cannot view booking details).
                         .requestMatchers(
                                 "/booked-flights", "/booked-trains", "/booked-hotels",
-                                "/conferences", "/planned-gatherings").hasRole("OWNER")
+                                "/conferences", "/planned-gatherings",
+                                // The private-event list prints venue names and street addresses —
+                                // the one surface that reads them at all.
+                                "/planned-private-events").hasRole("OWNER")
                         // Schedule problems: conflict/gap report over the whole itinerary —
                         // exact arrival and departure times, hotel and gathering names, and
                         // internal ids in its clear-conflict links. Owner-only.

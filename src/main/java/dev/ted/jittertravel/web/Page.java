@@ -92,6 +92,7 @@ public final class Page {
                     new NavLink("Trains", "/booked-trains"),
                     new NavLink("Hotels", "/booked-hotels"),
                     new NavLink("Gatherings", "/planned-gatherings"),
+                    new NavLink("Private Events", "/planned-private-events"),
                     new NavLink("Conferences", "/conferences"),
                     new NavLink("Schedule Problems", "/schedule-problems"));
         };

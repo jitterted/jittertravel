@@ -18,6 +18,7 @@ class PageTest {
                 .contains("href=\"/booked-flights\"")
                 .contains("href=\"/booked-trains\"")
                 .contains("href=\"/planned-gatherings\"")
+                .contains("href=\"/planned-private-events\"")
                 .contains("href=\"/conferences\"")
                 // Always present: the bar reflects the viewer's tier, not what the
                 // linked pages contain. An empty report is the report page's problem.
@@ -58,6 +59,7 @@ class PageTest {
                 .doesNotContain("/booked-trains")
                 .doesNotContain("/booked-hotels")
                 .doesNotContain("/planned-gatherings")
+                .doesNotContain("/planned-private-events")
                 .doesNotContain("/conferences")
                 .doesNotContain("/schedule-problems");
     }

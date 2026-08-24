@@ -380,6 +380,12 @@ public class EventSourcingConfig {
         return bootstrapper.register(new PrivateEventDetailsViewProjector());
     }
 
+    /** The /planned-private-events list's read model: every live event, address included. */
+    @Bean
+    public PlannedPrivateEventsProjector plannedPrivateEventsProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new PlannedPrivateEventsProjector());
+    }
+
     /**
      * No projector dependency, for the same reason as {@link CancelGroundTransfer} below:
      * {@link CancelPrivateEvent} folds its one decision fact from the event stream (R1), not from a

@@ -38,7 +38,7 @@ class TimeFilterToggleConventionTest {
                 .extracting(m -> m.getDeclaringClass().getSimpleName())
                 .contains("BookedTrainsRenderer", "BookedFlightsRenderer",
                         "BookedHotelsRenderer", "PlannedGatheringsRenderer",
-                        "ConferencesRenderer");
+                        "PlannedPrivateEventsRenderer", "ConferencesRenderer");
 
         return renderers.stream().map(renderer -> DynamicTest.dynamicTest(
                 renderer.getDeclaringClass().getSimpleName(),

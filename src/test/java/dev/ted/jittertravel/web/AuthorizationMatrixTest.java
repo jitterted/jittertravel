@@ -109,8 +109,9 @@ class AuthorizationMatrixTest {
                 // Same shape for the transfer's only per-item action: there is no
                 // "/ground-transfers/*" page to fall back on, so this matcher is the whole gate.
                 arguments("/ground-transfers/abc/cancel", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
-                // And again for the private event: no "/planned-private-events/*" page exists yet
-                // either, so this matcher is the whole gate. The evening's title is on that page.
+                // And again for the private event: a single * matches one segment, so the cancel
+                // action needs its own matcher beside the bare list path below. The evening's
+                // title is on that page.
                 arguments("/planned-private-events/abc/cancel", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/conferences", Outcome.OK,      Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/conferences/abc", Outcome.OK,   Outcome.DENIED_HOME,  Outcome.LOGIN),
@@ -127,6 +128,8 @@ class AuthorizationMatrixTest {
                 arguments("/conferences/abc/talk", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/planned-gatherings",   Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/planned-gatherings/abc", Outcome.OK,     Outcome.DENIED_HOME,  Outcome.LOGIN),
+                // The only surface that prints a private event's venue name and street address.
+                arguments("/planned-private-events", Outcome.OK,     Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/schedule-problems",    Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 // The calendar view of the same report is the same route with ?view=calendar, so
                 // the path matcher above already covers it. Asserted anyway: if the two views are

@@ -87,6 +87,17 @@ class PrivateEventCancellationPropagationTest {
     }
 
     @Test
+    void thePlannedPrivateEventsListDropsTheCancelledEvent() {
+        PlannedPrivateEventsProjector projector = new PlannedPrivateEventsProjector();
+
+        projector.handle(planThenCancel());
+
+        assertThat(projector.views(TimeView.ALL, Instant.EPOCH))
+                .as("a list row is the one place a cancelled evening would still offer a Cancel link")
+                .isEmpty();
+    }
+
+    @Test
     void scheduleProblemsStopReportingAClashWithTheCancelledEvent() {
         // A gathering and a private event at the same hour are the same impossibility as two
         // gatherings, so the pair is reported as a conflict. Cancelling the dinner must clear it,

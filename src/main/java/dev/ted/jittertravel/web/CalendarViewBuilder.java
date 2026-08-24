@@ -1,10 +1,6 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.AttendanceCommitment;
-import dev.ted.jittertravel.application.CalendarEntry;
-import dev.ted.jittertravel.application.EntryDetails;
-import dev.ted.jittertravel.application.EntryKind;
-import dev.ted.jittertravel.application.SubtitleLine;
+import dev.ted.jittertravel.application.*;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
 import j2html.tags.specialized.DivTag;
@@ -271,13 +267,14 @@ public class CalendarViewBuilder {
     private static DomContent dayMenu(LocalDate date, String label, String dayNumberClass) {
         String iso = date.toString();
         return DisclosureMenu.render(text(label), dayNumberClass, List.of(
-                DisclosureMenu.item("Open day", "/itinerary?date=" + iso),
+                DisclosureMenu.item("Open itinerary", "/itinerary?date=" + iso),
                 DisclosureMenu.item("Add flight", "/book-flight?date=" + iso),
                 DisclosureMenu.item("Add train", "/book-train?date=" + iso),
                 DisclosureMenu.item("Add hotel", "/book-hotel?date=" + iso),
                 DisclosureMenu.item("Add ground transfer", "/plan-ground-transfer?date=" + iso),
                 DisclosureMenu.item("Add gathering", "/plan-gathering?date=" + iso),
-                DisclosureMenu.item("Add conference", "/plan-conference?date=" + iso)
+                DisclosureMenu.item("Add conference", "/plan-conference?date=" + iso),
+                DisclosureMenu.item("Add private event", "/plan-private-event?date=" + iso)
         ));
     }
 

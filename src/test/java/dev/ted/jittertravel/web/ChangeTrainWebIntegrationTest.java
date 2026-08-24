@@ -7,6 +7,7 @@ import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.TrainNotFound;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 @WithMockUser(roles = "OWNER")
 class ChangeTrainWebIntegrationTest {
 
+    private static final ZoneId LONDON = ZoneId.of("Europe/London");
+
     @Autowired
     private MockMvcTester mockMvc;
 
@@ -56,9 +59,9 @@ class ChangeTrainWebIntegrationTest {
         TrainDetailsView view = new TrainDetailsView(
                 TrainTripId.of(UUID.fromString(tripId)),
                 new TrainStationAddress("London Euston", "London", "UK", ""),
-                LocalDateTime.of(2026, 7, 1, 9, 0),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 9, 0), LONDON),
                 new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", ""),
-                LocalDateTime.of(2026, 7, 1, 13, 0),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 13, 0), LONDON),
                 "LNER - Azuma 1A34");
         given(detailsProjector.findById(any())).willReturn(Optional.of(view));
 

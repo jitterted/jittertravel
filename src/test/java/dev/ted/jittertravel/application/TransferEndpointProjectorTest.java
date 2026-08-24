@@ -13,6 +13,10 @@ import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.domain.Place;
 import dev.ted.jittertravel.domain.StaticAirportCityResolver;
+import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainChanged;
+import dev.ted.jittertravel.domain.TrainStationAddress;
+import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
@@ -37,6 +41,7 @@ class TransferEndpointProjectorTest {
 
     private static final ZoneId DENVER = ZoneId.of("America/Denver");
     private static final HotelBookingId LONE_TREE = HotelBookingId.random();
+    private static final TrainTripId TRIP = TrainTripId.random();
 
     private final TransferEndpointProjector endpoints =
             new TransferEndpointProjector(new StaticAirportCityResolver());
@@ -128,6 +133,121 @@ class TransferEndpointProjectorTest {
                 .singleElement()
                 .extracting(TransferEndpointRow::token, TransferEndpointRow::moment)
                 .containsExactly("airport:JFK", at("2026-09-15 16:30"));
+    }
+
+    /**
+     * The bug this whole read model was built for: a gap that starts or ends at a station used to
+     * have nothing to pick. A train follows the flight rule exactly — you leave from where you
+     * pulled in and travel to where you depart.
+     */
+    @Test
+    void aTrainYieldsAnArrivalRowAndADepartureRowAtTheRightStations() {
+        given(train(TRIP, "Berlin Hbf", "Berlin", "Hamburg Hbf", "Hamburg",
+                "2026-09-16 05:00", "2026-09-16 11:00", "ICE 573"));
+
+        assertThat(endpoints.rowsFor(TransferEnd.TRAIN_ARRIVAL))
+                .singleElement()
+                .extracting(TransferEndpointRow::name, TransferEndpointRow::moment)
+                .as("you leave from the station you pulled into")
+                .containsExactly("Hamburg Hbf", at("2026-09-16 11:00"));
+        assertThat(endpoints.rowsFor(TransferEnd.TRAIN_DEPARTURE))
+                .singleElement()
+                .extracting(TransferEndpointRow::name, TransferEndpointRow::moment)
+                .as("you travel to the station you leave from")
+                .containsExactly("Berlin Hbf", at("2026-09-16 05:00"));
+    }
+
+    /** D7: a trip has two stations, so unlike an airport the end has to be part of the token. */
+    @Test
+    void aTrainsTwoEndsCarryDifferentTokens() {
+        given(train(TRIP, "Berlin Hbf", "Berlin", "Hamburg Hbf", "Hamburg",
+                "2026-09-16 05:00", "2026-09-16 11:00", "ICE 573"));
+
+        assertThat(endpoints.rowsFor(TransferEnd.TRAIN_ARRIVAL))
+                .singleElement()
+                .extracting(TransferEndpointRow::token)
+                .isEqualTo("train:" + TRIP.id() + ":arrival");
+        assertThat(endpoints.rowsFor(TransferEnd.TRAIN_DEPARTURE))
+                .singleElement()
+                .extracting(TransferEndpointRow::token)
+                .isEqualTo("train:" + TRIP.id() + ":departure");
+    }
+
+    /**
+     * A station's place is its <em>city</em>, not the station's own name — the station is a
+     * building, the city is where Ted is. That is what lets a gap saying "Hamburg" find it.
+     */
+    @Test
+    void aStationsPlaceIsItsCityWhileTheLabelKeepsTheStationName() {
+        given(train(TRIP, "Berlin Hbf", "Berlin", "Hamburg Hbf", "Hamburg",
+                "2026-09-16 05:00", "2026-09-16 11:00", "ICE 573"));
+
+        assertThat(endpoints.rowsFor(TransferEnd.TRAIN_ARRIVAL))
+                .singleElement()
+                .extracting(TransferEndpointRow::name, TransferEndpointRow::city,
+                            TransferEndpointRow::place)
+                .containsExactly("Hamburg Hbf", "Hamburg", new Place("Hamburg"));
+    }
+
+    @Test
+    void aTrainCarriesItsServiceIdAsTheLabelsParenthesis() {
+        given(train(TRIP, "Berlin Hbf", "Berlin", "Hamburg Hbf", "Hamburg",
+                "2026-09-16 05:00", "2026-09-16 11:00", "ICE 573"));
+
+        assertThat(endpoints.rowsFor(TransferEnd.TRAIN_ARRIVAL))
+                .singleElement()
+                .extracting(TransferEndpointRow::detail)
+                .isEqualTo("ICE 573");
+    }
+
+    /** Not every trip has one recorded, and the label must not end in an empty bracket. */
+    @Test
+    void aTrainWithNoServiceIdCarriesNoParenthesis() {
+        given(train(TRIP, "Berlin Hbf", "Berlin", "Hamburg Hbf", "Hamburg",
+                "2026-09-16 05:00", "2026-09-16 11:00", ""));
+
+        assertThat(endpoints.rowsFor(TransferEnd.TRAIN_ARRIVAL))
+                .singleElement()
+                .extracting(TransferEndpointRow::detail)
+                .isEqualTo("");
+    }
+
+    @Test
+    void aChangedTrainSupersedesItsOwnRows() {
+        given(train(TRIP, "Berlin Hbf", "Berlin", "Hamburg Hbf", "Hamburg",
+                      "2026-09-16 05:00", "2026-09-16 11:00", "ICE 573"),
+              new TrainChanged(TRIP,
+                      new TrainStationAddress("Berlin Hbf", "Berlin", "DE", ""),
+                      at("2026-09-17 06:00"),
+                      new TrainStationAddress("Köln Hbf", "Cologne", "DE", ""),
+                      at("2026-09-17 10:20"), "ICE 10"));
+
+        assertThat(endpoints.rowsFor(TransferEnd.TRAIN_ARRIVAL))
+                .singleElement()
+                .extracting(TransferEndpointRow::name, TransferEndpointRow::moment,
+                            TransferEndpointRow::detail)
+                .containsExactly("Köln Hbf", at("2026-09-17 10:20"), "ICE 10");
+    }
+
+    /**
+     * D5, and the reason a station never asks the curated table: the zone was resolved once at
+     * booking and rides on the event, so the endpoint cannot disagree with the leg beside it — even
+     * for a trip that has nothing to do with the zone these fixtures otherwise use.
+     */
+    @Test
+    void aStationsMomentKeepsTheZoneItsOwnBookingRecorded() {
+        ZoneId berlin = ZoneId.of("Europe/Berlin");
+        given(new TrainBooked(TRIP,
+                new TrainStationAddress("Berlin Hbf", "Berlin", "DE", ""),
+                ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-16T05:00"), berlin),
+                new TrainStationAddress("Hamburg Hbf", "Hamburg", "DE", ""),
+                ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-16T11:00"), berlin),
+                "ICE 573"));
+
+        assertThat(endpoints.rowsFor(TransferEnd.TRAIN_ARRIVAL))
+                .singleElement()
+                .extracting(row -> row.moment().zone())
+                .isEqualTo(berlin);
     }
 
     @Test
@@ -256,6 +376,16 @@ class TransferEndpointProjectorTest {
                                                String departure, String arrival) {
         return new FlightChanged(flightId, "Airline", "F1",
                 AirportCode.of(from), at(departure), AirportCode.of(to), at(arrival), "rebooked");
+    }
+
+    private static TrainBooked train(TrainTripId tripId,
+                                     String fromStation, String fromCity,
+                                     String toStation, String toCity,
+                                     String departure, String arrival, String serviceId) {
+        return new TrainBooked(tripId,
+                new TrainStationAddress(fromStation, fromCity, "DE", ""), at(departure),
+                new TrainStationAddress(toStation, toCity, "DE", ""), at(arrival),
+                serviceId);
     }
 
     private static HotelBooked bookedHotel(HotelBookingId bookingId, String name, String city,

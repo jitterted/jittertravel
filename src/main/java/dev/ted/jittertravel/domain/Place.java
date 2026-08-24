@@ -36,7 +36,7 @@ package dev.ted.jittertravel.domain;
  * rule that a domain string is never null.
  * <p>
  * <strong>What this deliberately does not do</strong> (D2 of
- * {@code docs/GroundTransferEndpointReadModelPlan.md}): it does not travel any further than the
+ * {@code docs/archived/GroundTransferEndpointReadModelPlan.md}): it does not travel any further than the
  * derivation points. {@code ScheduleProblem}, {@code ScheduleTimeline} and the renderers keep
  * plain strings — threading {@code Place} through them touches a half-dozen more types for no
  * additional guarantee, because the thing that has to agree is *which field* becomes the place,

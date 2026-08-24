@@ -1,7 +1,8 @@
 # Ground Transfer Endpoints — a dedicated read model, and trains as endpoints
 
-Status: `in progress` — designed 2026-08-23. **Slices 1 and 2 shipped 2026-08-23**; slice 3, which
-is the one that fixes the reported bug, is open.
+Status: `done` — designed and shipped 2026-08-23, all three slices. The reported bug is fixed: a
+missing-travel gap that starts or ends at a train station now has the station to pick, and
+preselects it.
 **Prerequisite: done.** `archived/CuratedResolversToDomainPlan.md` shipped 2026-08-23, so
 `AirportCityResolver` is in `domain` and slice 1's `Place` can take one — the airport arm of the
 derivation is written once, inside `Place`, as the slice assumes.
@@ -246,14 +247,57 @@ form's behaviour depending on it:
 | arrival/departure swapped | 12 tests across both tiers |
 | `RowKey` ignoring its `end` | 21 tests across both tiers |
 
-### Slice 3 — trains
+### Slice 3 — trains — `shipped 2026-08-23`
 
-Train arms in the projector; `BookedTrainsProjector.findById`; the `train:` branch in the resolver;
-two new optgroups in `plan-ground-transfer.html` ("Train arrivals" on From, "Train departures" on
-To); hint and "Nothing to travel between yet" copy updated to name trains.
+Train arms in the projector; the `train:` branch in the resolver; two new optgroups in
+`plan-ground-transfer.html`; hint and "Nothing to travel between yet" copy updated to name trains.
+The label mirrors a flight leg — `Hamburg Hbf — Hamburg · arrive Wed Sep 16, 11:00 AM (ICE 573)` —
+with the parenthesis dropped when `serviceId` is blank. **The reported bug is fixed:** a gap ending
+at a station now preselects it.
 
-Label mirrors a flight leg: `Hamburg Hbf — Hamburg · arrive Wed Sep 16, 11:00 AM (ICE 573)`, with
-the parenthesis dropped when `serviceId` is blank.
+**The lookup is `TrainDetailsViewProjector.findById`, not `BookedTrainsProjector.findById`.**
+This plan named the latter; the parenthetical it wrote — "mirroring `HotelDetailsViewProjector`" —
+turned out to name the right one. `TrainDetailsViewProjector` already *had* `findById`, and its view
+already carried the whole `TrainStationAddress`. `BookedTrainView` drops the station's **country**,
+which the public label publishes, so following the letter of the plan would have meant adding two
+undisplayed fields to a list view — the exact pattern slice 2 had just moved away from.
+
+**One thing had to change to satisfy D5: `TrainDetailsView` now keeps its `ZonedTimestamp`s.** It
+used to call `localDateTime()` in the projector and throw the zone away — harmless for the
+`datetime-local` input it feeds, which reads a wall clock and nothing else, but it is *the same loss*
+that makes the hotel path re-derive a zone it already had (see "Not in this plan"). The narrowing
+moved to `ChangeTrainController`, at the point it binds, which is where it belongs. So the station
+branch is the only one of the three that cannot raise `ZoneResolutionException` — it never asks.
+
+**`GroundTransferEndpointChoices` grew to six lists**, and the churn is worth recording: five test
+files construct it positionally, so a second kind meant editing all of them. Two things absorbed
+that — a `nothing()` factory for the three all-empty fixtures (the form already reasons about that
+state), and a `flightsAndStays(...)` helper local to `GroundTransferEndpointChoicesTest`. If a
+*third* kind arrives — conference and gathering venues are the named candidate — reshaping this
+record around `TransferEnd` rather than named accessors is the change to make first; the template
+reads the lists by name, which is the only thing holding the current shape in place.
+
+The exactly-one preselection rule counts **across** kinds, not within one: a station and an airport
+in the same city on the same day are two candidates and the form asks. That is a new way for the
+rule to matter, so it has its own case.
+
+**Redaction (D6), both tiers, and neither rule changed.** A station name reaches
+`GroundTransferPlanned.originName` exactly as a hotel name does, and `publicLabel` has never read the
+name — but a new private value on the event is a new chance to leak it, so the absence is asserted
+rather than assumed. Mutation-verified by pointing the public projector's route at `ownerLabel`:
+`PublicCalendarProjectorTest.aTransferFromATrainStationPublishesTheCityAndNeverTheStationName` and
+`CalendarRedactionSecurityTest.anonymousUserSeesAStationHopWithoutTheStationName` both go red, along
+with the pre-existing hotel case.
+
+**Verified:** 1677 unit + 61 js green on a `clean` run. Five mutations, each caught:
+
+| Mutation | Caught by |
+|---|---|
+| train arrival/departure stations swapped | 3 projector + 2 options + 2 handler tests |
+| a station's `place` ← its name | `aStationsPlaceIsItsCityWhileTheLabelKeepsTheStationName` |
+| resolver reads the wrong end's station | both `PlanGroundTransferHandlerTest` train cases |
+| `origins()` drops `trainArrivals` | `aGapEndingAtATrainStationNowSettlesOnIt` + `aStationAndAnAirportInOneCitySettleNothing` |
+| public route ← `ownerLabel` | both redaction tiers |
 
 ## Tests
 
@@ -281,6 +325,11 @@ the parenthesis dropped when `serviceId` is blank.
 Mutation-verify each new assertion, per standing practice.
 
 ## Not in this plan
+
+**All four are now tracked in `../Cleanup_Tasks.md` (Deferred), each with its trigger** — lifted
+2026-08-23 when this doc was archived, so nothing here is the only record of open work. The fourth,
+reshaping `GroundTransferEndpointChoices` around `TransferEnd`, was not foreseen: it surfaced while
+shipping slice 3, when adding one kind meant editing the record's construction in five test files.
 
 - **The hotel zone divergence.** `GroundTransferEndpointResolver` re-derives a hotel's zone with
   `locationZones.resolve(hotel.address())` at submit time, although `HotelBooked.checkIn()` already

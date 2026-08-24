@@ -18,7 +18,7 @@ class PlanGroundTransferControllerTest {
 
     /** No endpoints offered: these cases are about the defaults, not about preselection. */
     private static final GroundTransferEndpointChoices NO_CHOICES =
-            new GroundTransferEndpointChoices(List.of(), List.of(), List.of(), List.of());
+            GroundTransferEndpointChoices.nothing();
 
     private static final Clock FIXED_CLOCK = Clock.fixed(
             LocalDateTime.of(2026, 5, 31, 10, 0)

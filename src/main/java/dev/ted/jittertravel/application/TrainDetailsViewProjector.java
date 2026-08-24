@@ -4,10 +4,10 @@ import dev.ted.jittertravel.domain.TrainBooked;
 import dev.ted.jittertravel.domain.TrainChanged;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,11 +28,11 @@ public class TrainDetailsViewProjector implements EventStreamConsumer {
         eventStream.forEach(stored -> {
             switch (stored.payload()) {
                 case TrainBooked e -> viewsByTrip.put(e.tripId(), toView(
-                        e.tripId(), e.departureStation(), e.departureDateTime().localDateTime(),
-                        e.arrivalStation(), e.arrivalDateTime().localDateTime(), e.serviceId()));
+                        e.tripId(), e.departureStation(), e.departureDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
                 case TrainChanged e -> viewsByTrip.put(e.tripId(), toView(
-                        e.tripId(), e.departureStation(), e.departureDateTime().localDateTime(),
-                        e.arrivalStation(), e.arrivalDateTime().localDateTime(), e.serviceId()));
+                        e.tripId(), e.departureStation(), e.departureDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
                 default -> { /* not a train event */ }
             }
         });
@@ -40,9 +40,9 @@ public class TrainDetailsViewProjector implements EventStreamConsumer {
 
     private static TrainDetailsView toView(TrainTripId tripId,
                                            TrainStationAddress departureStation,
-                                           LocalDateTime departureDateTime,
+                                           ZonedTimestamp departureDateTime,
                                            TrainStationAddress arrivalStation,
-                                           LocalDateTime arrivalDateTime,
+                                           ZonedTimestamp arrivalDateTime,
                                            String serviceId) {
         return new TrainDetailsView(tripId, departureStation, departureDateTime,
                 arrivalStation, arrivalDateTime, serviceId);

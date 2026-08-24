@@ -250,6 +250,46 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       corrected date, or an `infoUrl` he did not have when he planned it. Cancel-and-re-enter is not
       the workaround it is for a ground transfer, because a conference carries a CFP, a talk
       pipeline and a commitment that would all have to be re-recorded.
+- [ ] **The hotel zone divergence on the transfer submit path.** Lifted from
+      `archived/GroundTransferEndpointReadModelPlan.md` 2026-08-23, which named it and deliberately
+      left it alone. `GroundTransferEndpointResolver.hotelEndpoint` calls
+      `locationZones.resolve(hotel.address())` at submit time although `HotelBooked.checkIn()`
+      already carries the zone resolved at booking: two sources for one fact, and the **only** reason
+      `ZoneResolutionException` is reachable on this path at all. Slice 3 showed what the fixed shape
+      looks like — the `train:` branch reads the zone off the trip's own `ZonedTimestamp` and cannot
+      fail — so this is now the odd one out rather than the norm. Doing it means (a) an audit of the
+      kind `LocationZoneAudit` already models, asserting the two agree for every hotel in the log,
+      then (b) deciding whether `PlanGroundTransferController`'s now-unreachable `catch` and its "fix
+      the hotel's address first" copy get deleted. **Trigger:** a transfer whose hotel end is stamped
+      in a zone that disagrees with the stay beside it, or the next time that `catch` has to be
+      reasoned about. Related: `HotelDetailsView` drops the zone the same way `TrainDetailsView` used
+      to, which is the actual mechanism.
+- [ ] **Conference and gathering venues as ground-transfer endpoints.** Lifted from
+      `archived/GroundTransferEndpointReadModelPlan.md` 2026-08-23. `GroundTransferEndpointChoices`
+      documented the hole as two things — "a train station, a conference venue" — and slice 3 closed
+      the first half only. Same shape as the train work: a `TransferEnd` pair, arms in
+      `TransferEndpointProjector`, a `venue:` branch in the resolver, optgroups. **Do the record
+      reshape first** (below) if this one is taken up. **Trigger:** a missing-travel gap that starts
+      or ends at a venue Ted has to be driven to. A venue name is *public* where a hotel's and a
+      station's are private, so the redaction question is the opposite one and worth asking before
+      building.
+- [ ] **Reshape `GroundTransferEndpointChoices` around `TransferEnd`.** Noticed 2026-08-23 while
+      shipping slice 3: the record is six positional `List`s, and adding trains meant editing its
+      construction in five test files. A `nothing()` factory and a test-local helper absorbed that
+      round, but a third kind would do it again. The only thing holding the current shape is that
+      `plan-ground-transfer.html` reads the lists by name (`endpointChoices.trainArrivals`), so the
+      reshape is a template change too. **Trigger:** the venue item above, or any third endpoint
+      kind — not worth doing for its own sake at two kinds.
+- [ ] **Carry `Place` through `ScheduleProblem` and the renderers.** Lifted from
+      `archived/GroundTransferEndpointReadModelPlan.md` 2026-08-23 (its D2). `MissingTravel.fromCity()`
+      / `toCity()` and `ScheduleTimeline.Movement`/`Stay`/`Occupancy` still hold plain strings, so
+      `GroundTransferEndpointChoices` re-wraps them (`new Place(option.city())`) to compare. D2's
+      reasoning still holds and is why this is deferred rather than open: the thing that had to agree
+      is *which field of which event becomes the place*, and that is now written once, so threading
+      the type deeper touches `ProblemRef`, `ProblemBand`, `ScheduleProblemsRenderer`,
+      `ProblemCalendarViewBuilder` and the itinerary for no additional guarantee. **Trigger:** a
+      second comparison that has to case-fold by hand, or a bug traced to one of those strings being
+      compared with `equals`.
 - [ ] **Ground-transfer endpoint prefill from a fix link.** Lifted from
       `archived/ProblemContextOnFixPagesPlan.md` 2026-08-23, when that doc was archived — it was
       the one piece of future work that doc still named, and nothing else tracked it. Today

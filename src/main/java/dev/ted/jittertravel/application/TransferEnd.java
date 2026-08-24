@@ -11,8 +11,11 @@ package dev.ted.jittertravel.application;
  * <em>out</em> of the projector, since what is still offerable today is not a fact about the event
  * at all.
  * <p>
- * The four values are the four lists in {@link GroundTransferEndpointChoices}, which is what lets
+ * The values are the lists in {@link GroundTransferEndpointChoices}, one apiece, which is what lets
  * the options class group rows without knowing what kind of thing produced them.
+ * <p>
+ * A train's two ends follow the flight rule exactly — you leave from where you pulled in and travel
+ * to where you depart — which is why they share those verbs and not the hotel's.
  * <p>
  * The verb lives here because it is a function of the end and nothing else: every flight arrival
  * says "arrive". Putting it on each row would be the same four strings copied once per booking.
@@ -23,6 +26,10 @@ public enum TransferEnd {
     FLIGHT_ARRIVAL("arrive"),
     /** The airport a flight takes off from — a destination, on the "To" select. */
     FLIGHT_DEPARTURE("depart"),
+    /** The station a train pulled into — an origin, on the same rule as a flight arrival. */
+    TRAIN_ARRIVAL("arrive"),
+    /** The station a train leaves from — a destination, on the same rule as a flight departure. */
+    TRAIN_DEPARTURE("depart"),
     /** A stay being left — an origin, on the "From" select. */
     HOTEL_CHECK_OUT("check out"),
     /** A stay being reached — a destination, on the "To" select. */

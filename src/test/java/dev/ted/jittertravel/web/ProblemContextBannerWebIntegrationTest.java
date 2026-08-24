@@ -73,7 +73,7 @@ class ProblemContextBannerWebIntegrationTest {
         given(clock.getZone()).willReturn(ZoneId.of("UTC"));
         given(groundTransferEndpointOptions.choicesAt(any()))
                 .willReturn(new GroundTransferEndpointChoices(
-                        List.of(), List.of(),
+                        List.of(), List.of(), List.of(), List.of(),
                         List.of(new TransferEndpointOption("hotel:seminarzentrum",
                                 "SeminarZentrum Rückersbach — Johannesberg · check out Sun Sep 13, 11:00 AM",
                                 "Johannesberg", "2026-09-13", "11:00")),

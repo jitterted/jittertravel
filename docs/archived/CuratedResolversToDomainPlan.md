@@ -3,8 +3,8 @@
 Status: `shipped` — designed and built 2026-08-23, archived the same day. The rule below is now a
 standing architecture rule in `CLAUDE.md`, which cites this file for the reasoning; the one tail,
 the `setState` shims, is in `../Cleanup_Tasks.md` (Open).
-Slice 1 of `../GroundTransferEndpointReadModelPlan.md` is now unblocked: a `Place` value in
-`domain` can take an `AirportCityResolver`.
+Slice 1 of `GroundTransferEndpointReadModelPlan.md` is now unblocked: a `Place` value in
+`domain` can take an `AirportCityResolver`. (That plan shipped in full the same day.)
 
 ## The rule this is applying
 

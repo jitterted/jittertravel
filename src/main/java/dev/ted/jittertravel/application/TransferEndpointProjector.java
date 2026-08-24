@@ -10,6 +10,10 @@ import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.domain.Place;
+import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainChanged;
+import dev.ted.jittertravel.domain.TrainStationAddress;
+import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -46,8 +50,12 @@ import java.util.stream.Stream;
  * row carries {@code offeredUntil} so that filter has a moment to read — and a <em>zone</em> to read
  * it in, since an endpoint is judged by its own local day.
  * <p>
- * Both {@code FlightBooked}/{@code FlightChanged} and {@code HotelBooked}/{@code HotelChanged} are
- * full snapshots, so the latest one simply overwrites both of its rows.
+ * Every event here is a full snapshot, so the latest one simply overwrites both of its rows.
+ * <p>
+ * <strong>Trains take their zone from the event</strong> (D5), unlike an airport, whose zone the
+ * write path still looks up. {@code TrainBooked}'s two {@code ZonedTimestamp}s were resolved at
+ * booking time by {@code StationZone}, so reading them back cannot fail and cannot disagree with
+ * the train leg the transfer is being recorded next to.
  */
 public class TransferEndpointProjector implements EventStreamConsumer {
 
@@ -68,6 +76,12 @@ public class TransferEndpointProjector implements EventStreamConsumer {
                 case FlightChanged e -> putFlight(e.flightId(), e.airline(), e.flightNumber(),
                         e.departureAirport(), e.departureDateTime(),
                         e.arrivalAirport(), e.arrivalDateTime());
+                case TrainBooked e -> putTrain(e.tripId(), e.serviceId(),
+                        e.departureStation(), e.departureDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime());
+                case TrainChanged e -> putTrain(e.tripId(), e.serviceId(),
+                        e.departureStation(), e.departureDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime());
                 case HotelBooked e -> putStay(e.hotelBookingId(), e.hotelName(),
                         e.address().city(), Place.of(e.address()), e.checkIn(), e.checkOut());
                 case HotelChanged e -> putStay(e.hotelBookingId(), e.hotelName(),
@@ -113,6 +127,34 @@ public class TransferEndpointProjector implements EventStreamConsumer {
                 moment,
                 moment,
                 detail));
+    }
+
+    private void putTrain(TrainTripId tripId, String serviceId,
+                          TrainStationAddress departure, ZonedTimestamp departsAt,
+                          TrainStationAddress arrival, ZonedTimestamp arrivesAt) {
+        putStation(tripId, TransferEnd.TRAIN_ARRIVAL, arrival, arrivesAt, serviceId);
+        putStation(tripId, TransferEnd.TRAIN_DEPARTURE, departure, departsAt, serviceId);
+    }
+
+    /**
+     * A trip has two stations, so unlike an airport the end has to be in the token (D7):
+     * {@code train:<tripId>:arrival}. The zone rides on the moment, resolved at booking time by
+     * {@code StationZone} — never re-derived from a curated table, so it cannot fail and cannot
+     * disagree with the train leg the transfer is being recorded next to (D5).
+     */
+    private void putStation(TrainTripId tripId, TransferEnd end, TrainStationAddress station,
+                            ZonedTimestamp moment, String serviceId) {
+        put(new RowKey(tripId.id().toString(), end), new TransferEndpointRow(
+                end,
+                GroundTransferEndpointResolver.trainToken(tripId, end),
+                // The station's name is private exactly as a hotel's is; it reaches the label and
+                // the event, never the public calendar. See TransferEndpointLabel.publicLabel.
+                station.name(),
+                station.city(),
+                Place.of(station),
+                moment,
+                moment,
+                serviceId));
     }
 
     private void putStay(HotelBookingId bookingId, String hotelName, String city, Place place,

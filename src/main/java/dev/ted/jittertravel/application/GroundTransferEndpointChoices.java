@@ -24,19 +24,38 @@ import java.util.stream.Stream;
  * each side carries and names its own moment, so choosing one fills the form in the way choosing a
  * flight leg does.
  *
+ * Trains follow the flight rule exactly (2026-08-23): you leave from the station you pulled into and
+ * travel to the one you depart from, so {@link #trainArrivals} sit beside the flight arrivals on
+ * "From" and {@link #trainDepartures} beside the flight departures on "To". They are separate lists
+ * only so the form can label the two optgroups; every rule below treats them as one pool with the
+ * rest.
+ *
  * @param arrivals  flight legs for the "From" select — the airport you landed at
  * @param departures flight legs for the "To" select — the airport you fly out of
+ * @param trainArrivals train legs for the "From" select — the station you pulled into
+ * @param trainDepartures train legs for the "To" select — the station you leave from
  * @param checkOuts hotels for the "From" select, each carrying its check-out
  * @param checkIns  hotels for the "To" select, each carrying its check-in
  */
 public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrivals,
                                             List<TransferEndpointOption> departures,
+                                            List<TransferEndpointOption> trainArrivals,
+                                            List<TransferEndpointOption> trainDepartures,
                                             List<TransferEndpointOption> checkOuts,
                                             List<TransferEndpointOption> checkIns) {
 
+    /**
+     * Nothing recorded to travel between — the state the form says out loud rather than showing two
+     * blank selects. Named because it is a case the form reasons about, and because spelling it as
+     * one empty list per kind means every caller is edited each time a kind is added.
+     */
+    public static GroundTransferEndpointChoices nothing() {
+        return new GroundTransferEndpointChoices(List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of());
+    }
+
     public boolean isEmpty() {
-        return arrivals.isEmpty() && departures.isEmpty()
-               && checkOuts.isEmpty() && checkIns.isEmpty();
+        return origins().isEmpty() && destinations().isEmpty();
     }
 
     /**
@@ -44,12 +63,25 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
      * schedule says Ted is stuck, on a day inside the gap.
      */
     public Optional<TransferEndpointOption> originFor(ScheduleProblem.MissingTravel gap) {
-        return theOnlyCandidate(concat(arrivals, checkOuts), gap.fromCity(), gap);
+        return theOnlyCandidate(origins(), gap.fromCity(), gap);
     }
 
     /** The option this gap has to reach, on the same rule. */
     public Optional<TransferEndpointOption> destinationFor(ScheduleProblem.MissingTravel gap) {
-        return theOnlyCandidate(concat(departures, checkIns), gap.toCity(), gap);
+        return theOnlyCandidate(destinations(), gap.toCity(), gap);
+    }
+
+    /**
+     * Every option the "From" select offers, whatever kind it came from. The exactly-one rule below
+     * counts across all of them on purpose: an airport and a station in the same city on the same
+     * day are two candidates, and the form must ask rather than guess between them.
+     */
+    private List<TransferEndpointOption> origins() {
+        return concat(arrivals, trainArrivals, checkOuts);
+    }
+
+    private List<TransferEndpointOption> destinations() {
+        return concat(departures, trainDepartures, checkIns);
     }
 
     /**
@@ -99,8 +131,8 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
         return moment.localDateTime().toLocalDate();
     }
 
-    private List<TransferEndpointOption> concat(List<TransferEndpointOption> legs,
-                                                List<TransferEndpointOption> stays) {
-        return Stream.concat(legs.stream(), stays.stream()).toList();
+    @SafeVarargs
+    private static List<TransferEndpointOption> concat(List<TransferEndpointOption>... lists) {
+        return Stream.of(lists).flatMap(List::stream).toList();
     }
 }

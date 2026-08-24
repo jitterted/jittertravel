@@ -103,12 +103,14 @@ public class ChangeTrainController {
         request.setDepartureCityName(view.departureStation().city());
         request.setDepartureCountry(view.departureStation().country());
         request.setDepartureMapsUrl(view.departureStation().mapsUrl());
-        request.setDepartureDateTime(view.departureDateTime());
+        // The form is a datetime-local: it reads a wall clock and nothing else, so the zone the view
+        // carries is narrowed away here rather than in the read model.
+        request.setDepartureDateTime(view.departureDateTime().localDateTime());
         request.setArrivalStationName(view.arrivalStation().name());
         request.setArrivalCityName(view.arrivalStation().city());
         request.setArrivalCountry(view.arrivalStation().country());
         request.setArrivalMapsUrl(view.arrivalStation().mapsUrl());
-        request.setArrivalDateTime(view.arrivalDateTime());
+        request.setArrivalDateTime(view.arrivalDateTime().localDateTime());
         return request;
     }
 }

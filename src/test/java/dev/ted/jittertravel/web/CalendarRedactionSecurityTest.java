@@ -373,6 +373,36 @@ class CalendarRedactionSecurityTest {
                 .doesNotContain("2026-09-14T18:45");
     }
 
+    /**
+     * The station half of rule 1, through the real chain. A station name reaches a transfer as of
+     * 2026-08-23 (a {@code train:} endpoint puts "Hamburg Hbf" in {@code originName}), and it is
+     * private for the same reason a hotel name is: it says where Ted physically was. No rule
+     * changed, which is exactly why this is asserted rather than assumed.
+     */
+    @Test
+    void anonymousUserSeesAStationHopWithoutTheStationName() {
+        anonymousSees(transferFromHamburgHbf());
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("🚕 Ground transfer")
+                .contains("Hamburg, DE → Hamburg, DE")
+                .doesNotContain("Hamburg Hbf")
+                .doesNotContain("Reichshof");
+    }
+
+    /** The station-to-hotel hop, whose owner title reads "Hamburg Hbf → Reichshof". */
+    private static GroundTransferPlanned transferFromHamburgHbf() {
+        return new GroundTransferPlanned(GroundTransferId.of(GT_ID),
+                "", "Hamburg Hbf",
+                new Address("", "Hamburg", "", "", "DE", "Hamburg"),
+                "", "Reichshof",
+                new Address("Kirchenallee 34", "Hamburg", "", "20099", "DE", "Hamburg"),
+                ZonedTimestamp.fromLocal(GT_DEPARTS, BERLIN),
+                ZonedTimestamp.fromLocal(GT_ARRIVES, BERLIN));
+    }
+
     /** The airport-to-hotel hop, whose owner title reads "DEN → Marriott Lone Tree". */
     private static GroundTransferPlanned transferToTheMarriott() {
         return new GroundTransferPlanned(GroundTransferId.of(GT_ID),

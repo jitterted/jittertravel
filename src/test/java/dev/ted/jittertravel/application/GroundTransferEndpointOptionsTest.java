@@ -10,6 +10,9 @@ import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.StaticAirportCityResolver;
+import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainStationAddress;
+import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
@@ -271,6 +274,66 @@ class GroundTransferEndpointOptionsTest {
                 .containsExactly("2026-08-30");
     }
 
+    /**
+     * The reported bug, from the form's side: a station is now offered at both ends, and its label
+     * mirrors a flight leg's so the two lists read alike.
+     */
+    @Test
+    void aTrainOffersItsArrivalStationAsAnOriginAndItsDepartureStationAsADestination() {
+        given(train("Berlin Hbf", "Berlin", "Hamburg Hbf", "Hamburg",
+                "2026-09-16 05:00", "2026-09-16 11:00", "ICE 573"));
+
+        GroundTransferEndpointChoices choices = options.choicesAt(NOW);
+
+        assertThat(choices.trainArrivals())
+                .singleElement()
+                .extracting(TransferEndpointOption::label,
+                            TransferEndpointOption::prefillDate,
+                            TransferEndpointOption::prefillTime)
+                .containsExactly("Hamburg Hbf — Hamburg · arrive Wed Sep 16, 11:00 AM (ICE 573)",
+                                 "2026-09-16", "11:00");
+        assertThat(choices.trainDepartures())
+                .singleElement()
+                .extracting(TransferEndpointOption::label)
+                .isEqualTo("Berlin Hbf — Berlin · depart Wed Sep 16, 5:00 AM (ICE 573)");
+    }
+
+    @Test
+    void aTrainWithNoServiceIdIsLabelledWithoutAnEmptyBracket() {
+        given(train("Berlin Hbf", "Berlin", "Hamburg Hbf", "Hamburg",
+                "2026-09-16 05:00", "2026-09-16 11:00", ""));
+
+        assertThat(options.choicesAt(NOW).trainArrivals())
+                .singleElement()
+                .extracting(TransferEndpointOption::label)
+                .isEqualTo("Hamburg Hbf — Hamburg · arrive Wed Sep 16, 11:00 AM");
+    }
+
+    /** Same day rule as a flight: each end is judged on its own moment, in its own zone. */
+    @Test
+    void yesterdaysTrainIsGoneFromBothEnds() {
+        given(train("Berlin Hbf", "Berlin", "Hamburg Hbf", "Hamburg",
+                "2026-08-31 05:00", "2026-08-31 11:00", "ICE 573"));
+
+        GroundTransferEndpointChoices choices = options.choicesAt(NOW);
+
+        assertThat(choices.trainArrivals()).isEmpty();
+        assertThat(choices.trainDepartures()).isEmpty();
+    }
+
+    @Test
+    void aTrainEarlierTodayStillOffersBothOfItsStations() {
+        given(train("Berlin Hbf", "Berlin", "Hamburg Hbf", "Hamburg",
+                "2026-09-01 05:00", "2026-09-01 11:00", "ICE 573"));
+
+        GroundTransferEndpointChoices choices = options.choicesAt(NOW);
+
+        assertThat(choices.trainArrivals())
+                .as("the taxi from the station is normally entered that evening")
+                .hasSize(1);
+        assertThat(choices.trainDepartures()).hasSize(1);
+    }
+
     @Test
     void nothingBookedMeansNothingToOffer() {
         assertThat(options.choicesAt(NOW).isEmpty())
@@ -285,6 +348,15 @@ class GroundTransferEndpointOptionsTest {
     private static FlightBooked flight(String from, String to, String departure, String arrival) {
         return new FlightBooked(FlightId.random(), "Airline", "F1",
                 AirportCode.of(from), at(departure), AirportCode.of(to), at(arrival));
+    }
+
+    private static TrainBooked train(String fromStation, String fromCity,
+                                     String toStation, String toCity,
+                                     String departure, String arrival, String serviceId) {
+        return new TrainBooked(TrainTripId.random(),
+                new TrainStationAddress(fromStation, fromCity, "DE", ""), at(departure),
+                new TrainStationAddress(toStation, toCity, "DE", ""), at(arrival),
+                serviceId);
     }
 
     private static HotelBooked bookedHotel(HotelBookingId bookingId, String name, String city,

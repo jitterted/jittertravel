@@ -65,6 +65,7 @@ class PublicCalendarProjectorTest {
     private static final ZoneId DENVER = ZoneId.of("America/Denver");
     private static final ZoneId LONDON = ZoneId.of("Europe/London");
     private static final ZoneId TORONTO = ZoneId.of("America/Toronto");
+    private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
 
     private final PublicCalendarProjector projector = new PublicCalendarProjector();
 
@@ -218,6 +219,31 @@ class PublicCalendarProjectorTest {
         assertThat(entry.subTitle())
                 .isEqualTo(List.of(new SubtitleLine.Text("Lone Tree, CO, US → DEN")));
         assertThat(entry.toString()).doesNotContain("Marriott Lone Tree");
+    }
+
+    /**
+     * A station name is private exactly as a hotel name is, and as of 2026-08-23 one can reach a
+     * transfer: a station endpoint puts "Hamburg Hbf" in {@code originName}. No redaction rule
+     * changed — {@code publicLabel} has never read the name — but a new private value on the event
+     * is a new chance to leak it, so the absence is asserted rather than assumed.
+     */
+    @Test
+    void aTransferFromATrainStationPublishesTheCityAndNeverTheStationName() {
+        projector.handle(Stream.of(stored(new GroundTransferPlanned(GroundTransferId.random(),
+                "", "Hamburg Hbf",
+                new Address("", "Hamburg", "", "", "DE", "Hamburg"),
+                "", "Reichshof",
+                new Address("Kirchenallee 34", "Hamburg", "", "20099", "DE", "Hamburg"),
+                zoned(LocalDateTime.of(2026, 9, 16, 11, 15), BERLIN),
+                zoned(LocalDateTime.of(2026, 9, 16, 11, 30), BERLIN)))));
+
+        CalendarEntry entry = projector.entries().getFirst();
+        assertThat(entry.subTitle())
+                .isEqualTo(List.of(new SubtitleLine.Text("Hamburg, DE → Hamburg, DE")));
+        assertThat(entry.toString())
+                .as("the station is a building Ted was standing in; the city is all a stranger gets")
+                .doesNotContain("Hamburg Hbf")
+                .doesNotContain("Reichshof");
     }
 
     @Test

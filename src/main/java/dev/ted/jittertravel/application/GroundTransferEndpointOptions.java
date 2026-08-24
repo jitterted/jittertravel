@@ -25,6 +25,14 @@ import java.util.Locale;
  * still {@code airport:<CODE>}: a transfer is between places, not between flights, so nothing about
  * the stored event changes.
  * <p>
+ * <strong>Train legs follow the flight rule exactly</strong> (2026-08-23), which is the bug this
+ * whole read model was built to fix: a gap that starts or ends at a station had nothing to pick, so
+ * the fix link landed on a form that could not express the hop it was clicked to record. Arrival
+ * stations sit on "From", departure stations on "To", and the label mirrors a leg's —
+ * {@code Hamburg Hbf — Hamburg · arrive Wed Sep 16, 11:00 AM (ICE 573)}, with the parenthesis
+ * dropped when no service was recorded. The token carries the end ({@code train:<tripId>:arrival}),
+ * because a trip has two stations where an airport names one place.
+ * <p>
  * <strong>Hotels are split by direction too</strong> (Ted, 2026-08-21), and carry a moment for the
  * same reason: leaving a hotel the moment is its check-out, arriving at one its check-in, and the
  * label names which — {@code Reichshof — Hamburg · check out Wed Sep 16, 11:00 AM}. The date was
@@ -74,6 +82,8 @@ public class GroundTransferEndpointOptions {
         return new GroundTransferEndpointChoices(
                 optionsFor(TransferEnd.FLIGHT_ARRIVAL, now),
                 optionsFor(TransferEnd.FLIGHT_DEPARTURE, now),
+                optionsFor(TransferEnd.TRAIN_ARRIVAL, now),
+                optionsFor(TransferEnd.TRAIN_DEPARTURE, now),
                 optionsFor(TransferEnd.HOTEL_CHECK_OUT, now),
                 optionsFor(TransferEnd.HOTEL_CHECK_IN, now));
     }

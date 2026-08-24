@@ -382,11 +382,13 @@ public class EventSourcingConfig {
     @Bean
     public GroundTransferEndpointResolver groundTransferEndpointResolver(
             HotelDetailsViewProjector hotelDetailsViewProjector,
+            TrainDetailsViewProjector trainDetailsViewProjector,
             AirportCityResolver airportCityResolver,
             AirportZoneResolver airportZoneResolver,
             LocationZoneResolver locationZoneResolver) {
         return new GroundTransferEndpointResolver(hotelDetailsViewProjector,
-                airportCityResolver, airportZoneResolver, locationZoneResolver);
+                trainDetailsViewProjector, airportCityResolver, airportZoneResolver,
+                locationZoneResolver);
     }
 
     /**

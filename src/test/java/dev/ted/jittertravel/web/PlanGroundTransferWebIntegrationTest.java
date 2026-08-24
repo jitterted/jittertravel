@@ -40,6 +40,9 @@ class PlanGroundTransferWebIntegrationTest {
 
     private static final String TRANSFER_ID = "770e8400-e29b-41d4-a716-446655440000";
     private static final String HOTEL_TOKEN = "hotel:99999999-9999-9999-9999-999999999999";
+    private static final String TRIP_ID = "88888888-8888-8888-8888-888888888888";
+    private static final String TRAIN_ARRIVAL_TOKEN = "train:" + TRIP_ID + ":arrival";
+    private static final String TRAIN_DEPARTURE_TOKEN = "train:" + TRIP_ID + ":departure";
 
     @Autowired
     private MockMvcTester mockMvc;
@@ -73,6 +76,12 @@ class PlanGroundTransferWebIntegrationTest {
                 List.of(new TransferEndpointOption("airport:SFO",
                         "SFO — San Francisco · depart Fri Sep 18, 2:00 PM (UA 60)",
                         "San Francisco", "2026-09-18", "14:00")),
+                List.of(new TransferEndpointOption(TRAIN_ARRIVAL_TOKEN,
+                        "Hamburg Hbf — Hamburg · arrive Wed Sep 16, 11:00 AM (ICE 573)",
+                        "Hamburg", "2026-09-16", "11:00")),
+                List.of(new TransferEndpointOption(TRAIN_DEPARTURE_TOKEN,
+                        "Berlin Hbf — Berlin · depart Wed Sep 16, 5:00 AM (ICE 573)",
+                        "Berlin", "2026-09-16", "05:00")),
                 List.of(new TransferEndpointOption(HOTEL_TOKEN,
                         "Marriott Lone Tree — Lone Tree · check out Fri Sep 18, 11:00 AM",
                         "Lone Tree", "2026-09-18", "11:00")),
@@ -142,17 +151,42 @@ class PlanGroundTransferWebIntegrationTest {
                 .contains("<option value=\"" + HOTEL_TOKEN + "\"");
     }
 
+    /**
+     * The reported bug at the surface it was reported on: a station now has an optgroup to appear
+     * in at each end, and its option carries the same prefill contract a flight leg does.
+     */
+    @Test
+    void theSelectsOfferTrainStationsInTheirOwnOptgroups() {
+        assertThat(mockMvc.get().uri("/plan-ground-transfer"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<optgroup label=\"Train arrivals\">")
+                .contains("<optgroup label=\"Train departures\">")
+                .contains("<option value=\"" + TRAIN_ARRIVAL_TOKEN + "\"")
+                .contains("<option value=\"" + TRAIN_DEPARTURE_TOKEN + "\"")
+                .contains("data-date=\"2026-09-16\" data-time=\"11:00\">"
+                          + "Hamburg Hbf — Hamburg · arrive Wed Sep 16, 11:00 AM (ICE 573)</option>");
+    }
+
+    @Test
+    void aTrainStationTokenIsAcceptedAsAnEnd() {
+        assertThat(post(TRAIN_ARRIVAL_TOKEN, HOTEL_TOKEN, "12:00", "12:45"))
+                .hasStatus3xxRedirection();
+    }
+
     @Test
     void withNothingBookedTheFormSaysSoRatherThanOfferingEmptySelects() {
         given(endpointOptions.choicesAt(any()))
-                .willReturn(new GroundTransferEndpointChoices(List.of(), List.of(), List.of(), List.of()));
+                .willReturn(GroundTransferEndpointChoices.nothing());
 
         assertThat(mockMvc.get().uri("/plan-ground-transfer"))
                 .hasStatusOk()
                 .bodyText()
                 .contains("Nothing to travel between yet")
                 .doesNotContain("<optgroup label=\"Flight arrivals\">")
-                .doesNotContain("<optgroup label=\"Flight departures\">");
+                .doesNotContain("<optgroup label=\"Flight departures\">")
+                .doesNotContain("<optgroup label=\"Train arrivals\">")
+                .doesNotContain("<optgroup label=\"Train departures\">");
     }
 
     @Test

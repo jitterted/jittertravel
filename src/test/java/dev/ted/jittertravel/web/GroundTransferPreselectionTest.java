@@ -57,7 +57,8 @@ class GroundTransferPreselectionTest {
         PlanGroundTransferRequest request = formWithDefaults();
 
         preselect(new GroundTransferEndpointChoices(
-                List.of(), List.of(), List.of(SEMINAR_ZENTRUM), List.of())).applyTo(request);
+                List.of(), List.of(), List.of(), List.of(),
+                List.of(SEMINAR_ZENTRUM), List.of())).applyTo(request);
 
         assertThat(request.getOrigin()).isEqualTo("hotel:seminarzentrum");
         assertThat(request.getDestination())
@@ -74,7 +75,8 @@ class GroundTransferPreselectionTest {
         PlanGroundTransferRequest request = formWithDefaults();
 
         preselect(new GroundTransferEndpointChoices(
-                List.of(), List.of(), List.of(), List.of(HOLIDAY_INN))).applyTo(request);
+                List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(HOLIDAY_INN))).applyTo(request);
 
         assertThat(request.getOrigin()).isNull();
         assertThat(request.getDate()).isEqualTo(LocalDate.of(2026, 9, 13));
@@ -94,7 +96,8 @@ class GroundTransferPreselectionTest {
                 "Frankfurt", "2026-09-13", "09:00");
 
         preselect(new GroundTransferEndpointChoices(
-                List.of(), List.of(earlyFlight), List.of(SEMINAR_ZENTRUM), List.of())).applyTo(request);
+                List.of(), List.of(earlyFlight), List.of(), List.of(),
+                List.of(SEMINAR_ZENTRUM), List.of())).applyTo(request);
 
         assertThat(request.getDepartureTime()).isEqualTo(LocalTime.of(11, 0));
         assertThat(request.getArrivalTime())
@@ -108,7 +111,8 @@ class GroundTransferPreselectionTest {
 
     private static GroundTransferEndpointChoices both() {
         return new GroundTransferEndpointChoices(
-                List.of(), List.of(), List.of(SEMINAR_ZENTRUM), List.of(HOLIDAY_INN));
+                List.of(), List.of(), List.of(), List.of(),
+                List.of(SEMINAR_ZENTRUM), List.of(HOLIDAY_INN));
     }
 
     /** The form as the controller hands it over: today's date and its short midday hop. */

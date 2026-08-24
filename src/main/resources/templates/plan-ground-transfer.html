@@ -117,12 +117,12 @@
         A short hop with no booking — the taxi from the airport to the hotel, the subway back. It
         fills a missing-travel gap on Schedule Problems. Anonymous calendar visitors see only
         &ldquo;Ground transfer&rdquo; and the airport code or city at each end &mdash; never a hotel
-        name, an address, or a time.
+        or station name, an address, or a time.
     </p>
 
     <div class="nothing-booked" th:if="${endpointChoices.empty}">
         Nothing to travel between yet. Both ends are picked from places already recorded, so book a
-        flight or a hotel first &mdash; there is no free-text option.
+        flight, a train or a hotel first &mdash; there is no free-text option.
     </div>
 
     <form th:action="@{/plan-ground-transfer}" th:object="${planGroundTransfer}" method="post">
@@ -143,6 +143,12 @@
                                 th:text="${opt.label()}"
                                 th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>
                     </optgroup>
+                    <optgroup label="Train arrivals" th:if="${!endpointChoices.trainArrivals.empty}">
+                        <option th:each="opt : ${endpointChoices.trainArrivals}"
+                                th:value="${opt.token()}"
+                                th:text="${opt.label()}"
+                                th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>
+                    </optgroup>
                     <optgroup label="Hotels" th:if="${!endpointChoices.checkOuts.empty}">
                         <option th:each="opt : ${endpointChoices.checkOuts}"
                                 th:value="${opt.token()}"
@@ -151,7 +157,7 @@
                     </optgroup>
                 </select>
             </label>
-            <span class="hint">Only flights you <em>land</em> on are offered here &mdash; picking one fills in when it gets in, and a hotel fills in its check-out</span>
+            <span class="hint">Only flights and trains you <em>arrive</em> on are offered here &mdash; picking one fills in when it gets in, and a hotel fills in its check-out</span>
             <span class="error"
                   th:if="${#fields.hasErrors('origin')}"
                   th:errors="*{origin}"></span>
@@ -168,6 +174,12 @@
                                 th:text="${opt.label()}"
                                 th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>
                     </optgroup>
+                    <optgroup label="Train departures" th:if="${!endpointChoices.trainDepartures.empty}">
+                        <option th:each="opt : ${endpointChoices.trainDepartures}"
+                                th:value="${opt.token()}"
+                                th:text="${opt.label()}"
+                                th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>
+                    </optgroup>
                     <optgroup label="Hotels" th:if="${!endpointChoices.checkIns.empty}">
                         <option th:each="opt : ${endpointChoices.checkIns}"
                                 th:value="${opt.token()}"
@@ -176,7 +188,7 @@
                     </optgroup>
                 </select>
             </label>
-            <span class="hint">Only flights you <em>leave</em> on are offered here &mdash; picking one fills in when it goes, and a hotel fills in its check-in</span>
+            <span class="hint">Only flights and trains you <em>leave</em> on are offered here &mdash; picking one fills in when it goes, and a hotel fills in its check-in</span>
             <span class="error"
                   th:if="${#fields.hasErrors('destination')}"
                   th:errors="*{destination}"></span>

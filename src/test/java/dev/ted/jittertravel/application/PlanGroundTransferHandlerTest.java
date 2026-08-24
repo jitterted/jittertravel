@@ -10,6 +10,9 @@ import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.PlanGroundTransferCommand;
 import dev.ted.jittertravel.domain.StaticAirportCityResolver;
+import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainStationAddress;
+import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -30,14 +33,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PlanGroundTransferHandlerTest {
 
     private static final ZoneId DENVER = ZoneId.of("America/Denver");
+    private static final ZoneId HAMBURG = ZoneId.of("Europe/Berlin");
     private static final HotelBookingId BOOKING = HotelBookingId.random();
+    private static final TrainTripId TRIP = TrainTripId.random();
     private static final Address HOTEL_ADDRESS = new Address(
             "10345 Park Meadows Dr", "Lone Tree", "CO", "80124", "US", "Lone Tree");
 
     private final HotelDetailsViewProjector hotelDetails = new HotelDetailsViewProjector();
+    private final TrainDetailsViewProjector trainDetails = new TrainDetailsViewProjector();
     private final PlanGroundTransferHandler handler = new PlanGroundTransferHandler(
-            new GroundTransferEndpointResolver(hotelDetails, new StaticAirportCityResolver(),
-                    new AirportZoneResolver(), new LocationZoneResolver()));
+            new GroundTransferEndpointResolver(hotelDetails, trainDetails,
+                    new StaticAirportCityResolver(), new AirportZoneResolver(),
+                    new LocationZoneResolver()));
 
     @Test
     void anAirportTokenResolvesToItsCodeAndItsCityAsTheMatchLocation() {
@@ -116,8 +123,69 @@ class PlanGroundTransferHandlerTest {
                 .isInstanceOf(SameTransferEndpoints.class);
     }
 
+    /**
+     * D5: the station's zone comes from the trip's own {@code ZonedTimestamp}, resolved at booking
+     * by {@code StationZone} — so a Hamburg arrival is stamped Europe/Berlin even though the
+     * curated table is never asked, and it cannot disagree with the train leg beside it.
+     */
+    @Test
+    void aTrainArrivalTokenResolvesToThatStationInTheZoneItsOwnBookingRecorded() {
+        PlanGroundTransferCommand command = handler.handle(
+                request("train:" + TRIP.id() + ":arrival", "airport:DEN", bookedTrain()));
+
+        assertThat(command.originName())
+                .as("a station name is private exactly as a hotel name is, and rides on the event")
+                .isEqualTo("Hamburg Hbf");
+        assertThat(command.originAirportCode())
+                .as("a station end publishes a city, never an airport code")
+                .isEmpty();
+        assertThat(command.origin())
+                .isEqualTo(new Address("", "Hamburg", "", "", "DE", "Hamburg"));
+        assertThat(command.departsAt())
+                .as("stamped in the trip's own zone, which is what makes the lookup unnecessary")
+                .isEqualTo(ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 12, 0), HAMBURG));
+    }
+
+    /** The other end of the same trip, from the same token shape with the other suffix (D7). */
+    @Test
+    void aTrainDepartureTokenResolvesToTheOtherStation() {
+        PlanGroundTransferCommand command = handler.handle(
+                request("airport:DEN", "train:" + TRIP.id() + ":departure", bookedTrain()));
+
+        assertThat(command.destinationName())
+                .isEqualTo("Berlin Hbf");
+        assertThat(command.destination())
+                .isEqualTo(new Address("", "Berlin", "", "", "DE", "Berlin"));
+    }
+
+    @Test
+    void aTrainTokenWithNoEndIsRejected() {
+        assertThatThrownBy(() -> handler.handle(
+                request("train:" + TRIP.id(), "airport:DEN", bookedTrain())))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessageContaining("train:" + TRIP.id());
+    }
+
+    @Test
+    void aMalformedTripIdIsRejected() {
+        assertThatThrownBy(() -> handler.handle(
+                request("train:not-a-uuid:arrival", "airport:DEN", bookedTrain())))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessageContaining("train:not-a-uuid:arrival");
+    }
+
+    @Test
+    void aTripIdThatNoLongerResolvesIsRejected() {
+        assertThatThrownBy(() -> handler.handle(
+                request("train:" + TrainTripId.random().id() + ":arrival", "airport:DEN",
+                        bookedTrain())))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessageContaining("no longer available");
+    }
+
     private PlanGroundTransferRequest request(String origin, String destination, StoredEvent... history) {
         hotelDetails.handle(Stream.of(history));
+        trainDetails.handle(Stream.of(history));
         PlanGroundTransferRequest request = new PlanGroundTransferRequest();
         request.setGroundTransferId(UUID.randomUUID().toString());
         request.setOrigin(origin);
@@ -133,6 +201,15 @@ class PlanGroundTransferHandlerTest {
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 15, 0), DENVER),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 18, 11, 0), DENVER),
                 BookingIntent.FINAL, "", null));
+    }
+
+    private static StoredEvent bookedTrain() {
+        return stored(new TrainBooked(TRIP,
+                new TrainStationAddress("Berlin Hbf", "Berlin", "DE", ""),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 5, 0), HAMBURG),
+                new TrainStationAddress("Hamburg Hbf", "Hamburg", "DE", ""),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 11, 0), HAMBURG),
+                "ICE 573"));
     }
 
     private static StoredEvent stored(Event event) {

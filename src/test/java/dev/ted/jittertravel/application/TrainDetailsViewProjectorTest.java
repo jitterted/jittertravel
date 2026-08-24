@@ -34,9 +34,9 @@ class TrainDetailsViewProjectorTest {
         Optional<TrainDetailsView> view = projector.findById(tripId);
         assertThat(view).isPresent();
         assertThat(view.get().departureStation()).isEqualTo(EUSTON);
-        assertThat(view.get().departureDateTime()).isEqualTo(LocalDateTime.of(2026, 7, 1, 9, 0));
+        assertThat(view.get().departureDateTime()).isEqualTo(zt(LocalDateTime.of(2026, 7, 1, 9, 0)));
         assertThat(view.get().arrivalStation()).isEqualTo(PICCADILLY);
-        assertThat(view.get().arrivalDateTime()).isEqualTo(LocalDateTime.of(2026, 7, 1, 13, 0));
+        assertThat(view.get().arrivalDateTime()).isEqualTo(zt(LocalDateTime.of(2026, 7, 1, 13, 0)));
         assertThat(view.get().serviceId()).isEqualTo("LNER - Azuma 1A34");
     }
 
@@ -54,8 +54,8 @@ class TrainDetailsViewProjectorTest {
         projector.handle(Stream.of(stored(booked), stored(changed)));
 
         TrainDetailsView view = projector.findById(tripId).orElseThrow();
-        assertThat(view.departureDateTime()).isEqualTo(LocalDateTime.of(2026, 7, 5, 11, 0));
-        assertThat(view.arrivalDateTime()).isEqualTo(LocalDateTime.of(2026, 7, 5, 15, 30));
+        assertThat(view.departureDateTime()).isEqualTo(zt(LocalDateTime.of(2026, 7, 5, 11, 0)));
+        assertThat(view.arrivalDateTime()).isEqualTo(zt(LocalDateTime.of(2026, 7, 5, 15, 30)));
         assertThat(view.serviceId()).isEqualTo("Avanti - 9M12");
     }
 

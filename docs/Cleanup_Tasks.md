@@ -56,16 +56,23 @@ for open work.
       `relevantUntil()` earlier, which changes when the problem drops out of the FUTURE filter, so
       it needs a decision about what the gap's *end* means before any code moves. Read D13 and D14
       in the archived plan first — they set the vocabulary this has to fit.
-- [ ] **Change Private Event (the edit flow).** Lifted from `archived/PrivateSocialEventPlan.md`
-      2026-08-21. A private event can be entered but not edited; the parallel is `ChangeGathering`
-      and the archived plan's "Deferred to follow-ups" section names the shape. (The third item on
-      that list, the itinerary entry, **shipped** — `PrivateEventItineraryEntry` is live.)
+- [ ] **Change Private Event (the edit flow) — now owned by `ChangePrivateEventPlan.md`
+      (2026-08-24), not by this list.** It outgrew a cleanup line: the plan puts **Cancel** in
+      front of the edit as slice 1, because a private event has no booking (so the common
+      correction is removing a wrong entry) and a wrong one is a false presence fact in
+      `ScheduleGapProjector` with no way out today. Cancel is linked from the **itinerary**,
+      OWNER-only. Read the plan, not this bullet. Lifted here from
+      `archived/PrivateSocialEventPlan.md` 2026-08-21; the third item on that list, the itinerary
+      entry, **shipped** — `PrivateEventItineraryEntry` is live.
 - [ ] **`/planned-private-events` list view** with the FUTURE/ALL toggle, so the owner sees
       upcoming private events in a list and not only on the calendar. Lifted from
       `archived/PrivateSocialEventPlan.md` 2026-08-21. Follow the shared toggle trio in CLAUDE.md
       (`TemporalView.relevantUntil` → `timeView.includes` → `TimeFilterToggle.render`), which
       `TimeFilterToggleConventionTest` enforces. Needs its own `SecurityConfig` matcher and an
       `AuthorizationMatrixTest` row — it is an OWNER surface, and a new route is public by default.
+      **Stays here, and is not a prerequisite for `ChangePrivateEventPlan.md`**: cancel is reached
+      from the itinerary and edit from the calendar/itinerary pencil, so neither slice waits on a
+      list. That plan's D4 keeps the bare `/planned-private-events` path free for this.
 - [ ] **The private-event nav card still carries a placeholder icon.** From
       `archived/PrivateSocialEventPlan.md`: the Font Awesome Pro icon was left pending Ted's pick.
       Per the standing rule, new nav cards use the fill-based FA Pro SVGs from the travel-icons row.

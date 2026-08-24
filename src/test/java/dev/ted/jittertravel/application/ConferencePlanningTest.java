@@ -6,6 +6,7 @@ import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.DecisionContext;
 import dev.ted.jittertravel.domain.DomainCommand;
 import dev.ted.jittertravel.domain.Event;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import dev.ted.jittertravel.web.PlanConferenceRequest;
 import org.junit.jupiter.api.Test;

@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.ChangeGatheringCommand;
 import dev.ted.jittertravel.domain.ChangeGatheringContext;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.web.ChangeGatheringRequest;
 
 import java.time.Instant;

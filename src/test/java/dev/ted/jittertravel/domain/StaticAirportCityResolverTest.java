@@ -1,4 +1,4 @@
-package dev.ted.jittertravel.application;
+package dev.ted.jittertravel.domain;
 
 import org.junit.jupiter.api.Test;
 

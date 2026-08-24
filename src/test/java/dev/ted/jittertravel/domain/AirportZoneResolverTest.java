@@ -1,6 +1,5 @@
-package dev.ted.jittertravel.application;
+package dev.ted.jittertravel.domain;
 
-import dev.ted.jittertravel.domain.AirportCode;
 import org.junit.jupiter.api.Test;
 
 import java.time.ZoneId;

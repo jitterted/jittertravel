@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.PlanGatheringCommand;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.web.PlanGatheringRequest;

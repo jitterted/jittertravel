@@ -10,6 +10,7 @@ import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.GroundTransferCancelled;
 import dev.ted.jittertravel.domain.GroundTransferId;
 import dev.ted.jittertravel.domain.GroundTransferPlanned;
+import dev.ted.jittertravel.domain.StaticAirportCityResolver;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;

@@ -1,13 +1,13 @@
 package dev.ted.jittertravel.infrastructure;
 
-import dev.ted.jittertravel.application.AirportZoneResolver;
-import dev.ted.jittertravel.application.LocationZoneResolver;
+import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.TrainBooked;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

@@ -1,7 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.PrivateEventPlanning;
-import dev.ted.jittertravel.application.ZoneResolutionException;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

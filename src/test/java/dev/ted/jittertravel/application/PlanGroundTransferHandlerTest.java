@@ -1,12 +1,16 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.PlanGroundTransferCommand;
+import dev.ted.jittertravel.domain.StaticAirportCityResolver;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import dev.ted.jittertravel.web.PlanGroundTransferRequest;

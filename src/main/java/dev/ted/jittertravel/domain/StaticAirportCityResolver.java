@@ -1,4 +1,4 @@
-package dev.ted.jittertravel.application;
+package dev.ted.jittertravel.domain;
 
 import java.util.HashMap;
 import java.util.HashSet;

@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.AirportCode;
+import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.ChangeFlightCommand;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;

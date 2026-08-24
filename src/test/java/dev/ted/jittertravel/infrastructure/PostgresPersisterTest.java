@@ -1,10 +1,10 @@
 package dev.ted.jittertravel.infrastructure;
 
-import dev.ted.jittertravel.application.AirportZoneResolver;
-import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.web.PlanConferenceRequest;
 import org.junit.jupiter.api.Test;

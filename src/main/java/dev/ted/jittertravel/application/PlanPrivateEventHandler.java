@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.PlanPrivateEventCommand;
 import dev.ted.jittertravel.domain.PrivateEventId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;

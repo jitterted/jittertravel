@@ -1,14 +1,14 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ConferencePlanning;
-import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.application.PlanConferenceHandler;
-import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.DateRangeNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.PlanConferenceContext;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.junit.jupiter.api.Test;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;

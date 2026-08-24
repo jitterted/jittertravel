@@ -1,6 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
-import dev.ted.jittertravel.application.LocationZoneResolver;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 

@@ -1,9 +1,13 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.AirportCityResolver;
 import dev.ted.jittertravel.domain.AirportCode;
+import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.InvalidAirportCode;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 
 import java.util.Locale;
 import java.util.UUID;

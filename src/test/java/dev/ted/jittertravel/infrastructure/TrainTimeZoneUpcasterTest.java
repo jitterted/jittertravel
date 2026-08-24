@@ -1,6 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
-import dev.ted.jittertravel.application.LocationZoneResolver;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.TrainBooked;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;

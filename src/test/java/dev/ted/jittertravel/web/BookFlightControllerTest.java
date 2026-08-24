@@ -1,7 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.FlightBooking;
-import dev.ted.jittertravel.application.StaticAirportCityResolver;
+import dev.ted.jittertravel.domain.StaticAirportCityResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.ui.ConcurrentModel;
 import org.springframework.ui.Model;

@@ -1,6 +1,4 @@
-package dev.ted.jittertravel.application;
-
-import dev.ted.jittertravel.domain.Address;
+package dev.ted.jittertravel.domain;
 
 /**
  * Thrown when a time zone cannot be derived from a location (a city/country, an {@link Address}, or

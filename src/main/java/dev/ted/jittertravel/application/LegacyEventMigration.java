@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Event;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.infrastructure.EventPayloadUpcaster;
 import dev.ted.jittertravel.infrastructure.EventTypes;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;

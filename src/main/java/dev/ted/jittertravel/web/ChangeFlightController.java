@@ -4,7 +4,6 @@ import dev.ted.jittertravel.application.ChangeFlight;
 import dev.ted.jittertravel.application.FlightDetailsView;
 import dev.ted.jittertravel.application.FlightDetailsViewProjector;
 import dev.ted.jittertravel.application.ReadOnlyModeException;
-import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.*;
 import dev.ted.jittertravel.infrastructure.AeroDataBoxClient;
 import dev.ted.jittertravel.infrastructure.FlightLookupCandidates;

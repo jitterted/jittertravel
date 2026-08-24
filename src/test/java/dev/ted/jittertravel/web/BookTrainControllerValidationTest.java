@@ -1,11 +1,11 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookTrainHandler;
-import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.application.TrainBooking;
 import dev.ted.jittertravel.domain.BookTrainContext;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;

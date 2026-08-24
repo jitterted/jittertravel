@@ -1,8 +1,8 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.AirportZoneResolver;
 import dev.ted.jittertravel.application.BookFlightHandler;
 import dev.ted.jittertravel.application.FlightBooking;
+import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.BookFlightContext;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidAirportCode;

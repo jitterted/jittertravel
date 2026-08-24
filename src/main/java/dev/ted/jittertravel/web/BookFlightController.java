@@ -2,11 +2,12 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.FlightBooking;
 import dev.ted.jittertravel.application.ReadOnlyModeException;
-import dev.ted.jittertravel.application.ZoneResolutionException;
+import dev.ted.jittertravel.domain.AirportCityResolver;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidAirportCode;
 import dev.ted.jittertravel.domain.InvalidDateRange;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 import dev.ted.jittertravel.infrastructure.AeroDataBoxClient;
 import dev.ted.jittertravel.infrastructure.FlightLookupCandidates;
 import dev.ted.jittertravel.infrastructure.FlightLookupResult;
@@ -20,8 +21,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-
-import dev.ted.jittertravel.application.AirportCityResolver;
 
 import java.time.Clock;
 import java.time.Instant;

@@ -3,6 +3,8 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.application.LocationAuditProjector.AuditedAirport;
 import dev.ted.jittertravel.application.LocationAuditProjector.AuditedLocation;
 import dev.ted.jittertravel.domain.AirportCode;
+import dev.ted.jittertravel.domain.AirportZoneResolver;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.Test;
 

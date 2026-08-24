@@ -3,6 +3,8 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.BookHotelCommand;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ChangeHotelCommand;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 import dev.ted.jittertravel.web.BookHotelRequest;
 import dev.ted.jittertravel.web.ChangeHotelRequest;
 import org.junit.jupiter.api.Test;

@@ -1,8 +1,8 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.AirportCityResolver;
 import dev.ted.jittertravel.application.FlightBooking;
-import dev.ted.jittertravel.application.StaticAirportCityResolver;
+import dev.ted.jittertravel.domain.AirportCityResolver;
+import dev.ted.jittertravel.domain.StaticAirportCityResolver;
 import dev.ted.jittertravel.infrastructure.AeroDataBoxClient;
 import dev.ted.jittertravel.infrastructure.FlightLookupCandidates;
 import dev.ted.jittertravel.infrastructure.FlightLookupResult;

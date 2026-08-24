@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.BookHotelCommand;
 import dev.ted.jittertravel.domain.BookHotelContext;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.web.BookHotelRequest;
 
 import java.time.Instant;

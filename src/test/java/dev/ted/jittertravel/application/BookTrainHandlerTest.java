@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.BookTrainCommand;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 import dev.ted.jittertravel.web.BookTrainRequest;
 import org.junit.jupiter.api.Test;
 

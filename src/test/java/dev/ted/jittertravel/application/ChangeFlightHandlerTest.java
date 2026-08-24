@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.ChangeFlightCommand;
 import dev.ted.jittertravel.web.ChangeFlightRequest;
 import org.junit.jupiter.api.Test;

@@ -1,7 +1,10 @@
 # Curated Resolvers Belong in Domain
 
-Status: `open` — designed 2026-08-23, nothing built.
-**Do this before slice 1 of `GroundTransferEndpointReadModelPlan.md`**, which it simplifies.
+Status: `shipped` — designed and built 2026-08-23, archived the same day. The rule below is now a
+standing architecture rule in `CLAUDE.md`, which cites this file for the reasoning; the one tail,
+the `setState` shims, is in `../Cleanup_Tasks.md` (Open).
+Slice 1 of `../GroundTransferEndpointReadModelPlan.md` is now unblocked: a `Place` value in
+`domain` can take an `AirportCityResolver`.
 
 ## The rule this is applying
 
@@ -44,17 +47,30 @@ cannot take an `AirportCityResolver` that lives in `application`, so the airport
 derivation has to be written outside `Place` — the one kind left deriving in two places, in a plan
 whose whole point is that the derivation is written once.
 
-## What ships
+## What shipped
 
-The four types above move to `dev.ted.jittertravel.domain`. Imports update; nothing else changes.
-`ZoneResolutionException` moves with them — a domain type must not throw an application exception,
-and it is referenced from 22 files, so leaving it behind is the worse of the two sweeps.
+The four types above moved to `dev.ted.jittertravel.domain`. Imports updated across 86 files;
+nothing else changed. `ZoneResolutionException` moved with them — a domain type must not throw an
+application exception, and it is referenced from 22 files, so leaving it behind was the worse of the
+two sweeps.
 
-`CityCountry` stays in `application`: neither resolver uses it (its users are `LocationZoneAudit`,
-`LocationAuditProjector` and `SessionizePrefillService`).
+`CityCountry` stayed in `application`: neither resolver uses it (its users are `LocationZoneAudit`,
+`LocationAuditProjector` and `SessionizePrefillService`), and it names the resolver only in prose.
 
 The Spring `@Bean` methods in `EventSourcingConfig` are unaffected — infrastructure constructing
-domain types is the normal direction.
+domain types is the normal direction. Its `application.*` wildcard no longer covered the four, so
+they are now named imports.
+
+**Three test classes moved with their subjects** — `AirportZoneResolverTest`,
+`LocationZoneResolverTest`, `StaticAirportCityResolverTest` — since a test lives by what it tests,
+not by where its fixtures came from.
+
+**One javadoc claim went stale and was rewritten rather than relinked.** `CfpDeadlineMissing` said
+it "lives beside `ZoneResolutionException`", which was the argument for it being application-layer;
+with the exception in `domain` that sentence would have been false, so it now says it stays put
+rather than moving down with it. The link is spelled fully-qualified, because
+`NoFullyQualifiedClassReferencesTest` skips javadoc continuation lines — so this costs no import that
+only javadoc would use.
 
 ## Two findings from the audit, neither in scope here
 
@@ -223,11 +239,31 @@ that is what produced the measurement.
 - Everything else is the existing suite: a pure package move must leave it green with no edits
   beyond imports.
 
+**What was written, 2026-08-23.** `DomainIsPureTest` (`architecture` package) carries all three
+methods, the id one included: the standing `UUID` exception only reads as an exception next to the
+purity rule it is carved out of, and the assertion it replaces it with belongs in the same file as
+the reason. The id scan turned out to be **stricter than the plan's wording** — it covers all of
+`src/main`, `domain` included — because zero call sites exist there either, so there was no
+exemption to write. Measured: 0 in `src/main`, 407 in tests.
+
+The import check is written as a **whitelist of two prefixes** (`java.`, `dev.ted.jittertravel.domain.`)
+rather than a blacklist of Spring and Jackson. That is what makes it cover the framework, I/O,
+serialization and presentation clauses at once, and it is what makes a *new* dependency — some
+library nobody has thought of — fail on arrival rather than after someone remembers to add it.
+
+**Verified:** 1623 unit (1620 + the 3 new) + 61 js green. All three mutation-verified in one run:
+a Spring import on `AirportCityResolver`, a `Math.random()` field on `StaticAirportCityResolver`, and
+a `FlightId.random()` field on `BookFlightHandler` each failed exactly its own method and no other.
+
 ## Not in this plan
 
 - The `Address` Jackson annotation (finding 1) — **resolved 2026-08-23** by retiring the alias, ahead
-  of the move itself; see above. Nothing left open except the matching `setState` shims on
-  `BookHotelRequest` / `ChangeHotelRequest`.
+  of the move itself; see above. Its one tail, the matching `setState` shims on `BookHotelRequest` /
+  `ChangeHotelRequest`, was **lifted to `Cleanup_Tasks.md` (Open) 2026-08-23** so it stays findable
+  once this doc stops being read.
 - Removing `*Id.random()` (finding 2) — allowed by standing exception, deferred indefinitely.
-- Whether the rule statement above should be promoted into `CLAUDE.md` as a standing architecture
-  rule. It probably should — **ask**.
+- ~~Whether the rule statement above should be promoted into `CLAUDE.md`.~~ **Ted said yes,
+  2026-08-23.** It is now the "What belongs in `domain` — and what a curated table is" section,
+  placed immediately above the presentation rule, which is one of its clauses. Both readings people
+  get wrong (a curated table is data; a seam interface is ports-and-adapters) went with it, because
+  `DomainIsPureTest` says *what* fails and never *why* the line sits where it does.

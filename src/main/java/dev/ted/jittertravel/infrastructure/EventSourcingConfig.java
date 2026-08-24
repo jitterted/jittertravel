@@ -1,6 +1,10 @@
 package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.*;
+import dev.ted.jittertravel.domain.AirportCityResolver;
+import dev.ted.jittertravel.domain.AirportZoneResolver;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
+import dev.ted.jittertravel.domain.StaticAirportCityResolver;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

@@ -2,12 +2,12 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.HotelBooking;
 import dev.ted.jittertravel.application.HotelHandler;
-import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.BookHotelContext;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.CheckInNotInFuture;
 import dev.ted.jittertravel.domain.InvalidCancelByDate;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;

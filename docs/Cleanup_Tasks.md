@@ -220,6 +220,17 @@ for open work.
       sequence of all commands before the page's window rather than starting fresh. Pre-existing
       behaviour, untouched by the newest-first paging fix (`PageWindow`), which only changed
       *which* window is fetched, not how it's scanned.
+- [ ] **Retire the `setState` shims on `BookHotelRequest` / `ChangeHotelRequest`.** Lifted from
+      `archived/CuratedResolversToDomainPlan.md` 2026-08-23, which named it as the one thing left
+      open after the `Address` alias retirement. Both are one line —
+      `public void setState(String state) { this.region = state; }`, commented "backward compat for
+      old exports" (`BookHotelRequest.java:45`, `ChangeHotelRequest.java:46`) — and both exist for
+      the **command-export** format, which today's `BackupService` cannot read at all. The same
+      measurement that retired `Address`'s `@JsonAlias("state")` applies one layer up: no restorable
+      artifact carries the old spelling, and nothing in `src/main`, the templates, or the tests
+      binds `state` on either request. Delete both setters and the `region` field is the only
+      spelling left. **Not to be confused with** `AddressParseService.java:85`, which reads `"state"`
+      out of a *geocoder* response — that is an external wire format we do not control and it stays.
 
 ## Deferred (until needed)
 

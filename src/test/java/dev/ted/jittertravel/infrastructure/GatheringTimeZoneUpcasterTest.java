@@ -1,7 +1,7 @@
 package dev.ted.jittertravel.infrastructure;
 
-import dev.ted.jittertravel.application.LocationZoneResolver;
 import dev.ted.jittertravel.domain.GatheringPlanned;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;

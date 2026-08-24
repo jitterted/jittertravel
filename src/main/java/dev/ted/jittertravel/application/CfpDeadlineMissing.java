@@ -7,7 +7,8 @@ package dev.ted.jittertravel.application;
  * <p>
  * Application-layer rather than domain, and deliberately: the domain never sees this combination,
  * because {@code OpenCfpCommand} cannot be constructed without a deadline. It is a rule about what a
- * form may leave out, so it lives beside {@link ZoneResolutionException}, the other refusal the
+ * form may leave out, so it stays here rather than moving down with
+ * {@link dev.ted.jittertravel.domain.ZoneResolutionException}, the other refusal the
  * plan-conference form re-prompts for.
  * <p>
  * Refusing beats dropping the URL silently: Ted typed it, and a value that vanishes without a word

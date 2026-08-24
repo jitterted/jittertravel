@@ -1,8 +1,9 @@
 # Ground Transfer Endpoints — a dedicated read model, and trains as endpoints
 
 Status: `open` — designed 2026-08-23, nothing built.
-**Prerequisite: `CuratedResolversToDomainPlan.md`** — slice 1 below wants `AirportCityResolver` in
-`domain`, and that move is its own change.
+**Prerequisite: done.** `archived/CuratedResolversToDomainPlan.md` shipped 2026-08-23, so
+`AirportCityResolver` is in `domain` and slice 1's `Place` can take one — the airport arm of the
+derivation is written once, inside `Place`, as the slice assumes.
 
 ## Problem
 

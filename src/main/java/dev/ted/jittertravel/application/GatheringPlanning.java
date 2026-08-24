@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanningContext;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.PlanGatheringCommand;
 import dev.ted.jittertravel.web.ClearDifferentCityConflict;
 import dev.ted.jittertravel.web.PlanGatheringRequest;

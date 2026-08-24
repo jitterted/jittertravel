@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.AirportCityResolver;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.Instant;

@@ -338,6 +338,45 @@ another tab.
 problem calendar's own view types — so it cannot disagree with the band that was clicked. A second
 copy of the phrasing is a second copy to drift.
 
+### What belongs in `domain` — and what a curated table is
+
+A type belongs in `dev.ted.jittertravel.domain` when it states a fact or a rule about travel and
+depends on **none** of the following:
+
+- **I/O or a serialization library** — files, sockets, the database, HTTP, Jackson. Persistence and
+  wire formats live in `infrastructure`.
+- **A framework** — no Spring, no annotations from one.
+- **The clock** — see "Time comes from the injected Clock" above. A decision that depends on *when*
+  it runs receives `now` from the boundary.
+- **Randomness** — no `Random`, no `Math.random()`.
+- **Identifier generation** — ids are minted at the boundary and passed inward, for the same reason
+  as `now`: a value the domain invents is a value a test cannot fix. **Standing exception (Ted,
+  2026-08-23): the seven `*Id.random()` factories stay.** They have zero `src/main` call sites and
+  407 in tests; production already mints at the boundary, so the rule holds where it matters.
+- **Presentation** — no display strings; see the section below.
+
+**Two readings people get wrong, both settled (Ted, 2026-08-23):**
+
+1. **A curated in-memory table is data, not I/O.** `LocationZoneResolver`, `AirportZoneResolver` and
+   `StaticAirportCityResolver` are `Map.ofEntries` literals stating facts about the world — which
+   zone an airport is in, which city a code names. They belong in `domain` and live there.
+2. **An interface kept as a seam for a future non-static lookup is ordinary ports-and-adapters.**
+   The interface is the *domain's*; an I/O-backed implementation, if one ever exists, is the
+   adapter in `infrastructure`. Keeping the interface out of `domain` in anticipation is the
+   mistake, not the caution.
+
+**Why the line is here and not somewhere more permissive:** a package whose every import is `java.*`
+or its own can reach a file, a socket, Spring or Jackson only through a class it cannot name. That
+is one assertion covering the framework, I/O, serialization and presentation clauses at once, and it
+means a dependency nobody has thought of fails on arrival rather than after someone remembers to
+add it to a list.
+
+Enforced by `DomainIsPureTest` (plain source scan, no ArchUnit): the import check is a **whitelist**
+of `java.*` and `dev.ted.jittertravel.domain.*` — never rewrite it as a blacklist of the libraries
+we happen to use today. It also bans randomness in `domain`, and asserts no `*Id.random()` call site
+anywhere in `src/main`. Full reasoning and the audit that produced it:
+`docs/archived/CuratedResolversToDomainPlan.md`.
+
 ### Presentation formatting stays out of the domain
 
 Display strings are presentation, not domain. A domain type (`Address`, `ZonedTimestamp`, an

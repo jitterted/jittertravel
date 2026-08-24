@@ -1,6 +1,4 @@
-package dev.ted.jittertravel.application;
-
-import dev.ted.jittertravel.domain.Address;
+package dev.ted.jittertravel.domain;
 
 import java.time.ZoneId;
 import java.util.HashMap;

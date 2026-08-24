@@ -1,7 +1,7 @@
 package dev.ted.jittertravel.infrastructure;
 
-import dev.ted.jittertravel.application.AirportZoneResolver;
 import dev.ted.jittertravel.domain.AirportCode;
+import dev.ted.jittertravel.domain.AirportZoneResolver;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
@@ -10,7 +10,7 @@ import java.time.ZoneId;
 /**
  * v1→v2 for {@code FlightBooked}/{@code FlightChanged}: departure and arrival resolve independently
  * from their airport codes. This is the one timezone rung wired to the {@link AirportZoneResolver}
- * rather than the {@link dev.ted.jittertravel.application.LocationZoneResolver} — the split that made
+ * rather than the {@link dev.ted.jittertravel.domain.LocationZoneResolver} — the split that made
  * the single all-events upcaster incohesive.
  */
 class FlightTimeZoneUpcaster implements EventUpcaster {

@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceHasNoCfp;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.PlanConferenceCommand;
 import dev.ted.jittertravel.domain.PlanConferenceContext;
 import dev.ted.jittertravel.domain.ZonedTimestamp;

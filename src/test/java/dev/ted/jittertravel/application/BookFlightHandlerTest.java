@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.BookFlightCommand;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 import dev.ted.jittertravel.web.BookFlightRequest;
 import org.junit.jupiter.api.Test;
 

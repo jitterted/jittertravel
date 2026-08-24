@@ -2,6 +2,9 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.application.LocationAuditProjector.AuditedAirport;
 import dev.ted.jittertravel.application.LocationAuditProjector.AuditedLocation;
+import dev.ted.jittertravel.domain.AirportZoneResolver;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 
 import java.time.ZoneId;
 import java.util.ArrayList;

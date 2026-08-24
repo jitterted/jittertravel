@@ -1,11 +1,11 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.HotelBooking;
-import dev.ted.jittertravel.application.ZoneResolutionException;
 import dev.ted.jittertravel.domain.CheckInNotInFuture;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.InvalidCancelByDate;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;

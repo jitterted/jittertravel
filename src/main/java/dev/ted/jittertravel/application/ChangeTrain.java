@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.ChangeTrainCommand;
 import dev.ted.jittertravel.domain.ChangeTrainContext;
+import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.web.ChangeTrainRequest;
 
 import java.time.Instant;

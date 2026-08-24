@@ -31,6 +31,14 @@ public class CalendarRenderer {
                 --calendar-empty-band-min-height: 120px;
                 --entry-conference-bg: #e0e7ff; --entry-conference-fg: #4f46e5;
                 --entry-gathering-bg: #f5f3ff;  --entry-gathering-fg: #7c3aed;
+                /* Periwinkle: hue between the conference's indigo and the gathering's violet, and
+                   lighter than the conference's fill — a deeper tint (#e4e2fd, tried first) read
+                   as a conference at week-grid scale. What separates it from the two neighbours is
+                   the utensils icon on the title, not the fill alone; see kindIcon in
+                   CalendarViewBuilder. That icon is OWNER-side only, but this colour is also what
+                   an anonymous viewer's `Busy` bar wears (EntryDetails.Busy reports PRIVATE_EVENT),
+                   so a future private kind shares this lane rather than earning one of its own. */
+                --entry-private_event-bg: #ece9fe; --entry-private_event-fg: #5b4bd6;
                 --entry-flight-bg: #cfeafd;     --entry-flight-fg: #075985;
                 --entry-train-bg: #ffedd5;      --entry-train-fg: #9a3412;
                 /* Taxi yellow, deliberately distinct from the train's orange: sharing the train
@@ -171,8 +179,17 @@ public class CalendarRenderer {
             .cancel-bin { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
             .cancel-bin:hover { opacity: 1; }
             .cancel-bin svg { width: 12px; height: 12px; }
+            /* Kind glyph before the title. Sized to the title's cap height and inheriting
+               currentColor, so it tints with the lane rather than sitting on it as a second
+               colour. Slightly under full opacity: it marks the lane, it is not the content. */
+            .entry-kind-icon { margin-right: 0.35em; vertical-align: middle; opacity: 0.75; }
+            /* Height only, width auto: the utensils viewBox is 448x512, so forcing a square
+               would squash the fork. Sized in em so it tracks the title, as the pencil does not
+               need to (the pencil is a fixed-size affordance; this is part of the text). */
+            .entry-kind-icon svg { height: 0.95em; width: auto; vertical-align: middle; }
             .entry--conference { background-color: var(--entry-conference-bg); color: var(--entry-conference-fg); }
             .entry--gathering  { background-color: var(--entry-gathering-bg);  color: var(--entry-gathering-fg); }
+            .entry--private_event { background-color: var(--entry-private_event-bg); color: var(--entry-private_event-fg); }
             .entry--flight     { background-color: var(--entry-flight-bg);     color: var(--entry-flight-fg); }
             .entry--train      { background-color: var(--entry-train-bg);      color: var(--entry-train-fg); }
             /* The class name comes from EntryKind.name().toLowerCase(), underscore and all. */

@@ -872,6 +872,75 @@ class CalendarViewBuilderTest {
                 .contains("<div class=\"day-label-cell month-tint-even is-past is-away\"><a href=\"/itinerary?date=2026-06-09\"");
     }
 
+    /**
+     * The private-event lane sits between the conference's indigo and the gathering's violet, and
+     * a fill alone could not tell three neighbouring purples apart at week-grid scale. The glyph
+     * is what separates them, so it is worth pinning that it fronts the title rather than merely
+     * appearing somewhere in the entry.
+     */
+    @Test
+    void privateEventTitleIsFrontedByTheUtensilsGlyph() {
+        CalendarEntry dinner = new CalendarEntry(
+                LocalDateTime.of(2026, 6, 10, 19, 0),
+                LocalDateTime.of(2026, 6, 10, 22, 0),
+                "Dinner with the Smiths",
+                lines("Toronto, CA"),
+                new EntryDetails.PrivateEvent()
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(dinner),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14),
+                TODAY,
+                false
+        );
+
+        assertThat(html)
+                .contains("entry entry--private_event")
+                .as("the glyph opens the title div, ahead of the title's own span")
+                .contains("<div class=\"entry-title\"><span class=\"entry-kind-icon\">")
+                .as("it is the same fork-and-knife the Private event nav card wears")
+                .contains("viewBox=\"0 0 448 512\"")
+                .as("and it tints with the lane rather than carrying the nav card's own fill")
+                .contains("fill=\"currentColor\"")
+                .doesNotContain("fill=\"#6b6860\"");
+    }
+
+    /**
+     * {@link EntryDetails.Busy} is the public face of the very same kind. The glyph would tell an
+     * anonymous viewer the block is a meal — the kind of evening, which CLAUDE.md keeps off the
+     * public calendar. Keyed on the details type, so this holds without the builder ever asking
+     * who is looking. The security-chain half of this claim is in {@code CalendarRedactionSecurityTest}.
+     */
+    @Test
+    void theBusyBarThatHidesAPrivateEventCarriesNoGlyph() {
+        CalendarEntry busy = new CalendarEntry(
+                LocalDateTime.of(2026, 6, 10, 19, 0),
+                LocalDateTime.of(2026, 6, 10, 22, 0),
+                "Busy",
+                lines("Toronto, CA"),
+                new EntryDetails.Busy()
+        );
+
+        String html = CalendarViewBuilder.render(
+                List.of(busy),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14),
+                TODAY,
+                true
+        );
+
+        assertThat(html)
+                .as("it is the same lane, so the fill is shared")
+                .contains("entry entry--private_event")
+                .as("but the title stands alone")
+                .contains("<div class=\"entry-title\"><span>Busy</span>")
+                .doesNotContain("<span class=\"entry-kind-icon\">")
+                .as("nor the glyph's path data by any other route")
+                .doesNotContain("M33.1 0C42");
+    }
+
     private static ZonedTimestamp zoned(LocalDateTime local, String zone) {
         return ZonedTimestamp.fromLocal(local, ZoneId.of(zone));
     }

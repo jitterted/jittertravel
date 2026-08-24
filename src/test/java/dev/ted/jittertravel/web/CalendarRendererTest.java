@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.EntryDetails;
+import dev.ted.jittertravel.application.EntryKind;
 import dev.ted.jittertravel.application.SubtitleLine;
 import dev.ted.jittertravel.application.ZoneDisplay;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,65 @@ class CalendarRendererTest {
                           + "color: var(--entry-ground_transfer-fg); }")
                 .as("a hyphenated spelling would never match the generated class")
                 .doesNotContain(".entry--ground-transfer {");
+    }
+
+    /**
+     * PRIVATE_EVENT shipped with no colour rule at all, so a dinner rendered as black text on no
+     * background while every other kind wore its lane colour — nothing failed, because a missing
+     * rule is silent. Written so that adding a kind does <em>not</em> require editing it: a
+     * per-kind assertion would have to be extended by exactly the change that forgets the rule,
+     * which is the moment it stops guarding.
+     */
+    @Test
+    void everyEntryKindHasALaneColourRuleWiredToItsOwnVariables() {
+        // Rules are column-aligned in the stylesheet, so collapse runs of spaces before matching.
+        String css = CalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false)
+                                     .replaceAll(" +", " ");
+
+        List<String> unstyled = Arrays.stream(EntryKind.values())
+                                      .map(kind -> kind.name().toLowerCase())
+                                      .filter(lane -> !css.contains(
+                                              ".entry--" + lane + " { background-color: var(--entry-" + lane + "-bg);"
+                                              + " color: var(--entry-" + lane + "-fg); }")
+                                                      || !css.contains("--entry-" + lane + "-bg: #"))
+                                      .toList();
+
+        assertThat(unstyled)
+                .as("a kind with no rule, or one naming a variable nothing declares, "
+                    + "falls through to bare .entry: black text on no background")
+                .isEmpty();
+    }
+
+    /**
+     * Periwinkle sits between the conference's indigo and the gathering's violet in hue, and
+     * lighter than the conference's fill — the deeper #e4e2fd tried first read as a conference at
+     * week-grid scale. The fill is not what separates the three; the utensils icon on the title
+     * is (see {@code CalendarViewBuilderTest}). It is also the colour of an anonymous viewer's
+     * {@code Busy} bar, {@code EntryDetails.Busy} reporting PRIVATE_EVENT — so a future private
+     * kind shares this lane rather than earning its own.
+     */
+    @Test
+    void thePrivateEventLaneIsPeriwinkleLighterThanTheConferenceItSatTooCloseTo() {
+        String html = CalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false);
+
+        assertThat(html)
+                .contains("--entry-private_event-bg: #ece9fe; --entry-private_event-fg: #5b4bd6;")
+                .as("the rejected fill survives only as prose in the comment above the variable")
+                .doesNotContain("--entry-private_event-bg: #e4e2fd")
+                .as("the class comes from EntryKind.name().toLowerCase(), underscore and all")
+                .doesNotContain(".entry--private-event {");
+    }
+
+    /**
+     * The utensils viewBox is 448x512. A square rule would squash the fork, and the bug would be
+     * invisible in a renderer test that only asserted the icon was present.
+     */
+    @Test
+    void theKindIconIsSizedByHeightAloneSoItsAspectRatioSurvives() {
+        String html = CalendarRenderer.render(List.of(), LocalDate.of(2026, 6, 11), false);
+
+        assertThat(html)
+                .contains(".entry-kind-icon svg { height: 0.95em; width: auto; vertical-align: middle; }");
     }
 
     @Test

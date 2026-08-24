@@ -41,6 +41,11 @@ public class CalendarViewBuilder {
     // currentColor, so the two read as one family and sit at the same size in the same slot.
     private static final String TRASH_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 6h18\"/><path d=\"M8 6V4h8v2\"/><path d=\"M19 6l-1 14H6L5 6\"/><path d=\"M10 11v6\"/><path d=\"M14 11v6\"/></svg>";
 
+    // The same fork-and-knife that fronts the "Private event" nav card on the home page, so the
+    // lane on the calendar and the way in to creating one wear one glyph. The nav card's copy
+    // hard-codes its fill; here it is currentColor, to tint with the entry's own foreground.
+    private static final String UTENSILS_SVG = "<svg viewBox=\"0 0 448 512\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M33.1 0C42 .7 48.6 8.3 48 17.1L36.9 172.6c-2 27.8 20 51.4 47.9 51.4l54.5 0c27.9 0 49.9-23.6 47.9-51.4L176 17.1C175.4 8.3 182 .7 190.9 0S207.3 6 208 14.9l11.1 155.4c3.3 46.3-33.4 85.7-79.8 85.7l-11.3 0 0 240c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-240-11.3 0c-46.4 0-83.1-39.4-79.8-85.7L16 14.9C16.7 6 24.3-.6 33.1 0zM88.8 0c8.8 .4 15.6 8 15.2 16.8l-8 160c-.4 8.8-8 15.6-16.8 15.2S63.6 184 64 175.2l8-160C72.5 6.4 80-.4 88.8 0zm46.4 0C144-.4 151.5 6.4 152 15.2l8 160c.4 8.8-6.4 16.3-15.2 16.8s-16.3-6.4-16.8-15.2l-8-160C119.6 8 126.4 .5 135.2 0zM288 136C288 60.9 348.9 0 424 0l8 0c8.8 0 16 7.2 16 16l0 480c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-144-64 0c-35.3 0-64-28.7-64-64l0-152zM416 320l0-287.7c-53.7 4.1-96 49-96 103.7l0 152c0 17.7 14.3 32 32 32l64 0z\"/></svg>";
+
     public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd, LocalDate today, boolean isPublicUser) {
         return render(entries, rangeStart, rangeEnd, today, isPublicUser, false);
     }
@@ -316,7 +321,7 @@ public class CalendarViewBuilder {
             DomContent titleText = titleLink != null
                     ? a().with(titleParts).withHref(titleLink).withTarget("_blank").withRel("noopener")
                     : span().with(titleParts);
-            DivTag titleDiv = div().withClass("entry-title").with(titleText);
+            DivTag titleDiv = div().withClass("entry-title").with(kindIcon(entry.details())).with(titleText);
             if (isOwner && !isContinuation) {
                 titleDiv.with(ownerActions(entry.details()));
             }
@@ -408,6 +413,40 @@ public class CalendarViewBuilder {
      * Only the speculative case is marked: "Ted is going" is the default reading of a calendar
      * entry, so a "Going" chip would be noise on every committed conference.
      */
+    /**
+     * The glyph that fronts an entry's title, or nothing. Today only a private event has one: its
+     * lane sits between the conference's indigo and the gathering's violet, and a fill alone was
+     * not enough to tell three neighbouring purples apart at week-grid scale.
+     * <p>
+     * It is deliberately keyed on the <em>details</em> type rather than on {@link EntryKind}:
+     * {@link EntryDetails.Busy} is the public face of the same kind, and a fork and knife on it
+     * would tell an anonymous viewer that the block is a meal — which is the one thing a Busy bar
+     * exists not to say. Per CLAUDE.md the anonymous view of a private event is "Busy, a
+     * zone-labelled time range, and city/country, and nothing else"; the icon would be a fifth
+     * thing. So the audience stays chosen at the boundary and applied inward — this method never
+     * asks who is looking, it just draws the two details types differently.
+     * <p>
+     * Exhaustive rather than defaulted, so a new kind cannot be added without deciding whether it
+     * carries a glyph, and a new <em>public</em> details type cannot be added without deciding
+     * that separately from its owner twin.
+     */
+    private static List<DomContent> kindIcon(EntryDetails details) {
+        return switch (details) {
+            case EntryDetails.PrivateEvent _ ->
+                    List.of(span(rawHtml(UTENSILS_SVG)).withClass("entry-kind-icon"));
+            case EntryDetails.Busy _,
+                 EntryDetails.Conference _,
+                 EntryDetails.PublicConference _,
+                 EntryDetails.Gathering _,
+                 EntryDetails.PublicGathering _,
+                 EntryDetails.Flight _,
+                 EntryDetails.Train _,
+                 EntryDetails.GroundTransfer _,
+                 EntryDetails.Lodging _,
+                 EntryDetails.PublishableTravel _ -> List.of();
+        };
+    }
+
     private static List<DomContent> badges(EntryDetails details) {
         return switch (details) {
             case EntryDetails.Gathering d -> d.speaking()

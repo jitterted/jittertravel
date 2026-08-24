@@ -262,7 +262,9 @@ class CalendarRedactionSecurityTest {
                 .hasStatusOk()
                 .bodyText()
                 .contains("Dinner with the Smiths")
-                .contains("Alo");
+                .contains("Alo")
+                // The utensils glyph fronting the title is the owner's half of the pair below.
+                .contains("<span class=\"entry-kind-icon\">");
     }
 
     @Test
@@ -284,7 +286,13 @@ class CalendarRedactionSecurityTest {
                 // Private: the title and the venue. The public projector never reads either, so
                 // the words cannot appear however the entry is rendered.
                 .doesNotContain("Dinner with the Smiths")
-                .doesNotContain("Alo");
+                .doesNotContain("Alo")
+                // And private for the same reason: a fork and knife says the block is a MEAL,
+                // which is the kind of evening — a fifth thing beyond the four allowed above.
+                // The class rule itself is in every page's stylesheet, so assert on the element
+                // and on the glyph's own path data, never on the bare class name.
+                .doesNotContain("<span class=\"entry-kind-icon\">")
+                .doesNotContain("M33.1 0C42");
     }
 
     private static CalendarEntry privateEvent() {

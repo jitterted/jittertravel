@@ -58,8 +58,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class GoldenEventDeserializationTest {
 
-    private static final JsonMapper MAPPER = JsonMapper.builder()
-            .findAndAddModules()
+    // Built from the production factory and then made stricter, never configured from scratch: a
+    // golden sample must bind through the very mapper that reads event_log, or this test certifies
+    // a configuration production does not use. The one deliberate difference is the strict setting
+    // below, which is what turns a removed or renamed field into a failure.
+    private static final JsonMapper MAPPER = EventJsonMapperFactory.create()
+            .rebuild()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true)
             .build();
 
@@ -116,9 +120,10 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
-    void conferencePlannedLegacyPayloadWithStateFieldDeserializes() {
-        // Legacy events use "state" — @JsonAlias("state") on Address.region reads both old and new shape.
+    void conferencePlannedLegacyPayloadDeserializes() {
         // Missing locationForMatching defaults to city via compact constructor.
+        // This sample carried "state" until 2026-08-23, when that alias was retired: no artifact in
+        // rotation uses the spelling. An address field is "region" everywhere now.
         // Keyed by the retired logical name (renamed to ConferencePlanned 2026-08-19): a stored row
         // carries the name it was written under, so the golden sample keeps it.
         String json = """
@@ -131,7 +136,7 @@ class GoldenEventDeserializationTest {
                   "venueAddress": {
                     "street": "747 Howard St",
                     "city": "San Francisco",
-                    "state": "CA",
+                    "region": "CA",
                     "country": "USA",
                     "postalCode": "94103"
                   }
@@ -630,8 +635,9 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
-    void hotelBookedLegacyPayloadWithStateFieldAndNoLocationForMatchingDeserializes() {
-        // Legacy events use "state" not "region"; locationForMatching absent → defaults to city.
+    void hotelBookedLegacyPayloadWithNoLocationForMatchingDeserializes() {
+        // locationForMatching absent → defaults to city. This sample carried "state" for the region
+        // until 2026-08-23, when that alias was retired — see EventJsonMapperFactoryTest.
         String json = """
                 {
                   "hotelBookingId": {"id": "33333333-3333-3333-3333-333333333333"},
@@ -639,7 +645,7 @@ class GoldenEventDeserializationTest {
                   "address": {
                     "street": "123 Main St",
                     "city": "Springfield",
-                    "state": "IL",
+                    "region": "IL",
                     "postalCode": "62701",
                     "country": "US"
                   },
@@ -652,7 +658,6 @@ class GoldenEventDeserializationTest {
         HotelBooked event = deserialize(json, HotelBooked.class);
 
         assertThat(event.address().region())
-                .as("@JsonAlias maps legacy 'state' field to region")
                 .isEqualTo("IL");
         assertThat(event.address().locationForMatching())
                 .as("locationForMatching absent in legacy JSON defaults to city")

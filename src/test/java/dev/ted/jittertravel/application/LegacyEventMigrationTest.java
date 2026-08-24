@@ -26,14 +26,14 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
     @Autowired LegacyEventMigration migration;
     @Autowired PostgresPersister persister;
 
-    // A legacy HotelBooked: bare-scalar checkIn/checkOut, "state" not "region", no stamp. 2026-06-17
-    // is BST (+01:00) in London, so 15:00 local == 14:00Z after upcast.
+    // A legacy HotelBooked: bare-scalar checkIn/checkOut, no stamp. 2026-06-17 is BST (+01:00) in
+    // London, so 15:00 local == 14:00Z after upcast.
     private static final String LEGACY_HOTEL = """
             {
               "hotelBookingId": {"id": "33333333-3333-3333-3333-333333333333"},
               "hotelName": "Milton Mill House",
               "address": {
-                "street": "Milton Hill", "city": "Steventon", "state": "Oxfordshire",
+                "street": "Milton Hill", "city": "Steventon", "region": "Oxfordshire",
                 "postalCode": "OX13 6AF", "country": "UK", "locationForMatching": "Steventon"
               },
               "checkIn": "2026-06-17T15:00:00",
@@ -48,7 +48,7 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
               "hotelBookingId": {"id": "44444444-4444-4444-4444-444444444444"},
               "hotelName": "Nowhere Inn",
               "address": {
-                "street": "1 Nowhere", "city": "Zzxqville", "state": "",
+                "street": "1 Nowhere", "city": "Zzxqville", "region": "",
                 "postalCode": "00000", "country": "Freedonia", "locationForMatching": "Zzxqville"
               },
               "checkIn": "2026-06-17T15:00:00",

@@ -19,6 +19,51 @@ keeping in mind:
 - The health check (`/actuator/health`, `healthcheckTimeout` 120s in `railway.json`) gates the
   rollout, and `restartPolicyType: ON_FAILURE` retries up to 3 times — a container that can't boot
   (e.g. missing `TED_PASSWORD`) fails the rollout rather than replacing a healthy instance.
+- **Deploys go forward cleanly; they do not come back.** Rolling back to the previous build stops
+  being safe the moment the new one writes something the old one cannot read — most often an event
+  *kind* that didn't exist before, since `EventTypes.classFor` throws `Unknown event type` on a wire
+  id it doesn't know. Note what that does **not** look like: the boot replay catches the failure and
+  flips the app to **read-only with empty projections** rather than failing to start, so the health
+  check passes, the rollout completes, and the only signal is the red read-only banner and a
+  calendar with nothing on it. A `/admin/migrate-legacy-events` run has the same one-way shape — it
+  rewrites stored `type` values to names only the newer build knows, and an alias teaches today's
+  build yesterday's names, never the reverse. **So: if a deploy looks wrong, roll back before
+  entering data of a new kind.** After that, the way back is restoring a backup, not redeploying.
+
+### Before you push
+
+Two gates run **automatically** on `git push`, from the tracked native hook `.githooks/pre-push`
+(wired once per clone with `git config core.hooksPath .githooks`): both test tiers — `./mvnw test`
+**and** `./mvnw test -Pjs-tests`, because the js tier is excluded from the default build and a green
+default build alone has shipped a break before — and a docs-freshness check that a code change is
+accompanied by a `docs/Backlog.md` or `docs/Cleanup_Tasks.md` update (escape hatch:
+`DOCS_OK=1 git push`).
+
+The third gate is **not** automatic, and for an event-sourced app it is the one that matters most:
+replay production's own event log through the build you are about to deploy.
+
+```
+# 1. Download the JSON backup from the running instance: Admin → Backup (/admin/backup)
+# 2. Replay every row of it through this build's read path:
+./mvnw test -Preplay-preflight -Dpreflight.dump=/path/to/jittertravel-backup-production-….json
+```
+
+`BootReplayPreflightTest` restores that backup into a scratch Testcontainer database — whose
+validate pass performs the exact `upcast → classFor → bind` that boot performs, zone resolution
+included — then drives `loadAllEvents()` over the loaded rows. Anything that would abort the boot
+replay fails here instead, with the offending row named by sequence and type.
+
+- It wants the **app's JSON export**, not the `pg_dump` from `scripts/backup-db.sh` — that one is a
+  binary archive this test cannot read.
+- Docker must be running (Testcontainers). With no `-Dpreflight.dump` the test **skips silently**,
+  so a green run proves nothing unless the report reads `Tests run: 1, ... Skipped: 0`.
+- Worth running on any deploy that changes how a stored row is read — an event record, `EventTypes`,
+  the upcaster, a zone resolver — and cheap enough to run on the rest.
+
+**Why it isn't covered by the normal suite:** production's event log is the one dataset that suite
+never sees, and boot replays all of it. A row that no longer binds either fails the boot outright or
+drops the app into read-only mode with empty projections — the 2026-08-16 Morocco/Antwerp failure.
+`/admin/zone-audit` is not a substitute: it is runtime-only, and it went stale.
 
 ## What this app is
 
@@ -53,14 +98,24 @@ Data-entry and admin pages require login; read-only views stay public:
 
 - **OWNER only:** `/admin/**`; `/actuator/**` except `/actuator/health`; the data-entry
   forms `/book-flight*`, `/book-hotel*`, `/book-train*`, `/plan-conference*`,
-  `/plan-gathering*`, `/plan-private-event*`, `/clear-conflict*` and `/api/parse-address`;
+  `/plan-gathering*`, `/plan-private-event*`, `/plan-ground-transfer*` and `/clear-conflict*`,
+  with their fetch endpoints `/api/parse-address` and `/api/sessionize-prefill` (a pasted
+  Sessionize URL says Ted is thinking of submitting there, so who reads one stays owner-only);
   the lists `/booked-flights`, `/booked-trains`, `/booked-hotels`, `/conferences`,
-  `/planned-gatherings` together with their per-item edit/action pages; and
-  `/schedule-problems`.
+  `/planned-gatherings` together with their per-item edit/action pages — including
+  `/booked-hotels/*/cancel`, `/ground-transfers/*/cancel` and the conference actions
+  `/conferences/*/confirm`, `/conferences/*/decline`, `/conferences/*/cfp` and
+  `/conferences/*/talk` (the whole talk-submission pipeline); and `/schedule-problems`.
 - **FAMILY or OWNER:** `/itinerary` and `/itinerary/**`.
 - **Public:** home `/`, `/calendar`, `/login`, `/actuator/health`, the token-gated
   `/calendar/feed/**` (the URL token is the credential, checked in the controller), and
   static assets.
+
+This list is a summary; `SecurityConfig` is the authority, and it ends in
+`.anyRequest().permitAll()` — so a new `@GetMapping` is **public** until a matcher says
+otherwise. A new route is added to `SecurityConfig` and to the `policy()` matrix in
+`AuthorizationMatrixTest` in the same change (see CLAUDE.md, "Every new route is
+deny-by-default too").
 
 Visiting a protected page while logged out redirects to the login form; a **failed login
 returns to the login page with an error** (`/login?error`). The home page hides the "Book & Plan"
@@ -225,11 +280,17 @@ kept as opaque history and never re-executed. Still **not** a substitute for `pg
 
 - After a restore (or a truncate), **restart the app** — the read models are rebuilt by the boot
   replay, not live.
-- Its format is a versioned compatibility contract (`version: 2`); the old command-only export
-  files are no longer restorable.
+- Its format is a versioned compatibility contract. New backups are written at **`version: 3`**
+  (each event carries its own `schemaVersion` stamp); `version: 2` files — taken before the stamp
+  existed — still restore, so older backups aren't orphaned. The long-dead command-only
+  `version: 1` export is no longer restorable.
+- Restore is validate-then-apply: `/admin/restore/validate` runs the checking pass on its own as a
+  dry run, and a real restore writes nothing unless every event binds.
 
-Use `pg_dump` as the real backup; use the JSON backup when you want a readable snapshot or to move
-data into a scratch instance.
+Use `pg_dump` as the real backup; use the JSON backup when you want a readable snapshot, to move
+data into a scratch instance, or to feed the pre-deploy boot-replay preflight
+([Before you push](#before-you-push)) — which is the same restore path, pointed at a throwaway
+database.
 
 ## Quick start
 

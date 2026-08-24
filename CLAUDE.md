@@ -329,6 +329,38 @@ The first thing a marker has to say is "something here is wrong".
 Known violations still open, with the mechanism for each, are listed in `docs/Cleanup_Tasks.md`
 ("Action affordances that still move").
 
+### A recording surface needs no decision-support information
+
+JitterTravel is mostly a **record of things that already happened outside the app** — the ticket was
+bought, the talk was accepted, the hotel was cancelled by phone. That fact sets the past-tense
+labelling rule ("Ticket Bought", not "Buy ticket"), and it also decides **what a page carries at
+all** (Ted, 2026-08-24).
+
+**Before adding a field to a page, ask which kind of page it is:**
+
+- A **recording** surface reports an act already completed. Ted is there *because* the thing is
+  done. It wants **identification** ("which booking is this?") and **consequences** ("what this
+  removes"), and nothing else. Anything that would have helped him *decide or act* is information he
+  needed **one step earlier** — put it on the surface he was standing on then.
+- A **decision-support** surface is where the act is chosen or performed. It carries whatever makes
+  the choice answerable, including context imported from wherever the user came from.
+
+**Worked example, and the reason this is written down.** Booking provenance — which agency holds the
+reservation — was proposed for the cancel-hotel page, on the obvious-looking reasoning that it is
+where you want to know who to phone. Backwards: reaching `/booked-hotels/{id}/cancel` means Ted has
+**already cancelled with the provider** and is recording it. The provider belongs on
+`/booked-hotels`, where he was standing when he decided. See `docs/BookingProvenancePlan.md` D5.
+
+The same reasoning removed the **check-in gate** from Cancel Hotel: telling the app is a separate
+manual step that routinely lags, so "check-in has passed" only ever meant the data entry was late,
+never that the cancellation was wrong (`docs/HotelCancelReplacePlan.md`).
+
+**The next section is this rule pointing the other way, not an exception to it.** A `/book-hotel`
+reached from a problem link *is* a decision-support surface — Ted is there to choose a hotel he has
+not booked — so it gets the whole problem banner, not less context. Recording pages get nothing
+extra; deciding pages get everything that makes the decision answerable. A surface that is neither
+obvious nor clearly one of the two is worth asking about rather than guessing.
+
 ### A fix link carries its problem with it
 
 Every href `ProblemFix` builds ends in `?problem=<key>&from=<origin>`, appended in one place

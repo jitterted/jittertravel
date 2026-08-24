@@ -114,7 +114,9 @@ happened.** He needed the provider *before* he got there, which is exactly where
 `/booked-hotels` column he was looking at when he decided to cancel.
 
 Generalize it, because it decides more than this field: **a recording surface does not need
-decision-support information.** JitterTravel is mostly a record of things that already happened
+decision-support information.** That is now a standing rule in CLAUDE.md ("A recording surface needs
+no decision-support information"), with this field as its worked example. JitterTravel is mostly a
+record of things that already happened
 outside the app, so anything that would have helped Ted *decide or act* belongs on the surface he was
 standing on then, not on the one where he reports the outcome. A recording page wants identification
 (which booking is this?) and consequences (what this removes) — the cancel page's summary card and

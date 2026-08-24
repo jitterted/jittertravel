@@ -197,7 +197,7 @@ class PublicCalendarProjectorTest {
                 "", "Marriott Lone Tree",
                 new Address("6 Sleep St", "Lone Tree", "CO", "80124", "US", null),
                 zoned(LocalDateTime.of(2026, 7, 5, 12, 0), DENVER),
-                zoned(LocalDateTime.of(2026, 7, 5, 12, 45), DENVER)))));
+                zoned(LocalDateTime.of(2026, 7, 5, 12, 45), DENVER), ""))));
 
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.mainTitle()).isEqualTo("🚕 Ground transfer");
@@ -213,12 +213,42 @@ class PublicCalendarProjectorTest {
                 new Address("6 Sleep St", "Lone Tree", "CO", "80124", "US", null),
                 "DEN", "", new Address("", "Denver", "CO", "", "US", null),
                 zoned(LocalDateTime.of(2026, 7, 9, 11, 0), DENVER),
-                zoned(LocalDateTime.of(2026, 7, 9, 11, 45), DENVER)))));
+                zoned(LocalDateTime.of(2026, 7, 9, 11, 45), DENVER), ""))));
 
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.subTitle())
                 .isEqualTo(List.of(new SubtitleLine.Text("Lone Tree, CO, US → DEN")));
         assertThat(entry.toString()).doesNotContain("Marriott Lone Tree");
+    }
+
+    /**
+     * How Ted gets there is his own note, and it stops at the owner's calendar. A line name is a
+     * service identifier — the same thing as a train's {@code serviceId}, which has never been
+     * public — and "Susan is driving me" is a third party who did not ask to be on a public page.
+     * <p>
+     * The route <em>is</em> published as a subtitle, which is what makes this worth pinning: a
+     * transfer is the one travel kind with a public subtitle line, so appending the mode to it
+     * would be a one-line change that looked like an improvement.
+     */
+    @Test
+    void aTransferNeverPublishesHowTedIsGettingThere() {
+        projector.handle(Stream.of(stored(new GroundTransferPlanned(GroundTransferId.random(),
+                "", "Hamburg Hbf",
+                new Address("", "Hamburg", "", "", "DE", "Hamburg"),
+                "", "Reichshof",
+                new Address("Kirchenallee 34", "Hamburg", "", "20099", "DE", "Hamburg"),
+                zoned(LocalDateTime.of(2026, 9, 16, 11, 15), BERLIN),
+                zoned(LocalDateTime.of(2026, 9, 16, 11, 30), BERLIN),
+                "U3 to Mönckebergstraße, then Susan drives"))));
+
+        CalendarEntry entry = projector.entries().getFirst();
+        assertThat(entry.subTitle())
+                .as("the route is the whole of a public transfer's subtitle")
+                .isEqualTo(List.of(new SubtitleLine.Text("Hamburg, DE → Hamburg, DE")));
+        assertThat(entry.toString())
+                .doesNotContain("U3")
+                .doesNotContain("Mönckebergstraße")
+                .doesNotContain("Susan");
     }
 
     /**
@@ -235,7 +265,7 @@ class PublicCalendarProjectorTest {
                 "", "Reichshof",
                 new Address("Kirchenallee 34", "Hamburg", "", "20099", "DE", "Hamburg"),
                 zoned(LocalDateTime.of(2026, 9, 16, 11, 15), BERLIN),
-                zoned(LocalDateTime.of(2026, 9, 16, 11, 30), BERLIN)))));
+                zoned(LocalDateTime.of(2026, 9, 16, 11, 30), BERLIN), ""))));
 
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.subTitle())
@@ -254,7 +284,7 @@ class PublicCalendarProjectorTest {
                 "", "Marriott Lone Tree",
                 new Address("6 Sleep St", "Lone Tree", "CO", "80124", "US", null),
                 zoned(LocalDateTime.of(2026, 7, 5, 12, 0), DENVER),
-                zoned(LocalDateTime.of(2026, 7, 5, 12, 45), DENVER)))));
+                zoned(LocalDateTime.of(2026, 7, 5, 12, 45), DENVER), ""))));
 
         projector.handle(Stream.of(stored(new GroundTransferCancelled(transferId))));
 
@@ -587,7 +617,10 @@ class PublicCalendarProjectorTest {
                         "", "Marriott Lone Tree",
                         new Address("6 Sleep St", "Lone Tree", "CO", "80124", "US", null),
                         zoned(LocalDateTime.of(2026, 7, 5, 12, 0), DENVER),
-                        zoned(LocalDateTime.of(2026, 7, 5, 12, 45), DENVER))));
+                        zoned(LocalDateTime.of(2026, 7, 5, 12, 45), DENVER),
+                        // Every private value the fixture can carry is populated, so the invariant
+                        // runs against an event with something to leak rather than an empty one.
+                        "Hotel shuttle")));
     }
 
     private static StoredEvent stored(Event event) {

@@ -68,6 +68,11 @@ someone remembered to strip it.
 - travel times of day — departure/arrival/check-in/check-out. Anonymous viewers get *day*
   granularity only (the grid column), never a clock time, for flights, trains, and hotels.
 - carrier/service identifiers — flight numbers, train `serviceId`, booking references
+- **how a ground transfer is made** — `GroundTransferPlanned.mode`, free text, added 2026-08-23.
+  A subway line is a service identifier like the two above, and "Susan is driving" is a third
+  party who never asked to be on a public page. This is the one travel kind whose subtitle *is*
+  public (the route), so the leak to watch for is an append to that line rather than a new one:
+  `PublicCalendarProjector` reads the endpoints and never `mode()`.
 - links into owner/family surfaces (`/itinerary`, `/booked-*`, `/planned-*`)
 - the whole `/schedule-problems` report (conflict/gap times, names, internal ids) — OWNER-only
 - everything about a conference *except* the collapsed commitment level and the speaking badge

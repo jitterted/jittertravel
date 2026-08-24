@@ -682,6 +682,10 @@ class ItineraryProjectorTest {
                 .as("a hotel end is named by its hotel — the itinerary is behind auth")
                 .isEqualTo("Marriott Lone Tree");
 
+        assertThat(entry.mode())
+                .as("how the hop is made rides to the card Ted reads mid-trip, in his own words")
+                .isEqualTo("A16 hotel shuttle");
+
         assertThat(entry.anchorTime()).isEqualTo(DATE.atTime(12, 0));
     }
 
@@ -733,7 +737,8 @@ class ItineraryProjectorTest {
                 "DEN", "", new Address("", "Denver", "", "", "", "Denver"),
                 "", "Marriott Lone Tree",
                 new Address("10345 Park Meadows Dr", "Lone Tree", "CO", "80124", "US", "Lone Tree"),
-                ukTime(DATE, LocalTime.of(12, 0)), ukTime(DATE, LocalTime.of(12, 45)));
+                ukTime(DATE, LocalTime.of(12, 0)), ukTime(DATE, LocalTime.of(12, 45)),
+                "A16 hotel shuttle");
     }
 
     private static ZonedTimestamp zt(LocalDateTime local) {

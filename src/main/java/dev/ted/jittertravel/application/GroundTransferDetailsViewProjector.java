@@ -41,7 +41,8 @@ public class GroundTransferDetailsViewProjector implements EventStreamConsumer {
                 label.ownerLabel(e.originAirportCode(), e.originName(), e.origin()),
                 label.ownerLabel(e.destinationAirportCode(), e.destinationName(), e.destination()),
                 e.departsAt().localDateTime(),
-                e.arrivesAt().localDateTime());
+                e.arrivesAt().localDateTime(),
+                e.mode());
     }
 
     public Optional<GroundTransferDetailsView> findById(GroundTransferId id) {

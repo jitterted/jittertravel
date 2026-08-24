@@ -25,7 +25,9 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
@@ -189,10 +191,45 @@ class PlanGroundTransferWebIntegrationTest {
                 .doesNotContain("<optgroup label=\"Train departures\">");
     }
 
+    /**
+     * The one thing on this form Ted types rather than picks. A {@code th:field} that does not
+     * bind fails at render time and nowhere else, which is why it is asserted here rather than in
+     * a renderer test.
+     */
+    @Test
+    void theFormOffersOneFreeTextFieldForHowTheHopIsMade() {
+        assertThat(mockMvc.get().uri("/plan-ground-transfer"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<input type=\"text\" placeholder=\"Piccadilly Line\""
+                          + " id=\"mode\" name=\"mode\" value=\"\"/>")
+                .as("and it says plainly that this one stays behind the login")
+                .contains("it never reaches the public calendar");
+    }
+
     @Test
     void planGroundTransferPostRedirectsToCalendar() {
         assertThat(post("airport:DEN", HOTEL_TOKEN, "12:00", "12:45"))
                 .hasStatus3xxRedirection();
+    }
+
+    /** The typed mode rides the same POST as the rest of the form. */
+    @Test
+    void theTypedModeIsPostedWithTheRestOfTheForm() {
+        assertThat(mockMvc.post().uri("/plan-ground-transfer")
+                .with(csrf())
+                .param("groundTransferId", TRANSFER_ID)
+                .param("origin", "airport:DEN")
+                .param("destination", HOTEL_TOKEN)
+                .param("date", "2026-09-14")
+                .param("departureTime", "12:00")
+                .param("arrivalTime", "12:45")
+                .param("mode", "A16 hotel shuttle")
+                .exchange())
+                .hasStatus3xxRedirection();
+
+        then(groundTransferPlanning).should().planGroundTransfer(argThat(
+                request -> "A16 hotel shuttle".equals(request.getMode())));
     }
 
     @Test

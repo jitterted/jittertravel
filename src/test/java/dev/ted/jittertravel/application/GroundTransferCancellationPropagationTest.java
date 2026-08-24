@@ -120,7 +120,7 @@ class GroundTransferCancellationPropagationTest {
         return new GroundTransferPlanned(transferId,
                 "DEN", "", AIRPORT,
                 "", "Marriott Lone Tree", HOTEL,
-                DEPARTS, ARRIVES);
+                DEPARTS, ARRIVES, "");
     }
 
     private static FlightBooked flightToDenver() {

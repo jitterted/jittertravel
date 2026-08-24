@@ -158,7 +158,7 @@ class CalendarRemovalPropagationTest {
                 "", "Marriott Lone Tree",
                 new Address("6 Sleep St", "Lone Tree", "CO", "80124", "US", null),
                 zoned(LocalDateTime.of(2026, 7, 5, 12, 0), DENVER),
-                zoned(LocalDateTime.of(2026, 7, 5, 12, 45), DENVER));
+                zoned(LocalDateTime.of(2026, 7, 5, 12, 45), DENVER), "");
     }
 
     private static ConferencePlanned conferencePlanned(ConferenceId conferenceId, String name) {

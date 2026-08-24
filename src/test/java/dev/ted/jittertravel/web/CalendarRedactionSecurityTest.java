@@ -400,17 +400,39 @@ class CalendarRedactionSecurityTest {
                 "", "Reichshof",
                 new Address("Kirchenallee 34", "Hamburg", "", "20099", "DE", "Hamburg"),
                 ZonedTimestamp.fromLocal(GT_DEPARTS, BERLIN),
-                ZonedTimestamp.fromLocal(GT_ARRIVES, BERLIN));
+                ZonedTimestamp.fromLocal(GT_ARRIVES, BERLIN), "");
     }
 
-    /** The airport-to-hotel hop, whose owner title reads "DEN → Marriott Lone Tree". */
+    /**
+     * Rule 1 again, for the mode: a line name is a service identifier and a driver is a person, so
+     * neither may reach the one page a stranger can load. The route around it <em>is</em> public,
+     * which is what makes this the interesting case — the mode would leak into a subtitle that
+     * already exists rather than needing a new one.
+     */
+    @Test
+    void anonymousUserSeesATransferWithoutHowTedIsGettingThere() {
+        anonymousSees(transferToTheMarriott());
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("🚕 Ground transfer")
+                .contains("DEN → Lone Tree, CO, US")
+                .doesNotContain("U3 with Susan");
+    }
+
+    /**
+     * The airport-to-hotel hop, whose owner title reads "DEN → Marriott Lone Tree". It carries a
+     * mode so every anonymous assertion above runs against a transfer that has one to leak.
+     */
     private static GroundTransferPlanned transferToTheMarriott() {
         return new GroundTransferPlanned(GroundTransferId.of(GT_ID),
                 "DEN", "", new Address("", "Denver", "CO", "", "US", null),
                 "", "Marriott Lone Tree",
                 new Address("6 Sleep St", "Lone Tree", "CO", "80124", "US", null),
                 ZonedTimestamp.fromLocal(GT_DEPARTS, DENVER),
-                ZonedTimestamp.fromLocal(GT_ARRIVES, DENVER));
+                ZonedTimestamp.fromLocal(GT_ARRIVES, DENVER),
+                "U3 with Susan");
     }
 
     private static CalendarEntry groundTransfer() {

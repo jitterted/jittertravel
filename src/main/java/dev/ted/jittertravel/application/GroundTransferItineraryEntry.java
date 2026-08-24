@@ -15,13 +15,18 @@ import java.time.LocalDateTime;
  * <p>
  * The id rides along for one reason: the card's OWNER-only cancel link. A transfer has no edit page
  * to deep-link into — correcting one means removing it and entering it again.
+ * <p>
+ * {@code mode} is free text as Ted typed it — a subway line, a shuttle, who is driving — and blank
+ * when he recorded none. It is on the itinerary because this is the card read mid-trip, and it is
+ * safe here for the same reason the hotel names above are: the itinerary is behind auth.
  */
 public record GroundTransferItineraryEntry(
         GroundTransferId groundTransferId,
         String origin,
         String destination,
         ZonedTimestamp departsAt,
-        ZonedTimestamp arrivesAt
+        ZonedTimestamp arrivesAt,
+        String mode
 ) implements ItineraryEntry {
     @Override public EntryKind kind() { return EntryKind.GROUND_TRANSFER; }
     @Override public LocalDateTime anchorTime() { return departsAt.localDateTime(); }

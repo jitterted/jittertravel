@@ -68,6 +68,9 @@
             &rarr;
             <span th:text="${#temporals.format(transfer.arrivesAt(), 'h:mm a')}">time</span>
         </div>
+        <!-- Only when one was recorded. It is here because two hops along the same route on the
+             same day read identically without it, and cancelling the wrong one is not undoable. -->
+        <div class="line" th:if="${!transfer.mode().isBlank()}" th:text="${transfer.mode()}">mode</div>
     </div>
 
     <p class="warning">

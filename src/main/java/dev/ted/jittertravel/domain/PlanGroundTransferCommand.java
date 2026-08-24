@@ -11,7 +11,8 @@ public record PlanGroundTransferCommand(
         String destinationName,
         Address destination,
         ZonedTimestamp departsAt,
-        ZonedTimestamp arrivesAt
+        ZonedTimestamp arrivesAt,
+        String mode
 ) implements DomainCommand<PlanGroundTransferContext> {
 
     @Override
@@ -27,6 +28,6 @@ public record PlanGroundTransferCommand(
                 groundTransferId,
                 originAirportCode, originName, origin,
                 destinationAirportCode, destinationName, destination,
-                departsAt, arrivesAt));
+                departsAt, arrivesAt, mode));
     }
 }

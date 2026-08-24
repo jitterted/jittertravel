@@ -17,6 +17,14 @@ package dev.ted.jittertravel.domain;
  * <p>
  * Both {@link Address}es are <strong>snapshots</strong>, copied at submit time: changing the hotel
  * later must not silently rewrite a transfer already recorded.
+ * <p>
+ * <strong>{@code mode} is free text, and it is private.</strong> How the hop is made has no closed
+ * set of values — a subway line, a hotel shuttle, a friend's car, on foot — so an enum would end in
+ * an {@code OTHER} plus this same field. It does <em>not</em> reopen D12 (no free-text endpoints):
+ * an endpoint has to resolve to an address and a zone, whereas the mode resolves to nothing and
+ * nothing branches on it. Blank means "not recorded". It never reaches the anonymous calendar:
+ * a line name is a service identifier, like a train's {@code serviceId}, and "Susan is driving" is
+ * a third party — {@code PublicCalendarProjector} does not read this field.
  */
 public record GroundTransferPlanned(
         GroundTransferId groundTransferId,
@@ -27,13 +35,17 @@ public record GroundTransferPlanned(
         String destinationName,
         Address destination,
         ZonedTimestamp departsAt,
-        ZonedTimestamp arrivesAt
+        ZonedTimestamp arrivesAt,
+        String mode
 ) implements Event {
     public GroundTransferPlanned {
         originAirportCode = blankWhenNull(originAirportCode);
         originName = blankWhenNull(originName);
         destinationAirportCode = blankWhenNull(destinationAirportCode);
         destinationName = blankWhenNull(destinationName);
+        // Null only ever arrives from a stored payload written before the field existed, which is
+        // an unrecorded mode. Trimming what Ted types is the boundary's job, not this one's.
+        mode = blankWhenNull(mode);
     }
 
     private static String blankWhenNull(String value) {

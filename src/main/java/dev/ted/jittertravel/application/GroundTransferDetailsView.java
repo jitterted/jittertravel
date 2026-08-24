@@ -14,12 +14,17 @@ import java.time.LocalDateTime;
  * <p>
  * Times are the transfer-zone wall-clock (both ends share one zone), which is what the traveller
  * would read off a clock at either end.
+ * <p>
+ * {@code mode} is here because cancelling cannot be undone: two hops along the same route on the
+ * same day are otherwise the same sentence, and "the 8:10 shuttle" is what tells them apart. Blank
+ * when none was recorded.
  */
 public record GroundTransferDetailsView(
         GroundTransferId groundTransferId,
         String origin,
         String destination,
         LocalDateTime departsAt,
-        LocalDateTime arrivesAt
+        LocalDateTime arrivesAt,
+        String mode
 ) {
 }

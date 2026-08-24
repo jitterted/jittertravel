@@ -76,6 +76,39 @@ class PlanGroundTransferHandlerTest {
                 .isEqualTo("Lone Tree");
     }
 
+    /** The one field on this form Ted types rather than picks — it reaches the command in his words. */
+    @Test
+    void theTypedModeReachesTheCommandInTedsOwnWords() {
+        assertThat(handler.handle(requestWithMode("A16 hotel shuttle")).mode())
+                .isEqualTo("A16 hotel shuttle");
+    }
+
+    /**
+     * Both ways of not recording one — the untouched input the browser posts back as "", and the
+     * null a caller may leave — settle here into a single absent value, so no reader downstream
+     * has to know there were two.
+     */
+    @Test
+    void aModeOfWhitespaceOrNothingAtAllArrivesAsTheAbsentSentinel() {
+        assertThat(handler.handle(requestWithMode("   ")).mode())
+                .isEmpty();
+        assertThat(handler.handle(requestWithMode(null)).mode())
+                .as("nothing typed at all is the same absence as whitespace")
+                .isEmpty();
+    }
+
+    @Test
+    void aModeKeepsItsOwnWordsButLosesTheSpaceAroundThem() {
+        assertThat(handler.handle(requestWithMode("  U3, then Susan drives  ")).mode())
+                .isEqualTo("U3, then Susan drives");
+    }
+
+    private PlanGroundTransferRequest requestWithMode(String mode) {
+        PlanGroundTransferRequest request = request("airport:DEN", "hotel:" + BOOKING.id(), bookedHotel());
+        request.setMode(mode);
+        return request;
+    }
+
     @Test
     void bothTimestampsTakeTheOriginsZone() {
         PlanGroundTransferCommand command = handler.handle(

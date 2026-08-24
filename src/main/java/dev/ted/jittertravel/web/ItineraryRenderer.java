@@ -380,7 +380,7 @@ public class ItineraryRenderer {
             title.with(cancelBin("/ground-transfers/" + e.groundTransferId().id() + "/cancel",
                     "Cancel ground transfer"));
         }
-        return div().withClass("entry-card entry-card--ground-transfer").with(
+        DivTag card = div().withClass("entry-card entry-card--ground-transfer").with(
                 div().withClass("entry-header").with(
                         rawHtml(TRANSFER_SVG),
                         span("Ground transfer").withClass("entry-kind entry-kind--ground-transfer")
@@ -392,6 +392,12 @@ public class ItineraryRenderer {
                         ZonedTimeTag.render(e.arrivesAt(), TIME_FORMAT)
                 )
         );
+        // Only when Ted recorded one: an empty line under the times would be a card that says less
+        // in more space. The itinerary is OWNER/FAMILY only, so the mode is safe in full here.
+        if (!e.mode().isBlank()) {
+            card.with(div(e.mode()).withClass("entry-detail"));
+        }
+        return card;
     }
 
     private static DivTag renderPrivateEvent(PrivateEventItineraryEntry e) {

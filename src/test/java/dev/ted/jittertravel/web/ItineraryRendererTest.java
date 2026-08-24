@@ -735,6 +735,23 @@ class ItineraryRendererTest {
                 .contains("<time datetime=\"2026-06-01T11:45:00Z\" data-fmt=\"h:mm a\">12:45 PM</time>");
     }
 
+    @Test
+    void groundTransferShowsHowTheHopIsMadeWhenOneWasRecorded() {
+        String html = renderWithEntry(groundTransfer("A16 hotel shuttle"));
+
+        assertThat(html)
+                .contains("<div class=\"entry-detail\">A16 hotel shuttle</div>");
+    }
+
+    /** A transfer with no mode reads exactly as it did before the field existed. */
+    @Test
+    void groundTransferWithNoModeCarriesNoEmptyLineWhereOneWouldGo() {
+        String html = renderWithEntry(groundTransfer());
+
+        assertThat(html)
+                .doesNotContain("<div class=\"entry-detail\"></div>");
+    }
+
     // --- Helpers ---
 
     private static String renderEmpty() {
@@ -839,9 +856,14 @@ class ItineraryRendererTest {
             GroundTransferId.of(UUID.fromString("11111111-2222-3333-4444-555555555555"));
 
     private static GroundTransferItineraryEntry groundTransfer() {
+        return groundTransfer("");
+    }
+
+    private static GroundTransferItineraryEntry groundTransfer(String mode) {
         return new GroundTransferItineraryEntry(TRANSFER_ID, "DEN", "Marriott Lone Tree",
                 zoned(JUN_1.atTime(LocalTime.of(12, 0)), LONDON),
-                zoned(JUN_1.atTime(LocalTime.of(12, 45)), LONDON));
+                zoned(JUN_1.atTime(LocalTime.of(12, 45)), LONDON),
+                mode);
     }
 
     private static ZonedTimestamp zoned(LocalDateTime local, ZoneId zone) {

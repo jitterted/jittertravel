@@ -26,7 +26,8 @@ class PlanGroundTransferCommandTest {
                 GroundTransferId.random(),
                 "DEN", "", AIRPORT,
                 "", "Marriott Lone Tree", HOTEL,
-                denverTime(TODAY, DEPARTS), denverTime(TODAY, ARRIVES));
+                denverTime(TODAY, DEPARTS), denverTime(TODAY, ARRIVES),
+                "A16 hotel shuttle");
 
         List<GroundTransferPlanned> events = command.execute(new PlanGroundTransferContext()).toList();
 
@@ -51,6 +52,24 @@ class PlanGroundTransferCommandTest {
                 .isEqualTo(denverTime(TODAY, DEPARTS));
         assertThat(event.arrivesAt())
                 .isEqualTo(denverTime(TODAY, ARRIVES));
+        assertThat(event.mode())
+                .isEqualTo("A16 hotel shuttle");
+    }
+
+    /**
+     * A transfer recorded before the mode field existed replays with no mode — not a null, which
+     * would put a null String in the domain for every reader downstream to check for.
+     */
+    @Test
+    void aTransferPlannedWithoutAModeCarriesTheAbsentSentinelNotNull() {
+        PlanGroundTransferCommand command = new PlanGroundTransferCommand(
+                GroundTransferId.random(),
+                "DEN", "", AIRPORT,
+                "", "Marriott Lone Tree", HOTEL,
+                denverTime(TODAY, DEPARTS), denverTime(TODAY, ARRIVES), null);
+
+        assertThat(command.execute(new PlanGroundTransferContext()).toList().getFirst().mode())
+                .isEmpty();
     }
 
     /**
@@ -107,6 +126,6 @@ class PlanGroundTransferCommandTest {
                 GroundTransferId.random(),
                 "DEN", "", AIRPORT,
                 "", "Marriott Lone Tree", HOTEL,
-                departsAt, arrivesAt);
+                departsAt, arrivesAt, "");
     }
 }

@@ -36,6 +36,7 @@
 
         .field input[type=date],
         .field input[type=time],
+        .field input[type=text],
         .field select {
             padding: 0.3rem 0.5rem;
             border: 1px solid var(--border-color);
@@ -117,7 +118,7 @@
         A short hop with no booking — the taxi from the airport to the hotel, the subway back. It
         fills a missing-travel gap on Schedule Problems. Anonymous calendar visitors see only
         &ldquo;Ground transfer&rdquo; and the airport code or city at each end &mdash; never a hotel
-        or station name, an address, or a time.
+        or station name, an address, a time, or how you are getting there.
     </p>
 
     <div class="nothing-booked" th:if="${endpointChoices.empty}">
@@ -192,6 +193,15 @@
             <span class="error"
                   th:if="${#fields.hasErrors('destination')}"
                   th:errors="*{destination}"></span>
+        </div>
+
+        <div class="field">
+            <label>
+                Mode
+                <input type="text" th:field="*{mode}" placeholder="Piccadilly Line"/>
+            </label>
+            <span class="hint">Optional, and just for you &mdash; a subway line, a hotel shuttle,
+                who is driving. Owner and family only; it never reaches the public calendar</span>
         </div>
 
         <div class="field-row">

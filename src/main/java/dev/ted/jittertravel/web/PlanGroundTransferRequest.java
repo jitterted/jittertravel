@@ -16,11 +16,16 @@ import java.time.LocalTime;
  * <p>
  * One date and two times: a transfer that crosses midnight, like one that crosses a zone boundary,
  * is out of scope for this slice.
+ * <p>
+ * {@code mode} is the one free-text field, and it is optional — see
+ * {@code GroundTransferPlanned} for why it is text rather than a choice, and why it is not a
+ * reopening of D12.
  */
 public class PlanGroundTransferRequest {
     private String groundTransferId;
     private String origin;
     private String destination;
+    private String mode;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate date;
@@ -39,6 +44,9 @@ public class PlanGroundTransferRequest {
 
     public String getDestination() { return destination; }
     public void setDestination(String destination) { this.destination = destination; }
+
+    public String getMode() { return mode; }
+    public void setMode(String mode) { this.mode = mode; }
 
     public LocalDate getDate() { return date; }
     public void setDate(LocalDate date) { this.date = date; }

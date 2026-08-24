@@ -424,7 +424,7 @@ class ScheduleProblemsAcceptanceTest {
             events.add(new GroundTransferPlanned(GroundTransferId.random(),
                     "", fromCity + " pickup", address(fromCity),
                     "", toCity + " dropoff", address(toCity),
-                    at(departure), at(arrival)));
+                    at(departure), at(arrival), ""));
             return this;
         }
 

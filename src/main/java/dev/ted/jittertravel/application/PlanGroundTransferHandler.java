@@ -38,7 +38,18 @@ public class PlanGroundTransferHandler {
                 origin.airportCode(), origin.name(), origin.address(),
                 destination.airportCode(), destination.name(), destination.address(),
                 ZonedTimestamp.fromLocal(request.getDate().atTime(request.getDepartureTime()), zone),
-                ZonedTimestamp.fromLocal(request.getDate().atTime(request.getArrivalTime()), zone)
+                ZonedTimestamp.fromLocal(request.getDate().atTime(request.getArrivalTime()), zone),
+                mode(request)
         );
+    }
+
+    /**
+     * The one field on this form Ted types rather than picks, so it is the one that arrives with
+     * the whitespace of a paste around it and the one an untouched input sends back as "". Both
+     * are the same thing — no mode recorded — and settling that here keeps every reader downstream
+     * comparing against one absent value.
+     */
+    private String mode(PlanGroundTransferRequest request) {
+        return request.getMode() == null ? "" : request.getMode().strip();
     }
 }

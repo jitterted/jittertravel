@@ -38,12 +38,17 @@ class CancelGroundTransferControllerTest {
     GroundTransferDetailsViewProjector detailsProjector;
 
     private static GroundTransferDetailsView viewFor(UUID transferId) {
+        return viewFor(transferId, "");
+    }
+
+    private static GroundTransferDetailsView viewFor(UUID transferId, String mode) {
         return new GroundTransferDetailsView(
                 GroundTransferId.of(transferId),
                 "DEN",
                 "Marriott Lone Tree",
                 LocalDateTime.of(2026, 9, 14, 12, 0),
-                LocalDateTime.of(2026, 9, 14, 12, 45));
+                LocalDateTime.of(2026, 9, 14, 12, 45),
+                mode);
     }
 
     @Test
@@ -58,6 +63,22 @@ class CancelGroundTransferControllerTest {
                 .contains("Mon, Sep 14, 2026")
                 .contains("12:00 PM")
                 .contains("12:45 PM");
+    }
+
+    /**
+     * Cancelling cannot be undone from the page offering it, and two hops along the same route on
+     * the same day are the same sentence without this line.
+     */
+    @Test
+    void getNamesHowTheHopIsMadeWhenOneWasRecorded() {
+        UUID transferId = UUID.randomUUID();
+        given(detailsProjector.findById(any()))
+                .willReturn(Optional.of(viewFor(transferId, "A16 hotel shuttle")));
+
+        assertThat(mockMvc.get().uri("/ground-transfers/" + transferId + "/cancel"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("A16 hotel shuttle");
     }
 
     @Test

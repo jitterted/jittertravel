@@ -250,7 +250,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                 e.groundTransferId(),
                 transferLabel.ownerLabel(e.originAirportCode(), e.originName(), e.origin()),
                 transferLabel.ownerLabel(e.destinationAirportCode(), e.destinationName(), e.destination()),
-                e.departsAt(), e.arrivesAt());
+                e.departsAt(), e.arrivesAt(), e.mode());
     }
 
     private static List<ConferenceItineraryEntry> toConferenceEntries(ConferencePlanned e) {

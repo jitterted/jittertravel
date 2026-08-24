@@ -54,13 +54,27 @@ public class GroundTransferCalendarProjector implements EventStreamConsumer {
                 e.arrivesAt().localDateTime(),
                 TAXI + route(label.ownerLabel(e.originAirportCode(), e.originName(), e.origin()),
                              label.ownerLabel(e.destinationAirportCode(), e.destinationName(), e.destination())),
-                List.of(new SubtitleLine.Range(e.departsAt(), e.arrivesAt())),
+                subtitle(e),
                 // A transfer has nothing to edit — correcting one means removing it and entering it
                 // again — so its owner action is cancel, and the calendar carries the link. The
                 // renderer gates it on isOwner, and it is never built for the public calendar.
                 new EntryDetails.GroundTransfer(
                         "/ground-transfers/" + e.groundTransferId().id() + "/cancel")
         );
+    }
+
+    /**
+     * The times, and below them how the hop is made — when Ted recorded one. A transfer with no
+     * mode reads exactly as it did before the field existed, rather than carrying an empty line.
+     * <p>
+     * Both lines are the owner's alone: {@link PublicCalendarProjector} builds its own transfer
+     * entry straight from the event and reads neither the times nor the mode.
+     */
+    private List<SubtitleLine> subtitle(GroundTransferPlanned e) {
+        SubtitleLine when = new SubtitleLine.Range(e.departsAt(), e.arrivesAt());
+        return e.mode().isBlank()
+                ? List.of(when)
+                : List.of(when, new SubtitleLine.Text(e.mode()));
     }
 
     /** A spaced arrow, so the browser can wrap a long route rather than widening the day column. */

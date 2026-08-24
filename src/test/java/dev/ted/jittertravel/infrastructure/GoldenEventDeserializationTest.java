@@ -863,6 +863,52 @@ class GoldenEventDeserializationTest {
                 .isEqualTo("2026-09-14T12:00");
         assertThat(event.arrivesAt().localDateTime().toString())
                 .isEqualTo("2026-09-14T12:45");
+        assertThat(event.mode())
+                .as("this sample predates the mode field, and a payload without one is not broken "
+                    + "by it — that is what makes the addition an additive change")
+                .isEmpty();
+    }
+
+    /**
+     * The same event once a mode has been recorded. The sample above is deliberately left as it
+     * was: together the two say that a transfer stored before the field existed and one stored
+     * after it both read back correctly.
+     */
+    @Test
+    void groundTransferPlannedWithAModeSampleDeserializes() {
+        String json = """
+                {
+                  "groundTransferId": {"id": "77777777-7777-7777-7777-777777777777"},
+                  "originAirportCode": "DEN",
+                  "originName": "",
+                  "origin": {
+                    "street": "",
+                    "city": "Denver",
+                    "region": "",
+                    "postalCode": "",
+                    "country": "",
+                    "locationForMatching": "Denver"
+                  },
+                  "destinationAirportCode": "",
+                  "destinationName": "Marriott Lone Tree",
+                  "destination": {
+                    "street": "10345 Park Meadows Dr",
+                    "city": "Lone Tree",
+                    "region": "CO",
+                    "postalCode": "80124",
+                    "country": "US",
+                    "locationForMatching": "Lone Tree"
+                  },
+                  "departsAt": {"utc": "2026-09-14T18:00:00Z", "zone": "America/Denver"},
+                  "arrivesAt": {"utc": "2026-09-14T18:45:00Z", "zone": "America/Denver"},
+                  "mode": "A16 hotel shuttle"
+                }
+                """;
+
+        GroundTransferPlanned event = deserialize(json, GroundTransferPlanned.class);
+
+        assertThat(event.mode())
+                .isEqualTo("A16 hotel shuttle");
     }
 
     @Test

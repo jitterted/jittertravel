@@ -50,8 +50,9 @@ class GroundTransferCalendarProjectorTest {
     }
 
     /**
-     * The owner's whole subtitle is the times. Naming the same journey a second time as cities was
-     * noise on the entry (Ted, 2026-08-20) — the title already says where it goes.
+     * The owner's whole subtitle is the times, for a transfer with no mode recorded. Naming the
+     * same journey a second time as cities was noise on the entry (Ted, 2026-08-20) — the title
+     * already says where it goes.
      */
     @Test
     void theOwnerSubtitleIsJustTheTimes() {
@@ -76,12 +77,29 @@ class GroundTransferCalendarProjectorTest {
                 .doesNotContain(new SubtitleLine.Text("DEN → Lone Tree, CO, US"));
     }
 
+    /**
+     * How the hop is made is Ted's own note — a line name, a shuttle, who is driving — and it hangs
+     * under the times where a flight would put nothing. Owner-only: the anonymous calendar is a
+     * separate read model that never sees this field.
+     */
+    @Test
+    void aRecordedModeBecomesASecondSubtitleLineUnderTheTimes() {
+        projector.handle(Stream.of(stored(new GroundTransferPlanned(GroundTransferId.random(),
+                "DEN", "", AIRPORT,
+                "", "Marriott Lone Tree", HOTEL,
+                DEPARTS, ARRIVES, "A16 hotel shuttle"))));
+
+        assertThat(projector.entries().getFirst().subTitle())
+                .containsExactly(new SubtitleLine.Range(DEPARTS, ARRIVES),
+                                 new SubtitleLine.Text("A16 hotel shuttle"));
+    }
+
     @Test
     void aHotelToAirportTransferReadsTheOtherWayRound() {
         projector.handle(Stream.of(stored(new GroundTransferPlanned(GroundTransferId.random(),
                 "", "Marriott Lone Tree", HOTEL,
                 "DEN", "", AIRPORT,
-                DEPARTS, ARRIVES))));
+                DEPARTS, ARRIVES, ""))));
 
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.mainTitle())
@@ -113,7 +131,7 @@ class GroundTransferCalendarProjectorTest {
         projector.handle(Stream.of(stored(new GroundTransferPlanned(transferId,
                 "DEN", "", AIRPORT,
                 "", "Marriott Lone Tree", HOTEL,
-                DEPARTS, ARRIVES))));
+                DEPARTS, ARRIVES, ""))));
 
         assertThat(details(projector.entries().getFirst()).cancelPath())
                 .isEqualTo("/ground-transfers/11111111-2222-3333-4444-555555555555/cancel");
@@ -128,7 +146,7 @@ class GroundTransferCalendarProjectorTest {
         return new GroundTransferPlanned(GroundTransferId.random(),
                 "DEN", "", AIRPORT,
                 "", "Marriott Lone Tree", HOTEL,
-                DEPARTS, ARRIVES);
+                DEPARTS, ARRIVES, "");
     }
 
     private static ZonedTimestamp at(int hour, int minute) {

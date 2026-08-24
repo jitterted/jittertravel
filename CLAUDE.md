@@ -480,6 +480,32 @@ green, because the nav's own Calendar link matches the same bare word. The asser
 Mutation-verifying (standing practice) catches exactly this class of bug: change the production
 string and watch the test go red. If it stays green, the assertion is too loose.
 
+### A new `EntryKind` must reach the calendar's day menu
+
+Tapping a future day number on `/calendar` opens the owner's disclosure menu — "Open itinerary"
+plus one **Add …** link per kind, each dated with that day. It is where Ted actually starts, and
+it is the surface a new kind gets forgotten on: `PRIVATE_EVENT` shipped 2026-08-13 with a lane, a
+plan form and a nav card, and for **eleven days** could not be created from a day, because nothing
+connected "a new bookable kind exists" to "the menu offers it" (Ted added it himself in `6360aa1`).
+
+`CalendarDayMenuTest` is now that connection, and it is two mechanisms on purpose:
+
+- its cases are driven from `EntryKind.values()`, so a new constant becomes a new case with nobody
+  adding one — the test cannot be left behind;
+- `expectedAddItem` is an **exhaustive switch** over `EntryKind`, so that constant stops the class
+  compiling until someone writes down how the kind is created. A kind with genuinely no create form
+  says so in a case with a comment, rather than by being quietly absent.
+
+It is the **only** thing in the tree that fails when an `EntryKind` constant is added (verified by
+adding one), so do not weaken it into a defaulted switch or a hard-coded list of kinds.
+
+The same file also pins the menu's *contents* — the words, the paths, the order, and that there is
+nothing extra — by calling the package-private `CalendarViewBuilder.dayMenu` directly.
+`CalendarViewBuilderTest` covers only **where** the menu appears (owner-only, future days only) and
+asserts a few hrefs, which is why a renamed item and an added one both shipped green. **A
+self-contained static renderer gets its own direct test**; reaching it only through the page that
+embeds it leaves exactly this kind of gap.
+
 ### List views: future/all toggle is a shared, enforced convention
 
 Booked/planned list views (trains, flights, hotels, conferences, gatherings) all share one

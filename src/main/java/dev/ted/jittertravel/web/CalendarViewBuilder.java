@@ -263,8 +263,14 @@ public class CalendarViewBuilder {
      * with the itinerary link plus one "Add …" link per bookable kind, each carrying {@code ?date=}
      * so the create form opens on this day. The menu's mechanics — touch-first, outside-click and
      * Escape dismissal, no stacking — are shared with the fix menus on {@code /schedule-problems}.
+     * <p>
+     * Package-private rather than private so {@code CalendarDayMenuTest} can call it directly. It
+     * is a pure function of its three arguments, and the menu's <em>contents</em> — which kinds are
+     * offered, in what order, under what words — are a claim of their own, separate from where the
+     * menu appears. Reaching them only through {@code render(...)} is what let an added item and a
+     * renamed one ship green (Ted, 2026-08-24).
      */
-    private static DomContent dayMenu(LocalDate date, String label, String dayNumberClass) {
+    static DomContent dayMenu(LocalDate date, String label, String dayNumberClass) {
         String iso = date.toString();
         return DisclosureMenu.render(text(label), dayNumberClass, List.of(
                 DisclosureMenu.item("Open itinerary", "/itinerary?date=" + iso),

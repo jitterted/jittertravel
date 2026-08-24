@@ -7,7 +7,8 @@ built as written. Suite green at 1183 (default tier) + 43 (js tier). The one del
 cancel/change, per D11; **cancel shipped 2026-08-20** as its named fast-follow (see "Cancel, as
 built" below, suite green at 1246 + 48), and change stays deferred. **Amended 2026-08-21 by D16
 (hotels named by date, and split by direction like legs) and D17 (a fix link preselects both ends)**
-— see the end of "As built".
+— see the end of "As built". **D7 was reversed on 2026-08-23** — a transfer now records a `mode`,
+as free text rather than the enum D7 sketched; see the amendment under D7 itself.
 
 ## As built — where it differs from the plan above
 
@@ -305,6 +306,41 @@ alike.
 
 Adding it later is additive and cheap: one enum, one form field, one label, and an upcaster default
 for the events already stored. Nothing in this slice should be shaped around the possibility.
+
+#### Amendment — D7 reversed 2026-08-23 (Ted): `mode`, as free text
+
+Shipped, and cheaper than predicted. **Free text, not an enum** — the closed set D7 sketched
+(`TAXI, TRANSIT, RIDESHARE, SHUTTLE, CAR`) does not hold the real values: a particular subway line,
+or "a friend is driving". An enum for those ends in `OTHER` plus this same field.
+
+The general rule the two halves settle: **an enum where the value drives something, free text where
+it only renders.** A transfer's `mode` picks no icon and no branch — every transfer is still 🚕
+*Ground transfer* — so free text costs nothing. Contrast the transit mode in
+`../ScheduledTransitTripPlan.md`, which chooses the glyph and the word and therefore must not be
+typed.
+
+Cheaper than "an upcaster default", too: `null → ""` in the compact constructor made it additive in
+the strict sense `GoldenEventDeserializationTest` allows — **no `schema_version` bump, no upcaster,
+no migration**, and the untouched pre-`mode` golden sample is what proves it. Trimming happens once,
+at the boundary in `PlanGroundTransferHandler`, so `""`, `"   "` and `null` are one absent value by
+the time anything reads it.
+
+**It is private, and that is the load-bearing part.** A line name is a service identifier like a
+train's `serviceId`, and "Susan is driving" is a third party who never asked to be on a public page.
+`PublicCalendarProjector` does not read the field. Note *where* the leak would have come from: a
+transfer is the one travel kind whose subtitle **is** public (the route, D15 above), so the mistake
+available here is an append to a line that already exists, not a new line someone would question.
+Both tiers of test pin it, and `CalendarRedactionSecurityTest`'s transfer fixture now carries a mode
+so every other anonymous assertion runs against an event with something to leak.
+
+It also **shifted the boundary this plan drew**. D12's "no free-text fallback" still holds for
+*endpoints* — those must resolve to an address and a zone the timeline can match — but `mode`
+resolves to nothing and nothing branches on it, so it is not the fallback D12 refused. What the
+combination exposed is the real gap: a hop whose *middle* is a scheduled, ticketed service (a friend
+drives to Boulder, then a timetabled bus to the airport) has to be flattened into one transfer with
+the bus buried in the text. `../ScheduledTransitTripPlan.md` is the answer, and it re-cuts the line
+this plan drew: **ground transfer is for what has no schedule to catch** — taxis, lifts, frequent
+mass transit — and anything timetabled and ticketed is a trip.
 
 ## Files
 

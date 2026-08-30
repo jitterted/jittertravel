@@ -136,6 +136,47 @@ class BookHotelCommandTest {
                 .isInstanceOf(InvalidCancelByDate.class);
     }
 
+    @Test
+    void hotelWithNoNameThrowsInvalidLocationEntry() {
+        BookHotelCommand command = new BookHotelCommand(
+                HotelBookingId.random(), "", ADDRESS,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, null);
+
+        assertThatThrownBy(() -> command.execute(new BookHotelContext(at(NOW))))
+                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
+                    assertThat(invalid.role())
+                            .isEqualTo(LocationRole.STAY);
+                    assertThat(invalid.field())
+                            .isEqualTo(LocationField.VENUE_NAME);
+                });
+    }
+
+    @Test
+    void hotelNamePastedIntoTheCityThrowsInvalidLocationEntry() {
+        Address pasted = new Address("123 Main St", "Grand Hotel", "IL", "62701", "US", null);
+        BookHotelCommand command = new BookHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", pasted,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, null);
+
+        assertThatThrownBy(() -> command.execute(new BookHotelContext(at(NOW))))
+                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid ->
+                        assertThat(invalid.field())
+                                .isEqualTo(LocationField.CITY));
+    }
+
+    @Test
+    void locationIsCheckedBeforeTheDates() {
+        // Both are wrong; the location is the one reported, because a wrong place is the mistake
+        // that looks right on the page.
+        Address cityless = new Address("123 Main St", "", "IL", "62701", "US", null);
+        BookHotelCommand command = new BookHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", cityless,
+                zt(NOW.minusHours(1)), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, null);
+
+        assertThatThrownBy(() -> command.execute(new BookHotelContext(at(NOW))))
+                .isInstanceOf(InvalidLocationEntry.class);
+    }
+
     private static BookHotelCommand validCommand() {
         return new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,

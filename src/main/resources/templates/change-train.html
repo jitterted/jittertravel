@@ -129,15 +129,21 @@
                 <div class="field">
                     <label>
                         Station Name
-                        <input type="text" th:field="*{departureStationName}"/>
+                        <input type="text" th:field="*{departureStationName}" required/>
                     </label>
+                    <span class="error"
+                          th:if="${#fields.hasErrors('departureStationName')}"
+                          th:errors="*{departureStationName}"></span>
                 </div>
                 <div class="field-row">
                     <div class="field">
                         <label>
                             City
-                            <input type="text" th:field="*{departureCityName}"/>
+                            <input type="text" th:field="*{departureCityName}" required/>
                         </label>
+                        <span class="error"
+                              th:if="${#fields.hasErrors('departureCityName')}"
+                              th:errors="*{departureCityName}"></span>
                     </div>
                     <div class="field narrow">
                         <label>
@@ -180,15 +186,21 @@
                 <div class="field">
                     <label>
                         Station Name
-                        <input type="text" th:field="*{arrivalStationName}"/>
+                        <input type="text" th:field="*{arrivalStationName}" required/>
                     </label>
+                    <span class="error"
+                          th:if="${#fields.hasErrors('arrivalStationName')}"
+                          th:errors="*{arrivalStationName}"></span>
                 </div>
                 <div class="field-row">
                     <div class="field">
                         <label>
                             City
-                            <input type="text" th:field="*{arrivalCityName}"/>
+                            <input type="text" th:field="*{arrivalCityName}" required/>
                         </label>
+                        <span class="error"
+                              th:if="${#fields.hasErrors('arrivalCityName')}"
+                              th:errors="*{arrivalCityName}"></span>
                     </div>
                     <div class="field narrow">
                         <label>

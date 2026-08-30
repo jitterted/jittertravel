@@ -15,6 +15,9 @@ public record BookHotelCommand(
 
     @Override
     public Stream<HotelBooked> execute(BookHotelContext context) {
+        // Checked before the dates: a hotel name pasted into the city field makes the stay match
+        // the wrong place on /schedule-problems, and unlike a bad date it looks right on the page.
+        EnteredLocation.of(hotelName, address).check(LocationRole.STAY);
         // "In the future" is an instant comparison (zone-independent). The calendar-day range is
         // checked in the entry zone, never UTC, so a stay never collapses across a UTC midnight.
         if (checkIn == null || !checkIn.utc().isAfter(context.now())) {

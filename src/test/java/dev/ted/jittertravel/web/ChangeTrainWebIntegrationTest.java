@@ -4,6 +4,9 @@ import dev.ted.jittertravel.application.ChangeTrain;
 import dev.ted.jittertravel.application.TrainDetailsView;
 import dev.ted.jittertravel.application.TrainDetailsViewProjector;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
+import dev.ted.jittertravel.domain.InvalidLocationEntry;
+import dev.ted.jittertravel.domain.LocationField;
+import dev.ted.jittertravel.domain.LocationRole;
 import dev.ted.jittertravel.domain.TrainNotFound;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
@@ -15,6 +18,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -137,5 +141,35 @@ class ChangeTrainWebIntegrationTest {
                 .param("arrivalCountry", "UK")
                 .param("arrivalDateTime", "2020-01-01T13:00"))
                 .hasStatusOk();
+    }
+
+    @Test
+    void stationPastedIntoTheDepartureCityErrorsOnThatCityField() {
+        willThrow(new InvalidLocationEntry(LocationRole.DEPARTURE, LocationField.CITY,
+                "This looks like a station or venue name, not a city"))
+                .given(changeTrain).changeTrain(any(), any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/booked-trains/" + UUID.randomUUID())
+                .with(csrf())
+                .param("departureStationName", "Frankfurt (Main) Hbf")
+                .param("departureCityName", "Frankfurt (Main) Hbf")
+                .param("departureCountry", "DE")
+                .param("departureDateTime", "2026-07-01T09:00")
+                .param("arrivalStationName", "Manchester Piccadilly")
+                .param("arrivalCityName", "Manchester")
+                .param("arrivalCountry", "UK")
+                .param("arrivalDateTime", "2026-07-01T13:00")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("changeTrain")
+                .hasOnlyFieldErrors("departureCityName")
+                .hasFieldErrorCode("departureCityName", "invalidLocation");
+        // The field error is only half of it: the form has to be able to show it.
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">This looks like a station or venue name, not a city</span>");
     }
 }

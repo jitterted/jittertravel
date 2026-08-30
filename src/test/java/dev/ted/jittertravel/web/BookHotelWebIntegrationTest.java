@@ -3,6 +3,9 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.HotelBooking;
 import dev.ted.jittertravel.domain.CheckInNotInFuture;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
+import dev.ted.jittertravel.domain.InvalidLocationEntry;
+import dev.ted.jittertravel.domain.LocationField;
+import dev.ted.jittertravel.domain.LocationRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +13,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -112,5 +116,59 @@ class BookHotelWebIntegrationTest {
                 .param("checkOut", "2026-07-01T23:59")
                 .param("bookingIntent", "TENTATIVE"))
                 .hasStatusOk();
+    }
+
+    @Test
+    void hotelNamePastedIntoTheCityErrorsOnTheCityField() {
+        willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
+                "This looks like a station or venue name, not a city"))
+                .given(hotelBooking).bookHotel(any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/book-hotel")
+                .with(csrf())
+                .param("hotelBookingId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("hotelName", "Grand Hotel")
+                .param("street", "123 Main St")
+                .param("city", "Grand Hotel")
+                .param("country", "US")
+                .param("postalCode", "62701")
+                .param("checkIn", "2026-07-01T15:00")
+                .param("checkOut", "2026-07-02T11:00")
+                .param("bookingIntent", "TENTATIVE")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookHotel")
+                .hasOnlyFieldErrors("city")
+                .hasFieldErrorCode("city", "invalidLocation");
+        // The field error is only half of it: the form has to be able to show it.
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">This looks like a station or venue name, not a city</span>");
+    }
+
+    @Test
+    void missingHotelNameErrorsOnTheNameField() {
+        willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.VENUE_NAME,
+                "Name is required"))
+                .given(hotelBooking).bookHotel(any(), any());
+
+        assertThat(mockMvc.post().uri("/book-hotel")
+                .with(csrf())
+                .param("hotelBookingId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("hotelName", "")
+                .param("street", "123 Main St")
+                .param("city", "Springfield")
+                .param("country", "US")
+                .param("postalCode", "62701")
+                .param("checkIn", "2026-07-01T15:00")
+                .param("checkOut", "2026-07-02T11:00")
+                .param("bookingIntent", "TENTATIVE"))
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookHotel")
+                .hasOnlyFieldErrors("hotelName");
     }
 }

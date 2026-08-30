@@ -124,6 +124,34 @@ class ChangeHotelCommandTest {
                 .isInstanceOf(InvalidCancelByDate.class);
     }
 
+    @Test
+    void hotelNamePastedIntoTheCityThrowsInvalidLocationEntry() {
+        Address pasted = new Address("123 Main St", "Grand Hotel", "IL", "62701", "US", null);
+        ChangeHotelCommand command = new ChangeHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", pasted,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
+
+        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, at(NOW))))
+                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
+                    assertThat(invalid.role())
+                            .isEqualTo(LocationRole.STAY);
+                    assertThat(invalid.field())
+                            .isEqualTo(LocationField.CITY);
+                });
+    }
+
+    @Test
+    void existenceIsStillCheckedBeforeTheLocation() {
+        // A booking that is gone reports that, not the bad city it was submitted with.
+        Address pasted = new Address("123 Main St", "Grand Hotel", "IL", "62701", "US", null);
+        ChangeHotelCommand command = new ChangeHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", pasted,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
+
+        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(false, at(NOW))))
+                .isInstanceOf(HotelBookingNotFound.class);
+    }
+
     private static ChangeHotelCommand validCommand() {
         return new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,

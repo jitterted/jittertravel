@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.TrainBooking;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
+import dev.ted.jittertravel.domain.InvalidLocationEntry;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
@@ -75,6 +76,8 @@ public class BookTrainController {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {
             bindingResult.rejectValue("arrivalDateTime", "afterDeparture", e.getMessage());
+        } catch (InvalidLocationEntry e) {
+            new TrainLocationError(bindingResult).reject(e);
         } catch (ZoneResolutionException e) {
             bindingResult.reject("zoneUnresolved",
                     "Could not determine the time zone for a station from its location — "

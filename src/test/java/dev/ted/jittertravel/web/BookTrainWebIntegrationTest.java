@@ -3,6 +3,9 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.TrainBooking;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
+import dev.ted.jittertravel.domain.InvalidLocationEntry;
+import dev.ted.jittertravel.domain.LocationField;
+import dev.ted.jittertravel.domain.LocationRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +13,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -101,5 +105,65 @@ class BookTrainWebIntegrationTest {
                 .param("arrivalCountry", "UK")
                 .param("arrivalDateTime", "2026-07-01T09:00"))
                 .hasStatusOk();
+    }
+
+    @Test
+    void stationPastedIntoTheArrivalCityErrorsOnThatCityField() {
+        willThrow(new InvalidLocationEntry(LocationRole.ARRIVAL, LocationField.CITY,
+                "This looks like a station or venue name, not a city"))
+                .given(trainBooking).bookTrain(any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/book-train")
+                .with(csrf())
+                .param("trainTripId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("departureStationName", "London Euston")
+                .param("departureCityName", "London")
+                .param("departureCountry", "UK")
+                .param("departureDateTime", "2026-07-01T09:00")
+                .param("arrivalStationName", "Frankfurt (Main) Hbf")
+                .param("arrivalCityName", "Frankfurt (Main) Hbf")
+                .param("arrivalCountry", "DE")
+                .param("arrivalDateTime", "2026-07-01T13:00")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookTrain")
+                .hasOnlyFieldErrors("arrivalCityName")
+                .hasFieldErrorCode("arrivalCityName", "invalidLocation");
+        // The field error is only half of it: the form has to be able to show it.
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">This looks like a station or venue name, not a city</span>");
+    }
+
+    @Test
+    void missingDepartureStationNameErrorsOnThatNameField() {
+        willThrow(new InvalidLocationEntry(LocationRole.DEPARTURE, LocationField.VENUE_NAME,
+                "Name is required"))
+                .given(trainBooking).bookTrain(any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/book-train")
+                .with(csrf())
+                .param("trainTripId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("departureStationName", "")
+                .param("departureCityName", "London")
+                .param("departureCountry", "UK")
+                .param("departureDateTime", "2026-07-01T09:00")
+                .param("arrivalStationName", "Manchester Piccadilly")
+                .param("arrivalCityName", "Manchester")
+                .param("arrivalCountry", "UK")
+                .param("arrivalDateTime", "2026-07-01T13:00")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookTrain")
+                .hasOnlyFieldErrors("departureStationName");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Name is required</span>");
     }
 }

@@ -516,6 +516,58 @@ Note the limit, so nobody assumes more cover than exists: `trim()` does not remo
 space (U+00A0), and nothing here sees homoglyphs — one stored street begins with a Cyrillic М.
 Streets are never matched on, so nothing depends on it.
 
+### A city that is really a station is rejected on the write path, never in the record
+
+The section above is about *normalizing* what was typed. This one is about *refusing* it, and the
+two live in different places on purpose.
+
+A booking names a building and the city it stands in, and `EnteredLocation` (domain) is the pair,
+checked from the four commands that write one — `BookTrainCommand`, `ChangeTrainCommand`,
+`BookHotelCommand`, `ChangeHotelCommand`, before their date rules and after any existence check.
+Three rules, reported in order: the building has a name; the city is filled in; the city does not
+*look* like a building (no brackets, no digit, no whole word from a short list — `hbf`,
+`hauptbahnhof`, `bahnhof`, `bf`, `bhf`, `fernbf`, `gare`, `station(s)`, `stazione`, `estación`,
+`centraal`, `centrale`, `termini`, `parkway`, `flughafen`, `airport`, `terminal`, `hotel`, `hostel`,
+`resort`, `suites`).
+
+**Why it matters** is the section above's argument one door further in: a city is *compared*, not
+merely displayed, so "Frankfurt (Main) Hbf" in the city field is a city that matches nothing —
+`/schedule-problems` then invents a gap between a city and itself, or misses a real one. It is
+event 92's failure through a different door: one paste into the wrong box rather than a stray space.
+It reached production because the paste target looks perfectly reasonable on the page (Ted,
+2026-08-30).
+
+**Why a method and not the compact constructor — the rule that generalizes.** `Address` and
+`TrainStationAddress` normalize in theirs *because* Jackson binds stored payloads through it, which
+is exactly what makes it the wrong place to reject anything: a rule there applies retroactively to
+every event in the log, and one old booking that breaks it stops a replay — and a restore — dead.
+**Normalize in the record; reject in the command.** An existing booking that trips a rule is then
+only met when Ted next edits it, which is the moment he can fix it.
+
+**Validate a proposed rule against the production backup before shipping it.** A fourth rule was
+written and removed the same day: "the city is not the building's name again". It is the obvious way
+to catch the whole line pasted into both boxes, and it is wrong here — a station is routinely named
+for its town. Run over every venue/city pair in `jittertravel-backup-production-2026-08-30T144616Z`
+it scored **one** rejection, Gembloux/Gembloux (a real Belgian station, in the log twice), and no
+true positives; the paste it was meant to catch carries `Hbf` and brackets, so rule 3 has it anyway.
+`EnteredLocationTest.butAStationNamedForItsOwnTownIsNotAPaste` is the regression that fails if
+anyone re-adds it. Same reasoning curates the word list: `inn` is out (Wasserburg am Inn), and so is
+`park` (Estes Park is in the log) while `parkway` stays. **When a rule misfires, shorten the list —
+do not weaken the rule.**
+
+**At the boundary, the domain names the value and the form names the input.** `InvalidLocationEntry`
+carries a `LocationRole` (departure/arrival/stay) and a `LocationField` (venue name/city); the two
+train controllers share `TrainLocationError` because `book-train.html` and `change-train.html` share
+their input names, and a stay maps to `hotelName`/`city` inline. Never put a form field name in the
+domain. The forms also carry `required` on all eight inputs — browser-side feedback for the blank
+case, not the gate.
+
+Not wired to gatherings, conferences or private events, which have the same venue/city exposure; two
+of their stored events would trip rule 1 today. Extending is a decision, not a chore. Every change
+here needs three tiers: a case in `EnteredLocationTest`, a case on the command that writes it, and a
+`@WebMvcTest` asserting both the field error *and* the rendered `<span class="error">…</span>` —
+a field error the form cannot show is half a fix.
+
 ## Testing
 
 ### Assertions against rendered HTML must name whole elements, not bare words

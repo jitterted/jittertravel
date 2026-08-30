@@ -9,6 +9,9 @@ import dev.ted.jittertravel.domain.CheckInNotInFuture;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelBookingNotFound;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
+import dev.ted.jittertravel.domain.InvalidLocationEntry;
+import dev.ted.jittertravel.domain.LocationField;
+import dev.ted.jittertravel.domain.LocationRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +19,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -170,5 +174,33 @@ class ChangeHotelControllerTest {
                 .param("checkOut", "2026-08-02T23:00")
                 .param("bookingIntent", "FINAL"))
                 .hasStatusOk();
+    }
+
+    @Test
+    void hotelNamePastedIntoTheCityErrorsOnTheCityField() {
+        willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
+                "This looks like a station or venue name, not a city"))
+                .given(changeHotel).changeHotel(any(), any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
+                .with(csrf())
+                .param("hotelName", "Grand Hotel")
+                .param("city", "Grand Hotel")
+                .param("country", "Germany")
+                .param("checkIn", "2026-08-02T16:00")
+                .param("checkOut", "2026-08-06T10:00")
+                .param("bookingIntent", "FINAL")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("changeHotel")
+                .hasOnlyFieldErrors("city")
+                .hasFieldErrorCode("city", "invalidLocation");
+        // The field error is only half of it: the form has to be able to show it.
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">This looks like a station or venue name, not a city</span>");
     }
 }

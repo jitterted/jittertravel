@@ -132,8 +132,11 @@
         <div class="field" style="margin-bottom: 0.75rem;">
             <label>
                 Hotel Name
-                <input type="text" th:field="*{hotelName}"/>
+                <input type="text" th:field="*{hotelName}" required/>
             </label>
+            <span class="error"
+                  th:if="${#fields.hasErrors('hotelName')}"
+                  th:errors="*{hotelName}"></span>
         </div>
 
         <fieldset>
@@ -151,8 +154,11 @@
                 <div class="field">
                     <label>
                         City
-                        <input type="text" th:field="*{city}"/>
+                        <input type="text" th:field="*{city}" required/>
                     </label>
+                    <span class="error"
+                          th:if="${#fields.hasErrors('city')}"
+                          th:errors="*{city}"></span>
                 </div>
                 <div class="field narrow">
                     <label>

@@ -81,6 +81,49 @@ class BookTrainCommandTest {
                 .hasSize(1);
     }
 
+    @Test
+    void stationWithNoNameThrowsInvalidLocationEntryForThatEnd() {
+        TrainStationAddress nameless = new TrainStationAddress("", "London", "UK", "");
+        BookTrainCommand command = new BookTrainCommand(
+                TrainTripId.random(), nameless, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
+
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
+                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
+                    assertThat(invalid.role())
+                            .isEqualTo(LocationRole.DEPARTURE);
+                    assertThat(invalid.field())
+                            .isEqualTo(LocationField.VENUE_NAME);
+                });
+    }
+
+    @Test
+    void stationNamePastedIntoTheCityThrowsInvalidLocationEntryForThatEnd() {
+        TrainStationAddress pasted = new TrainStationAddress(
+                "Frankfurt (Main) Hbf", "Frankfurt (Main) Hbf", "DE", "");
+        BookTrainCommand command = new BookTrainCommand(
+                TrainTripId.random(), LONDON, zt(DEPARTURE), pasted, zt(ARRIVAL), "");
+
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
+                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
+                    assertThat(invalid.role())
+                            .isEqualTo(LocationRole.ARRIVAL);
+                    assertThat(invalid.field())
+                            .isEqualTo(LocationField.CITY);
+                });
+    }
+
+    @Test
+    void locationIsCheckedBeforeTheTimes() {
+        // Both are wrong; the location is the one reported, because a wrong place is the mistake
+        // that looks right on the page.
+        TrainStationAddress pasted = new TrainStationAddress("Frankfurt Hbf", "Frankfurt Hbf", "DE", "");
+        BookTrainCommand command = new BookTrainCommand(
+                TrainTripId.random(), pasted, zt(NOW.minusHours(1)), MANCHESTER, zt(ARRIVAL), "");
+
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
+                .isInstanceOf(InvalidLocationEntry.class);
+    }
+
     private static BookTrainCommand validCommand() {
         return new BookTrainCommand(TrainTripId.random(), LONDON, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "DB - ICE 610");
     }

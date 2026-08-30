@@ -7,6 +7,8 @@ import java.util.stream.Stream;
  * rules (same as booking, plus existence):
  * <ul>
  *   <li>The booking must already exist ({@link HotelBookingNotFound} otherwise).</li>
+ *   <li>The hotel must have a name, and a city that is really a city
+ *       ({@link InvalidLocationEntry}; see {@link EnteredLocation}).</li>
  *   <li>The new check-in date/time must be in the future ({@link CheckInNotInFuture}).</li>
  *   <li>Check-out must be at least one calendar day after check-in ({@link InvalidHotelDateRange}).</li>
  *   <li>An optional cancel-by deadline must not fall after check-in ({@link InvalidCancelByDate}).</li>
@@ -30,6 +32,7 @@ public record ChangeHotelCommand(
         if (!context.bookingExists()) {
             throw new HotelBookingNotFound("No hotel booking exists with that id");
         }
+        EnteredLocation.of(hotelName, address).check(LocationRole.STAY);
         // "In the future" is an instant comparison (zone-independent). The calendar-day range is
         // checked in the entry zone, never UTC, so a stay never collapses across a UTC midnight.
         if (checkIn == null || !checkIn.utc().isAfter(context.now())) {

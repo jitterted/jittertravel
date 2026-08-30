@@ -89,6 +89,48 @@ class ChangeTrainCommandTest {
                 .isInstanceOf(TrainNotFound.class);
     }
 
+    @Test
+    void stationNamePastedIntoTheCityThrowsInvalidLocationEntryForThatEnd() {
+        TrainStationAddress pasted = new TrainStationAddress(
+                "Frankfurt (Main) Hbf", "Frankfurt (Main) Hbf", "DE", "");
+        ChangeTrainCommand command = new ChangeTrainCommand(
+                TrainTripId.random(), pasted, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
+
+        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW))))
+                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
+                    assertThat(invalid.role())
+                            .isEqualTo(LocationRole.DEPARTURE);
+                    assertThat(invalid.field())
+                            .isEqualTo(LocationField.CITY);
+                });
+    }
+
+    @Test
+    void stationWithNoNameThrowsInvalidLocationEntryForThatEnd() {
+        TrainStationAddress nameless = new TrainStationAddress("", "Manchester", "UK", "");
+        ChangeTrainCommand command = new ChangeTrainCommand(
+                TrainTripId.random(), LONDON, zt(DEPARTURE), nameless, zt(ARRIVAL), "");
+
+        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW))))
+                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
+                    assertThat(invalid.role())
+                            .isEqualTo(LocationRole.ARRIVAL);
+                    assertThat(invalid.field())
+                            .isEqualTo(LocationField.VENUE_NAME);
+                });
+    }
+
+    @Test
+    void existenceIsStillCheckedBeforeTheLocation() {
+        // A trip that is gone reports that, not the bad city it was submitted with.
+        TrainStationAddress pasted = new TrainStationAddress("Frankfurt Hbf", "Frankfurt Hbf", "DE", "");
+        ChangeTrainCommand command = new ChangeTrainCommand(
+                TrainTripId.random(), pasted, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
+
+        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(false, at(NOW))))
+                .isInstanceOf(TrainNotFound.class);
+    }
+
     private static ChangeTrainCommand validCommand() {
         return new ChangeTrainCommand(TrainTripId.random(), LONDON, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "DB - ICE 610");
     }

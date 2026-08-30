@@ -66,6 +66,25 @@ for open work.
       here from
       `archived/PrivateSocialEventPlan.md` 2026-08-21; the third item on that list, the itinerary
       entry, **shipped** — `PrivateEventItineraryEntry` is live.
+- [ ] **Extract the venue-event request seam — BLOCKED until Change Private Event slice 2 ships**,
+      which writes the fourth copy that makes it worth doing. Full costs-and-gains in
+      `ChangePrivateEventPlan.md` **A4** (revised 2026-08-24); the short version:
+      - **What duplicates:** a one-line `getLocation()` in `PlanGatheringRequest`,
+        `ChangeGatheringRequest` and `PlanPrivateEventRequest` (four after slice 2), and the
+        handler preamble `getLocation()` → `venueZone.resolve(getZone(), location)` → two
+        `ZonedTimestamp.fromLocal(getDate().atTime(…), zone)` across the matching handlers.
+      - **Extract (C), not the bare interface (B).** A `VenueEventRequest` on its own is a type with
+        no client — abstraction in anticipation. Extract a helper that takes one and returns
+        `(location, startsAt, endsAt)`, extending the `VenueZone` seam by one step; the interface
+        then earns its keep as that helper's parameter type, which is how `HotelStayRequest` earns
+        its own.
+      - **The four handlers cannot merge into one.** Unlike `HotelHandler` (book+change of one
+        kind), these span two kinds whose commands differ in type, id type and trailing fields.
+        Only the inputs are shareable.
+      - **`PlanGroundTransferHandler` stays out** — same date+times shape, but its zone comes from
+        two endpoints rather than one address.
+      - While you are there: `PlanPrivateEventRequest`'s Javadoc still says the shared interface is
+        "deferred pending Ted's call". It is not; point it at A4.
 - [x] **`/planned-private-events` list view — SHIPPED 2026-08-24**, and it outgrew this list on
       the way: it is now owned by `PlannedPrivateEventsListPlan.md`, not by this bullet. Read the
       plan, not this line. The reason it was worth more than "one more list": a private event's
@@ -238,6 +257,20 @@ for open work.
       binds `state` on either request. Delete both setters and the `region` field is the only
       spelling left. **Not to be confused with** `AddressParseService.java:85`, which reads `"state"`
       out of a *geocoder* response — that is an external wire format we do not control and it stays.
+- [ ] **`LocationAuditProjector` never sees a private event.** It handles `GatheringPlanned` and
+      `GatheringChanged` — records of exactly the same shape — but not `PrivateEventPlanned`, so a
+      private event's city and country never appear on `/admin/zone-audit`. Noticed 2026-08-30 while
+      chasing the trailing-space bug above. **Probably harmless today**, which is why this is a
+      cleanup and not a fix: a private event's zone is resolved at plan time and stored on its
+      `ZonedTimestamp`s, and it has no legacy payload shape needing read-time resolution, so the
+      audit has nothing to warn about. It is an inconsistency waiting for the day one of those
+      stops being true; add the branch if you are in that file anyway.
+- [ ] **`PlanGroundTransferHandler` compares two addresses with `equals`.** `:30` rejects a transfer
+      whose origin equals its destination by comparing whole `Address` records, so the record's
+      generated (case-sensitive) `equals` decides — "Hamburg" and "hamburg" are two different
+      places to it, and the guard lets that transfer through. Since 2026-08-30 both sides are at
+      least trimmed. The comparison every other call site uses is `Place.matches`; this is the one
+      that does not. Small, and nothing has hit it — the endpoints are usually picked, not typed.
 
 ## Deferred (until needed)
 
@@ -363,6 +396,54 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       rather than re-type. Not before.
 
 ## Done
+
+- [x] **A city typed with a trailing space was a different city** (2026-08-30). Ted planned a
+      private event in Hamburg from an iPhone; the space bar that committed an autocorrect
+      suggestion left `"Hamburg "` in `city`, `country` and `locationForMatching` (production event
+      92). Nothing between the keyboard and the event log removes it — `type="text"` submits its
+      value verbatim — and the schedule's comparison is exact apart from case, so
+      `/schedule-problems` reported **"No travel — Hamburg → Hamburg"** plus a missing hotel for two
+      nights the Hamburg booking already covered. HTML collapses the space, so both ends of the
+      phantom gap rendered as the same word.
+      **Fixed by normalizing where the string lands, not where it is typed:** `Address` and
+      `TrainStationAddress` trim (and null-guard) every field in their compact constructors, and
+      `Place` trims as the last net. Because Jackson binds stored payloads through those
+      constructors, event 92 reads clean on every replay — **no migration, no data re-entry, and
+      the stored JSON is untouched**, so backup files stay byte-compatible. The two comparisons
+      that were exact-but-untrimmed were fixed too: `HomeCities.sameLocation` (whose neighbour
+      `includes` had trimmed all along — that inconsistency *was* the bug) and the raw
+      `equalsIgnoreCase` in `ScheduleGapProjector.differentCityConflicts`.
+      Pinned by `AddressTest`, `TrainStationAddressTest`, additions to `PlaceTest` and
+      `HomeCitiesTest`, a golden sample carrying the real dirty payload
+      (`GoldenEventDeserializationTest.addressFieldsAreTrimmedWhenAStoredPayloadIsRead`), and the
+      regression where it was visible — `ScheduleGapProjectorTest.LocationsTypedWithStrayWhitespace`.
+      **What this does not catch:** `trim()` leaves U+00A0 non-breaking space alone, and nothing
+      sees homoglyphs — the SoCraTes UK venue's street starts with a **Cyrillic М**
+      (`"Мilton Hill, Steventon, "`, event 5). Streets are never matched on, so nothing depends on
+      it; a normalizer for one event was not worth building.
+
+- [x] **The same space, on every other field: trimmed at the boundary** (2026-08-30, same day).
+      Ted's question after the fix above — what about a hotel name, a venue name, the fields nothing
+      compares *yet*? An audit of all 19 form requests and every event's `String` components found
+      no comparison outside the places already fixed (airport codes and zones fail loudly instead;
+      every enum `fromParam` already trims), so the exposure was cosmetic — but "nothing compares
+      it" is a property that changes silently, and bad text outlives the form in every backup.
+      `TrimTypedTextAdvice` is a `@ControllerAdvice` registering `StringTrimmerEditor(false)`: every
+      `String` bound from a form or query parameter is trimmed, on every controller, **including
+      forms nobody has written yet** — which is the point, versus normalizing a dozen event records
+      one field at a time. `false` keeps `""` as `""`, so the no-null-Strings rule is untouched.
+      Pinned by `TrimmedTypedTextConventionTest` through two real controllers, one `@ModelAttribute`
+      and one `@RequestParam`, because the advice is invisible at every call site — the arrangement
+      `ProblemContextAdvice`/`ProblemContextFragmentConventionTest` already uses.
+      **Two knock-ons, both agreed:** `" DELETE "` now opens the Danger Zone (the word proves intent,
+      not typing precision — CLAUDE.md says so at the gate), and the three renderers that guarded
+      optional text with `isEmpty()` now use `isBlank()`, so whitespace-only text reads as absent
+      instead of rendering an empty chip or a link to `" "` (`BookedTrainsRenderer` ×2,
+      `ScheduleProblemsRenderer`). Two others in that family — `ItineraryRenderer:302`,
+      `ConferencesRenderer:561` — were fixed for free by the `Address` change above.
+      **The division of labour this settles:** the boundary trims everything *typed*; a record
+      normalizes everything *compared*. Both are needed, because a restore binds stored JSON through
+      Jackson and never passes the boundary — which is exactly how event 92 gets repaired.
 
 - [x] **Itinerary: where he is on an eventless day** (2026-08-21). A stay produces only Check-In
       and Check-Out entries, so every night in between rendered as "Nothing scheduled" — the

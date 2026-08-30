@@ -178,7 +178,7 @@ public class ScheduleProblemsRenderer {
                                 each(hotel, p -> div().withClass("problem-card problem-card--missing-hotel").with(
                                         div().withClass("problem-title").with(
                                                 text(p.city()),
-                                                p.conferenceName().isEmpty()
+                                                p.conferenceName().isBlank()
                                                         ? span()
                                                         : text(" — for " + p.conferenceName())
                                         ),

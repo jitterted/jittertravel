@@ -32,8 +32,11 @@ package dev.ted.jittertravel.domain;
  * wants; {@code equals} is there because records have one, and using it is the bug.
  * <p>
  * The raw string is kept as it was written, not folded to a canonical case, because it is also what
- * {@code /schedule-problems} prints — "Denver", not "denver". Normalization here is only the house
- * rule that a domain string is never null.
+ * {@code /schedule-problems} prints — "Denver", not "denver". Normalization here is the house rule
+ * that a domain string is never null, plus a trim: surrounding whitespace is invisible in the
+ * markup but not to {@link #matches}, so a place that <em>looks</em> like another one has to
+ * compare like it. {@link Address} and {@link TrainStationAddress} normalize their own fields for
+ * the same reason; this covers whatever else is one day handed to the constructor directly.
  * <p>
  * <strong>What this deliberately does not do</strong> (D2 of
  * {@code docs/archived/GroundTransferEndpointReadModelPlan.md}): it does not travel any further than the
@@ -45,7 +48,7 @@ package dev.ted.jittertravel.domain;
 public record Place(String value) {
 
     public Place {
-        value = value == null ? "" : value;
+        value = value == null ? "" : value.trim();
     }
 
     /** The place an address is matched in — {@code locationForMatching}, not {@code city}. */

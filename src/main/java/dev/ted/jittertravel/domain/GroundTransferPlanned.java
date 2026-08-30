@@ -44,7 +44,9 @@ public record GroundTransferPlanned(
         destinationAirportCode = blankWhenNull(destinationAirportCode);
         destinationName = blankWhenNull(destinationName);
         // Null only ever arrives from a stored payload written before the field existed, which is
-        // an unrecorded mode. Trimming what Ted types is the boundary's job, not this one's.
+        // an unrecorded mode. Whitespace is left alone here on purpose: mode is free text nothing
+        // compares, so a stray space costs nothing. The fields that *are* compared normalize
+        // themselves — see Address, which both endpoints are.
         mode = blankWhenNull(mode);
     }
 

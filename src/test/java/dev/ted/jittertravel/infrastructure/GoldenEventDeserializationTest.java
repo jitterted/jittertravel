@@ -810,6 +810,44 @@ class GoldenEventDeserializationTest {
                 .isEqualTo("2026-09-15T22:00");
     }
 
+    /**
+     * The real production payload of event 92 (2026-08-30), typed on an iPhone: the space bar that
+     * committed an autocorrect suggestion left a trailing space in three address fields. The stored
+     * row still holds them — backup and restore copy the JSON verbatim — so the repair has to
+     * happen every time the payload is <em>read</em>, which is what this pins. Without it the
+     * schedule reports a journey from Hamburg to Hamburg and a missing hotel for nights the Hamburg
+     * booking covers.
+     */
+    @Test
+    void addressFieldsAreTrimmedWhenAStoredPayloadIsRead() {
+        String json = """
+                {
+                  "privateEventId": {"id": "99999999-9999-9999-9999-999999999999"},
+                  "title": "Hangout w/Susan",
+                  "venueName": "",
+                  "location": {
+                    "street": "",
+                    "city": "Hamburg ",
+                    "region": "",
+                    "postalCode": "",
+                    "country": "Germany ",
+                    "locationForMatching": "Hamburg "
+                  },
+                  "startsAt": {"utc": "2026-09-02T17:00:00Z", "zone": "Europe/Berlin"},
+                  "endsAt": {"utc": "2026-09-02T20:00:00Z", "zone": "Europe/Berlin"}
+                }
+                """;
+
+        PrivateEventPlanned event = deserialize(json, PrivateEventPlanned.class);
+
+        assertThat(event.location().city())
+                .isEqualTo("Hamburg");
+        assertThat(event.location().country())
+                .isEqualTo("Germany");
+        assertThat(event.location().locationForMatching())
+                .isEqualTo("Hamburg");
+    }
+
     @Test
     void privateEventCancelledSampleDeserializes() {
         // The id and an optional note. Unlike a cancelled transfer, which records none, a private

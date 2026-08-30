@@ -88,6 +88,24 @@ class PlaceTest {
     }
 
     /**
+     * Surrounding whitespace is invisible in the markup but not to {@link Place#matches}, so it is
+     * removed here too — the last net under {@code Address} and {@code TrainStationAddress}, for
+     * anything one day handed to this constructor directly.
+     */
+    @Test
+    void surroundingWhitespaceIsRemovedFromTheValue() {
+        assertThat(new Place(" Hamburg ").value())
+                .isEqualTo("Hamburg");
+    }
+
+    @Test
+    void placesMatchAcrossSurroundingWhitespace() {
+        assertThat(new Place("Hamburg ").matches(new Place("Hamburg")))
+                .as("a city typed with a trailing space is the city, not a different one")
+                .isTrue();
+    }
+
+    /**
      * The airport factory takes the resolver rather than a table of its own, so a resolver that
      * disagrees with the curated one is followed — this is the seam slice 3 needs for stations.
      */

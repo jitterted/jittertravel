@@ -1521,6 +1521,48 @@ class ScheduleGapProjectorTest {
         }
     }
 
+    /**
+     * The regression from production, 2026-08-30: a private event was planned in Hamburg from an
+     * iPhone, whose keyboard left a trailing space on the city when the space bar committed an
+     * autocorrect suggestion. The comparison was exact apart from case, so {@code "Hamburg "} was a
+     * different city — and HTML collapses the space, so {@code /schedule-problems} said "No travel
+     * — Hamburg → Hamburg" and demanded a hotel for nights the Hamburg booking already covered.
+     * <p>
+     * Written against the projector rather than {@code Address} because that is where it was
+     * <em>visible</em>: the normalization lives two types away, and this is the sentence that says
+     * why it may not be removed.
+     */
+    @Nested
+    class LocationsTypedWithStrayWhitespace {
+
+        @Test
+        void aPrivateEventWhoseCityCarriesATrailingSpaceIsInTheCityItNames() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+
+            projector.handle(Stream.of(
+                    stored(hotel("Hamburg", SEP_15, SEP_18)),
+                    stored(privateEventIn("Hamburg ", SEP_16,
+                            LocalTime.of(18, 0), LocalTime.of(21, 0)))));
+
+            assertThat(projector.problems())
+                    .as("the event is in the city the hotel is in, so nothing is missing")
+                    .isEmpty();
+        }
+
+        @Test
+        void aStationWhoseCityCarriesALeadingSpaceIsInTheCityItNames() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+
+            projector.handle(Stream.of(
+                    stored(train(LON, SEP_15.atTime(9, 0), " Frankfurt", SEP_15.atTime(14, 0))),
+                    stored(hotel("Frankfurt", SEP_15, SEP_16))));
+
+            assertThat(projector.problems())
+                    .as("the train arrives in the city the hotel is in")
+                    .isEmpty();
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
@@ -1608,6 +1650,13 @@ class ScheduleGapProjectorTest {
 
     private static ZonedTimestamp inZone(String zone, LocalDateTime local) {
         return ZonedTimestamp.fromLocal(local, ZoneId.of(zone));
+    }
+
+    private static PrivateEventPlanned privateEventIn(String city, LocalDate date,
+                                                      LocalTime start, LocalTime end) {
+        return new PrivateEventPlanned(PrivateEventId.random(), "Dinner", "Venue",
+                new Address("1 Street", city, "", "00000", "XX", null),
+                zt(date.atTime(start)), zt(date.atTime(end)));
     }
 
     private static GatheringPlanned gathering(String title, LocalDate date, LocalTime start, LocalTime end) {

@@ -392,7 +392,11 @@ public class ScheduleGapProjector implements EventStreamConsumer {
             for (Map.Entry<ConferenceId, TrackedConference> ce : conferences.entrySet()) {
                 ConferenceId conferenceId = ce.getKey();
                 ScheduleTimeline.Occupancy conference = ce.getValue().occupancy();
-                boolean differentCity = !gathering.city().equalsIgnoreCase(conference.city());
+                // Trimmed, like every other city comparison in the schedule: both sides arrive via
+                // Place and are already clean, and this is the one comparison that does not go
+                // through HomeCities.sameLocation — deliberately, since two home cities are one
+                // place for travel but two different venues for a clash.
+                boolean differentCity = !gathering.city().trim().equalsIgnoreCase(conference.city().trim());
                 boolean alreadyCleared = clearedConflicts.contains(new ClearedConflict(gatheringId, conferenceId));
                 if (gathering.overlapsWith(conference) && differentCity && !alreadyCleared) {
                     conflicts.add(new ScheduleProblem.DifferentCityConflict(

@@ -55,6 +55,18 @@ class HomeCitiesTest {
                 .isTrue();
     }
 
+    /**
+     * The bug this pins: {@code includes} has always trimmed and {@code sameLocation} did not, so a
+     * city typed with a trailing space compared as a different city while rendering as the same
+     * one — production reported "No travel — Hamburg → Hamburg" (2026-08-30).
+     */
+    @Test
+    void sameLocationIgnoresSurroundingWhitespace() {
+        assertThat(BAY_AREA.sameLocation("Hamburg ", "Hamburg"))
+                .as("a stray space is invisible in the markup and must be invisible here")
+                .isTrue();
+    }
+
     @Test
     void emptyHomeCitiesIncludesNothing() {
         HomeCities noHome = new HomeCities(List.of());

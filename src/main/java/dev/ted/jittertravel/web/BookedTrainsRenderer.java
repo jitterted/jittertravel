@@ -119,7 +119,7 @@ public class BookedTrainsRenderer {
                         legLabel("Departure"),
                         stationNameElement(train.departureStationName(), train.departureMapsUrl()),
                         div(train.departureCity()).withClass("station-city"),
-                        train.serviceId().isEmpty()
+                        train.serviceId().isBlank()
                                 ? span()
                                 : div(train.serviceId()).withClass("station-city")
                 ),
@@ -151,8 +151,13 @@ public class BookedTrainsRenderer {
         return ZonedTimeTag.renderDateTimeStacking(when, DATE_PATTERN, TIME_PATTERN);
     }
 
+    /**
+     * A URL of nothing but whitespace is no URL: {@code isBlank}, not {@code isEmpty}, so it renders
+     * as plain text rather than as a link to " ". Forms trim before this can happen
+     * ({@code TrimTypedTextAdvice}); a restored payload written before they did would not.
+     */
     private static DomContent stationNameElement(String name, String mapsUrl) {
-        if (!mapsUrl.isEmpty()) {
+        if (!mapsUrl.isBlank()) {
             return a(name).withHref(mapsUrl).withTarget("_blank").withRel("noopener")
                          .withClass("station-name");
         }

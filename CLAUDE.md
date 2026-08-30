@@ -2,6 +2,18 @@
 
 ## Architecture Rules
 
+**Event-sourcing rules live in `EventSourcingRulesHeuristics.md`** (repo root) — R1–R11 and H1–H8,
+the numbered rules a dozen plan docs cite by number. Read it before designing anything that touches
+events, commands, projectors or a schema migration. The ones most often needed: **R1** never decide
+from a projection, **R4** the write-path order, **R7** an event's shape is contract, **R8/R10** a
+view's fields come from events and only from events, **R11** a displayed time is a payload field and
+never the store's envelope.
+
+It and this file overlap deliberately: the sections below carry the rules with a *mechanical* guard
+in this repo (an enforcing test, a wiring order), while the numbered rules carry the reasoning and
+the migration history. Where both speak, they agree; if they ever disagree, say so rather than
+picking one.
+
 ### Event Storage: use CommandExecutor, never EventStore directly
 
 Application services must **never** receive `EventStore` as a constructor dependency.
@@ -261,6 +273,12 @@ re-renders the page with the error when it does not match, writing nothing; a di
 button alone is not a gate, because the POST is still reachable. The word goes in the input's
 placeholder and in a hint line, so nobody has to guess it.
 
+**"Exactly" means the word, not the whitespace around it** (Ted, 2026-08-30). `TrimTypedTextAdvice`
+trims every bound parameter, so `" DELETE "` opens the gate. That is deliberate and not a
+weakening: the word is there to prove *intent*, and a phone that appends a space to an autocorrected
+word has not changed Ted's mind — refusing it teaches him that the gate is unreliable, which is how
+a gate stops being read. Case is still exact, and so is every other character.
+
 **Do not add a typed word to a `*Cancelled` action.** Per the paragraph above it destroys nothing,
 and spending the gate there is what makes it noise on `/admin/database`, where it is the only thing
 standing between a misclick and the whole event log. The two current gates are both admin
@@ -450,6 +468,53 @@ new ones, and prefer moving formatting toward a renderer when you touch it. A sh
 concern across two presentation sites goes in a presentation-layer collaborator (e.g. a projector
 helper), never pushed down onto the domain type to "share" it — and mind the standing preference
 against single-method utility classes when you place it.
+
+### Typed text is normalized where it lands, not where it is typed
+
+A domain string is never null and never carries surrounding whitespace. Both are settled in the
+**compact constructor of the record that holds it** — `Address`, `TrainStationAddress`, `Place` —
+not at the form, not at the projector, and not at the comparison.
+
+**Why the constructor and not the boundary** (Ted, 2026-08-30): Jackson binds *stored* payloads
+through the same constructor, so a normalization there repairs events already in the log on every
+replay — no migration, no rewritten rows, and the stored JSON is untouched, which keeps backup files
+byte-compatible. A trim at the controller would only protect what has not been written yet.
+
+**Why it matters at all — this is not tidiness.** A city is *compared*, not merely displayed:
+`Place` derives a place from `locationForMatching`, and the schedule asks whether two of them name
+the same city. That comparison is case-insensitive but otherwise exact, while HTML collapses a
+trailing space — so an untrimmed city is a **different city that renders as the same one**. In
+production (event 92) `"Hamburg "` from an iPhone keyboard produced "No travel — Hamburg → Hamburg"
+on `/schedule-problems` and demanded a hotel for nights the Hamburg booking already covered. The
+space bar that commits an autocorrect suggestion leaves the space behind, and `type="text"` submits
+its value verbatim; nothing in between removes it.
+
+**The other half is at the boundary, and it is already done for you.** `TrimTypedTextAdvice` is a
+`@ControllerAdvice` registering a `StringTrimmerEditor(false)`, so **every** `String` bound from a
+form or a query parameter arrives trimmed — every field on every form, including ones nobody has
+written yet. `false` rather than `true` so `""` stays `""` and the no-null-Strings rule is
+untouched. Added 2026-08-30 for the free text nothing compares *yet* (a hotel name, a venue name, a
+title): per-field normalization there would be ceremony in a dozen event records and would still
+leave the next new form uncovered.
+
+**So the split is: the boundary trims everything typed; a record normalizes everything compared.**
+Both are needed — a restore binds stored JSON through Jackson and never passes the boundary, which
+is exactly how event 92 was repaired. When you add a field, that split tells you where to look:
+free text needs nothing, a compared field normalizes in its record and says so. And when you write
+a comparison of two typed strings, trim both sides even where you believe they arrive clean:
+`HomeCities.includes` trimmed from the start and `sameLocation` two lines below it did not, which is
+precisely how this shipped. Nothing at a controller mentions the advice, so
+`TrimmedTypedTextConventionTest` is what makes deleting it fail — the same arrangement
+`ProblemContextAdvice` has.
+
+Two knock-on effects worth knowing. The advice reaches `@RequestParam`, so the typed confirmation
+words below accept `" DELETE "` — agreed deliberately (Ted, 2026-08-30). And optional text is
+guarded with `isBlank()`, never `isEmpty()`, so a value of `" "` reads as absent rather than
+rendering an empty chip or a link to nowhere.
+
+Note the limit, so nobody assumes more cover than exists: `trim()` does not remove a non-breaking
+space (U+00A0), and nothing here sees homoglyphs — one stored street begins with a Cyrillic М.
+Streets are never matched on, so nothing depends on it.
 
 ## Testing
 

@@ -20,7 +20,7 @@ public class HomeCities {
         cityNames.stream()
                 .map(String::trim)
                 .filter(name -> !name.isEmpty())
-                .map(name -> name.toLowerCase())
+                .map(String::toLowerCase)
                 .forEach(cities::add);
     }
 
@@ -37,8 +37,13 @@ public class HomeCities {
         return cities.isEmpty();
     }
 
+    /**
+     * Whether two city names mean the same place. Surrounding whitespace is ignored, exactly as
+     * {@link #includes} above already ignores it: a name that renders identically in the markup
+     * has to compare identically here, or the schedule reports a journey from a city to itself.
+     */
     public boolean sameLocation(String cityA, String cityB) {
-        return cityA.equalsIgnoreCase(cityB)
+        return cityA.trim().equalsIgnoreCase(cityB.trim())
                || (includes(cityA) && includes(cityB));
     }
 }

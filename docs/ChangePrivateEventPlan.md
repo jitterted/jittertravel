@@ -5,15 +5,26 @@
 > "Answered by Ted" below), and the slice went in as written — see "What shipped" under slice 1 for
 > the two places the code says something the plan did not. This doc now **owns** the
 > "Change Private Event (the edit flow)" line that has lived in `Cleanup_Tasks.md` since
-> 2026-08-21; that entry becomes a pointer here. The `/planned-private-events` **list view** is a
-> separate, still-unowned item and stays in `Cleanup_Tasks.md` — see "Not in this plan" below.
+> 2026-08-21; that entry becomes a pointer here.
+>
+> **Revised 2026-08-24, after the list view shipped.** `PlannedPrivateEventsListPlan.md` landed
+> `/planned-private-events` the same day, and it moved three things under slice 2 (Ted reviewed and
+> settled all three before any of slice 2 was written):
+>
+> - **A5 replaces "`PrivateEventDetailsView` grows the raw fields"** — the edit form gets its **own**
+>   `PrivateEventEditView`. See A5; this is a correction, not a preference.
+> - **Six existing read models need a `PrivateEventChanged` branch, not five** — the list's projector
+>   is the sixth (phase 2).
+> - **The list row gains the Edit link** alongside the calendar and itinerary pencils (phase 3).
 
 ## Context
 
 `archived/PrivateSocialEventPlan.md` shipped the kind on 2026-08-13 as **plan-only**: a private
-event can be entered (`/plan-private-event`), and after that it is immutable. There is no edit
-page, no cancel action, and no list — the only places one is visible are `/calendar` (owner and,
-collapsed to `Busy`, anonymous) and `/itinerary`.
+event could be entered (`/plan-private-event`), and after that it was immutable. There was no edit
+page, no cancel action, and no list — the only places one was visible were `/calendar` (owner and,
+collapsed to `Busy`, anonymous) and `/itinerary`. Slice 1 below added the cancel, and
+`PlannedPrivateEventsListPlan.md` added the list, both on 2026-08-24; **the edit page is the last
+of the three still missing.**
 
 **Cancel ships before edit**, which is why the plan's own name is second in it. Three reasons:
 
@@ -71,13 +82,13 @@ red (A1).
 |---|---|---|
 | `/planned-private-events/{id}/cancel` | 1 | GET confirmation, POST performs |
 | `/planned-private-events/{id}` | 2 | GET edit form, POST saves |
-| `/planned-private-events` | — | the list view, when that separate item ships |
+| `/planned-private-events` | — | the list view — **shipped 2026-08-24**, `PlannedPrivateEventsListPlan.md` |
 | `/plan-private-event` | (shipped) | the entry form — **unchanged**, keep it where it is |
 
 The gathering's shape (`/planned-gatherings/{id}`), not the transfer's (`/ground-transfers/*/cancel`).
-The transfer chose its own prefix because it has no list page and never will; a private event
-already has a list route named in `Cleanup_Tasks.md`, and three prefixes for one kind is what we
-would be choosing if slice 1 picked `/private-events`. Matcher ordering follows the gathering
+The transfer chose its own prefix because it has no list page and never will; a private event now
+has all three routes under one prefix, which is what this decision bought — three prefixes for one
+kind is what we would have if slice 1 had picked `/private-events`. Matcher ordering follows the gathering
 precedent: the per-item entries go **before** the bare list matcher, and because a single `*`
 matches one segment, `/planned-private-events/*/cancel` needs its **own** entry alongside
 `/planned-private-events/*` (the same trap `/booked-flights/*/lookup` documents).
@@ -180,9 +191,10 @@ duplicate. Straight copy of `CancelGroundTransfer` with the types swapped.
 confirmation page shows, keyed by `PrivateEventId`, `findById` returning `Optional`. `Planned` is
 an upsert, `Cancelled` a `remove`, so a stale link resolves to nothing rather than to the wrong
 evening. Fields: `privateEventId`, `title`, `venueName`, `city`, `country`, `startsAt`, `endsAt`
-(the last two as `LocalDateTime` — venue-zone wall clock, both ends sharing one zone). Slice 2
-extends this record with the remaining `Address` parts and the zone for form binding; slice 1 keeps
-it to what the page prints. Register the bean via `bootstrapper.register(...)` in
+(the last two as `LocalDateTime` — venue-zone wall clock, both ends sharing one zone). ~~Slice 2
+extends this record with the remaining `Address` parts and the zone for form binding~~ — **no
+longer: superseded by A5.** This record stays exactly this narrow, permanently; the edit form gets
+its own `PrivateEventEditView`. Register the bean via `bootstrapper.register(...)` in
 `EventSourcingConfig` (`EveryProjectorBeanIsRegisteredTest` covers this the day it is written).
 
 **2c. A `PrivateEventCancelled` branch in every existing consumer of `PrivateEventPlanned`** —
@@ -261,8 +273,9 @@ The calendar's cancel bin (`EntryDetails.PrivateEvent` is an empty record and
 pencil** (Ted, 2026-08-24), so the calendar card gains its whole vocabulary at once rather than a
 bin now and a pencil later; actions appearing one at a time is what the affordance rule is unhappy
 about. Leave the `ownerActions` arm and its comment as they are, and update the comment in slice 2.
-The `/planned-private-events`
-list view. Undo.
+The `/planned-private-events` list view — which then shipped on its own later the same day
+(`PlannedPrivateEventsListPlan.md`), reaching back into slice 2 in the two places noted at the top.
+Undo.
 
 ---
 
@@ -288,17 +301,36 @@ Ships after slice 1; nothing here is needed to make slice 1 useful.
 - `ChangePrivateEvent` service + a handler mapping the request to the command, mirroring
   `PrivateEventPlanning`/`PlanPrivateEventHandler` — including the `LocationZoneResolver` pass, so
   moving the venue moves the zone.
-- `PrivateEventDetailsView` grows the raw fields the form binds (street, region, postal code,
-  country, `locationForMatching`, zone) — same "raw, unformatted" rule as `GatheringDetailsView`.
-- A `PrivateEventChanged` branch in **every** consumer that handles `PrivateEventPlanned`, each an
-  upsert by id: the four in slice 1's 2c plus the details projector. Every one gets a
-  plan→change lifecycle scenario test — that, not sealing `Event`, is how this project guards
-  exhaustiveness.
+- **`PrivateEventEditView` + `PrivateEventEditViewProjector`** — the edit form's own read model,
+  **not** a widened `PrivateEventDetailsView` (A5). Shape is `GatheringDetailsView`'s exactly, minus
+  `speaking`/`infoUrl`: `privateEventId`, `title`, `venueName`, the whole `Address` (so
+  `locationForMatching` rides along), and `startsAt`/`endsAt` as **`ZonedTimestamp`** — raw and
+  unformatted, so the form's date/start/end inputs fill from `localDateTime()` and re-opening the
+  form shows what was entered rather than a time shifted into the server zone. The zone comes from
+  `startsAt.zone()`; no separate component. `Planned` and `Changed` are both upserts, `Cancelled` a
+  removal. Register the bean via `bootstrapper.register(...)`
+  (`EveryProjectorBeanIsRegisteredTest` catches a forgotten one).
+- A `PrivateEventChanged` branch in **every** existing consumer that handles `PrivateEventPlanned`,
+  each an upsert by id. There are **six**, not the five this plan said before the list view shipped:
+
+  | Consumer | Why it must see the change |
+  |---|---|
+  | `PrivateEventCalendarProjector` | the owner calendar's title, venue, city and time range |
+  | `PublicCalendarProjector` | the anonymous `Busy` block's **times and city** — stale ones assert Ted's whereabouts wrongly |
+  | `ItineraryProjector` | the itinerary card |
+  | `ScheduleGapProjector` | the occupancy — a moved dinner is a moved presence fact, and away days and the missing-hotel check read it |
+  | `PrivateEventDetailsViewProjector` | the cancel page must name the evening as it stands now |
+  | **`PlannedPrivateEventsProjector`** | **the list row — added 2026-08-24 with the list view.** Miss it and a renamed dinner keeps its old title and address on `/planned-private-events`. Its `PrivateEventPlanned` arm already carries a comment saying this branch belongs here |
+
+  Every one gets a plan→change lifecycle scenario test — that, not sealing `Event`, is how this
+  project guards exhaustiveness. With the new edit projector that is **seven** read models handling
+  `PrivateEventChanged` once slice 2 lands.
 
 ### Phase 3 — Web
 
 - `ChangePrivateEventRequest` (same fields as `PlanPrivateEventRequest`, **including its own copy of
-  `getLocation()`** — see A4), `ChangePrivateEventController`
+  `getLocation()`** — the fourth copy, written deliberately: A4 extracts *after* this slice, not
+  inside it), `ChangePrivateEventController`
   at `GET`/`POST /planned-private-events/{privateEventId}`, and `change-private-event.html` copied
   from `plan-private-event.html` (including the address-parse helper) — retitled, posting to the
   per-event URL, errors rendered **on the form page** via `rejectValue`, never a redirect to a view
@@ -313,8 +345,17 @@ Ships after slice 1; nothing here is needed to make slice 1 useful.
   `GroundTransfer` bin combined, in that order, in the slot both already use. Null-tolerant like
   the transfer's (`cancelPath() == null ? List.of() : …`), so a calendar built before the projector
   sets it degrades to no action rather than a broken href.
-- `SecurityConfig`: add `/planned-private-events/*` to the per-item OWNER block, **before** any
-  future bare-list matcher; matrix row alongside.
+- **The list row gains its Edit link** (added 2026-08-24 with the list view).
+  `PlannedPrivateEventsRenderer.actionsCell` renders Cancel today and **Edit is appended below it**
+  — that order is load-bearing and was chosen for this moment: the cell is a column flex, so
+  appending keeps Cancel exactly where it has always been (`PlannedPrivateEventsListPlan.md` D5,
+  and CLAUDE.md's "action affordances never move"). Two links, well under the three that would
+  call for a menu. Its test asserts the whole anchor, as the Cancel one does.
+- `SecurityConfig`: add `/planned-private-events/*` to the per-item OWNER block; matrix row
+  alongside. **The ordering this needs is already there** — the per-item block sits ahead of the
+  list block that `/planned-private-events` joined on 2026-08-24, so this is an addition to an
+  existing group rather than a reshuffle. `/planned-private-events/*/cancel` keeps its own entry
+  regardless: a single `*` matches one segment.
 
 ### Phase 4 — Redaction tests (this slice needs both tiers)
 
@@ -329,8 +370,9 @@ the title, not merely on the presence of `Busy`.
 
 ## Answered by Ted — 2026-08-24
 
-All four questions this plan opened are closed. Nothing here is waiting on a decision; the
-decisions above already read as settled, and these are the reasons behind them.
+All five questions this plan has opened are closed — the first four before slice 1, and **A5 after
+the list view shipped later the same day**. Nothing here is waiting on a decision; the decisions
+above already read as settled, and these are the reasons behind them.
 
 **A1 — Keep amber, and keep the no-time-gate (D3, D5).** A cancelled *past* private event cannot
 be re-planned, because `PlanPrivateEventCommand` refuses a date that is not in the future — so
@@ -346,23 +388,99 @@ alone. See "Not in slice 1" and slice 2's phase 3.
 use it" — *"rescheduled to Friday"* is the note that makes the case. Optional free text, `""` when
 none, `HotelBookingCancelled`'s shape exactly.
 
-**A4 — Leave `VenueEventRequest` unextracted; wait for one more user.** `ChangePrivateEventRequest`
-makes `getLocation()` a third copy, which clears the letter of the second-user rule, but this is
-the same case seen three times rather than a shape that has proved general. Revisit when a *fourth*
-— or a different-shaped — venue request turns up. Until then the duplication is the cheaper of the
-two mistakes.
+**A5 — The edit form gets its own `PrivateEventEditView`; do not widen `PrivateEventDetailsView`**
+(Ted, 2026-08-24, after the list view shipped). This **replaces** the phase-2 line that said the
+details view "grows the raw fields the form binds". That line was right when written, when the
+details view was the kind's only read model besides the calendars. It is wrong now, twice over:
+
+1. **It contradicts the reasoning the list view was built on.** `PrivateEventDetailsView` belongs to
+   the **cancel** page, which is a *recording* surface: it names the evening being removed and
+   carries nothing else, and its Javadoc says so. `PlannedPrivateEventsListPlan.md` D1 declined to
+   widen it for the list on exactly this ground — adding fields a surface must then not render is
+   the carry-and-strip shape this codebase keeps rejecting. Widening it for the edit form instead
+   would make the same move with a different caller.
+2. **It contradicts the gathering precedent this slice claims to follow.** A gathering has **two**
+   records, not one widened: `GatheringDetailsView` ("used to hydrate the edit form", raw `Address`
+   + `ZonedTimestamp`s) and `PlannedGatheringView` (the list). A private event already has the list
+   one and the cancel one; the edit form is the third surface, and the gathering's answer to a third
+   surface is a third record.
+
+The cost is a third read model over the same events, which is the cost this codebase already pays
+everywhere: one read model per surface, shaped by that surface. `EveryProjectorBeanIsRegisteredTest`
+keeps the new bean honest.
+
+**A4 — REVISED 2026-08-24 (Ted asked for the costs and gains). The wait is over, but the thing to
+extract is not the interface — and it happens *after* slice 2, not inside it.**
+
+> The original answer read: *"Leave `VenueEventRequest` unextracted; wait for one more user.
+> `ChangePrivateEventRequest` makes `getLocation()` a third copy, which clears the letter of the
+> second-user rule, but this is the same case seen three times rather than a shape that has proved
+> general. Revisit when a fourth — or a different-shaped — venue request turns up."*
+>
+> It miscounted (three copies exist *today*; slice 2 makes the fourth) and, more importantly, it
+> misread the precedent it was reasoning from.
+
+**What is actually duplicated:**
+
+| Fragment | Copies today | After slice 2 |
+|---|---|---|
+| `getLocation()` — one line building an `Address` from six fields | 3 — `PlanGatheringRequest`, `ChangeGatheringRequest`, `PlanPrivateEventRequest` | 4 |
+| Handler preamble — `getLocation()` → `venueZone.resolve(getZone(), location)` → two `ZonedTimestamp.fromLocal(getDate().atTime(…), zone)` | 3 handlers | 4 |
+
+`PlanGroundTransferHandler` has the date+times half but **not** the venue half: its zone comes from
+two endpoints, not one address. It stays out of anything extracted here.
+
+**Why `HotelStayRequest` is not the precedent A4 thought it was.** Its gain was never deduping
+getters. Its own Javadoc names it — *"`HotelHandler` reads both through this interface and turns a
+request into a command **in one place**"* — and `HotelHandler`'s Javadoc names the harm that
+motivated it: *"Previously `BookHotelHandler` and `ChangeHotelHandler` held byte-identical copies of
+it, which is exactly how the cancellation deadline's null-preserving zone conversion came to exist
+twice."* The interface was the **enabler**; merging two handlers that had already diverged was the
+**gain**.
+
+That only half transfers. Hotels dedupe book+change of **one kind** — same id type, same command
+arity, same extras — so one class with two methods works. Venue events duplicate across **two
+kinds**: the commands differ in type, in id type, and in trailing fields (`speaking`/`infoUrl`
+versus nothing). **The four handlers cannot collapse into one that returns a command.** Only their
+*inputs* can be shared. Note also that the bug-prone part is already gone: `VenueZone` (5 users)
+absorbed the one branch — explicit `CommonZone` wins, else the address must resolve — so what
+remains has no conditional for a fourth copy to drift wrongly into.
+
+**The options, and the verdict:**
+
+- **(B) The interface on its own** — the literal original proposal. ~12 getter declarations plus a
+  `default Address getLocation()`: removes four one-liners, adds a fourteen-line interface, net LOC
+  a wash, and **nothing consumes it polymorphically**. A type with no client is abstraction in
+  anticipation — the very rule A4 was invoking. **Rejected on its own terms.**
+- **(C) Extend the `VenueZone` seam to produce the timing too** — a helper taking a
+  `VenueEventRequest` and returning `(location, startsAt, endsAt)`, so each handler becomes "call
+  the helper, build my command". This removes the four-line preamble ×4, and it is the version
+  where the interface **earns its keep the way `HotelStayRequest` does**: as the helper's parameter
+  type. **Chosen.**
+
+**And it is a follow-up, not part of slice 2.** Slice 2 writes the fourth copy exactly as the
+original A4 said. The extraction then happens with all four call sites visible at once — which is
+both when the second-user rule is properly satisfied and when the refactor is safest to perform.
+Folding it into slice 2 would drag the two shipped, working gathering handlers into an edit-flow
+slice; the cost of waiting is one re-edit of a file slice 2 will just have written. Tracked in
+`Cleanup_Tasks.md`.
+
+**One stale comment to fix in slice 2:** `PlanPrivateEventRequest`'s Javadoc still says a shared
+`VenueEventRequest` is "deferred pending Ted's call". The call is made — point it at this answer.
 
 ---
 
 ## Not in this plan
 
-- **`/planned-private-events` list view** ("view private events") — still owned by
-  `Cleanup_Tasks.md`, with no plan doc of its own. It is not a prerequisite for either slice here:
-  cancel is reached from the itinerary and edit from the calendar/itinerary pencil, so nothing
-  waits on a list. When it ships it follows the shared FUTURE/ALL trio (`TemporalView.relevantUntil`
-  → `timeView.includes` → `TimeFilterToggle.render`, enforced by `TimeFilterToggleConventionTest`)
-  and needs its own matcher and matrix row. D4 keeps `/planned-private-events` free for it.
+- **`/planned-private-events` list view — SHIPPED 2026-08-24**, owned by
+  `PlannedPrivateEventsListPlan.md`. It was never a prerequisite for either slice here and was not
+  treated as one: cancel is reached from the itinerary, edit from the calendar/itinerary pencil.
+  D4 kept the bare path free for it, which is what it took. It reaches **into** slice 2 in two
+  places all the same — the sixth `PrivateEventChanged` branch and the row's Edit link, both in the
+  phases above — so it is no longer "not in this plan" so much as a neighbour this slice must
+  update.
 - **Undo cancel** — the same gap `Future_Feature_Slices.md` records for hotels.
 - **`PrivateEventCityConflictCleared`** — tabled by Ted 2026-08-20, see `Backlog.md`. Slice 1 does
   not make it more or less needed.
-- **The nav card's placeholder icon** — still in `Cleanup_Tasks.md`, waiting on your pick.
+- **The nav card's placeholder icon** — **settled 2026-08-24**: FA Pro `utensils`, the SVG the plan
+  card was already carrying. Nothing for this slice to do.

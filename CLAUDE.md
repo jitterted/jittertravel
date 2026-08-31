@@ -2,12 +2,14 @@
 
 ## Architecture Rules
 
-**Event-sourcing rules live in `EventSourcingRulesHeuristics.md`** (repo root) — R1–R11 and H1–H8,
+**Event-sourcing rules live in `EventSourcingRulesHeuristics.md`** (repo root) — R1–R12 and H1–H8,
 the numbered rules a dozen plan docs cite by number. Read it before designing anything that touches
 events, commands, projectors or a schema migration. The ones most often needed: **R1** never decide
 from a projection, **R4** the write-path order, **R7** an event's shape is contract, **R8/R10** a
 view's fields come from events and only from events, **R11** a displayed time is a payload field and
-never the store's envelope.
+never the store's envelope, **R12** a read model is built from events alone and never from another
+read model — compose them a layer up, in an aggregator or a controller
+(`ProjectorsDependOnEventsAloneTest`).
 
 It and this file overlap deliberately: the sections below carry the rules with a *mechanical* guard
 in this repo (an enforcing test, a wiring order), while the numbered rules carry the reasoning and

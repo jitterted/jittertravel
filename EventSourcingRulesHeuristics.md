@@ -230,6 +230,129 @@ lazily on read. (`ScheduleGapProjectorTest.readModelRefreshesAfterEachHandledBat
 
 ---
 
+### R10. Every field a read model displays must come from an event.
+
+A projection reproduces state from events and from nothing else. If a view puts a
+value on the screen, that value's source must be a field on an event the projector
+folded. A displayed value with **no event behind it** is data arriving from
+somewhere the model does not record — most often the event-store envelope, an
+ambient read, or a literal.
+
+**This is the mirror of R8, and the two are the same defect from opposite sides:**
+
+| | Direction | Failure mode |
+|---|---|---|
+| **R8** | event → view | the event carries the field; the projector ignores it or hardcodes a literal |
+| **R10** | view → event | the view displays a field **no event provides** |
+
+Both are invisible at compile time and produce a plausible-looking value of the
+right type, which is why they need a rule rather than a review.
+
+Concretely: `BookedFlightsProjector` built its inline change history —
+`"Booked on 2026-08-14 3:12PM"` — from `storedEvent.timestamp()`, the event-store
+envelope. Nothing on `FlightBooked` or `FlightChanged` carried that time, so the
+history reported infrastructure metadata as a domain fact. Found 2026-08-27 while
+extracting the Book Flight event-model chapter; fix owned by
+`docs/EventOccurrenceTimestampsPlan.md`, and the specific case is R11 below.
+
+**The modelling twin — where an *event's* fields come from.** Doing this check the
+other way (every field on an event traces to a declared source: a command
+parameter, the trigger event of an automation, an inbound external event, a
+consumed read model, a value **captured** at the boundary, or a value **derived**
+from a curated table) is a design-time exercise rather than a separate rule,
+because in this codebase its two hard cases are already covered: values captured
+at the boundary by the injected-`Clock` rule and "external inputs from the
+boundary" in `CLAUDE.md`, and values derived from a curated table by the
+`domain`-purity rule. Naming the source is still worth doing when drawing a
+chapter — see `~/.claude/event-model-diagram-layout.md` for the notation — but the
+enforceable half is R10.
+
+**Enforcement.** Guard each displayed field with a fold scenario test that records
+a *distinctive* value through real events and asserts the view shows it. The
+question to ask of any view field is "which event field is this?" — if the answer
+is "the envelope", "the clock", or "a constant", it is an R10 violation.
+
+---
+
+### R11. A time a user reads is an event field, never the store's envelope.
+
+The event-store envelope's `recorded_at` is **metadata**: it exists so rows can be
+ordered, and nothing else. Any time that reaches a **view** is a domain fact and
+must be a field on the event payload, named for its purpose in the domain
+(`recordedAt`, `bookedAt`, `cancelledAt`), captured by the producer at the
+boundary from the injected `Clock`. Never defaulted to a `now()` at write time
+deep in infrastructure.
+
+Two reasons, and the second is the one that bites:
+
+1. **Testability.** A payload field captured at the boundary can be pinned with a
+   `Clock.fixed(...)`. An envelope stamp is set inside `PostgresPersister`, where
+   no test can reach it — the same argument as the ambient-clock rule.
+2. **The label lies.** JitterTravel records things that already happened outside
+   the app, so the moment of *recording* is not the moment the thing *happened*.
+   Rendering an envelope stamp as `"Booked on …"` claims a booking time and shows
+   a data-entry time. If the value is a recording time, the word must be
+   "Recorded on". A separate user-supplied occurrence time is a different field
+   and a product decision, not a rename.
+
+Vocabulary and the full argument: Verraes, [*Multi-temporal
+Events*](https://verraes.net/2022/03/multi-temporal-events/) — `recorded_at` is
+metadata; occurrence time is a payload property named after its purpose, filled by
+the producer.
+
+**`BackupService` is not this.** Event-oriented backup writes every `event_log`
+row verbatim, envelope included, and restores it verbatim. Reading the envelope
+there is the whole point and stays.
+
+**Enforcement (to build with the fix, see
+`docs/EventOccurrenceTimestampsPlan.md`).** A plain source scan in the style of
+`NoAmbientClockReadsTest` and `DomainIsPureTest`: no `StoredEvent.timestamp()`
+read anywhere in `application` or `web`, with `BackupService` exempt. Cheap,
+mechanical, and it fails on arrival rather than after someone remembers to look.
+
+---
+
+### R12. A read model is built from events alone — never from another read model.
+
+A projector folds events, plus the read-time criteria its caller supplies (R9,
+H8). It may not hold, be constructed with, or name **another projector** — not a
+field, not a constructor parameter, not a method parameter, not a static call.
+
+**Composing read models is a different operation, and it is allowed — encouraged,
+even.** It belongs one layer up, where the fan-in is visible:
+`CalendarAggregator` combines the five calendar projectors into the owner's
+calendar, and `CalendarController` hands `ScheduleGapProjector.awayDays()` to the
+renderer alongside those entries rather than routing it into a projection. Both
+are read models being *composed*; neither is a read model *depending on* one.
+
+**When two read models need the same derived value, share the rule, not the
+projection.** `BookedHotelsProjector` puts the schedule's `Place` on its view
+"derived by the same rule `ScheduleGapProjector` uses, not alongside it" — the
+derivation lives in the domain (`Place.of`), so both projectors reach the same
+answer without either knowing the other exists. That is the fix whenever this
+rule seems to be in the way.
+
+**Not this rule: a Translator/Processor consuming a read model.** R10's modelling
+twin lists "a consumed read model" as a legitimate source for an event's fields.
+That is Read Model → Processor → Command/Event, a different edge from Read Model →
+Read Model: the consumer is an automation component, not a projection. R1 governs
+it — fold from the authoritative stream to *decide* — and R12 does not reach it.
+
+**Why:** a projector that reads another inherits its staleness and, worse, its
+half-folded state mid-batch — and it silently makes the subscriber order in
+`EventSourcingConfig` load-bearing. That is an ordering dependency nothing
+declares and no test would catch, because at replay both projectors are handed
+the same list in whatever order the wiring happens to pick (H5). It also undoes
+H2: two projectors sharing a shape can no longer evolve independently.
+
+**Enforcement.** `ProjectorsDependOnEventsAloneTest` — a plain source scan in the
+style of `DomainIsPureTest`, over every `*Projector` in `application` with
+comments and string literals blanked out, failing on any mention of another
+`*Projector` or `*Aggregator`. Comments may name one (`BookedHotelsProjector`
+does, deliberately); code may not.
+
+---
+
 ## Heuristics (prefer, with reason)
 
 ### H1. Prefer the smallest delta events over full-snapshot deltas when feasible.

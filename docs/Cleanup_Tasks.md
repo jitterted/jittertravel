@@ -16,6 +16,22 @@ for open work.
 
 ## Open
 
+- [x] **`/calendar` never names the month except on the 1st.** **Done 2026-08-31.** The month tint is too faint to answer
+      "which month am I looking at", and the only text naming one is the day label on the 1st — so
+      any week not containing a 1st leaves a reader counting. Ted, 2026-08-31: *"i completely lose
+      what month it is for weeks that have entries."* Note **weeks that have entries**: this is the
+      ordinary case, not a side effect of collapsing anything.
+      **Built and then reverted the same day**, only because it rode in on the quiet-week-runs branch
+      (`archived/QuietWeekRunsPlan.md` D5b) — Ted's verdict on it was *"i like the months"*. The
+      shape: a sticky `.calendar-month-header` band, one per month, parked under the weekday header
+      (`top: var(--calendar-weekday-header-height)`, `z-index` below the header's 10). A week is
+      filed under the month its **Sunday** falls in, so a straddling week belongs to one month and
+      not both; the alternative puts two bands between two adjacent weeks. One test —
+      `everyMonthGetsOneBandAboveTheFirstWeekThatStartsInIt` — mutation-verified by filing a week
+      under its Saturday instead.
+      Re-landed on its own, as intended — and it turned out to be a **prerequisite**, not a
+      nicety: the year overlay's "every jump is a scroll" needs a per-month anchor in the page, and
+      these bands are it. Do not remove them without replacing the anchors.
 - [x] **Nothing enforced that the public calendar handles the same removal events the owner's does.**
       Raised by review of the S2 refactor 2026-08-21; **done the same day** — Ted chose
       lifecycle-propagation scenarios over a source-scan convention test, the option that fits the
@@ -277,6 +293,15 @@ for open work.
 Items with a known shape and a named trigger, deliberately **not** queued: the cost of carrying
 them is a paragraph, and building either one now would be work ahead of a need. Move an item up to
 **Open** when its trigger fires — do not treat this section as a backlog to work down.
+
+- [ ] **The near-term empty lane band, 120px → 80px.** Lifted from `archived/QuietWeekRunsPlan.md`
+      2026-08-31. Ted proposed it there and it was neither taken nor refused; the plan it belonged to
+      was then reverted, so this is now a standalone question about the linear calendar's density.
+      Against it: that window is where Ted still plans by tapping a day, and
+      `--calendar-empty-band-min-height` exists so an empty week reads as open space rather than a
+      thin strip of dates.
+      **Trigger:** the linear calendar feeling too airy once the year overview is carrying the
+      "sense of things" job. One token in `CalendarRenderer`.
 
 - [ ] **No way to change a conference.** Lifted from `archived/ConferenceSubmissionTrackingPlan.md`
       2026-08-23, when that plan was archived — it names this gap and nothing else tracked it.

@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CalendarEntry;
 import dev.ted.jittertravel.application.ZoneDisplay;
+import j2html.tags.DomContent;
 
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -29,6 +30,9 @@ public class CalendarRenderer {
                 --calendar-past-hatch: rgba(0, 0, 0, 0.1);
                 --calendar-today-tint: #eef2ff;
                 --calendar-empty-band-min-height: 120px;
+                /* The weekday header is ~47px tall and sticks at 0, so the month band parks
+                   directly under it; a pixel out either way costs a hairline, not a bug. */
+                --calendar-weekday-header-height: 47px;
                 --entry-conference-bg: #e0e7ff; --entry-conference-fg: #4f46e5;
                 --entry-gathering-bg: #f5f3ff;  --entry-gathering-fg: #7c3aed;
                 /* Periwinkle: hue between the conference's indigo and the gathering's violet, and
@@ -59,7 +63,10 @@ public class CalendarRenderer {
                back to the grid; the container's own borders still frame it at the edge. */
             @media (max-width: 900px) {
                 .calendar-outer { margin: 1rem 0; }
-                nav.view-nav { margin: 1rem 0.5rem 0; }
+                /* The 0.5rem inset moves from margin to padding now that the bar is sticky:
+                   the calendar itself runs to margin 0 here, so a bar narrower than the grid
+                   would let week rows scroll past in the gap on either side of it. */
+                nav.view-nav { margin: 1rem 0 0; padding-left: 0.5rem; padding-right: 0.5rem; }
             }
             .calendar-container {
                 border-left: 1px solid var(--calendar-border-strong);
@@ -72,9 +79,13 @@ public class CalendarRenderer {
                column alone and knock it out of registration with the other weeks and this header.
                Pinning the min to 0 makes each track exactly 1/7 of the container at every width,
                so the columns align by construction rather than by content happening to be short. */
+            /* Parks under the sticky nav, whose height is published as --nav-height by
+               StickyNavScript because the bar wraps. The 0 fallback is what a page with no nav
+               (or with scripting off) gets: the header then sticks to the very top, which is
+               where it stuck before the nav did. */
             .calendar-header {
                 display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
-                position: sticky; top: 0; z-index: 10;
+                position: sticky; top: var(--nav-height, 0px); z-index: 10;
             }
             .calendar-header div {
                 text-align: center; font-weight: 600;
@@ -106,7 +117,12 @@ public class CalendarRenderer {
             .day-label-cell.is-away {
                 border-bottom: var(--calendar-away-border-width) solid var(--calendar-away-color);
             }
+            /* The year overview's scroll target (see CalendarViewBuilder.monthAnchorId). It must
+               clear the whole sticky stack, which is the same offset the month band parks at — keep
+               the two in step, because a jump landing under the bars is the one number this feature
+               gets visibly wrong. */
             .day-label-cell.is-month-start {
+                scroll-margin-top: calc(var(--nav-height, 0px) + var(--calendar-weekday-header-height));
                 border-top: var(--calendar-month-start-border-width) solid var(--calendar-month-start-color);
                 border-left: var(--calendar-month-start-border-width) solid var(--calendar-month-start-color);
             }
@@ -232,6 +248,17 @@ public class CalendarRenderer {
             }
             .calendar-week--collapsed .day-badge { display: inline-block; }
             .calendar-week--collapsed.is-expanded .day-badge { display: none; }
+            /* The sticky month band lived here until 2026-09-01; see the note in CalendarViewBuilder
+               for why it went. --calendar-weekday-header-height stays: the jump anchors' own
+               scroll-margin-top is still measured off it. */
+            /* Acknowledges a jump from the year overview. Scrolling a long page to a place that
+               looks like every other place is disorienting, so the arrived-at week says so briefly.
+               On the week, not on the one day cell that carries the id. */
+            .calendar-week.is-jump-target { animation: jump-target-flash 1.2s ease-out; }
+            @keyframes jump-target-flash {
+                from { background-color: var(--calendar-today-tint); }
+                to   { background-color: var(--calendar-surface); }
+            }
             .toggle-all-weeks {
                 display: block; margin: 0 0 6px auto;
                 background: none; border: none; padding: 2px 4px;
@@ -344,13 +371,28 @@ public class CalendarRenderer {
 
         String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser, isOwner, awayDays);
 
+        // The overlay spans exactly the days the grid drew, so every month in it is a scroll rather
+        // than a page load. Both sides take the rounding from CalendarViewBuilder rather than
+        // repeating it.
+        DomContent yearOverview = YearOverview.render(
+                entries,
+                CalendarViewBuilder.gridStart(rangeStart), CalendarViewBuilder.gridEnd(rangeEnd),
+                today, awayDays, isPublicUser);
+        // The overlay's CSS and script are withheld from an anonymous render too, not just its
+        // markup. Both name the panel's classes and its "Jump to month" label, and a stylesheet
+        // describing an owner-only surface is itself a disclosure — the same reason CLAUDE.md says
+        // a viewer who could never trigger an action gets nothing rather than a greyed control.
+        // Pinned by CalendarRedactionSecurityTest, which caught the CSS half of this.
+        String overlayCss = isPublicUser ? "" : YearOverview.CSS;
+        String overlayScript = isPublicUser ? "" : YearOverview.SCRIPT;
+
         return "<!DOCTYPE html>\n" + BrowserZoneScript.markRoot(html(
-                Page.head("Calendar", CSS + DisclosureMenu.CSS),
+                Page.head("Calendar", CSS + DisclosureMenu.CSS + overlayCss),
                 body(
-                        Page.viewNav(Page.NavAudience.of(isPublicUser, isOwner), "/calendar"),
+                        Page.viewNav(Page.NavAudience.of(isPublicUser, isOwner), "/calendar", yearOverview),
                         ZoneToggle.render(zoneDisplay),
                         rawHtml(calendarMarkup),
-                        rawHtml("<script>" + TOGGLE_SCRIPT + DisclosureMenu.SCRIPT + "</script>"),
+                        rawHtml("<script>" + TOGGLE_SCRIPT + DisclosureMenu.SCRIPT + overlayScript + "</script>"),
                         BrowserZoneScript.render(zoneDisplay)
                 )
         ), zoneDisplay).withLang("en").render();

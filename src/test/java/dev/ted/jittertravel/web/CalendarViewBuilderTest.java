@@ -47,6 +47,35 @@ class CalendarViewBuilderTest {
         assertThat(html).contains("grid-template-rows: auto repeat(1, auto);");
     }
 
+    /**
+     * The sticky month bands are gone (2026-09-01), and this is the arrangement that killed them.
+     * <p>
+     * A week was filed under the month its <strong>Sunday</strong> fell in, so with a grid starting
+     * Sun Aug 30 the week holding <strong>Sep 1–5 rendered under a band reading "AUGUST 2026"</strong>
+     * — not merely late, actively wrong. They had been added for "i completely lose what month it
+     * is", an orientation problem while scrolling to find a month; the year overview answers that by
+     * jumping, so they lost the job they were built for (Ted, 2026-09-01).
+     * <p>
+     * What still names a month is the 1st's own day label, and the jump anchor the overview targets.
+     */
+    @Test
+    void noMonthBandRidesAboveTheWeeks() {
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 8, 30),
+                LocalDate.of(2026, 9, 12),
+                LocalDate.of(2026, 8, 25),
+                false
+        );
+
+        assertThat(html)
+                .doesNotContain("calendar-month-header")
+                .as("the 1st still names its own month, in its day label")
+                .contains("Sep 1")
+                .as("and still carries the year overview's jump anchor")
+                .contains("id=\"m-2026-09\"");
+    }
+
     @Test
     void collapsedEmptyPastWeeksStayAsDayLabelRowOnly() {
         // today = Mon 2026-06-15; the weeks before its week are empty and collapse to the

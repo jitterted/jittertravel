@@ -8,6 +8,7 @@ import j2html.tags.specialized.DivTag;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.Month;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
@@ -27,6 +28,7 @@ public class CalendarViewBuilder {
 
     private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MMM d");
     private static final DateTimeFormatter MONTH_DAY_YEAR = DateTimeFormatter.ofPattern("MMM d, yyyy");
+    private static final DateTimeFormatter MONTH_YEAR = DateTimeFormatter.ofPattern("MMMM yyyy");
     private static final String TIME_OF_DAY_FORMAT = "h:mm a";
 
     // Shared with the itinerary view: a pencil always means "edit this booking". stroke uses
@@ -57,8 +59,8 @@ public class CalendarViewBuilder {
      */
     public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd, LocalDate today,
                                 boolean isPublicUser, boolean isOwner, Set<LocalDate> awayDays) {
-        LocalDate gridStart = rangeStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
-        LocalDate gridEnd = rangeEnd.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+        LocalDate gridStart = gridStart(rangeStart);
+        LocalDate gridEnd = gridEnd(rangeEnd);
 
         // Weeks entirely before the week containing "today" collapse to their day-label
         // row; if they carry entries, those entries are kept in the markup (hidden) so a
@@ -99,6 +101,44 @@ public class CalendarViewBuilder {
         outerChildren.add(container);
 
         return div().withClass("calendar-outer").with(outerChildren).render();
+    }
+
+    /*
+     * The sticky month bands were removed 2026-09-01, eleven days after they shipped.
+     *
+     * They were added for "i completely lose what month it is for weeks that have entries" — an
+     * orientation problem you hit while *scrolling* to find a month. The year overview answers that
+     * by jumping, so the bands lost the job they were built for; and they were actively misleading,
+     * because a week was filed under the month its SUNDAY fell in. With a grid starting Aug 30, the
+     * week holding Sep 1–5 rendered under a band reading "AUGUST 2026" (Ted, 2026-09-01).
+     *
+     * Nothing structural depended on them by then: the scroll anchors are the month-start day
+     * cells, and the overview's "you are here" reads those same cells. The 1st still names its month
+     * in its own day label ("Sep 1"), via formatDayLabel below.
+     */
+
+    /**
+     * The days the grid actually draws, rounded out from the requested range to whole
+     * Sunday→Saturday weeks. Package-private because {@link YearOverview} spans exactly the same
+     * days — it is a zoomed-out view of the page, so a second copy of this rounding would be a
+     * second thing to get wrong.
+     */
+    static LocalDate gridStart(LocalDate rangeStart) {
+        return rangeStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+    }
+
+    static LocalDate gridEnd(LocalDate rangeEnd) {
+        return rangeEnd.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+    }
+
+    /**
+     * The id a month-start day cell carries and the year overview links to. Shared with
+     * {@link YearOverview} so the two sides of the jump cannot disagree about the spelling — the
+     * one failure mode of scroll-only navigation is a link to an id nobody emitted, which produces
+     * no error and no navigation at all.
+     */
+    static String monthAnchorId(YearMonth month) {
+        return "m-" + month;
     }
 
     private static DivTag renderWeek(LocalDate sunday,
@@ -249,6 +289,16 @@ public class CalendarViewBuilder {
             dayNumber = a(label).withHref("/itinerary?date=" + date).withClass(dayNumberClass);
         }
         DivTag cell = div().withClass(labelClass).with(dayNumber);
+        // The year overview's scroll target. It rides the month-start cell rather than the month
+        // band because `isMonthStart` is `dayOfMonth == 1 || isFirstCellOfGrid`, so {gridStart} plus
+        // {every 1st} holds exactly one cell in every month the grid touches — the grid being
+        // contiguous, every month after the first has its 1st inside it. The bands cannot promise
+        // that: a week is filed under its *Sunday*, so a gridEnd landing on the 1st-5th of a month
+        // leaves that month with days on the page and no band, and its overlay link would be a
+        // silently dead click. See docs/YearOverviewPlan.md D3.
+        if (isMonthStart) {
+            cell.withId(monthAnchorId(YearMonth.from(date)));
+        }
         // Only emitted when the day has entries; CSS reveals it only in collapsed weeks.
         if (entryCount > 0) {
             cell.with(span(String.valueOf(entryCount))

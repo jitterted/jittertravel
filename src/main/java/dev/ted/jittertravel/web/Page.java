@@ -73,10 +73,34 @@ public final class Page {
      * and the report page renders its own empty state when the schedule is
      * clean. (The home card on {@code index.html} <em>is</em> state-aware; that
      * one lives in {@code GeneralController} and stays that way.)
+     * <p>
+     * <strong>The trailing slot is for the current page's controls, never for more
+     * navigation.</strong> The link set stays a pure function of the viewer's tier; this is where a
+     * page puts a control that has to be reachable from anywhere in a long document, which is a
+     * different thing from a link to another view. Today's only caller is {@code CalendarRenderer},
+     * whose "Jump to month" trigger has to stay on screen through 150 weeks of scrolling — and this
+     * bar is the only thing on {@code /calendar} that does (see {@code docs/YearOverviewPlan.md}
+     * D9/Q3). Putting a second page's controls here would make a shared bar page-aware, which is
+     * what the paragraph above exists to prevent.
+     * <p>
+     * Trailing content goes inside the {@code nav} rather than after it: that is what makes it
+     * sticky and keeps it under the bar's opaque background, where a sibling would just scroll
+     * away. It is also a flex item in a {@code flex-wrap} row that is {@code align-items: baseline},
+     * so a control with its own padding and border needs rules to sit level with plain text links —
+     * style it in the caller's CSS, not here.
+     * <p>
+     * Varargs rather than an overload, so the ten callers that pass no controls keep the call they
+     * already had.
      */
-    public static DomContent viewNav(NavAudience audience, String activePath) {
-        return nav(each(navLinks(audience), link -> link.render(activePath)))
-                .withClass("view-nav");
+    public static DomContent viewNav(NavAudience audience, String activePath, DomContent... trailing) {
+        // The measuring script rides with the bar rather than being wired up per page: the nav
+        // sticks, so anything below it needs --nav-height, and a page that renders the nav but
+        // forgot the script would stack its own sticky layers against a height of zero.
+        return each(
+                nav(each(navLinks(audience), link -> link.render(activePath)))
+                        .with(trailing)
+                        .withClass("view-nav"),
+                StickyNavScript.render());
     }
 
     private static List<NavLink> navLinks(NavAudience audience) {

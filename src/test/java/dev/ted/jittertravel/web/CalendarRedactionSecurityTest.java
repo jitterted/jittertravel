@@ -734,6 +734,51 @@ class CalendarRedactionSecurityTest {
                 .contains(MAYBE_CHIP);
     }
 
+    /**
+     * The year overview is not rendered for an anonymous viewer at all — not hidden with CSS, not
+     * gated in JavaScript: absent, trigger included.
+     * <p>
+     * Every fact in it is individually public. What is not public is the <em>aggregate</em>: a year
+     * of them drawn as one 13px-per-day picture is a legible pattern — how often Ted travels, how
+     * long he is gone, how far ahead he plans — and that is a different artefact from the same facts
+     * spread over 150 scrolled weeks. Deny-by-default costs nothing here, so nothing says the
+     * surface exists.
+     */
+    @Test
+    void anonymousViewersGetNoYearOverviewAtAll() {
+        anonymousSees(jFallPlanned(),
+                      new TalkSubmitted(J_FALL, RECORDED_ON),
+                      new TalkAccepted(J_FALL, RECORDED_ON));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .as("the panel")
+                .doesNotContain("year-overview")
+                .doesNotContain("yo-month")
+                .doesNotContain("yo-grid")
+                .as("the trigger, so nothing even says the surface exists")
+                .doesNotContain("Jump to month")
+                // Not hidden in the script either: the script names the panel's classes, so it is
+                // withheld from an anonymous render rather than left inert.
+                .doesNotContain("yearOverviewCurrentMonth");
+    }
+
+    @Test
+    @WithMockUser(username = "family", roles = "FAMILY")
+    void familyGetsTheYearOverviewBecauseTheyAlreadySeeTheOwnersEntries() {
+        // The gate is isPublicUser, never isOwner. The trap is next door — dayMenu is owner-only —
+        // and gating this the same way would lose FAMILY the overlay with nothing failing.
+        given(calendarAggregator.allEntries()).willReturn(
+                List.of(conference(AttendanceCommitment.GOING)));
+
+        assertThat(mockMvc.get().uri("/calendar"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("class=\"disclosure-menu year-overview\"")
+                .contains("Jump to month");
+    }
+
     @Test
     @WithMockUser(username = "family", roles = "FAMILY")
     void authenticatedUserSeesItineraryLinks() {

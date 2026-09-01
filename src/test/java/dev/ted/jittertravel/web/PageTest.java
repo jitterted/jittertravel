@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.web.Page.NavAudience;
 import org.junit.jupiter.api.Test;
 
+import static j2html.TagCreator.span;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PageTest {
@@ -77,6 +78,32 @@ class PageTest {
                 .doesNotContain("/planned-")
                 .doesNotContain("/conferences")
                 .doesNotContain("/schedule-problems");
+    }
+
+    @Test
+    void navWithNoTrailingControlsEmitsNothingExtra() {
+        // The slot is varargs, so the ten callers that pass no controls keep the call they had —
+        // and must keep the markup they had. This is what stops the slot leaking onto other pages.
+        String nav = Page.viewNav(NavAudience.OWNER, "/booked-hotels").render();
+
+        assertThat(nav)
+                .as("the last nav link closes the bar directly — nothing slipped in behind it")
+                .contains("<a href=\"/schedule-problems\">Schedule Problems</a></nav>");
+    }
+
+    @Test
+    void trailingControlsRenderInsideTheNavSoTheyStickWithIt() {
+        // Inside the <nav>, never after it: the bar is the only sticky element on /calendar, and a
+        // sibling would scroll away — which is the whole problem the slot exists to solve.
+        String nav = Page.viewNav(NavAudience.OWNER, "/calendar",
+                span("Jump to month").withId("a-control")).render();
+
+        int control = nav.indexOf("id=\"a-control\"");
+        int navClose = nav.indexOf("</nav>");
+        assertThat(control).isGreaterThan(0);
+        assertThat(control)
+                .as("the control sits before the nav closes, not after it")
+                .isLessThan(navClose);
     }
 
     @Test

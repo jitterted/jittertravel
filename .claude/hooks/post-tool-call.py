@@ -18,6 +18,15 @@ PORT_FILE_SUFFIX = "-provenance-port.txt"
 class ProvenanceHookError(RuntimeError):
     pass
 
+
+class ProvenanceServerUnavailable(ProvenanceHookError):
+    """The provenance server is not running.
+
+    Not a failure: this hook is optional tooling, and reporting it turned every Write/Edit into a
+    visible "PostToolUse hook error" for as long as the server was down. Genuine faults — a
+    malformed port file, an HTTP error from a server that IS listening — still surface.
+    """
+
 def http_request(method, host, port, location, *, body: Optional[bytes] = None, headers={}, timeout=None, wait_for_response=False) -> bytes:
     with closing(HTTPConnection(host, port, timeout=timeout)) as connection:
         connection.request(method, location, body=body, headers=headers)
@@ -37,8 +46,9 @@ def send_diff_to_webserver(file_path, timestamp_ms, wait_for_response):
     try:
         port = get_server_port()
     except FileNotFoundError as e:
-        raise ProvenanceHookError(
-            f"Could not determine API port: {e.filename} does not exist") from e
+        # No port file: the server has never started, or has shut down and cleaned up.
+        raise ProvenanceServerUnavailable(
+            f"Provenance server not running ({e.filename} does not exist)") from e
     except Exception as e:
         raise ProvenanceHookError("Could not determine API port") from e
 
@@ -57,6 +67,10 @@ def send_diff_to_webserver(file_path, timestamp_ms, wait_for_response):
             wait_for_response=wait_for_response
         )
 
+    except (ConnectionRefusedError, TimeoutError) as e:
+        # A stale port file pointing at nothing: same situation as no port file at all.
+        raise ProvenanceServerUnavailable(
+            f"Provenance server not listening on {url}") from e
     except (HTTPException, OSError, ConnectionError) as e:
         raise ProvenanceHookError(
             f"Network error while sending diff to {url}") from e
@@ -95,7 +109,10 @@ def main():
         file_path = extract_file_path(tool_name, tool_input)
         if file_path:
             timestamp_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-            send_diff_to_webserver(file_path, timestamp_ms, args.wait_for_response)
+            try:
+                send_diff_to_webserver(file_path, timestamp_ms, args.wait_for_response)
+            except ProvenanceServerUnavailable:
+                return 0   # nothing to send it to; not this hook's problem to announce
 
 if __name__ == "__main__":
     sys.excepthook = excepthook

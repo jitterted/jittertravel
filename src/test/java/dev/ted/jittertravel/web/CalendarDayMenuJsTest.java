@@ -42,7 +42,11 @@ class CalendarDayMenuJsTest extends JsBehaviorTest {
     }
 
     private Locator dayMenus() {
-        return page.locator(".disclosure-menu");
+        // Scoped to the week grid on purpose: the year overview panel is a .disclosure-menu too
+        // (deliberately — that is what gives it outside-click, Escape and one-open-at-a-time for
+        // free), and it lives first in document order, so an unscoped locator's nth(0) is the panel
+        // and its open body then covers the page and swallows every click meant for a day.
+        return page.locator(".calendar-week .disclosure-menu");
     }
 
     private boolean isOpen(Locator menu) {

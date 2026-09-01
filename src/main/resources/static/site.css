@@ -79,11 +79,37 @@ body {
 
 /* Shared lateral navigation across the read-only view pages (Page.viewNav).
    A flex bar that WRAPS on narrow viewports — never a horizontal scroller. */
+/* The lateral nav is how you get between views, and on a long calendar or list it used to
+   scroll out of reach — so it sticks. Two things a static bar did not need:
+
+   1. An OPAQUE BACKGROUND. Content scrolls *behind* a sticky element, and this one had no
+      background at all, so rows would have shown straight through the link text.
+   2. A place on a Z-INDEX SCALE. Keep new values on this scale rather than inventing
+      neighbours for them:
+           60  a panel opened over the page
+           55  its scrim
+           50  popups anchored to content (DisclosureMenu's day and fix menus)
+           30  this nav
+           10  the calendar's weekday header, which parks under the nav
+            8  the calendar's month band, which parks under both
+
+   Anything that sticks BELOW this bar has to offset itself by the bar's height, and that
+   height is not a constant: the nav wraps to two or three lines on a narrow screen. It is
+   published as --nav-height by StickyNavScript; read that variable, never a literal.
+
+   Horizontal inset comes from PADDING, not margin, so the opaque background runs the full
+   width of the content column and nothing shows beside it. */
 .view-nav {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background-color: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
     gap: 0.3rem 1.1rem;
+    padding: 0.55rem 0;
     margin-bottom: 1rem;
     font-size: 0.9rem;
 }

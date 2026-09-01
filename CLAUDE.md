@@ -417,6 +417,37 @@ another tab.
 problem calendar's own view types — so it cannot disagree with the band that was clicked. A second
 copy of the phrasing is a second copy to drift.
 
+### Zooming out is lossy on purpose, and the losses are chosen
+
+A third "what belongs on this surface" rule, alongside the two above. Those ask *which kind of page
+is this*; this one asks *how far away is the reader standing*.
+
+**A zoomed-out view is not the same information smaller — it is lossy compression, and the loss is
+selective** (Ted, 2026-09-01). Decide what question the view answers at that distance, keep only
+what answers it, and drop the rest deliberately rather than shrinking everything uniformly.
+
+**The sharpest test for what goes is containment: is this implied by, or inside, something already
+on screen?** If so it is detail belonging to a closer zoom, and the reader will be at that zoom when
+they need it. Prefer dropping such a thing over rendering it small.
+
+**Worked example — the year overview (`YearOverview`, `docs/YearOverviewPlan.md`).** At a year's
+distance Ted needs *where the conferences are* (the reason a trip exists) and *whether its flights
+are booked*. He does **not** need trains or ground transfers, because — his words — *"they happen
+'inside' the overall trip"*: the trip is already drawn, and a taxi within it costs a day of the
+block's colour to say nothing. Hence the panel's whole vocabulary is three tints and one glyph.
+*"For conferences I'm planning for 8 or 10 months from now, that's all the detail i need."*
+
+**Absence can carry the signal — but only where the vocabulary is sparse.** On the overview, *no
+plane on a future trip* means its flights are not booked yet. That reading exists only because the
+plane is the **one** glyph. An earlier version gave all seven `EntryKind`s a glyph and a busy month
+became a wall of pictures in which nothing's absence was noticeable. So sparseness is not only about
+legibility at 18px; it is what buys the negative space that absence needs in order to mean anything.
+Adding a second glyph vocabulary to that panel would destroy a signal, not just add clutter.
+
+**When you build any summary, overview, digest or zoomed-out view, name the losses out loud** — in
+the plan doc and in the PR — rather than defaulting to "show everything, smaller". A loss that was
+argued for is a decision; one that happened by omission is a bug waiting to be reported.
+
 ### What belongs in `domain` — and what a curated table is
 
 A type belongs in `dev.ted.jittertravel.domain` when it states a fact or a rule about travel and

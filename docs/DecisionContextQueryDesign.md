@@ -167,6 +167,60 @@ The store is a single in-memory `List<StoredEvent>` replayed at boot. A query ca
 from `CommandConsistencyEventStore.md` §"Tags as a JSONB column" buys nothing until the conditional
 append actually has to run in the database.
 
+### 5. Persist the *position* on the command row, never the context values
+
+Asked directly (Ted, 2026-09-02): the command is already written to `command_log` as a write-ahead
+record of intent — should the `DecisionContext` be written beside it, and is that what a future
+**undo** needs?
+
+**No to both. If anything goes on the command row it is `asOfSequence` — one `BIGINT` — and it is
+for concurrency and forensics, not for undo.**
+
+**Undo does not want the old context.** `HotelBookingCancellationUndone` is a *forward* command
+producing a new event, and its decision has to be made against the stream **as it stands now** —
+`Future_Feature_Slices.md` already says so: "the undo context is the same fold with the answer
+inverted." A stored `CancelHotelContext(bookingExists=true)` is a snapshot of a world that has since
+moved on (the booking replaced, the conference declined), so deciding from it would be a bug wearing
+the costume of provenance. What undo actually needs is *which booking* and *what to reinstate*, and
+both are reachable today through `command_log.event_ids → event_log`. That link is the part worth
+having, and it already exists.
+
+**The context splits in two, and only one half is un-recomputable.**
+
+| Half | Examples in the code today | Where it belongs |
+|---|---|---|
+| Folded from events | `bookingExists`, `TalkPipelineContext.speakingStatus`, `.format` | Nowhere — recompute it by replaying to `asOfSequence` |
+| From outside the stream | `Instant now` | Already captured twice: `command_log.timestamp`, and per **R11** on the event payload |
+
+That is the rule to carry forward: **the derived half stays derived; the external half goes on the
+event, never into a side blob.** If a context ever gains a genuinely external value — a provider's
+quoted price, an exchange rate, a third-party response — that value belongs in an event payload,
+because a blob hanging off `command_log` is invisible to every read model and every later decision.
+
+**What storing the context would cost.** It becomes a stored contract exactly like an event (**R7**):
+schema versioning, an upcaster, an `EventTypes`-style discriminator, a golden deserialization
+sample, and a backup-format bump — all for a value nothing reads. Worse, `ChangeHotelContext` and
+`ChangeFlightContext` currently take `exists` from a **details projector**, the R1 violation this
+whole doc exists to remove; persisting the context would freeze that violation permanently into the
+log, where it survives the fix.
+
+**What `asOfSequence` buys instead**, for 8 bytes and no contract:
+
+- an exact "replay what it saw" — fold the log to that sequence and the original decision is
+  reproducible, including for a `FAILED_DOMAIN` row where `error` says *that* it refused but not
+  *what state* made it refuse;
+- the append condition's `afterPosition` when conditional appends land
+  (`CommandConsistencyEventStore.md` §3), which is the reason §1 puts it in `QueryResult` already.
+
+**The one honest argument on the other side** is audit, not undo: if the fold logic changes, a
+replay years later can reach a different answer than the original decision did, and only a stored
+context proves *why* a decision was made at the time. That matters in a regulated system. For a
+personal travel log it is over-engineering, and it is not a reason to build this now.
+
+**Build it with the query slice, not before.** `asOfSequence` has no meaning until a decision is
+made against a bounded query rather than `findAll()`; adding a column to `command_log` first would
+store the max sequence of "everything," which answers nothing.
+
 ---
 
 ## Concerns
@@ -229,10 +283,11 @@ originally proposed, and it needs no allowlist maintenance.
 |---|---|---|
 | 1 | `DecisionStream` port vs. a `query(...)` method on `CommandExecutor` | The port — see §1 |
 | 2 | Scope: `CancelHotel` only, or also convert `ChangeHotel` / `ChangeFlight` / `ChangeGathering` off their projectors | All four — it is what makes the query earn its keep, closes the R1 contradiction, and answers D2's "is this the second caller?" with four |
-| 3 | Include `asOfSequence` in `QueryResult` now, unused? | Yes — free now, painful later |
+| 3 | Include `asOfSequence` in `QueryResult` now, unused? | Yes — free now, painful later. See also §5, which is what it is later *for* |
 | 4 | Tag shape: single-valued `Map<String,String>` (`CommandConsistencyEventStore.md`) vs. multi-valued `Map<String,List<String>>` (`TaggedEventStoreQueryingDesign.md`) vs. tdd-game's `Set<Tag>` | Multi-valued map — see §3. The two in-repo docs currently contradict each other; whichever you pick, fix the loser |
 | 5 | Do any conflict-detection paths need **OR-across-tags** (multi-entity), or is every decision single-entity? | Unknown — needs Ted. Decides whether simple containment is enough, and is `CommandConsistencyEventStore.md` open question 4 |
 | 6 | Read the tdd-game project more widely (its `Tag` implementations and the services that build contexts from `query(...)`) to see the wiring end-to-end? | Asked; not yet answered |
+| 7 | Also write `asOfSequence` to a new `command_log.as_of_sequence` column when the query lands? | Yes, in the same slice — §5. Nullable with no default, exactly as `event_log.schema_version` is: NULL reads as "decided before bounded queries existed." Since `BackupService` writes `command_log` rows verbatim, it is a new `BackupCommand` field and therefore a **format bump to v4** on the v2→v3 precedent — old files still restore (the field arrives null), new files do not open on older code. Do **not** persist the `DecisionContext` itself, now or later |
 
 ---
 
@@ -253,7 +308,10 @@ Both of these are subsumed by this doc rather than settled independently:
   estimate. See "Prior art" above; three of its conclusions supersede this doc's first draft.
 - `CommandConsistencyEventStore.md` — conditional append / DCB. The endgame this design feeds; §3
   and §5 are the parts to read alongside this.
-- `EventSourcingRulesHeuristics.md` — R1 (never decide from a projection), R4 (write-path order).
+- `EventSourcingRulesHeuristics.md` — R1 (never decide from a projection), R4 (write-path order),
+  R7 (an event's shape is contract), R11 (a displayed time is a payload field) — the last two are
+  what §5 rests on.
+- `Future_Feature_Slices.md` — "Undo Cancel Hotel Booking," the feature §5 answers *no* for.
 - `Backlog.md` — the "ChangeHotel/ChangeFlight still decide from a projector" and "export/import
   needs a wider decision" follow-ups, both from the Cancel Hotel slice.
 - `DecisionsToReview.md` — D1, D2.

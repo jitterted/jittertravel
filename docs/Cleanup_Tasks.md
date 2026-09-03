@@ -287,6 +287,21 @@ for open work.
       places to it, and the guard lets that transfer through. Since 2026-08-30 both sides are at
       least trimmed. The comparison every other call site uses is `Place.matches`; this is the one
       that does not. Small, and nothing has hit it — the endpoints are usually picked, not typed.
+- [ ] **The booked-flight change history displays the store's envelope timestamp, at UTC, unlabelled.**
+      Noticed 2026-08-27 while reading the history rendering; deferred by Ted the same day. Two
+      faults in `BookedFlightsProjector`, both in the string the row shows:
+      `bookingEntry`/`changeEntry` (`:85`, `:90`) format `storedEvent.timestamp()` — the **event
+      store's envelope** — into `ChangeEntry.displayText` ("Booked on 2026-05-20 12:22PM"), which is
+      exactly what **R11** in `EventSourcingRulesHeuristics.md` forbids: a displayed time is a
+      payload field, never the envelope. And `toLocal` (`:99`) converts at `ZoneOffset.UTC`, so the
+      reader gets a UTC clock reading with **no zone label** — every other time on that page goes
+      through `ZonedTimeTag` and carries its zone.
+      The renderer is not the problem: `BookedFlightsRenderer.renderFlightCard` (`:153`) just prints
+      `entry.displayText()` into the `<details>` list, so the whole fix is in the projector plus
+      whatever payload field ends up carrying the occurrence time.
+      **Check `EventOccurrenceTimestampsPlan.md` before starting.** If that plan puts an occurrence
+      timestamp on the payloads, this is one of its consumers and fixing it standalone means doing
+      the work twice.
 
 ## Deferred (until needed)
 

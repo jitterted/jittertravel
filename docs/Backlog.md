@@ -27,9 +27,11 @@ Small cleanups keep living in `Cleanup_Tasks.md` — they are summarized here bu
 Decisions made during implementation that still need Ted's eye live in `DecisionsToReview.md` —
 a review queue, not a backlog; work through it one entry at a time.
 
-Status verified against the tree on **2026-09-04** (`ba1b0ad`) — the year overview's row was the
-twelfth `done` row found sitting in **Open features**, and moving it is what the three steps above
-are for.
+Status verified against the tree on **2026-09-04** (`ba1b0ad`). The year overview's row was found
+sitting in **Open features** marked `done`, and moving it is what the three steps above are for.
+**One more is still there:** `PlannedPrivateEventsListPlan.md` is marked `shipped` with "nothing is
+open", so it wants the same three steps — left in place rather than moved in the same pass, because
+its sibling `ChangePrivateEventPlan.md` is `partial` and may yet claim work from it.
 
 Legend: `open` · `partial` · `done` · `exploration` (deliberately unbuilt design record)
 · `decision` (waiting on Ted, not on code)

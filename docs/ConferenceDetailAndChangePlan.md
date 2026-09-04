@@ -1,9 +1,40 @@
 # Conference detail page + Change Conference
 
-> **Status: `planned` 2026-09-04, nothing built.** Written after Ted asked where the details for a
-> planned conference are and whether the gap was tracked. It was not: `Cleanup_Tasks.md` (Deferred)
-> tracks *"No way to change a conference"*, which is the **edit** half; nothing named the **view**
-> half at all.
+> **Status: `partial` — slice 1 shipped 2026-09-04 (`b380f0b`); slices 2 and 4 open; slice 3
+> deferred.** Written after Ted asked where the details for a planned conference are and whether the
+> gap was tracked. It was not: `Cleanup_Tasks.md` (Deferred) tracks *"No way to change a
+> conference"*, which is the **edit** half; nothing named the **view** half at all.
+
+## Slice 3 (Change Conference) is deferred, and that removed most of this plan's hard parts
+
+**Ted, 2026-09-04:** *"the main thing i'd want to change is 'CFP not recorded' for conferences that
+now have CFP info available. Seems like that's more a CFP flow than a conference change? if so, we
+can defer the 'change' form and only implement the detail view."*
+
+Right, and more strongly than stated: that flow **already exists and is already wired to that exact
+state.** `ConferencesRenderer.cfpLine` renders "CFP date unknown" as a link to
+`/conferences/{id}/cfp`, and Ted-2026-08-22's own note says the deadline line *is* the affordance
+for recording or changing a CFP. Nothing needed building for the case that prompted the question.
+(It was invisible — muted text with a hover-only underline — which is why he could not find it;
+fixed separately in `628c22d`, and the rule is now in CLAUDE.md.)
+
+**Four of this plan's decisions were only decisions because a change form existed. All dissolve:**
+
+- **Q1** (one page or two) — with no form, `/conferences/{id}` is unambiguously the detail page.
+- **Q2** (does a venue-zone change re-stamp a recorded CFP deadline) — no venue change, no trap.
+- **D4** (`ConferenceChanged` as a full snapshot silently resetting `format`) — no event.
+- **D5** (extending `EnteredLocation` validation to conferences) — the city never becomes typeable.
+
+**What is being deferred is not nothing.** `infoUrl` shipped on `ConferencePlanned` on 2026-08-22,
+so **every conference planned before that date carries `infoUrl = ""` with no way to give it one** —
+those titles link nowhere, for every viewer. That is real production data, and it is the one
+concrete trigger slice 3 has today. **Bring slice 3 back** when Ted hits a moved venue, a wrong
+date, or wants one of those links; the plan below is written and still correct.
+
+**Knock-on for the entry points, and it needs deciding before slice 2:** B1 and C1 both recommend an
+**edit pencil**, and `CalendarViewBuilder`'s own comment says *"a pencil always means 'edit this
+booking'"*. With no change form the pencil would be the app's first lying affordance. Those two
+entry points need a different icon, or the title/name link instead. See Q5.
 
 ## The problem, in three findings
 
@@ -237,10 +268,11 @@ CLAUDE.md's zoom-out rule was written against. **No.**
 
 Each ships on its own and leaves the tree green.
 
-**Slice 1 — the venue on `/conferences`.** No new route, no new event, no projector change:
-`ConferenceView` already carries `venueName`. Render it under the name (or in the City cell as
-`venue · city`, Ted's call). *This is the whole of Ted's original complaint and it is worth shipping
-first, before any of the below.*
+**Slice 1 — the venue on `/conferences`. SHIPPED 2026-09-04 (`b380f0b`).** Under the city, not
+beside it and not under the name: the table only just fits at ~820px, so a sixth column would take
+width from the fixed Actions column, and the name cell already carries the CFP/talk sub-line. City
+stays first because it is what the page is scanned by. A blank venue renders no line at all. No
+route, event, projector or schema change, as predicted.
 
 **Slice 2 — the detail page.** `ConferenceDetailController` (`GET /conferences/{id}`) +
 `ConferenceDetailRenderer` (j2html) + an OWNER-only view record folding `ConferenceProgress`,
@@ -273,8 +305,18 @@ projector emits, and a `CalendarRedactionSecurityTest` case asserting the anonym
 
 ## Open questions
 
-- **Q1. One page or two?** D1 argues two and says how to collapse it to one. Ted's call, and it is
-  the only decision here that changes the shape of the work rather than its size.
+**Q1, Q2 and Q4 are answered or moot** — see the deferral section at the top. Q1 dissolved (no form,
+so `/conferences/{id}` is the detail page); Q2 cannot arise; Q4 was already out of scope. **Q3 and
+Q5 are what slice 2 needs decided.**
+
+- **Q5 (new, 2026-09-04). What affordance opens the detail page from `/calendar` and `/itinerary`?**
+  A pencil means "edit" and there is nothing to edit, so B1/C1 as written are wrong now. Options: an
+  info/chevron icon in the same reserved slot; the entry title linking (but a conference title
+  already links to its public `infoUrl` on both surfaces, and on the calendar that link is shared
+  with the anonymous path, so diverging it by audience is the mistake redaction rule 1 forbids); or
+  no calendar/itinerary entry point at all in slice 2, reaching the page only from `/conferences`.
+  Whatever is chosen must obey the never-move rule and the new hover rule.
+- ~~**Q1. One page or two?**~~ Dissolved by the deferral: there is no second page to separate from.
 - **Q2. Does changing a conference's venue zone re-stamp a recorded CFP deadline?** `CfpOpened`
   derives its zone from `ConferencePlanned`'s dates. Three answers: leave it (the deadline silently
   means a different instant), block a zone-changing edit while a CFP is recorded, or emit a fresh

@@ -58,7 +58,7 @@ class ConferencesRendererTest {
 
         assertThat(html)
                 .contains("DDD Europe 2026")
-                .contains("<td class=\"conf-city\">Frankfurt, Germany</td>");
+                .contains("<td class=\"conf-city\">Frankfurt, Germany<div class=\"conf-venue\">Venue</div></td>");
     }
 
     /**
@@ -107,7 +107,40 @@ class ConferencesRendererTest {
                 view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "Ede", "Netherlands")
         ), TimeView.FUTURE);
 
-        assertThat(html).contains("<td class=\"conf-city\">Ede, Netherlands</td>");
+        assertThat(html).contains(
+                "<td class=\"conf-city\">Ede, Netherlands<div class=\"conf-venue\">Venue</div></td>");
+    }
+
+    /**
+     * <strong>The venue, which this page carried and never showed</strong> (Ted, 2026-09-04:
+     * "i don't currently see a way to see details for a planned conference").
+     * {@code ConferenceView} has held {@code venueName} all along; nothing rendered it, so
+     * {@code /itinerary} was the only surface that named where a conference actually is.
+     */
+    @Test
+    void theVenueRendersUnderTheCity() {
+        String html = ConferencesRenderer.render(oneSection(
+                view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "Soltau", "Germany")
+        ), TimeView.FUTURE);
+
+        assertThat(html).contains(
+                "<td class=\"conf-city\">Soltau, Germany<div class=\"conf-venue\">Venue</div></td>");
+    }
+
+    /**
+     * Several stored conferences have no venue name — {@code isBlank}, not {@code isEmpty}, and an
+     * absent line rather than an empty one, so a row without a venue is one line shorter instead of
+     * carrying a blank second line.
+     */
+    @Test
+    void aConferenceWithNoVenueRecordedShowsNoVenueLine() {
+        String html = ConferencesRenderer.render(oneSection(
+                viewWithVenue("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "Soltau", "Germany", "  ")
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<td class=\"conf-city\">Soltau, Germany</td>")
+                .doesNotContain("<div class=\"conf-venue\">");
     }
 
     /** An absent country is {@code ""}, and the city then stands alone rather than trailing a comma. */
@@ -117,7 +150,8 @@ class ConferencesRendererTest {
                 view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "Ede", "")
         ), TimeView.FUTURE);
 
-        assertThat(html).contains("<td class=\"conf-city\">Ede</td>");
+        assertThat(html).contains(
+                "<td class=\"conf-city\">Ede<div class=\"conf-venue\">Venue</div></td>");
     }
 
     /**
@@ -1090,6 +1124,19 @@ class ConferencesRendererTest {
                                        ZonedTimestamp cfpClosesOn, ConferenceFormat format) {
         return view(name, start, end, city, country, commitment, speaking, speakingStatus,
                     cfpClosesOn, "", format, "");
+    }
+
+    /** The venue is "Venue" in every other fixture; this is for the cases that vary it. */
+    private static ConferenceView viewWithVenue(String name, String start, String end,
+                                                String city, String country, String venueName) {
+        return new ConferenceView(
+                ConferenceId.random(), name, venueName,
+                new Address("1 Street", city, "", "", country, null),
+                ZonedTimestamp.fromLocal(LocalDateTime.parse(start), ZONE),
+                ZonedTimestamp.fromLocal(LocalDateTime.parse(end), ZONE),
+                AttendanceCommitment.WATCHING, false, SpeakingStatus.NOT_SPEAKING, null, "",
+                ConferenceFormat.CALL_FOR_PAPERS, ""
+        );
     }
 
     private static ConferenceView view(String name, String start, String end,

@@ -98,6 +98,12 @@ public class ConferencesRenderer {
             .conf-dates { display: flex; flex-wrap: wrap; gap: 0 4px; color: var(--muted-text); }
             /* City and country in one cell, for the same reason. */
             .conf-city { color: var(--muted-text); overflow-wrap: break-word; }
+            /* The venue under the city, in the same relationship the CFP line has to the name: the
+               city is what this page is scanned by, the venue is the supporting fact. Its own
+               declaration rather than reusing .conf-cfp-deadline — that class means "the state of
+               this conference's talk", and sharing it because the pixels match would tie two
+               unrelated things together. */
+            .conf-venue { font-size: 0.75rem; margin-top: 0.15rem; }
             /* The actions a row carries are decided by the state machine, so their number and
                their words change between rows — the fixed Confirm/Decline slots this replaced no
                longer make sense, because most of these moves are meaningless in most states rather
@@ -565,7 +571,25 @@ public class ConferencesRenderer {
      * A country is {@code ""} when absent — the domain's sentinel for a missing string — and the
      * city then stands alone rather than trailing a comma.
      */
-    private static String cityCell(ConferenceView conf) {
+    private static DomContent cityCell(ConferenceView conf) {
+        DomContent venue = conf.venueName().isBlank()
+                ? each()
+                : div(conf.venueName()).withClass("conf-venue");
+        return each(text(cityLine(conf)), venue);
+    }
+
+    /**
+     * The venue, under the city rather than beside it: this table only just fits at ~820px (the
+     * iPad in portrait), so a sixth column would have to take width from the fixed Actions column,
+     * and CLAUDE.md says an action must not move.
+     * <p>
+     * <strong>City first, venue under it.</strong> The city is what the page is scanned by — which
+     * city is this trip to — and the venue is the supporting fact, so it takes the smaller, muted
+     * treatment the CFP line under the name already uses. A conference with no venue recorded
+     * renders no line at all rather than an empty one; several stored conferences have none
+     * (`isBlank`, not `isEmpty`, per CLAUDE.md).
+     */
+    private static String cityLine(ConferenceView conf) {
         return conf.country().isEmpty()
                 ? conf.city()
                 : conf.city() + ", " + conf.country();

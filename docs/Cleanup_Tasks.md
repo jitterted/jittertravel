@@ -221,6 +221,28 @@ for open work.
         after an optional service-ID span, so the **pencil slides to the start of the line on trains
         with no service id**. The neighbour is text rather than an action, but the pencil is the
         thing being aimed at.
+- [ ] **A collapsed past week on `/calendar` is tappable and nothing says so.** Found 2026-09-04
+      auditing for hover-only affordances after the `/conferences` CFP link was fixed
+      (CLAUDE.md, "never have an affordance that relies on `:hover`"). `.calendar-week--collapsed
+      { cursor: pointer; }` (`CalendarRenderer.java:233`) is the *only* always-on signal that a
+      collapsed week expands when clicked — and a cursor is a pointer affordance, so **on the iPad
+      there is none at all**.
+      **Why it is on this list rather than in that fix:** it is the weakest remaining case, not a
+      clear-cut one. Two things soften it — the `.day-badge` entry count renders on collapsed weeks
+      only, so a week does say "there is something here you cannot see", and the global
+      "Show/Hide past weeks" toggle is a second, fully visible route to the same content. Nobody is
+      stranded. But the badge says *"3"*, not *"tap to open"*, and the rule is about the control
+      being visible as a control.
+      **`HoverIsNeverTheAffordanceTest` does not catch this and cannot.** Its rule is about a
+      `:hover` rule that introduces `text-decoration: underline`; this is `cursor: pointer` with no
+      hover rule at all, and whether an always-on affordance exists depends on markup
+      (`.day-badge`) rather than CSS. A mechanical version would have to reason across both, so
+      this one needs a person.
+      **Shape of a fix:** a small caret in the day-label row of a collapsed week, or making the
+      badge itself read as a control. Mind the standing rule that affordances never move — whatever
+      goes there must occupy the same slot on expanded weeks or be absent by a state rule, not
+      shift the row.
+
 - [ ] **Surface "restart needed" after a truncate, next to the read-only banner.** `PostgresPersister
       .truncateAllTables()` (via `/admin/database/truncate`, `AdminController.java:128`) empties the
       tables, but `EventStore`'s in-memory list and every projector keep the old data — the app goes

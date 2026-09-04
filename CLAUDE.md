@@ -366,6 +366,10 @@ its surroundings to make out — so apply the English rule when reviewing and tr
 floor. Note also what is legitimately *not* a violation: an always-visible SVG icon
 (`.edit-pencil`, `.cancel-bin`) whose hover changes nothing about whether you can see it.
 
+The one known violation the test cannot reach — a collapsed past week on `/calendar`, whose only
+always-on signal is `cursor: pointer` — is in `docs/Cleanup_Tasks.md` with its mechanism, in the
+same way the moving-affordance violations are.
+
 **Problem colouring beats problem taxonomy.** On any surface where a problem sits among
 non-problems, every problem wears the same warning amber, whatever kind it is; the kind may survive
 as a left edge, an icon or the words, never as the fill. Ted missed a run of missing hotels on

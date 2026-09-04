@@ -370,6 +370,19 @@ The one known violation the test cannot reach — a collapsed past week on `/cal
 always-on signal is `cursor: pointer` — is in `docs/Cleanup_Tasks.md` with its mechanism, in the
 same way the moving-affordance violations are.
 
+**A fifth rule: an icon means one thing, app-wide** (Ted, 2026-09-04). **A pencil means edit and
+nothing else**; a bin means cancel or remove. A new meaning takes a **new icon** — never a borrowed
+one, however well it fits the slot. Borrowing is worse than a missing affordance, because a pencil
+that opens a read-only page teaches that pencils are unreliable, and after that every pencil has to
+be tried rather than read. Caught while planning the conference detail page: the obvious slot for
+"open details" on `/calendar` was the pencil's, and the pencil would have been lying.
+
+The corollary that is deliberately **not** a rule: **where a *title* link goes is a judgment call**
+(Ted, 2026-09-04). `CalendarViewBuilder` used to assert that a title link "always means go look at
+this elsewhere"; that was dropped as unjustified once the owner's conference title wanted to point
+at the app's own detail page. Do not re-derive it from the code — the current targets are choices,
+not a pattern.
+
 **Problem colouring beats problem taxonomy.** On any surface where a problem sits among
 non-problems, every problem wears the same warning amber, whatever kind it is; the kind may survive
 as a left edge, an icon or the words, never as the fill. Ted missed a run of missing hotels on

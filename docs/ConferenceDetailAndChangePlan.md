@@ -303,6 +303,51 @@ projector emits, and a `CalendarRedactionSecurityTest` case asserting the anonym
 - **`ProjectorsDependOnEventsAloneTest`** already covers the new projector if one is added — it
   scans every `*Projector` in `application`, so keep the suffix.
 
+## How you reach the detail page — settled 2026-09-04
+
+**For the OWNER, the conference name links to the detail page. Everywhere: `/conferences`,
+`/calendar`, `/itinerary`. For everyone else it goes to `infoUrl`, exactly as today.** The
+conference's own page is then reached from the detail page, which carries it. Ted: *"most questions
+I have about a conference are probably on the details page"* — the extra click is accepted.
+
+This replaces options A1–A4 and B1–B3 above; **Q5 is dissolved and no new icon is needed.**
+Consequences:
+
+- **`/conferences`**: the name links internally, so it drops `target="_blank"`, and it becomes a
+  link on **every** row rather than only those with an `infoUrl` — one vocabulary per row, which the
+  never-move rule wants. It also answers **Q3**: a dropped conference still shows its name, so it is
+  reachable, which is where "why did this drop out?" is answerable anyway.
+- **A pencil means edit, and nothing else** (Ted, 2026-09-04 — now a rule in CLAUDE.md). Conferences
+  therefore get **no pencil** until Change Conference exists, so **slice 4 folds into slice 2**.
+- **`CalendarViewBuilder:369`'s comment must be rewritten** as part of slice 2. It currently asserts
+  *"a link on the title always means 'go look at this elsewhere'"* — a rule Ted dropped as
+  unjustified: **"best page" is a judgment call, so it is deliberately not a rule.** Say that it is
+  not a rule, so nobody re-derives the old one from the code.
+- **Hotels are explicitly out of scope** (Ted, 2026-09-04). A hotel's title goes to `mapsUrl` and
+  hotels do have `/booked-hotels/{id}`, so the same reasoning would move it — but Ted wants to
+  *"better understand how i use the app when heading to my hotel"* first. Do not apply this to
+  lodging, flights or trains as a tidy-up.
+
+**Two pieces of plumbing this needs, neither of which was in the original plan:**
+
+- `EntryDetails.Conference` needs a `detailPath`. `EntryDetails.PublicConference` must **not** get
+  one — that is the compiler-enforced half.
+- `ConferenceItineraryEntry` carries no `conferenceId` at all (`name, venueName, venueAddress,
+  dayNumber, totalDays, anchorDateTime, infoUrl`), so the itinerary cannot build the link today.
+  Adding it touches the projector that builds the entry and its tests.
+
+**FAMILY will hold a `detailPath` it never renders** — the carry-and-strip pattern CLAUDE.md names.
+Accepted, because five records already do this (`Gathering`/`Flight`/`Train`/`Lodging.editPath`,
+`GroundTransfer.cancelPath`) and family is not the threat model anonymous is. It needs both
+redaction tiers **plus a family test** asserting family gets `infoUrl` and not the detail path.
+Whether this should instead be solved with per-role projectors is
+`PerRoleReadModelsExploration.md` — Ted wants that explored by **2026-09-08**.
+
+**On D1, and this reframes it:** Ted, 2026-09-04 — *"was never happy about reusing edit pages as a
+substitute for a real details page, but it's fine for now."* So the conference detail page is not a
+divergence from the house pattern to be tidied away later; it is **the first instance of where the
+pattern is going**. Read D1 as precedent, not exception.
+
 ## Open questions
 
 **Q1, Q2 and Q4 are answered or moot** — see the deferral section at the top. Q1 dissolved (no form,

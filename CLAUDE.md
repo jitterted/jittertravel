@@ -340,6 +340,32 @@ already knows to click is a hidden affordance, which this project does not ship.
 `ProblemCalendarViewBuilder.renderBandSegment` (one fix makes the whole band a link; several keep
 the menu, and either way a `Fix ▾`/named chip on the band's face says the action is there).
 
+**A fourth rule, and it is absolute: never have an affordance that relies on `:hover`** (Ted,
+2026-09-04). A control's visible sign of being a control must be there when nothing is pointing at
+it — a colour, a permanent underline, a border, an icon. `:hover` is reinforcement and never the
+affordance itself.
+
+**The iPad has no pointer**, and it is this app's primary target, so a hover-only control is not
+"subtle" there — it is invisible at every moment. That is the whole argument; it is the same one the
+dropdown rule above makes about a menu that "only reveals itself to someone who already knows to
+click", stated for every control.
+
+Worked example, and how it shipped: `/conferences` rendered **"CFP date unknown"** — the one
+affordance for recording a conference's CFP — as `color: inherit` inside a `var(--muted-text)`
+sub-line with `:hover { text-decoration: underline }`. It read as muted grey text identical to the
+non-link sub-lines beside it, and the comment above it said, in as many words, "the underline on
+hover is the affordance". Ted could not find it. The fix was **not** to make it louder: the
+underline became permanent and the muted colour stayed, which keeps the visual hierarchy the
+original note wanted and makes the link visible at rest.
+
+Enforced by `HoverIsNeverTheAffordanceTest`, a source scan over every renderer's CSS and
+`site.css`: a selector whose `:hover` rule is where `text-decoration: underline` first appears must
+declare its own `color` rather than `color: inherit`. **That is narrower than the rule** — it does
+not see a hover that reveals via `opacity`/`display`/`visibility`, or a declared colour too close to
+its surroundings to make out — so apply the English rule when reviewing and treat the test as the
+floor. Note also what is legitimately *not* a violation: an always-visible SVG icon
+(`.edit-pencil`, `.cancel-bin`) whose hover changes nothing about whether you can see it.
+
 **Problem colouring beats problem taxonomy.** On any surface where a problem sits among
 non-problems, every problem wears the same warning amber, whatever kind it is; the kind may survive
 as a left edge, an icon or the words, never as the fill. Ted missed a run of missing hotels on

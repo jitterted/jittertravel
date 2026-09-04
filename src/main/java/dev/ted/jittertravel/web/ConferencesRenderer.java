@@ -113,18 +113,26 @@ public class ConferencesRenderer {
                state machine, so it is not in the actions cell. It inherits the muted deadline
                styling rather than the accent colour: it sits under the name, and a second coloured
                link there would compete with the name for the eye. */
-            .conf-cfp { color: inherit; text-decoration: none; }
-            .conf-cfp:hover { text-decoration: underline; }
+            /* UNDERLINED ALWAYS, not on hover (Ted, 2026-09-04: never have an affordance that
+               relies on hover). This is the link that records a conference's call for papers, and
+               it was muted text with a hover underline — which on the iPad is no affordance at
+               all. The underline is permanent and the colour stays muted, so it keeps the
+               hierarchy the note above wanted: the fix was never to make it louder, only to make
+               it visible. Do not quote the link's own words here — CSS comments ship inside
+               <style>, and ConferencesRendererTest asserts on their absence from the page. */
+            .conf-cfp { color: inherit; text-decoration: underline; }
+            .conf-cfp:hover { color: var(--accent-color); }
             /* The way out to the submission page, on the same muted line and in the same muted
                colour: it is a second link on that line, and colouring it would make the CFP line
-               louder than the conference name it sits under. */
-            .conf-cfp-submit { color: inherit; text-decoration: none; white-space: nowrap; }
-            .conf-cfp-submit:hover { text-decoration: underline; }
+               louder than the conference name it sits under. Underlined always, same reason. */
+            .conf-cfp-submit { color: inherit; text-decoration: underline; white-space: nowrap; }
+            .conf-cfp-submit:hover { color: var(--accent-color); }
             .conf-cfp-sep { opacity: 0.6; }
-            /* The conference name links to its own page when it has one. Inherits the name's own
-               weight and colour, so a row with a link and a row without read as the same list —
-               it is the same text either way, and the underline on hover is the affordance. */
-            .conf-info-link { color: inherit; text-decoration: none; }
+            /* The conference name links to its own page when it has one. Declares the accent
+               colour it was already inheriting from the .conf-name cell: same pixels, but the
+               affordance is now local rather than depending on an ancestor that could change and
+               silently take the link's visibility with it. */
+            .conf-info-link { color: var(--accent-color); text-decoration: none; }
             .conf-info-link:hover { text-decoration: underline; }
             /* Action labels are nowrap units, and the 240px column is budgeted for three of them —
                the reason they are one or two short words. */

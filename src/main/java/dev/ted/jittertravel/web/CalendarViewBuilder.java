@@ -295,7 +295,7 @@ public class CalendarViewBuilder {
         // contiguous, every month after the first has its 1st inside it. The bands cannot promise
         // that: a week is filed under its *Sunday*, so a gridEnd landing on the 1st-5th of a month
         // leaves that month with days on the page and no band, and its overlay link would be a
-        // silently dead click. See docs/YearOverviewPlan.md D3.
+        // silently dead click. See docs/archived/YearOverviewPlan.md D3.
         if (isMonthStart) {
             cell.withId(monthAnchorId(YearMonth.from(date)));
         }

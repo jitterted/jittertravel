@@ -27,7 +27,7 @@ import static j2html.TagCreator.span;
  * The zoomed-out map of {@code /calendar}: one mini month calendar per month the page has drawn,
  * in a panel that opens from a "Jump to month" trigger in the sticky nav. Clicking a month scrolls
  * the linear calendar to that month — never a page load, because every month in the panel is on the
- * page by construction (see {@code docs/YearOverviewPlan.md} D2).
+ * page by construction (see {@code docs/archived/YearOverviewPlan.md} D2).
  * <p>
  * <strong>Not rendered at all for an anonymous viewer.</strong> Every fact here is individually
  * public, but a year of them drawn as one 13px-per-day picture is a legible pattern — how often Ted

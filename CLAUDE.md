@@ -430,7 +430,7 @@ what answers it, and drop the rest deliberately rather than shrinking everything
 on screen?** If so it is detail belonging to a closer zoom, and the reader will be at that zoom when
 they need it. Prefer dropping such a thing over rendering it small.
 
-**Worked example — the year overview (`YearOverview`, `docs/YearOverviewPlan.md`).** At a year's
+**Worked example — the year overview (`YearOverview`, `docs/archived/YearOverviewPlan.md`).** At a year's
 distance Ted needs *where the conferences are* (the reason a trip exists) and *whether its flights
 are booked*. He does **not** need trains or ground transfers, because — his words — *"they happen
 'inside' the overall trip"*: the trip is already drawn, and a taxi within it costs a day of the

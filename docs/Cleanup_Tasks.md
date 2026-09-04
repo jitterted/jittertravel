@@ -29,9 +29,13 @@ for open work.
       not both; the alternative puts two bands between two adjacent weeks. One test —
       `everyMonthGetsOneBandAboveTheFirstWeekThatStartsInIt` — mutation-verified by filing a week
       under its Saturday instead.
-      Re-landed on its own, as intended — and it turned out to be a **prerequisite**, not a
-      nicety: the year overlay's "every jump is a scroll" needs a per-month anchor in the page, and
-      these bands are it. Do not remove them without replacing the anchors.
+      Re-landed on its own, as intended — then **removed again 2026-09-01** with the year overview
+      (`archived/YearOverviewPlan.md`). Two reasons, and the second is why it cannot come back in
+      this shape: they were built for orientation *while scrolling* to find a month, which the jump
+      replaces; and a week is filed under its **Sunday**, so Sep 1–5 rendered under a band reading
+      "AUGUST 2026", and a `gridEnd` on the 1st–5th left a month with no band at all. That is also
+      why they could not be the jump anchors — those are the month-start day cells, whose set is
+      complete by construction. The 1st still names its month in its own day label.
 - [x] **Nothing enforced that the public calendar handles the same removal events the owner's does.**
       Raised by review of the S2 refactor 2026-08-21; **done the same day** — Ted chose
       lifecycle-propagation scenarios over a source-scan convention test, the option that fits the

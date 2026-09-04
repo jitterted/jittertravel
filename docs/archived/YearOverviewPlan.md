@@ -2,9 +2,41 @@
 
 **Status: SHIPPED 2026-09-01**, all four slices, in `YearOverview` (+ `Page.viewNav`'s trailing
 slot, the month anchor ids on `CalendarViewBuilder`'s month-start day cells, and the CSS/script
-wiring in `CalendarRenderer`). Tests: `YearOverviewTest` (18),
-`YearOverviewAnchorConventionTest` (4), `YearOverviewJsTest` (11), plus two `PageTest` and two
-`CalendarRedactionSecurityTest` cases. Full gate green — 1859 default, 75 `js`.
+wiring in `CalendarRenderer`). Tests: `YearOverviewTest` (25),
+`YearOverviewAnchorConventionTest` (4), `YearOverviewJsTest` (11), `StickyLayerHeightsJsTest` (6),
+plus two `PageTest` and two `CalendarRedactionSecurityTest` cases. Archived 2026-09-04.
+
+## Read this before the plan below it: five things the build reversed
+
+The body of this doc is the plan **as written**, including decisions the implementation then
+overturned. Kept whole, because the arguments are why the reversals were right — but do not read a
+paragraph below as describing the code.
+
+1. **Three tints and one glyph, not seven of each.** The plan settles on the saturated
+   `--entry-*-fg` lane colours for all seven kinds plus a per-kind glyph
+   (🎤 👥 🍽️ ✈️ 🚆 🚕 🏨), and a `FLIGHT > TRAIN > CONFERENCE > …` priority. All of it went the day
+   it shipped: a busy month was a wall of pictures in which nothing's *absence* was noticeable, and
+   every travel day punched a hole in the trip it served. What ships is `COLOUR_PRIORITY` —
+   `CONFERENCE > GATHERING > LODGING`, using the week grid's **pale** `--entry-*-bg` — and one
+   glyph, the plane, on **every** flight day rather than a run's first. The reasoning is now
+   CLAUDE.md's "Zooming out is lossy on purpose".
+2. **There is no legend**, which the plan's mockup had. Three tints the week grid already uses need
+   no key.
+3. **The sticky month bands are gone**, removed 2026-09-01 rather than kept as the plan assumed. A
+   week is filed under its *Sunday*, so a `gridEnd` on the 1st–5th left a month with no band and its
+   mini a silently dead click — and Sep 1–5 rendered under a band reading "AUGUST 2026". The anchors
+   are the month-start day cells, whose set is complete by construction (D3).
+4. **Q3 answered: `Page.viewNav`'s trailing slot.** Q3's own analysis argued for a calendar-only
+   toolbar as "strictly more moving parts"; the opposite held, because the nav is the only sticky
+   element on the page and a second bar would have stacked a third offset under it.
+5. **Q4 answered: `<details>`**, reusing `DisclosureMenu` — which also bought
+   one-open-at-a-time across the day menus, the thing that keeps the panel and a day menu from
+   fighting over the z-index they cannot resolve between them (`.view-nav` is a stacking context).
+
+Two later corrections, from the 2026-09-04 review of the unpushed commits: the weekday header's
+`47px` literal was **5px out** against its real 42, so both sticky layers are now measured by
+`StickyLayerHeights` (renamed from `StickyNavScript`) and the jump lands where it says; and a stay's
+**check-out day is tinted**, four days for three nights, decided rather than inherited.
 
 ## Revision 2 (Ted, 2026-09-01, after seeing it running)
 
@@ -132,7 +164,7 @@ becomes a page you scroll for a long time to learn very little — and there is 
 "what does next spring look like?" without travelling through everything in between.
 
 The first attempt at this treated the length as the problem and collapsed the empty stretches
-(`archived/QuietWeekRunsPlan.md`). It was built, refined through three visual iterations, and
+(`QuietWeekRunsPlan.md`). It was built, refined through three visual iterations, and
 reverted, because length was a symptom:
 
 > i wonder if i'm solving the wrong problem … i think i need a more zoomed out view — a year or more

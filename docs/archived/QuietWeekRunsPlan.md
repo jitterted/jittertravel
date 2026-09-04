@@ -10,7 +10,7 @@ actual problem:
 
 That is the correct diagnosis and it retires this whole plan. Everything below solved "the linear
 calendar is too long to scroll" — a real problem, but a symptom. The successor is
-`../YearOverviewPlan.md`.
+`YearOverviewPlan.md`.
 
 **Two things here outlived the revert, and are why this doc is kept:**
 

@@ -79,7 +79,7 @@ public final class Page {
      * page puts a control that has to be reachable from anywhere in a long document, which is a
      * different thing from a link to another view. Today's only caller is {@code CalendarRenderer},
      * whose "Jump to month" trigger has to stay on screen through 150 weeks of scrolling — and this
-     * bar is the only thing on {@code /calendar} that does (see {@code docs/YearOverviewPlan.md}
+     * bar is the only thing on {@code /calendar} that does (see {@code docs/archived/YearOverviewPlan.md}
      * D9/Q3). Putting a second page's controls here would make a shared bar page-aware, which is
      * what the paragraph above exists to prevent.
      * <p>

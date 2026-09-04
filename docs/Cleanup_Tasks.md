@@ -322,7 +322,12 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       **Trigger:** the linear calendar feeling too airy once the year overview is carrying the
       "sense of things" job. One token in `CalendarRenderer`.
 
-- [ ] **No way to change a conference.** Lifted from `archived/ConferenceSubmissionTrackingPlan.md`
+- [ ] **No way to change a conference.** **Now owned by `ConferenceDetailAndChangePlan.md`
+      (planned 2026-09-04, slice 3)** — keep this entry only until that plan ships, then delete it
+      rather than ticking it, since the plan is the record. The plan also answers the *view* half,
+      which nothing tracked: there is no `/conferences/{id}` at all, and the venue `ConferenceView`
+      already carries is rendered nowhere on `/conferences`.
+      Lifted from `archived/ConferenceSubmissionTrackingPlan.md`
       2026-08-23, when that plan was archived — it names this gap and nothing else tracked it.
       There is no `ChangeConferenceController` to match `ChangeGathering`, so a conference's name,
       dates, venue and **`infoUrl`** are set once at plan time and cannot be corrected. Known and

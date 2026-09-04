@@ -90,7 +90,7 @@ body {
       This bar creates a stacking context, so anything nested INSIDE it (the year overview
       panel) is scoped to 30 whatever z-index it names — it cannot out-stack the 50s. What
       keeps those apart is DisclosureMenu's one-open-at-a-time, not a z-index.
-   3. Anything sticking BELOW it offsets by --nav-height, published by StickyNavScript. The
+   3. Anything sticking BELOW it offsets by --nav-height, measured by StickyLayerHeights. The
       height is not a constant: the bar wraps on a narrow screen. Never a literal. */
 .view-nav {
     position: sticky;

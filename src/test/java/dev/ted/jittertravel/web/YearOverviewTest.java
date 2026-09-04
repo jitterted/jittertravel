@@ -189,6 +189,27 @@ class YearOverviewTest {
         assertThat(html).contains("<span class=\"yo-day yo-filled yo-gathering\"></span>");
     }
 
+    /**
+     * <strong>A stay's check-out day is tinted too — four days for three nights</strong> (Ted,
+     * 2026-09-04). You are still in that city on the morning you leave, and the flight home usually
+     * sits on the check-out day, so at this zoom the block covers the whole time you were there.
+     * Decided rather than inherited: the other lodging cases here use a 09:00–17:00 fixture, which
+     * cannot see the question.
+     */
+    @Test
+    void aStayTintsItsCheckOutDayAsWellAsItsNights() {
+        String html = YearOverview.render(
+                List.of(new CalendarEntry(LocalDate.of(2026, 9, 14).atTime(15, 0),
+                                          LocalDate.of(2026, 9, 17).atTime(11, 0),
+                                          EntryKind.LODGING.name(), List.of(),
+                                          new EntryDetails.Lodging(null, null))),
+                GRID_START, GRID_END, TODAY, Set.of(), false).render();
+
+        assertThat(html.split("yo-lodging", -1).length - 1)
+                .as("the 14th, 15th, 16th and the 17th he checks out on")
+                .isEqualTo(4);
+    }
+
     @Test
     void aHotelNightWithNothingElseOnItStillTints() {
         assertThat(render(List.of(entry(EntryKind.LODGING, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12)))))

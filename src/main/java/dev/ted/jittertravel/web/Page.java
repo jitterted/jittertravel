@@ -93,14 +93,13 @@ public final class Page {
      * already had.
      */
     public static DomContent viewNav(NavAudience audience, String activePath, DomContent... trailing) {
-        // The measuring script rides with the bar rather than being wired up per page: the nav
-        // sticks, so anything below it needs --nav-height, and a page that renders the nav but
-        // forgot the script would stack its own sticky layers against a height of zero.
+        // The measuring script rides with the bar rather than being wired up per page: a page that
+        // rendered the nav but forgot the script would stack its sticky layers against a zero.
         return each(
                 nav(each(navLinks(audience), link -> link.render(activePath)))
                         .with(trailing)
                         .withClass("view-nav"),
-                StickyNavScript.render());
+                StickyLayerHeights.render());
     }
 
     private static List<NavLink> navLinks(NavAudience audience) {

@@ -30,8 +30,9 @@ public class CalendarRenderer {
                 --calendar-past-hatch: rgba(0, 0, 0, 0.1);
                 --calendar-today-tint: #eef2ff;
                 --calendar-empty-band-min-height: 120px;
-                /* Only consumer is the jump anchors' scroll-margin-top below. A literal because
-                   the header is one non-wrapping line; a pixel out costs a hairline. */
+                /* Scripting-off fallback only: StickyLayerHeights overwrites this with the header's
+                   measured height. Consumed by the jump anchors' scroll-margin-top below, where
+                   being a few px out lands a jumped-to month under the bars. */
                 --calendar-weekday-header-height: 47px;
                 --entry-conference-bg: #e0e7ff; --entry-conference-fg: #4f46e5;
                 --entry-gathering-bg: #f5f3ff;  --entry-gathering-fg: #7c3aed;
@@ -79,10 +80,9 @@ public class CalendarRenderer {
                column alone and knock it out of registration with the other weeks and this header.
                Pinning the min to 0 makes each track exactly 1/7 of the container at every width,
                so the columns align by construction rather than by content happening to be short. */
-            /* Parks under the sticky nav, whose height is published as --nav-height by
-               StickyNavScript because the bar wraps. The 0 fallback is what a page with no nav
-               (or with scripting off) gets: the header then sticks to the very top, which is
-               where it stuck before the nav did. */
+            /* Parks under the sticky nav, whose height StickyLayerHeights measures. The 0 fallback
+               is what scripting-off gets: the header sticks to the very top, where it stuck before
+               the nav did. */
             .calendar-header {
                 display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
                 position: sticky; top: var(--nav-height, 0px); z-index: 10;
@@ -375,10 +375,11 @@ public class CalendarRenderer {
                 entries,
                 CalendarViewBuilder.gridStart(rangeStart), CalendarViewBuilder.gridEnd(rangeEnd),
                 today, awayDays, isPublicUser);
-        // The overlay's CSS and script are withheld from an anonymous render too, not just its
-        // markup. Both name the panel's classes and its "Jump to month" label, and a stylesheet
-        // describing an owner-only surface is itself a disclosure — the same reason CLAUDE.md says
-        // a viewer who could never trigger an action gets nothing rather than a greyed control.
+        // Withheld from an anonymous render: anything that NAMES the panel — its classes, its
+        // "Jump to month" label — because a stylesheet describing an owner-only surface says the
+        // surface exists. The jump anchors and .is-jump-target stay for every viewer: they name
+        // nothing, month boundaries being public, and gating them would make CalendarViewBuilder
+        // audience-aware for no gain (Ted, 2026-09-04).
         // Pinned by CalendarRedactionSecurityTest, which caught the CSS half of this.
         String overlayCss = isPublicUser ? "" : YearOverview.CSS;
         String overlayScript = isPublicUser ? "" : YearOverview.SCRIPT;

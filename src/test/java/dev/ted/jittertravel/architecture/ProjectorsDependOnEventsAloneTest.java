@@ -33,6 +33,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * a local variable are all caught, not just fields and parameters. Comments and string literals are
  * blanked before scanning, so a comment may name another projector — {@code BookedHotelsProjector}
  * deliberately does — while code may not.
+ * <p>
+ * <strong>The limit: it matches on the names {@code *Projector} and {@code *Aggregator}.</strong> A
+ * read model reached through an interface called anything else is invisible to it, so keep the
+ * suffix when you add one.
  */
 class ProjectorsDependOnEventsAloneTest {
 
@@ -47,16 +51,7 @@ class ProjectorsDependOnEventsAloneTest {
         List<String> violations = new ArrayList<>();
 
         for (Path projector : projectorSources()) {
-            String ownName = fileName(projector);
-            String code = codeOnly(Files.readString(projector));
-            Matcher matcher = READ_MODEL_NAME.matcher(code);
-            while (matcher.find()) {
-                if (namesItself(matcher.group(), ownName)) {
-                    continue;
-                }
-                violations.add(ownName + " names " + matcher.group()
-                               + " (line " + lineOf(code, matcher.start()) + ")");
-            }
+            violations.addAll(violationsIn(fileName(projector), Files.readString(projector)));
         }
 
         assertThat(violations)
@@ -66,6 +61,38 @@ class ProjectorsDependOnEventsAloneTest {
                     + "both need the same derived value, share the domain rule that derives it:\n%s",
                     String.join("\n", violations))
                 .isEmpty();
+    }
+
+    /**
+     * The case that proves the guard above can fail. Without it a wrong regex, or an over-eager
+     * {@link #namesItself}, leaves a scan that is green forever over any tree at all.
+     */
+    @Test
+    void aProjectorNamingAnotherReadModelIsReported() {
+        String source = """
+                class SampleProjector {
+                    private final ScheduleGapProjector scheduleGapProjector;
+                    List<View> views() { return CalendarAggregator.shared(); }
+                }
+                """;
+
+        assertThat(violationsIn("SampleProjector", source))
+                .as("the type, the decapitalized field, and the aggregator — all three forms")
+                .containsExactly("SampleProjector names ScheduleGapProjector (line 2)",
+                                 "SampleProjector names scheduleGapProjector (line 2)",
+                                 "SampleProjector names CalendarAggregator (line 3)");
+    }
+
+    @Test
+    void aProjectorNamingOnlyItselfIsNotAViolation() {
+        String source = """
+                class SampleProjector {
+                    static SampleProjector empty() { return new SampleProjector(); }
+                    private final SampleProjector sampleProjector = null;
+                }
+                """;
+
+        assertThat(violationsIn("SampleProjector", source)).isEmpty();
     }
 
     @Test
@@ -92,6 +119,20 @@ class ProjectorsDependOnEventsAloneTest {
         assertThat(projectorSources())
                 .as("the scan found no projectors — the source path has moved and this guard is inert")
                 .hasSizeGreaterThan(20);
+    }
+
+    /** The scan itself, over one source, so it can be handed a violation as well as the tree. */
+    private static List<String> violationsIn(String ownName, String source) {
+        List<String> violations = new ArrayList<>();
+        String code = codeOnly(source);
+        Matcher matcher = READ_MODEL_NAME.matcher(code);
+        while (matcher.find()) {
+            if (!namesItself(matcher.group(), ownName)) {
+                violations.add(ownName + " names " + matcher.group()
+                               + " (line " + lineOf(code, matcher.start()) + ")");
+            }
+        }
+        return violations;
     }
 
     private static List<Path> projectorSources() throws IOException {

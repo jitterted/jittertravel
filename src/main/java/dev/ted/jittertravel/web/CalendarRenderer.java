@@ -30,8 +30,8 @@ public class CalendarRenderer {
                 --calendar-past-hatch: rgba(0, 0, 0, 0.1);
                 --calendar-today-tint: #eef2ff;
                 --calendar-empty-band-min-height: 120px;
-                /* The weekday header is ~47px tall and sticks at 0, so the month band parks
-                   directly under it; a pixel out either way costs a hairline, not a bug. */
+                /* Only consumer is the jump anchors' scroll-margin-top below. A literal because
+                   the header is one non-wrapping line; a pixel out costs a hairline. */
                 --calendar-weekday-header-height: 47px;
                 --entry-conference-bg: #e0e7ff; --entry-conference-fg: #4f46e5;
                 --entry-gathering-bg: #f5f3ff;  --entry-gathering-fg: #7c3aed;
@@ -117,10 +117,9 @@ public class CalendarRenderer {
             .day-label-cell.is-away {
                 border-bottom: var(--calendar-away-border-width) solid var(--calendar-away-color);
             }
-            /* The year overview's scroll target (see CalendarViewBuilder.monthAnchorId). It must
-               clear the whole sticky stack, which is the same offset the month band parks at — keep
-               the two in step, because a jump landing under the bars is the one number this feature
-               gets visibly wrong. */
+            /* The year overview's scroll target (see CalendarViewBuilder.monthAnchorId). The
+               scroll-margin clears the whole sticky stack: a jump landing under the bars is the
+               one number this feature gets visibly wrong. */
             .day-label-cell.is-month-start {
                 scroll-margin-top: calc(var(--nav-height, 0px) + var(--calendar-weekday-header-height));
                 border-top: var(--calendar-month-start-border-width) solid var(--calendar-month-start-color);
@@ -248,12 +247,10 @@ public class CalendarRenderer {
             }
             .calendar-week--collapsed .day-badge { display: inline-block; }
             .calendar-week--collapsed.is-expanded .day-badge { display: none; }
-            /* The sticky month band lived here until 2026-09-01; see the note in CalendarViewBuilder
-               for why it went. --calendar-weekday-header-height stays: the jump anchors' own
-               scroll-margin-top is still measured off it. */
-            /* Acknowledges a jump from the year overview. Scrolling a long page to a place that
-               looks like every other place is disorienting, so the arrived-at week says so briefly.
-               On the week, not on the one day cell that carries the id. */
+            /* Acknowledges a jump from the year overview: scrolling a long page to a place that
+               looks like every other place is disorienting. On the week, not on the one day cell
+               that carries the id. (The sticky month band was here until 2026-09-01 — see
+               CalendarViewBuilder for why it went.) */
             .calendar-week.is-jump-target { animation: jump-target-flash 1.2s ease-out; }
             @keyframes jump-target-flash {
                 from { background-color: var(--calendar-today-tint); }

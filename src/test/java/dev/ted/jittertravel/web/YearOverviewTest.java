@@ -122,6 +122,36 @@ class YearOverviewTest {
                 .doesNotContain("away from home");
     }
 
+    // --- weekday alignment ----------------------------------------------------------------------
+
+    /**
+     * The mini's whole promise: seven anonymous columns only become "that mark is on a Tuesday" if
+     * the 1st is indented to its own weekday. A Monday-first rewrite, or an off-by-one in the
+     * modulo, shifts every mark one column while every other case here stays green.
+     */
+    @Test
+    void theFirstOfTheMonthIsIndentedToItsOwnWeekdayColumn() {
+        // Sep 1 2026 is a Tuesday — and is TODAY, so its cell is identifiable inside the run.
+        assertThat(between(render(List.of()), "data-month=\"2026-09\"", "data-month=\"2026-10\""))
+                .contains("<span class=\"yo-dow\">S</span>"
+                          + "<span class=\"yo-day yo-blank\"></span>"
+                          + "<span class=\"yo-day yo-blank\"></span>"
+                          + "<span class=\"yo-day yo-today\"></span>");
+    }
+
+    @Test
+    void aMonthStartingOnASundayGetsNoLeadingBlanksAndOpensOnTheWeekendColumn() {
+        // Nov 1 2026 is a Sunday, so the first cell after the header IS the 1st — which is also
+        // what pins the grid as Sunday-first rather than Monday-first.
+        String november = YearOverview.render(
+                List.of(), LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 28),
+                TODAY, Set.of(), false).render();
+
+        assertThat(november)
+                .contains("<span class=\"yo-dow\">S</span><span class=\"yo-day yo-weekend\"></span>")
+                .doesNotContain("yo-blank");
+    }
+
     // --- the colour cascade: conference > gathering > hotel, and nothing else tints -------------
 
     @Test
@@ -253,7 +283,7 @@ class YearOverviewTest {
                 .isEqualTo("✈")
                 .hasSize(1);
         assertThat(render(List.of(onDay(EntryKind.FLIGHT, LocalDate.of(2026, 9, 14)))))
-                .doesNotContain("️");
+                .doesNotContain(Character.toString(0xFE0F));
     }
 
     // --- away band, today, and the days the grid did not draw ------------------------------------

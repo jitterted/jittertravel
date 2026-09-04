@@ -79,26 +79,19 @@ body {
 
 /* Shared lateral navigation across the read-only view pages (Page.viewNav).
    A flex bar that WRAPS on narrow viewports — never a horizontal scroller. */
-/* The lateral nav is how you get between views, and on a long calendar or list it used to
-   scroll out of reach — so it sticks. Two things a static bar did not need:
+/* Sticky, so it stays reachable down a long calendar. Three consequences:
 
-   1. An OPAQUE BACKGROUND. Content scrolls *behind* a sticky element, and this one had no
-      background at all, so rows would have shown straight through the link text.
-   2. A place on a Z-INDEX SCALE. Keep new values on this scale rather than inventing
-      neighbours for them:
-           60  a panel opened over the page
-           55  its scrim
+   1. It needs an OPAQUE BACKGROUND — content scrolls behind it — and PADDING rather than
+      margin for the horizontal inset, so that background runs the full content width.
+   2. Z-INDEX SCALE. Keep new values on it:
            50  popups anchored to content (DisclosureMenu's day and fix menus)
            30  this nav
            10  the calendar's weekday header, which parks under the nav
-            8  the calendar's month band, which parks under both
-
-   Anything that sticks BELOW this bar has to offset itself by the bar's height, and that
-   height is not a constant: the nav wraps to two or three lines on a narrow screen. It is
-   published as --nav-height by StickyNavScript; read that variable, never a literal.
-
-   Horizontal inset comes from PADDING, not margin, so the opaque background runs the full
-   width of the content column and nothing shows beside it. */
+      This bar creates a stacking context, so anything nested INSIDE it (the year overview
+      panel) is scoped to 30 whatever z-index it names — it cannot out-stack the 50s. What
+      keeps those apart is DisclosureMenu's one-open-at-a-time, not a z-index.
+   3. Anything sticking BELOW it offsets by --nav-height, published by StickyNavScript. The
+      height is not a constant: the bar wraps on a narrow screen. Never a literal. */
 .view-nav {
     position: sticky;
     top: 0;

@@ -362,6 +362,50 @@ for open work.
       **Check `EventOccurrenceTimestampsPlan.md` before starting.** If that plan puts an occurrence
       timestamp on the payloads, this is one of its consumers and fixing it standalone means doing
       the work twice.
+- [ ] **Hotel forms give one sentence for two different causes.** `/book-hotel` and
+      `/booked-hotels/{id}/change` catch `ZoneResolutionException` and
+      `rejectValue("zone", "zoneUnresolved", …)` with *"Could not determine the time zone from the
+      location — please choose one."* Note they are **already field-level** — better than the
+      trains' old banner, and the smaller half of the job is done. Apply what remains of the four
+      rules in CLAUDE.md, **"A rejected form reports everything it can see, under the input that
+      fixes each thing"**. Follow the train implementation (`TrainEndpoints`, `InvalidTrainEntry`,
+      `TrainFormErrors`).
+      **A hotel is the easy half of the pattern, not a copy of it.** It has one location, not two,
+      so rule 1's per-end/per-trip ordering distinction — the part that took two attempts on trains
+      — does not arise at all. What *does* apply is the **cause split**, which is the change worth
+      making here: `HotelHandler` needs to say whether the country box was blank (fix: type a
+      country, so the error belongs on the country input) or held something no zone follows from
+      (fix: pick a zone, error stays on the zone select). Today both land on the zone select, so
+      the blank case points at the escape hatch instead of the fix. Plus the count banner and terse
+      wording.
+      The location half is already shared: `EnteredLocation.of(hotelName, address)` and
+      `InvalidLocationEntry` are the same types trains use, and the terse messages landed with the
+      train change — so `check(role)` can become `problem(role)` here for free, and `LocationRole`
+      is already `STAY`. Also drop `required` from the hotel name/city inputs for the reason it
+      went from the train forms: a browser-blocked submit leaves the previous render on screen and
+      reads as "my fix changed nothing".
+      Three tiers of test, as the CLAUDE.md section above this one requires: `EnteredLocationTest`,
+      the command, and a `@WebMvcTest` asserting the rendered `<span class="error">`.
+- [ ] **Flight forms have the trains' two-endpoint blind spot, and no country to type.** `/book-flight`
+      and `/change-flight` reject globally with *"Could not determine the time zone for an airport
+      — …"*, naming neither end of a flight that has two. Same four rules as the hotel item above,
+      with one difference that changes the design: a flight endpoint is an **airport code**, so
+      `AirportZoneResolver` either knows the code or does not, and there is no
+      `COUNTRY_MISSING`/`COUNTRY_UNRECOGNISED` split to make. Every failure's only fix is "pick a
+      zone", which means the whole win here is rule 1 (both ends reported at once) and rule 3
+      (under the right zone select) — the cause split does not apply, and inventing one would be
+      cargo-culting the train shape.
+      `FlightEndpointZone` is the per-endpoint seam, the analogue of `StationZone`, so it is where
+      the role gets attached. Note flights have no `EnteredLocation` check at all today (a code is
+      not a venue/city pair), so there is no location/zone ordering question either — this is
+      strictly the zone half.
+      Do this **after** hotels: hotels exercise the cause split and flights exercise the two-end
+      collection, and doing the simpler-shaped one first keeps the shared vocabulary honest.
+
+Not listed, and a decision rather than an oversight: **gatherings, conferences, private events and
+ground transfer** have the same banner. They are lower-traffic entry surfaces, and ground transfer
+picks its endpoints from a dropdown rather than typing them, so its zone failure is a different
+problem. Promote them if one of them actually bites.
 
 ## Deferred (until needed)
 

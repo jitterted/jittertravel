@@ -97,10 +97,12 @@ class ChangeTrainCommandTest {
                 TrainTripId.random(), pasted, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
 
         assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW))))
-                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
-                    assertThat(invalid.role())
+                .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
+                    assertThat(invalid.locations())
+                            .hasSize(1);
+                    assertThat(invalid.locations().getFirst().role())
                             .isEqualTo(LocationRole.DEPARTURE);
-                    assertThat(invalid.field())
+                    assertThat(invalid.locations().getFirst().field())
                             .isEqualTo(LocationField.CITY);
                 });
     }
@@ -112,10 +114,12 @@ class ChangeTrainCommandTest {
                 TrainTripId.random(), LONDON, zt(DEPARTURE), nameless, zt(ARRIVAL), "");
 
         assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW))))
-                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
-                    assertThat(invalid.role())
+                .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
+                    assertThat(invalid.locations())
+                            .hasSize(1);
+                    assertThat(invalid.locations().getFirst().role())
                             .isEqualTo(LocationRole.ARRIVAL);
-                    assertThat(invalid.field())
+                    assertThat(invalid.locations().getFirst().field())
                             .isEqualTo(LocationField.VENUE_NAME);
                 });
     }

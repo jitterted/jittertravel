@@ -4,8 +4,7 @@ import dev.ted.jittertravel.application.TrainBooking;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
-import dev.ted.jittertravel.domain.InvalidLocationEntry;
-import dev.ted.jittertravel.domain.ZoneResolutionException;
+import dev.ted.jittertravel.domain.InvalidTrainEntry;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -70,19 +69,17 @@ public class BookTrainController {
     @PostMapping("/book-train")
     public String bookTrainSubmit(@ModelAttribute("bookTrain") BookTrainRequest request,
                                   BindingResult bindingResult) {
+        TrainFormErrors errors = new TrainFormErrors(bindingResult);
         try {
             trainBooking.bookTrain(request, Instant.now(clock));
         } catch (DepartureNotInFuture e) {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {
             bindingResult.rejectValue("arrivalDateTime", "afterDeparture", e.getMessage());
-        } catch (InvalidLocationEntry e) {
-            new TrainLocationError(bindingResult).reject(e);
-        } catch (ZoneResolutionException e) {
-            bindingResult.reject("zoneUnresolved",
-                    "Could not determine the time zone for a station from its location — "
-                            + "please choose the zone(s) below.");
+        } catch (InvalidTrainEntry e) {
+            errors.reject(e);
         }
+        errors.summarize();
 
         if (bindingResult.hasErrors()) {
             return "book-train";

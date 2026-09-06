@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.ChangeTrainCommand;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.TrainStationAddress;
+import dev.ted.jittertravel.domain.TrainStations;
 import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.web.ChangeTrainRequest;
@@ -18,26 +19,29 @@ public class ChangeTrainHandler {
     }
 
     public ChangeTrainCommand handle(ChangeTrainRequest request) {
-        // Departure and arrival resolve independently; an explicit CommonZone pick wins per endpoint,
-        // otherwise the station's city/country must resolve or the command is rejected.
-        TrainStationAddress departureStation = new TrainStationAddress(
-                request.getDepartureStationName(),
-                request.getDepartureCityName(),
-                request.getDepartureCountry(),
-                request.getDepartureMapsUrl());
-        TrainStationAddress arrivalStation = new TrainStationAddress(
-                request.getArrivalStationName(),
-                request.getArrivalCityName(),
-                request.getArrivalCountry(),
-                request.getArrivalMapsUrl());
+        TrainStations stations = new TrainStations(
+                new TrainStationAddress(
+                        request.getDepartureStationName(),
+                        request.getDepartureCityName(),
+                        request.getDepartureCountry(),
+                        request.getDepartureMapsUrl()),
+                new TrainStationAddress(
+                        request.getArrivalStationName(),
+                        request.getArrivalCityName(),
+                        request.getArrivalCountry(),
+                        request.getArrivalMapsUrl()));
+
+        // Both ends asked in full, location before zone within each — see TrainEndpoints for why
+        // that distinction is load-bearing rather than incidental.
+        TrainZones zones = new TrainEndpoints(zoneResolver).resolve(stations,
+                request.getDepartureZone(), request.getArrivalZone());
+
         return new ChangeTrainCommand(
                 TrainTripId.of(UUID.fromString(request.getTrainTripId())),
-                departureStation,
-                ZonedTimestamp.fromLocal(request.getDepartureDateTime(),
-                        new StationZone(zoneResolver).resolve(request.getDepartureZone(), departureStation)),
-                arrivalStation,
-                ZonedTimestamp.fromLocal(request.getArrivalDateTime(),
-                        new StationZone(zoneResolver).resolve(request.getArrivalZone(), arrivalStation)),
+                stations.departure(),
+                ZonedTimestamp.fromLocal(request.getDepartureDateTime(), zones.departure()),
+                stations.arrival(),
+                ZonedTimestamp.fromLocal(request.getArrivalDateTime(), zones.arrival()),
                 request.getServiceId()
         );
     }

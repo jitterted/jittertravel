@@ -2,6 +2,7 @@ package dev.ted.jittertravel.domain;
 
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -24,6 +25,11 @@ import java.util.Set;
  * stop a replay — and a restore — dead. So this type is constructed on the write path only, from a
  * command that is about to execute, and the log is left alone. An existing booking that trips a
  * rule is only ever met when Ted next edits it, which is the moment he can fix it.
+ *
+ * <p><strong>The messages are terse on purpose</strong> (Ted, 2026-09-06). They render as a label
+ * under the input at fault, where the input's own label already says which field this is and the
+ * form is a grid of narrow columns — an explanatory clause wraps to three lines there and pushes
+ * the fieldset out of step with the one beside it. Say what is wrong, in as few words as carry it.
  *
  * <p><strong>The rules</strong> (in the order they are reported, so the earliest mistake is the one
  * shown):
@@ -91,19 +97,30 @@ public record EnteredLocation(String venueName, String city) {
      *         {@code role} and the field at fault so the form can point at it.
      */
     public void check(LocationRole role) {
+        problem(role).ifPresent(invalid -> {
+            throw invalid;
+        });
+    }
+
+    /**
+     * The same answer as {@link #check(LocationRole)}, handed back instead of thrown, so a caller
+     * holding more than one location can ask all of them and report every problem in one go —
+     * see {@link TrainStations#check()}. Empty means this names a place.
+     */
+    public Optional<InvalidLocationEntry> problem(LocationRole role) {
         if (venueName.isBlank()) {
-            throw new InvalidLocationEntry(role, LocationField.VENUE_NAME,
-                    "Name is required — enter the name of the station or hotel being booked.");
+            return Optional.of(new InvalidLocationEntry(role, LocationField.VENUE_NAME,
+                    "Name is required"));
         }
         if (city.isBlank()) {
-            throw new InvalidLocationEntry(role, LocationField.CITY,
-                    "City is required — enter the city this station or hotel is in.");
+            return Optional.of(new InvalidLocationEntry(role, LocationField.CITY,
+                    "City is required"));
         }
         if (looksLikeAVenue()) {
-            throw new InvalidLocationEntry(role, LocationField.CITY,
-                    "This looks like a station or venue name, not a city — "
-                            + "e.g. \"Frankfurt\", not \"Frankfurt (Main) Hbf\".");
+            return Optional.of(new InvalidLocationEntry(role, LocationField.CITY,
+                    "Venue name, not a city"));
         }
+        return Optional.empty();
     }
 
     /**

@@ -6,10 +6,9 @@ import dev.ted.jittertravel.application.TrainDetailsViewProjector;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
-import dev.ted.jittertravel.domain.InvalidLocationEntry;
+import dev.ted.jittertravel.domain.InvalidTrainEntry;
 import dev.ted.jittertravel.domain.TrainNotFound;
 import dev.ted.jittertravel.domain.TrainTripId;
-import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -64,6 +63,7 @@ public class ChangeTrainController {
         // Path is the source of truth for tripId; it is not user-editable.
         command.setTrainTripId(tripIdString);
 
+        TrainFormErrors errors = new TrainFormErrors(bindingResult);
         try {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
             applicationService.changeTrain(UUID.randomUUID(), command, Instant.now(clock));
@@ -75,13 +75,10 @@ public class ChangeTrainController {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {
             bindingResult.rejectValue("arrivalDateTime", "afterDeparture", e.getMessage());
-        } catch (InvalidLocationEntry e) {
-            new TrainLocationError(bindingResult).reject(e);
-        } catch (ZoneResolutionException e) {
-            bindingResult.reject("zoneUnresolved",
-                    "Could not determine the time zone for a station from its location — "
-                            + "please choose the zone(s) below.");
+        } catch (InvalidTrainEntry e) {
+            errors.reject(e);
         }
+        errors.summarize();
 
         if (bindingResult.hasErrors()) {
             return "change-train";

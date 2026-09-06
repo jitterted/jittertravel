@@ -4,8 +4,10 @@ import dev.ted.jittertravel.application.TrainBooking;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
 import dev.ted.jittertravel.domain.InvalidLocationEntry;
+import dev.ted.jittertravel.domain.InvalidTrainEntry;
 import dev.ted.jittertravel.domain.LocationField;
 import dev.ted.jittertravel.domain.LocationRole;
+import dev.ted.jittertravel.domain.UnresolvedStationZone;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +20,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -109,8 +112,9 @@ class BookTrainWebIntegrationTest {
 
     @Test
     void stationPastedIntoTheArrivalCityErrorsOnThatCityField() {
-        willThrow(new InvalidLocationEntry(LocationRole.ARRIVAL, LocationField.CITY,
-                "This looks like a station or venue name, not a city"))
+        willThrow(new InvalidTrainEntry(List.of(
+                new InvalidLocationEntry(LocationRole.ARRIVAL, LocationField.CITY,
+                        "Venue name, not a city")), List.of()))
                 .given(trainBooking).bookTrain(any(), any());
 
         MvcTestResult result = mockMvc.post().uri("/book-train")
@@ -135,13 +139,14 @@ class BookTrainWebIntegrationTest {
         // The field error is only half of it: the form has to be able to show it.
         assertThat(result)
                 .bodyText()
-                .contains("<span class=\"error\">This looks like a station or venue name, not a city</span>");
+                .contains("<span class=\"error\">Venue name, not a city</span>");
     }
 
     @Test
     void missingDepartureStationNameErrorsOnThatNameField() {
-        willThrow(new InvalidLocationEntry(LocationRole.DEPARTURE, LocationField.VENUE_NAME,
-                "Name is required"))
+        willThrow(new InvalidTrainEntry(List.of(
+                new InvalidLocationEntry(LocationRole.DEPARTURE, LocationField.VENUE_NAME,
+                        "Name is required")), List.of()))
                 .given(trainBooking).bookTrain(any(), any());
 
         MvcTestResult result = mockMvc.post().uri("/book-train")
@@ -165,5 +170,127 @@ class BookTrainWebIntegrationTest {
         assertThat(result)
                 .bodyText()
                 .contains("<span class=\"error\">Name is required</span>");
+    }
+
+    @Test
+    void aBlankCountryErrorsOnThatCountryFieldBecauseTypingOneIsTheFix() {
+        willThrow(new InvalidTrainEntry(List.of(), List.of(
+                new UnresolvedStationZone(LocationRole.ARRIVAL,
+                        UnresolvedStationZone.Cause.COUNTRY_MISSING))))
+                .given(trainBooking).bookTrain(any(), any());
+
+        MvcTestResult result = trip("Frankfurt", "");
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookTrain")
+                .hasOnlyFieldErrors("arrivalCountry")
+                .hasFieldErrorCode("arrivalCountry", "zoneUnresolved");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Country or time zone required</span>");
+    }
+
+    @Test
+    void anUnrecognisedCountryErrorsOnTheZoneSelectBecauseRetypingItCannotHelp() {
+        willThrow(new InvalidTrainEntry(List.of(), List.of(
+                new UnresolvedStationZone(LocationRole.ARRIVAL,
+                        UnresolvedStationZone.Cause.COUNTRY_UNRECOGNISED))))
+                .given(trainBooking).bookTrain(any(), any());
+
+        MvcTestResult result = trip("Frankfurt", "DE");
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookTrain")
+                .hasOnlyFieldErrors("arrivalZone")
+                .hasFieldErrorCode("arrivalZone", "zoneUnresolved");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Unknown country — pick a zone</span>");
+    }
+
+    @Test
+    void bothUnresolvableEndsAreMarkedOnTheOnePage() {
+        willThrow(new InvalidTrainEntry(List.of(), List.of(
+                new UnresolvedStationZone(LocationRole.DEPARTURE,
+                        UnresolvedStationZone.Cause.COUNTRY_MISSING),
+                new UnresolvedStationZone(LocationRole.ARRIVAL,
+                        UnresolvedStationZone.Cause.COUNTRY_MISSING))))
+                .given(trainBooking).bookTrain(any(), any());
+
+        MvcTestResult result = trip("Frankfurt", "");
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookTrain")
+                .hasOnlyFieldErrors("departureCountry", "arrivalCountry");
+        assertThat(result)
+                .bodyText()
+                .as("the count is the one thing the marked fields cannot say from below the fold")
+                .contains("2 things to fix below.");
+    }
+
+    @Test
+    void oneProblemIsCountedInTheSingular() {
+        willThrow(new InvalidTrainEntry(List.of(), List.of(
+                new UnresolvedStationZone(LocationRole.ARRIVAL,
+                        UnresolvedStationZone.Cause.COUNTRY_MISSING))))
+                .given(trainBooking).bookTrain(any(), any());
+
+        assertThat(trip("Frankfurt", ""))
+                .bodyText()
+                .contains("1 thing to fix below.")
+                .doesNotContain("1 things to fix below.");
+    }
+
+    @Test
+    void aMissingCityAtOneEndAndAMissingCountryAtTheOtherBothLand() {
+        // Ted's second report, 2026-09-06. The two problems are different kinds, and the first
+        // implementation reported only the location one — so the form still took two submits.
+        willThrow(new InvalidTrainEntry(
+                List.of(new InvalidLocationEntry(LocationRole.DEPARTURE, LocationField.CITY,
+                        "City is required")),
+                List.of(new UnresolvedStationZone(LocationRole.ARRIVAL,
+                        UnresolvedStationZone.Cause.COUNTRY_MISSING))))
+                .given(trainBooking).bookTrain(any(), any());
+
+        MvcTestResult result = trip("Frankfurt", "");
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookTrain")
+                .hasOnlyFieldErrors("departureCityName", "arrivalCountry");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">City is required</span>")
+                .contains("<span class=\"error\">Country or time zone required</span>")
+                .contains("2 things to fix below.");
+    }
+
+    @Test
+    void aSubmitThatSucceedsGetsNoCountBanner() {
+        assertThat(trip("Frankfurt", "Germany"))
+                .hasStatus3xxRedirection();
+    }
+
+    /** A well-formed booking whose arrival city and country are the variable under test. */
+    private MvcTestResult trip(String arrivalCity, String arrivalCountry) {
+        return mockMvc.post().uri("/book-train")
+                .with(csrf())
+                .param("trainTripId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("departureStationName", "Aschaffenburg Hbf")
+                .param("departureCityName", "Aschaffenburg")
+                .param("departureCountry", "Germany")
+                .param("departureDateTime", "2026-07-01T09:00")
+                .param("arrivalStationName", arrivalCity + " Hbf")
+                .param("arrivalCityName", arrivalCity)
+                .param("arrivalCountry", arrivalCountry)
+                .param("arrivalDateTime", "2026-07-01T13:00")
+                .exchange();
     }
 }

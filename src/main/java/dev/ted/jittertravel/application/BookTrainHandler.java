@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.BookTrainCommand;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.TrainStationAddress;
+import dev.ted.jittertravel.domain.TrainStations;
 import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.web.BookTrainRequest;
@@ -18,27 +19,30 @@ public class BookTrainHandler {
     }
 
     public BookTrainCommand handle(BookTrainRequest request) {
-        // Departure and arrival resolve independently (a trip can span two zones). Per endpoint an
-        // explicit CommonZone pick wins; otherwise the station's city/country must resolve or the
-        // command is rejected and the form re-prompts for a CommonZone.
-        TrainStationAddress departureStation = new TrainStationAddress(
-                request.getDepartureStationName(),
-                request.getDepartureCityName(),
-                request.getDepartureCountry(),
-                request.getDepartureMapsUrl());
-        TrainStationAddress arrivalStation = new TrainStationAddress(
-                request.getArrivalStationName(),
-                request.getArrivalCityName(),
-                request.getArrivalCountry(),
-                request.getArrivalMapsUrl());
+        TrainStations stations = new TrainStations(
+                new TrainStationAddress(
+                        request.getDepartureStationName(),
+                        request.getDepartureCityName(),
+                        request.getDepartureCountry(),
+                        request.getDepartureMapsUrl()),
+                new TrainStationAddress(
+                        request.getArrivalStationName(),
+                        request.getArrivalCityName(),
+                        request.getArrivalCountry(),
+                        request.getArrivalMapsUrl()));
+
+        // Every problem either end has, in one answer — location before zone within an end, and no
+        // order at all between the two ends. The command re-checks the locations (it is the gate;
+        // this is only the boundary asking early enough to answer well), so the two cannot disagree.
+        TrainZones zones = new TrainEndpoints(zoneResolver).resolve(stations,
+                request.getDepartureZone(), request.getArrivalZone());
+
         return new BookTrainCommand(
                 TrainTripId.of(UUID.fromString(request.getTrainTripId())),
-                departureStation,
-                ZonedTimestamp.fromLocal(request.getDepartureDateTime(),
-                        new StationZone(zoneResolver).resolve(request.getDepartureZone(), departureStation)),
-                arrivalStation,
-                ZonedTimestamp.fromLocal(request.getArrivalDateTime(),
-                        new StationZone(zoneResolver).resolve(request.getArrivalZone(), arrivalStation)),
+                stations.departure(),
+                ZonedTimestamp.fromLocal(request.getDepartureDateTime(), zones.departure()),
+                stations.arrival(),
+                ZonedTimestamp.fromLocal(request.getArrivalDateTime(), zones.arrival()),
                 request.getServiceId()
         );
     }

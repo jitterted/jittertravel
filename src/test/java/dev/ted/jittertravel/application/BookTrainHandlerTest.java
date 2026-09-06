@@ -1,8 +1,12 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.BookTrainCommand;
+import dev.ted.jittertravel.domain.InvalidLocationEntry;
+import dev.ted.jittertravel.domain.InvalidTrainEntry;
+import dev.ted.jittertravel.domain.LocationField;
+import dev.ted.jittertravel.domain.LocationRole;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
-import dev.ted.jittertravel.domain.ZoneResolutionException;
+import dev.ted.jittertravel.domain.UnresolvedStationZone;
 import dev.ted.jittertravel.web.BookTrainRequest;
 import org.junit.jupiter.api.Test;
 
@@ -13,6 +17,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 /**
  * The boundary's zone contract for trains, which unlike a hotel has <em>two independent</em>
@@ -65,7 +70,71 @@ class BookTrainHandlerTest {
     void unresolvableStationWithNoPickIsRejected() {
         assertThatThrownBy(() -> handler.handle(trip("Paris", "France", null,
                                                      "Springfield", "Freedonia", null)))
-                .isInstanceOf(ZoneResolutionException.class);
+                .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
+                    assertThat(invalid.zones())
+                            .hasSize(1);
+                    assertThat(invalid.zones().getFirst().role())
+                            .isEqualTo(LocationRole.ARRIVAL);
+                    assertThat(invalid.zones().getFirst().cause())
+                            .as("a country was typed; it is just not one a zone follows from")
+                            .isEqualTo(UnresolvedStationZone.Cause.COUNTRY_UNRECOGNISED);
+                });
+    }
+
+    @Test
+    void aBlankCountryIsReportedAsMissingRatherThanUnrecognised() {
+        // The two want different fixes: type the country, versus pick a zone because no country
+        // will help. Telling them apart is the whole reason the cause travels to the form.
+        assertThatThrownBy(() -> handler.handle(trip("Paris", "France", null,
+                                                     "Frankfurt", "", null)))
+                .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid ->
+                        assertThat(invalid.zones().getFirst().cause())
+                                .isEqualTo(UnresolvedStationZone.Cause.COUNTRY_MISSING));
+    }
+
+    @Test
+    void bothUnresolvableEndsAreReportedTogether() {
+        // The bug of 2026-09-06: the departure was resolved first, threw, and the arrival was
+        // never looked at — so fixing one end produced the same message again.
+        assertThatThrownBy(() -> handler.handle(trip("Aschaffenberg", "", null,
+                                                     "Frankfurt", "", null)))
+                .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid ->
+                        assertThat(invalid.zones())
+                                .extracting(UnresolvedStationZone::role)
+                                .containsExactly(LocationRole.DEPARTURE, LocationRole.ARRIVAL));
+    }
+
+    @Test
+    void aLocationProblemAtOneEndDoesNotSuppressAZoneProblemAtTheOther() {
+        // Ted's second report, 2026-09-06: departure missing its city, arrival missing its
+        // country. Checking every location before any zone reported only the departure, so the
+        // form still took two submits — the original bug, one layer further in. The location/zone
+        // order is per end and never across the trip.
+        assertThatThrownBy(() -> handler.handle(trip("", "Germany", null,
+                                                     "Frankfurt", "", null)))
+                .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
+                    assertThat(invalid.locations())
+                            .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
+                            .containsExactly(tuple(LocationRole.DEPARTURE, LocationField.CITY));
+                    assertThat(invalid.zones())
+                            .extracting(UnresolvedStationZone::role)
+                            .containsExactly(LocationRole.ARRIVAL);
+                });
+    }
+
+    @Test
+    void aStationPastedIntoTheCityIsReportedAsThatRatherThanAsAZoneProblem() {
+        // Within one end the order is load-bearing: "Frankfurt (Main) Hbf" resolves no zone
+        // either, so asking the zone first buries the rule that can actually name the mistake.
+        assertThatThrownBy(() -> handler.handle(trip("Paris", "France", null,
+                                                     "Frankfurt (Main) Hbf", "", null)))
+                .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
+                    assertThat(invalid.locations().getFirst().field())
+                            .isEqualTo(LocationField.CITY);
+                    assertThat(invalid.zones())
+                            .as("that end said its piece; it does not also get a zone complaint")
+                            .isEmpty();
+                });
     }
 
     @Test

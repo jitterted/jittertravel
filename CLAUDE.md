@@ -633,16 +633,66 @@ do not weaken the rule.**
 
 **At the boundary, the domain names the value and the form names the input.** `InvalidLocationEntry`
 carries a `LocationRole` (departure/arrival/stay) and a `LocationField` (venue name/city); the two
-train controllers share `TrainLocationError` because `book-train.html` and `change-train.html` share
+train controllers share `TrainFormErrors` because `book-train.html` and `change-train.html` share
 their input names, and a stay maps to `hotelName`/`city` inline. Never put a form field name in the
-domain. The forms also carry `required` on all eight inputs — browser-side feedback for the blank
-case, not the gate.
+domain.
 
 Not wired to gatherings, conferences or private events, which have the same venue/city exposure; two
 of their stored events would trip rule 1 today. Extending is a decision, not a chore. Every change
 here needs three tiers: a case in `EnteredLocationTest`, a case on the command that writes it, and a
 `@WebMvcTest` asserting both the field error *and* the rendered `<span class="error">…</span>` —
 a field error the form cannot show is half a fix.
+
+### A rejected form reports everything it can see, under the input that fixes each thing
+
+Four rules, all agreed 2026-09-06 after a booking that took three submits to get through. They are
+written for the two train forms, which are where they are implemented (`TrainEndpoints`,
+`InvalidTrainEntry`, `TrainFormErrors`); flights, hotels, gatherings, conferences, private events
+and ground transfer still print one undifferentiated sentence in a banner and are the obvious next
+targets.
+
+1. **Every problem, in one response.** A trip has two ends and one submit. Reporting the first
+   failure means fixing it, submitting again, and meeting a *fresh* error — which on screen is
+   indistinguishable from the first fix having done nothing. This is the same principle
+   `BackupService.restoreJson` holds to for restore: validate everything, write nothing, report all
+   the bad entries together.
+
+   **The ordering rule is per end, never across the trip.** Within one end, the location is checked
+   before its zone, because a station that is not a place has no meaningful zone question — that is
+   what stops `"Frankfurt (Main) Hbf"` in a city box being reported as a time-zone problem. Across
+   the two ends there is no order at all: a departure with no city must not suppress the arrival
+   being asked about its country. Getting *that* distinction wrong is what shipped on the first
+   attempt at this fix, and it reproduced the original bug exactly.
+   Pinned by `BookTrainHandlerTest.aLocationProblemAtOneEndDoesNotSuppressAZoneProblemAtTheOther`.
+
+2. **Where a message lands is chosen by what fixes it, not by what failed.** A blank country and an
+   unrecognised one are the same failure (no zone derived) with different ways out, so they are
+   different `UnresolvedStationZone.Cause` values landing on different inputs: the blank one on the
+   country input, because typing a country is the fix; the unrecognised one on the time-zone select,
+   because retyping a country the curated table does not know cannot help. A message that names a
+   fix the reader cannot act on is worse than no message.
+
+3. **Field-level, plus a count.** The message goes under the input — position answers "which end?"
+   for free, and a banner saying "a station" could not be resolved names neither of two identical
+   side-by-side fieldsets. The **only** global error is a count (`"2 things to fix below."`), which
+   is the one thing position cannot say when a problem is below the fold, and it wears a fill and a
+   left rule so it reads as a banner rather than a stray line of red text. A whole-form failure
+   (`TrainNotFound`) is still its own global message and is deliberately not counted.
+
+4. **Messages are terse.** They render as a label under an input in a narrow grid column, where an
+   explanatory clause wraps to three lines and pushes one fieldset out of step with the one beside
+   it. "City is required", not "City is required — enter the city this station or hotel is in."
+   The input's own label has already said which field this is. Two consequences: a message that is
+   about to be shortened should keep the *distinction* it carries ("Country or time zone required",
+   not "Country is required" — leaving it blank and picking a zone is a legitimate way through, and
+   a form must not lie about itself), and **no apostrophes**, because Thymeleaf escaping turns
+   `Can't` into `Can&#39;t` and every markup assertion then has to know it.
+
+**`required` is not used on these forms.** It was dropped from all eight inputs the same day: the
+browser blocks the submit and shows a bubble the server never hears about, so the page stays exactly
+as it was — which reads as "my fix changed nothing", and cost a real session. `EnteredLocation`
+already reports a blank name or city through the same field-level channel as everything else, so
+this is one error vocabulary rather than two. Do not re-add it here.
 
 ## Testing
 

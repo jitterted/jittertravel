@@ -9,6 +9,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 class BookTrainCommandTest {
 
@@ -88,10 +89,12 @@ class BookTrainCommandTest {
                 TrainTripId.random(), nameless, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
 
         assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
-                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
-                    assertThat(invalid.role())
+                .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
+                    assertThat(invalid.locations())
+                            .hasSize(1);
+                    assertThat(invalid.locations().getFirst().role())
                             .isEqualTo(LocationRole.DEPARTURE);
-                    assertThat(invalid.field())
+                    assertThat(invalid.locations().getFirst().field())
                             .isEqualTo(LocationField.VENUE_NAME);
                 });
     }
@@ -104,12 +107,34 @@ class BookTrainCommandTest {
                 TrainTripId.random(), LONDON, zt(DEPARTURE), pasted, zt(ARRIVAL), "");
 
         assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
-                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
-                    assertThat(invalid.role())
+                .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
+                    assertThat(invalid.locations())
+                            .hasSize(1);
+                    assertThat(invalid.locations().getFirst().role())
                             .isEqualTo(LocationRole.ARRIVAL);
-                    assertThat(invalid.field())
+                    assertThat(invalid.locations().getFirst().field())
                             .isEqualTo(LocationField.CITY);
                 });
+    }
+
+    @Test
+    void bothEndsAtFaultAreReportedTogether() {
+        // One submit, one list. Reporting only the departure would mean fixing it, submitting
+        // again, and meeting a fresh error about the arrival — which on screen is indistinguishable
+        // from the first fix having done nothing.
+        TrainStationAddress nameless = new TrainStationAddress("", "London", "UK", "");
+        TrainStationAddress pasted = new TrainStationAddress(
+                "Frankfurt (Main) Hbf", "Frankfurt (Main) Hbf", "DE", "");
+        BookTrainCommand command = new BookTrainCommand(
+                TrainTripId.random(), nameless, zt(DEPARTURE), pasted, zt(ARRIVAL), "");
+
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
+                .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid ->
+                        assertThat(invalid.locations())
+                                .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
+                                .containsExactly(
+                                        tuple(LocationRole.DEPARTURE, LocationField.VENUE_NAME),
+                                        tuple(LocationRole.ARRIVAL, LocationField.CITY)));
     }
 
     @Test
@@ -121,7 +146,7 @@ class BookTrainCommandTest {
                 TrainTripId.random(), pasted, zt(NOW.minusHours(1)), MANCHESTER, zt(ARRIVAL), "");
 
         assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
-                .isInstanceOf(InvalidLocationEntry.class);
+                .isInstanceOf(InvalidTrainEntry.class);
     }
 
     private static BookTrainCommand validCommand() {

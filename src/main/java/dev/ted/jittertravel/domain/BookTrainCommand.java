@@ -15,8 +15,8 @@ public record BookTrainCommand(
     public Stream<TrainBooked> execute(BookTrainContext context) {
         // Checked before the times: a station pasted into the city field makes the trip match the
         // wrong place on /schedule-problems, and unlike a bad date it looks right on the page.
-        EnteredLocation.of(departureStation).check(LocationRole.DEPARTURE);
-        EnteredLocation.of(arrivalStation).check(LocationRole.ARRIVAL);
+        // Both ends at once, so one submit reports both — see InvalidTrainLocations.
+        new TrainStations(departureStation, arrivalStation).check();
         // Past/future and ordering are instant comparisons (zone-independent), so a Frankfurt→Paris
         // trip is judged by the actual moments, not wall-clock across two zones.
         if (departureDateTime == null || !departureDateTime.utc().isAfter(context.now())) {

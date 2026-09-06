@@ -5,11 +5,13 @@ import dev.ted.jittertravel.application.TrainDetailsView;
 import dev.ted.jittertravel.application.TrainDetailsViewProjector;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidLocationEntry;
+import dev.ted.jittertravel.domain.InvalidTrainEntry;
 import dev.ted.jittertravel.domain.LocationField;
 import dev.ted.jittertravel.domain.LocationRole;
 import dev.ted.jittertravel.domain.TrainNotFound;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.domain.UnresolvedStationZone;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +26,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -145,8 +148,9 @@ class ChangeTrainWebIntegrationTest {
 
     @Test
     void stationPastedIntoTheDepartureCityErrorsOnThatCityField() {
-        willThrow(new InvalidLocationEntry(LocationRole.DEPARTURE, LocationField.CITY,
-                "This looks like a station or venue name, not a city"))
+        willThrow(new InvalidTrainEntry(List.of(
+                new InvalidLocationEntry(LocationRole.DEPARTURE, LocationField.CITY,
+                        "Venue name, not a city")), List.of()))
                 .given(changeTrain).changeTrain(any(), any(), any());
 
         MvcTestResult result = mockMvc.post().uri("/booked-trains/" + UUID.randomUUID())
@@ -170,6 +174,68 @@ class ChangeTrainWebIntegrationTest {
         // The field error is only half of it: the form has to be able to show it.
         assertThat(result)
                 .bodyText()
-                .contains("<span class=\"error\">This looks like a station or venue name, not a city</span>");
+                .contains("<span class=\"error\">Venue name, not a city</span>");
+    }
+
+    @Test
+    void aBlankCountryErrorsOnThatCountryFieldOnTheChangeFormToo() {
+        // change-train.html has its own copy of the fieldsets, so it needs its own copy of the
+        // spans — a field error the form cannot render is half a fix.
+        willThrow(new InvalidTrainEntry(List.of(), List.of(
+                new UnresolvedStationZone(LocationRole.ARRIVAL,
+                        UnresolvedStationZone.Cause.COUNTRY_MISSING))))
+                .given(changeTrain).changeTrain(any(), any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/booked-trains/" + UUID.randomUUID())
+                .with(csrf())
+                .param("departureStationName", "Aschaffenburg Hbf")
+                .param("departureCityName", "Aschaffenburg")
+                .param("departureCountry", "Germany")
+                .param("departureDateTime", "2026-07-01T09:00")
+                .param("arrivalStationName", "Frankfurt (Main) Hbf")
+                .param("arrivalCityName", "Frankfurt")
+                .param("arrivalCountry", "")
+                .param("arrivalDateTime", "2026-07-01T13:00")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("changeTrain")
+                .hasOnlyFieldErrors("arrivalCountry")
+                .hasFieldErrorCode("arrivalCountry", "zoneUnresolved");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Country or time zone required</span>")
+                .contains("1 thing to fix below.");
+    }
+
+    @Test
+    void anUnrecognisedCountryErrorsOnTheZoneSelectOnTheChangeFormToo() {
+        willThrow(new InvalidTrainEntry(List.of(), List.of(
+                new UnresolvedStationZone(LocationRole.DEPARTURE,
+                        UnresolvedStationZone.Cause.COUNTRY_UNRECOGNISED))))
+                .given(changeTrain).changeTrain(any(), any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/booked-trains/" + UUID.randomUUID())
+                .with(csrf())
+                .param("departureStationName", "Aschaffenburg Hbf")
+                .param("departureCityName", "Aschaffenburg")
+                .param("departureCountry", "DE")
+                .param("departureDateTime", "2026-07-01T09:00")
+                .param("arrivalStationName", "Frankfurt (Main) Hbf")
+                .param("arrivalCityName", "Frankfurt")
+                .param("arrivalCountry", "Germany")
+                .param("arrivalDateTime", "2026-07-01T13:00")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("changeTrain")
+                .hasOnlyFieldErrors("departureZone");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Unknown country — pick a zone</span>");
     }
 }

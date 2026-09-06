@@ -25,7 +25,7 @@ class CalendarViewBuilderTest {
     // Details for a kind carrying nothing the test cares about: no links, no chips. A test that
     // is about a link or a chip builds its own details inline, so the interesting value is
     // visible at the point it matters.
-    private static final EntryDetails CONFERENCE_DETAILS = new EntryDetails.Conference(null, false, null);
+    private static final EntryDetails CONFERENCE_DETAILS = new EntryDetails.Conference(null, false, null, null);
     private static final EntryDetails FLIGHT_DETAILS = new EntryDetails.Flight(null);
     private static final EntryDetails TRAIN_DETAILS = new EntryDetails.Train(null);
 
@@ -565,7 +565,7 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 11, 12, 18, 0),
                 "J-Fall", lines("Ede, Netherlands"),
                 "J-Fall cont'd", lines("Ede, Netherlands"),
-                new EntryDetails.Conference(AttendanceCommitment.WATCHING, false, null)
+                new EntryDetails.Conference(AttendanceCommitment.WATCHING, false, null, null)
         );
 
         String secondWeek = CalendarViewBuilder.render(
@@ -617,18 +617,19 @@ class CalendarViewBuilderTest {
     }
 
     /**
-     * A conference's own page hangs off its title, exactly as a gathering's does — both are public
-     * events, and CLAUDE.md publishes a conference in full, {@code infoUrl} included. Owner and
-     * anonymous entries reach this same code, which is why the details type carries it rather than
-     * the renderer deciding.
+     * A conference's own page hangs off its title for everyone who is not Ted — both a conference
+     * and a gathering are public events, and CLAUDE.md publishes a conference in full,
+     * {@code infoUrl} included. The anonymous entry reaches this same code, which is why the
+     * details type carries the URL rather than the renderer deciding.
      */
     @Test
-    void conferenceTitleLinksToItsOwnPage() {
+    void conferenceTitleLinksToItsOwnPageForANonOwner() {
         CalendarEntry conference = new CalendarEntry(
                 LocalDateTime.of(2026, 11, 5, 9, 0),
                 LocalDateTime.of(2026, 11, 5, 18, 0),
                 "J-Fall", lines("Ede, Netherlands"),
-                new EntryDetails.Conference(AttendanceCommitment.WATCHING, false, "https://jfall.nl/")
+                new EntryDetails.Conference(AttendanceCommitment.WATCHING, false,
+                                            "https://jfall.nl/", null)
         );
 
         String html = CalendarViewBuilder.render(
@@ -639,7 +640,53 @@ class CalendarViewBuilderTest {
                 true
         );
 
-        assertThat(html).contains("href=\"https://jfall.nl/\"");
+        assertThat(html).contains("href=\"https://jfall.nl/\" target=\"_blank\"");
+    }
+
+    /**
+     * <strong>Ted's title goes to the app's own detail page instead</strong> (Ted, 2026-09-04):
+     * most of his questions about a conference are answered there, and the conference's own site is
+     * one click on from it. It is the one kind whose title depends on the audience, and the
+     * audience is the flag the boundary handed the renderer.
+     */
+    @Test
+    void ownerConferenceTitleLinksToTheDetailPage() {
+        String html = CalendarViewBuilder.render(
+                List.of(conferenceReachableAt("/conferences/c-123", "https://jfall.nl/")),
+                LocalDate.of(2026, 11, 1),
+                LocalDate.of(2026, 11, 8),
+                TODAY,
+                false,   // isPublicUser
+                true     // isOwner
+        );
+
+        assertThat(html)
+                .contains("<a href=\"/conferences/c-123\">")
+                .as("an internal link stays in this tab — it is navigation within a working surface")
+                .doesNotContain("href=\"/conferences/c-123\" target=\"_blank\"")
+                .as("the conference's own page is reached from the detail page, not from here")
+                .doesNotContain("https://jfall.nl/");
+    }
+
+    /**
+     * A family viewer holds the detail path and never renders it — the carry-and-strip pattern
+     * CLAUDE.md names. They get the conference's public page, exactly as before, because the detail
+     * page is a surface they cannot reach at all.
+     */
+    @Test
+    void familyConferenceTitleStillLinksToTheConferencesOwnPage() {
+        String html = CalendarViewBuilder.render(
+                List.of(conferenceReachableAt("/conferences/c-123", "https://jfall.nl/")),
+                LocalDate.of(2026, 11, 1),
+                LocalDate.of(2026, 11, 8),
+                TODAY,
+                false,   // isPublicUser
+                false    // isOwner
+        );
+
+        assertThat(html)
+                .contains("href=\"https://jfall.nl/\"")
+                .doesNotContain("/conferences/c-123");
     }
 
     @Test
@@ -667,7 +714,17 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 11, 5, 9, 0),
                 LocalDateTime.of(2026, 11, 5, 18, 0),
                 "J-Fall", lines("Ede, Netherlands"),
-                new EntryDetails.Conference(commitment, speaking, null)
+                new EntryDetails.Conference(commitment, speaking, null, null)
+        );
+    }
+
+    /** A conference carrying both destinations, so a test can say which one the audience gets. */
+    private static CalendarEntry conferenceReachableAt(String detailPath, String infoUrl) {
+        return new CalendarEntry(
+                LocalDateTime.of(2026, 11, 5, 9, 0),
+                LocalDateTime.of(2026, 11, 5, 18, 0),
+                "J-Fall", lines("Ede, Netherlands"),
+                new EntryDetails.Conference(AttendanceCommitment.WATCHING, false, infoUrl, detailPath)
         );
     }
 

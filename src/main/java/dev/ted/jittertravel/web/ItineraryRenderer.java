@@ -213,7 +213,7 @@ public class ItineraryRenderer {
             case TrainItineraryEntry e -> renderTrain(e, isOwner);
             case HotelItineraryEntry e -> renderHotel(e, isOwner);
             case GatheringItineraryEntry e -> renderGathering(e, isOwner);
-            case ConferenceItineraryEntry e -> renderConference(e);
+            case ConferenceItineraryEntry e -> renderConference(e, isOwner);
             case PrivateEventItineraryEntry e -> renderPrivateEvent(e, isOwner);
             case GroundTransferItineraryEntry e -> renderGroundTransfer(e, isOwner);
         };
@@ -343,22 +343,37 @@ public class ItineraryRenderer {
         return card;
     }
 
-    private static DivTag renderConference(ConferenceItineraryEntry e) {
+    /**
+     * <strong>The owner's title opens the conference's page in this app</strong>; a family viewer
+     * still gets the conference's own site, and with neither the title stays plain text rather than
+     * becoming a link to nowhere (Ted, 2026-09-04).
+     * <p>
+     * <strong>No pencil</strong>, unlike the gathering card beside it: there is no change form for
+     * a conference, and a pencil that opened a read-only page would be the app's first lying
+     * affordance — a pencil means edit and nothing else. The title carries it instead.
+     */
+    private static DivTag renderConference(ConferenceItineraryEntry e, boolean isOwner) {
         String kindLabel = e.totalDays() > 1
                 ? "Day " + e.dayNumber() + " of " + e.totalDays()
                 : "Conference";
         String location = e.venueAddress().city() + ", " + e.venueAddress().country();
-        // The conference's own page hangs off the title, exactly as a gathering's does; with none
-        // recorded the title stays plain text rather than becoming a link to nowhere.
-        DomContent titleContent = e.infoUrl().isBlank()
-                ? new Text(e.name())
-                : a(e.name()).withHref(e.infoUrl()).withTarget("_blank").withRel("noopener");
+        DomContent titleContent = conferenceTitle(e, isOwner);
         return div().withClass("entry-card entry-card--conference").with(
                 div(kindLabel).withClass("entry-kind entry-kind--conference"),
                 div().withClass("entry-title").with(titleContent),
                 div(e.venueName()).withClass("entry-detail"),
                 div(location).withClass("entry-detail entry-location")
         );
+    }
+
+    private static DomContent conferenceTitle(ConferenceItineraryEntry e, boolean isOwner) {
+        if (isOwner) {
+            return a(e.name()).withHref("/conferences/" + e.conferenceId().id())
+                              .withTitle("Open this conference's details");
+        }
+        return e.infoUrl().isBlank()
+                ? new Text(e.name())
+                : a(e.name()).withHref(e.infoUrl()).withTarget("_blank").withRel("noopener");
     }
 
     /**

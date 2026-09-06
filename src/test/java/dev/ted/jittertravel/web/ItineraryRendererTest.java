@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.*;
 import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.BookingIntent;
+import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GroundTransferId;
@@ -491,7 +492,10 @@ class ItineraryRendererTest {
         assertThat(html).contains("Day 2 of 3");
     }
 
-    /** Same treatment a gathering's title already gets: the conference's own page, in a new tab. */
+    /**
+     * A family viewer gets the conference's own page, in a new tab — the same treatment a
+     * gathering's title gets. The detail page is a surface they cannot reach at all.
+     */
     @Test
     void conferenceTitleLinksToItsOwnPageWhenThereIsOne() {
         String html = renderWithEntry(conference(1, 1, "https://jitterconf.example/"));
@@ -508,6 +512,28 @@ class ItineraryRendererTest {
 
         assertThat(html)
                 .contains("<div class=\"entry-title\">JitterConf 2026</div>");
+    }
+
+    /**
+     * <strong>Ted's title opens the conference's page in this app instead</strong> (Ted,
+     * 2026-09-04), and it does so whether or not the conference has a website — the detail page
+     * carries that link. There is deliberately <em>no pencil</em>, unlike the gathering card: a
+     * pencil means edit and there is nothing to edit yet.
+     */
+    @Test
+    void ownerConferenceTitleLinksToTheDetailPage() {
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(conference(1, 1, "https://jitterconf.example/")), List.of(), List.of()),
+                MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains("<div class=\"entry-title\">"
+                          + "<a href=\"/conferences/" + CONFERENCE_ID.id() + "\" "
+                          + "title=\"Open this conference&#x27;s details\">JitterConf 2026</a></div>")
+                .as("the conference's own site is reached from the detail page, not from this card")
+                .doesNotContain("https://jitterconf.example/")
+                .as("a pencil means edit, and a conference has nothing to edit yet")
+                .doesNotContain("class=\"edit-pencil\" href=\"/conferences/");
     }
 
     @Test
@@ -863,9 +889,12 @@ class ItineraryRendererTest {
         return conference(dayNumber, totalDays, "");
     }
 
+    private static final ConferenceId CONFERENCE_ID =
+            ConferenceId.of(UUID.fromString("22222222-3333-4444-5555-666666666666"));
+
     private static ConferenceItineraryEntry conference(int dayNumber, int totalDays, String infoUrl) {
         Address venue = new Address("747 Howard St", "San Francisco", "CA", "94103", "US", null);
-        return new ConferenceItineraryEntry("JitterConf 2026", "Moscone Center", venue,
+        return new ConferenceItineraryEntry(CONFERENCE_ID, "JitterConf 2026", "Moscone Center", venue,
                 dayNumber, totalDays, JUN_1.atTime(9, 0), infoUrl);
     }
 

@@ -264,7 +264,7 @@ public class ItineraryProjector implements EventStreamConsumer {
         List<ConferenceItineraryEntry> entries = new ArrayList<>();
         for (int i = 0; i < totalDays; i++) {
             entries.add(new ConferenceItineraryEntry(
-                    e.name(), e.venueName(), e.venueAddress(),
+                    e.conferenceId(), e.name(), e.venueName(), e.venueAddress(),
                     i + 1, totalDays, start.plusDays(i).atTime(startDateTime.toLocalTime()),
                     e.infoUrl()));
         }

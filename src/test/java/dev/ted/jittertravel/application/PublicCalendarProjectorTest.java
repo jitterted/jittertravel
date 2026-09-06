@@ -398,6 +398,28 @@ class PublicCalendarProjectorTest {
                 .doesNotContain("2026-09-12");
     }
 
+    /**
+     * <strong>The owner's path into the app never reaches a public entry.</strong> The owner
+     * calendar's conference title points at {@code /conferences/{id}} — an OWNER-only page printing
+     * the CFP, the submission pipeline and why Ted is going — and the anonymous title must still
+     * point only at the conference's own public site.
+     * <p>
+     * It is structurally impossible rather than remembered: {@link EntryDetails.PublicConference}
+     * has no slot for a path, so this test can only fail if someone gives it one. That is the point
+     * of the allow-list; the assertion is here so the reason is written down where the change would
+     * be made.
+     */
+    @Test
+    void theOwnerPathIntoTheAppNeverReachesAPublicEntry() {
+        ConferenceId conferenceId = ConferenceId.random();
+
+        projector.handle(Stream.of(stored(
+                conferencePlanned(conferenceId, "J-Fall", "https://jfall.nl/"))));
+
+        assertThat(projector.entries().getFirst().toString())
+                .doesNotContain("/conferences/");
+    }
+
     @Test
     void confirmingAttendanceTurnsThePublicEntryIntoGoing() {
         ConferenceId conferenceId = ConferenceId.random();

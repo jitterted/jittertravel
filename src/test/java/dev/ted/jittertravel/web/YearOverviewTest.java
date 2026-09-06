@@ -47,7 +47,7 @@ class YearOverviewTest {
     /** Exhaustive, so a new kind cannot be added without this test learning how to build one. */
     private static EntryDetails detailsFor(EntryKind kind) {
         return switch (kind) {
-            case CONFERENCE -> new EntryDetails.Conference(null, false, null);
+            case CONFERENCE -> new EntryDetails.Conference(null, false, null, null);
             case GATHERING -> new EntryDetails.Gathering(null, false, null);
             case PRIVATE_EVENT -> new EntryDetails.PrivateEvent();
             case FLIGHT -> new EntryDetails.Flight(null);

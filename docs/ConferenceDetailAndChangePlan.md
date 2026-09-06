@@ -1,9 +1,9 @@
 # Conference detail page + Change Conference
 
-> **Status: `partial` — slice 1 shipped 2026-09-04 (`b380f0b`); slices 2 and 4 open; slice 3
-> deferred.** Written after Ted asked where the details for a planned conference are and whether the
-> gap was tracked. It was not: `Cleanup_Tasks.md` (Deferred) tracks *"No way to change a
-> conference"*, which is the **edit** half; nothing named the **view** half at all.
+> **Status: `partial` — slices 1 and 2 shipped (2026-09-04, 2026-09-05); slice 4 folded into
+> slice 2; slice 3 deferred.** Written after Ted asked where the details for a planned conference
+> are and whether the gap was tracked. It was not: `Cleanup_Tasks.md` (Deferred) tracks *"No way to
+> change a conference"*, which is the **edit** half; nothing named the **view** half at all.
 
 ## Slice 3 (Change Conference) is deferred, and that removed most of this plan's hard parts
 
@@ -274,10 +274,29 @@ width from the fixed Actions column, and the name cell already carries the CFP/t
 stays first because it is what the page is scanned by. A blank venue renders no line at all. No
 route, event, projector or schema change, as predicted.
 
-**Slice 2 — the detail page.** `ConferenceDetailController` (`GET /conferences/{id}`) +
-`ConferenceDetailRenderer` (j2html) + an OWNER-only view record folding `ConferenceProgress`,
-`ConferencePlanned` and `CfpOpened`. Entry points **A1** and **C1** land here. Unknown id →
-`redirect:/conferences`, matching `ChangeGatheringController`.
+**Slice 2 — the detail page. SHIPPED 2026-09-05.** `ConferenceDetailController`
+(`GET /conferences/{id}`) + `ConferenceDetailRenderer` (j2html) + `ConferenceDetailView`, an
+OWNER-only record built by `ConferenceProjector.detailById` — the dashboard row plus the one field
+it may not carry, `AttendanceBasis`. Unknown or malformed id → `redirect:/conferences`. Five panels
+(When / Where / Attendance / Call for papers / Talk) and an actions band. Slice 4 folded in, per the
+settled entry-point section below.
+
+Four things worth knowing that the plan above did not predict:
+
+- **`ConferenceActions` was extracted**, because the detail page is the state machine's second
+  caller and a second copy is two chances to disagree about which transitions are legal. It carries
+  its own `CSS` constant, concatenated by both pages the way `DisclosureMenu.CSS` already is; the
+  dashboard keeps `.conf-actions` (its own nowrap layout) and gives up `.conf-action`/`.conf-decline`.
+- **The basis/stream precedence is the *opposite* of `ConferenceProgress.speaking()`'s, and that is
+  deliberate.** Mutation-verifying caught it: reading the acceptance first meant a ticket bought
+  *before* a talk was accepted rendered "A submitted talk was accepted, which is what committed you",
+  which is false — he was already going. The recorded basis wins; the acceptance sentence is the
+  fallback for the auto-commit, which writes no confirmation at all.
+  `ConferenceDetailRendererTest.aTicketBoughtBeforeATalkWasAcceptedIsStillTheReasonHeIsGoing` pins it.
+- **The nav gets this page's own path, not `/conferences`.** Marking the list active renders it as a
+  non-link `<span>`, and the nav is how Ted gets back to it.
+- **The `AuthorizationMatrixTest` row already existed** and passed while the route 404'd. It now
+  guards a real page; its comment says so.
 
 **Slice 3 — Change Conference.** `ConferenceChanged` + golden sample + `ChangeConferenceCommand`
 (with D5's validation) + `ChangeConferenceController` (`GET`/`POST /conferences/{id}/change`,
@@ -285,10 +304,13 @@ Thymeleaf) + a **Change** link on the detail page. Every projector that folds `C
 grows a `ConferenceChanged` arm — find them via `EventTypes` and the lifecycle-propagation
 scenario pattern, not by grepping.
 
-**Slice 4 — the calendar pencil.** `editPath` on `EntryDetails.Conference`, the `ownerActions` arm,
-and **both redaction tiers**: `PublicCalendarProjectorTest` asserting the path is not in what the
-projector emits, and a `CalendarRedactionSecurityTest` case asserting the anonymous body
-`doesNotContain` it. Entry point **B1**.
+~~**Slice 4 — the calendar pencil.**~~ **Folded into slice 2 and shipped without a pencil**: a
+pencil means edit and there is nothing to edit, so the *title* carries it instead. What shipped is
+`detailPath` on `EntryDetails.Conference` (never on `PublicConference`), an audience-aware
+`CalendarViewBuilder.titleLink`, and all three tiers — `PublicCalendarProjectorTest`
+(`theOwnerPathIntoTheAppNeverReachesAPublicEntry`), `CalendarRedactionSecurityTest`
+(`anonymousUserNeverGetsTheOwnerPathIntoTheApp`), plus the family pair
+(`familyGetsTheConferencesOwnPageAndNotTheOwnerDetailPath` / `tedGetsTheDetailPathOnTheSameEntry`).
 
 ## Tests worth naming in advance
 
@@ -348,11 +370,34 @@ substitute for a real details page, but it's fine for now."* So the conference d
 divergence from the house pattern to be tidied away later; it is **the first instance of where the
 pattern is going**. Read D1 as precedent, not exception.
 
+## What the review changed — 2026-09-06
+
+Slice 2 was reviewed before push. The one finding worth reading in full is that **`ConferenceActions`
+had modelled the two axes as one** — an early return on `GOING` offering nothing but Decline — which
+stranded every conference Ted had a ticket for *and* a talk out to. The whole machine, the couplings,
+what each state offers, and what the domain refuses are now written down in
+**`ConferenceStateMachine.md`**; the bug and the invariant that now guards it are the last section
+there.
+
+The other five were smaller and are fixed in the same change: the attendance `basis` was carried
+through a decline and never rendered (Q3, above); the controller's `try` covered the projector call
+as well as the id parse, so a data problem read as a missing conference; a dropped conference with no
+CFP was asked to go and find one while the link was withheld; an open space with a leftover deadline
+printed "None" over a row that is still firing iCal reminders — now said out loud on **both** the
+detail page and the dashboard, and logged in `Cleanup_Tasks.md` because it is visible but not yet
+fixable; and one `isEmpty()` where the house rule is `isBlank()`.
+
+**One finding was rejected.** The review read the detail page's `Speaker` badge as disagreeing with
+the calendar's `A Ted Talk`. It does not: it agrees with the **dashboard**, whose javadoc already
+argues the split (a calendar entry owns a day column and can afford the playful wording; a chip in a
+108px cell cannot). The detail page is the page you reach *from* the dashboard by clicking the name,
+so matching that neighbour is the right call. Left as it is.
+
 ## Open questions
 
-**Q1, Q2 and Q4 are answered or moot** — see the deferral section at the top. Q1 dissolved (no form,
-so `/conferences/{id}` is the detail page); Q2 cannot arise; Q4 was already out of scope. **Q3 and
-Q5 are what slice 2 needs decided.**
+**Q1, Q2, Q3 and Q4 are answered or moot.** Q1 dissolved (no form, so `/conferences/{id}` is the
+detail page); Q2 cannot arise; Q3 was settled 2026-09-06 (see below); Q4 was already out of scope.
+**Q5 is dissolved too** — see "How you reach the detail page" above.
 
 - **Q5 (new, 2026-09-04). What affordance opens the detail page from `/calendar` and `/itinerary`?**
   A pencil means "edit" and there is nothing to edit, so B1/C1 as written are wrong now. Options: an
@@ -368,10 +413,18 @@ Q5 are what slice 2 needs decided.**
   `CfpOpened` with the same wall-clock time in the new zone. **Leaning the third**, since
   re-recording a CFP is already how a moved deadline is corrected — but it means an edit to one
   aggregate writes a second event, which deserves an explicit yes.
-- **Q3. Should `/conferences/{id}` be reachable for a *dropped* conference?** Rejected and
-  organizer-cancelled conferences leave both calendars and survive only behind
-  `/conferences?dropped=show`. The detail page is where "why did this drop out?" is answerable, so
-  probably yes — but then the Change form has to decide whether a dropped conference is editable.
+- ~~**Q3. Should `/conferences/{id}` be reachable for a *dropped* conference?**~~ **Yes — answered
+  2026-09-06.** A declined conference keeps its detail page: `ConferenceProjector.detailById` finds
+  it (only an organizer-cancelled one is gone from the map entirely), and the Attendance panel now
+  says **why he was going**, in the past tense, from the `basis` `Tracked` deliberately keeps
+  through a decline. That was the point of keeping it, and until the review it was carried and never
+  rendered. Note what the panel deliberately does *not* say: "why did it drop out" for a
+  rejection-dropped conference is the Talk panel's sentence, and saying it twice would be the page
+  arguing with itself. Every action and every CFP link is withheld — the domain refuses each of
+  those commands against a conference that is not live — and the CFP panel drops its *prompt* along
+  with the link, since asking Ted to go and find a closing date is only a prompt if the page it
+  points at would take the answer. The Change form still has to decide whether a dropped conference
+  is editable; that stays with slice 3.
 - **Q4. Does Change Conference need a Cancel/undo sibling?** `ConferenceCancelled` exists as an
   event but has no owner-facing action (`Future_Feature_Slices.md`). Out of scope here; noted so
   slice 3 does not grow one by accident.

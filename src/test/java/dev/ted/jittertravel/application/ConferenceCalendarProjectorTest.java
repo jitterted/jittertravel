@@ -19,6 +19,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 class ConferenceCalendarProjectorTest {
 
@@ -100,12 +101,33 @@ class ConferenceCalendarProjectorTest {
     @Test
     void aPlannedConferenceStartsOutMerelyWatched() {
         ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
+        ConferenceId conferenceId = ConferenceId.random();
 
-        projector.handle(Stream.of(stored(sampleConference("J-Fall", LocalDateTime.of(2026, 11, 5, 9, 0)))));
+        projector.handle(Stream.of(stored(withId(conferenceId,
+                sampleConference("J-Fall", LocalDateTime.of(2026, 11, 5, 9, 0))))));
 
         assertThat(projector.entries().getFirst().details())
                 .as("planning a conference puts it on the watch list, nothing more")
-                .isEqualTo(new EntryDetails.Conference(AttendanceCommitment.WATCHING, false, null));
+                .isEqualTo(new EntryDetails.Conference(AttendanceCommitment.WATCHING, false, null,
+                                                       "/conferences/" + conferenceId.id()));
+    }
+
+    @Test
+    void everyConferenceCarriesTheOwnerPathToItsOwnDetailPage() {
+        // Derived from the conference's own id and present from the moment it is planned, so the
+        // owner's calendar title has somewhere to go before anything else has happened. It is on
+        // the OWNER record only — EntryDetails.PublicConference has no slot for it, which is what
+        // keeps it off the anonymous calendar by compilation rather than by remembering.
+        ConferenceCalendarProjector projector = new ConferenceCalendarProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+
+        projector.handle(Stream.of(stored(withId(conferenceId,
+                sampleConference("PLoP", LocalDateTime.of(2026, 10, 12, 9, 0))))));
+
+        assertThat(projector.entries().getFirst().details())
+                .asInstanceOf(type(EntryDetails.Conference.class))
+                .extracting(EntryDetails.Conference::detailPath)
+                .isEqualTo("/conferences/" + conferenceId.id());
     }
 
     @Test
@@ -122,7 +144,8 @@ class ConferenceCalendarProjectorTest {
                 .singleElement()
                 .extracting(CalendarEntry::details)
                 .as("confirmed on a speaking basis, so the entry says he speaks there")
-                .isEqualTo(new EntryDetails.Conference(AttendanceCommitment.GOING, true, null));
+                .isEqualTo(new EntryDetails.Conference(AttendanceCommitment.GOING, true, null,
+                                                       "/conferences/" + conferenceId.id()));
     }
 
     @Test
@@ -141,7 +164,8 @@ class ConferenceCalendarProjectorTest {
                         before.start(), before.end(),
                         before.mainTitle(), before.subTitle(),
                         before.continuationTitle(), before.continuationSubTitle(),
-                        new EntryDetails.Conference(AttendanceCommitment.GOING, true, null)));
+                        new EntryDetails.Conference(AttendanceCommitment.GOING, true, null,
+                                                    "/conferences/" + conferenceId.id())));
     }
 
     @Test

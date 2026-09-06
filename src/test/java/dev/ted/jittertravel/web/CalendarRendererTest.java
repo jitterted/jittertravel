@@ -368,7 +368,7 @@ class CalendarRendererTest {
                 end.atTime(17, 0),
                 title, lines("subtitle for " + title),
                 title + " cont'd", lines("continued subtitle for " + title),
-                new EntryDetails.Conference(null, false, null)
+                new EntryDetails.Conference(null, false, null, null)
         );
     }
 

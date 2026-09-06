@@ -32,7 +32,7 @@ class YearOverviewJsTest extends JsBehaviorTest {
                 LocalDate.of(2026, 12, 8).atTime(9, 0),
                 LocalDate.of(2026, 12, 11).atTime(17, 0),
                 "A conference", List.of(),
-                new EntryDetails.Conference(null, false, null));
+                new EntryDetails.Conference(null, false, null, null));
         return CalendarRenderer.render(List.of(farOut), TODAY, false, true);
     }
 

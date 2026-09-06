@@ -6,7 +6,6 @@ import dev.ted.jittertravel.application.DashboardGroup;
 import dev.ted.jittertravel.application.DashboardSection;
 import dev.ted.jittertravel.application.DroppedView;
 import dev.ted.jittertravel.application.TimeView;
-import dev.ted.jittertravel.domain.AttendanceBasis;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -112,8 +111,6 @@ public class ConferencesRenderer {
                ("Submitted / Ticket Bought / Decline"), so a set that wrapped would change its own
                row's height and shift every row under it. */
             .conf-actions { display: flex; flex-wrap: nowrap; gap: 10px; white-space: nowrap; }
-            .conf-decline { color: #b00; text-decoration: none; white-space: nowrap; font-size: 0.8125rem; }
-            .conf-decline:hover { text-decoration: underline; }
             /* The CFP line under the conference name is itself the link that records or changes
                the deadline — it is a property of the conference, not a move in the submission
                state machine, so it is not in the actions cell. It inherits the muted deadline
@@ -134,16 +131,13 @@ public class ConferencesRenderer {
             .conf-cfp-submit { color: inherit; text-decoration: underline; white-space: nowrap; }
             .conf-cfp-submit:hover { color: var(--accent-color); }
             .conf-cfp-sep { opacity: 0.6; }
-            /* The conference name links to its own page when it has one. Declares the accent
-               colour it was already inheriting from the .conf-name cell: same pixels, but the
-               affordance is now local rather than depending on an ancestor that could change and
-               silently take the link's visibility with it. */
-            .conf-info-link { color: var(--accent-color); text-decoration: none; }
-            .conf-info-link:hover { text-decoration: underline; }
-            /* Action labels are nowrap units, and the 240px column is budgeted for three of them —
-               the reason they are one or two short words. */
-            .conf-action { color: var(--accent-color); text-decoration: none; white-space: nowrap; font-size: 0.8125rem; }
-            .conf-action:hover { text-decoration: underline; }
+            /* The conference name opens the conference's page in this app — every row, not only
+               the ones with a web page of their own, so a row has one vocabulary whatever it
+               knows. Declares the accent colour it was already inheriting from the .conf-name
+               cell: same pixels, but the affordance is now local rather than depending on an
+               ancestor that could change and silently take the link's visibility with it. */
+            .conf-name-link { color: var(--accent-color); text-decoration: none; }
+            .conf-name-link:hover { text-decoration: underline; }
             /* Same two words the public calendar uses, so the list and the calendar agree. */
             .conf-commitment {
                 font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
@@ -297,7 +291,7 @@ public class ConferencesRenderer {
     public static String render(List<DashboardSection> sections, TimeView activeFilter,
                                 DroppedView activeDropped, int droppedCount) {
         return "<!DOCTYPE html>\n" + html(
-                Page.head("Conferences", CSS),
+                Page.head("Conferences", CSS + ConferenceActions.CSS),
                 body(
                         Page.viewNav(Page.NavAudience.OWNER, "/conferences"),
                         h1("Conferences"),
@@ -518,10 +512,15 @@ public class ConferencesRenderer {
      * A second line rather than a column of its own: this table only just fits at ~820px, and a new
      * column would push it into the horizontal scroll that is ruled out everywhere.
      * <p>
-     * The name is a link when the conference recorded its own web page, and plain text when it did
-     * not — the same treatment a gathering's title gets on the itinerary and the calendar. This is
-     * the conference's public page, never its CFP; that link lives on the line below, where it
-     * belongs to the deadline.
+     * <strong>The name opens the conference's page in this app</strong> (Ted, 2026-09-04) — not its
+     * own website, which that page carries and links out to. Most questions Ted has about a
+     * conference are answered on the detail page, so the app's own page goes first and the
+     * third-party one second; the extra click was accepted knowingly.
+     * <p>
+     * It is a link on <em>every</em> row, which is the other half of the change: while the name
+     * pointed at {@code infoUrl} it was a link only on the conferences that had one, so two rows
+     * side by side had different vocabularies. It stays a link on a dropped row too — that page is
+     * where "why did this drop out?" is answerable.
      */
     private static DomContent nameCell(ConferenceView conf) {
         return div().with(
@@ -531,14 +530,9 @@ public class ConferencesRenderer {
     }
 
     private static DomContent nameContent(ConferenceView conf) {
-        if (conf.infoUrl().isBlank()) {
-            return text(conf.name());
-        }
-        return a(conf.name()).withClass("conf-info-link")
-                             .withTitle("Open the conference's own page")
-                             .withTarget("_blank")
-                             .withRel("noopener")
-                             .withHref(conf.infoUrl());
+        return a(conf.name()).withClass("conf-name-link")
+                             .withTitle("Open this conference's details")
+                             .withHref("/conferences/" + conf.conferenceId().id());
     }
 
     /**
@@ -648,23 +642,20 @@ public class ConferencesRenderer {
      * <p>
      * A conference with no deadline recorded still shows the line, because "not recorded" is the
      * state the CFP-date-unknown group exists to prompt about — an absent line would hide the very
-     * job that group is asking for. An open-space conference shows nothing at all: it has no call
+     * job that group is asking for. An open-space conference is asked for nothing: it has no call
      * for papers, and the command refuses to record one.
+     * <p>
+     * <strong>Two states show the deadline with no way in</strong>, and they are the same shape for
+     * the same reason: the domain would refuse a change from here, so a link would lead somewhere
+     * that says no. A dropped conference is one. An open space that already <em>has</em> a stored
+     * deadline is the other — left over from before it was re-marked — and hiding it would be worse
+     * than showing it, because {@code CfpDeadlineSource} does not filter by format and that row is
+     * still putting alarms on Ted's phone.
      */
     private static DomContent cfpLine(ConferenceView conf) {
-        if (conf.format() == ConferenceFormat.OPEN_SPACE) {
-            return span();
-        }
-        // A dropped conference keeps its deadline as a record but not as a link: recording a CFP
-        // for a conference Ted declined is refused by the domain, so a link there would lead
-        // nowhere. Nothing to show at all if no deadline was ever recorded.
-        if (conf.commitment() == AttendanceCommitment.NOT_GOING) {
-            return conf.cfpClosesOn() == null
-                    ? span()
-                    : div().withClass("conf-cfp-deadline").with(
-                            span("CFP "),
-                            ZonedTimeTag.renderDateTimeStacking(
-                                    conf.cfpClosesOn(), DATE_PATTERN, TIME_PATTERN));
+        if (conf.format() == ConferenceFormat.OPEN_SPACE
+            || conf.commitment() == AttendanceCommitment.NOT_GOING) {
+            return conf.cfpClosesOn() == null ? span() : recordedDeadline(conf);
         }
         String href = "/conferences/" + conf.conferenceId().id() + "/cfp";
         if (conf.cfpClosesOn() == null) {
@@ -681,6 +672,14 @@ public class ConferencesRenderer {
                          ZonedTimeTag.renderDateTimeStacking(
                                  conf.cfpClosesOn(), DATE_PATTERN, TIME_PATTERN)));
         return line.with(submitLink(conf));
+    }
+
+    /** The deadline as a record and nothing more — no link, because the domain would refuse one. */
+    private static DomContent recordedDeadline(ConferenceView conf) {
+        return div().withClass("conf-cfp-deadline").with(
+                span("CFP "),
+                ZonedTimeTag.renderDateTimeStacking(
+                        conf.cfpClosesOn(), DATE_PATTERN, TIME_PATTERN));
     }
 
     /**
@@ -742,102 +741,15 @@ public class ConferencesRenderer {
     }
 
     /**
-     * <strong>The state machine decides what a row offers.</strong> Each state has at most three
-     * moves, so they are links and never a menu — and, unlike the fixed Confirm/CFP/Decline slots
-     * this replaced, an action that does not apply is <em>absent</em> rather than greyed.
-     * <p>
-     * That is a deliberate exception to "an unavailable action is shown disabled, with the reason"
-     * (CLAUDE.md), taken with Ted on 2026-08-22: that rule is about an action that has been or
-     * will be available to this viewer, and most moves here are not merely unavailable-for-now but
-     * meaningless — "Accepted" on a conference nothing was submitted to names an event that could
-     * never be true. Carrying nine greyed labels on every row to keep positions fixed would say
-     * less, not more. Recording the CFP deadline is <em>not</em> in this cell at all: it is a
-     * property of the conference rather than a move, and it lives under the name.
-     * <p>
-     * <strong>Three of these fit the 240px column on one line, and that is the budget.</strong>
-     * The column is fixed so a long conference name cannot squeeze the links into wrapping, which
-     * would change a row's height and shift every row below it — but the arithmetic only works
-     * while no state offers a fourth action or a longer label. {@code ConferencesRendererTest}
-     * pins the count.
-     * <p>
-     * Every action is a link to a page that hosts the actual POST form, never a POST from here —
-     * this renderer is j2html, and the project keeps POST forms in Thymeleaf so renderers stay
-     * clear of Spring's CSRF plumbing. The link carries the choice, so the page opens with it
-     * already selected and the second click is a confirmation rather than a decision.
-     * <p>
-     * The labels are past tense, because that is what this app does: it records what has already
-     * happened in the world. "Ticket Bought", not "Buy ticket" (Ted, 2026-08-22).
+     * The moves this row offers, in the fixed-width cell they are budgeted for. Which moves those
+     * are is {@link ConferenceActions}' decision, shared with the conference's own detail page so
+     * the two surfaces cannot disagree about what is legal; this method owns only the layout —
+     * one nowrap row, because the column is sized for the widest set the state machine can offer
+     * and a set that wrapped would change its row's height and shift every row under it.
      */
     private static DomContent actions(ConferenceView conf) {
-        String base = "/conferences/" + conf.conferenceId().id();
-        // A dropped conference has no live action: the domain refuses every command against a
-        // declined conference, so there is nothing here that could be triggered — not even in a
-        // disabled form, which would promise a capability that does not exist. Going after all
-        // means planning it again.
-        if (conf.commitment() == AttendanceCommitment.NOT_GOING) {
-            return div().withClass("conf-actions");
-        }
-        DivTag cell = div().withClass("conf-actions");
-        if (conf.commitment() == AttendanceCommitment.GOING) {
-            // Committed. The only talk-side move left is pulling a talk that is in the program —
-            // which changes nothing about attending.
-            if (conf.speakingStatus() == SpeakingStatus.ACCEPTED) {
-                cell.with(talkLink(base, TalkOutcome.WITHDRAWN, "Withdrawn",
-                        "Record that you pulled your talk. You are still going."));
-            }
-            return cell.with(declineLink(base));
-        }
-        return switch (conf.speakingStatus()) {
-            // Submitted and waiting: the only moves are what the organizers say, and pulling it.
-            case SUBMITTED -> cell
-                    .with(talkLink(base, TalkOutcome.ACCEPTED, "Accepted",
-                            "They said yes. This also records that you are going."))
-                    .with(talkLink(base, TalkOutcome.REJECTED, "Rejected", "They said no."))
-                    .with(talkLink(base, TalkOutcome.WITHDRAWN, "Withdrawn", "You pulled it."));
-            // An open offer. Saying yes is a confirmation naming the invitation as the reason,
-            // which is what separates speaking there from merely attending.
-            case INVITED -> cell
-                    .with(confirmLink(base, AttendanceBasis.SPEAKING_INVITED, "Invitation Accepted",
-                            "Say yes: you are going, and you are speaking."))
-                    .with(declineLink(base));
-            // Turned down. On an ACCEPTANCE_REQUIRED conference this row is not here at all — it
-            // was dropped — so this is the go-anyway case.
-            case REJECTED -> cell
-                    .with(confirmLink(base, AttendanceBasis.TICKET_PURCHASED, "Ticket Bought",
-                            "Going as an attendee after all."))
-                    .with(declineLink(base));
-            // Nothing outstanding: submitting is on the table again wherever there is a CFP.
-            case NOT_SPEAKING, WITHDRAWN -> {
-                if (conf.format() != ConferenceFormat.OPEN_SPACE) {
-                    cell.with(talkLink(base, TalkOutcome.SUBMITTED, "Submitted",
-                            "Record that you submitted a talk."));
-                }
-                yield cell
-                        .with(confirmLink(base, AttendanceBasis.TICKET_PURCHASED, "Ticket Bought",
-                                "Going as an attendee."))
-                        .with(declineLink(base));
-            }
-            // Accepted while still merely watching cannot happen: accepting commits attendance,
-            // so the GOING branch above has already returned.
-            case ACCEPTED -> cell.with(declineLink(base));
-        };
-    }
-
-    private static DomContent talkLink(String base, TalkOutcome outcome, String label, String title) {
-        return a(label).withClass("conf-action")
-                       .withTitle(title)
-                       .withHref(base + "/talk?outcome=" + outcome.name());
-    }
-
-    private static DomContent confirmLink(String base, AttendanceBasis basis, String label, String title) {
-        return a(label).withClass("conf-action")
-                       .withTitle(title)
-                       .withHref(base + "/confirm?basis=" + basis.name());
-    }
-
-    private static DomContent declineLink(String base) {
-        return a("Decline").withClass("conf-decline")
-                           .withTitle("Record that you are not going.")
-                           .withHref(base + "/decline");
+        return div().withClass("conf-actions").with(
+                ConferenceActions.links(conf.conferenceId(), conf.commitment(),
+                                        conf.speakingStatus(), conf.format()));
     }
 }

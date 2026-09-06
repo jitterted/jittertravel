@@ -34,7 +34,7 @@ class YearOverviewAnchorConventionTest {
     private static String page(LocalDate today, LocalDate from, LocalDate to) {
         CalendarEntry entry = new CalendarEntry(
                 today.plusDays(3).atTime(9, 0), today.plusDays(5).atTime(17, 0),
-                "A conference", List.of(), new EntryDetails.Conference(null, false, null));
+                "A conference", List.of(), new EntryDetails.Conference(null, false, null, null));
         return CalendarRenderer.render(List.of(entry), today, false, true, from, to);
     }
 

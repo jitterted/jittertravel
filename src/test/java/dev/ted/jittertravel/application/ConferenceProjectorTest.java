@@ -676,6 +676,132 @@ class ConferenceProjectorTest {
         assertThat(projector.views(TimeView.ALL, DroppedView.SHOW, NOW)).isEmpty();
     }
 
+    // --- The detail read model: the row, plus the one field it may not carry ---
+
+    /**
+     * <strong>Why Ted is going is on the detail view and on no other.</strong> The basis is
+     * submission status wearing a different hat — CLAUDE.md keeps it off every calendar — and it is
+     * showable here only because {@code /conferences/{id}} is OWNER-only. The dashboard row beside
+     * it still gets nothing but the collapsed {@code speaking} boolean, which is the assertion that
+     * makes this a claim about the split rather than about one record.
+     */
+    @Test
+    void theDetailViewCarriesWhyTedIsGoingAndTheDashboardRowDoesNot() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId, "dev2next");
+
+        confirm(projector, conferenceId, AttendanceBasis.TICKET_PURCHASED);
+
+        assertThat(projector.detailById(conferenceId))
+                .get()
+                .extracting(ConferenceDetailView::commitment, ConferenceDetailView::basis,
+                            ConferenceDetailView::speaking)
+                .containsExactly(AttendanceCommitment.GOING, AttendanceBasis.TICKET_PURCHASED, false);
+        assertThat(ConferenceView.class.getRecordComponents())
+                .as("the dashboard row carries the consequence, never the reason")
+                .noneMatch(component -> component.getType() == AttendanceBasis.class);
+    }
+
+    /** Nothing confirmed means there is no reason on record — not a reason of "unknown". */
+    @Test
+    void aConferenceMerelyWatchedHasNoBasisForGoing() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+
+        plan(projector, conferenceId, "J-Fall");
+
+        assertThat(projector.detailById(conferenceId))
+                .get()
+                .extracting(ConferenceDetailView::commitment, ConferenceDetailView::basis)
+                .containsExactly(AttendanceCommitment.WATCHING, null);
+    }
+
+    /**
+     * An acceptance commits attendance on its own, writing no confirmation at all — so a conference
+     * can be GOING with no basis, and the detail page has to say why some other way. This is the
+     * case that would be silently wrong if the basis were treated as always present once GOING.
+     */
+    @Test
+    void anAcceptedTalkCommitsAttendanceWithoutRecordingABasis() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId, "PLoP");
+
+        talk(projector, 2, new TalkSubmitted(conferenceId, RECORDED_ON));
+        talk(projector, 3, new TalkAccepted(conferenceId, RECORDED_ON));
+
+        assertThat(projector.detailById(conferenceId))
+                .get()
+                .extracting(ConferenceDetailView::commitment, ConferenceDetailView::basis,
+                            ConferenceDetailView::speakingStatus)
+                .containsExactly(AttendanceCommitment.GOING, null, SpeakingStatus.ACCEPTED);
+    }
+
+    /**
+     * A declined conference is still reachable: this projector keeps the row as a record, and the
+     * detail page is where "why did this drop out?" is answerable. The reason he was going survives
+     * the decline — a later fact about the same conference, not an erasure of an earlier one.
+     */
+    @Test
+    void aDeclinedConferenceStillHasADetailViewAndKeepsWhyHeWasGoing() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId, "J-Fall");
+        confirm(projector, conferenceId, AttendanceBasis.TICKET_PURCHASED);
+
+        decline(projector, conferenceId);
+
+        assertThat(projector.detailById(conferenceId))
+                .get()
+                .extracting(ConferenceDetailView::commitment, ConferenceDetailView::basis)
+                .containsExactly(AttendanceCommitment.NOT_GOING, AttendanceBasis.TICKET_PURCHASED);
+    }
+
+    /** The organizers pulled it: there is no conference left to have a page about. */
+    @Test
+    void aCancelledConferenceHasNoDetailView() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId, "J-Fall");
+
+        talk(projector, 2, new ConferenceCancelled(conferenceId, "Venue flooded"));
+
+        assertThat(projector.detailById(conferenceId)).isEmpty();
+    }
+
+    @Test
+    void anUnknownConferenceHasNoDetailView() {
+        assertThat(new ConferenceProjector().detailById(ConferenceId.random())).isEmpty();
+    }
+
+    /** The CFP reaches the detail view whole — both the deadline and where the talk goes. */
+    @Test
+    void theDetailViewCarriesTheWholeCfp() {
+        ConferenceProjector projector = new ConferenceProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        plan(projector, conferenceId, "J-Fall");
+        ZonedTimestamp closesOn = zt(LocalDateTime.of(2026, 9, 12, 23, 59));
+
+        talk(projector, 2, new CfpOpened(conferenceId, closesOn, "https://sessionize.com/jfall/"));
+
+        assertThat(projector.detailById(conferenceId))
+                .get()
+                .extracting(ConferenceDetailView::cfpClosesOn, ConferenceDetailView::cfpSubmissionUrl)
+                .containsExactly(closesOn, "https://sessionize.com/jfall/");
+    }
+
+    private static void plan(ConferenceProjector projector, ConferenceId conferenceId, String name) {
+        ConferencePlanned planned = new ConferencePlanned(
+                conferenceId, name,
+                zt(LocalDateTime.of(2026, 11, 5, 9, 0)),
+                zt(LocalDateTime.of(2026, 11, 7, 18, 0)),
+                "Venue",
+                new Address("1 Street", "Ede", "", "6710", "Netherlands", null));
+        projector.handle(Stream.of(new StoredEvent(
+                1, planned.getClass(), UUID.randomUUID(), Instant.now(), planned, UUID.randomUUID())));
+    }
+
     private static ConferenceView only(ConferenceProjector projector) {
         return projector.views(TimeView.ALL, DroppedView.SHOW, NOW).getFirst();
     }

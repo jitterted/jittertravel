@@ -254,6 +254,29 @@ class ConferencesRendererTest {
                 .contains(">Ticket Bought</a>");
     }
 
+    /**
+     * A deadline recorded before this conference was re-marked open-space. It is still on the
+     * record and {@code CfpDeadlineSource} does not filter by format, so it is still setting
+     * alarms — hiding the line would hide something live. No link, because {@code OpenCfpCommand}
+     * refuses a CFP on an open space, which is the same reason a dropped conference's deadline is
+     * shown unlinked.
+     */
+    @Test
+    void anOpenSpaceThatStillHasADeadlineOnRecordShowsItWithNoWayIn() {
+        ConferenceView conf = view("SoCraTes DE", "2026-08-20T09:00", "2026-08-23T17:00",
+                "Soltau", "Germany", AttendanceCommitment.WATCHING, false,
+                SpeakingStatus.NOT_SPEAKING,
+                ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-06-30T23:59"), ZONE),
+                ConferenceFormat.OPEN_SPACE);
+
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<div class=\"conf-cfp-deadline\"><span>CFP </span>")
+                .as("the domain refuses a CFP on an open space, so there is nowhere to send him")
+                .doesNotContain("href=\"/conferences/" + conf.conferenceId().id() + "/cfp\"");
+    }
+
     /** Submitted and waiting: the moves are what the organizers say, and pulling it. */
     @Test
     void aSubmittedTalkOffersTheOutcomesAndAWithdrawal() {
@@ -310,11 +333,14 @@ class ConferencesRendererTest {
     }
 
     /**
-     * Committed on a bought ticket: nothing is left on the speaking axis, so the row is down to
-     * changing his mind about going.
+     * Committed on a bought ticket, with nothing submitted. Buying a ticket is off the table
+     * because he has one — but <strong>submitting is not</strong>: an early-bird ticket says
+     * nothing about the talk, and the CFP panel on the detail page offers the submission page in
+     * exactly this state. Until 2026-09-06 this row offered Decline alone, which left no way to
+     * record a talk submitted after a ticket was bought.
      */
     @Test
-    void aCommittedConferenceOffersOnlyDecline() {
+    void aCommittedConferenceCanStillHaveATalkSubmitted() {
         ConferenceView conf = view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00",
                 "Denver", "USA", AttendanceCommitment.GOING);
 
@@ -323,9 +349,10 @@ class ConferencesRendererTest {
 
         assertThat(html)
                 .contains("<span class=\"conf-commitment conf-commitment--going\">Going</span>")
+                .contains("href=\"" + base + "/talk?outcome=SUBMITTED\"")
                 .contains("href=\"" + base + "/decline\"")
-                .doesNotContain("/confirm?")
-                .doesNotContain("/talk?");
+                .as("he already has a ticket, so buying one is not a move")
+                .doesNotContain("/confirm?");
     }
 
     /**
@@ -636,11 +663,12 @@ class ConferencesRendererTest {
     }
 
     /**
-     * The name links out to the conference's own page — public, unlike anything CFP-shaped, and the
-     * same treatment a gathering's title already gets on the calendar and the itinerary.
+     * <strong>The name opens the conference's page in this app</strong> (Ted, 2026-09-04), not the
+     * conference's own website — that link moved to the detail page, which carries it. Internal, so
+     * no {@code target="_blank"}: it is navigation within a working surface.
      */
     @Test
-    void theNameLinksToTheConferencesOwnPageWhenThereIsOne() {
+    void theNameLinksToTheConferencesDetailPage() {
         ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
                 "Ede", "Netherlands", AttendanceCommitment.WATCHING, false,
                 SpeakingStatus.NOT_SPEAKING, null, "", ConferenceFormat.CALL_FOR_PAPERS,
@@ -649,23 +677,43 @@ class ConferencesRendererTest {
         String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
 
         assertThat(html)
-                .contains("<a class=\"conf-info-link\" title=\"Open the conference&#x27;s own page\" "
-                          + "target=\"_blank\" rel=\"noopener\" href=\"https://jfall.nl/\">J-Fall</a>");
+                .contains("<a class=\"conf-name-link\" title=\"Open this conference&#x27;s details\" "
+                          + "href=\"/conferences/" + conf.conferenceId().id() + "\">J-Fall</a>")
+                .as("the conference's own site is reached from the detail page, not from this row")
+                .doesNotContain("https://jfall.nl/");
     }
 
+    /**
+     * The name is a link on <em>every</em> row, not only the ones with a website of their own. That
+     * is the point of moving it: while it pointed at {@code infoUrl}, two rows side by side had
+     * different vocabularies — one clickable name, one plain — for no reason a reader could see.
+     */
     @Test
-    void aConferenceWithNoPageOfItsOwnKeepsAPlainName() {
+    void aConferenceWithNoPageOfItsOwnStillHasALinkedName() {
         ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
                 "Ede", "Netherlands");
 
         String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
 
         assertThat(html)
-                .contains("<div>J-Fall</div>")
-                .as("no page recorded means no link, not a link to nowhere")
-                // The whole opening tag, not the class name: that also appears in the page's own
-                // stylesheet, where its presence says nothing about this row.
-                .doesNotContain("<a class=\"conf-info-link\"");
+                .contains("<a class=\"conf-name-link\" title=\"Open this conference&#x27;s details\" "
+                          + "href=\"/conferences/" + conf.conferenceId().id() + "\">J-Fall</a>");
+    }
+
+    /**
+     * A dropped conference offers no actions at all, but its name still opens its page: that page
+     * is where "why did this drop out?" is answerable
+     * ({@code docs/ConferenceDetailAndChangePlan.md} Q3).
+     */
+    @Test
+    void aDroppedConferenceKeepsItsLinkedName() {
+        ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
+                "Ede", "Netherlands", AttendanceCommitment.NOT_GOING);
+
+        String html = ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("href=\"/conferences/" + conf.conferenceId().id() + "\">J-Fall</a>");
     }
 
     /**

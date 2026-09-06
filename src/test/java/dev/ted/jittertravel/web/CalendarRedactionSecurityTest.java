@@ -477,7 +477,7 @@ class CalendarRedactionSecurityTest {
         return new CalendarEntry(
                 CONF_START, CONF_END,
                 "J-Fall", List.of(new SubtitleLine.Text("Ede, Netherlands")),
-                new EntryDetails.Conference(commitment, false, null));
+                new EntryDetails.Conference(commitment, false, null, null));
     }
 
     private static final ZoneId AMSTERDAM = ZoneId.of("Europe/Amsterdam");
@@ -566,6 +566,64 @@ class CalendarRedactionSecurityTest {
                 .doesNotContain("2026-09-12")
                 .doesNotContain("2026-09-12T21:59")
                 .doesNotContain("CFP");
+    }
+
+    /**
+     * <strong>The owner's way into the app is not a public link.</strong> Ted's conference title
+     * points at {@code /conferences/{id}}, an OWNER-only page carrying the CFP, the submission
+     * pipeline and why he is going. An anonymous visitor gets the conference's own public site and
+     * nothing that names an internal surface — a link there would 302 to {@code /login} and, on the
+     * way, say that the surface exists and that Ted has one.
+     */
+    @Test
+    void anonymousUserNeverGetsTheOwnerPathIntoTheApp() {
+        anonymousSees(jFallPlanned("https://jfall.nl/"));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("href=\"https://jfall.nl/\"")
+                .doesNotContain("/conferences/");
+    }
+
+    /**
+     * Family holds the detail path on the entry and never renders it — the carry-and-strip pattern
+     * CLAUDE.md names, accepted here because five records already do it and family is not the
+     * threat model anonymous is. They get the conference's public page instead, which is a surface
+     * they can actually reach.
+     */
+    @Test
+    @WithMockUser(username = "family", roles = "FAMILY")
+    void familyGetsTheConferencesOwnPageAndNotTheOwnerDetailPath() {
+        given(calendarAggregator.allEntries()).willReturn(List.of(new CalendarEntry(
+                CONF_START, CONF_END,
+                "J-Fall", List.of(new SubtitleLine.Text("Ede, Netherlands")),
+                new EntryDetails.Conference(AttendanceCommitment.WATCHING, false,
+                                            "https://jfall.nl/",
+                                            "/conferences/" + J_FALL.id()))));
+
+        assertThat(mockMvc.get().uri("/calendar"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("href=\"https://jfall.nl/\"")
+                .doesNotContain("/conferences/" + J_FALL.id());
+    }
+
+    /** And the same entry, for Ted, does point at the app's own page. */
+    @Test
+    @WithMockUser(username = "ted", roles = "OWNER")
+    void tedGetsTheDetailPathOnTheSameEntry() {
+        given(calendarAggregator.allEntries()).willReturn(List.of(new CalendarEntry(
+                CONF_START, CONF_END,
+                "J-Fall", List.of(new SubtitleLine.Text("Ede, Netherlands")),
+                new EntryDetails.Conference(AttendanceCommitment.WATCHING, false,
+                                            "https://jfall.nl/",
+                                            "/conferences/" + J_FALL.id()))));
+
+        assertThat(mockMvc.get().uri("/calendar"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("href=\"/conferences/" + J_FALL.id() + "\"");
     }
 
     @Test

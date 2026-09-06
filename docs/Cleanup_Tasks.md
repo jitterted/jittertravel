@@ -279,6 +279,32 @@ for open work.
       untested.** `lookup(...)` catches the `IllegalArgumentException` from `UUID.fromString` and
       redirects to `/conferences`; only the POST path has a `malformedConferenceIdRedirects...`
       test, so the GET-side catch is unpinned.
+- [ ] **A CFP deadline cannot be cleared, so an open-space conference can keep firing reminders for
+      a CFP it does not have.** `OpenCfpCommand` refuses an `OPEN_SPACE` conference, and there is no
+      "retract this CFP" command at all — so once a conference with a recorded `CfpOpened` is
+      re-marked open-space (the pending SoCraTes/PLoP re-marking, `Backlog.md`), the stored deadline
+      is unreachable from every surface. `CfpDeadlineSource` does not filter by format, so it keeps
+      putting three alarms on Ted's phone for a call for papers that does not exist. **Both surfaces
+      now say so** rather than hiding it — the detail page's CFP panel and the dashboard's deadline
+      line show the date unlinked (2026-09-06) — which makes it visible but not fixable. The fix is
+      a `CfpWithdrawn`/`CfpRetracted` event, or making the format change itself retract one. Noticed
+      in review 2026-09-06; today it is only reachable by re-marking a format, which is itself a
+      capability that does not exist yet, so this is not urgent.
+- [ ] **`RecordTalkController.legalOutcomes` is a second copy of the talk-side rules.**
+      `ConferenceActions` says what a surface offers; `legalOutcomes` says what the catch-up page
+      offers, and it is deliberately wider — "what the domain would accept" rather than "the
+      expected next step". Fine as an intent, but it is a **hand-written restatement of the four
+      `*TalkCommand` guards**, and nothing fails if the two drift: the domain has tests, this copy
+      does not. It also ignores `commitment` entirely, which is what made `GOING`/`SUBMITTED`
+      reachable while `ConferenceActions` had no way back out of it (see
+      `ConferenceStateMachine.md`). Worth deriving it from the commands' own guards, or at least
+      pinning it against them in a test. Noticed in review 2026-09-06.
+- [ ] **The catch-up page has no link anywhere.** `RecordTalkController`'s javadoc describes reaching
+      `/conferences/{id}/talk` bare, "offering every move that is legal from where the conference
+      stands now" — and Ted asked for it — but every href in the app carries `?outcome=`, so the
+      bare page is reachable only by editing the URL. That is a hover-rule-shaped problem in a
+      different key: a capability with no visible affordance at all. Either link it (the detail
+      page's action band is the obvious home) or drop the bare mode. Noticed 2026-09-06.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.
       `PostgresPersister.loadTimelinePage` resets `runningMaxSeq` to `Long.MIN_VALUE` on every
@@ -346,9 +372,9 @@ them is a paragraph, and building either one now would be work ahead of a need. 
 
 - [ ] **No way to change a conference.** **Now owned by `ConferenceDetailAndChangePlan.md`
       (planned 2026-09-04, slice 3)** — keep this entry only until that plan ships, then delete it
-      rather than ticking it, since the plan is the record. The plan also answers the *view* half,
-      which nothing tracked: there is no `/conferences/{id}` at all, and the venue `ConferenceView`
-      already carries is rendered nowhere on `/conferences`.
+      rather than ticking it, since the plan is the record. The *view* half it also answered is
+      **done**: the venue shipped on `/conferences` 2026-09-04 (`b380f0b`) and `/conferences/{id}`
+      shipped 2026-09-05, so what is left here is exactly the edit half named below.
       Lifted from `archived/ConferenceSubmissionTrackingPlan.md`
       2026-08-23, when that plan was archived — it names this gap and nothing else tracked it.
       There is no `ChangeConferenceController` to match `ChangeGathering`, so a conference's name,

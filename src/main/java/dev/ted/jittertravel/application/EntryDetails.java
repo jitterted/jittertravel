@@ -30,11 +30,21 @@ public sealed interface EntryDetails {
      * and public calendars carry the same value here for the same reason they carry the same
      * commitment chip: one rendering path, one collapse, nothing for a renderer to get wrong.
      * <p>
-     * {@code infoUrl} is the conference's own web page, which the renderer hangs off the title
-     * exactly as it does a gathering's. Public, and carried identically on {@link PublicConference}
-     * — the owner is not shown less than a stranger is. {@code null} when none was recorded.
+     * {@code infoUrl} is the conference's own web page. Public, and carried identically on
+     * {@link PublicConference} — the owner is not shown less than a stranger is. {@code null} when
+     * none was recorded.
+     * <p>
+     * {@code detailPath} is the OWNER-only link to {@code /conferences/{id}}, and it is what the
+     * <em>owner's</em> title points at: for Ted most questions about a conference are answered on
+     * that page, and the conference's own site is reached from there (Ted, 2026-09-04). Family
+     * viewers hold this value and never render it — the carry-and-strip pattern CLAUDE.md names,
+     * accepted here because five records already do it and family is not the threat model anonymous
+     * is. <strong>{@link PublicConference} has no such field and must never get one</strong>: that
+     * absence is the compiler-enforced half of the allow-list, and it is why an anonymous title can
+     * only ever point at the public {@code infoUrl}.
      */
-    record Conference(AttendanceCommitment commitment, boolean speaking, String infoUrl)
+    record Conference(AttendanceCommitment commitment, boolean speaking, String infoUrl,
+                      String detailPath)
             implements EntryDetails {
         @Override
         public EntryKind kind() {

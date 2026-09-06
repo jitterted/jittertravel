@@ -78,17 +78,20 @@ public class ConferenceProjector implements EventStreamConsumer {
                                         "",
                                         event.format(),
                                         event.infoUrl()),
-                                ConferenceProgress.planned(event.format())));
+                                ConferenceProgress.planned(event.format()),
+                                // Nothing has been confirmed yet, so there is no reason on record
+                                // for going — see Tracked#basis.
+                                null));
                 // Recording a CFP twice is how a moved deadline is corrected, so this overwrites
                 // rather than ignoring the second one — the last recorded CFP wins, submission URL
                 // included: the two are one fact, and a re-record replaces both together.
                 case CfpOpened event -> conferences.computeIfPresent(event.conferenceId(),
                         (id, tracked) -> tracked.withCfp(event.closesOn(), event.submissionUrl()));
-                // The basis is read and immediately collapsed: whether Ted speaks is rendered, but
-                // *which* speaking basis applies — accepted, or invited — is submission status, so
-                // it stays inside ConferenceProgress and never reaches the view at all.
-                case ConferenceAttendanceConfirmed event ->
-                        update(event.conferenceId(), progress -> progress.confirmed(event.basis()));
+                // The basis is collapsed for the dashboard row — *which* speaking basis applies is
+                // submission status, so ConferenceView carries only its consequence — and kept
+                // whole for the detail page, which is OWNER-only and may say it. See Tracked#basis.
+                case ConferenceAttendanceConfirmed event -> conferences.computeIfPresent(
+                        event.conferenceId(), (id, tracked) -> tracked.confirmed(event.basis()));
                 // The organizers pulled the event: there is no conference left to have a view of.
                 case ConferenceCancelled event -> conferences.remove(event.conferenceId());
                 // Ted said no. The row stays, at NOT_GOING, hidden behind ?dropped=show.
@@ -152,14 +155,33 @@ public class ConferenceProjector implements EventStreamConsumer {
     }
 
     /**
+     * The same conference in full, for the OWNER-only detail page — see {@link ConferenceDetailView}
+     * for why that is a second record rather than a wider {@link ConferenceView}.
+     * <p>
+     * A <em>dropped</em> conference is found here, deliberately: this projector keeps the row Ted
+     * declined, and the detail page is where "why did this drop out?" is answerable
+     * ({@code docs/ConferenceDetailAndChangePlan.md} Q3). A conference the organizers cancelled is
+     * gone from the map entirely, so it is empty here and the controller sends Ted back to the list.
+     */
+    public Optional<ConferenceDetailView> detailById(ConferenceId conferenceId) {
+        return Optional.ofNullable(conferences.get(conferenceId)).map(Tracked::detail);
+    }
+
+    /**
      * One conference's row, and where that conference stands on both axes.
      * <p>
-     * {@link ConferenceProgress} holds one fact the view may not: whether the last attendance
+     * {@link ConferenceProgress} holds one fact the row may not: whether the last attendance
      * confirmation named a speaking basis. "Which basis" is submission status wearing a different
      * hat, and CLAUDE.md's redaction rule is that a field which never enters a view cannot leak
-     * from it — so it stays here, and only its consequence reaches the row.
+     * from it — so only its consequence reaches {@link ConferenceView}.
+     *
+     * @param basis the reason the last confirmation gave, kept whole rather than collapsed, because
+     *              {@link ConferenceDetailView} may show it and {@link ConferenceProgress} answers
+     *              only the yes/no question. {@code null} until Ted confirms, and kept afterwards
+     *              even if he declines — a decline is a later fact about the same conference, not
+     *              an erasure of why he was going.
      */
-    private record Tracked(ConferenceView view, ConferenceProgress progress) {
+    private record Tracked(ConferenceView view, ConferenceProgress progress, AttendanceBasis basis) {
 
         /** The row as this progress makes it: both derived fields recomputed from scratch. */
         Tracked showing(ConferenceProgress moved) {
@@ -168,7 +190,16 @@ public class ConferenceProjector implements EventStreamConsumer {
                     view.startDate(), view.endDate(), moved.commitment(), moved.speaking(),
                     moved.speakingStatus(), view.cfpClosesOn(), view.cfpSubmissionUrl(),
                     view.format(), view.infoUrl()
-            ), moved);
+            ), moved, basis);
+        }
+
+        /** Ted said yes, and said why. Both axes move as usual; the reason is what is extra here. */
+        Tracked confirmed(AttendanceBasis newBasis) {
+            return showing(progress.confirmed(newBasis)).withBasis(newBasis);
+        }
+
+        private Tracked withBasis(AttendanceBasis newBasis) {
+            return new Tracked(view, progress, newBasis);
         }
 
         /**
@@ -181,7 +212,19 @@ public class ConferenceProjector implements EventStreamConsumer {
                     view.startDate(), view.endDate(), view.commitment(), view.speaking(),
                     view.speakingStatus(), closesOn, submissionUrl,
                     view.format(), view.infoUrl()
-            ), progress);
+            ), progress, basis);
+        }
+
+        /**
+         * The row plus the one field it may not carry. Everything else is read off the row rather
+         * than recomputed, so the two read models cannot disagree about the same conference.
+         */
+        ConferenceDetailView detail() {
+            return new ConferenceDetailView(
+                    view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
+                    view.startDate(), view.endDate(), view.commitment(), basis, view.speaking(),
+                    view.speakingStatus(), view.cfpClosesOn(), view.cfpSubmissionUrl(),
+                    view.format(), view.infoUrl());
         }
     }
 }

@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.*;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
+import j2html.tags.specialized.ATag;
 import j2html.tags.specialized.DivTag;
 
 import java.time.DayOfWeek;
@@ -366,13 +367,16 @@ public class CalendarViewBuilder {
 
         DivTag div = div().withClass(classes).withStyle(style);
         if (title != null) {
-            // The title is a plain text link only when it navigates *out* (maps); editing is
-            // never the title itself but a separate pencil appended after it, so a link on the
-            // title always means "go look at this elsewhere" and the pencil always means "edit".
-            String titleLink = isContinuation ? null : titleLink(entry.details());
+            // Where a title points is a judgment call per kind, deliberately NOT a rule: this
+            // comment used to assert that "a link on the title always means go look at this
+            // elsewhere", and Ted dropped that as unjustified on 2026-09-04 once the owner's
+            // conference title wanted to point at the app's own detail page. Do not re-derive the
+            // old rule from the code — see titleLink. The pencil, by contrast, IS a rule: it means
+            // edit and nothing else.
+            TitleLink titleLink = isContinuation ? null : titleLink(entry.details(), isOwner);
             List<DomContent> titleParts = breakableTitle(title);
             DomContent titleText = titleLink != null
-                    ? a().with(titleParts).withHref(titleLink).withTarget("_blank").withRel("noopener")
+                    ? titleLink.anchor(titleParts)
                     : span().with(titleParts);
             DivTag titleDiv = div().withClass("entry-title").with(kindIcon(entry.details())).with(titleText);
             if (isOwner && !isContinuation) {
@@ -392,24 +396,50 @@ public class CalendarViewBuilder {
     }
 
     /**
-     * Where the entry's title navigates to, or {@code null} when it is plain text. A linked title
-     * always means "go look at this elsewhere" — the map for a hotel, the event's own page for a
-     * gathering. Editing is never the title itself but a separate pencil appended after it.
+     * A title's destination and whether it leaves the app, or {@code null} when the title is plain
+     * text. External links open in a new tab, as every outbound link in this app does; an internal
+     * one must not, because it is navigation within a working surface.
+     */
+    private record TitleLink(String href, boolean external) {
+        DomContent anchor(List<DomContent> parts) {
+            ATag anchor = a().with(parts).withHref(href);
+            return external ? anchor.withTarget("_blank").withRel("noopener") : anchor;
+        }
+    }
+
+    /**
+     * Where the entry's title navigates to, or {@code null} when it is plain text — the map for a
+     * hotel, the event's own page for a gathering, the app's own detail page for the owner's
+     * conference. <strong>There is no single rule about what a linked title means</strong>; each
+     * kind's destination is a judgment call (Ted, 2026-09-04). Editing is never the title but a
+     * separate pencil after it, and that one <em>is</em> a rule.
+     * <p>
+     * <strong>The conference is the one kind whose title depends on who is looking</strong>, and
+     * the audience is the flag the boundary already handed this renderer — never re-derived here
+     * (CLAUDE.md, "the audience is chosen at the boundary and applied inward"). Ted gets the app's
+     * detail page, because most of his questions about a conference are answered there and the
+     * conference's own site is one click on from it; everyone else gets the public {@code infoUrl},
+     * exactly as before. That divergence is safe only because it is a divergence between the
+     * <em>owner</em> record and what a public one can hold: {@link EntryDetails.PublicConference}
+     * has no detail path and cannot be given one, so the anonymous arm below has nothing to choose
+     * from.
      * <p>
      * Exhaustive over {@link EntryDetails} rather than defaulted, so a new kind cannot be added
      * without deciding whether its title links out.
      */
-    private static String titleLink(EntryDetails details) {
+    private static TitleLink titleLink(EntryDetails details, boolean isOwner) {
         return switch (details) {
-            case EntryDetails.Lodging d -> d.mapsUrl();
-            case EntryDetails.Gathering d -> d.infoUrl();
+            case EntryDetails.Lodging d -> external(d.mapsUrl());
+            case EntryDetails.Gathering d -> external(d.infoUrl());
             // A gathering's info URL is public by decision, so it survives into the public model.
-            case EntryDetails.PublicGathering d -> d.infoUrl();
-            // And so does a conference's, for the same reason: it is a public event, and its own
-            // page is on the published list in CLAUDE.md. Owner and anonymous get the same link —
-            // it is the CFP submission URL that is private, and that never reaches an entry.
-            case EntryDetails.Conference d -> d.infoUrl();
-            case EntryDetails.PublicConference d -> d.infoUrl();
+            case EntryDetails.PublicGathering d -> external(d.infoUrl());
+            case EntryDetails.Conference d -> isOwner && d.detailPath() != null
+                    ? new TitleLink(d.detailPath(), false)
+                    : external(d.infoUrl());
+            // A conference's own page is public by decision — it is a public event, and its own
+            // page is on the published list in CLAUDE.md. It is the CFP submission URL that is
+            // private, and that never reaches an entry.
+            case EntryDetails.PublicConference d -> external(d.infoUrl());
             // The remaining kinds have nowhere to point: a flight, train or transfer is a leg, and
             // a private event's venue is not published. Nor does any travel kind publicly — a
             // PublishableTravel holds nothing at all.
@@ -420,6 +450,11 @@ public class CalendarViewBuilder {
                  EntryDetails.PublishableTravel _,
                  EntryDetails.Busy _ -> null;
         };
+    }
+
+    /** A URL out of the app, or {@code null} for a title with nowhere to point. */
+    private static TitleLink external(String href) {
+        return href == null ? null : new TitleLink(href, true);
     }
 
     /**

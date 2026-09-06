@@ -114,6 +114,10 @@ class AuthorizationMatrixTest {
                 // title is on that page.
                 arguments("/planned-private-events/abc/cancel", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/conferences", Outcome.OK,      Outcome.DENIED_HOME,  Outcome.LOGIN),
+                // The conference detail page. It prints the CFP, where the talk stands and why Ted
+                // is going — the last of which is on CLAUDE.md's private list and appears nowhere
+                // else in the app. "/conferences/*" already covers it, which is exactly why this
+                // row matters: nothing else would notice if that pattern changed.
                 arguments("/conferences/abc", Outcome.OK,   Outcome.DENIED_HOME,  Outcome.LOGIN),
                 // A per-item action needs its own matcher: "/conferences/*" matches one
                 // segment only, so without this entry the decline endpoint would fall through to permitAll.

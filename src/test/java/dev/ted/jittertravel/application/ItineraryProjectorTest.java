@@ -429,6 +429,27 @@ class ItineraryProjectorTest {
                 .hasSize(1);
     }
 
+    /**
+     * Every day of the conference carries the conference's own id — which is what lets the owner's
+     * itinerary card link to {@code /conferences/{id}}, and it has to be on every day because any
+     * of them may be the one Ted is looking at.
+     */
+    @Test
+    void everyConferenceDayCarriesTheConferenceId() {
+        ItineraryProjector projector = new ItineraryProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+        projector.handle(Stream.of(stored(new ConferencePlanned(
+                conferenceId, "JitterConf 2026",
+                zt(DATE.atStartOfDay()), zt(DATE.plusDays(1).atStartOfDay()),
+                "Moscone Center",
+                new Address("747 Howard St", "San Francisco", "CA", "94103", "USA", null)))));
+
+        assertThat(List.of(projector.entriesForDate(DATE).getFirst(),
+                           projector.entriesForDate(DATE.plusDays(1)).getFirst()))
+                .extracting(entry -> ((ConferenceItineraryEntry) entry).conferenceId())
+                .containsExactly(conferenceId, conferenceId);
+    }
+
     @Test
     void conferencePlannedCreatesOneEntryPerDayWithDayOfNIndicator() {
         ItineraryProjector projector = new ItineraryProjector();

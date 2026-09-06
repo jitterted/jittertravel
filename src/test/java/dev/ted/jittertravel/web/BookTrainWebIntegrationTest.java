@@ -209,7 +209,8 @@ class BookTrainWebIntegrationTest {
                 .hasFieldErrorCode("arrivalZone", "zoneUnresolved");
         assertThat(result)
                 .bodyText()
-                .contains("<span class=\"error\">Unknown country — pick a zone</span>");
+                .contains("<span class=\"error\">Unknown country — pick a zone, "
+                          + "or fix Country name above</span>");
     }
 
     @Test
@@ -231,7 +232,7 @@ class BookTrainWebIntegrationTest {
         assertThat(result)
                 .bodyText()
                 .as("the count is the one thing the marked fields cannot say from below the fold")
-                .contains("2 things to fix below.");
+                .contains("2 problems to fix below.");
     }
 
     @Test
@@ -243,8 +244,8 @@ class BookTrainWebIntegrationTest {
 
         assertThat(trip("Frankfurt", ""))
                 .bodyText()
-                .contains("1 thing to fix below.")
-                .doesNotContain("1 things to fix below.");
+                .contains("1 problem to fix below.")
+                .doesNotContain("1 problems to fix below.");
     }
 
     @Test
@@ -269,7 +270,7 @@ class BookTrainWebIntegrationTest {
                 .bodyText()
                 .contains("<span class=\"error\">City is required</span>")
                 .contains("<span class=\"error\">Country or time zone required</span>")
-                .contains("2 things to fix below.");
+                .contains("2 problems to fix below.");
     }
 
     @Test

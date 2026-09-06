@@ -674,19 +674,28 @@ targets.
 
 3. **Field-level, plus a count.** The message goes under the input — position answers "which end?"
    for free, and a banner saying "a station" could not be resolved names neither of two identical
-   side-by-side fieldsets. The **only** global error is a count (`"2 things to fix below."`), which
+   side-by-side fieldsets. The **only** global error is a count (`"2 problems to fix below."`), which
    is the one thing position cannot say when a problem is below the fold, and it wears a fill and a
    left rule so it reads as a banner rather than a stray line of red text. A whole-form failure
    (`TrainNotFound`) is still its own global message and is deliberately not counted.
 
-4. **Messages are terse.** They render as a label under an input in a narrow grid column, where an
-   explanatory clause wraps to three lines and pushes one fieldset out of step with the one beside
-   it. "City is required", not "City is required — enter the city this station or hotel is in."
-   The input's own label has already said which field this is. Two consequences: a message that is
-   about to be shortened should keep the *distinction* it carries ("Country or time zone required",
-   not "Country is required" — leaving it blank and picking a zone is a legitimate way through, and
-   a form must not lie about itself), and **no apostrophes**, because Thymeleaf escaping turns
-   `Can't` into `Can&#39;t` and every markup assertion then has to know it.
+4. **Messages are terse, and the budget is the width of the field they sit under.** They render as
+   a label under an input, and in a narrow grid column an explanatory clause wraps to three lines
+   and pushes one fieldset out of step with the one beside it. "City is required", not "City is
+   required — enter the city this station or hotel is in." The input's own label has already said
+   which field this is.
+
+   **Terse is not a word count, though** — a full-width field can afford a longer sentence, and the
+   one message that lands somewhere other than the value that caused it earns one. An unrecognised
+   country is reported on the time-zone select, a field below, so it reads "Unknown country — pick
+   a zone, or fix Country name above": pointing back at the culprit is the whole reason it is
+   longer than its neighbours.
+
+   Two more consequences. A message being shortened must keep the *distinction* it carries
+   ("Country or time zone required", not "Country is required" — leaving it blank and picking a
+   zone is a legitimate way through, and a form must not lie about itself). And **no apostrophes**,
+   because Thymeleaf escaping turns `Can't` into `Can&#39;t` and every markup assertion then has to
+   know it.
 
 **`required` is not used on these forms.** It was dropped from all eight inputs the same day: the
 browser blocks the submit and shows a bubble the server never hears about, so the page stays exactly

@@ -207,7 +207,7 @@ class ChangeTrainWebIntegrationTest {
         assertThat(result)
                 .bodyText()
                 .contains("<span class=\"error\">Country or time zone required</span>")
-                .contains("1 thing to fix below.");
+                .contains("1 problem to fix below.");
     }
 
     @Test
@@ -236,6 +236,7 @@ class ChangeTrainWebIntegrationTest {
                 .hasOnlyFieldErrors("departureZone");
         assertThat(result)
                 .bodyText()
-                .contains("<span class=\"error\">Unknown country — pick a zone</span>");
+                .contains("<span class=\"error\">Unknown country — pick a zone, "
+                          + "or fix Country name above</span>");
     }
 }

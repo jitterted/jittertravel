@@ -50,7 +50,7 @@ class TrainFormErrors {
      * and a reader who cannot needs to know the submit failed and that there is more than one.
      *
      * <p>Counts field errors only. A whole-form failure (the trip vanished between GET and POST)
-     * is already its own global message and is not "something to fix below".
+     * is already its own global message and is not a problem to fix below.
      */
     void summarize() {
         int count = bindingResult.getFieldErrorCount();
@@ -58,7 +58,7 @@ class TrainFormErrors {
             return;
         }
         bindingResult.reject("problemCount",
-                count == 1 ? "1 thing to fix below." : count + " things to fix below.");
+                count == 1 ? "1 problem to fix below." : count + " problems to fix below.");
     }
 
     private String locationField(InvalidLocationEntry invalid) {
@@ -88,7 +88,11 @@ class TrainFormErrors {
             // Not "Country is required": leaving it blank and picking a zone is a legitimate way
             // through, and a message that says otherwise is wrong about its own form.
             case COUNTRY_MISSING -> "Country or time zone required";
-            case COUNTRY_UNRECOGNISED -> "Unknown country — pick a zone";
+            // Longer than the others, and it can afford to be: the time-zone select is a
+            // full-width field rather than one of the narrow country columns. It names the second
+            // way out because this error lands one field below the value that caused it, and a
+            // misspelled country is at least as likely as one the table has never heard of.
+            case COUNTRY_UNRECOGNISED -> "Unknown country — pick a zone, or fix Country name above";
         };
     }
 }

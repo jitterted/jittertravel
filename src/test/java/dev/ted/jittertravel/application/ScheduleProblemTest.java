@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Nested;
+import dev.ted.jittertravel.domain.TrainTripId;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -209,4 +210,40 @@ class ScheduleProblemTest {
     private static ZonedTimestamp at(String instant) {
         return new ZonedTimestamp(Instant.parse(instant), ZoneOffset.UTC);
     }
+    @Test
+    void overlappingTravelStaysActionableUntilBothLegsHaveLanded() {
+        // A clash matters while either leg is still ahead — the same reasoning a SchedulingConflict
+        // uses for its two gatherings.
+        ZonedTimestamp firstArrival = berlin(11, 0);
+        ZonedTimestamp secondArrival = berlin(12, 0);
+        ScheduleProblem.OverlappingTravel overlap = new ScheduleProblem.OverlappingTravel(
+                leg(berlin(9, 0), firstArrival),
+                leg(berlin(10, 0), secondArrival));
+
+        assertThat(overlap.relevantUntil())
+                .isEqualTo(secondArrival.utc());
+    }
+
+    @Test
+    void overlappingTravelReadsTheLaterArrivalWhicheverSideItIsOn() {
+        ZonedTimestamp laterArrival = berlin(15, 0);
+        ScheduleProblem.OverlappingTravel overlap = new ScheduleProblem.OverlappingTravel(
+                leg(berlin(9, 0), laterArrival),
+                leg(berlin(10, 0), berlin(12, 0)));
+
+        assertThat(overlap.relevantUntil())
+                .isEqualTo(laterArrival.utc());
+    }
+
+    private static ScheduleProblem.OverlappingLeg leg(ZonedTimestamp departure, ZonedTimestamp arrival) {
+        return new ScheduleProblem.OverlappingLeg(
+                new TravelLeg.Train(TrainTripId.random(), "ICE 597"),
+                "Hamburg", "Berlin", departure, arrival);
+    }
+
+    private static ZonedTimestamp berlin(int hour, int minute) {
+        return ZonedTimestamp.fromLocal(
+                LocalDateTime.of(2026, 6, 1, hour, minute), ZoneId.of("Europe/Berlin"));
+    }
+
 }

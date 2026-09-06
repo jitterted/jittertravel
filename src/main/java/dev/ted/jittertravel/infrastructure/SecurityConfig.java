@@ -61,7 +61,8 @@ public class SecurityConfig {
                         // their own entry alongside the page (as /booked-flights/*/lookup does).
                         .requestMatchers("/booked-flights/*", "/booked-flights/*/lookup",
                                 "/booked-flights/*/lookup/select",
-                                "/booked-trains/*", "/booked-hotels/*",
+                                "/booked-trains/*", "/booked-trains/*/cancel",
+                                "/booked-hotels/*",
                                 "/booked-hotels/*/cancel",
                                 "/ground-transfers/*/cancel",
                                 // Same shape again: the private event's only per-item action. A

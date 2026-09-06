@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.ScheduleProblem;
 import j2html.tags.DomContent;
 
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -44,6 +45,11 @@ public class ScheduleProblemsRenderer {
             .problem-card--city-conflict { border-left-color: #7c3aed; background: #ede9fe; }
             /* Amber, not red: a second booking costs money, but Ted can cancel it. */
             .problem-card--duplicate-hotel { border-left-color: #c2410c; background: #ffedd5; }
+            .problem-card--overlapping-travel { border-left-color: #a16207; background: #fef9c3; }
+            .column-heading--overlap { color: #854d0e; }
+            /* A permanent underline, never a hover-only one: the iPad has no pointer, so a link
+               that only announces itself on :hover is invisible there. */
+            .overlap-leg-link { color: #854d0e; text-decoration: underline; }
             .problem-title  { font-weight: 600; font-size: 0.9rem; color: #1f2937; }
             .problem-detail { font-size: 0.82rem; color: #374151; margin-top: 0.15rem; }
             .empty-column   { color: var(--muted-text); font-style: italic; font-size: 0.85rem; }
@@ -70,26 +76,13 @@ public class ScheduleProblemsRenderer {
             """;
 
     public static String render(List<ScheduleProblem> problems) {
-        List<ScheduleProblem.MissingTravel> travel = problems.stream()
-                .filter(p -> p instanceof ScheduleProblem.MissingTravel)
-                .map(p -> (ScheduleProblem.MissingTravel) p)
-                .toList();
-        List<ScheduleProblem.MissingHotel> hotel = problems.stream()
-                .filter(p -> p instanceof ScheduleProblem.MissingHotel)
-                .map(p -> (ScheduleProblem.MissingHotel) p)
-                .toList();
-        List<ScheduleProblem.DuplicateHotel> duplicates = problems.stream()
-                .filter(p -> p instanceof ScheduleProblem.DuplicateHotel)
-                .map(p -> (ScheduleProblem.DuplicateHotel) p)
-                .toList();
-        List<ScheduleProblem.SchedulingConflict> scheduling = problems.stream()
-                .filter(p -> p instanceof ScheduleProblem.SchedulingConflict)
-                .map(p -> (ScheduleProblem.SchedulingConflict) p)
-                .toList();
-        List<ScheduleProblem.DifferentCityConflict> cityConflicts = problems.stream()
-                .filter(p -> p instanceof ScheduleProblem.DifferentCityConflict)
-                .map(p -> (ScheduleProblem.DifferentCityConflict) p)
-                .toList();
+        Sections sections = Sections.of(problems);
+        List<ScheduleProblem.MissingTravel> travel = sections.travel();
+        List<ScheduleProblem.MissingHotel> hotel = sections.hotel();
+        List<ScheduleProblem.DuplicateHotel> duplicates = sections.duplicates();
+        List<ScheduleProblem.OverlappingTravel> overlaps = sections.overlaps();
+        List<ScheduleProblem.SchedulingConflict> scheduling = sections.scheduling();
+        List<ScheduleProblem.DifferentCityConflict> cityConflicts = sections.cityConflicts();
 
         return "<!DOCTYPE html>\n" + html(
                 Page.head("Schedule Problems", CSS + DisclosureMenu.CSS),
@@ -100,7 +93,8 @@ public class ScheduleProblemsRenderer {
                                 ProblemViewToggle.render(ProblemView.LIST),
                                 problems.isEmpty()
                                         ? renderNoProblems()
-                                        : renderProblems(travel, hotel, duplicates, scheduling, cityConflicts)
+                                        : renderProblems(travel, hotel, duplicates, overlaps,
+                                                         scheduling, cityConflicts)
                         ),
                         rawHtml("<script>" + DisclosureMenu.SCRIPT + "</script>")
                 )
@@ -115,6 +109,7 @@ public class ScheduleProblemsRenderer {
             List<ScheduleProblem.MissingTravel> travel,
             List<ScheduleProblem.MissingHotel> hotel,
             List<ScheduleProblem.DuplicateHotel> duplicates,
+            List<ScheduleProblem.OverlappingTravel> overlaps,
             List<ScheduleProblem.SchedulingConflict> scheduling,
             List<ScheduleProblem.DifferentCityConflict> cityConflicts) {
         return div().with(
@@ -125,6 +120,9 @@ public class ScheduleProblemsRenderer {
                 duplicates.isEmpty()
                         ? span()
                         : renderDuplicatesSection(duplicates),
+                overlaps.isEmpty()
+                        ? span()
+                        : renderOverlappingTravelSection(overlaps),
                 scheduling.isEmpty()
                         ? span()
                         : renderSchedulingSection(scheduling),
@@ -221,6 +219,52 @@ public class ScheduleProblemsRenderer {
         return stay.bookingIntent().name().toLowerCase(Locale.ENGLISH);
     }
 
+    /**
+     * Two booked legs at once. Each leg's name links to its own page — its edit page today, a
+     * detail page if one ever ships (Ted, 2026-09-06) — because the first thing to do about the
+     * pair is to go and look at one of them. That is a text link and not a pencil, so it does not
+     * touch the "an icon means one thing" rule; the whole surface is OWNER-only.
+     */
+    private static DomContent renderOverlappingTravelSection(
+            List<ScheduleProblem.OverlappingTravel> overlaps) {
+        return div().withStyle("margin-top: 2rem;").with(
+                p("Overlapping Travel").withClass("column-heading column-heading--overlap"),
+                div().withClass("problem-list").with(
+                        each(overlaps, p -> div().withClass("problem-card problem-card--overlapping-travel").with(
+                                div().withClass("problem-title").with(
+                                        overlapLeg(p.first()),
+                                        text(" and "),
+                                        overlapLeg(p.second()),
+                                        text(" are both booked at once")
+                                ),
+                                // Each side keeps its own zone, for the reason a scheduling clash
+                                // does: two overlapping legs can fall on different local dates.
+                                div().withClass("problem-detail").with(
+                                        overlapSide(p.first()),
+                                        text(" overlaps "),
+                                        overlapSide(p.second())
+                                ),
+                                fixSlot(p)
+                        ))
+                )
+        );
+    }
+
+    private static DomContent overlapLeg(ScheduleProblem.OverlappingLeg leg) {
+        return a(leg.leg().label())
+                .withHref(leg.leg().detailsPath())
+                .withClass("overlap-leg-link");
+    }
+
+    private static DomContent overlapSide(ScheduleProblem.OverlappingLeg leg) {
+        return span(
+                ZonedTimeTag.render(leg.departure(), DAY_DATE_TIME_FORMAT),
+                rawHtml("&ndash;"),
+                ZonedTimeTag.render(leg.arrival(), TIME_FORMAT),
+                text(" (" + leg.fromCity() + " \u2192 " + leg.toCity() + ")")
+        );
+    }
+
     private static DomContent renderSchedulingSection(List<ScheduleProblem.SchedulingConflict> scheduling) {
         return div().withStyle("margin-top: 2rem;").with(
                 p("Scheduling Conflicts").withClass("column-heading column-heading--scheduling"),
@@ -306,4 +350,48 @@ public class ScheduleProblemsRenderer {
                                 .with(text(fix.label()), rawHtml(" &rarr;")))
                         .toList());
     }
+    /**
+     * The problems split by kind, by an <strong>exhaustive switch</strong> over the sealed
+     * {@link ScheduleProblem}.
+     * <p>
+     * <strong>This replaced five {@code instanceof} filters, and that is the point.</strong> The
+     * three other places that map over a problem — {@code ProblemKey.of}, {@code ProblemFix.fixesFor}
+     * and {@code ProblemBand.from} — are all exhaustive switches whose javadoc says a new problem
+     * type cannot be added without answering their question. This one silently opted out: a sixth
+     * variant matched none of the filters, so it was keyed, linked and drawn on the problem calendar
+     * and was <em>absent from this page</em>, with nothing failing. Adding
+     * {@code OverlappingTravel} is what made that concrete, but the hole was there for any variant.
+     * <p>
+     * Keep it a switch. A filter, an {@code instanceof} chain, or a default arm puts the hole back.
+     */
+    private record Sections(
+            List<ScheduleProblem.MissingTravel> travel,
+            List<ScheduleProblem.MissingHotel> hotel,
+            List<ScheduleProblem.DuplicateHotel> duplicates,
+            List<ScheduleProblem.OverlappingTravel> overlaps,
+            List<ScheduleProblem.SchedulingConflict> scheduling,
+            List<ScheduleProblem.DifferentCityConflict> cityConflicts) {
+
+        static Sections of(List<ScheduleProblem> problems) {
+            List<ScheduleProblem.MissingTravel> travel = new ArrayList<>();
+            List<ScheduleProblem.MissingHotel> hotel = new ArrayList<>();
+            List<ScheduleProblem.DuplicateHotel> duplicates = new ArrayList<>();
+            List<ScheduleProblem.OverlappingTravel> overlaps = new ArrayList<>();
+            List<ScheduleProblem.SchedulingConflict> scheduling = new ArrayList<>();
+            List<ScheduleProblem.DifferentCityConflict> cityConflicts = new ArrayList<>();
+            for (ScheduleProblem problem : problems) {
+                switch (problem) {
+                    case ScheduleProblem.MissingTravel p -> travel.add(p);
+                    case ScheduleProblem.MissingHotel p -> hotel.add(p);
+                    case ScheduleProblem.DuplicateHotel p -> duplicates.add(p);
+                    case ScheduleProblem.OverlappingTravel p -> overlaps.add(p);
+                    case ScheduleProblem.SchedulingConflict p -> scheduling.add(p);
+                    case ScheduleProblem.DifferentCityConflict p -> cityConflicts.add(p);
+                }
+            }
+            return new Sections(List.copyOf(travel), List.copyOf(hotel), List.copyOf(duplicates),
+                    List.copyOf(overlaps), List.copyOf(scheduling), List.copyOf(cityConflicts));
+        }
+    }
+
 }

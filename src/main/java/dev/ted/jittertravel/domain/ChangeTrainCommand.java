@@ -37,6 +37,11 @@ public record ChangeTrainCommand(
         if (arrivalDateTime == null || !arrivalDateTime.utc().isAfter(departureDateTime.utc())) {
             throw new InvalidDateRange("Arrival date/time must be after departure date/time");
         }
+        // Excludes this very trip, or a change would always collide with the leg it is
+        // replacing and no booked trip could ever be corrected.
+        context.scheduledLegs()
+                .overlapping(new ScheduledLegId.Train(tripId), departureDateTime, arrivalDateTime)
+                .ifPresent(blocking -> { throw new OverlappingLegRefused(blocking); });
         return Stream.of(new TrainChanged(tripId, departureStation, departureDateTime,
                 arrivalStation, arrivalDateTime, serviceId));
     }

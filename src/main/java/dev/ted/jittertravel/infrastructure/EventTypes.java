@@ -25,6 +25,7 @@ import dev.ted.jittertravel.domain.TalkRejected;
 import dev.ted.jittertravel.domain.TalkSubmitted;
 import dev.ted.jittertravel.domain.TalkWithdrawn;
 import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainCancelled;
 import dev.ted.jittertravel.domain.TrainChanged;
 
 import java.util.LinkedHashMap;
@@ -95,6 +96,7 @@ public final class EventTypes {
         register("FlightChanged", FlightChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("TrainBooked", TrainBooked.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("TrainChanged", TrainChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
+        register("TrainCancelled", TrainCancelled.class);
         register("HotelBooked", HotelBooked.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("HotelChanged", HotelChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("HotelBookingCancelled", HotelBookingCancelled.class);

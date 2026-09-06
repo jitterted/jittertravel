@@ -471,7 +471,9 @@ public class CalendarViewBuilder {
             case EntryDetails.Lodging d -> pencil(d.editPath());
             case EntryDetails.Gathering d -> pencil(d.editPath());
             case EntryDetails.Flight d -> pencil(d.editPath());
-            case EntryDetails.Train d -> pencil(d.editPath());
+            // The only kind carrying both icons, in a fixed order: edit then cancel, so the
+            // pencil stays exactly where it is on every other row.
+            case EntryDetails.Train d -> pencilAndBin(d.editPath(), d.cancelPath());
             case EntryDetails.GroundTransfer d -> d.cancelPath() == null
                     ? List.of()
                     : List.of(cancelBin(d.cancelPath(), "Cancel"));
@@ -484,6 +486,18 @@ public class CalendarViewBuilder {
             // is somehow both would still get nothing.
             case EntryDetails.Publishable _ -> List.of();
         };
+    }
+
+    /**
+     * Edit then cancel, each independently optional so a missing path drops its icon without
+     * shifting the other — the pencil's position is the same whether or not a bin follows it.
+     */
+    private static List<DomContent> pencilAndBin(String editPath, String cancelPath) {
+        List<DomContent> actions = new ArrayList<>(pencil(editPath));
+        if (cancelPath != null) {
+            actions.add(cancelBin(cancelPath, "Cancel train"));
+        }
+        return List.copyOf(actions);
     }
 
     private static List<DomContent> pencil(String editPath) {

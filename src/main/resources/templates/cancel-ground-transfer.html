@@ -60,6 +60,8 @@
 
     <h1>Cancel Ground Transfer</h1>
 
+    <div th:replace="~{fragments/problem-context :: problemContext}"></div>
+
     <div class="summary">
         <div class="name" th:text="${transfer.origin() + ' → ' + transfer.destination()}">DEN → Hotel</div>
         <div class="line" th:text="${#temporals.format(transfer.departsAt(), 'EEE, MMM d, yyyy')}">date</div>
@@ -80,6 +82,11 @@
     </p>
 
     <form th:action="@{|/ground-transfers/${transfer.groundTransferId().id()}/cancel|}" method="post">
+
+        <!-- Carries the fix link's origin through the POST (and through a validation
+             re-render) so the action returns to the report it was launched from.
+             Absent for an ordinary visit, which keeps this controller's own default. -->
+        <input type="hidden" name="from" th:if="${fixOrigin != null}" th:value="${fixOrigin}"/>
         <div class="actions">
             <button type="submit" class="confirm">Cancel this transfer</button>
             <a class="keep-link" th:href="@{|/itinerary?date=${#temporals.format(transfer.departsAt(), 'yyyy-MM-dd')}|}">Keep it — back to the itinerary</a>

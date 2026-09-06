@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainCancelled;
 import dev.ted.jittertravel.domain.TrainChanged;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
@@ -29,6 +30,10 @@ public class BookedTrainsProjector implements EventStreamConsumer {
                 case TrainChanged e -> viewsById.put(e.tripId(), toView(
                         e.tripId(), e.departureStation(), e.departureDateTime(),
                         e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
+                // Hard removal, not a tombstone: a train has no cancellation deadline and no money
+                // story, and the entry most often cancelled is a duplicate — which a greyed row
+                // would preserve on the one screen it is in the way on. See TrainCancelled.
+                case TrainCancelled e -> viewsById.remove(e.tripId());
                 default -> { /* not a train event */ }
             }
         });

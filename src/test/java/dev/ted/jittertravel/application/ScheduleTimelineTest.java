@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -420,7 +421,16 @@ class ScheduleTimelineTest {
 
     private static ScheduleTimeline.Movement movement(String fromCity, String departure,
                                                       String toCity, String arrival) {
-        return new ScheduleTimeline.Movement(fromCity, at(departure), toCity, at(arrival));
+        return movement(TrainTripId.random(), fromCity, departure, toCity, arrival);
+    }
+
+    /** Same leg with a caller-chosen id, for cases that need two legs told apart. */
+    private static ScheduleTimeline.Movement movement(TrainTripId tripId, String fromCity,
+                                                      String departure, String toCity,
+                                                      String arrival) {
+        return new ScheduleTimeline.Movement(
+                new TravelLeg.Train(tripId, fromCity + " \u2192 " + toCity),
+                fromCity, at(departure), toCity, at(arrival));
     }
 
     private static ZonedTimestamp at(String dayAndTime) {
@@ -431,4 +441,107 @@ class ScheduleTimelineTest {
     private static LocalDate date(String isoDate) {
         return LocalDate.parse(isoDate);
     }
+    // -------------------------------------------------------------------------
+    // Overlapping travel
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class OverlappingTravelDetection {
+
+        @Test
+        void twoLegsOverlappingInTimeAreReported() {
+            // The case the walk cannot see: both departures sort before both arrivals, so every
+            // departure agrees with the city the walk is holding and no gap is raised.
+            ScheduleTimeline timeline = timelineWith(
+                    movement("Hamburg", "2026-06-01 09:00", "Berlin", "2026-06-01 11:00"),
+                    movement("Hamburg", "2026-06-01 10:00", "Berlin", "2026-06-01 12:00"));
+
+            assertThat(timeline.overlappingTravel())
+                    .hasSize(1);
+        }
+
+        @Test
+        void aConnectionIsNotAConflict() {
+            // Arrive 11:00, depart 11:00. The ordinary shape of a journey — a closed comparison
+            // would report every changeover in the log.
+            ScheduleTimeline timeline = timelineWith(
+                    movement("Hamburg", "2026-06-01 09:00", "Berlin", "2026-06-01 11:00"),
+                    movement("Berlin", "2026-06-01 11:00", "Munich", "2026-06-01 14:00"));
+
+            assertThat(timeline.overlappingTravel())
+                    .isEmpty();
+        }
+
+        @Test
+        void sequentialLegsAreNotReported() {
+            ScheduleTimeline timeline = timelineWith(
+                    movement("Hamburg", "2026-06-01 09:00", "Berlin", "2026-06-01 11:00"),
+                    movement("Berlin", "2026-06-01 14:00", "Munich", "2026-06-01 17:00"));
+
+            assertThat(timeline.overlappingTravel())
+                    .isEmpty();
+        }
+
+        @Test
+        void differentDestinationsOverlappingAreStillOneImpossibility() {
+            ScheduleTimeline timeline = timelineWith(
+                    movement("Hamburg", "2026-06-01 09:00", "Berlin", "2026-06-01 11:00"),
+                    movement("Hamburg", "2026-06-01 09:30", "Munich", "2026-06-01 14:00"));
+
+            assertThat(timeline.overlappingTravel())
+                    .hasSize(1);
+        }
+
+        @Test
+        void bothLegsAreNamedWithTheirOwnCitiesAndTimes() {
+            TrainTripId early = TrainTripId.random();
+            TrainTripId late = TrainTripId.random();
+            ScheduleTimeline timeline = timelineWith(
+                    movement(early, "Hamburg", "2026-06-01 09:00", "Berlin", "2026-06-01 11:00"),
+                    movement(late, "Hamburg", "2026-06-01 10:00", "Berlin", "2026-06-01 12:00"));
+
+            ScheduleProblem.OverlappingTravel overlap = timeline.overlappingTravel().getFirst();
+
+            assertThat(overlap.first().leg().detailsPath())
+                    .isEqualTo("/booked-trains/" + early.id());
+            assertThat(overlap.second().leg().detailsPath())
+                    .isEqualTo("/booked-trains/" + late.id());
+            assertThat(overlap.first().fromCity())
+                    .isEqualTo("Hamburg");
+            assertThat(overlap.first().arrival())
+                    .isEqualTo(at("2026-06-01 11:00"));
+        }
+
+        @Test
+        void threeMutuallyOverlappingLegsAreReportedAsThreePairs() {
+            // Not collapsed into one row: which two to reconcile is the question, and each pair is
+            // its own decision — the same reasoning that gives DuplicateHotel one row per run.
+            ScheduleTimeline timeline = timelineWith(
+                    movement("Hamburg", "2026-06-01 09:00", "Berlin", "2026-06-01 12:00"),
+                    movement("Hamburg", "2026-06-01 10:00", "Berlin", "2026-06-01 13:00"),
+                    movement("Hamburg", "2026-06-01 11:00", "Berlin", "2026-06-01 14:00"));
+
+            assertThat(timeline.overlappingTravel())
+                    .hasSize(3);
+        }
+
+        @Test
+        void legsInDifferentZonesAreComparedAsInstantsNotLocalDates() {
+            // 23:00 CEST on the 1st is 21:00Z; a leg 22:00Z-23:00Z on the 1st overlaps it in real
+            // time while its local dates say otherwise elsewhere. Comparing local dates would miss
+            // this, exactly as it did for the Tokyo/Chicago gathering clash.
+            ScheduleTimeline timeline = timelineWith(
+                    movement("Berlin", "2026-06-01 23:00", "Warsaw", "2026-06-02 03:00"),
+                    movement("Berlin", "2026-06-02 00:00", "Prague", "2026-06-02 02:00"));
+
+            assertThat(timeline.overlappingTravel())
+                    .hasSize(1);
+        }
+
+        private ScheduleTimeline timelineWith(ScheduleTimeline.Movement... movements) {
+            return new ScheduleTimeline(List.of(), List.of(), List.of(movements),
+                    new HomeCities(List.of("San Jose")));
+        }
+    }
+
 }

@@ -91,14 +91,15 @@ public class PlanGroundTransferController {
         if (problem == null || problem.isBlank()) {
             return Optional.empty();
         }
-        return new ProblemRef(problem).findIn(scheduleGapProjector.problems(now))
+        return new ProblemKey(problem).findIn(scheduleGapProjector.problems(now))
                 .filter(ScheduleProblem.MissingTravel.class::isInstance)
                 .map(ScheduleProblem.MissingTravel.class::cast);
     }
 
     @PostMapping("/plan-ground-transfer")
     public String planGroundTransferSubmit(@ModelAttribute("planGroundTransfer") PlanGroundTransferRequest request,
-                                           BindingResult bindingResult) {
+                                           BindingResult bindingResult,
+                                           @RequestParam(value = "from", required = false) String from) {
         try {
             // No `now`: a ground transfer has no future-date rule (D6), so its decision context is
             // empty and there is nothing about the current moment to capture at the boundary.
@@ -121,6 +122,17 @@ public class PlanGroundTransferController {
             return "plan-ground-transfer";
         }
 
-        return "redirect:/calendar";
+        return returnTo(from, "/calendar");
     }
+
+    /**
+     * Where to land after a successful action: back at the report when Ted arrived from a fix link,
+     * otherwise this controller's own default. Only the <em>success</em> path takes it — a
+     * read-only refusal or a stale-link miss has not fixed anything, so it still goes where it
+     * always did.
+     */
+    private static String returnTo(String from, String fallback) {
+        return "redirect:" + FixOrigin.returnTo(from).orElse(fallback);
+    }
+
 }

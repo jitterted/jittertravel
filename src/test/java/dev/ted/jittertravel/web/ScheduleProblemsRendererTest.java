@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleProblem;
+import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.application.TravelLeg;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.GatheringId;
@@ -367,4 +369,81 @@ class ScheduleProblemsRendererTest {
                 ZonedTimestamp.fromLocal(start, zoneId),
                 ZonedTimestamp.fromLocal(end, zoneId));
     }
+    // -------------------------------------------------------------------------
+    // Overlapping travel
+    // -------------------------------------------------------------------------
+
+    @Test
+    void overlappingTravelRendersItsOwnSection() {
+        String html = ScheduleProblemsRenderer.render(List.of(overlappingTrains()));
+
+        assertThat(html)
+                .contains("<p class=\"column-heading column-heading--overlap\">Overlapping Travel</p>")
+                .contains("class=\"problem-card problem-card--overlapping-travel\"");
+    }
+
+    @Test
+    void eachOverlappingLegLinksToItsOwnPage() {
+        // Ted, 2026-09-06: the overlapping entry is a link to its details page, or its edit page
+        // where none exists — which is the case for both flights and trains today.
+        TrainTripId early = TrainTripId.random();
+        TrainTripId late = TrainTripId.random();
+
+        String html = ScheduleProblemsRenderer.render(List.of(
+                new ScheduleProblem.OverlappingTravel(
+                        overlapLeg(early, "ICE 597", 9), overlapLeg(late, "ICE 599", 10))));
+
+        assertThat(html)
+                .contains("<a href=\"/booked-trains/" + early.id()
+                          + "\" class=\"overlap-leg-link\">ICE 597</a>")
+                .contains("<a href=\"/booked-trains/" + late.id()
+                          + "\" class=\"overlap-leg-link\">ICE 599</a>");
+    }
+
+    @Test
+    void overlappingTravelOffersACancelLinkPerLeg() {
+        String html = ScheduleProblemsRenderer.render(List.of(overlappingTrains()));
+
+        assertThat(html)
+                .contains("Cancel 9:00 AM \u00b7 ICE 597")
+                .contains("Cancel 10:00 AM \u00b7 ICE 599");
+    }
+
+    @Test
+    void noOverlappingTravelRendersNoSection() {
+        String html = ScheduleProblemsRenderer.render(List.of());
+
+        // The whole elements, not the bare class names: both appear in the always-rendered CSS
+        // block, so a loose assertion here would fail for the wrong reason (CLAUDE.md: assert
+        // whole elements and attributes, never bare words).
+        assertThat(html)
+                .doesNotContain(">Overlapping Travel</p>")
+                .doesNotContain("<div class=\"problem-card problem-card--overlapping-travel\">");
+    }
+
+    @Test
+    void theOverlapLegLinkIsVisibleWithoutHovering() {
+        // CLAUDE.md's absolute rule: the iPad has no pointer, so a link whose only sign of being a
+        // link appears on :hover is invisible at every moment there.
+        String html = ScheduleProblemsRenderer.render(List.of(overlappingTrains()));
+
+        assertThat(html)
+                .contains(".overlap-leg-link { color: #854d0e; text-decoration: underline; }");
+    }
+
+    private static ScheduleProblem.OverlappingTravel overlappingTrains() {
+        return new ScheduleProblem.OverlappingTravel(
+                overlapLeg(TrainTripId.random(), "ICE 597", 9),
+                overlapLeg(TrainTripId.random(), "ICE 599", 10));
+    }
+
+    private static ScheduleProblem.OverlappingLeg overlapLeg(TrainTripId tripId, String serviceId,
+                                                             int hour) {
+        ZoneId berlin = ZoneId.of("Europe/Berlin");
+        return new ScheduleProblem.OverlappingLeg(
+                new TravelLeg.Train(tripId, serviceId), "Hamburg", "Berlin",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, hour, 0), berlin),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, hour + 2, 0), berlin));
+    }
+
 }

@@ -31,6 +31,9 @@ import dev.ted.jittertravel.domain.GroundTransferId;
 import dev.ted.jittertravel.domain.GroundTransferPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainStationAddress;
+import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.PrivateEventId;
 import dev.ted.jittertravel.domain.PrivateEventPlanned;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -311,6 +314,7 @@ class CalendarRedactionSecurityTest {
     private static final LocalDateTime GT_DEPARTS = LocalDateTime.of(2026, 9, 14, 12, 0);
     private static final LocalDateTime GT_ARRIVES = LocalDateTime.of(2026, 9, 14, 12, 45);
     private static final UUID GT_ID = UUID.fromString("11111111-2222-3333-4444-555555555555");
+    private static final UUID TRIP_ID = UUID.randomUUID();
 
     @Test
     @WithMockUser(username = "ted", roles = "OWNER")
@@ -340,6 +344,27 @@ class CalendarRedactionSecurityTest {
                 .doesNotContain("Marriott Lone Tree")
                 .doesNotContain("12:00 PM")
                 .doesNotContain("12:45 PM");
+    }
+
+    /**
+     * The same rule for the train, which is the first kind to carry <em>both</em> owner actions.
+     * Neither the edit path nor the new cancel path may reach an anonymous viewer: each hands over
+     * the trip's internal id and says an OWNER surface exists. {@code EntryDetails.PublicTrain} has
+     * no slot for either, so this asserts through the real chain what the record shape already
+     * makes true.
+     */
+    @Test
+    void anonymousTrainCarriesNeitherEditNorCancelLink() throws Exception {
+        anonymousSees(trainToBerlin());
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous())
+                .exchange().getResponse().getContentAsString())
+                .doesNotContain("/booked-trains/")
+                .doesNotContain(TRIP_ID.toString())
+                .doesNotContain("cancel-bin\" href")
+                .doesNotContain("edit-pencil\" href")
+                // And the service id, which is a carrier identifier on CLAUDE.md's private list.
+                .doesNotContain("ICE 597");
     }
 
     /**
@@ -425,6 +450,15 @@ class CalendarRedactionSecurityTest {
      * The airport-to-hotel hop, whose owner title reads "DEN → Marriott Lone Tree". It carries a
      * mode so every anonymous assertion above runs against a transfer that has one to leak.
      */
+    private static TrainBooked trainToBerlin() {
+        return new TrainBooked(TrainTripId.of(TRIP_ID),
+                new TrainStationAddress("Hamburg Hbf", "Hamburg", "Germany", ""),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, 9, 0), BERLIN),
+                new TrainStationAddress("Berlin Hbf", "Berlin", "Germany", ""),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, 11, 0), BERLIN),
+                "ICE 597");
+    }
+
     private static GroundTransferPlanned transferToTheMarriott() {
         return new GroundTransferPlanned(GroundTransferId.of(GT_ID),
                 "DEN", "", new Address("", "Denver", "CO", "", "US", null),

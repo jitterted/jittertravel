@@ -63,4 +63,24 @@ public class ProblemContextAdvice {
         return problemContextLookup.forKey(problem, FixOrigin.fromParam(from), clock.instant())
                 .orElse(null);
     }
+
+    /**
+     * The raw {@code ?from=} value, so a fix target's form can carry it through its own POST — and
+     * through a validation re-render, which is the case that would otherwise lose the way back one
+     * submit later.
+     * <p>
+     * <strong>Raw, and {@code null} when absent.</strong> Not a resolved {@link FixOrigin}: absent
+     * has to stay distinguishable from {@code calendar}, or every ordinary booking would round-trip
+     * through the report. The controller resolves it on the way out, via
+     * {@link FixOrigin#returnTo}, which is also what keeps a hand-edited value from becoming a path.
+     * <p>
+     * Exposed here rather than through eight controller signatures for the same reason
+     * {@code problemContext} is (D6): the trigger is a query parameter, not anything about booking
+     * a hotel. Unlike the banner this needs no projector and no clock, so it is present even in a
+     * slice that has neither.
+     */
+    @ModelAttribute("fixOrigin")
+    public String fixOrigin(@RequestParam(required = false) String from) {
+        return from == null || from.isBlank() ? null : from;
+    }
 }

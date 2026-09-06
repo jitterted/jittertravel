@@ -67,6 +67,7 @@ public record ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, 
         BED(Lane.BED),
         DUPLICATE(Lane.DUPLICATE),
         TRAVEL(Lane.TRAVEL),
+        TRAVEL_OVERLAP(Lane.TRAVEL),
         CLASH_CITY(Lane.CLASH),
         CLASH_SCHEDULING(Lane.CLASH);
 
@@ -95,6 +96,7 @@ public record ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, 
             case ScheduleProblem.MissingHotel missingHotel -> bedBand(missingHotel);
             case ScheduleProblem.MissingTravel missingTravel -> travelBand(missingTravel);
             case ScheduleProblem.DuplicateHotel duplicateHotel -> duplicateBand(duplicateHotel);
+            case ScheduleProblem.OverlappingTravel overlap -> travelOverlapBand(overlap);
             case ScheduleProblem.SchedulingConflict overlap -> schedulingClashBand(overlap);
             case ScheduleProblem.DifferentCityConflict cityConflict -> cityClashBand(cityConflict);
         };
@@ -157,6 +159,30 @@ public record ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, 
                 "No travel — " + missingTravel.fromCity() + " → " + missingTravel.toCity(),
                 detail,
                 ProblemFix.forProblem(missingTravel, FixOrigin.PROBLEM_CALENDAR));
+    }
+
+    /**
+     * Two legs carrying Ted at once. The band spans every local date either leg touches, min
+     * through max — the same reason {@link #schedulingClashBand} does it that way: the two ends can
+     * be in different zones, so taking one leg's dates (or subtracting one from the other) can
+     * produce a band running backwards, which renders as nothing at all.
+     * <p>
+     * The detail names each departure <em>with its zone</em>, so a reader is never invited to
+     * subtract two numbers off different clocks.
+     */
+    private static ProblemBand travelOverlapBand(ScheduleProblem.OverlappingTravel overlap) {
+        List<LocalDate> days = Stream.of(
+                        overlap.first().departure(), overlap.first().arrival(),
+                        overlap.second().departure(), overlap.second().arrival())
+                .map(moment -> moment.localDateTime().toLocalDate())
+                .sorted()
+                .toList();
+        return new ProblemBand(Marker.TRAVEL_OVERLAP, days.getFirst(), days.getLast(),
+                "Two trips at once \u2014 " + overlap.first().leg().label()
+                + " \u00b7 " + overlap.second().leg().label(),
+                zonedTime(overlap.first().departure())
+                + " \u00b7 " + zonedTime(overlap.second().departure()),
+                ProblemFix.forProblem(overlap, FixOrigin.PROBLEM_CALENDAR));
     }
 
     /**

@@ -127,15 +127,37 @@ class BackupRestoreRoundTripTest extends AbstractTestcontainerIntegrationTest {
         persister.markCommandFailed(commandId, status, status + " for round-trip");
     }
 
+    /**
+     * Every booking gets its <strong>own</strong> window, derived from its own id — and that is
+     * load-bearing rather than tidy.
+     * <p>
+     * Nothing returns {@code EventStore}'s in-memory event list to a known state: it is filled once
+     * at boot and only ever appended to, and the {@code @Sql} truncation clears the database only.
+     * So a flight booked by one method stays visible to the next, and — because the container is
+     * {@code withReuse(true)} and the next run replays the database at boot — to the next
+     * <em>run</em> as well. Under the overlapping-leg rule (2026-09-06) either one refuses the
+     * booking, and a fixed window failed roughly half the time.
+     * <p>
+     * Deriving the offset from the flight id makes every booking unique, so neither a sibling
+     * method nor a replayed leg from a previous run can occupy the same window.
+     * <p>
+     * This is a <strong>workaround</strong>. The fix is for {@code EventStore} to be able to return
+     * to a known state, which is parked with a diagnosed deadlock — see "Test isolation is not
+     * enforced" in {@code docs/Cleanup_Tasks.md}. Until that lands, do not pin these windows.
+     */
     private static BookFlightRequest bookFlight(String flightId) {
+        return bookFlight(flightId, Math.floorMod(flightId.hashCode(), 3000));
+    }
+
+    private static BookFlightRequest bookFlight(String flightId, int dayOffset) {
         BookFlightRequest r = new BookFlightRequest();
         r.setFlightId(flightId);
         r.setAirline("United");
         r.setFlightNumber("UA59");
         r.setDepartureAirport("SFO");
-        r.setDepartureDateTime(FUTURE.atTime(9, 0));
+        r.setDepartureDateTime(FUTURE.plusDays(dayOffset).atTime(9, 0));
         r.setArrivalAirport("FRA");
-        r.setArrivalDateTime(FUTURE.plusDays(1).atTime(9, 45));
+        r.setArrivalDateTime(FUTURE.plusDays(dayOffset + 1).atTime(9, 45));
         return r;
     }
 

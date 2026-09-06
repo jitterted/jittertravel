@@ -28,6 +28,10 @@ public record ChangeFlightCommand(
         if (!arrivalDateTime.utc().isAfter(departureDateTime.utc())) {
             throw new InvalidDateRange("Arrival date/time must be after departure date/time");
         }
+        // Excludes this very flight — see ChangeTrainCommand.
+        context.scheduledLegs()
+                .overlapping(new ScheduledLegId.Flight(flightId), departureDateTime, arrivalDateTime)
+                .ifPresent(blocking -> { throw new OverlappingLegRefused(blocking); });
         return Stream.of(new FlightChanged(flightId, airline, flightNumber,
                 departureAirport, departureDateTime, arrivalAirport, arrivalDateTime, reason));
     }

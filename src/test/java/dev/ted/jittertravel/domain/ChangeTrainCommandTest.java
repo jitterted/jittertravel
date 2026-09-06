@@ -8,6 +8,7 @@ import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ChangeTrainCommandTest {
@@ -25,7 +26,7 @@ class ChangeTrainCommandTest {
     void validChangeProducesTrainChangedEventWithAllFields() {
         ChangeTrainCommand command = validCommand();
 
-        List<TrainChanged> events = command.execute(new ChangeTrainContext(true, at(NOW))).toList();
+        List<TrainChanged> events = command.execute(new ChangeTrainContext(true, at(NOW), ScheduledLegs.none())).toList();
 
         assertThat(events)
                 .hasSize(1);
@@ -48,7 +49,7 @@ class ChangeTrainCommandTest {
     void changeRejectedWhenTrainDoesNotExist() {
         ChangeTrainCommand command = validCommand();
 
-        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(false, at(NOW))))
+        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(false, at(NOW), ScheduledLegs.none())))
                 .isInstanceOf(TrainNotFound.class);
     }
 
@@ -57,7 +58,7 @@ class ChangeTrainCommandTest {
         ChangeTrainCommand command = new ChangeTrainCommand(
                 TrainTripId.random(), LONDON, zt(NOW.minusHours(1)), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW))))
+        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW), ScheduledLegs.none())))
                 .isInstanceOf(DepartureNotInFuture.class);
     }
 
@@ -66,7 +67,7 @@ class ChangeTrainCommandTest {
         ChangeTrainCommand command = new ChangeTrainCommand(
                 TrainTripId.random(), LONDON, zt(NOW), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW))))
+        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW), ScheduledLegs.none())))
                 .isInstanceOf(DepartureNotInFuture.class);
     }
 
@@ -75,7 +76,7 @@ class ChangeTrainCommandTest {
         ChangeTrainCommand command = new ChangeTrainCommand(
                 TrainTripId.random(), LONDON, zt(DEPARTURE), MANCHESTER, zt(DEPARTURE.minusMinutes(1)), "");
 
-        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW))))
+        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW), ScheduledLegs.none())))
                 .isInstanceOf(InvalidDateRange.class);
     }
 
@@ -85,7 +86,7 @@ class ChangeTrainCommandTest {
         ChangeTrainCommand command = new ChangeTrainCommand(
                 TrainTripId.random(), LONDON, zt(NOW.minusHours(1)), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(false, at(NOW))))
+        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(false, at(NOW), ScheduledLegs.none())))
                 .isInstanceOf(TrainNotFound.class);
     }
 
@@ -96,7 +97,7 @@ class ChangeTrainCommandTest {
         ChangeTrainCommand command = new ChangeTrainCommand(
                 TrainTripId.random(), pasted, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW))))
+        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW), ScheduledLegs.none())))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
                     assertThat(invalid.locations())
                             .hasSize(1);
@@ -113,7 +114,7 @@ class ChangeTrainCommandTest {
         ChangeTrainCommand command = new ChangeTrainCommand(
                 TrainTripId.random(), LONDON, zt(DEPARTURE), nameless, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW))))
+        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW), ScheduledLegs.none())))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
                     assertThat(invalid.locations())
                             .hasSize(1);
@@ -131,7 +132,7 @@ class ChangeTrainCommandTest {
         ChangeTrainCommand command = new ChangeTrainCommand(
                 TrainTripId.random(), pasted, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(false, at(NOW))))
+        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(false, at(NOW), ScheduledLegs.none())))
                 .isInstanceOf(TrainNotFound.class);
     }
 
@@ -146,4 +147,29 @@ class ChangeTrainCommandTest {
     private static Instant at(LocalDateTime local) {
         return local.atZone(ZONE).toInstant();
     }
+    @Test
+    void changingATripDoesNotCollideWithTheVeryTripBeingChanged() {
+        // The trap this rule would otherwise create: a change re-states the leg it replaces, so
+        // without the self-exclusion no booked trip could ever be corrected again.
+        ChangeTrainCommand command = validCommand();
+        ScheduledLegs booked = new ScheduledLegs(List.of(new ScheduledLeg(
+                new ScheduledLegId.Train(command.tripId()), zt(DEPARTURE), zt(ARRIVAL))));
+
+        assertThat(command.execute(new ChangeTrainContext(true, at(NOW), booked)))
+                .hasSize(1);
+    }
+
+    @Test
+    void changingATripIntoAnotherLegsWindowIsRefused() {
+        ChangeTrainCommand command = validCommand();
+        ScheduledLegId other = new ScheduledLegId.Train(TrainTripId.random());
+        ScheduledLegs booked = new ScheduledLegs(List.of(
+                new ScheduledLeg(new ScheduledLegId.Train(command.tripId()), zt(DEPARTURE), zt(ARRIVAL)),
+                new ScheduledLeg(other, zt(DEPARTURE.plusHours(1)), zt(ARRIVAL.plusHours(1)))));
+
+        assertThatExceptionOfType(OverlappingLegRefused.class)
+                .isThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW), booked)).toList())
+                .satisfies(refusal -> assertThat(refusal.blocking().id()).isEqualTo(other));
+    }
+
 }

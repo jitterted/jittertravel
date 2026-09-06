@@ -705,6 +705,37 @@ this is one error vocabulary rather than two. Do not re-add it here.
 
 ## Testing
 
+### Every test is isolated: order must not matter, and a subset must run
+
+**A test must pass alone, in any order, and in any arbitrary subset.** If it does not, the test is
+not the problem to fix first — **the production code is** (Ted, 2026-09-06). A component that cannot
+be returned to a known state is one the app itself cannot return to a known state, and the test is
+simply the first thing to notice. Do **not** reach for `@DirtiesContext`, and do not quietly arrange
+fixtures so they stop colliding: both hide the report instead of acting on it.
+
+**This rule is currently ASPIRATIONAL — nothing enforces it, and one known violation is worked
+around.** `EventStore` fills its in-memory event list once at boot and only ever appends, so no
+database truncation can reach it; the nine integration tests sharing a Spring context therefore
+share event state. `CommandExecutor.eventsForDecision()` folds every write-path decision from that
+list, which is why it matters beyond tests. It stayed invisible for a long time because every fold
+until 2026-09-06 asked about one specific id ("does *this* trip exist?"); the overlapping-legs rule
+is the first **cross-aggregate** question and the first thing that could trip over it.
+
+What is in place today, and what is not:
+
+- **In place, and it is a workaround:** `BackupRestoreRoundTripTest` derives each booking's window
+  from its own flight id, so no sibling method and no leg replayed from a previous run can occupy
+  it. Verified 6/6; pin those windows and it fails about half the time.
+- **Parked, with a diagnosed deadlock:** `EventStore.reload()`, a base-class reset-and-assert guard,
+  `runOrder=random`, and an after-method truncate. A connection is left *idle in transaction* by the
+  boot replay, so a second TRUNCATE anywhere blocks forever. See **"Test isolation is not
+  enforced"** in `docs/Cleanup_Tasks.md` for the diagnosis, the misreads to avoid, and how to pick
+  it up.
+
+**When adding shared, long-lived state to production code, ask how it is returned to a known state.**
+If the answer is "restart the process", it will be wrong in a test and wrong for an admin action
+too — and the test that catches it may be years away.
+
 ### Assertions against rendered HTML must name whole elements, not bare words
 
 A renderer test asserts on one long string, so `contains("Calendar")` is satisfied by *any*

@@ -55,7 +55,8 @@ public class ClearConflictController {
     // so a re-render after a rejected submit finds its object instead of throwing.
     @PostMapping("/clear-conflict")
     public String clearConflictSubmit(@ModelAttribute("clearConflictRequest") ClearConflictRequest request,
-                                      BindingResult bindingResult) {
+                                      BindingResult bindingResult,
+                                      @RequestParam(value = "from", required = false) String from) {
         try {
             // commandId is captured here at the boundary; the service generates no UUIDs of its own.
             gatheringPlanning.clearConflict(
@@ -84,6 +85,17 @@ public class ClearConflictController {
             return "clear-conflict";
         }
 
-        return "redirect:/schedule-problems";
+        return returnTo(from, "/schedule-problems");
     }
+
+    /**
+     * Where to land after a successful action: back at the report when Ted arrived from a fix link,
+     * otherwise this controller's own default. Only the <em>success</em> path takes it — a
+     * read-only refusal or a stale-link miss has not fixed anything, so it still goes where it
+     * always did.
+     */
+    private static String returnTo(String from, String fallback) {
+        return "redirect:" + FixOrigin.returnTo(from).orElse(fallback);
+    }
+
 }

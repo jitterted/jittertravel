@@ -85,8 +85,16 @@ public sealed interface EntryDetails {
         }
     }
 
-    /** A booked train trip. {@code editPath} is the OWNER-only link to its edit page. */
-    record Train(String editPath) implements EntryDetails {
+    /**
+     * A booked train trip. Both paths are OWNER-only: {@code editPath} to its edit page and
+     * {@code cancelPath} to its confirmation page.
+     * <p>
+     * The first kind to carry both, and deliberately — a wrong trip is corrected by editing it and
+     * a trip that should not exist is removed, so the two are different acts on the same row rather
+     * than one standing in for the other. {@link PublicTrain} is a separate record with no slot for
+     * either, which is what keeps the allow-list a compiler check.
+     */
+    record Train(String editPath, String cancelPath) implements EntryDetails {
         @Override
         public EntryKind kind() {
             return EntryKind.TRAIN;

@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.TrainBooking;
+import dev.ted.jittertravel.domain.OverlappingLegRefused;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
@@ -68,7 +69,9 @@ public class BookTrainController {
 
     @PostMapping("/book-train")
     public String bookTrainSubmit(@ModelAttribute("bookTrain") BookTrainRequest request,
-                                  BindingResult bindingResult) {
+                                  BindingResult bindingResult,
+                                  @RequestParam(value = "from", required = false) String from,
+                                  Model model) {
         TrainFormErrors errors = new TrainFormErrors(bindingResult);
         try {
             trainBooking.bookTrain(request, Instant.now(clock));
@@ -76,6 +79,12 @@ public class BookTrainController {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {
             bindingResult.rejectValue("arrivalDateTime", "afterDeparture", e.getMessage());
+        } catch (OverlappingLegRefused e) {
+            // On the departure time, because changing these times is the fix this form offers; the
+            // other way out — dealing with the leg already booked — is the link beside it.
+            bindingResult.rejectValue("departureDateTime", "overlapping",
+                    OverlappingLegNotice.from(e).message());
+            model.addAttribute("overlappingLeg", OverlappingLegNotice.from(e));
         } catch (InvalidTrainEntry e) {
             errors.reject(e);
         }
@@ -85,6 +94,17 @@ public class BookTrainController {
             return "book-train";
         }
 
-        return "redirect:/booked-trains";
+        return returnTo(from, "/booked-trains");
     }
+
+    /**
+     * Where to land after a successful action: back at the report when Ted arrived from a fix link,
+     * otherwise this controller's own default. Only the <em>success</em> path takes it — a
+     * read-only refusal or a stale-link miss has not fixed anything, so it still goes where it
+     * always did.
+     */
+    private static String returnTo(String from, String fallback) {
+        return "redirect:" + FixOrigin.returnTo(from).orElse(fallback);
+    }
+
 }

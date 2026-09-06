@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.ChangeTrain;
 import dev.ted.jittertravel.application.TrainDetailsView;
 import dev.ted.jittertravel.application.TrainDetailsViewProjector;
+import dev.ted.jittertravel.domain.OverlappingLegRefused;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
@@ -59,7 +60,8 @@ public class ChangeTrainController {
     @PostMapping("/booked-trains/{tripId}")
     public String changeTrainSubmit(@PathVariable("tripId") String tripIdString,
                                     @ModelAttribute("changeTrain") ChangeTrainRequest command,
-                                    BindingResult bindingResult) {
+                                    BindingResult bindingResult,
+                                    Model model) {
         // Path is the source of truth for tripId; it is not user-editable.
         command.setTrainTripId(tripIdString);
 
@@ -75,6 +77,12 @@ public class ChangeTrainController {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {
             bindingResult.rejectValue("arrivalDateTime", "afterDeparture", e.getMessage());
+        } catch (OverlappingLegRefused e) {
+            // On the departure time, because changing these times is the fix this form offers; the
+            // other way out — dealing with the leg already booked — is the link beside it.
+            bindingResult.rejectValue("departureDateTime", "overlapping",
+                    OverlappingLegNotice.from(e).message());
+            model.addAttribute("overlappingLeg", OverlappingLegNotice.from(e));
         } catch (InvalidTrainEntry e) {
             errors.reject(e);
         }

@@ -19,7 +19,7 @@ class ChangeFlightCommandTest {
     void emitsFlightChangedWithFullSnapshotWhenValid() {
         ChangeFlightCommand command = validCommand();
 
-        List<FlightChanged> events = command.execute(new ChangeFlightContext(true, NOW)).toList();
+        List<FlightChanged> events = command.execute(new ChangeFlightContext(true, NOW, ScheduledLegs.none())).toList();
 
         assertThat(events).hasSize(1);
         FlightChanged event = events.getFirst();
@@ -38,14 +38,14 @@ class ChangeFlightCommandTest {
                 AirportCode.of("FRA"), zt(LocalDateTime.of(2026, 5, 8, 19, 0)),
                 "Schedule shifted by airline");
 
-        FlightChanged event = command.execute(new ChangeFlightContext(true, NOW)).findFirst().orElseThrow();
+        FlightChanged event = command.execute(new ChangeFlightContext(true, NOW, ScheduledLegs.none())).findFirst().orElseThrow();
 
         assertThat(event.reason()).isEqualTo("Schedule shifted by airline");
     }
 
     @Test
     void rejectsWhenFlightDoesNotExist() {
-        assertThatThrownBy(() -> validCommand().execute(new ChangeFlightContext(false, NOW)))
+        assertThatThrownBy(() -> validCommand().execute(new ChangeFlightContext(false, NOW, ScheduledLegs.none())))
                 .isInstanceOf(FlightNotFound.class);
     }
 
@@ -57,7 +57,7 @@ class ChangeFlightCommandTest {
                 AirportCode.of("FRA"), zt(LocalDateTime.of(2026, 5, 8, 19, 0)),
                 null);
 
-        assertThatThrownBy(() -> command.execute(new ChangeFlightContext(true, NOW)))
+        assertThatThrownBy(() -> command.execute(new ChangeFlightContext(true, NOW, ScheduledLegs.none())))
                 .isInstanceOf(DepartureNotInFuture.class);
     }
 
@@ -70,7 +70,7 @@ class ChangeFlightCommandTest {
                 AirportCode.of("FRA"), dep,
                 null);
 
-        assertThatThrownBy(() -> command.execute(new ChangeFlightContext(true, NOW)))
+        assertThatThrownBy(() -> command.execute(new ChangeFlightContext(true, NOW, ScheduledLegs.none())))
                 .isInstanceOf(InvalidDateRange.class);
     }
 

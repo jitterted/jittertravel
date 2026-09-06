@@ -29,6 +29,7 @@ import dev.ted.jittertravel.domain.TalkRejected;
 import dev.ted.jittertravel.domain.TalkSubmitted;
 import dev.ted.jittertravel.domain.TalkWithdrawn;
 import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainCancelled;
 import dev.ted.jittertravel.domain.TrainChanged;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
@@ -153,6 +154,9 @@ public class PublicCalendarProjector implements EventStreamConsumer {
                         e.departureStation(), e.departureDateTime(), e.arrivalStation(), e.arrivalDateTime()));
                 case TrainChanged e -> putAll(e.tripId(), train(
                         e.departureStation(), e.departureDateTime(), e.arrivalStation(), e.arrivalDateTime()));
+                // A leftover here is a stale disclosure, not merely a stale row: it tells an
+                // anonymous viewer that Ted travels between two cities on a day he does not.
+                case TrainCancelled e -> entriesBySubject.remove(e.tripId());
 
                 // A stay publishes the word "Hotel" and the city. The name, the address, the maps
                 // URL and the cancel-by deadline are never read.

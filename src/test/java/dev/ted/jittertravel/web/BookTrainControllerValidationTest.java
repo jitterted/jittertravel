@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookTrainHandler;
 import dev.ted.jittertravel.application.TrainBooking;
+import dev.ted.jittertravel.domain.ScheduledLegs;
 import dev.ted.jittertravel.domain.BookTrainContext;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
@@ -89,11 +90,11 @@ class BookTrainControllerValidationTest {
     }
 
     private TrainBooking mockService() {
-        return new TrainBooking(null, new LocationZoneResolver()) {
+        return new TrainBooking(null, new LocationZoneResolver(), null) {
             @Override
             public void bookTrain(BookTrainRequest request, Instant now) {
                 new BookTrainHandler(new LocationZoneResolver()).handle(request)
-                        .execute(new BookTrainContext(now));
+                        .execute(new BookTrainContext(now, ScheduledLegs.none()));
             }
         };
     }

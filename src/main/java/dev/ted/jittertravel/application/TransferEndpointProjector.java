@@ -11,6 +11,7 @@ import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.domain.Place;
 import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainCancelled;
 import dev.ted.jittertravel.domain.TrainChanged;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
@@ -82,6 +83,12 @@ public class TransferEndpointProjector implements EventStreamConsumer {
                 case TrainChanged e -> putTrain(e.tripId(), e.serviceId(),
                         e.departureStation(), e.departureDateTime(),
                         e.arrivalStation(), e.arrivalDateTime());
+                // Not a tombstone either, and for the class comment's reason: this is a list of
+                // places Ted can be picked up, and a cancelled trip stops at none of them.
+                case TrainCancelled e -> {
+                    rows.remove(new RowKey(e.tripId().id().toString(), TransferEnd.TRAIN_DEPARTURE));
+                    rows.remove(new RowKey(e.tripId().id().toString(), TransferEnd.TRAIN_ARRIVAL));
+                }
                 case HotelBooked e -> putStay(e.hotelBookingId(), e.hotelName(),
                         e.address().city(), Place.of(e.address()), e.checkIn(), e.checkOut());
                 case HotelChanged e -> putStay(e.hotelBookingId(), e.hotelName(),

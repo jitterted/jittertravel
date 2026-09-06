@@ -113,7 +113,7 @@ class ChangeFlightControllerValidationTest {
     }
 
     private ChangeFlight mockService(boolean flightExists) {
-        return new ChangeFlight(null, null, null) {
+        return new ChangeFlight(null, null, null, null) {
             @Override public boolean isReadOnly() { return false; }
             @Override public void changeFlight(UUID commandId, ChangeFlightRequest request, Instant now) {
                 ZoneId zone = ZoneId.of("UTC");
@@ -125,7 +125,7 @@ class ChangeFlightControllerValidationTest {
                         AirportCode.of(request.getDepartureAirport()), dep,
                         AirportCode.of(request.getArrivalAirport()), arr,
                         request.getReason()
-                ).execute(new ChangeFlightContext(flightExists, now)).toList();
+                ).execute(new ChangeFlightContext(flightExists, now, ScheduledLegs.none())).toList();
             }
         };
     }

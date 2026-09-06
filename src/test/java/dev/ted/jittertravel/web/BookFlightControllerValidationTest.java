@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookFlightHandler;
 import dev.ted.jittertravel.application.FlightBooking;
+import dev.ted.jittertravel.domain.ScheduledLegs;
 import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.BookFlightContext;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
@@ -113,14 +114,14 @@ class BookFlightControllerValidationTest {
     }
 
     private FlightBooking mockService() {
-        return new FlightBooking(null, null) {
+        return new FlightBooking(null, null, null) {
             @Override public boolean isReadOnly() { return false; }
             @Override public void bookFlight(BookFlightRequest request, Instant now) {
                 request.setDepartureZone("UTC");
                 request.setArrivalZone("UTC");
                 new BookFlightHandler(new AirportZoneResolver())
                         .handle(request)
-                        .execute(new BookFlightContext(now))
+                        .execute(new BookFlightContext(now, ScheduledLegs.none()))
                         .toList();
             }
         };

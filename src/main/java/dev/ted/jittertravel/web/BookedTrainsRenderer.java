@@ -43,6 +43,11 @@ public class BookedTrainsRenderer {
             }
             .train-edit-link { font-size: 0.85rem; color: var(--accent-color, #0a58ca); text-decoration: none; }
             .train-edit-link:hover { text-decoration: underline; }
+            .train-actions { display: flex; gap: 0.75rem; align-items: baseline; }
+            /* Amber rather than the accent blue: it is a removal, and it is recoverable, which is
+               exactly what amber says here and on the confirmation page it leads to. */
+            .train-cancel-link { font-size: 0.85rem; color: #b45309; text-decoration: none; }
+            .train-cancel-link:hover { text-decoration: underline; }
             .train-card-header {
                 background-color: var(--header-bg, #f8f9fa); color: var(--muted-text, #6c757d);
                 font-weight: 600; text-transform: uppercase;
@@ -68,7 +73,7 @@ public class BookedTrainsRenderer {
                     align-items: start; gap: 0.15rem;
                 }
                 .leg-label { display: block; margin-top: 0.5rem; }
-                .train-card-row > .train-edit-link { justify-self: start; margin-top: 0.6rem; }
+                .train-card-row > .train-actions { justify-self: start; margin-top: 0.6rem; }
             }
             """;
 
@@ -136,8 +141,14 @@ public class BookedTrainsRenderer {
                         legLabel("Arrives"),
                         dateTime(train.arrivalDateTime())
                 ),
-                a("Edit").withClass("train-edit-link")
-                        .withHref("/booked-trains/" + train.tripId().id())
+                // Cancel renders *after* Edit so the link that is already there keeps its
+                // position on every row, in every state (CLAUDE.md: affordances never move).
+                div().withClass("train-actions").with(
+                        a("Edit").withClass("train-edit-link")
+                                .withHref("/booked-trains/" + train.tripId().id()),
+                        a("Cancel").withClass("train-cancel-link")
+                                .withHref("/booked-trains/" + train.tripId().id() + "/cancel")
+                )
         );
     }
 

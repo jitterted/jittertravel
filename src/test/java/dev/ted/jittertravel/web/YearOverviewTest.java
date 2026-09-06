@@ -51,7 +51,7 @@ class YearOverviewTest {
             case GATHERING -> new EntryDetails.Gathering(null, false, null);
             case PRIVATE_EVENT -> new EntryDetails.PrivateEvent();
             case FLIGHT -> new EntryDetails.Flight(null);
-            case TRAIN -> new EntryDetails.Train(null);
+            case TRAIN -> new EntryDetails.Train(null, null);
             case GROUND_TRANSFER -> new EntryDetails.GroundTransfer(null);
             case LODGING -> new EntryDetails.Lodging(null, null);
         };

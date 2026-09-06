@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.ChangeFlight;
 import dev.ted.jittertravel.application.FlightDetailsView;
 import dev.ted.jittertravel.application.FlightDetailsViewProjector;
 import dev.ted.jittertravel.application.ReadOnlyModeException;
+import dev.ted.jittertravel.domain.OverlappingLegRefused;
 import dev.ted.jittertravel.domain.*;
 import dev.ted.jittertravel.infrastructure.AeroDataBoxClient;
 import dev.ted.jittertravel.infrastructure.FlightLookupCandidates;
@@ -76,7 +77,8 @@ public class ChangeFlightController {
     @PostMapping("/booked-flights/{flightId}")
     public String changeFlightSubmit(@PathVariable("flightId") String flightIdString,
                                      @ModelAttribute("changeFlight") ChangeFlightRequest command,
-                                     BindingResult bindingResult) {
+                                     BindingResult bindingResult,
+                                     Model model) {
         if (applicationService.isReadOnly()) {
             return "redirect:/read-only";
         }
@@ -95,6 +97,12 @@ public class ChangeFlightController {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {
             bindingResult.rejectValue("arrivalDateTime", "afterDeparture", e.getMessage());
+        } catch (OverlappingLegRefused e) {
+            // On the departure time, because changing these times is the fix this form offers; the
+            // other way out — dealing with the leg already booked — is the link beside it.
+            bindingResult.rejectValue("departureDateTime", "overlapping",
+                    OverlappingLegNotice.from(e).message());
+            model.addAttribute("overlappingLeg", OverlappingLegNotice.from(e));
         } catch (InvalidAirportCode e) {
             bindingResult.reject("airportCode", e.getMessage());
         } catch (ZoneResolutionException e) {

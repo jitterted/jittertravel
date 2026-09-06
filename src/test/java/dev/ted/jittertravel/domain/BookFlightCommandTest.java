@@ -25,7 +25,7 @@ class BookFlightCommandTest {
                 AirportCode.of("SFO"), departure,
                 AirportCode.of("JFK"), arrival);
 
-        List<FlightBooked> events = command.execute(new BookFlightContext(NOW)).toList();
+        List<FlightBooked> events = command.execute(new BookFlightContext(NOW, ScheduledLegs.none())).toList();
 
         assertThat(events).hasSize(1);
         FlightBooked event = events.getFirst();
@@ -46,7 +46,7 @@ class BookFlightCommandTest {
                 AirportCode.of("SFO"), pastDeparture,
                 AirportCode.of("JFK"), arrival);
 
-        assertThatThrownBy(() -> command.execute(new BookFlightContext(NOW)))
+        assertThatThrownBy(() -> command.execute(new BookFlightContext(NOW, ScheduledLegs.none())))
                 .isInstanceOf(DepartureNotInFuture.class);
     }
 
@@ -59,7 +59,7 @@ class BookFlightCommandTest {
                 AirportCode.of("SFO"), departure,
                 AirportCode.of("JFK"), arrival);
 
-        assertThatThrownBy(() -> command.execute(new BookFlightContext(NOW)))
+        assertThatThrownBy(() -> command.execute(new BookFlightContext(NOW, ScheduledLegs.none())))
                 .isInstanceOf(InvalidDateRange.class);
     }
 

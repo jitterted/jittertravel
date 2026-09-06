@@ -267,6 +267,8 @@ public class ItineraryRenderer {
             }
             if (isOwner) {
                 serviceLine.with(editPencil("/booked-trains/" + e.tripId().id(), "Edit train"));
+                serviceLine.with(cancelBin("/booked-trains/" + e.tripId().id() + "/cancel",
+                        "Cancel train"));
             }
             card.with(serviceLine);
         }

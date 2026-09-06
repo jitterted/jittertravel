@@ -8,6 +8,7 @@ import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
@@ -26,7 +27,7 @@ class BookTrainCommandTest {
     void validCommandProducesTrainBookedEventWithAllFields() {
         BookTrainCommand command = validCommand();
 
-        List<TrainBooked> events = command.execute(new BookTrainContext(at(NOW))).toList();
+        List<TrainBooked> events = command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())).toList();
 
         assertThat(events)
                 .hasSize(1);
@@ -50,7 +51,7 @@ class BookTrainCommandTest {
         BookTrainCommand command = new BookTrainCommand(
                 TrainTripId.random(), LONDON, zt(NOW.minusHours(1)), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
                 .isInstanceOf(DepartureNotInFuture.class);
     }
 
@@ -59,7 +60,7 @@ class BookTrainCommandTest {
         BookTrainCommand command = new BookTrainCommand(
                 TrainTripId.random(), LONDON, zt(NOW), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
                 .isInstanceOf(DepartureNotInFuture.class);
     }
 
@@ -68,7 +69,7 @@ class BookTrainCommandTest {
         BookTrainCommand command = new BookTrainCommand(
                 TrainTripId.random(), LONDON, zt(DEPARTURE), MANCHESTER, zt(DEPARTURE.minusMinutes(1)), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
                 .isInstanceOf(InvalidDateRange.class);
     }
 
@@ -78,7 +79,7 @@ class BookTrainCommandTest {
         BookTrainCommand command = new BookTrainCommand(
                 TrainTripId.random(), LONDON, zt(DEPARTURE), MANCHESTER, zt(sameDayArrival), "");
 
-        assertThat(command.execute(new BookTrainContext(at(NOW))).toList())
+        assertThat(command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())).toList())
                 .hasSize(1);
     }
 
@@ -88,7 +89,7 @@ class BookTrainCommandTest {
         BookTrainCommand command = new BookTrainCommand(
                 TrainTripId.random(), nameless, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
                     assertThat(invalid.locations())
                             .hasSize(1);
@@ -106,7 +107,7 @@ class BookTrainCommandTest {
         BookTrainCommand command = new BookTrainCommand(
                 TrainTripId.random(), LONDON, zt(DEPARTURE), pasted, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
                     assertThat(invalid.locations())
                             .hasSize(1);
@@ -128,7 +129,7 @@ class BookTrainCommandTest {
         BookTrainCommand command = new BookTrainCommand(
                 TrainTripId.random(), nameless, zt(DEPARTURE), pasted, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid ->
                         assertThat(invalid.locations())
                                 .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
@@ -145,7 +146,7 @@ class BookTrainCommandTest {
         BookTrainCommand command = new BookTrainCommand(
                 TrainTripId.random(), pasted, zt(NOW.minusHours(1)), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW))))
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
                 .isInstanceOf(InvalidTrainEntry.class);
     }
 
@@ -160,4 +161,51 @@ class BookTrainCommandTest {
     private static Instant at(LocalDateTime local) {
         return local.atZone(ZONE).toInstant();
     }
+    @Test
+    void aTripOverlappingAnAlreadyBookedLegIsRefused() {
+        ScheduledLegId blocking = new ScheduledLegId.Train(TrainTripId.random());
+        ScheduledLegs booked = new ScheduledLegs(List.of(
+                new ScheduledLeg(blocking, zt(DEPARTURE), zt(DEPARTURE.plusHours(2)))));
+
+        BookTrainCommand command = command(DEPARTURE.plusHours(1), DEPARTURE.plusHours(3));
+
+        assertThatExceptionOfType(OverlappingLegRefused.class)
+                .isThrownBy(() -> command.execute(new BookTrainContext(at(NOW), booked)).toList())
+                .satisfies(refusal -> assertThat(refusal.blocking().id()).isEqualTo(blocking));
+    }
+
+    @Test
+    void aTripConnectingOutOfABookedLegIsAccepted() {
+        // Arrive 11:00, depart 11:00 — the ordinary shape of a journey, and the case a closed
+        // comparison would wrongly refuse.
+        ScheduledLegs booked = new ScheduledLegs(List.of(
+                new ScheduledLeg(new ScheduledLegId.Train(TrainTripId.random()),
+                        zt(DEPARTURE), zt(DEPARTURE.plusHours(2)))));
+
+        BookTrainCommand command = command(DEPARTURE.plusHours(2), DEPARTURE.plusHours(5));
+
+        assertThat(command.execute(new BookTrainContext(at(NOW), booked)))
+                .hasSize(1);
+    }
+
+    @Test
+    void theDateRulesAreCheckedBeforeTheOverlap() {
+        // An overlap is only a meaningful question once the window itself is valid; reporting a
+        // collision for an inverted range would say nothing about what is actually wrong.
+        ScheduledLegs booked = new ScheduledLegs(List.of(
+                new ScheduledLeg(new ScheduledLegId.Train(TrainTripId.random()),
+                        zt(DEPARTURE), zt(DEPARTURE.plusHours(14)))));
+
+        BookTrainCommand command = command(DEPARTURE.plusHours(5), DEPARTURE.plusHours(3));
+
+        assertThatExceptionOfType(InvalidDateRange.class)
+                .isThrownBy(() -> command.execute(new BookTrainContext(at(NOW), booked)).toList());
+    }
+
+    /** A valid trip in a caller-chosen window, so the overlap cases can position it. */
+    private static BookTrainCommand command(LocalDateTime departure, LocalDateTime arrival) {
+        return new BookTrainCommand(TrainTripId.random(), LONDON, zt(departure),
+                MANCHESTER, zt(arrival), "DB - ICE 610");
+    }
+
 }

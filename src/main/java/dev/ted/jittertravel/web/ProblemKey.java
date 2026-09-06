@@ -7,33 +7,39 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * A stable reference to one {@link ScheduleProblem}, carried on a fix link as {@code ?problem=} so
- * the page it lands on can say <em>why you are here</em>.
+ * A stable key for one {@link ScheduleProblem}, carried on a fix link as {@code ?problem=} so the
+ * page it lands on can say <em>why you are here</em>.
+ * <p>
+ * <strong>Named a key, not a reference</strong> (Ted, 2026-09-06). It is derived from the problem's
+ * own content, compared, and parsed back out of a query string — all things a key does. The
+ * {@code Ref} it replaced was stretched over this <em>and</em> over the typed in-memory identity of
+ * a booked leg ({@link dev.ted.jittertravel.application.TravelLeg}), which is why it said so little
+ * about either.
  * <p>
  * A problem has no id, and inventing one would mean persisting identity for something that is
  * <em>derived</em> — {@code ScheduleGapProjector} recomputes every problem from the event stream on
- * every batch. So the reference is a function of the problem's own content, per variant, as an
+ * every batch. So the key is a function of the problem's own content, per variant, as an
  * exhaustive switch over the sealed interface — the same shape as {@link ProblemFix#forProblem} and
  * {@link ProblemBand#from}, so a new problem type cannot be added without deciding how it is
- * referenced.
+ * keyed.
  * <p>
- * The link carries the reference and never the words: a URL can be edited, and a banner that prints
+ * The link carries the key and never the words: a URL can be edited, and a banner that prints
  * whatever the URL says is a page that will confidently state something false about the schedule.
  * It also goes stale — fix the flight in another tab, come back, and the sentence would still
  * describe a problem that no longer exists. {@link ProblemContextLookup} resolves the key against
  * the live report instead, and renders nothing when it does not match.
  */
-public record ProblemRef(String key) {
+public record ProblemKey(String value) {
 
     private static final String SEPARATOR = "|";
 
     /**
-     * The reference for {@code problem}. Two different problems must not collide, so each variant
+     * The key for {@code problem}. Two different problems must not collide, so each variant
      * names enough of itself to be unique — the ids where it has them, the cities and instants
      * where it does not.
      */
-    public static ProblemRef of(ScheduleProblem problem) {
-        return new ProblemRef(switch (problem) {
+    public static ProblemKey of(ScheduleProblem problem) {
+        return new ProblemKey(switch (problem) {
             case ScheduleProblem.MissingHotel missingHotel -> join(
                     "hotel", missingHotel.city(),
                     missingHotel.checkIn().toString(), missingHotel.checkOut().toString());
@@ -48,6 +54,11 @@ public record ProblemRef(String key) {
                     duplicateHotel.stays().stream()
                             .map(stay -> stay.bookingId().id().toString())
                             .collect(Collectors.joining(",")));
+            // The two legs' own pages are unique and stable, and the pair's order is fixed by
+            // ScheduleGapProjector.allLegs being a total order — without that tiebreaker this key
+            // would flip between recomputes and stale every open fix link.
+            case ScheduleProblem.OverlappingTravel overlap -> join(
+                    "legs", overlap.first().leg().detailsPath(), overlap.second().leg().detailsPath());
             case ScheduleProblem.DifferentCityConflict cityConflict -> join(
                     "city", cityConflict.gatheringId().id().toString(),
                     cityConflict.conferenceId().id().toString(),
@@ -61,13 +72,13 @@ public record ProblemRef(String key) {
         });
     }
 
-    /** Whether {@code problem} is the one this reference names. */
+    /** Whether {@code problem} is the one this key names. */
     public boolean matches(ScheduleProblem problem) {
-        return key.equals(of(problem).key());
+        return value.equals(of(problem).value());
     }
 
     /**
-     * The problem this reference names, out of the ones the report currently holds — empty when the
+     * The problem this key names, out of the ones the report currently holds — empty when the
      * key matches none of them, which is the ordinary outcome for a stale or hand-edited link.
      * <p>
      * Two callers read it: the banner ({@link ProblemContextLookup}) and the ground-transfer form,

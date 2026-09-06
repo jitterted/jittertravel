@@ -27,7 +27,7 @@ class CalendarViewBuilderTest {
     // visible at the point it matters.
     private static final EntryDetails CONFERENCE_DETAILS = new EntryDetails.Conference(null, false, null, null);
     private static final EntryDetails FLIGHT_DETAILS = new EntryDetails.Flight(null);
-    private static final EntryDetails TRAIN_DETAILS = new EntryDetails.Train(null);
+    private static final EntryDetails TRAIN_DETAILS = new EntryDetails.Train(null, null);
 
     @Test
     void emptyNonCollapsedWeekRendersOneEmptyLaneBandForBreathingRoom() {
@@ -1034,4 +1034,30 @@ class CalendarViewBuilderTest {
     private static List<SubtitleLine> lines(String... values) {
         return Arrays.stream(values).<SubtitleLine>map(SubtitleLine.Text::new).toList();
     }
+    @Test
+    void ownerTrainEntryCarriesTheEditPencilThenTheCancelBin() {
+        // The only kind with two icons in the action slot, in a fixed order so the pencil sits
+        // exactly where it does on every other kind.
+        LocalDate day = LocalDate.of(2026, 6, 1);
+        CalendarEntry entry = new CalendarEntry(
+                day.atTime(9, 0), day.atTime(11, 0), "Hamburg to Berlin", List.of(),
+                new EntryDetails.Train("/booked-trains/trip-9", "/booked-trains/trip-9/cancel"));
+
+        String html = CalendarViewBuilder.render(
+                List.of(entry),
+                day,
+                day.plusDays(7),
+                TODAY,
+                false,   // isPublicUser
+                true     // isOwner
+        );
+
+        assertThat(html)
+                .contains("class=\"edit-pencil\" href=\"/booked-trains/trip-9\"")
+                .contains("class=\"cancel-bin\" href=\"/booked-trains/trip-9/cancel\"");
+        assertThat(html.indexOf("edit-pencil\" href=\"/booked-trains/trip-9\""))
+                .as("edit keeps its position; cancel is appended after it")
+                .isLessThan(html.indexOf("cancel-bin\" href="));
+    }
+
 }

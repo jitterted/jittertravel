@@ -1578,13 +1578,97 @@ class ScheduleGapProjectorTest {
     private static final LocalDate SEP_27 = LocalDate.of(2026, 9, 27);
     private static final LocalDate SEP_28 = LocalDate.of(2026, 9, 28);
 
+    // -------------------------------------------------------------------------
+    // Overlapping travel
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class OverlappingTravelDetection {
+
+        @Test
+        void twoTrainsOnTheSameJourneyAtOverlappingTimesAreReported() {
+            // The bug as reported (Ted, 2026-09-06): two similar trains entered on the same day.
+            // Before the detector this raised NOTHING — verified against the real projector.
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(train(AMS, SEP_15.atTime(9, 0), BRU, SEP_15.atTime(11, 0))),
+                    stored(train(AMS, SEP_15.atTime(10, 0), BRU, SEP_15.atTime(12, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(ScheduleProblem.OverlappingTravel.class::isInstance)
+                    .hasSize(1);
+        }
+
+        @Test
+        void aFlightOverlappingATrainIsTheSameImpossibility() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(flight(AMS, SEP_15.atTime(9, 0), BRU, SEP_15.atTime(10, 30))),
+                    stored(train(AMS, SEP_15.atTime(10, 0), BRU, SEP_15.atTime(12, 0)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(ScheduleProblem.OverlappingTravel.class::isInstance)
+                    .hasSize(1);
+        }
+
+        @Test
+        void aCancelledLegNoLongerOverlapsAnything() {
+            // Which is how Ted fixes it, and why Cancel Train shipped first.
+            TrainTripId wrong = TrainTripId.random();
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(train(AMS, SEP_15.atTime(9, 0), BRU, SEP_15.atTime(11, 0))),
+                    stored(trainWithId(wrong, AMS, SEP_15.atTime(10, 0), BRU, SEP_15.atTime(12, 0))),
+                    stored(new TrainCancelled(wrong, "entered by mistake"))));
+
+            assertThat(projector.problems())
+                    .noneMatch(ScheduleProblem.OverlappingTravel.class::isInstance);
+        }
+
+        @Test
+        void sameInstantLegsAreReportedInASpecifiedOrderNotAnIncidentalOne() {
+            // ProblemKey is derived from the pair's order, so that order has to be *specified*.
+            //
+            // Note what this does NOT claim. Iteration over a ConcurrentHashMap with a fixed key
+            // set is already deterministic, so two projectors fed identical events agree with or
+            // without a tiebreaker — a "stable across recomputes" test can never fail and would
+            // pin nothing. What the tiebreaker buys is that the order is *ours* rather than
+            // whatever the UUID hashes happen to produce, so a future change to the map type or
+            // the fold cannot silently renumber every open fix link.
+            //
+            // Run over many id pairs: without the tiebreaker each one is a coin flip.
+            for (int attempt = 0; attempt < 25; attempt++) {
+                ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+                projector.handle(Stream.of(
+                        stored(train(AMS, SEP_15.atTime(9, 0), BRU, SEP_15.atTime(11, 0))),
+                        stored(train(AMS, SEP_15.atTime(9, 0), BRU, SEP_15.atTime(11, 0)))));
+
+                ScheduleProblem.OverlappingTravel overlap = projector.problems().stream()
+                        .filter(ScheduleProblem.OverlappingTravel.class::isInstance)
+                        .map(ScheduleProblem.OverlappingTravel.class::cast)
+                        .findFirst()
+                        .orElseThrow();
+
+                assertThat(overlap.first().leg().detailsPath())
+                        .as("legs departing at the same instant order on their own path")
+                        .isLessThan(overlap.second().leg().detailsPath());
+            }
+        }
+
+    }
+
     private static FlightBooked flight(String fromCode, LocalDateTime dep, String toCode, LocalDateTime arr) {
         return new FlightBooked(FlightId.random(), "Airline", "F1",
                 AirportCode.of(fromCode), zt(dep), AirportCode.of(toCode), zt(arr));
     }
 
     private static TrainBooked train(String fromCity, LocalDateTime dep, String toCity, LocalDateTime arr) {
-        return new TrainBooked(TrainTripId.random(),
+        return trainWithId(TrainTripId.random(), fromCity, dep, toCity, arr);
+    }
+
+    private static TrainBooked trainWithId(TrainTripId tripId, String fromCity, LocalDateTime dep,
+                                           String toCity, LocalDateTime arr) {
+        return new TrainBooked(tripId,
                 new TrainStationAddress("Station", fromCity, "XX", ""), zt(dep),
                 new TrainStationAddress("Station", toCity, "XX", ""), zt(arr), "");
     }

@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainCancelled;
 import dev.ted.jittertravel.domain.TrainChanged;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
@@ -38,6 +39,7 @@ public class TrainCalendarProjector implements EventStreamConsumer {
                 case TrainChanged e -> entriesByTrip.put(e.tripId(), buildEntries(
                         e.tripId(), e.departureStation(), e.departureDateTime(),
                         e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
+                case TrainCancelled e -> entriesByTrip.remove(e.tripId());
                 default -> { /* not a train event */ }
             }
         });
@@ -56,7 +58,8 @@ public class TrainCalendarProjector implements EventStreamConsumer {
         String route = "🚄 " + dep.city() + " → " + arr.city();
         SubtitleLine departs = new SubtitleLine.At("Departs", departure);
         SubtitleLine arrives = new SubtitleLine.At("Arrives", arrival);
-        EntryDetails details = new EntryDetails.Train("/booked-trains/" + tripId.id());
+        EntryDetails details = new EntryDetails.Train("/booked-trains/" + tripId.id(),
+                "/booked-trains/" + tripId.id() + "/cancel");
 
         boolean sameDay = depDt.toLocalDate().equals(arrDt.toLocalDate());
         if (sameDay) {

@@ -102,6 +102,11 @@ class AuthorizationMatrixTest {
                 // "/booked-flights/*/lookup" covers it — it needs its own matcher.
                 arguments("/booked-flights/abc/lookup/select", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/booked-trains/abc",    Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
+                // The train's per-item cancel, needing its own matcher for the same reason:
+                // "/booked-trains/*" matches one segment, so without this entry the cancel
+                // page would fall through to permitAll — and it prints both stations and both
+                // times, which is travel detail CLAUDE.md keeps away from anonymous viewers.
+                arguments("/booked-trains/abc/cancel", Outcome.OK,   Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/booked-hotels/abc",    Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 // A per-item action needs its own matcher: "/booked-hotels/*" matches one segment
                 // only, so without this entry the cancel endpoint would fall through to permitAll.

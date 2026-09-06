@@ -377,3 +377,15 @@ body {
     font-weight: 600;
 }
 .problem-context-back:hover { text-decoration: underline; }
+
+/* The link beside a rejected departure time, naming the leg already booked in that window.
+   Shared by the four forms that refuse an overlapping journey (book/change x train/flight).
+   Permanent underline, never hover-only: the iPad has no pointer, so a link that announces
+   itself only on :hover is invisible there at every moment. */
+.overlap-link {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.8rem;
+    color: #b45309;
+    text-decoration: underline;
+}

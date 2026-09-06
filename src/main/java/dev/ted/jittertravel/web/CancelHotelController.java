@@ -52,7 +52,8 @@ public class CancelHotelController {
 
     @PostMapping("/booked-hotels/{hotelBookingId}/cancel")
     public String cancelHotel(@PathVariable("hotelBookingId") String hotelBookingIdString,
-                              @RequestParam(value = "reason", required = false) String reason) {
+                              @RequestParam(value = "reason", required = false) String reason,
+                              @RequestParam(value = "from", required = false) String from) {
         UUID hotelBookingId;
         try {
             hotelBookingId = UUID.fromString(hotelBookingIdString);
@@ -72,7 +73,7 @@ public class CancelHotelController {
             return "redirect:/booked-hotels";
         }
 
-        return "redirect:/booked-hotels";
+        return returnTo(from, "/booked-hotels");
     }
 
     private Optional<HotelDetailsView> lookup(String hotelBookingIdString) {
@@ -82,4 +83,14 @@ public class CancelHotelController {
             return Optional.empty();
         }
     }
+
+    /**
+     * Where to land after a successful cancellation: back at the report when Ted arrived from a fix
+     * link, otherwise this controller's own default. Only the <em>success</em> path takes it — a
+     * stale link or an already-cancelled miss has fixed nothing, so it still goes where it did.
+     */
+    private static String returnTo(String from, String fallback) {
+        return "redirect:" + FixOrigin.returnTo(from).orElse(fallback);
+    }
+
 }

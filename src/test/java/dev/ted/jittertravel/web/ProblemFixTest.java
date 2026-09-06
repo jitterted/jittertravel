@@ -1,10 +1,14 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleProblem;
+import dev.ted.jittertravel.application.TravelLeg;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.GroundTransferId;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
@@ -200,6 +204,113 @@ class ProblemFixTest {
                 .allSatisfy(fix -> assertThat(fix.href())
                         .contains("&problem=travel%7CDenver%7C")
                         .endsWith("&from=calendar"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Overlapping travel
+    // -------------------------------------------------------------------------
+
+    @Test
+    void twoOverlappingTrainsOfferOneCancelLinkEach() {
+        TrainTripId early = TrainTripId.random();
+        TrainTripId late = TrainTripId.random();
+
+        List<ProblemFix> fixes = ProblemFix.forProblem(
+                overlap(new TravelLeg.Train(early, "ICE 597"), 9,
+                        new TravelLeg.Train(late, "ICE 599"), 10),
+                FixOrigin.PROBLEM_LIST);
+
+        assertThat(fixes)
+                .extracting(ProblemFix::href)
+                .allSatisfy(href -> assertThat(href).contains("&from=list"))
+                .satisfies(hrefs -> {
+                    assertThat(hrefs.get(0)).startsWith("/booked-trains/" + early.id() + "/cancel?problem=");
+                    assertThat(hrefs.get(1)).startsWith("/booked-trains/" + late.id() + "/cancel?problem=");
+                });
+    }
+
+    @Test
+    void theLabelLeadsWithTheDepartureTime() {
+        // Ted, 2026-09-06. The service id cannot be relied on to tell the two apart — it is
+        // optional on the form, and production's run to 51 characters.
+        List<ProblemFix> fixes = ProblemFix.forProblem(
+                overlap(new TravelLeg.Train(TrainTripId.random(), "ICE 597"), 9,
+                        new TravelLeg.Train(TrainTripId.random(), "ICE 599"), 10),
+                FixOrigin.PROBLEM_LIST);
+
+        assertThat(fixes)
+                .extracting(ProblemFix::label)
+                .containsExactly("Cancel 9:00 AM \u00b7 ICE 597", "Cancel 10:00 AM \u00b7 ICE 599");
+    }
+
+    @Test
+    void twoIdenticalLegsStillOfferTwoLinksToTwoDifferentTrips() {
+        // A true exact duplicate: same route, same times, same service id. The labels match, which
+        // is honest — the entries are interchangeable — but the hrefs must not.
+        TrainTripId one = TrainTripId.random();
+        TrainTripId two = TrainTripId.random();
+
+        List<ProblemFix> fixes = ProblemFix.forProblem(
+                overlap(new TravelLeg.Train(one, "ICE 597"), 9,
+                        new TravelLeg.Train(two, "ICE 597"), 9),
+                FixOrigin.PROBLEM_LIST);
+
+        assertThat(fixes)
+                .extracting(ProblemFix::label)
+                .containsExactly("Cancel 9:00 AM \u00b7 ICE 597", "Cancel 9:00 AM \u00b7 ICE 597");
+        assertThat(fixes.get(0).href())
+                .isNotEqualTo(fixes.get(1).href());
+    }
+
+    @Test
+    void aGroundTransferOffersItsOwnCancelPage() {
+        GroundTransferId transferId = GroundTransferId.random();
+
+        List<ProblemFix> fixes = ProblemFix.forProblem(
+                overlap(new TravelLeg.Train(TrainTripId.random(), "ICE 597"), 9,
+                        new TravelLeg.Transfer(transferId, "Berlin \u2192 hotel"), 10),
+                FixOrigin.PROBLEM_LIST);
+
+        assertThat(fixes.get(1).href())
+                .startsWith("/ground-transfers/" + transferId.id() + "/cancel?problem=");
+    }
+
+    @Test
+    void aFlightContributesNoLinkBecauseThereIsNoCancelFlight() {
+        List<ProblemFix> fixes = ProblemFix.forProblem(
+                overlap(new TravelLeg.Flight(FlightId.random(), "LH 402"), 9,
+                        new TravelLeg.Train(TrainTripId.random(), "ICE 599"), 10),
+                FixOrigin.PROBLEM_LIST);
+
+        assertThat(fixes)
+                .extracting(ProblemFix::label)
+                .containsExactly("Cancel 10:00 AM \u00b7 ICE 599");
+    }
+
+    @Test
+    void twoOverlappingFlightsOfferNoFixAtAll() {
+        // Reported anyway, and the renderers show the greyed "no fix yet" control — the same
+        // vocabulary a SchedulingConflict already uses.
+        List<ProblemFix> fixes = ProblemFix.forProblem(
+                overlap(new TravelLeg.Flight(FlightId.random(), "LH 402"), 9,
+                        new TravelLeg.Flight(FlightId.random(), "LH 404"), 10),
+                FixOrigin.PROBLEM_LIST);
+
+        assertThat(fixes)
+                .isEmpty();
+    }
+
+    private static ScheduleProblem.OverlappingTravel overlap(TravelLeg first, int firstHour,
+                                                             TravelLeg second, int secondHour) {
+        return new ScheduleProblem.OverlappingTravel(
+                new ScheduleProblem.OverlappingLeg(first, "Hamburg", "Berlin",
+                        berlinAt(firstHour), berlinAt(firstHour + 2)),
+                new ScheduleProblem.OverlappingLeg(second, "Hamburg", "Berlin",
+                        berlinAt(secondHour), berlinAt(secondHour + 2)));
+    }
+
+    private static ZonedTimestamp berlinAt(int hour) {
+        return ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, hour, 0), BERLIN);
     }
 
     private static ScheduleProblem.MissingTravel missingTravel() {

@@ -126,7 +126,7 @@ class ProblemContextBannerWebIntegrationTest {
         given(scheduleGapProjector.context()).willReturn(List.of());
 
         assertThat(mockMvc.get().uri("/plan-ground-transfer")
-                .param("problem", ProblemRef.of(gap).key())
+                .param("problem", ProblemKey.of(gap).value())
                 .param("from", "calendar"))
                 .hasStatusOk()
                 .bodyText()
@@ -196,7 +196,7 @@ class ProblemContextBannerWebIntegrationTest {
      */
     private MockMvcRequestBuilder fixLink(String path, FixOrigin origin) {
         return mockMvc.get().uri(path)
-                .param("problem", ProblemRef.of(MISSING_BED).key())
+                .param("problem", ProblemKey.of(MISSING_BED).value())
                 .param("from", origin.param());
     }
 }

@@ -19,6 +19,10 @@ import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.PrivateEventCancelled;
 import dev.ted.jittertravel.domain.PrivateEventId;
 import dev.ted.jittertravel.domain.PrivateEventPlanned;
+import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainCancelled;
+import dev.ted.jittertravel.domain.TrainStationAddress;
+import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -66,6 +70,7 @@ class CalendarRemovalPropagationTest {
         HotelBookingId bookingId = HotelBookingId.random();
         GroundTransferId transferId = GroundTransferId.random();
         PrivateEventId privateEventId = PrivateEventId.random();
+        TrainTripId tripId = TrainTripId.random();
         ConferenceId cancelledConference = ConferenceId.random();
         ConferenceId declinedConference = ConferenceId.random();
         ConferenceId confirmedThenCancelled = ConferenceId.random();
@@ -80,6 +85,12 @@ class CalendarRemovalPropagationTest {
                 arguments("a cancelled private event",
                         List.of(privateEventPlanned(privateEventId)),
                         new PrivateEventCancelled(privateEventId, "rescheduled to Friday")),
+                // The fifth removal event, and the known cost this class records: a new one needs
+                // a new row here and nothing forces it. A leftover on the public side would tell
+                // a stranger Ted travels between two cities on a day he does not.
+                arguments("a cancelled train trip",
+                        List.of(trainBooked(tripId)),
+                        new TrainCancelled(tripId, "rebooked for the 17th")),
                 arguments("an organizer-cancelled conference",
                         List.of(conferencePlanned(cancelledConference, "PLoP")),
                         new ConferenceCancelled(cancelledConference, "organizers pulled it")),
@@ -149,6 +160,15 @@ class CalendarRemovalPropagationTest {
             return new CalendarAggregator(conferences, flights, trains, hotels, gatherings,
                                           privateEvents, transfers).allEntries();
         }
+    }
+
+    private static TrainBooked trainBooked(TrainTripId tripId) {
+        return new TrainBooked(tripId,
+                new TrainStationAddress("Amsterdam Centraal", "Amsterdam", "Netherlands", ""),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, 9, 0), AMSTERDAM),
+                new TrainStationAddress("Brussel-Zuid", "Brussels", "Belgium", ""),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, 11, 0), AMSTERDAM),
+                "Thalys 9318");
     }
 
     private static HotelBooked hotelBooked(HotelBookingId bookingId) {

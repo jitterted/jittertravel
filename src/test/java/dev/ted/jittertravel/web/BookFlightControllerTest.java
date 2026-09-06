@@ -108,7 +108,7 @@ class BookFlightControllerTest {
 
     // The form GET only reads isReadOnly() and the clock; the AeroDataBoxClient is unused here.
     private FlightBooking writableService() {
-        return new FlightBooking(null, null) {
+        return new FlightBooking(null, null, null) {
             @Override public boolean isReadOnly() { return false; }
 
             @Override public void bookFlight(BookFlightRequest request, Instant now) {

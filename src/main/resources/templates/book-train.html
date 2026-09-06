@@ -125,6 +125,11 @@
     <div th:replace="~{fragments/problem-context :: problemContext}"></div>
 
     <form th:action="@{/book-train}" th:object="${bookTrain}" method="post">
+
+        <!-- Carries the fix link's origin through the POST (and through a validation
+             re-render) so the action returns to the report it was launched from.
+             Absent for an ordinary visit, which keeps this controller's own default. -->
+        <input type="hidden" name="from" th:if="${fixOrigin != null}" th:value="${fixOrigin}"/>
         <input type="hidden" th:field="*{trainTripId}"/>
 
         <div class="error error-summary" th:if="${#fields.hasGlobalErrors()}" th:errors="*{global}"></div>
@@ -183,6 +188,8 @@
                     <span class="error"
                           th:if="${#fields.hasErrors('departureDateTime')}"
                           th:errors="*{departureDateTime}"></span>
+                    <a class="overlap-link" th:if="${overlappingLeg != null}"
+                       th:href="${overlappingLeg.path()}" th:text="${overlappingLeg.label()}">Open that train</a>
                 </div>
                 <div class="field">
                     <label>

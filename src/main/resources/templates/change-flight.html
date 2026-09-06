@@ -81,6 +81,8 @@
                     <span class="error"
                           th:if="${#fields.hasErrors('departureDateTime')}"
                           th:errors="*{departureDateTime}"></span>
+                    <a class="overlap-link" th:if="${overlappingLeg != null}"
+                       th:href="${overlappingLeg.path()}" th:text="${overlappingLeg.label()}">Open that flight</a>
                 </div>
                 <div class="field">
                     <label>

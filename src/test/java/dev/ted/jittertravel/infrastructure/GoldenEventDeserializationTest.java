@@ -25,6 +25,7 @@ import dev.ted.jittertravel.domain.TalkRejected;
 import dev.ted.jittertravel.domain.TalkSubmitted;
 import dev.ted.jittertravel.domain.TalkWithdrawn;
 import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainCancelled;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.DeserializationFeature;
@@ -1161,6 +1162,41 @@ class GoldenEventDeserializationTest {
         assertThat(event.arrivalDateTime())
                 .isEqualTo(ZonedTimestamp.fromLocal(
                         LocalDateTime.of(2026, 6, 7, 11, 45), ZoneId.of("Europe/Berlin")));
+    }
+
+    @Test
+    void trainCancelledSampleDeserializes() {
+        // The trip id and an optional note. Additive: a new event type at schema_version 1, so no
+        // existing TrainBooked payload changed shape and every earlier backup still restores.
+        String json = """
+                {
+                  "tripId": {"id": "77777777-7777-7777-7777-777777777777"},
+                  "reason": "Rebooked for the 17th"
+                }
+                """;
+
+        TrainCancelled event = deserialize(json, TrainCancelled.class);
+
+        assertThat(event.tripId().id())
+                .isEqualTo(UUID.fromString("77777777-7777-7777-7777-777777777777"));
+        assertThat(event.reason())
+                .isEqualTo("Rebooked for the 17th");
+    }
+
+    @Test
+    void trainCancelledWithNoReasonDeserializesToTheEmptyString() {
+        // The reason is optional, so a payload written without one must not produce a null String
+        // (no-null-Strings rule) — the compact constructor is what makes that true on the way in.
+        String json = """
+                {
+                  "tripId": {"id": "77777777-7777-7777-7777-777777777777"}
+                }
+                """;
+
+        TrainCancelled event = deserialize(json, TrainCancelled.class);
+
+        assertThat(event.reason())
+                .isEqualTo("");
     }
 
     private static <T> T deserialize(String json, Class<T> type) {

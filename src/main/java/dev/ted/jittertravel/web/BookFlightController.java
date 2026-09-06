@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.FlightBooking;
 import dev.ted.jittertravel.application.ReadOnlyModeException;
+import dev.ted.jittertravel.domain.OverlappingLegRefused;
 import dev.ted.jittertravel.domain.AirportCityResolver;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
@@ -90,7 +91,9 @@ public class BookFlightController {
 
     @PostMapping("/book-flight")
     public String bookFlightSubmit(@ModelAttribute("bookFlight") BookFlightRequest command,
-                                   BindingResult bindingResult) {
+                                   BindingResult bindingResult,
+                                   @RequestParam(value = "from", required = false) String from,
+                                   Model model) {
         if (applicationService.isReadOnly()) {
             return "redirect:/read-only";
         }
@@ -101,6 +104,12 @@ public class BookFlightController {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {
             bindingResult.rejectValue("arrivalDateTime", "afterDeparture", e.getMessage());
+        } catch (OverlappingLegRefused e) {
+            // On the departure time, because changing these times is the fix this form offers; the
+            // other way out — dealing with the leg already booked — is the link beside it.
+            bindingResult.rejectValue("departureDateTime", "overlapping",
+                    OverlappingLegNotice.from(e).message());
+            model.addAttribute("overlappingLeg", OverlappingLegNotice.from(e));
         } catch (InvalidAirportCode e) {
             bindingResult.reject("airportCode", e.getMessage());
         } catch (ZoneResolutionException e) {
@@ -116,7 +125,7 @@ public class BookFlightController {
             return "book-flight";
         }
 
-        return "redirect:/booked-flights";
+        return returnTo(from, "/booked-flights");
     }
 
     @PostMapping("/book-flight/lookup")
@@ -190,6 +199,16 @@ public class BookFlightController {
     /** Empty unless the city has exactly one airport — see {@link AirportCityResolver#soleAirportFor}. */
     private Optional<String> soleAirport(String city) {
         return city == null || city.isBlank() ? Optional.empty() : airportCities.soleAirportFor(city);
+    }
+
+    /**
+     * Where to land after a successful action: back at the report when Ted arrived from a fix link,
+     * otherwise this controller's own default. Only the <em>success</em> path takes it — a
+     * read-only refusal or a stale-link miss has not fixed anything, so it still goes where it
+     * always did.
+     */
+    private static String returnTo(String from, String fallback) {
+        return "redirect:" + FixOrigin.returnTo(from).orElse(fallback);
     }
 
 }

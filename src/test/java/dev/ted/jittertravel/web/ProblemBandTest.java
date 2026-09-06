@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleProblem;
+import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.application.TravelLeg;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.GatheringId;
@@ -235,6 +237,62 @@ class ProblemBandTest {
 
         assertThat(ProblemBand.from(problem).fixes())
                 .isEqualTo(ProblemFix.forProblem(problem, FixOrigin.PROBLEM_CALENDAR));
+    }
+
+    @Test
+    void overlappingTravelBandSpansEveryDayEitherLegTouches() {
+        // Min through max, never one leg's dates: two legs in different zones can fall on
+        // different local dates, and a band running backwards renders as nothing at all.
+        ProblemBand band = ProblemBand.from(new ScheduleProblem.OverlappingTravel(
+                overlapLeg("ICE 597", LocalDateTime.of(2026, 6, 1, 23, 0),
+                        LocalDateTime.of(2026, 6, 2, 3, 0)),
+                overlapLeg("ICE 599", LocalDateTime.of(2026, 6, 2, 0, 0),
+                        LocalDateTime.of(2026, 6, 2, 2, 0))));
+
+        assertThat(band.firstDay())
+                .isEqualTo(LocalDate.of(2026, 6, 1));
+        assertThat(band.lastDay())
+                .isEqualTo(LocalDate.of(2026, 6, 2));
+    }
+
+    @Test
+    void overlappingTravelBandNamesBothLegsAndSharesTheTravelLane() {
+        ProblemBand band = ProblemBand.from(new ScheduleProblem.OverlappingTravel(
+                overlapLeg("ICE 597", LocalDateTime.of(2026, 6, 1, 9, 0),
+                        LocalDateTime.of(2026, 6, 1, 11, 0)),
+                overlapLeg("ICE 599", LocalDateTime.of(2026, 6, 1, 10, 0),
+                        LocalDateTime.of(2026, 6, 1, 12, 0))));
+
+        assertThat(band.title())
+                .isEqualTo("Two trips at once \u2014 ICE 597 \u00b7 ICE 599");
+        assertThat(band.marker())
+                .isEqualTo(ProblemBand.Marker.TRAVEL_OVERLAP);
+        assertThat(band.lane())
+                .as("a missing journey and two journeys at once are both 'travel is wrong today'")
+                .isEqualTo(ProblemBand.Lane.TRAVEL);
+    }
+
+    @Test
+    void overlappingTravelBandOffersACancelLinkPerLeg() {
+        ProblemBand band = ProblemBand.from(new ScheduleProblem.OverlappingTravel(
+                overlapLeg("ICE 597", LocalDateTime.of(2026, 6, 1, 9, 0),
+                        LocalDateTime.of(2026, 6, 1, 11, 0)),
+                overlapLeg("ICE 599", LocalDateTime.of(2026, 6, 1, 10, 0),
+                        LocalDateTime.of(2026, 6, 1, 12, 0))));
+
+        assertThat(band.fixes())
+                .extracting(ProblemFix::label)
+                .containsExactly("Cancel 9:00 AM \u00b7 ICE 597", "Cancel 10:00 AM \u00b7 ICE 599");
+    }
+
+    private static ScheduleProblem.OverlappingLeg overlapLeg(String serviceId,
+                                                             LocalDateTime departure,
+                                                             LocalDateTime arrival) {
+        ZoneId berlin = ZoneId.of("Europe/Berlin");
+        return new ScheduleProblem.OverlappingLeg(
+                new TravelLeg.Train(TrainTripId.random(), serviceId), "Hamburg", "Berlin",
+                ZonedTimestamp.fromLocal(departure, berlin),
+                ZonedTimestamp.fromLocal(arrival, berlin));
     }
 
 }

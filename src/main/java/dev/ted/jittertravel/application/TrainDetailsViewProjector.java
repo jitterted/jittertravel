@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.TrainBooked;
+import dev.ted.jittertravel.domain.TrainCancelled;
 import dev.ted.jittertravel.domain.TrainChanged;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
@@ -33,6 +34,10 @@ public class TrainDetailsViewProjector implements EventStreamConsumer {
                 case TrainChanged e -> viewsByTrip.put(e.tripId(), toView(
                         e.tripId(), e.departureStation(), e.departureDateTime(),
                         e.arrivalStation(), e.arrivalDateTime(), e.serviceId()));
+                // Also drops the trip as a ground-transfer endpoint source: a `train:<id>:arrival`
+                // token submitted after this point resolves to UnknownTransferEndpoint, which
+                // GroundTransferEndpointResolver already reports as "no longer available".
+                case TrainCancelled e -> viewsByTrip.remove(e.tripId());
                 default -> { /* not a train event */ }
             }
         });

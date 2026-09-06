@@ -10,6 +10,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -52,7 +53,8 @@ public class CancelGroundTransferController {
     }
 
     @PostMapping("/ground-transfers/{groundTransferId}/cancel")
-    public String cancelGroundTransfer(@PathVariable("groundTransferId") String groundTransferIdString) {
+    public String cancelGroundTransfer(@PathVariable("groundTransferId") String groundTransferIdString,
+                                       @RequestParam(value = "from", required = false) String from) {
         Optional<GroundTransferDetailsView> maybe = lookup(groundTransferIdString);
         if (maybe.isEmpty()) {
             return "redirect:/itinerary";
@@ -71,7 +73,7 @@ public class CancelGroundTransferController {
             return "redirect:/itinerary";
         }
 
-        return "redirect:/itinerary?date=" + day;
+        return returnTo(from, "/itinerary?date=" + day);
     }
 
     private Optional<GroundTransferDetailsView> lookup(String groundTransferIdString) {
@@ -81,4 +83,14 @@ public class CancelGroundTransferController {
             return Optional.empty();
         }
     }
+
+    /**
+     * Where to land after a successful cancellation: back at the report when Ted arrived from a fix
+     * link, otherwise this controller's own default. Only the <em>success</em> path takes it — a
+     * stale link or an already-cancelled miss has fixed nothing, so it still goes where it did.
+     */
+    private static String returnTo(String from, String fallback) {
+        return "redirect:" + FixOrigin.returnTo(from).orElse(fallback);
+    }
+
 }

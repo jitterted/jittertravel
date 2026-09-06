@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleProblem;
+import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.application.TravelLeg;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.GatheringId;
@@ -23,14 +25,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * writes it, {@link ProblemContextLookup} matches on it — so a key that changes shape on one side
  * silently stops matching, and the banner quietly disappears rather than failing.
  */
-class ProblemRefTest {
+class ProblemKeyTest {
 
     private static final ZoneId DENVER = ZoneId.of("America/Denver");
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
 
     @Test
     void aMissingHotelIsNamedByItsCityAndItsNights() {
-        assertThat(ProblemRef.of(missingHotel("Denver", 14, 18)).key())
+        assertThat(ProblemKey.of(missingHotel("Denver", 14, 18)).value())
                 .isEqualTo("hotel|Denver|2026-09-14|2026-09-18");
     }
 
@@ -43,8 +45,8 @@ class ProblemRefTest {
         ScheduleProblem.MissingHotel withConference = new ScheduleProblem.MissingHotel(
                 "Denver", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18), "dev2next");
 
-        assertThat(ProblemRef.of(withConference).key())
-                .isEqualTo(ProblemRef.of(missingHotel("Denver", 14, 18)).key());
+        assertThat(ProblemKey.of(withConference).value())
+                .isEqualTo(ProblemKey.of(missingHotel("Denver", 14, 18)).value());
     }
 
     /**
@@ -57,7 +59,7 @@ class ProblemRefTest {
                 "Denver", zoned(2026, 9, 14, 11, 30, DENVER),
                 "Tokyo", zoned(2026, 9, 16, 9, 0, TOKYO));
 
-        assertThat(ProblemRef.of(gap).key())
+        assertThat(ProblemKey.of(gap).value())
                 .isEqualTo("travel|Denver|2026-09-14T17:30:00Z|Tokyo|2026-09-16T00:00:00Z");
     }
 
@@ -75,7 +77,7 @@ class ProblemRefTest {
                 List.of(new ScheduleProblem.DuplicateStay(reichshof, "Reichshof", "Hamburg", BookingIntent.FINAL),
                         new ScheduleProblem.DuplicateStay(parkHotel, "Park Hotel", "Soltau", BookingIntent.TENTATIVE)));
 
-        assertThat(ProblemRef.of(duplicate).key())
+        assertThat(ProblemKey.of(duplicate).value())
                 .isEqualTo("dup|2026-08-26|2026-08-28"
                            + "|11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222");
     }
@@ -89,7 +91,7 @@ class ProblemRefTest {
                 "Aachen JUG", "Aachen", "DDD Europe", "Antwerp",
                 LocalDate.of(2026, 6, 11), gathering, conference);
 
-        assertThat(ProblemRef.of(conflict).key())
+        assertThat(ProblemKey.of(conflict).value())
                 .isEqualTo("city|33333333-3333-3333-3333-333333333333"
                            + "|44444444-4444-4444-4444-444444444444|2026-06-11");
     }
@@ -100,21 +102,21 @@ class ProblemRefTest {
      */
     @Test
     void aSchedulingConflictIsNamedByBothSidesAndWhenTheyStart() {
-        assertThat(ProblemRef.of(schedulingConflict()).key())
+        assertThat(ProblemKey.of(schedulingConflict()).value())
                 .isEqualTo("clash|Aachen JUG|2026-09-08T17:00:00Z|Tokyo JUG|2026-09-09T01:00:00Z");
     }
 
     @Test
     void twoProblemsOfTheSameKindGetDifferentKeys() {
-        assertThat(ProblemRef.of(missingHotel("Denver", 14, 18)).key())
-                .isNotEqualTo(ProblemRef.of(missingHotel("Denver", 19, 21)).key());
-        assertThat(ProblemRef.of(missingHotel("Denver", 14, 18)).key())
-                .isNotEqualTo(ProblemRef.of(missingHotel("Lone Tree", 14, 18)).key());
+        assertThat(ProblemKey.of(missingHotel("Denver", 14, 18)).value())
+                .isNotEqualTo(ProblemKey.of(missingHotel("Denver", 19, 21)).value());
+        assertThat(ProblemKey.of(missingHotel("Denver", 14, 18)).value())
+                .isNotEqualTo(ProblemKey.of(missingHotel("Lone Tree", 14, 18)).value());
     }
 
     @Test
     void aReferenceMatchesTheProblemItNamesAndNoOther() {
-        ProblemRef ref = ProblemRef.of(missingHotel("Denver", 14, 18));
+        ProblemKey ref = ProblemKey.of(missingHotel("Denver", 14, 18));
 
         assertThat(ref.matches(missingHotel("Denver", 14, 18)))
                 .as("the same problem, recomputed from the same events, is still the same problem")
@@ -143,4 +145,48 @@ class ProblemRefTest {
     private static ZonedTimestamp zoned(int year, int month, int day, int hour, int minute, ZoneId zone) {
         return ZonedTimestamp.fromLocal(LocalDateTime.of(year, month, day, hour, minute), zone);
     }
+    @Test
+    void overlappingTravelIsKeyedByBothLegsPages() {
+        TrainTripId early = TrainTripId.random();
+        TrainTripId late = TrainTripId.random();
+        ScheduleProblem overlap = overlap(early, late);
+
+        assertThat(ProblemKey.of(overlap).value())
+                .isEqualTo("legs|/booked-trains/" + early.id() + "|/booked-trains/" + late.id());
+    }
+
+    @Test
+    void twoOverlapsOverTheSameLegDoNotCollide() {
+        // Three mutually overlapping legs produce three pairs, and each must key differently or a
+        // fix link would resolve to the wrong pair's banner.
+        TrainTripId a = TrainTripId.random();
+        TrainTripId b = TrainTripId.random();
+        TrainTripId c = TrainTripId.random();
+
+        assertThat(ProblemKey.of(overlap(a, b)).value())
+                .isNotEqualTo(ProblemKey.of(overlap(a, c)).value());
+    }
+
+    @Test
+    void anOverlapKeyMatchesTheProblemItNames() {
+        ScheduleProblem overlap = overlap(TrainTripId.random(), TrainTripId.random());
+
+        assertThat(ProblemKey.of(overlap).matches(overlap))
+                .isTrue();
+    }
+
+    private static ScheduleProblem.OverlappingTravel overlap(TrainTripId first, TrainTripId second) {
+        return new ScheduleProblem.OverlappingTravel(
+                overlapLeg(first, 9), overlapLeg(second, 10));
+    }
+
+    private static ScheduleProblem.OverlappingLeg overlapLeg(TrainTripId tripId, int hour) {
+        return new ScheduleProblem.OverlappingLeg(
+                new TravelLeg.Train(tripId, "ICE 597"), "Hamburg", "Berlin",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, hour, 0),
+                        ZoneId.of("Europe/Berlin")),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, hour + 2, 0),
+                        ZoneId.of("Europe/Berlin")));
+    }
+
 }

@@ -131,7 +131,7 @@ class ProblemContextLookupTest {
     }
 
     private Optional<ProblemContextView> bannerFor(ScheduleProblem problem, FixOrigin origin) {
-        return lookup().forKey(ProblemRef.of(problem).key(), origin, NOW);
+        return lookup().forKey(ProblemKey.of(problem).value(), origin, NOW);
     }
 
     private ProblemContextLookup lookup() {

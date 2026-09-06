@@ -1,11 +1,16 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleProblem;
+import dev.ted.jittertravel.application.TravelLeg;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * One way to fix one {@link ScheduleProblem}: the words on the link, and where it goes.
@@ -26,6 +31,15 @@ import java.util.List;
  * the right values in the inputs, and the banner is the sentence that made them the right ones.
  */
 public record ProblemFix(String label, String href) {
+
+    /**
+     * Wall-clock at the leg's own end. Its own constant rather than one shared with
+     * {@code ProblemBand}: a band's detail and a link's label are different sentences that
+     * happen to agree today, and a shared formatter would be a single-method utility class
+     * standing between them.
+     */
+    private static final DateTimeFormatter LEG_TIME =
+            DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
 
     /**
      * The fixes for {@code problem}, in the order they should be offered. Empty means the problem
@@ -51,7 +65,7 @@ public record ProblemFix(String label, String href) {
     private ProblemFix explaining(ScheduleProblem problem, FixOrigin origin) {
         String separator = href.contains("?") ? "&" : "?";
         return new ProblemFix(label, href + separator
-                                     + "problem=" + encode(ProblemRef.of(problem).key())
+                                     + "problem=" + encode(ProblemKey.of(problem).value())
                                      + "&from=" + origin.param());
     }
 
@@ -60,6 +74,7 @@ public record ProblemFix(String label, String href) {
             case ScheduleProblem.MissingHotel missingHotel -> List.of(bookHotel(missingHotel));
             case ScheduleProblem.MissingTravel missingTravel -> travelFixes(missingTravel);
             case ScheduleProblem.DuplicateHotel duplicateHotel -> cancelEachStay(duplicateHotel);
+            case ScheduleProblem.OverlappingTravel overlap -> cancelEachLeg(overlap);
             case ScheduleProblem.DifferentCityConflict cityConflict -> List.of(clearConflict(cityConflict));
             // Its two sides are names, cities and times with no ids, and either may be a gathering
             // or a private event — so a link would need a kind+id reference the record does not
@@ -110,6 +125,52 @@ public record ProblemFix(String label, String href) {
                     "/booked-hotels/" + stay.bookingId().id() + "/cancel"));
         }
         return List.copyOf(fixes);
+    }
+
+    /**
+     * One link per leg, never a single "cancel the redundant one" — which of two overlapping legs
+     * is the real one is Ted's call, exactly as it is for two overlapping hotel stays.
+     * <p>
+     * <strong>The label leads with the departure time</strong> (Ted, 2026-09-06), because the leg's
+     * own name does not always distinguish the two. A train's service id is optional on the form,
+     * and two <em>duplicate</em> legs entered without one fall back to the same route — two links
+     * reading "Cancel Hamburg → Berlin", pointing at different trips, in exactly the situation this
+     * detector exists for. The time is always there and always short. (Production's service ids run
+     * to 51 characters, so leading with the name would not fit a chip either.)
+     * <p>
+     * A true exact duplicate — same route, same times, same service id — still produces two
+     * identical labels. That is honest: the entries are interchangeable and it does not matter
+     * which one goes. Numbering them would imply an order the report does not have.
+     * <p>
+     * <strong>A flight contributes no link</strong>, because there is no Cancel Flight. The switch
+     * is exhaustive over {@link TravelLeg}, so the day one ships the compiler asks for its URL here
+     * rather than letting a default arm go on offering nothing.
+     */
+    private static List<ProblemFix> cancelEachLeg(ScheduleProblem.OverlappingTravel overlap) {
+        return Stream.of(overlap.first(), overlap.second())
+                .map(ProblemFix::cancelLeg)
+                .flatMap(Optional::stream)
+                .toList();
+    }
+
+    private static Optional<ProblemFix> cancelLeg(ScheduleProblem.OverlappingLeg leg) {
+        return cancelPath(leg.leg())
+                .map(path -> new ProblemFix(
+                        "Cancel " + LEG_TIME.format(leg.departure().atEntryZone())
+                        + " \u00b7 " + leg.leg().label(),
+                        path));
+    }
+
+    private static Optional<String> cancelPath(TravelLeg leg) {
+        return switch (leg) {
+            case TravelLeg.Train train -> Optional.of("/booked-trains/" + train.id().id() + "/cancel");
+            case TravelLeg.Transfer transfer ->
+                    Optional.of("/ground-transfers/" + transfer.id().id() + "/cancel");
+            // No Cancel Flight yet. Deliberately not an "Edit this flight" link instead: editing
+            // does not remove a duplicate, and a link that cannot fix the problem it hangs off is
+            // worse than the greyed "no fix yet" control the renderers already show.
+            case TravelLeg.Flight ignored -> Optional.empty();
+        };
     }
 
     /** The existing URL, moved here unchanged so the band and the card demonstrably share it. */

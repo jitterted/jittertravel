@@ -102,6 +102,11 @@
     </p>
 
     <form th:action="@{|/booked-hotels/${booking.hotelBookingId().id()}/cancel|}" method="post">
+
+        <!-- Carries the fix link's origin through the POST (and through a validation
+             re-render) so the action returns to the report it was launched from.
+             Absent for an ordinary visit, which keeps this controller's own default. -->
+        <input type="hidden" name="from" th:if="${fixOrigin != null}" th:value="${fixOrigin}"/>
         <div class="field">
             <label>
                 Reason (optional)

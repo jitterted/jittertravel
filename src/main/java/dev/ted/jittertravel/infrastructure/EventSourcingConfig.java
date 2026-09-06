@@ -166,8 +166,9 @@ public class EventSourcingConfig {
 
     @Bean
     public FlightBooking flightBookingApplicationService(CommandExecutor commandExecutor,
-                                                         AirportZoneResolver airportZoneResolver) {
-        return new FlightBooking(commandExecutor, airportZoneResolver);
+                                                         AirportZoneResolver airportZoneResolver,
+                                                     LiveScheduledLegs liveScheduledLegs) {
+        return new FlightBooking(commandExecutor, airportZoneResolver, liveScheduledLegs);
     }
 
     @Bean
@@ -198,8 +199,10 @@ public class EventSourcingConfig {
     @Bean
     public ChangeFlight changeFlightApplicationService(CommandExecutor commandExecutor,
                                                        FlightDetailsViewProjector flightDetailsViewProjector,
-                                                       AirportZoneResolver airportZoneResolver) {
-        return new ChangeFlight(commandExecutor, flightDetailsViewProjector, airportZoneResolver);
+                                                       AirportZoneResolver airportZoneResolver,
+                                                   LiveScheduledLegs liveScheduledLegs) {
+        return new ChangeFlight(commandExecutor, flightDetailsViewProjector, airportZoneResolver,
+                liveScheduledLegs);
     }
 
     @Bean
@@ -297,17 +300,30 @@ public class EventSourcingConfig {
         return bootstrapper.register(new TrainDetailsViewProjector());
     }
 
+    /**
+     * One fold shared by all four write paths that refuse an overlapping journey — book and change,
+     * train and flight. Reads the event stream through {@link CommandExecutor}, never a projector
+     * (R1), and applies cancellations so a cancelled trip cannot block a booking.
+     */
+    @Bean
+    public LiveScheduledLegs liveScheduledLegs(CommandExecutor commandExecutor) {
+        return new LiveScheduledLegs(commandExecutor);
+    }
+
     @Bean
     public ChangeTrain changeTrainApplicationService(CommandExecutor commandExecutor,
                                                      TrainDetailsViewProjector trainDetailsViewProjector,
-                                                     LocationZoneResolver locationZoneResolver) {
-        return new ChangeTrain(commandExecutor, trainDetailsViewProjector, locationZoneResolver);
+                                                     LocationZoneResolver locationZoneResolver,
+                                                 LiveScheduledLegs liveScheduledLegs) {
+        return new ChangeTrain(commandExecutor, trainDetailsViewProjector, locationZoneResolver,
+                liveScheduledLegs);
     }
 
     @Bean
     public TrainBooking trainBookingApplicationService(CommandExecutor commandExecutor,
-                                                       LocationZoneResolver locationZoneResolver) {
-        return new TrainBooking(commandExecutor, locationZoneResolver);
+                                                       LocationZoneResolver locationZoneResolver,
+                                                   LiveScheduledLegs liveScheduledLegs) {
+        return new TrainBooking(commandExecutor, locationZoneResolver, liveScheduledLegs);
     }
 
     @Bean
@@ -394,6 +410,17 @@ public class EventSourcingConfig {
     @Bean
     public CancelPrivateEvent cancelPrivateEventApplicationService(CommandExecutor commandExecutor) {
         return new CancelPrivateEvent(commandExecutor);
+    }
+
+    /**
+     * No projector dependency, like the three cancels around it: {@link CancelTrain} folds its one
+     * decision fact from the event stream (R1), not from a read model — deliberately unlike its
+     * sibling {@link ChangeTrain}, which reads existence from the details projector. No {@code now}
+     * either; cancelling is not time-gated.
+     */
+    @Bean
+    public CancelTrain cancelTrainApplicationService(CommandExecutor commandExecutor) {
+        return new CancelTrain(commandExecutor);
     }
 
     /**

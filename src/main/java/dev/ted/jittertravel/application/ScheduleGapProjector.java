@@ -91,22 +91,29 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         events.forEach(stored -> {
             switch (stored.payload()) {
                 case FlightBooked e -> flightLegs.put(e.flightId(), flightLeg(
+                        e.flightId(), e.airline(), e.flightNumber(),
                         e.departureAirport(), e.departureDateTime(),
                         e.arrivalAirport(), e.arrivalDateTime()));
                 case FlightChanged e -> flightLegs.put(e.flightId(), flightLeg(
+                        e.flightId(), e.airline(), e.flightNumber(),
                         e.departureAirport(), e.departureDateTime(),
                         e.arrivalAirport(), e.arrivalDateTime()));
-                case TrainBooked e -> trainLegs.put(e.tripId(), new ScheduleTimeline.Movement(
-                        Place.of(e.departureStation()).value(), e.departureDateTime(),
-                        Place.of(e.arrivalStation()).value(), e.arrivalDateTime()));
-                case TrainChanged e -> trainLegs.put(e.tripId(), new ScheduleTimeline.Movement(
-                        Place.of(e.departureStation()).value(), e.departureDateTime(),
-                        Place.of(e.arrivalStation()).value(), e.arrivalDateTime()));
+                case TrainBooked e -> trainLegs.put(e.tripId(), trainLeg(
+                        e.tripId(), e.serviceId(), e.departureStation(), e.departureDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime()));
+                case TrainChanged e -> trainLegs.put(e.tripId(), trainLeg(
+                        e.tripId(), e.serviceId(), e.departureStation(), e.departureDateTime(),
+                        e.arrivalStation(), e.arrivalDateTime()));
+                // The reason cancel was built at all: a wrong leg is a Movement asserting Ted
+                // travelled between two cities, and left in place its arrival becomes the walk's
+                // last word on where he is — inventing a city that then feeds the missing-hotel
+                // sweep, the away band and atHomeOn.
+                case TrainCancelled e -> trainLegs.remove(e.tripId());
                 // The whole point of a ground transfer: it is a leg like any other, so the gap it
                 // fills stops being reported. Both ends are Places — the hotel's own, or the
                 // airport's city — which is what the timeline matches conferences and stays against.
                 case GroundTransferPlanned e -> groundTransfers.put(e.groundTransferId(),
-                        new ScheduleTimeline.Movement(
+                        transferLeg(e.groundTransferId(),
                                 Place.of(e.origin()).value(), e.departsAt(),
                                 Place.of(e.destination()).value(), e.arrivesAt()));
                 // The point of cancelling: a wrong transfer must stop asserting that the hop
@@ -321,6 +328,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
         problems.addAll(timeline.missingTravel());
         problems.addAll(timeline.missingHotels());
         problems.addAll(timeline.duplicateHotels());
+        problems.addAll(timeline.overlappingTravel());
         problems.addAll(overlappingOccupancies());
         problems.addAll(differentCityConflicts());
 
@@ -334,23 +342,72 @@ public class ScheduleGapProjector implements EventStreamConsumer {
             case ScheduleProblem.MissingTravel mt -> mt.arrivedAt().localDateTime().toLocalDate();
             case ScheduleProblem.MissingHotel mh -> mh.checkIn();
             case ScheduleProblem.DuplicateHotel dh -> dh.firstNight();
+            case ScheduleProblem.OverlappingTravel ot -> ot.first().departure().localDateTime().toLocalDate();
             case ScheduleProblem.SchedulingConflict sc -> sc.first().startsAt().localDateTime().toLocalDate();
             case ScheduleProblem.DifferentCityConflict dc -> dc.date();
         };
     }
 
+    /**
+     * Every booked leg, in a <strong>total</strong> order.
+     * <p>
+     * Departure instant alone is not one: two legs leaving at the same moment — which is what an
+     * exact duplicate entry looks like — sort in whatever order the three
+     * {@link ConcurrentHashMap}s iterate in. That is invisible for the walk, which re-sorts its own
+     * points, but {@code overlappingTravel} reports <em>pairs in this order</em> and
+     * {@code ProblemKey} is derived from it.
+     * <p>
+     * <strong>Be precise about what the tiebreaker buys, because the obvious claim is wrong.</strong>
+     * It is <em>not</em> protection against a key flipping between recomputes: a
+     * {@code ConcurrentHashMap} over a fixed key set iterates deterministically, so the same events
+     * already produce the same order with or without it (measured, 2026-09-06 — which is why the
+     * test here asserts the ordering rule rather than "stable across recomputes", an assertion that
+     * can never fail and would pin nothing). What it buys is that the order is <strong>ours</strong>
+     * rather than an artefact of how UUIDs happen to hash: changing the map type, the fold, or the
+     * way legs are collected would otherwise silently renumber every open fix link, and nothing
+     * would say so.
+     */
     private List<ScheduleTimeline.Movement> allLegs() {
         return Stream.of(flightLegs.values().stream(), trainLegs.values().stream(),
                          groundTransfers.values().stream())
                 .flatMap(legs -> legs)
-                .sorted(Comparator.comparing(leg -> leg.departure().utc()))
+                .sorted(Comparator.comparing((ScheduleTimeline.Movement leg) -> leg.departure().utc())
+                                .thenComparing(leg -> leg.leg().detailsPath()))
                 .toList();
     }
 
-    private ScheduleTimeline.Movement flightLeg(AirportCode dep, ZonedTimestamp depDt,
+    private ScheduleTimeline.Movement flightLeg(FlightId flightId, String airline, String flightNumber,
+                                                AirportCode dep, ZonedTimestamp depDt,
                                                 AirportCode arr, ZonedTimestamp arrDt) {
-        return new ScheduleTimeline.Movement(Place.of(dep, cityResolver).value(), depDt,
+        return new ScheduleTimeline.Movement(
+                new TravelLeg.Flight(flightId, (airline + " " + flightNumber).trim()),
+                Place.of(dep, cityResolver).value(), depDt,
                 Place.of(arr, cityResolver).value(), arrDt);
+    }
+
+    /**
+     * The service id names a train where it has one, and it usually does — all twelve trips in the
+     * 2026-09-06 production log carry one. Where it is blank the route stands in, so the label is
+     * never empty; it is not a <em>disambiguator</em> then, which is why {@code ProblemFix} leads
+     * with the departure time rather than with this.
+     */
+    private static ScheduleTimeline.Movement trainLeg(TrainTripId tripId, String serviceId,
+                                                      TrainStationAddress dep, ZonedTimestamp depDt,
+                                                      TrainStationAddress arr, ZonedTimestamp arrDt) {
+        String from = Place.of(dep).value();
+        String to = Place.of(arr).value();
+        String label = serviceId.isBlank() ? from + " \u2192 " + to : serviceId;
+        return new ScheduleTimeline.Movement(new TravelLeg.Train(tripId, label),
+                from, depDt, to, arrDt);
+    }
+
+    /** A transfer has no service id and no name of its own, so its route is what it is called. */
+    private static ScheduleTimeline.Movement transferLeg(GroundTransferId transferId,
+                                                         String from, ZonedTimestamp depDt,
+                                                         String to, ZonedTimestamp arrDt) {
+        return new ScheduleTimeline.Movement(
+                new TravelLeg.Transfer(transferId, from + " \u2192 " + to),
+                from, depDt, to, arrDt);
     }
 
     /**

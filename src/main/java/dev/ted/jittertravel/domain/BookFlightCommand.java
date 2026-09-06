@@ -20,6 +20,12 @@ public record BookFlightCommand(
         if (!arrivalDateTime.utc().isAfter(departureDateTime.utc())) {
             throw new InvalidDateRange("Arrival date/time must be after departure date/time");
         }
+        // Last of the rules, and after the dates on purpose: an overlap is only a meaningful
+        // question once the window itself is valid, and testing it against a past or inverted
+        // range would report a collision that says nothing about what is wrong.
+        context.scheduledLegs()
+                .overlapping(null, departureDateTime, arrivalDateTime)
+                .ifPresent(blocking -> { throw new OverlappingLegRefused(blocking); });
         return Stream.of(new FlightBooked(flightId, airline, flightNumber,
                 departureAirport, departureDateTime, arrivalAirport, arrivalDateTime));
     }

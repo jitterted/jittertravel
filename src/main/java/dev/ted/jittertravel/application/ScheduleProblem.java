@@ -19,7 +19,7 @@ import java.util.List;
  */
 public sealed interface ScheduleProblem extends TemporalView
         permits ScheduleProblem.MissingTravel, ScheduleProblem.MissingHotel,
-                ScheduleProblem.DuplicateHotel,
+                ScheduleProblem.DuplicateHotel, ScheduleProblem.OverlappingTravel,
                 ScheduleProblem.SchedulingConflict, ScheduleProblem.DifferentCityConflict {
 
     /**
@@ -136,6 +136,50 @@ public sealed interface ScheduleProblem extends TemporalView
             String city,
             ZonedTimestamp startsAt,
             ZonedTimestamp endsAt
+    ) {}
+
+    /**
+     * Two booked legs whose times overlap — he can only be on one of them. The paired opposite of
+     * {@link MissingTravel}: one reports a journey nothing carries him through, this one reports two
+     * journeys carrying him at once.
+     * <p>
+     * <strong>Not "DuplicateTravel".</strong> The two legs need not be duplicates: Hamburg→Berlin
+     * overlapping Hamburg→Munich is the same impossibility, and so is a flight overlapping a train.
+     * The kinds are deliberately not part of the question.
+     * <p>
+     * Each side carries its <em>own</em> {@link ZonedTimestamp}s and cities, for the reason
+     * {@link SchedulingConflict} does: two overlapping legs in different zones fall on different
+     * local dates, so showing one side's date beside the other's times reads as wrong exactly when
+     * the instant-based detection has done its job.
+     */
+    record OverlappingTravel(
+            OverlappingLeg first,
+            OverlappingLeg second
+    ) implements ScheduleProblem {
+        // Both legs are over before the clash stops mattering — the same reasoning as a
+        // SchedulingConflict, whose two gatherings must both have ended.
+        @Override
+        public Instant relevantUntil() {
+            Instant firstEnd = first.arrival().utc();
+            Instant secondEnd = second.arrival().utc();
+            return firstEnd.isAfter(secondEnd) ? firstEnd : secondEnd;
+        }
+    }
+
+    /**
+     * One side of an {@link OverlappingTravel}. Its own record rather than the timeline's
+     * {@code Movement}, exactly as {@link DuplicateStay} is its own rather than the timeline's
+     * {@code Stay}: a read model carries what the view needs, never the detector's working type.
+     * <p>
+     * {@link TravelLeg} is what makes the row actionable — it names the leg, and it says where to
+     * go to deal with it.
+     */
+    record OverlappingLeg(
+            TravelLeg leg,
+            String fromCity,
+            String toCity,
+            ZonedTimestamp departure,
+            ZonedTimestamp arrival
     ) {}
 
     record DifferentCityConflict(

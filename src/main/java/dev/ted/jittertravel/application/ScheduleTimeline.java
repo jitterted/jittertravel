@@ -212,6 +212,43 @@ class ScheduleTimeline {
         return duplicates;
     }
 
+    /**
+     * Two booked legs carrying Ted at once — he can only be on one of them.
+     * <p>
+     * The direct analogue of {@link #duplicateHotels()}, whose reasoning is <em>"Ted can only sleep
+     * in one of them"</em>. Nothing here looked at legs against each other before, which is why an
+     * overlapping pair raised no problem at all: the location walk sorts a leg's departure
+     * ({@code REQUIRE}) and arrival ({@code ARRIVE}) as separate points, so when two legs overlap
+     * both departures land before both arrivals, every departure agrees with the city the walk is
+     * holding, and the contradiction disappears. (Two legs that do <em>not</em> overlap are caught
+     * by the walk instead — as a {@code MissingTravel} back to where the second one starts.)
+     * <p>
+     * Kind-agnostic on purpose: a flight overlapping a train is the same impossibility as two
+     * trains.
+     * <p>
+     * One problem per pair, over a list in a stable order, so the pair reported is the same pair
+     * from one recompute to the next — {@code ProblemKey} is derived from that order.
+     */
+    List<ScheduleProblem.OverlappingTravel> overlappingTravel() {
+        List<ScheduleProblem.OverlappingTravel> clashes = new ArrayList<>();
+        for (int i = 0; i < movements.size(); i++) {
+            for (int j = i + 1; j < movements.size(); j++) {
+                Movement first = movements.get(i);
+                Movement second = movements.get(j);
+                if (first.overlapsWith(second)) {
+                    clashes.add(new ScheduleProblem.OverlappingTravel(
+                            overlapping(first), overlapping(second)));
+                }
+            }
+        }
+        return List.copyOf(clashes);
+    }
+
+    private static ScheduleProblem.OverlappingLeg overlapping(Movement movement) {
+        return new ScheduleProblem.OverlappingLeg(movement.leg(), movement.fromCity(),
+                movement.toCity(), movement.departure(), movement.arrival());
+    }
+
     private Set<LocalDate> allStayNights() {
         Set<LocalDate> nights = new LinkedHashSet<>();
         for (Stay stay : stays) {
@@ -435,14 +472,32 @@ class ScheduleTimeline {
         ARRIVE
     }
 
-    /** A booked leg, flight or train alike: the timeline cares that it moves him, not how. */
-    record Movement(String fromCity, ZonedTimestamp departure, String toCity, ZonedTimestamp arrival) {
+    /**
+     * A booked leg, flight or train alike: the timeline cares that it moves him, not how.
+     * <p>
+     * It carries a {@link TravelLeg} because {@link #overlappingTravel()} has to <em>name</em> the
+     * two legs it reports and link each to its page. Every other detector here reports cities and
+     * dates, which the walk already has; this is the first that reports the bookings themselves.
+     */
+    record Movement(TravelLeg leg, String fromCity, ZonedTimestamp departure,
+                    String toCity, ZonedTimestamp arrival) {
         LocalDate departureDay() {
             return departure.localDateTime().toLocalDate();
         }
 
         LocalDate arrivalDay() {
             return arrival.localDateTime().toLocalDate();
+        }
+
+        /**
+         * A real overlap in time — the same predicate {@link Occupancy#overlapsWith} uses, and
+         * half-open for the reason that matters here: <strong>a connection is not a conflict</strong>.
+         * Arriving at 11:00 and departing at 11:00 is the ordinary shape of a journey, and a closed
+         * comparison would report every one of them.
+         */
+        boolean overlapsWith(Movement other) {
+            return this.departure.utc().isBefore(other.arrival.utc())
+                   && other.departure.utc().isBefore(this.arrival.utc());
         }
     }
 

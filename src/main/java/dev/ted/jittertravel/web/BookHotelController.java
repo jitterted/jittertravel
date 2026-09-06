@@ -79,7 +79,8 @@ public class BookHotelController {
 
     @PostMapping("/book-hotel")
     public String bookHotelSubmit(@ModelAttribute("bookHotel") BookHotelRequest request,
-                                  BindingResult bindingResult) {
+                                  BindingResult bindingResult,
+                                  @RequestParam(value = "from", required = false) String from) {
         if (bindingResult.hasErrors()) {
             return "book-hotel";
         }
@@ -106,6 +107,17 @@ public class BookHotelController {
             return "book-hotel";
         }
 
-        return "redirect:/booked-hotels";
+        return returnTo(from, "/booked-hotels");
     }
+
+    /**
+     * Where to land after a successful action: back at the report when Ted arrived from a fix link,
+     * otherwise this controller's own default. Only the <em>success</em> path takes it — a
+     * read-only refusal or a stale-link miss has not fixed anything, so it still goes where it
+     * always did.
+     */
+    private static String returnTo(String from, String fallback) {
+        return "redirect:" + FixOrigin.returnTo(from).orElse(fallback);
+    }
+
 }

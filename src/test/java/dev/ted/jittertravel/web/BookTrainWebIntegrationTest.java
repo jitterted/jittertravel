@@ -9,6 +9,11 @@ import dev.ted.jittertravel.domain.LocationField;
 import dev.ted.jittertravel.domain.LocationRole;
 import dev.ted.jittertravel.domain.UnresolvedStationZone;
 import org.junit.jupiter.api.BeforeEach;
+import dev.ted.jittertravel.domain.OverlappingLegRefused;
+import dev.ted.jittertravel.domain.ScheduledLeg;
+import dev.ted.jittertravel.domain.ScheduledLegId;
+import dev.ted.jittertravel.domain.TrainTripId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -21,6 +26,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
+
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -294,4 +301,55 @@ class BookTrainWebIntegrationTest {
                 .param("arrivalDateTime", "2026-07-01T13:00")
                 .exchange();
     }
+    // -------------------------------------------------------------------------
+    // An overlapping journey is refused at entry (slice 3)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void anOverlappingTripIsRefusedAndNamesTheBlockingLegAsALink() throws Exception {
+        // Ted, 2026-09-06: wherever the existing entry is named it links to that entry — its
+        // details page, or its edit page while there is none, which is the case for a train.
+        TrainTripId blocking = TrainTripId.random();
+        willThrow(new OverlappingLegRefused(new ScheduledLeg(
+                new ScheduledLegId.Train(blocking),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 9, 0), ZoneId.of("Europe/London")),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 11, 0), ZoneId.of("Europe/London")))))
+                .given(trainBooking).bookTrain(any(), any());
+
+        String html = submitTrip();
+
+        assertThat(html)
+                .as("the message lands under the departure time, the value this form can change")
+                .contains("Overlaps a train departing Jul 1, 9:00 AM")
+                .as("and the other way out is a link to the leg already booked")
+                .contains("<a class=\"overlap-link\"")
+                .contains("href=\"/booked-trains/" + blocking.id() + "\"")
+                .contains("Open that train");
+    }
+
+    @Test
+    void anOrdinaryRejectionRendersNoOverlapLink() throws Exception {
+        willThrow(new DepartureNotInFuture("Departure must be in the future"))
+                .given(trainBooking).bookTrain(any(), any());
+
+        assertThat(submitTrip())
+                .doesNotContain("<a class=\"overlap-link\"");
+    }
+
+    /** The valid-shaped submission every refusal case above drives through the form. */
+    private String submitTrip() throws Exception {
+        return mockMvc.post().uri("/book-train")
+                .with(csrf())
+                .param("trainTripId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("departureStationName", "London Euston")
+                .param("departureCityName", "London")
+                .param("departureCountry", "UK")
+                .param("departureDateTime", "2026-07-01T10:00")
+                .param("arrivalStationName", "Manchester Piccadilly")
+                .param("arrivalCityName", "Manchester")
+                .param("arrivalCountry", "UK")
+                .param("arrivalDateTime", "2026-07-01T13:00")
+                .exchange().getResponse().getContentAsString();
+    }
+
 }

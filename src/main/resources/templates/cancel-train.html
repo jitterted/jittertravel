@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Cancel Train</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .summary {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.9rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }
+        .summary .name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .summary .line { font-size: 0.9rem; color: var(--muted-text); margin-top: 0.15rem; }
+        /* Each end is labelled, because a trip has two of everything and the summary is the only
+           thing telling Ted he is cancelling the right one. */
+        .summary .leg-label {
+            display: inline-block;
+            min-width: 4.5em;
+            color: var(--muted-text);
+        }
+
+        p.warning { font-size: 0.9rem; color: var(--text-color); margin: 0 0 1rem; }
+
+        .field { margin-bottom: 1rem; }
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+        .field input[type=text] {
+            padding: 0.35rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+
+        .actions { display: flex; align-items: center; gap: 1.25rem; }
+
+        /* Amber, not red: appending a cancellation destroys nothing — the booking stays in the
+           event log — and booking the trip again puts it back. Red is reserved for what cannot be
+           undone from inside the app. */
+        button.confirm {
+            background: #b45309;
+            color: #fff;
+            border: 1px solid #b45309;
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        button.confirm:hover { opacity: 0.88; }
+
+        .keep-link { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
+        .keep-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/booked-trains">Trains</a>
+    </nav>
+
+    <h1>Cancel Train</h1>
+
+    <div th:replace="~{fragments/problem-context :: problemContext}"></div>
+
+    <div class="summary">
+        <div class="name">
+            <span th:text="${train.departureStation().city()}">Hamburg</span>
+            &rarr;
+            <span th:text="${train.arrivalStation().city()}">Berlin</span>
+        </div>
+        <!-- Service id only when one was recorded: an empty line would say less in more space. -->
+        <div class="line" th:if="${!train.serviceId().isBlank()}" th:text="${train.serviceId()}">ICE 597</div>
+        <div class="line">
+            <span class="leg-label">Departs</span>
+            <span th:text="${train.departureStation().name()}">station</span>,
+            <span th:text="${#temporals.format(train.departureDateTime().localDateTime(), 'EEE, MMM d, yyyy, h:mm a')}">date</span>
+        </div>
+        <div class="line">
+            <span class="leg-label">Arrives</span>
+            <span th:text="${train.arrivalStation().name()}">station</span>,
+            <span th:text="${#temporals.format(train.arrivalDateTime().localDateTime(), 'EEE, MMM d, yyyy, h:mm a')}">date</span>
+        </div>
+    </div>
+
+    <p class="warning">
+        Cancelling removes the trip from the calendar, the itinerary and the trains list, and drops
+        it from the schedule-problems report — so a journey it appeared to make may show up as a
+        travel gap again, and it will no longer be offered as an end for a ground transfer. The
+        event log keeps the record, including the reason. To put it back, book the trip again.
+    </p>
+
+    <form th:action="@{|/booked-trains/${train.tripId().id()}/cancel|}" method="post">
+
+        <!-- Carries the fix link's origin through the POST (and through a validation
+             re-render) so the action returns to the report it was launched from.
+             Absent for an ordinary visit, which keeps this controller's own default. -->
+        <input type="hidden" name="from" th:if="${fixOrigin != null}" th:value="${fixOrigin}"/>
+        <div class="field">
+            <label>
+                Reason (optional)
+                <input type="text" name="reason" th:value="${reason}"
+                       placeholder="Rebooked for the 17th, entered by mistake…"/>
+            </label>
+        </div>
+
+        <div class="actions">
+            <button type="submit" class="confirm">Cancel this trip</button>
+            <a class="keep-link" th:href="@{/booked-trains}">Keep it — back to the list</a>
+        </div>
+    </form>
+
+</div>
+</body>
+</html>

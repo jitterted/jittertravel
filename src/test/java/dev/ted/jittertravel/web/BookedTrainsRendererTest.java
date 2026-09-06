@@ -142,6 +142,30 @@ class BookedTrainsRendererTest {
                 .contains("<a class=\"train-edit-link\" href=\"/booked-trains/" + tripId.id() + "\">Edit</a>");
     }
 
+    @Test
+    void eachTrainRowLinksToItsCancelPageAfterTheEditLink() {
+        // Cancel renders after Edit so the link already on the row keeps its position, in every
+        // row and every state (CLAUDE.md: action affordances never move).
+        TrainTripId tripId = TrainTripId.random();
+        BookedTrainView train = new BookedTrainView(
+                tripId,
+                "",
+                "London Euston", "London", "",
+                DEPARTURE,
+                "Manchester Piccadilly", "Manchester", "",
+                ARRIVAL
+        );
+
+        String html = BookedTrainsRenderer.render(List.of(train), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<a class=\"train-cancel-link\" href=\"/booked-trains/"
+                          + tripId.id() + "/cancel\">Cancel</a>");
+        assertThat(html.indexOf("train-edit-link"))
+                .as("Edit keeps the position it had before Cancel existed")
+                .isLessThan(html.indexOf("train-cancel-link"));
+    }
+
     private static BookedTrainView trainView(
             String depName, String depCity, String depMapsUrl,
             String arrName, String arrCity, String arrMapsUrl) {

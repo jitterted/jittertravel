@@ -16,6 +16,137 @@ for open work.
 
 ## Open
 
+- [ ] **Test isolation is not enforced — `EventStore` cannot return to a known state.**
+      Raised by Ted 2026-09-06 (*"if the tests can't be isolated due to production code, that is
+      absolutely a problem with the implementation"*); designed, built, and **parked with a
+      diagnosed defect** the same day. The rule itself is in CLAUDE.md, "Every test is isolated".
+
+      **The problem.** `EventStore` fills its in-memory event list once at boot and only ever
+      appends. No database truncation reaches it, so the nine integration tests sharing a Spring
+      context share event state — with each other and, because the container is `withReuse(true)`,
+      with previous runs. `CommandExecutor.eventsForDecision()` folds **every write-path decision**
+      from that list, so this is a production concern too: `/admin/database` truncate and restore
+      both leave it wrong, and a stale entry can make the domain refuse a booking that is fine.
+      Invisible until 2026-09-06 because every earlier fold asked about one specific id; the
+      overlapping-legs rule is the first cross-aggregate question.
+
+      **What shipped and must stay:** `BackupRestoreRoundTripTest` derives each booking's window
+      from its own flight id, so neither a sibling method nor a leg replayed from a previous run can
+      occupy it. Verified green 6/6 consecutively; pin those windows and it fails ~half the time.
+      That is the *whole* workaround — the base class is untouched.
+
+      **What was reverted, and why — pick up from here.**
+      1. `EventStore.reload()` — the boot replay extracted so it can run more than once, clearing
+         the list before re-reading. Production-justified (see above); deliberately does **not**
+         rebuild read models, since projectors hold accumulated state and replaying a shorter
+         stream over them removes nothing.
+      2. A `@BeforeEach` in `AbstractTestcontainerIntegrationTest` calling `reload()` and then
+         **asserting the store is empty** — the assertion is the point, so the next leak fails
+         loudly. Inject as `ObjectProvider<EventStore>`: `PostgresPersisterTest` extends the base
+         class with a narrower context that has no such bean.
+      3. `<runOrder>random</runOrder>` in the Surefire config, so order-dependence fails fast
+         instead of hiding behind the default `filesystem` order.
+      4. An `AFTER_TEST_METHOD` truncate in `AbstractTestcontainerIntegrationTest`, to stop the
+         reused container carrying rows into the next run's boot replay. **Reverted — it is the
+         deadlock trigger, see below.** Whatever replaces it must not add a second TRUNCATE.
+
+      **THE DEFECT TO FIX FIRST — this is why it is parked.** Something leaves a connection
+      **idle in transaction** after the `loadAllEvents()` SELECT, holding a lock that blocks a
+      TRUNCATE. With the single `BEFORE_TEST_METHOD` truncate the suite never noticed; **adding a
+      second TRUNCATE makes it fatal** and the suite hangs forever, part-way through.
+
+      **Isolate the cause before building on this.** It was first blamed on `reload()` and that was
+      wrong: the hang reproduced with `reload()` fully reverted and only the `AFTER` truncate in
+      place. So the lingering transaction comes from the ordinary boot replay, not from calling it
+      twice — which means it is a **pre-existing production issue**, and a reload that leaks a
+      transaction would hold locks in the running app too. Reproduced on a clean container with a
+      live JVM:
+
+      ```
+      pid  | state               | wait  | query
+      2232 | idle in transaction | Client| SELECT sequence, event_id AS eventId, ...
+      2233 | active              | Lock  | TRUNCATE TABLE event_log, command_log ...
+      ```
+
+      Diagnose with `docker exec jittertravel-test-postgres psql -U test -d test -tAc
+      "select pid, state, wait_event_type, left(query,60) from pg_stat_activity where datname='test'"`.
+      **A misread to avoid:** `pg_stat_activity.query` shows a connection's *last* query and
+      `wait_event_type = Client` looks like a dead client, so this reads convincingly as an orphaned
+      connection from a killed JVM. It is not — it reproduces with a live one. Verify on a clean
+      container before concluding anything.
+      The fix belongs in `reload()`, not in the test harness: a reload that leaks a transaction
+      would hold locks in the running app too.
+
+      **How to verify when picked up:** `BackupRestoreRoundTripTest` green 6/6 consecutively, then
+      the full suite green twice under `runOrder=random`. **Watch the clock, not just the result:**
+      the parked-state suite runs in **~24s**, so a run stretching past a couple of minutes is the
+      deadlock, not slowness. (An earlier guess that random order would cost time by destroying
+      Spring context-cache locality was never substantiated — the long runs were all the deadlock.)
+
+
+- [x] **A fix action does not come back to the report it was launched from. FIXED 2026-09-06.** Ted, 2026-09-06:
+      *"I'm fixing schedule problems and keep ending up somewhere else and have to return to the
+      schedule problems page. not huge, just annoying."*
+      **Three-quarters of this already exists.** `ProblemFix.explaining` appends `&from=<origin>` to
+      every fix href, `FixOrigin` already holds the way back for all three surfaces — including
+      `?view=list` vs `?view=calendar` — and `fragments/problem-context.html` renders it as a Back
+      link. **The gap is the POST.** No form carries `from` through: every `th:action` drops the
+      query string, so all eight fix targets redirect to their own hardcoded default
+      (`/booked-hotels`, `/booked-trains`, `/calendar`, `/itinerary`). Ted clicks Book hotel from
+      the report, books it, and lands on the hotels list.
+      **`ClearConflictController` is the half-done case and shows the shape of the bug:** it already
+      redirects to `/schedule-problems`, but hardcoded — so it loses the view and drops a reader who
+      came from the list onto the calendar.
+      **Proposed fix, small and shared.** (1) `ProblemContextAdvice` exposes the raw `from` as a
+      model attribute, the same way it already exposes `problemContext` — an advice rather than six
+      constructor dependencies, for D6's reason exactly. (2) Each fix target's form carries it
+      (hidden input), so it survives both the POST and a validation re-render. (3) Each controller
+      redirects to `FixOrigin.fromParam(from).backHref()` when present, else its current default —
+      one line each. (4) A convention test mirroring `ProblemContextFragmentConventionTest`, which
+      walks every href `ProblemFix` can emit, so a new fix target cannot forget the return trip in
+      the same silent way it could forget the banner.
+      **Watch two things.** The redirect target is derived from a query parameter, so it must be
+      resolved through `FixOrigin.fromParam` and never used as a raw path — an open redirect is
+      exactly what a hand-edited `?from=` would otherwise buy. And a fix that *fails* validation
+      must keep `from` on the re-rendered form, or the second submit loses the way back.
+      **Built as proposed, all eight targets.** `FixOrigin.returnTo(String)` returns
+      `Optional<String>` — **empty when absent**, which is the whole subtlety: `fromParam` defaults
+      a missing value to the calendar so a hand-typed link still renders a Back link, and reusing
+      that on a redirect would send every ordinary booking made from a nav card to the report.
+      `ProblemContextAdvice` exposes the raw `from` as `fixOrigin` (no projector, no clock, so it
+      works in a slice that has neither); each template carries it in a `th:if`-guarded hidden
+      input; each controller's **success return only** goes through a two-line `returnTo` helper —
+      a read-only refusal or a stale-link miss has fixed nothing and still goes where it did.
+      `ClearConflictController` stopped hardcoding `/schedule-problems` and now keeps the view.
+      Guarded by two new cases in `ProblemContextFragmentConventionTest` — one walking every
+      `ProblemFix` href to assert its form carries the origin, one asserting an unrecognized
+      `?from=` resolves to the calendar rather than becoming a path — plus seven round-trip cases
+      in `CancelTrainControllerTest`. Mutation-verified three ways: ignoring the origin on success
+      failed 3, treating absent as calendar failed 3, dropping a hidden input failed 1.
+      **One near-miss worth recording:** restoring a mutated template with `git checkout` silently
+      reverted it to a *stale index*, losing the hidden input — caught only because the suite was
+      re-run afterwards. Restore mutations from a copy, not from git, while work is staged.
+
+
+- [x] **`ScheduleProblemsRenderer` partitions by `instanceof`, so a new problem type renders
+      nowhere and nothing fails. FIXED 2026-09-06** with slice 2 of
+      `CancelTrainAndOverlappingLegsPlan.md`, which is the change that would have hit it. The five
+      filters became one exhaustive `switch` in a private `Sections` record, so the compiler now
+      stops a sixth variant here as it already did in the other three places. Found 2026-09-06 while planning
+      `CancelTrainAndOverlappingLegsPlan.md`, and independent of it — this is a hole *today*.
+      `render(List<ScheduleProblem>)` splits its argument with **five separate `instanceof` filters**
+      into five explicit sections. `ScheduleProblem` is sealed, and the three other places that map
+      over it — `ProblemKey.of` (`ProblemRef` today), `ProblemFix.fixesFor`, `ProblemBand.from` —
+      are all **exhaustive switches**, each with a javadoc saying in as many words that a new problem
+      type cannot be added without deciding the question it asks. The list view is the one that
+      silently opts out: add a sixth variant and the compiler stops you in three files and says
+      nothing about the fourth, so the problem is detected, keyed, linked and drawn on the calendar,
+      and is **absent from `/schedule-problems` itself**. Fix is small: replace the five filters with
+      one exhaustive `switch` appending into per-kind lists. Do it whether or not the overlapping-legs
+      detector is ever built — the next variant is the one that pays for it.
+      Note the assertion to write with it must not be a hard-coded list of kinds, per the
+      `CalendarDayMenuTest` rule (a test that has to be edited on every change stops guarding).
+
 - [x] **`/calendar` never names the month except on the 1st.** **Done 2026-08-31.** The month tint is too faint to answer
       "which month am I looking at", and the only text naming one is the day label on the 1st — so
       any week not containing a 1st leaves a reader counting. Ted, 2026-08-31: *"i completely lose
@@ -787,10 +918,13 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       since `f5971ef`, and every other edit page hosts a single edit form (`change-flight.html`'s
       second form is the flight-number **lookup**, not a cancel; `change-train.html` /
       `change-gathering.html` have one form each; there is no `change-private-event` page). The
-      other entry kinds (flight, train, gathering, conference, private event) have **no cancel
-      action at all** yet — separate, still-open features (`ConferenceCancelled` organizer cancel;
-      gathering cancellation, out of scope in `archived/ChangeGatheringPlan.md`) — and when each ships it
-      must land on its own page from the start, per the "errors render on the form page" convention.
+      other entry kinds had **no cancel action at all** at the time — separate features, and two
+      have since shipped on their own pages as this line required: the **private event**
+      (2026-08-24, `ChangePrivateEventPlan.md`) and the **train** (2026-09-06,
+      `CancelTrainAndOverlappingLegsPlan.md` slice 1). Still open: **flight**, **gathering**
+      (out of scope in `archived/ChangeGatheringPlan.md`) and the `ConferenceCancelled` organizer
+      cancel. When each ships it must land on its own page from the start, per the "errors render
+      on the form page" convention.
       **Correction (same day):** the first pass called this done on the form-vs-link technicality
       and left the "Cancel this booking" **section** (a `.danger-zone` heading + hint + link to the
       cancel page) sitting on the `change-hotel` edit page — which still reads as edit-and-cancel

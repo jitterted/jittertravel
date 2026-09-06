@@ -57,7 +57,7 @@ public class ProblemContextLookup {
         if (key == null || key.isBlank()) {
             return Optional.empty();
         }
-        return new ProblemRef(key).findIn(scheduleGapProjector.problems(now))
+        return new ProblemKey(key).findIn(scheduleGapProjector.problems(now))
                 .map(problem -> banner(problem, origin));
     }
 

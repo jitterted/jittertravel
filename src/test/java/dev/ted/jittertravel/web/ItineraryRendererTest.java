@@ -377,6 +377,38 @@ class ItineraryRendererTest {
     }
 
     @Test
+    void trainShowsCancelBinAfterTheEditPencilForOwner() {
+        // The train is the first kind carrying both icons. Cancel goes after edit so the pencil
+        // stays where it is on every other card.
+        TrainTripId tripId = TrainTripId.random();
+        TrainItineraryEntry entry = new TrainItineraryEntry(tripId, TrainDayRole.DEPARTURE, "",
+                "London Euston", "London", "", zoned(JUN_1.atTime(9, 0), LONDON),
+                "Manchester Piccadilly", "Manchester", "", zoned(JUN_1.atTime(11, 15), LONDON));
+
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains("class=\"cancel-bin\" href=\"/booked-trains/" + tripId.id() + "/cancel\"");
+        assertThat(html.indexOf("edit-pencil"))
+                .as("the pencil keeps the position it had before the bin existed")
+                .isLessThan(html.indexOf("cancel-bin"));
+    }
+
+    @Test
+    void trainHasNoCancelBinForNonOwner() {
+        // Authorization, not state: family can never cancel, so the control renders not at all
+        // rather than greyed — a greyed one would disclose that the surface exists.
+        String html = renderWithEntry(train(TrainDayRole.DEPARTURE, "Caledonian Sleeper", "", ""));
+
+        // The whole attribute, not the bare word: `.cancel-bin` is in the always-rendered CSS
+        // block, so a loose assertion here would fail for the wrong reason (CLAUDE.md: assert
+        // whole elements and attributes, never bare words).
+        assertThat(html)
+                .doesNotContain("class=\"cancel-bin\" href=\"/booked-trains/");
+    }
+
+    @Test
     void trainHasNoEditPencilForNonOwner() {
         String html = renderWithEntry(train(TrainDayRole.DEPARTURE, "Caledonian Sleeper", "", ""));
 

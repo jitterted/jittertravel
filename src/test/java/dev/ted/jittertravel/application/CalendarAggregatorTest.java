@@ -30,7 +30,7 @@ class CalendarAggregatorTest {
         CalendarEntry conference = entry(
                 new EntryDetails.Conference(AttendanceCommitment.WATCHING, false, null, null), "JavaOne");
         CalendarEntry flight = entry(new EntryDetails.Flight(null), "SFO→FRA");
-        CalendarEntry train = entry(new EntryDetails.Train(null), "Eurostar");
+        CalendarEntry train = entry(new EntryDetails.Train(null, null), "Eurostar");
         CalendarEntry hotel = entry(new EntryDetails.Lodging(null, null), "Grand Hotel");
         CalendarEntry gathering = entry(new EntryDetails.Gathering(null, false, null), "Mob Session");
         CalendarEntry privateEvent = entry(new EntryDetails.PrivateEvent(), "Dinner with friends");

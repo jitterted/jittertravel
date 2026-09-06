@@ -197,7 +197,7 @@ class CalendarRendererTest {
                 LocalDateTime.of(2026, 7, 1, 9, 0),
                 LocalDateTime.of(2026, 7, 1, 13, 0),
                 "🚄 London → Manchester", lines("9:00 AM → 1:00 PM"),
-                new EntryDetails.Train("/booked-trains/trip-123")
+                new EntryDetails.Train("/booked-trains/trip-123", "/booked-trains/trip-123/cancel")
         );
 
         String html = CalendarRenderer.render(List.of(train), LocalDate.of(2026, 6, 11), false, true);
@@ -211,7 +211,7 @@ class CalendarRendererTest {
                 LocalDateTime.of(2026, 7, 1, 9, 0),
                 LocalDateTime.of(2026, 7, 1, 13, 0),
                 "🚄 London → Manchester", lines("9:00 AM → 1:00 PM"),
-                new EntryDetails.Train("/booked-trains/trip-123")
+                new EntryDetails.Train("/booked-trains/trip-123", "/booked-trains/trip-123/cancel")
         );
 
         String html = CalendarRenderer.render(List.of(train), LocalDate.of(2026, 6, 11), false, false);

@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -211,6 +212,57 @@ class ConferenceActionsTest {
             case NOT_SPEAKING, ACCEPTED, REJECTED, WITHDRAWN -> {
             }
         }
+    }
+
+    /**
+     * <strong>The split is by the command a move posts, not by what it is about.</strong> The detail
+     * page puts each move beside the state it changes, so "Invitation Accepted" belongs to
+     * attendance despite being talk-shaped: it writes {@code ConferenceAttendanceConfirmed}, and it
+     * stays beside the Decline that answers the same offer the other way.
+     * <p>
+     * Asserted over the whole cross-product on the path itself rather than on a hand-listed table,
+     * so the classification cannot drift for a state nobody thought to write down.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("everyCombination")
+    void everyMoveIsFiledUnderTheAxisItsCommandChanges(String state, AttendanceCommitment commitment,
+                                                       SpeakingStatus speakingStatus,
+                                                       ConferenceFormat format) {
+        ConferenceActions.Moves moves = ConferenceActions.movesByAxis(
+                CONFERENCE_ID, commitment, speakingStatus, format);
+
+        assertThat(moves.talk())
+                .as("talk-axis moves on a '%s' conference", state)
+                .allSatisfy(move -> assertThat(hrefOf(move)).startsWith(BASE + "/talk?"));
+        assertThat(moves.attendance())
+                .as("attendance-axis moves on a '%s' conference", state)
+                .allSatisfy(move -> assertThat(hrefOf(move))
+                        .matches(href -> href.startsWith(BASE + "/confirm?")
+                                         || href.equals(BASE + "/decline"),
+                                 "a /confirm or /decline path"));
+    }
+
+    /**
+     * The split is a view of the same decision, never a second one. {@code links} is composed from
+     * {@code movesByAxis}, and this is what keeps that true: the dashboard's flat row and the detail
+     * page's three tracks offer exactly the same moves, in the same order — talk first, then what
+     * Ted decides.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("everyCombination")
+    void theFlatListIsExactlyTheTwoAxesInOrder(String state, AttendanceCommitment commitment,
+                                               SpeakingStatus speakingStatus,
+                                               ConferenceFormat format) {
+        ConferenceActions.Moves moves = ConferenceActions.movesByAxis(
+                CONFERENCE_ID, commitment, speakingStatus, format);
+        List<String> expected = Stream.concat(moves.talk().stream(), moves.attendance().stream())
+                                      .map(ConferenceActionsTest::hrefOf)
+                                      .toList();
+
+        assertThat(ConferenceActions.links(CONFERENCE_ID, commitment, speakingStatus, format))
+                .as("the flat list on a '%s' conference", state)
+                .extracting(ConferenceActionsTest::hrefOf)
+                .containsExactlyElementsOf(expected);
     }
 
     /**

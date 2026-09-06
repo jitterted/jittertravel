@@ -71,21 +71,53 @@ public final class ConferenceActions {
     }
 
     /**
+     * The legal moves split by the axis each one moves — the talk's, and attendance's. The detail
+     * page lays its state out as one track per axis and puts each move beside the state it changes,
+     * so it needs to know which is which; the dashboard flattens them again through {@link #links}.
+     * <p>
+     * <strong>Classified by the command a move posts, not by what it is about.</strong> The
+     * {@code /talk} moves are the talk's; {@code /confirm} and {@code /decline} are attendance's.
+     * That is why "Invitation Accepted" is an <em>attendance</em> move despite being talk-shaped: it
+     * writes {@code ConferenceAttendanceConfirmed}, so the row it changes is the row it belongs on,
+     * and it stays beside the Decline that is the other answer to the same offer.
+     */
+    public record Moves(List<DomContent> talk, List<DomContent> attendance) {
+
+        /** In the order both surfaces offer them: what happened to the talk, then what Ted decides. */
+        List<DomContent> flattened() {
+            List<DomContent> all = new ArrayList<>(talk);
+            all.addAll(attendance);
+            return List.copyOf(all);
+        }
+    }
+
+    /**
      * The legal moves from where this conference stands, in the order they are offered. The caller
      * wraps them: the two surfaces lay them out differently and neither layout belongs here.
+     * <p>
+     * Composed from {@link #movesByAxis} rather than written out again, so the flat list a dashboard
+     * row shows and the split list the detail page shows cannot disagree about what is legal.
      */
     public static List<DomContent> links(ConferenceId conferenceId,
                                          AttendanceCommitment commitment,
                                          SpeakingStatus speakingStatus,
                                          ConferenceFormat format) {
+        return movesByAxis(conferenceId, commitment, speakingStatus, format).flattened();
+    }
+
+    public static Moves movesByAxis(ConferenceId conferenceId,
+                                    AttendanceCommitment commitment,
+                                    SpeakingStatus speakingStatus,
+                                    ConferenceFormat format) {
         String base = "/conferences/" + conferenceId.id();
-        List<DomContent> actions = new ArrayList<>();
+        List<DomContent> talk = new ArrayList<>();
+        List<DomContent> attendance = new ArrayList<>();
         // A dropped conference has no live action: the domain refuses every command against a
         // declined conference, so there is nothing here that could be triggered — not even in a
         // disabled form, which would promise a capability that does not exist. Going after all
         // means planning it again.
         if (commitment == AttendanceCommitment.NOT_GOING) {
-            return List.of();
+            return new Moves(List.of(), List.of());
         }
         boolean committed = commitment == AttendanceCommitment.GOING;
         switch (speakingStatus) {
@@ -94,56 +126,56 @@ public final class ConferenceActions {
             // the organizers, not going means pulling it first. That is true whether or not a
             // ticket is already bought.
             case SUBMITTED -> {
-                actions.add(talkLink(base, TalkOutcome.ACCEPTED, "Accepted",
+                talk.add(talkLink(base, TalkOutcome.ACCEPTED, "Accepted",
                         committed ? "They said yes."
                                   : "They said yes. This also records that you are going."));
-                actions.add(talkLink(base, TalkOutcome.REJECTED, "Rejected", "They said no."));
-                actions.add(talkLink(base, TalkOutcome.WITHDRAWN, "Withdrawn", "You pulled it."));
+                talk.add(talkLink(base, TalkOutcome.REJECTED, "Rejected", "They said no."));
+                talk.add(talkLink(base, TalkOutcome.WITHDRAWN, "Withdrawn", "You pulled it."));
             }
             // An open offer. Saying yes is a confirmation naming the invitation as the reason,
             // which is what separates speaking there from merely attending — so it is still the
             // move on a conference Ted was already attending on a bought ticket, where it is what
             // turns an attendee into a speaker.
             case INVITED -> {
-                actions.add(confirmLink(base, AttendanceBasis.SPEAKING_INVITED, "Invitation Accepted",
+                attendance.add(confirmLink(base, AttendanceBasis.SPEAKING_INVITED, "Invitation Accepted",
                         committed ? "Say yes. You were already going; now you are speaking."
                                   : "Say yes: you are going, and you are speaking."));
-                actions.add(declineLink(base));
+                attendance.add(declineLink(base));
             }
             // Turned down. Buying a ticket anyway is the go-anyway case, and only where he is not
             // already going: on an ACCEPTANCE_REQUIRED conference a rejection drops it outright,
             // so this state is a CALL_FOR_PAPERS one.
             case REJECTED -> {
                 if (!committed) {
-                    actions.add(confirmLink(base, AttendanceBasis.TICKET_PURCHASED, "Ticket Bought",
+                    attendance.add(confirmLink(base, AttendanceBasis.TICKET_PURCHASED, "Ticket Bought",
                             "Going as an attendee after all."));
                 }
-                actions.add(declineLink(base));
+                attendance.add(declineLink(base));
             }
             // Nothing outstanding: submitting is on the table again wherever there is a CFP, and
             // that is independent of attending — a ticket bought early does not stop him
             // submitting, and the CFP panel offers the submission page in exactly these two states.
             case NOT_SPEAKING, WITHDRAWN -> {
                 if (format != ConferenceFormat.OPEN_SPACE) {
-                    actions.add(talkLink(base, TalkOutcome.SUBMITTED, "Submitted",
+                    talk.add(talkLink(base, TalkOutcome.SUBMITTED, "Submitted",
                             "Record that you submitted a talk."));
                 }
                 if (!committed) {
-                    actions.add(confirmLink(base, AttendanceBasis.TICKET_PURCHASED, "Ticket Bought",
+                    attendance.add(confirmLink(base, AttendanceBasis.TICKET_PURCHASED, "Ticket Bought",
                             "Going as an attendee."));
                 }
-                actions.add(declineLink(base));
+                attendance.add(declineLink(base));
             }
             // A talk in the program. Accepting commits attendance on its own, so this state is
             // always GOING; pulling the talk is the one talk-side move left, and it changes
             // nothing about attending, which is why Decline is still beside it.
             case ACCEPTED -> {
-                actions.add(talkLink(base, TalkOutcome.WITHDRAWN, "Withdrawn",
+                talk.add(talkLink(base, TalkOutcome.WITHDRAWN, "Withdrawn",
                         "Record that you pulled your talk. You are still going."));
-                actions.add(declineLink(base));
+                attendance.add(declineLink(base));
             }
         }
-        return List.copyOf(actions);
+        return new Moves(List.copyOf(talk), List.copyOf(attendance));
     }
 
     private static DomContent talkLink(String base, TalkOutcome outcome, String label, String title) {

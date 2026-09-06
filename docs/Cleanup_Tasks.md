@@ -305,6 +305,14 @@ for open work.
       bare page is reachable only by editing the URL. That is a hover-rule-shaped problem in a
       different key: a capability with no visible affordance at all. Either link it (the detail
       page's action band is the obvious home) or drop the bare mode. Noticed 2026-09-06.
+- [ ] **A conference's event history has no surface.** Option C from the detail-page layout round
+      (`ConferenceDetailAndChangePlan.md` D6) — the conference read as a timeline, newest first —
+      was the most interesting of the four and the only one that answers *how* it got here rather
+      than *where* it is. Ted chose the status layout instead, and this is worth building as a
+      **second** page rather than a replacement. It needs data that is not there:
+      `ConferenceDetailView` carries no occurrence timestamps, because `ConferenceProjector` folds
+      events and keeps only the result — so this is a projector change, not a renderer one, and it
+      overlaps `EventOccurrenceTimestampsPlan.md`. Noticed 2026-09-06.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.
       `PostgresPersister.loadTimelinePage` resets `runningMaxSeq` to `Long.MIN_VALUE` on every

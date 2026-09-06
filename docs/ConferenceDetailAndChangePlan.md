@@ -393,6 +393,79 @@ argues the split (a calendar entry owns a day column and can afford the playful 
 108px cell cannot). The detail page is the page you reach *from* the dashboard by clicking the name,
 so matching that neighbour is the right call. Left as it is.
 
+## D6. The page is laid out by volatility — settled 2026-09-06
+
+The first version of the detail page gave When, Where, Attendance, Call for papers and Talk five
+identical bordered panels in an `auto-fit` grid. Ted, on seeing it: *"the conference details layout
+makes no sense to me, nothing stands out, all information is treated the same."*
+
+He was right, and the reason is worth keeping. Border, radius, padding and heading style were spent
+evenly across all five, so **a street address that has not changed since he typed it carried the same
+weight as a talk status that changes every time the organizers write.** Emphasis spent evenly is
+emphasis not spent. Four further faults fell out of the same diagnosis: the panels were ordered by
+the shape of the record rather than the question; the answer was split four ways (a chip *and* a
+panel for going-ness, a badge *and* a panel for speaking, the moves in a band far below both); no
+semantic colour, despite the app already having one; and `auto-fit minmax(260px, 1fr)` reflowed
+3 → 2 → 1 columns, so a panel sat somewhere different on the iPad than on the desktop.
+
+Four directions were mocked up at 820px — the iPad's portrait width — in one real state. Ted chose
+**the live column and the fact rail**:
+
+- **The live column** holds the three things that can change while he is not looking — attendance,
+  the talk, the CFP — each a row carrying its state, what that means, and **its own moves**.
+- **The fact rail** holds when and where, set small behind a hairline, because it is reference
+  rather than news. It still carries the exact clock times: this is the only surface that does.
+- **Two fixed grid tracks**, not `auto-fit`, so a row is in the same place on every device.
+
+The three rejected options are worth naming, because each is the right answer to a different
+question. *Answer first* (one display-size sentence, moves under it, everything else a quiet
+definition list) is the better page if you open this to check one thing and leave — it loses because
+composing one sentence from two axes is real branching logic for every combination. *Status band +
+two quiet panels* was the hour-long version of the same idea. *The conference's own story* — the
+event log as a timeline, newest first — is the most interesting and needs data that is not there:
+`ConferenceDetailView` carries no occurrence timestamps, because the projector folds events and keeps
+only the result. That one is worth building as a **second** page rather than instead of this one;
+history and status are different questions.
+
+**Three decisions inside the choice:**
+
+1. **Each move is filed by the command it posts, not by what it is about.** `/talk` moves belong to
+   the talk, `/confirm` and `/decline` to attendance. So "Invitation Accepted" is an *attendance*
+   move despite being talk-shaped — it writes `ConferenceAttendanceConfirmed`, and it stays beside
+   the Decline that answers the same offer the other way. The talk track's sentence for an
+   unanswered invitation therefore reads "An open offer, still unanswered" and deliberately does
+   **not** say "say yes below": a spatial instruction is wrong the moment the grid stacks.
+2. **No commitment chip in the header** (Ted). The attendance track says "Going" two lines below,
+   and saying it twice is what made the header read as decoration. The speaking badge stays,
+   because it is genuinely not restated: `speaking()` is derived and can be true while the talk
+   track reads "Invited to speak" or even "Nothing submitted".
+3. **Colour is the app's existing language, applied to one question**: is this track waiting on
+   someone, or settled? Amber for a submitted talk (the organizers hold it), an unanswered
+   invitation, an open CFP and an undecided attendance; green for a decided commitment and an
+   answered talk; nothing at all where nothing is happening. A dropped conference wears no colour,
+   because nothing about it is pending.
+4. **A track's state line is the fact Ted acts on, and the reference value goes under it** (Ted,
+   2026-09-06). The CFP shipped as `Open until Mon, Sep 14, 2026 at 5:00 PM` emphasised with
+   `Closes in 8 days` muted beneath, and that is backwards: *"the 'closes in 8 days' is the primary
+   piece of information, the full deadline date should be secondary."* The countdown is what he
+   decides on; the timestamp is what he checks once he has. **Generalise it** — the same test
+   applies to any track that has both an answer and the number the answer was computed from. Two
+   consequences fell out: a closed CFP leads with `Closed` and demotes the timestamp too, which
+   keeps every state line in the column a short scannable phrase beside "Going" and "Submitted";
+   and a **dropped** conference's deadline leads with the date, because a countdown to a CFP he
+   cannot use is not a fact about anything he could do with the time.
+5. **The CFP deadline names its zone, and it is the only time on the page that does** (Ted,
+   2026-09-06): `Open until Mon, Sep 14, 2026 at 5:00 PM (CEST)`. The conference's own start and end
+   answer "when am I there", and the rail states their zone once underneath both; a deadline is a
+   cutoff someone else set, and Ted is routinely not in its zone when he is deciding whether he
+   still has time — "5:00 PM" alone is a question, and getting it wrong costs the submission. The
+   pattern uses `zzz`, which resolves against the **instant**, so a January deadline reads CET and a
+   September one CEST; `aDeadlineNamesTheZoneItActuallyFallsIn` asserts the pair, because a
+   hard-coded string passes either half alone.
+
+`ConferenceActions` grew a `movesByAxis` for this, and `links` is now composed from it, so the
+dashboard's flat row and the detail page's three tracks cannot disagree about what is legal.
+
 ## Open questions
 
 **Q1, Q2, Q3 and Q4 are answered or moot.** Q1 dissolved (no form, so `/conferences/{id}` is the

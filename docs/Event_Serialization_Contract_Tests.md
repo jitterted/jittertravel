@@ -110,9 +110,15 @@ snapshots/contracts can't drift from what we persist:
 - `EventSourcingConfig` now declares an explicit `@Bean JsonMapper` from the factory, replacing
   reliance on Spring Boot's auto-configured mapper (this also pins us against a framework-default
   change silently altering stored-event format).
-- `EventJsonMapperEquivalenceTest` **proves** the factory serializes byte-for-byte identically to
-  the previously auto-configured mapper (imports the real `JacksonAutoConfiguration`; covers
-  dates, nested records, empty strings, booleans). This is the backward-compat safety net.
+- `EventJsonMapperEquivalenceTest` proved the factory serialized byte-for-byte identically to the
+  previously auto-configured mapper (it imported the real `JacksonAutoConfiguration` and covered
+  dates, nested records, empty strings, booleans). **Retired 2026-09-07** ahead of the Spring Boot
+  4.1.1 upgrade: it was the *one-time* proof that the swap changed nothing, and once the swap
+  shipped its claim was spent — the whole point of the pin is that Boot's default may now diverge.
+  Its five event shapes are all covered by `GoldenEventDeserializationTest`. The backward-compat
+  safety net is `GoldenEventDeserializationTest` + `RestoreSafetyTest` +
+  `BackupRestoreRoundTripTest`, plus the `replay-preflight` profile against a real dump.
+  See `SpringBoot41UpgradePlan.md` §2.
 - `ConferenceCancelledContractTest` and `PostgresPersisterTest` both build their mapper from the
   factory. `GoldenEventDeserializationTest` intentionally stays separate — it uses a *stricter*
   mapper (`FAIL_ON_UNKNOWN_PROPERTIES=true`).
@@ -136,14 +142,15 @@ snapshots/contracts can't drift from what we persist:
 - `src/test/java/dev/ted/jittertravel/contract/ConferenceCancelled.approved.txt`
 
 Note: the pinned-mapper work below is **independently valuable** and would stay even if we drop
-Strictland: `EventJsonMapperFactory`, the `@Bean JsonMapper` in `EventSourcingConfig`, and
-`EventJsonMapperEquivalenceTest`.
+Strictland: `EventJsonMapperFactory` and the `@Bean JsonMapper` in `EventSourcingConfig`.
+(`EventJsonMapperEquivalenceTest` was the third piece and is gone — see above.)
 
 ## Next steps
 
 - [x] Spike: add Strictland, snapshot one event via our Jackson-3 mapper; confirm compatibility.
 - [x] Pin a single shared mapper config (`EventJsonMapperFactory`) used by prod + tests, proven
-      equivalent to the auto-configured mapper.
+      equivalent to the auto-configured mapper at the time of the swap (that proof is retired,
+      2026-09-07).
 - [ ] Decide: adopt Strictland or revert the spike artifacts (mapper pin stays either way).
 - [ ] If adopting: pick the first events to cover and define snapshot-file location/naming.
 - [ ] If adopting: decide the coverage-enforcement mechanism for new event types.

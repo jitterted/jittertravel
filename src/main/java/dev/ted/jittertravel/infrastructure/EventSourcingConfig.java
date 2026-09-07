@@ -81,8 +81,9 @@ public class EventSourcingConfig {
     /**
      * Pins the JsonMapper used for event/command (de)serialization to a single, version-controlled
      * config shared with the serialization tests, instead of Spring Boot's auto-configured mapper.
-     * See {@link EventJsonMapperFactory}; {@code EventJsonMapperEquivalenceTest} proves this bean
-     * is byte-for-byte equivalent to the previously auto-configured one.
+     * See {@link EventJsonMapperFactory} for why the pin exists and what proves it today (the
+     * equivalence test against the auto-configured mapper was retired 2026-09-07, its one-time
+     * migration proof spent).
      */
     @Bean
     public JsonMapper jsonMapper() {

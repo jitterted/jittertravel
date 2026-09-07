@@ -512,7 +512,9 @@ Spec (unchanged where still relevant):
   wall-clock at the wire (see above).
 - **Golden/contract tests:** legacy-format samples pass *through the upcaster*
   (`deserializeLegacy`); new-shape samples bind directly. Keep `EventJsonMapperEquivalenceTest`
-  green with the nested `ZonedTimestamp`.
+  green with the nested `ZonedTimestamp`. — *That test was retired 2026-09-07 (its one-time
+  migration proof spent); the nested `ZonedTimestamp` is covered by
+  `GoldenEventDeserializationTest`. See `SpringBoot41UpgradePlan.md` §2.*
 - **Export/import round-trip:** old (scalar, zone-less) and new backups both import; verify in
   `CommandExportImportRoundTripTest`. No backfill/rewrite of stored rows (preserves old-backup
   compatibility — per the export/import-compat rule).
@@ -634,7 +636,7 @@ failure confirmed, and the code restored. Item 8 found a live bug that way.
 - Flight zone source: `AeroDataBoxClient.parseLocal` (preserve offset, capture airport zone).
 - Compat: `EventJsonMapperFactory`/`EventTypes`/`ImportableCommandTypes`,
   `GoldenEventDeserializationTest`, `CommandImporter`, `CommandImportSafetyTest`,
-  `CommandExportImportRoundTripTest`, `EventJsonMapperEquivalenceTest`.
+  `CommandExportImportRoundTripTest`, `EventJsonMapperEquivalenceTest` (retired 2026-09-07).
 
 ## Verification
 

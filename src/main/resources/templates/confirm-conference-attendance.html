@@ -97,9 +97,9 @@
 
     <p class="error" th:if="${error}" th:text="${error}">Choose why you are going.</p>
 
-    <!-- The three labels are written out rather than looped over AttendanceBasis.values(): wording
-         is presentation, so it does not belong on the domain enum, and a fourth basis would need a
-         label written here anyway. ConfirmConferenceAttendanceControllerTest posts every value. -->
+    <!--/* The three labels are written out rather than looped over AttendanceBasis.values(): wording
+           is presentation, so it does not belong on the domain enum, and a fourth basis would need a
+           label written here anyway. ConfirmConferenceAttendanceControllerTest posts every value. */-->
     <form th:action="@{|/conferences/${conference.conferenceId().id()}/confirm|}" method="post">
         <fieldset>
             <legend>Why are you going?</legend>

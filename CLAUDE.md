@@ -219,6 +219,45 @@ branch in `PublicCalendarProjector` that collapses to `Busy`. See
 6. **When in doubt, redact and ask.** A missing detail on a public calendar is a papercut;
    a leaked one is unrecoverable.
 
+### A comment never reaches the browser
+
+**Comment CSS and templates as freely as you like — none of it is shipped** (Ted, 2026-09-07). Two
+mechanisms, both already in place, and neither asks you to move an explanation away from the thing
+it explains:
+
+- **Inlined CSS**: `Page.head` runs every renderer's stylesheet through `Page.withoutComments`
+  before it reaches the `<style>` block. Nothing to remember — write the comment where it belongs.
+- **Thymeleaf templates**: write `<!--/* … */-->`, the parser-level comment the engine removes
+  before the response. A plain `<!-- … -->` is sent to the browser and fails
+  `TemplateCommentsAreParserLevelTest`.
+
+**Why, and it is the redaction rules above pointing at a channel nothing else watches.** A
+stylesheet is inlined into every page including the anonymous `/calendar`, so a comment naming an
+owner-only surface is a disclosure — which is exactly how a comment naming `.year-overview` reached
+`CalendarRedactionSecurityTest`. Stripping makes that impossible rather than remembered. It also
+takes ~13 KB off every `/calendar` render, uncached, on the iPad's connection.
+
+**Why strip rather than ban comments and hoist them into Javadoc:** these comments are *trap
+warnings* — the `transform` that silently becomes a containing block, `max-content` being the
+unwrapped width of a wrapping flex row, the missing border-box reset — and their value is sitting on
+the declaration somebody would otherwise tidy away. Prose hoisted above a 200-line CSS constant
+loses that anchor, and a note that loses its anchor is the one that gets deleted.
+
+**Three exceptions, all deliberate:**
+
+- **Inline `<script>` text blocks are not stripped.** Doing it safely means handling regex literals
+  and string contents; that is a different job with a worse failure mode. So a JS comment *does*
+  ship — do not name a private surface in one.
+- **`site.css`** is served as a static file and never passes through `Page.head`. Its comments ship.
+- **A `<style>` block inside a Thymeleaf template** holds CSS, so the parser-level comment does not
+  apply there and a `/* */` inside it ships.
+- (And `<!--!…-->` Font Awesome license notices stay, by exemption in the test: the vendor's
+  license is not ours to strip, and it names nothing private.)
+
+**One known limitation of the stripping**, pinned by `PageTest`: a comment marker inside a CSS
+*value* (`content: "/*"`) opens a comment and eats everything up to the next real `*/`. No such
+value exists in the tree; whoever first needs one has to teach `withoutComments` about strings.
+
 ### Time comes from the injected Clock — never the ambient system clock
 
 Production code must **never** call `Instant.now()`, `LocalDate.now()`, `LocalDateTime.now()`,

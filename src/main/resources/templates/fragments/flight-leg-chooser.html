@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
-<!--
+<!--/*
   The "which leg are you on?" chooser, shared by book-flight and change-flight.
 
   A flight number can cover several segments on one day (the legs of a direct-but-not-nonstop
@@ -16,7 +16,7 @@
   The th:block wrappers around each th:replace are load-bearing: th:replace outranks th:each and
   th:if in Thymeleaf's attribute precedence, so on a single element the inclusion would win and
   the iteration/condition would never run.
--->
+*/-->
 <body>
 
 <th:block th:fragment="flightLegChooser(actionUrl, flightId)" th:if="${legChoices}">

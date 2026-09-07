@@ -34,6 +34,30 @@ public class DisclosureMenu {
     /**
      * Uses the calendar's colour variables, which are defined on {@code :root} by every page that
      * renders a menu. A page adopting this without them gets an unstyled but working menu.
+     * <p>
+     * <strong>The closed-state {@code display: none} is not redundant — do not delete it.</strong>
+     * A closed {@code <details>} hides its panel already, so the rule reads like dead CSS. What it
+     * actually does: Chrome hides a closed {@code <details>} with {@code content-visibility}, which
+     * leaves the panel's text <em>findable</em> — find-in-page searches inside it and auto-expands
+     * the menu holding a match. Reported by Ted on 2026-09-07 as Cmd+F on {@code /calendar} looking
+     * like a broken shortcut: the year overview's panel carries a {@code S M T W T F S} header and
+     * a {@code Sep 2026} label per mini month, ~18 of them, and sits in the nav near the top of the
+     * document, so the <em>first character</em> typed into the find bar matched inside it and Chrome
+     * threw the whole fixed-position panel over the page. Every future day's "Add …" menu and every
+     * fix menu on {@code /schedule-problems} had it too — searching "hotel" popped one open.
+     * {@code display: none} is the opt-out, because find-in-page skips it.
+     * <p>
+     * Specificity (0,3,0) beats the year overview's own (0,2,0) positioning override, and the
+     * selector stops matching the moment {@code [open]} appears, so opening still gets
+     * {@code display: flex}. Guarded by {@link dev.ted.jittertravel.web.DisclosureMenuTest}; the
+     * open state is covered in the js tier, which clicks controls inside these panels.
+     * <p>
+     * <strong>Why the reasoning is here and not in a CSS comment:</strong> this stylesheet is
+     * inlined into every page including the anonymous {@code /calendar}, and the first version of
+     * that comment named {@code .year-overview} — which
+     * {@code CalendarRedactionSecurityTest.anonymousViewersGetNoYearOverviewAtAll} failed, correctly.
+     * The panel is withheld from anonymous viewers entirely, so nothing in a shipped byte may say
+     * the surface exists. Keep explanations that name owner-only surfaces in Javadoc.
      */
     public static final String CSS = """
             .disclosure-menu { position: relative; }
@@ -47,6 +71,9 @@ public class DisclosureMenu {
                 border: 1px solid var(--calendar-border-strong, darkgray);
                 border-radius: 8px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
             }
+            /* Not redundant: keeps find-in-page from expanding a closed menu. Why, in the Javadoc
+               above — this stylesheet ships to every viewer. DO NOT DELETE; see DisclosureMenuTest. */
+            .disclosure-menu:not([open]) .disclosure-menu-list { display: none; }
             .disclosure-menu-item {
                 padding: 8px 10px; border-radius: 6px;
                 font-size: 0.85rem; font-weight: 500;

@@ -4,6 +4,7 @@ import j2html.TagCreator;
 import j2html.tags.DomContent;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static j2html.TagCreator.*;
 
@@ -124,15 +125,55 @@ public final class Page {
     /**
      * The document {@code <head>}: UTF-8 charset, {@code title}, the shared
      * {@code site.css} stylesheet, and {@code pageCss} inlined as a
-     * {@code <style>} block for view-specific rules.
+     * {@code <style>} block for view-specific rules — <strong>with its comments
+     * removed</strong>, see {@link #withoutComments}.
      */
     public static DomContent head(String title, String pageCss) {
         return TagCreator.head(
                 meta().withCharset("UTF-8"),
                 title(title),
                 link().withRel("stylesheet").withHref("/site.css"),
-                rawHtml("<style>" + pageCss + "</style>")
+                rawHtml("<style>" + withoutComments(pageCss) + "</style>")
         );
+    }
+
+    private static final Pattern CSS_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
+    private static final Pattern BLANK_LINE = Pattern.compile("(?m)^[ \\t]*\\r?\\n");
+
+    /**
+     * Strips {@code /* … *}{@code /} comments out of the inlined stylesheet, so a renderer's CSS
+     * comments never reach a browser.
+     * <p>
+     * <strong>This is why the renderers may keep commenting their CSS freely</strong> (Ted,
+     * 2026-09-07). The alternative was banning CSS comments and hoisting every one into Javadoc,
+     * and it costs more than it saves: these comments are trap warnings — the {@code transform}
+     * that silently becomes a containing block, {@code max-content} being the <em>unwrapped</em>
+     * width of a wrapping flex row, the missing border-box reset — and their value is sitting on
+     * the declaration somebody would otherwise tidy away. Prose hoisted above a 200-line CSS
+     * constant loses that anchor, and a note that loses its anchor is the one that gets deleted.
+     * <p>
+     * Two things it buys beyond keeping them. <strong>It closes a leak by construction:</strong>
+     * this stylesheet is inlined into every page including the anonymous {@code /calendar}, so a
+     * comment naming an owner-only surface is a disclosure that no redaction test was watching for
+     * — which is exactly how a comment naming {@code .year-overview} reached
+     * {@code CalendarRedactionSecurityTest} on 2026-09-07. There is now no comment in the output to
+     * name anything. And it takes roughly <strong>13 KB off every {@code /calendar} render</strong>,
+     * uncached, on the iPad's connection.
+     * <p>
+     * <strong>Scope, deliberately narrow.</strong> Only the inlined {@code <style>} block. Inline
+     * {@code <script>} text blocks are left alone — stripping JS comments safely means handling
+     * regex literals and string contents, which is a different job with a worse failure mode.
+     * {@code site.css} is served as a static file and never passes through here, and the Thymeleaf
+     * templates carry their own {@code <style>} blocks; both are documented exceptions.
+     * <p>
+     * Non-greedy, so adjacent comments do not swallow the CSS between them. Safe against a comment
+     * marker inside a value ({@code content:}, {@code url()}) only because no such value exists in
+     * this tree — checked when this shipped, and the reason
+     * {@code PageTest.aCommentMarkerInsideAValueWouldNotSurviveThis} is written down rather than
+     * left as a surprise for whoever first needs one.
+     */
+    static String withoutComments(String css) {
+        return BLANK_LINE.matcher(CSS_COMMENT.matcher(css).replaceAll("")).replaceAll("");
     }
 
 }

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
-<!--
+<!--/*
   The "paste an address, press Parse" auto-fill widget, shared by every form that collects an
   address. Markup and script live together here on purpose: this used to be copied into each
   form, and when /api/parse-address moved to GET ?q= only one copy was updated — the others
@@ -10,7 +10,7 @@
   locationForMatching), so it must sit inside a form carrying those fields.
 
   Enforced by AddressPasteFragmentConventionTest; behavior covered by AddressParseJsTest.
--->
+*/-->
 <body>
 <th:block th:fragment="addressPaste">
     <div class="paste-row">

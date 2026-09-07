@@ -120,8 +120,8 @@
     <form th:action="@{/plan-conference}" th:object="${planConference}" method="post">
         <input type="hidden" th:field="*{conferenceId}"/>
 
-        <!-- Above everything, because it fills fields in four of the sections below — and because
-             that is where the address widget sits on the forms that host it. -->
+        <!--/* Above everything, because it fills fields in four of the sections below — and because
+               that is where the address widget sits on the forms that host it. */-->
         <div th:replace="~{fragments/sessionize-prefill :: sessionizePrefill}"></div>
 
         <div class="field" style="margin-bottom: 0.75rem;">
@@ -132,8 +132,8 @@
             <span class="error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
         </div>
 
-        <!-- The conference's own page. Public, like the venue and the dates: it is a public event.
-             Not to be confused with the CFP's submission page below, which is private. -->
+        <!--/* The conference's own page. Public, like the venue and the dates: it is a public event.
+               Not to be confused with the CFP's submission page below, which is private. */-->
         <div class="field" style="margin-bottom: 0.75rem;">
             <label>
                 Conference Page <span class="optional">optional</span>
@@ -173,11 +173,11 @@
             </div>
         </fieldset>
 
-        <!-- The CFP, recorded on the same page rather than on a second one (Ted, 2026-08-22). This
-             half becomes a separate command after the conference is planned; leaving it blank is
-             the ordinary case, since a CFP often opens long after the conference is on the list.
-             Always visible, including for Open Space: hiding it as the radio changes would move
-             every field below it, and the server refuses the impossible combination anyway. -->
+        <!--/* The CFP, recorded on the same page rather than on a second one (Ted, 2026-08-22). This
+               half becomes a separate command after the conference is planned; leaving it blank is
+               the ordinary case, since a CFP often opens long after the conference is on the list.
+               Always visible, including for Open Space: hiding it as the radio changes would move
+               every field below it, and the server refuses the impossible combination anyway. */-->
         <fieldset>
             <legend>Call for Papers</legend>
 

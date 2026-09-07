@@ -101,7 +101,7 @@
             &rarr;
             <span th:text="${train.arrivalStation().city()}">Berlin</span>
         </div>
-        <!-- Service id only when one was recorded: an empty line would say less in more space. -->
+        <!--/* Service id only when one was recorded: an empty line would say less in more space. */-->
         <div class="line" th:if="${!train.serviceId().isBlank()}" th:text="${train.serviceId()}">ICE 597</div>
         <div class="line">
             <span class="leg-label">Departs</span>
@@ -125,9 +125,9 @@
 
     <form th:action="@{|/booked-trains/${train.tripId().id()}/cancel|}" method="post">
 
-        <!-- Carries the fix link's origin through the POST (and through a validation
-             re-render) so the action returns to the report it was launched from.
-             Absent for an ordinary visit, which keeps this controller's own default. -->
+        <!--/* Carries the fix link's origin through the POST (and through a validation
+               re-render) so the action returns to the report it was launched from.
+               Absent for an ordinary visit, which keeps this controller's own default. */-->
         <input type="hidden" name="from" th:if="${fixOrigin != null}" th:value="${fixOrigin}"/>
         <div class="field">
             <label>

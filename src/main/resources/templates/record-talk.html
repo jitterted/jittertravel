@@ -100,10 +100,10 @@
 
     <p class="error" th:if="${error}" th:text="${error}">Choose what happened with the talk.</p>
 
-    <!-- Only the moves that are legal from where this conference stands are offered, and the
-         wording is written out here rather than looped off TalkOutcome: how a value is worded is
-         presentation, so it does not belong on the enum. RecordTalkControllerTest posts every
-         value, including ones this page would not have offered. -->
+    <!--/* Only the moves that are legal from where this conference stands are offered, and the
+           wording is written out here rather than looped off TalkOutcome: how a value is worded is
+           presentation, so it does not belong on the enum. RecordTalkControllerTest posts every
+           value, including ones this page would not have offered. */-->
     <form th:action="@{|/conferences/${conference.conferenceId().id()}/talk|}" method="post">
         <fieldset>
             <legend>What happened with the talk?</legend>

@@ -76,7 +76,14 @@ class ChangeHotelControllerTest {
                 // The change page is edit-only: cancelling is a separate action reached from the
                 // /booked-hotels list, so this page hosts no cancel affordance of its own.
                 .doesNotContain("Cancel this booking")
-                .doesNotContain("/cancel");
+                .doesNotContain("/cancel")
+                // The note explaining that (change-hotel.html) is written as a Thymeleaf parser
+                // comment, which the template engine removes before the response is written. This
+                // is the case that proves the mechanism the templates rely on — see
+                // TemplateCommentsAreParserLevelTest, which requires every comment to be written
+                // that way but cannot itself show that the engine honours it.
+                .doesNotContain("Thymeleaf parser comment")
+                .doesNotContain("<!--");
     }
 
     @Test

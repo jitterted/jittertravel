@@ -128,9 +128,9 @@
 
     <form th:action="@{/plan-ground-transfer}" th:object="${planGroundTransfer}" method="post">
 
-        <!-- Carries the fix link's origin through the POST (and through a validation
-             re-render) so the action returns to the report it was launched from.
-             Absent for an ordinary visit, which keeps this controller's own default. -->
+        <!--/* Carries the fix link's origin through the POST (and through a validation
+               re-render) so the action returns to the report it was launched from.
+               Absent for an ordinary visit, which keeps this controller's own default. */-->
         <input type="hidden" name="from" th:if="${fixOrigin != null}" th:value="${fixOrigin}"/>
         <input type="hidden" th:field="*{groundTransferId}"/>
 

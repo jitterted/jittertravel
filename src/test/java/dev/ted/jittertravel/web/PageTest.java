@@ -3,6 +3,9 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.web.Page.NavAudience;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
+import java.util.List;
+
 import static j2html.TagCreator.span;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -104,6 +107,93 @@ class PageTest {
         assertThat(control)
                 .as("the control sits before the nav closes, not after it")
                 .isLessThan(navClose);
+    }
+
+    /**
+     * The renderers comment their CSS heavily and deliberately — see {@link Page#withoutComments}
+     * for why that is allowed to stay. These cases are what make it safe: nothing they write
+     * reaches a browser, so a comment can neither name an owner-only surface nor cost bytes.
+     */
+    @Test
+    void inlinedCssShipsWithoutItsComments() {
+        String head = Page.head("T", """
+                /* Names .year-overview, which anonymous viewers must not learn exists. */
+                .thing { color: red; }
+                """).render();
+
+        assertThat(head)
+                .as("the declaration survives")
+                .contains(".thing { color: red; }")
+                .as("the comment does not")
+                .doesNotContain("/*")
+                .doesNotContain("*/")
+                .doesNotContain("year-overview");
+    }
+
+    @Test
+    void aMultiLineCommentGoesInFullAndTakesItsBlankLineWithIt() {
+        String head = Page.head("T", """
+                .a { color: red; }
+                /* One line,
+                   and a second. */
+                .b { color: blue; }
+                """).render();
+
+        assertThat(head)
+                .contains(".a { color: red; }")
+                .contains(".b { color: blue; }")
+                .doesNotContain("and a second")
+                .as("the emptied line goes too, or the saving is only half taken")
+                .contains(".a { color: red; }\n.b { color: blue; }");
+    }
+
+    @Test
+    void twoCommentsDoNotSwallowTheCssBetweenThem() {
+        String head = Page.head("T", "/* one */ .keep { color: red; } /* two */").render();
+
+        assertThat(head)
+                .as("a greedy match would eat this declaration whole")
+                .contains(".keep { color: red; }")
+                .doesNotContain("one")
+                .doesNotContain("two");
+    }
+
+    /**
+     * <strong>A known limitation, written down rather than left as a surprise.</strong> A comment
+     * marker inside a CSS <em>value</em> opens a comment, so everything up to the next real
+     * {@code *}{@code /} is eaten — including whole rules in between. No such value exists in this
+     * tree — checked when the stripping shipped — so this pins the boundary rather than a bug.
+     * Whoever first needs {@code content: "/*"} has to teach {@link Page#withoutComments} about
+     * strings before writing it.
+     * <p>
+     * Note what it takes to do damage: an <em>unterminated</em> marker matches nothing and passes
+     * through untouched. It needs a later comment to close against, which is why the fixture has
+     * one.
+     */
+    @Test
+    void aCommentMarkerInsideAValueEatsEverythingUpToTheNextRealComment() {
+        String head = Page.head("T", """
+                .marker::after { content: "/*"; }
+                .caught-in-between { color: red; }
+                .b { color: blue; } /* a real comment */
+                """).render();
+
+        assertThat(head)
+                .as("the limitation, not the behaviour we want: the rule between them is gone")
+                .doesNotContain(".caught-in-between")
+                .as("the opening rule is left truncated at the quote, not removed cleanly")
+                .doesNotContain("content: \"/*\";")
+                .contains(".marker::after { content: \"");
+    }
+
+    @Test
+    void aRealPageCarriesNoCssComment() {
+        String page = CalendarRenderer.render(List.of(), LocalDate.of(2026, 9, 7), false, true);
+
+        assertThat(page)
+                .as("the calendar inlines the most heavily commented CSS in the tree")
+                .contains("<style>")
+                .doesNotContain("/*");
     }
 
     @Test

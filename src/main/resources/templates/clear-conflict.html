@@ -108,14 +108,14 @@
 
     <form th:action="@{/clear-conflict}" th:object="${clearConflictRequest}" method="post">
 
-        <!-- Carries the fix link's origin through the POST (and through a validation
-             re-render) so the action returns to the report it was launched from.
-             Absent for an ordinary visit, which keeps this controller's own default. -->
+        <!--/* Carries the fix link's origin through the POST (and through a validation
+               re-render) so the action returns to the report it was launched from.
+               Absent for an ordinary visit, which keeps this controller's own default. */-->
         <input type="hidden" name="from" th:if="${fixOrigin != null}" th:value="${fixOrigin}"/>
         <input type="hidden" th:field="*{gatheringId}"/>
         <input type="hidden" th:field="*{conferenceId}"/>
-        <!-- Display-only, but carried through the post so a rejected submit re-renders the
-             summary above instead of an empty box. -->
+        <!--/* Display-only, but carried through the post so a rejected submit re-renders the
+               summary above instead of an empty box. */-->
         <input type="hidden" th:field="*{gatheringName}"/>
         <input type="hidden" th:field="*{gatheringCity}"/>
         <input type="hidden" th:field="*{conferenceName}"/>

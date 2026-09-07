@@ -70,8 +70,8 @@
             &rarr;
             <span th:text="${#temporals.format(transfer.arrivesAt(), 'h:mm a')}">time</span>
         </div>
-        <!-- Only when one was recorded. It is here because two hops along the same route on the
-             same day read identically without it, and cancelling the wrong one is not undoable. -->
+        <!--/* Only when one was recorded. It is here because two hops along the same route on the
+               same day read identically without it, and cancelling the wrong one is not undoable. */-->
         <div class="line" th:if="${!transfer.mode().isBlank()}" th:text="${transfer.mode()}">mode</div>
     </div>
 
@@ -83,9 +83,9 @@
 
     <form th:action="@{|/ground-transfers/${transfer.groundTransferId().id()}/cancel|}" method="post">
 
-        <!-- Carries the fix link's origin through the POST (and through a validation
-             re-render) so the action returns to the report it was launched from.
-             Absent for an ordinary visit, which keeps this controller's own default. -->
+        <!--/* Carries the fix link's origin through the POST (and through a validation
+               re-render) so the action returns to the report it was launched from.
+               Absent for an ordinary visit, which keeps this controller's own default. */-->
         <input type="hidden" name="from" th:if="${fixOrigin != null}" th:value="${fixOrigin}"/>
         <div class="actions">
             <button type="submit" class="confirm">Cancel this transfer</button>

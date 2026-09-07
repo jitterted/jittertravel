@@ -85,7 +85,7 @@
 
     <div class="summary">
         <div class="name" th:text="${privateEvent.title()}">Dinner with friends</div>
-        <!-- Venue only when one was recorded: an empty line would say less in more space. -->
+        <!--/* Venue only when one was recorded: an empty line would say less in more space. */-->
         <div class="line" th:if="${!privateEvent.venueName().isBlank()}" th:text="${privateEvent.venueName()}">venue</div>
         <div class="line" th:text="${privateEvent.city() + (privateEvent.country().isBlank() ? '' : ', ' + privateEvent.country())}">city</div>
         <div class="line" th:text="${#temporals.format(privateEvent.startsAt(), 'EEE, MMM d, yyyy')}">date</div>

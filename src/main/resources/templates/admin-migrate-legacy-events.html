@@ -112,7 +112,7 @@
         Safe to run repeatedly — an already-current, correctly-stamped, correctly-named row is skipped.
     </p>
 
-    <!-- Applied-run outcome -->
+    <!--/* Applied-run outcome */-->
     <div class="banner success" th:if="${result != null and !result.hasErrors()}">
         <strong>✓ Migration complete.</strong>
         <span th:text="${result.rewritten()} + ' payload' + (${result.rewritten()} == 1 ? '' : 's') + ' rewritten, '

@@ -122,3 +122,59 @@ All date-time entries in the system are entered in local date-time for the locat
 Time zone from the browser should be used to localize the date-times of entries.
 To override the default time zone, a drop-down menu is available on the Calendar and Itinerary views to select the time zone, defaulting to the time zone from the viewer's browser.
 
+---
+
+## Near-name check on Plan Conference — warn and proceed
+
+**Requested by Ted, 2026-09-07**, from "as the number of conferences grows, I need a quick way to
+find if I already added one". That question has two halves and they landed in different places: the
+*looking it up* half belongs on **`/calendar`**, not `/conferences` (there a browser page search is
+enough), and is a separate open question. This slice is the other half — catching the duplicate at
+the moment it would be created, so nothing has to be remembered.
+
+**Nothing checks today.** `PlanConferenceCommand` validates only its dates; two identical
+conferences can be planned, and they become two independent streams with two ids, two CFP records
+and two calendar entries.
+
+**Warn and proceed — never block.** The warning is information, not a gate:
+
+- **A similar name is not a duplicate.** There are several regional Devoxx events: "Devoxx UK" does
+  not duplicate "Devoxx Belgium", and a rule that refuses either is wrong. Same for the same
+  conference in consecutive years.
+- So the page **shows** what it found and lets Ted go ahead. The submit that follows the warning
+  must succeed with the values already typed — see the open question below about how the second
+  submit is distinguished from the first.
+
+**Where:** `/plan-conference`. That is a decision-support surface (CLAUDE.md, "A recording surface
+needs no decision-support information"), so it carries the context that makes the choice answerable
+— the matches, with their dates, cities and a link to each.
+
+**Scope of the search: every conference, ignoring both list filters.** Past *and* dropped. The
+dropped ones matter most: a conference Ted declined is invisible on `/conferences` by default, which
+makes it the one he is most likely to plan again — and re-adding it would silently resurrect
+something he had already answered.
+
+**The matching rule is the whole risk, and it gets validated before it ships.** Follow the
+`EnteredLocation` precedent (CLAUDE.md, "A city that is really a station…"): write the rule, run it
+over every conference pair in the most recent production backup, and count what it would have said.
+**When a rule misfires, shorten it — do not weaken it.** Note what validation can and cannot answer:
+it says whether the rule *misfires*, never whether the feature is worth building (there may be zero
+duplicates in the log today because Ted has been checking by hand).
+
+**Open questions, none of them decided:**
+
+1. **What counts as "near".** Token overlap? Edit distance on a normalized name? Shared leading
+   word? "Devoxx UK" vs "Devoxx Belgium" is the case that must *not* fire while still being shown,
+   which suggests the answer is a **similarity score with a low bar and no threshold that hides
+   anything** — show every plausible match rather than trying to be exact.
+2. **Does the date matter?** Same name a year apart is normal and must not be flagged as a mistake;
+   same name a week apart almost certainly is. Whether proximity strengthens the warning, or is only
+   shown as a fact, is undecided.
+3. **How the second submit is distinguished from the first.** A hidden acknowledged-matches field, a
+   distinct button, or a re-post of the same values? Whatever it is must not lose the typed values
+   (CLAUDE.md: a rejected form reports on the form page and keeps what was typed) and must not let a
+   *later* edit slip past the check unnoticed.
+4. **The other kinds.** Gatherings and private events have exactly the same exposure. Extending is a
+   decision, not a chore — same as `EnteredLocation`, which is deliberately wired to trains and
+   hotels only.
+

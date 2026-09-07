@@ -167,7 +167,7 @@ public class EventSourcingConfig {
     @Bean
     public FlightBooking flightBookingApplicationService(CommandExecutor commandExecutor,
                                                          AirportZoneResolver airportZoneResolver,
-                                                     LiveScheduledLegs liveScheduledLegs) {
+                                                         LiveScheduledLegs liveScheduledLegs) {
         return new FlightBooking(commandExecutor, airportZoneResolver, liveScheduledLegs);
     }
 
@@ -200,7 +200,7 @@ public class EventSourcingConfig {
     public ChangeFlight changeFlightApplicationService(CommandExecutor commandExecutor,
                                                        FlightDetailsViewProjector flightDetailsViewProjector,
                                                        AirportZoneResolver airportZoneResolver,
-                                                   LiveScheduledLegs liveScheduledLegs) {
+                                                       LiveScheduledLegs liveScheduledLegs) {
         return new ChangeFlight(commandExecutor, flightDetailsViewProjector, airportZoneResolver,
                 liveScheduledLegs);
     }
@@ -314,7 +314,7 @@ public class EventSourcingConfig {
     public ChangeTrain changeTrainApplicationService(CommandExecutor commandExecutor,
                                                      TrainDetailsViewProjector trainDetailsViewProjector,
                                                      LocationZoneResolver locationZoneResolver,
-                                                 LiveScheduledLegs liveScheduledLegs) {
+                                                     LiveScheduledLegs liveScheduledLegs) {
         return new ChangeTrain(commandExecutor, trainDetailsViewProjector, locationZoneResolver,
                 liveScheduledLegs);
     }
@@ -322,7 +322,7 @@ public class EventSourcingConfig {
     @Bean
     public TrainBooking trainBookingApplicationService(CommandExecutor commandExecutor,
                                                        LocationZoneResolver locationZoneResolver,
-                                                   LiveScheduledLegs liveScheduledLegs) {
+                                                       LiveScheduledLegs liveScheduledLegs) {
         return new TrainBooking(commandExecutor, locationZoneResolver, liveScheduledLegs);
     }
 

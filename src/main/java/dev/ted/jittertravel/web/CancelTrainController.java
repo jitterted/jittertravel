@@ -1,10 +1,13 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CancelTrain;
+import dev.ted.jittertravel.application.ReadOnlyModeException;
 import dev.ted.jittertravel.application.TrainDetailsView;
 import dev.ted.jittertravel.application.TrainDetailsViewProjector;
 import dev.ted.jittertravel.domain.TrainNotFound;
 import dev.ted.jittertravel.domain.TrainTripId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,19 +20,21 @@ import java.util.UUID;
 
 /**
  * Cancels a booked train trip on its own page: GET renders the confirmation, POST performs it.
- * Mirrors {@link CancelPrivateEventController} — a dedicated page is what gives the confirmation
- * somewhere to say what cancelling does, and a POST is not reachable by a stray click.
+ * Mirrors {@link CancelPrivateEventController} — a dedicated page gives the confirmation somewhere
+ * to say what cancelling does, and a POST is not reachable by a stray click.
  * <p>
- * A plain confirm, with no typed word: nothing stored is destroyed by appending a cancellation, so
- * the typed word belongs to what cannot be undone from inside the app. The button is amber for the
- * same reason — booking the trip again puts it back.
+ * <strong>No typed word, and a red button.</strong> The two questions are separate (CLAUDE.md).
+ * Nothing stored is destroyed by appending a cancellation, so there is no word to type. But nothing
+ * puts the trip back from inside the app either — there is no undo, re-booking mints a new trip id,
+ * and a past trip cannot be re-booked at all — so the colour is red, as Cancel Hotel's is.
  * <p>
  * Every miss navigates to {@code /booked-trains} in silence rather than attaching a flash: the list
- * is a j2html view and cannot render one (the dead-flash pattern recorded in
- * {@code docs/Cleanup_Tasks.md}).
+ * is a j2html view and cannot render one (the dead-flash pattern in {@code docs/Cleanup_Tasks.md}).
  */
 @Controller
 public class CancelTrainController {
+
+    private static final Logger log = LoggerFactory.getLogger(CancelTrainController.class);
 
     private final CancelTrain applicationService;
     private final TrainDetailsViewProjector detailsProjector;
@@ -68,6 +73,11 @@ public class CancelTrainController {
             // Already cancelled in another tab: there is nothing left to cancel, and nothing to
             // tell the list either.
             return "redirect:/booked-trains";
+        } catch (ReadOnlyModeException e) {
+            // CommandExecutor refuses before writing, so the data is safe either way; this is what
+            // turns the refusal into the page that explains it instead of an error page.
+            log.warn("Attempted to cancel train while in read-only mode", e);
+            return "redirect:/read-only";
         }
 
         return returnTo(from, "/booked-trains");

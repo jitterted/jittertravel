@@ -349,30 +349,26 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     }
 
     /**
-     * Every booked leg, in a <strong>total</strong> order.
+     * Every booked leg, in a total order.
      * <p>
-     * Departure instant alone is not one: two legs leaving at the same moment — which is what an
-     * exact duplicate entry looks like — sort in whatever order the three
-     * {@link ConcurrentHashMap}s iterate in. That is invisible for the walk, which re-sorts its own
-     * points, but {@code overlappingTravel} reports <em>pairs in this order</em> and
-     * {@code ProblemKey} is derived from it.
+     * Departure instant alone is not one: two legs leaving at the same moment — what an exact
+     * duplicate entry looks like — sort in whatever order the three {@link ConcurrentHashMap}s
+     * iterate in. The walk re-sorts its own points and does not care, but
+     * {@code overlappingTravel} reports <em>pairs in this order</em> and {@code ProblemKey} is
+     * derived from it. The tiebreaker is the leg's id, which is unique; {@code detailsPath()} is
+     * not, since every ground transfer shares {@code /itinerary}.
      * <p>
-     * <strong>Be precise about what the tiebreaker buys, because the obvious claim is wrong.</strong>
-     * It is <em>not</em> protection against a key flipping between recomputes: a
-     * {@code ConcurrentHashMap} over a fixed key set iterates deterministically, so the same events
-     * already produce the same order with or without it (measured, 2026-09-06 — which is why the
-     * test here asserts the ordering rule rather than "stable across recomputes", an assertion that
-     * can never fail and would pin nothing). What it buys is that the order is <strong>ours</strong>
-     * rather than an artefact of how UUIDs happen to hash: changing the map type, the fold, or the
-     * way legs are collected would otherwise silently renumber every open fix link, and nothing
-     * would say so.
+     * What the tiebreaker buys is not stability across recomputes — a {@code ConcurrentHashMap}
+     * over a fixed key set already iterates deterministically (measured, 2026-09-06). It buys an
+     * order that is <em>ours</em>: changing the map type or the fold would otherwise silently
+     * renumber every open fix link.
      */
     private List<ScheduleTimeline.Movement> allLegs() {
         return Stream.of(flightLegs.values().stream(), trainLegs.values().stream(),
                          groundTransfers.values().stream())
                 .flatMap(legs -> legs)
                 .sorted(Comparator.comparing((ScheduleTimeline.Movement leg) -> leg.departure().utc())
-                                .thenComparing(leg -> leg.leg().detailsPath()))
+                                .thenComparing(leg -> leg.leg().identity()))
                 .toList();
     }
 

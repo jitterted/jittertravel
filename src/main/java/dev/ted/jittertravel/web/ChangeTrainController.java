@@ -66,6 +66,12 @@ public class ChangeTrainController {
         command.setTrainTripId(tripIdString);
 
         TrainFormErrors errors = new TrainFormErrors(bindingResult);
+        // Binding already failed: a date left blank, or one that would not parse. Those values are
+        // null on the request, so calling the service would only reach the write path with them.
+        if (bindingResult.hasErrors()) {
+            errors.summarize();
+            return "change-train";
+        }
         try {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
             applicationService.changeTrain(UUID.randomUUID(), command, Instant.now(clock));

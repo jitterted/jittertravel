@@ -292,6 +292,12 @@ Cancelling a hotel destroys nothing (no word) but has no in-app undo today — t
 Booking" slice is unbuilt — so its red button and red warning are correct as they stand. Ship the
 undo and the colour question reopens; the typed-word question never applied.
 
+**Cancel Train is the same, and shipped amber by mistake on 2026-09-06.** The argument for amber was
+"booking the trip again puts it back". It does not: re-booking mints a new `TrainTripId`, and a past
+trip cannot be re-booked at all, since departure must be in the future. **"Re-entering it by hand"
+is not an undo** — that is the general form of the rule, and it is what the colour question is
+asking. Corrected to red on the button, the list link and the confirmation's own sentence.
+
 ### Action affordances: never move, and disable rather than hide — but only for *state*
 
 Two standing UI rules for buttons, links, and icons (Ted, 2026-08-19):
@@ -702,6 +708,28 @@ browser blocks the submit and shows a bubble the server never hears about, so th
 as it was — which reads as "my fix changed nothing", and cost a real session. `EnteredLocation`
 already reports a blank name or city through the same field-level channel as everything else, so
 this is one error vocabulary rather than two. Do not re-add it here.
+
+**A blank date or time is a field error, everywhere, and nothing at a form says so.** The argument
+above only covered the *text* inputs. The date inputs never carried `required` either, and nothing
+replaced it: an empty `datetime-local` binds to `null` (Spring's `ParserConverter` returns null for
+blank text), the handler called `ZonedTimestamp.fromLocal(null, zone)`, and the page was a 500 — on
+eleven forms, not one. `RequiredEntryAdvice` is the answer, and it is the shape `TrimTypedTextAdvice`
+already has: every `LocalDate`/`LocalTime`/`LocalDateTime` bound from a form is required, stated once
+and covering the forms nobody has written yet.
+
+Three things follow when you add a form.
+
+1. **Required is the default; `@OptionalEntry` opts out.** Only a hotel's `cancelBy` and a
+   conference's `cfpClosesOn` carry it. That direction is deliberate: a genuinely optional field
+   that forgets the annotation says "Required" on screen, which is visible and one line to fix,
+   while a required field that had to *remember* one binds null and reaches the write path.
+2. **A POST must return before calling its service when `bindingResult.hasErrors()`.** The advice
+   marks and drops the value; without the guard the handler still runs with the null. This also
+   covers a value that would not parse, which had the same ending.
+3. **Every date and time input needs its own `<span class="error">`**, or the message is invisible
+   and the form reads as having ignored the submit — the exact failure `required` was dropped for.
+
+Pinned by `RequiredEntryConventionTest`; nothing at a controller mentions the advice.
 
 ## Testing
 

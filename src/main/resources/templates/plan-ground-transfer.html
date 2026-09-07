@@ -224,6 +224,9 @@
                     Departure time
                     <input type="time" th:field="*{departureTime}"/>
                 </label>
+                <span class="error"
+                      th:if="${#fields.hasErrors('departureTime')}"
+                      th:errors="*{departureTime}"></span>
             </div>
             <div class="field">
                 <label>

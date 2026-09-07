@@ -21,11 +21,6 @@
         <legend>Lookup Flight</legend>
         <p>Enter a flight number and departure date to auto-fill the form using AeroDataBox.</p>
         <form th:action="@{/book-flight/lookup}" method="post">
-
-        <!-- Carries the fix link's origin through the POST (and through a validation
-             re-render) so the action returns to the report it was launched from.
-             Absent for an ordinary visit, which keeps this controller's own default. -->
-        <input type="hidden" name="from" th:if="${fixOrigin != null}" th:value="${fixOrigin}"/>
             <div class="lookup-row">
                 <div class="field">
                     <label>
@@ -48,6 +43,11 @@
     <th:block th:replace="~{fragments/flight-leg-chooser :: flightLegChooser(@{/book-flight/lookup/select}, ${bookFlight.flightId})}"></th:block>
 
     <form th:action="@{/book-flight}" th:object="${bookFlight}" method="post">
+
+        <!-- Carries the fix link's origin through the POST (and through a validation
+             re-render) so the action returns to the report it was launched from.
+             Absent for an ordinary visit, which keeps this controller's own default. -->
+        <input type="hidden" name="from" th:if="${fixOrigin != null}" th:value="${fixOrigin}"/>
         <input type="hidden" th:field="*{flightId}"/>
 
         <div class="field-row service-field">

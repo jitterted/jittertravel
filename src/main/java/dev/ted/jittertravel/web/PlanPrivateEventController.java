@@ -52,6 +52,10 @@ public class PlanPrivateEventController {
     @PostMapping("/plan-private-event")
     public String planPrivateEventSubmit(@ModelAttribute("planPrivateEvent") PlanPrivateEventRequest request,
                                          BindingResult bindingResult) {
+        // A date or time left blank, or one that would not parse, is null on the request.
+        if (bindingResult.hasErrors()) {
+            return "plan-private-event";
+        }
         try {
             // now is captured at the boundary as an Instant; the venue zone is resolved inward.
             privateEventPlanning.planPrivateEvent(request, Instant.now(clock));

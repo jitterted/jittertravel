@@ -16,6 +16,24 @@ for open work.
 
 ## Open
 
+- [ ] **An overlap and a location problem still take two submits.** The train forms report every
+      problem in one response (CLAUDE.md, "A rejected form reports everything it can see"), but
+      `OverlappingLegRefused` is outside that mechanism: `BookTrainCommand` runs
+      `TrainStations.check()` first and throws, so a bad city hides an overlap that would also have
+      been reported. Fix the city, submit, meet a fresh error — the exact shape the rule exists to
+      prevent.
+
+      **Part of the ordering is right and must stay.** An overlap is only meaningful once the
+      window itself is valid, so it belongs after the date rules. The wrong part is that it also
+      sits after the *location* rules, which the times do not depend on at all.
+
+      **Why it was not fixed with the rest on 2026-09-06.** `OverlappingLegRefused` is shared with
+      the two flight paths, while `InvalidTrainEntry` — the only thing that carries several problems
+      at once — is train-shaped. Merging them means either a train-only overlap channel (a second
+      vocabulary for one rule) or generalising the multi-problem carrier across kinds, which is the
+      same work as extending field-level errors to flights and hotels, already queued below. Do them
+      together.
+
 - [ ] **Test isolation is not enforced — `EventStore` cannot return to a known state.**
       Raised by Ted 2026-09-06 (*"if the tests can't be isolated due to production code, that is
       absolutely a problem with the implementation"*); designed, built, and **parked with a

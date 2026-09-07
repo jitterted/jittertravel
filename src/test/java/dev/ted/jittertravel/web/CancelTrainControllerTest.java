@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.CancelTrain;
+import dev.ted.jittertravel.application.ReadOnlyModeException;
 import dev.ted.jittertravel.application.TrainDetailsView;
 import dev.ted.jittertravel.application.TrainDetailsViewProjector;
 import dev.ted.jittertravel.domain.TrainNotFound;
@@ -147,6 +148,54 @@ class CancelTrainControllerTest {
         assertThat(mockMvc.post().uri("/booked-trains/{id}/cancel", tripId).with(csrf()))
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/booked-trains");
+    }
+
+    @Test
+    void readOnlyModeSendsTheReaderToThePageThatExplainsIt() {
+        // CommandExecutor throws before writing, so the data is safe with or without this. What
+        // the catch buys is the page that says why, instead of an error page.
+        UUID tripId = UUID.randomUUID();
+        given(detailsProjector.findById(TrainTripId.of(tripId)))
+                .willReturn(Optional.of(viewFor(tripId)));
+        willThrow(new ReadOnlyModeException("read-only"))
+                .given(cancelTrain).cancelTrain(any(UUID.class), any(CancelTrainRequest.class));
+
+        assertThat(mockMvc.post().uri("/booked-trains/{id}/cancel", tripId).with(csrf()))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/read-only");
+    }
+
+    @Test
+    void aReadOnlyRefusalIgnoresTheOriginBecauseNothingWasFixed() {
+        UUID tripId = UUID.randomUUID();
+        given(detailsProjector.findById(TrainTripId.of(tripId)))
+                .willReturn(Optional.of(viewFor(tripId)));
+        willThrow(new ReadOnlyModeException("read-only"))
+                .given(cancelTrain).cancelTrain(any(UUID.class), any(CancelTrainRequest.class));
+
+        assertThat(mockMvc.post().uri("/booked-trains/{id}/cancel", tripId)
+                           .with(csrf())
+                           .param("from", "list"))
+                .hasRedirectedUrl("/read-only");
+    }
+
+    /**
+     * The colour rule, pinned where it can be read: the button is red because nothing puts the trip
+     * back from inside the app. The typed-word question is separate and answers no — appending a
+     * cancellation destroys nothing — so there is no confirmation word to type.
+     */
+    @Test
+    void theConfirmationIsRedAndTakesNoTypedWord() {
+        UUID tripId = UUID.randomUUID();
+        given(detailsProjector.findById(TrainTripId.of(tripId)))
+                .willReturn(Optional.of(viewFor(tripId)));
+
+        assertThat(mockMvc.get().uri("/booked-trains/{id}/cancel", tripId))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<button type=\"submit\" class=\"danger\">Cancel this trip</button>")
+                .contains("background: #b00;")
+                .doesNotContain("placeholder=\"CANCEL\"");
     }
 
     // -------------------------------------------------------------------------

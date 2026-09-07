@@ -73,6 +73,12 @@ public class BookTrainController {
                                   @RequestParam(value = "from", required = false) String from,
                                   Model model) {
         TrainFormErrors errors = new TrainFormErrors(bindingResult);
+        // Binding already failed: a date left blank, or one that would not parse. Those values are
+        // null on the request, so calling the service would only reach the write path with them.
+        if (bindingResult.hasErrors()) {
+            errors.summarize();
+            return "book-train";
+        }
         try {
             trainBooking.bookTrain(request, Instant.now(clock));
         } catch (DepartureNotInFuture e) {

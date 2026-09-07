@@ -61,20 +61,22 @@
 
         .actions { display: flex; align-items: center; gap: 1.25rem; }
 
-        /* Amber, not red: appending a cancellation destroys nothing — the booking stays in the
-           event log — and booking the trip again puts it back. Red is reserved for what cannot be
-           undone from inside the app. */
-        button.confirm {
-            background: #b45309;
+        /* Red, matching Cancel Hotel, because the colour asks "can Ted put this back from inside
+           the app?" and the answer is no: there is no undo, and re-booking is not one — it mints a
+           new trip id, and a past trip cannot be re-booked at all (departure must be in the
+           future). The typed-word question is separate and does not apply: appending a
+           cancellation destroys nothing, so there is no word to type. */
+        button.danger {
+            background: #b00;
             color: #fff;
-            border: 1px solid #b45309;
+            border: 1px solid #b00;
             border-radius: 6px;
             padding: 0.45rem 1.4rem;
             font-size: 0.95rem;
             font-family: inherit;
             cursor: pointer;
         }
-        button.confirm:hover { opacity: 0.88; }
+        button.danger:hover { opacity: 0.88; }
 
         .keep-link { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
         .keep-link:hover { text-decoration: underline; }
@@ -117,7 +119,8 @@
         Cancelling removes the trip from the calendar, the itinerary and the trains list, and drops
         it from the schedule-problems report — so a journey it appeared to make may show up as a
         travel gap again, and it will no longer be offered as an end for a ground transfer. The
-        event log keeps the record, including the reason. To put it back, book the trip again.
+        event log keeps the record, including the reason. There is no undo: a future trip can be
+        entered again as a new booking, and a past one cannot be entered at all.
     </p>
 
     <form th:action="@{|/booked-trains/${train.tripId().id()}/cancel|}" method="post">
@@ -135,7 +138,7 @@
         </div>
 
         <div class="actions">
-            <button type="submit" class="confirm">Cancel this trip</button>
+            <button type="submit" class="danger">Cancel this trip</button>
             <a class="keep-link" th:href="@{/booked-trains}">Keep it — back to the list</a>
         </div>
     </form>

@@ -4,15 +4,12 @@ package dev.ted.jittertravel.domain;
  * The proposed journey collides with one already booked — Ted can only be on one of them, so it is
  * refused rather than written.
  * <p>
- * <strong>Refusal, not a warning</strong> (Ted, 2026-09-06). The report at {@code /schedule-problems}
- * catches an overlap only if Ted visits it; this catches it at the moment it is entered, which is
- * what his near miss actually needed. The objection — that refusing forces "cancel the old one
- * first" — is answered by the two things shipped alongside: cancelling is now one link from three
- * surfaces, and this refusal <em>names the blocking leg as a link</em>, so the error says what is in
- * the way and puts him one click from it.
+ * Refusal, not a warning (Ted, 2026-09-06): {@code /schedule-problems} catches an overlap only if
+ * Ted visits it, and this catches it as it is typed. The objection — that refusing forces "cancel
+ * the old one first" — is answered by cancel now being one link from three surfaces, and by this
+ * refusal naming the blocking leg as a link.
  * <p>
- * It carries the blocking {@link ScheduledLeg} and nothing else. The boundary turns that into words
- * and a link; the domain neither knows nor formats them.
+ * It carries the blocking {@link ScheduledLeg} and nothing else; the boundary makes the words.
  */
 public class OverlappingLegRefused extends RuntimeException {
 

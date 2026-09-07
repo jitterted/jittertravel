@@ -18,6 +18,10 @@ public class ClearConflictRequest {
     private String conferenceName;
     private String conferenceCity;
 
+    // Optional to RequiredEntryAdvice, unlike every other bound date: nothing is written from it,
+    // so refusing a clear-conflict because a display-only hidden input arrived empty would fail a
+    // valid submit to protect a summary line.
+    @OptionalEntry
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate date;
 

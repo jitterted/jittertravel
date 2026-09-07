@@ -100,6 +100,10 @@ public class PlanGroundTransferController {
     public String planGroundTransferSubmit(@ModelAttribute("planGroundTransfer") PlanGroundTransferRequest request,
                                            BindingResult bindingResult,
                                            @RequestParam(value = "from", required = false) String from) {
+        // A date or time left blank, or one that would not parse, is null on the request.
+        if (bindingResult.hasErrors()) {
+            return "plan-ground-transfer";
+        }
         try {
             // No `now`: a ground transfer has no future-date rule (D6), so its decision context is
             // empty and there is nothing about the current moment to capture at the boundary.

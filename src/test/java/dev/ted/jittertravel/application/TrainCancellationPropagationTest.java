@@ -143,6 +143,30 @@ class TrainCancellationPropagationTest {
                 .isEmpty();
     }
 
+    /**
+     * The reason the two halves of this change shipped together: an overlap is <em>fixed</em> by
+     * cancelling one of the two legs, so a cancel that left the pair on the report would have made
+     * every duplicate a permanently red row.
+     */
+    @Test
+    void cancellingOneOfTwoOverlappingTripsClearsTheProblem() {
+        TrainTripId duplicate = TrainTripId.random();
+        ScheduleGapProjector projector = new ScheduleGapProjector(new StaticAirportCityResolver());
+        projector.handle(Stream.of(stored(booked()),
+                                   stored(new TrainBooked(duplicate, HAMBURG, at(9, 30),
+                                                          BERLIN_HBF, at(11, 30), "ICE 599"))));
+
+        assertThat(projector.problems())
+                .as("two trains carrying Ted at once is the problem cancel exists to fix")
+                .anyMatch(ScheduleProblem.OverlappingTravel.class::isInstance);
+
+        projector.handle(Stream.of(stored(new TrainCancelled(duplicate, "entered twice"))));
+
+        assertThat(projector.problems())
+                .as("with one leg gone the other is an ordinary journey, not a clash")
+                .noneMatch(ScheduleProblem.OverlappingTravel.class::isInstance);
+    }
+
     @Test
     void theZoneAuditStillReportsTheCancelledTripsStations() {
         // The one projector that must NOT react, and the case exists so nobody "fixes" it into

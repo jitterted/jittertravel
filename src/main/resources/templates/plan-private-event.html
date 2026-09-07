@@ -193,6 +193,9 @@
                     Start time
                     <input type="time" th:field="*{startTime}"/>
                 </label>
+                <span class="error"
+                      th:if="${#fields.hasErrors('startTime')}"
+                      th:errors="*{startTime}"></span>
             </div>
             <div class="field">
                 <label>

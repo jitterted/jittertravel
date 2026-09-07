@@ -164,6 +164,10 @@ class BookedTrainsRendererTest {
         assertThat(html.indexOf("train-edit-link"))
                 .as("Edit keeps the position it had before Cancel existed")
                 .isLessThan(html.indexOf("train-cancel-link"));
+        assertThat(html)
+                .as("red, like Cancel Hotel: nothing puts the trip back from inside the app")
+                .contains(".train-cancel-link { font-size: 0.85rem; color: #b00;")
+                .doesNotContain("color: #b45309");
     }
 
     private static BookedTrainView trainView(

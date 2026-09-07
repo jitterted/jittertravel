@@ -1,12 +1,13 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleProblem;
-import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.application.TravelLeg;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.GroundTransferId;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
@@ -142,17 +143,31 @@ class ProblemKeyTest {
                         zoned(2026, 9, 9, 12, 0, TOKYO)));
     }
 
-    private static ZonedTimestamp zoned(int year, int month, int day, int hour, int minute, ZoneId zone) {
-        return ZonedTimestamp.fromLocal(LocalDateTime.of(year, month, day, hour, minute), zone);
-    }
     @Test
-    void overlappingTravelIsKeyedByBothLegsPages() {
+    void overlappingTravelIsKeyedByBothLegsIds() {
         TrainTripId early = TrainTripId.random();
         TrainTripId late = TrainTripId.random();
         ScheduleProblem overlap = overlap(early, late);
 
         assertThat(ProblemKey.of(overlap).value())
-                .isEqualTo("legs|/booked-trains/" + early.id() + "|/booked-trains/" + late.id());
+                .isEqualTo("legs|train:" + early.id() + "|train:" + late.id());
+    }
+
+    @Test
+    void twoTransferOverlapsOverTheSameTrainDoNotCollide() {
+        // The reason the key is the leg's id and not its page: every ground transfer's page is
+        // /itinerary, so keying on the path made both of these "legs|/itinerary|/booked-trains/X"
+        // and a fix link on the second opened the first one's banner and fixes.
+        TrainTripId train = TrainTripId.random();
+
+        assertThat(ProblemKey.of(transferOverlap(GroundTransferId.random(), train)).value())
+                .isNotEqualTo(ProblemKey.of(transferOverlap(GroundTransferId.random(), train)).value());
+    }
+
+    @Test
+    void twoTransfersOverlappingEachOtherDoNotCollideWithAnotherSuchPair() {
+        assertThat(ProblemKey.of(transferPair()).value())
+                .isNotEqualTo(ProblemKey.of(transferPair()).value());
     }
 
     @Test
@@ -175,14 +190,31 @@ class ProblemKeyTest {
                 .isTrue();
     }
 
-    private static ScheduleProblem.OverlappingTravel overlap(TrainTripId first, TrainTripId second) {
-        return new ScheduleProblem.OverlappingTravel(
-                overlapLeg(first, 9), overlapLeg(second, 10));
+    private static ZonedTimestamp zoned(int year, int month, int day, int hour, int minute, ZoneId zone) {
+        return ZonedTimestamp.fromLocal(LocalDateTime.of(year, month, day, hour, minute), zone);
     }
 
-    private static ScheduleProblem.OverlappingLeg overlapLeg(TrainTripId tripId, int hour) {
-        return new ScheduleProblem.OverlappingLeg(
-                new TravelLeg.Train(tripId, "ICE 597"), "Hamburg", "Berlin",
+    private static ScheduleProblem.OverlappingTravel overlap(TrainTripId first, TrainTripId second) {
+        return new ScheduleProblem.OverlappingTravel(
+                overlapLeg(new TravelLeg.Train(first, "ICE 597"), 9),
+                overlapLeg(new TravelLeg.Train(second, "ICE 597"), 10));
+    }
+
+    private static ScheduleProblem.OverlappingTravel transferOverlap(GroundTransferId transfer,
+                                                                    TrainTripId train) {
+        return new ScheduleProblem.OverlappingTravel(
+                overlapLeg(new TravelLeg.Transfer(transfer, "Hotel → Hbf"), 9),
+                overlapLeg(new TravelLeg.Train(train, "ICE 597"), 10));
+    }
+
+    private static ScheduleProblem.OverlappingTravel transferPair() {
+        return new ScheduleProblem.OverlappingTravel(
+                overlapLeg(new TravelLeg.Transfer(GroundTransferId.random(), "Hotel → Hbf"), 9),
+                overlapLeg(new TravelLeg.Transfer(GroundTransferId.random(), "Hotel → Hbf"), 10));
+    }
+
+    private static ScheduleProblem.OverlappingLeg overlapLeg(TravelLeg leg, int hour) {
+        return new ScheduleProblem.OverlappingLeg(leg, "Hamburg", "Berlin",
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, hour, 0),
                         ZoneId.of("Europe/Berlin")),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, hour + 2, 0),

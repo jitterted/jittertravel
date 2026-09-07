@@ -14,15 +14,13 @@ import java.util.UUID;
  * Cancels a booked train trip.
  * <p>
  * Like {@link CancelPrivateEvent} and {@link CancelGroundTransfer}, it folds its one decision fact
- * from the authoritative event stream rather than reading a projector (R1 in
- * {@code EventSourcingRulesHeuristics.md}), and goes through {@link CommandExecutor} — never
- * {@code EventStore} directly. Note the contrast with its sibling {@link ChangeTrain}, which reads
- * existence from {@link TrainDetailsViewProjector}: a change is a correction to something the user
- * is looking at, while a cancellation is the removal itself, and the stream is the only source that
- * cannot be one batch stale.
+ * from the event stream rather than a projector (R1), and writes through {@link CommandExecutor},
+ * never {@code EventStore}. Its sibling {@link ChangeTrain} reads existence from
+ * {@link TrainDetailsViewProjector} instead: a change corrects something the user is looking at,
+ * while a cancellation is the removal, and only the stream cannot be one batch stale.
  * <p>
- * commandId is captured at the boundary and passed in; this service does no clock or UUID I/O of
- * its own, and there is no {@code now} because cancelling a train is not time-gated.
+ * commandId is captured at the boundary and passed in. There is no {@code now}: cancelling is not
+ * time-gated.
  */
 public class CancelTrain {
     private final CommandExecutor commandExecutor;
@@ -38,19 +36,21 @@ public class CancelTrain {
     }
 
     /**
-     * Folds whether the trip is live from the event stream. A cancellation clears the fact, so a
-     * second cancel of the same trip is refused as not-found rather than silently emitting a
-     * duplicate event.
+     * Folds whether the trip is live. A cancellation clears the fact, so a second cancel of the
+     * same trip is refused as not-found rather than emitting a duplicate event.
      * <p>
      * {@code TrainChanged} is deliberately not consulted: a change cannot resurrect a cancelled
-     * trip, and it cannot be the first thing said about one either.
+     * trip, and cannot be the first thing said about one either.
+     * <p>
+     * An explicit loop rather than {@code reduce}, because this fold is order-dependent: the
+     * combiner {@code reduce} needs for a parallel stream cannot be written correctly here, and
+     * supplying a plausible-looking one would hide that.
      */
     private CancelTrainContext contextFor(TrainTripId tripId) {
-        boolean exists = commandExecutor.eventsForDecision()
-                .map(StoredEvent::payload)
-                .reduce(false,
-                        (current, event) -> stillBooked(current, tripId, event),
-                        (first, second) -> second);
+        boolean exists = false;
+        for (StoredEvent stored : commandExecutor.eventsForDecision().toList()) {
+            exists = stillBooked(exists, tripId, stored.payload());
+        }
         return new CancelTrainContext(exists);
     }
 

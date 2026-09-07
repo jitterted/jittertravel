@@ -1649,9 +1649,9 @@ class ScheduleGapProjectorTest {
                         .findFirst()
                         .orElseThrow();
 
-                assertThat(overlap.first().leg().detailsPath())
-                        .as("legs departing at the same instant order on their own path")
-                        .isLessThan(overlap.second().leg().detailsPath());
+                assertThat(overlap.first().leg().identity())
+                        .as("legs departing at the same instant order on their own id")
+                        .isLessThan(overlap.second().leg().identity());
             }
         }
 

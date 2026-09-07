@@ -53,6 +53,10 @@ public class PlanGatheringController {
     @PostMapping("/plan-gathering")
     public String planGatheringSubmit(@ModelAttribute("planGathering") PlanGatheringRequest request,
                                       BindingResult bindingResult) {
+        // A date or time left blank, or one that would not parse, is null on the request.
+        if (bindingResult.hasErrors()) {
+            return "plan-gathering";
+        }
         try {
             // now is captured at the boundary as an Instant; the venue zone is resolved inward.
             gatheringPlanning.planGathering(request, Instant.now(clock));

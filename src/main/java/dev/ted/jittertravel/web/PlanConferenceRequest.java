@@ -32,6 +32,7 @@ public class PlanConferenceRequest {
     // reach PlanConferenceCommand at all, they become an OpenCfpCommand after it. Both optional
     // and both absent together; a URL without a deadline is refused, since CfpOpened is built
     // around the deadline (see ConferencePlanning).
+    @OptionalEntry
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime cfpClosesOn;
     private String cfpSubmissionUrl;

@@ -44,9 +44,9 @@ public class BookedTrainsRenderer {
             .train-edit-link { font-size: 0.85rem; color: var(--accent-color, #0a58ca); text-decoration: none; }
             .train-edit-link:hover { text-decoration: underline; }
             .train-actions { display: flex; gap: 0.75rem; align-items: baseline; }
-            /* Amber rather than the accent blue: it is a removal, and it is recoverable, which is
-               exactly what amber says here and on the confirmation page it leads to. */
-            .train-cancel-link { font-size: 0.85rem; color: #b45309; text-decoration: none; }
+            /* Red, matching `.hotel-cancel-link` and the confirmation page it leads to: there is
+               no undo from inside the app. */
+            .train-cancel-link { font-size: 0.85rem; color: #b00; text-decoration: none; }
             .train-cancel-link:hover { text-decoration: underline; }
             .train-card-header {
                 background-color: var(--header-bg, #f8f9fa); color: var(--muted-text, #6c757d);

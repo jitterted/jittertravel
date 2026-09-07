@@ -25,6 +25,7 @@ public class ChangeHotelRequest implements HotelStayRequest {
     private LocalDateTime checkOut;
     // Optional free-cancellation deadline, read in the hotel's zone. HotelChanged is a full
     // snapshot, so the form must submit the current value back or the edit clears it.
+    @OptionalEntry
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime cancelBy;
     private BookingIntent bookingIntent;

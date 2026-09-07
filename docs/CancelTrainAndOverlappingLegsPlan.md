@@ -176,10 +176,17 @@ transfer.
 the private event's reason: *"rebooked for the 17th"* is worth having, it costs one `String`, and
 nothing keys off it.
 
-**D3 — plain confirm, amber, no typed word.** Per CLAUDE.md: appending a `*Cancelled` after a
+**D3 — plain confirm, ~~amber~~ red, no typed word.** Per CLAUDE.md: appending a `*Cancelled` after a
 `*Booked` destroys nothing — the booking stays in the log, on `/admin/eventlog`, and an undo is a
 future event away. The typed word belongs to admin operations that actually destroy stored data.
-Amber because booking it again puts it back.
+
+**The colour half was wrong and was corrected in review the same day.** The claim was "amber because
+booking it again puts it back". It does not: re-booking mints a new `TrainTripId`, and a past trip
+cannot be re-booked at all, since `BookTrainCommand` requires a future departure. The colour asks
+*"can Ted put this back from inside the app?"* and the answer is no, so it is **red**, like Cancel
+Hotel. Note this doc contradicted itself — `CancelTrainCommand`'s own javadoc said, correctly, "that
+one cancellation is not reversible from inside the app". Generalised in CLAUDE.md: **re-entering
+something by hand is not an undo.**
 
 **D4 — "Cancel", not "Remove".** Keeps one vocabulary with the three existing cancels, even though
 the common case is a mistyped entry rather than a real cancellation. A second verb would need Ted to
@@ -373,6 +380,13 @@ over many id pairs) rather than stability.
 
 1. `ProblemKey.of` — exhaustive switch. Key: `join("legs", firstKindAndId, secondKindAndId)` in the
    detector's order, which the tiebreaker above makes stable.
+
+   **Shipped as `detailsPath()` instead, and corrected in review the same day.** A path is not an
+   id: every ground transfer's page is `/itinerary`, so *every* transfer-vs-train overlap keyed
+   `legs|/itinerary|/booked-trains/X` and two of them collided — a fix link on the second resolved
+   to the first one's banner and fixes. Two transfers overlapping each other collided with every
+   other such pair. The same substitution made the leg sort not a total order, which the tiebreaker
+   exists to be. `TravelLeg.identity()` is the plan's `kindAndId`, and is what both now use.
 2. `ProblemFix.fixesFor` — exhaustive switch. **One "Cancel …" link per side**, pointing at the
    page slice 1 built. See "The fix link is the payoff" below — this is the whole reason the slices
    are in this order, and it needs its own decision about wording.

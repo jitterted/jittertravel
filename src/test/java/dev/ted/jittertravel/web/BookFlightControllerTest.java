@@ -5,6 +5,8 @@ import dev.ted.jittertravel.domain.StaticAirportCityResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.ui.ConcurrentModel;
 import org.springframework.ui.Model;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.BindingResult;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -106,6 +108,36 @@ class BookFlightControllerTest {
                 .isEqualTo(LocalDate.of(2026, 7, 20));
     }
 
+    /**
+     * The other half of a fix link's round trip. The markup half — the hidden input living in the
+     * booking form and not the AeroDataBox lookup form beside it, which is where it shipped on
+     * 2026-09-06 and where the POST never sends it — is pinned by
+     * {@code ProblemContextFragmentConventionTest}.
+     */
+    @Test
+    void bookingFromAFixLinkReturnsToTheReportItWasLaunchedFrom() {
+        BookFlightController controller = new BookFlightController(
+                bookingService(), null, new StaticAirportCityResolver(), FIXED_CLOCK);
+        BookFlightRequest request = new BookFlightRequest();
+        BindingResult noErrors = new BeanPropertyBindingResult(request, "bookFlight");
+
+        String view = controller.bookFlightSubmit(request, noErrors, "list", new ConcurrentModel());
+
+        assertThat(view).isEqualTo("redirect:/schedule-problems?view=list");
+    }
+
+    @Test
+    void anOrdinaryBookingStillLandsOnTheFlightsList() {
+        BookFlightController controller = new BookFlightController(
+                bookingService(), null, new StaticAirportCityResolver(), FIXED_CLOCK);
+        BookFlightRequest request = new BookFlightRequest();
+        BindingResult noErrors = new BeanPropertyBindingResult(request, "bookFlight");
+
+        String view = controller.bookFlightSubmit(request, noErrors, null, new ConcurrentModel());
+
+        assertThat(view).isEqualTo("redirect:/booked-flights");
+    }
+
     // The form GET only reads isReadOnly() and the clock; the AeroDataBoxClient is unused here.
     private FlightBooking writableService() {
         return new FlightBooking(null, null, null) {
@@ -113,6 +145,16 @@ class BookFlightControllerTest {
 
             @Override public void bookFlight(BookFlightRequest request, Instant now) {
                 throw new UnsupportedOperationException("not used by the form GET");
+            }
+        };
+    }
+
+    /** Accepts the booking, so the POST reaches its redirect. */
+    private FlightBooking bookingService() {
+        return new FlightBooking(null, null, null) {
+            @Override public boolean isReadOnly() { return false; }
+
+            @Override public void bookFlight(BookFlightRequest request, Instant now) {
             }
         };
     }

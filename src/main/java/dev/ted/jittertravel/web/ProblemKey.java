@@ -54,11 +54,13 @@ public record ProblemKey(String value) {
                     duplicateHotel.stays().stream()
                             .map(stay -> stay.bookingId().id().toString())
                             .collect(Collectors.joining(",")));
-            // The two legs' own pages are unique and stable, and the pair's order is fixed by
-            // ScheduleGapProjector.allLegs being a total order — without that tiebreaker this key
-            // would flip between recomputes and stale every open fix link.
+            // The legs' own ids, and the pair's order is fixed by ScheduleGapProjector.allLegs
+            // being a total order — without that tiebreaker this key would flip between recomputes
+            // and stale every open fix link. Not detailsPath(): every transfer's page is
+            // /itinerary, so two different transfer overlaps would key the same and the banner
+            // would describe the wrong pair.
             case ScheduleProblem.OverlappingTravel overlap -> join(
-                    "legs", overlap.first().leg().detailsPath(), overlap.second().leg().detailsPath());
+                    "legs", overlap.first().leg().identity(), overlap.second().leg().identity());
             case ScheduleProblem.DifferentCityConflict cityConflict -> join(
                     "city", cityConflict.gatheringId().id().toString(),
                     cityConflict.conferenceId().id().toString(),

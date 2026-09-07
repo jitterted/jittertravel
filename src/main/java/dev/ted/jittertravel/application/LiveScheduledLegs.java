@@ -16,24 +16,20 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Folds every live flight and train out of the authoritative event stream, for the four write paths
- * that must refuse a journey colliding with one.
+ * Folds every live flight and train out of the event stream, for the four write paths that refuse a
+ * colliding journey.
  * <p>
- * <strong>One fold, shared by all four</strong> — book and change, train and flight. They all want
- * the same facts, and the collision question is deliberately kind-blind (a flight overlapping a
- * train is the same impossibility), so four near-identical folds would be four chances to disagree
- * about what "already booked" means.
+ * One fold shared by all four — book and change, train and flight. The collision question is
+ * kind-blind (a flight overlapping a train is the same impossibility), so four near-identical folds
+ * would be four chances to disagree about what "already booked" means.
  * <p>
- * <strong>From the stream, never from {@code ScheduleGapProjector}</strong> (R1): a command must not
- * decide from a projection. It is also the only source that cannot be a batch stale, which matters
- * here — deciding against a projector that has not yet seen the leg booked a second ago would let
- * exactly the duplicate this refuses through.
+ * From the stream, never from {@code ScheduleGapProjector} (R1). It is also the only source that
+ * cannot be one batch stale — deciding against a projector that has not yet seen the leg booked a
+ * second ago would let exactly the duplicate this refuses through.
  * <p>
- * <strong>Live means cancellations applied.</strong> A cancelled trip must not block a booking; that
- * is how Ted resolves a collision, and a fold that ignored {@link TrainCancelled} would leave him
- * unable to re-enter the trip he just corrected. Flights have no cancellation event yet, so there is
- * nothing to apply for them — when Cancel Flight ships it belongs here, and
- * {@code LiveScheduledLegsTest} is where that shows up.
+ * Live means cancellations applied: a cancelled trip must not block a booking, since that is how
+ * Ted resolves a collision. Flights have no cancellation event yet; when Cancel Flight ships it
+ * belongs here, and {@code LiveScheduledLegsTest} is where that shows up.
  */
 public class LiveScheduledLegs {
 

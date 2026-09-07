@@ -90,6 +90,10 @@ public class PlanConferenceController {
         if (applicationService.isReadOnly()) {
             return "redirect:/read-only";
         }
+        // A date left blank, or one that would not parse, is null on the request.
+        if (bindingResult.hasErrors()) {
+            return "plan-conference";
+        }
 
         try {
             // now and the CFP commandId are the nondeterministic inputs, both captured here at the

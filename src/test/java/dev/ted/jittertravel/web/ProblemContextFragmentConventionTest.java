@@ -16,6 +16,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -88,14 +90,15 @@ class ProblemContextFragmentConventionTest {
     }
 
     /**
-     * The other half of a fix link's round trip: having arrived, the action has to come <em>back</em>.
+     * The other half of a fix link's round trip: having arrived, the action has to come back.
+     * The banner's Back link only helps someone who changes their mind; whoever performs the fix
+     * lands wherever that controller always redirected. So every fix target's form carries the
+     * origin through its own POST.
      * <p>
-     * Ted, 2026-09-06: <em>"I'm fixing schedule problems and keep ending up somewhere else and have
-     * to return to the schedule problems page."</em> The banner's Back link only helps someone who
-     * changes their mind; a reader who actually performs the fix lands wherever that controller
-     * always redirected. So every fix target's form carries the origin through its own POST, and
-     * this fails when a new one forgets — the same silent wiring the banner has, guarded the same
-     * way.
+     * The input is looked for <strong>inside the form that posts to the fix path</strong>, not
+     * anywhere in the file. A file-wide {@code contains} is what let {@code book-flight.html} ship
+     * the input inside the AeroDataBox lookup form, where the booking POST never sends it: the
+     * assertion passed and the feature did not work.
      */
     @Test
     void everyPageAFixLinkReachesCarriesItsOriginThroughThePost() {
@@ -104,12 +107,35 @@ class ProblemContextFragmentConventionTest {
         assertThat(paths).isNotEmpty();
         assertThat(paths).allSatisfy(path -> {
             Path template = TemplateSources.ROOT.resolve(TEMPLATE_FOR_PATH.get(path));
-            assertThat(templates.read(template))
-                    .as("%s is reached from a fix link, so its form must carry ?from= through the "
-                        + "POST or the action lands somewhere else", path)
+            assertThat(formPostingTo(templates.read(template), path))
+                    .as("the form posting to %s must carry ?from= through the POST, or the action "
+                        + "lands somewhere else", path)
                     .contains("name=\"from\"")
                     .contains("th:value=\"${fixOrigin}\"");
         });
+    }
+
+    /**
+     * The one {@code <form>} in {@code template} whose {@code th:action} resolves to {@code path},
+     * with every {@code ${...}} expression read as an id. Fails rather than returns empty when
+     * there is none: a fix target with no form posting to its own path is a broken page.
+     */
+    private static String formPostingTo(String template, String path) {
+        Matcher form = Pattern.compile("<form\\b.*?</form>", Pattern.DOTALL).matcher(template);
+        while (form.find()) {
+            Matcher action = Pattern.compile("th:action=\"([^\"]*)\"").matcher(form.group());
+            if (action.find() && pathOf(action.group(1)).equals(path)) {
+                return form.group();
+            }
+        }
+        throw new AssertionError("no form posts to " + path);
+    }
+
+    /** {@code @{|/booked-trains/${trip.id()}/cancel|}} reads as {@code /booked-trains/{id}/cancel}. */
+    private static String pathOf(String thymeleafAction) {
+        return thymeleafAction.replaceAll("^@\\{\\|?", "")
+                              .replaceAll("\\|?}$", "")
+                              .replaceAll("\\$\\{[^}]*}", "{id}");
     }
 
     /**

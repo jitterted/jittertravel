@@ -109,8 +109,31 @@ class CancelTrainTest {
                         new CancelTrainRequest(tripId.id(), "")));
     }
 
+    @Test
+    void aTripThatAlreadyDepartedIsStillCancellable() {
+        // There is no time gate, unlike ChangeTrain, and this is what says so. A trip entered
+        // wrongly is worth removing whenever it is found, and a past one is the entry most worth
+        // removing: it is the leg still telling ScheduleGapProjector that Ted travelled between
+        // two cities he did not. Nothing here supplies a `now`, which is the point.
+        TrainTripId tripId = TrainTripId.random();
+        RecordingCommandExecutor executor = new RecordingCommandExecutor(Stream.of(
+                storedEvent(1, new TrainBooked(tripId, HAMBURG, longAgo(9), BERLIN_HBF,
+                                               longAgo(11), "ICE 597"))));
+        CancelTrain service = new CancelTrain(executor);
+
+        service.cancelTrain(UUID.randomUUID(), new CancelTrainRequest(tripId.id(), "never ran"));
+
+        assertThat(executor.emittedEvents)
+                .singleElement()
+                .isEqualTo(new TrainCancelled(tripId, "never ran"));
+    }
+
     private static TrainBooked booked(TrainTripId tripId) {
         return new TrainBooked(tripId, HAMBURG, at(9, 0), BERLIN_HBF, at(11, 0), "ICE 597");
+    }
+
+    private static ZonedTimestamp longAgo(int hour) {
+        return ZonedTimestamp.fromLocal(LocalDateTime.of(2019, 3, 4, hour, 0), BERLIN);
     }
 
     private static TrainChanged changed(TrainTripId tripId) {

@@ -97,6 +97,11 @@ public class BookFlightController {
         if (applicationService.isReadOnly()) {
             return "redirect:/read-only";
         }
+        // Binding failed: a date left blank, or one that would not parse. Those values are null on
+        // the request, so calling the service would only carry them into the write path.
+        if (bindingResult.hasErrors()) {
+            return "book-flight";
+        }
 
         try {
             applicationService.bookFlight(command, Instant.now(clock));

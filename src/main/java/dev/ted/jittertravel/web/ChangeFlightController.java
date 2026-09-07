@@ -86,6 +86,11 @@ public class ChangeFlightController {
         // Path is the source of truth for flightId; it is not user-editable.
         command.setFlightId(flightIdString);
 
+        // A date left blank, or one that would not parse, is null on the request.
+        if (bindingResult.hasErrors()) {
+            return "change-flight";
+        }
+
         try {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
             applicationService.changeFlight(UUID.randomUUID(), command, Instant.now(clock));

@@ -63,6 +63,11 @@ public class ChangeGatheringController {
         // Path is the source of truth for gatheringId; it is not user-editable.
         command.setGatheringId(gatheringIdString);
 
+        // A date or time left blank, or one that would not parse, is null on the request.
+        if (bindingResult.hasErrors()) {
+            return "change-gathering";
+        }
+
         try {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
             applicationService.changeGathering(UUID.randomUUID(), command, Instant.now(clock));

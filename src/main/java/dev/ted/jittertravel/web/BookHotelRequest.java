@@ -24,6 +24,7 @@ public class BookHotelRequest implements HotelStayRequest {
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime checkOut;
     // Optional free-cancellation deadline, read in the hotel's zone. Absent means none recorded.
+    @OptionalEntry
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime cancelBy;
     private BookingIntent bookingIntent;

@@ -327,10 +327,16 @@ event-sourced app, and it is the one the default suite does not cover:
 It proves the stored log still deserializes and upcasts under the new Jackson. **Do not skip it
 because S4 was green** — the golden samples are a handful of shapes; the dump is the whole log.
 
-**Take a fresh backup for this rather than reaching for the newest one on disk.** The most recent
-dump named anywhere in the docs is `2026-08-30`, and `TrainCancelled` has shipped since — a dump that
-predates an event type cannot exercise it, which is precisely the coverage this step exists to add
-over the goldens.
+**The dump to use is `backups/jittertravel-backup-production-2026-09-07T090805Z.json`** (taken after
+the 2026-09-07 deploy; `backups/` is gitignored, so it is on Ted's machine and not in the repo).
+v3, **117 events across 19 types, including one `TrainCancelled`** — which is why this one and not
+an older one: a dump that predates an event type cannot exercise it, and that is precisely the
+coverage this step adds over the goldens. It **replays green on 4.0.7** (`Tests run: 1, Skipped: 0`,
+2026-09-07), so S7 is a before/after comparison on identical data rather than a first look — a red
+here under 4.1 is the bump, with nothing else to rule out.
+
+Take a newer one if prod has moved on and the new events are of a kind this dump does not carry;
+otherwise this is the input.
 
 **S8 — Ted runs it locally** against the real database and checks, at minimum: `/calendar` in a normal
 window and in **incognito** (anonymous redaction — never "log out", there is no logout affordance),

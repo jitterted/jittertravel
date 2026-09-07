@@ -8,7 +8,7 @@ one so all of that would have been cheaper and safer?*
 
 Reference docs for the mechanisms themselves: `EventPayloadUpcasterDesign.md`,
 `archived/LegacyEventEagerMigrationPlan.md`, `archived/EventTypeColumnNormalizationPlan.md`,
-`archived/EventOrientedBackupRestorePlan.md`, `UtcDatetimeStoragePlan.md`, `EventSourcingRulesHeuristics.md`
+`archived/EventOrientedBackupRestorePlan.md`, `archived/UtcDatetimeStoragePlan.md`, `EventSourcingRulesHeuristics.md`
 (R6/R7).
 
 ---

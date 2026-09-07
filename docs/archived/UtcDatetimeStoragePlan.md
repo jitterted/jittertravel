@@ -1,10 +1,17 @@
 # Plan: Store datetimes as UTC + zone, evaluate by instant, display per viewer role
 
+> **Archived 2026-09-07 — finished.** All seven phases shipped `25104b9` (2026-08-05). This doc was
+> held back in `docs/` because it still owned one open decision, ISO alpha-2 zone aliases; that was
+> **closed as not-built** on 2026-09-07 with the evidence in improvement 2 below. The three
+> remaining non-blocking notes (improvements 1, 4 and 5) were lifted into `../Cleanup_Tasks.md`,
+> which is what makes them findable — an archived doc is history and nobody scans it for open work.
+> Everything here is kept for the reasoning, not as a task list.
+
 ## Status at a glance (updated 2026-08-05; checkboxes re-verified against the tree 2026-08-06)
 
 Legend: `[x]` done · `[~]` partially done · `[ ]` not started.
 
-The 2026-08-05 review (`docs/archived/UtcDatetimePlanReview.md`) has been **fully folded into this plan** —
+The 2026-08-05 review (`UtcDatetimePlanReview.md`) has been **fully folded into this plan** —
 its bugs, stale-status corrections, missing tests and improvements now live here (section
 references like "review 1.1" point back to the fuller write-ups). This document is the single
 tracker; the review doc is a historical record and its checkboxes are no longer maintained.
@@ -308,8 +315,8 @@ Shipped: `ZonedTimestamp`, `CommonZone`, `LocationZoneResolver`, `AirportZoneRes
 `StationZone`, `FlightEndpointZone`, `ZoneResolutionException`, each with unit tests.
 
 ### 2. Events & commands → `ZonedTimestamp` — `[x]` all five types migrated
-Remaining work is planned in detail in `docs/archived/GatheringConferenceUtcRolloutPlan.md` (previous slice:
-`docs/archived/TrainFlightUtcRolloutPlan.md`).
+Remaining work is planned in detail in `GatheringConferenceUtcRolloutPlan.md` (previous slice:
+`TrainFlightUtcRolloutPlan.md`).
 
 - `[x]` Hotel (`f35b7d6`), train (`daa7107`), flight (`d2884fb`): events, commands, contexts,
   requests and controllers all carry `ZonedTimestamp`.
@@ -447,7 +454,7 @@ Spec for the remaining items:
   logic likewise uses entry-zone local dates — but its *comparisons and sequencing* use instants
   (bug R2), never cross-zone wall-clock.
 - Tests: server-side entry-local formatting = renderer unit tests; the browser-zone behavior =
-  `JsBehaviorTest` (`@Tag("js")`, `./mvnw test -Pjs-tests`, per `docs/JS-Behavior-Tests.md`):
+  `JsBehaviorTest` (`@Tag("js")`, `./mvnw test -Pjs-tests`, per `../JS-Behavior-Tests.md`):
   - **Rendering test:** render HTML with a known `<time datetime="…Z">`, load via `setContent` in a
     Playwright context pinned to a fixed zone (`browser.newContext({ timezoneId })`), assert the
     upgraded text equals the expected browser-zone time; a second context with a different
@@ -514,7 +521,7 @@ Spec (unchanged where still relevant):
   (`deserializeLegacy`); new-shape samples bind directly. Keep `EventJsonMapperEquivalenceTest`
   green with the nested `ZonedTimestamp`. — *That test was retired 2026-09-07 (its one-time
   migration proof spent); the nested `ZonedTimestamp` is covered by
-  `GoldenEventDeserializationTest`. See `SpringBoot41UpgradePlan.md` §2.*
+  `GoldenEventDeserializationTest`. See `../SpringBoot41UpgradePlan.md` §2.*
 - **Export/import round-trip:** old (scalar, zone-less) and new backups both import; verify in
   `CommandExportImportRoundTripTest`. No backfill/rewrite of stored rows (preserves old-backup
   compatibility — per the export/import-compat rule).
@@ -597,7 +604,7 @@ failure confirmed, and the code restored. Item 8 found a live bug that way.
    the ISO-code aliases below). If that happens, thread the resolver through `events(...)` (or an
    import context parameter) in one sweep — the interface change touches all eleven
    implementations. Not worth doing preemptively; written down so it's a decision, not a surprise.
-2. `[~]` **Location codes and unlisted towns.**
+2. `[x]` **Location codes and unlisted towns.**
    - `[x]` **State/province resolution** (done 2026-08-06, prompted by a real failed production
      import: Lone Tree CO, North Kawartha ON, North Gower ON). `LocationZoneResolver` precedence is
      now city → **region** → country. The region table covers every US state, Canadian province and
@@ -609,11 +616,42 @@ failure confirmed, and the code restored. Item 8 found a live bug that way.
      the upcaster's hotel/gathering/conference paths, and `CityCountry`/`LocationAuditProjector`/
      `LocationZoneAudit` so the audit resolves exactly the way live entry does. Train stations have
      no region and pass `""`.
-   - `[ ]` **ISO alpha-2 aliases for single-zone countries.** Still open. The gathering slice's
-     watch-out ("a manually-typed `GB` does not resolve") already bit test fixtures, and hotel
-     golden samples store `"country": "GB"` — evidence real data can carry codes. Single-zone
-     countries only (multi-zone ones now go through the region step above). Re-run
-     `/admin/zone-audit` after.
+   - `[x]` **ISO alpha-2 aliases for single-zone countries — closed 2026-09-07, not built**
+     (Ted's call). The argument for it was: *"the gathering slice's watch-out (a manually-typed `GB`
+     does not resolve) already bit test fixtures, and hotel golden samples store `"country": "GB"` —
+     evidence real data can carry codes."* **That evidence does not survive contact with the data.**
+     The golden samples are hand-written fixtures, and across **all eight production backups**
+     (2026-08-16 → 2026-09-06) no alpha-2 code has ever been stored. The complete set of stored
+     country values is:
+
+     ```
+     465 Germany · 165 Canada · 146 Belgium · 108 USA · 104 UK
+      24 United States · 14 Brussels · 14 Netherlands · 14 Morocco · 9 "Germany "
+     ```
+
+     And it is not chance. The only automated path, `AddressParseService.parseNominatimResponse`,
+     reads Nominatim's `country` field — the **spelled-out name**. Nominatim also returns
+     `country_code` (alpha-2) and we deliberately do not read it, so no machine here can produce a
+     code. The two non-Nominatim spellings, `UK` and `USA`, are Ted's own typing, and **both already
+     resolve**. So this is not a clean log produced by manual vigilance (cf. "zero incidence is not
+     low risk") — the hazard has no source.
+
+     If a `GB` is ever typed, `resolve` throws `ZoneResolutionException`, the command is rejected and
+     the form re-prompts for a `CommonZone`. Visible, recoverable, and exactly what "strict, with no
+     default zone" is for.
+
+     Recorded for whoever reopens this: **the collision question is already settled either way.**
+     `CA`, `IN`, `NL`, `MA` and `DE` are each both an alpha-2 code and a US/Canadian region code,
+     and none can clash, because `regionKey` scopes regions by country. The state/province step is
+     what would make alpha-2 safe — which is presumably why this was left as its tail. Adding the
+     ~23 aliases is a quarter-hour if real data ever carries one; **re-run `/admin/zone-audit`
+     after** if so.
+
+     **What does occur in that data, and is the better thing to spend attention on:** `"Brussels"`
+     as a country (14×, a city in the country field — rescued today only by an `antwerp` entry in
+     the city table) and `"Germany "` untrimmed (9×, harmless: `normalize()` trims and `Address`'s
+     constructor repairs it on binding). See the location/address validation item in
+     `Cleanup_Tasks.md`.
 3. `[x]` **`ConferenceProjectorTest` moved to `application/`** 2026-08-05.
 4. `[ ]` **`EventSourcingConfig` projector wiring** repeats the subscribe-then-replay triple
    fifteen times; a small private `wire(projector)` helper would collapse it without Spring

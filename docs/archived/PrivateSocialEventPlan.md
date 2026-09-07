@@ -110,7 +110,7 @@ Mirrors the gathering slice (`Plan Gathering`):
 ## Two rendering details to resolve before coding
 
 1. **Zone label on the redacted time ("EDT").** `SubtitleLine.Range` renders via `ZonedTimeTag`,
-   which per `../UtcDatetimeStoragePlan.md` decision 5 emits **no** zone label. The anonymous private
+   which per `UtcDatetimeStoragePlan.md` decision 5 emits **no** zone label. The anonymous private
    view wants `7pm–10pm EDT`. Options: (a) a new `SubtitleLine` variant that renders a zone
    abbreviation, (b) a flag on `Range`, (c) a pre-formatted `SubtitleLine.Text` for the time —
    but that loses the `<time datetime>` element. Proposed: (a), a `Range` variant that shows the

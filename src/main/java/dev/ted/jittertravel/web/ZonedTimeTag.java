@@ -17,7 +17,7 @@ import static j2html.TagCreator.time;
  * pattern.
  * <p>
  * The {@code datetime}/{@code data-fmt} pair is what a future browser-zone script reads to
- * re-render the same instant in a viewer's zone (see {@code docs/UtcDatetimeStoragePlan.md},
+ * re-render the same instant in a viewer's zone (see {@code docs/archived/UtcDatetimeStoragePlan.md},
  * phase 4). OWNER-only views ship without that script, so they always show the entry-local text;
  * adopting the element now keeps the markup forward-compatible. Mirrors {@link TimeFilterToggle}
  * as a shared, single-source renderer helper.

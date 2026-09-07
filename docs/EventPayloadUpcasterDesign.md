@@ -2,7 +2,7 @@
 
 **Status:** `built 2026-08-18`. Reference doc for the general-purpose event-payload migration
 mechanism. **Related:** `archived/LegacyEventEagerMigrationPlan.md` (the per-event `schema_version` stamp and
-the admin action that permanently rewrites stored rows), `UtcDatetimeStoragePlan.md` (the first
+the admin action that permanently rewrites stored rows), `archived/UtcDatetimeStoragePlan.md` (the first
 migration — datetimes → `ZonedTimestamp`), `archived/ConferenceSubmissionTrackingPlan.md` (the second
 migration — conference `format` — which shaped this framework out of the original single class),
 `archived/EventOrientedBackupRestorePlan.md` (verbatim backup, so a stored row is never healed by writing),

@@ -1,6 +1,6 @@
 # Plan: Roll UTC + zone storage out to Gatherings and Conferences
 
-Third and final slice of `docs/UtcDatetimeStoragePlan.md` phase 2. Hotels, trains and flights already
+Third and final slice of `UtcDatetimeStoragePlan.md` phase 2. Hotels, trains and flights already
 ship the pattern (`ZonedTimestamp` events, boundary zone resolution, read-time upcaster, `<time>`
 rendering); see `docs/archived/TrainFlightUtcRolloutPlan.md` for the previous slice. Gatherings and
 conferences are the only event types still storing bare wall-clock times.

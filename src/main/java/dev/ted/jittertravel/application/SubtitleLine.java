@@ -11,7 +11,7 @@ import dev.ted.jittertravel.domain.ZonedTimestamp;
  * alongside the entry-zone wall-clock — the same treatment the list views get.
  * <p>
  * Day bucketing is unaffected: an entry still sits in the column of its entry-zone local day
- * (decision 7 of {@code docs/UtcDatetimeStoragePlan.md}); only the rendered time can be
+ * (decision 7 of {@code docs/archived/UtcDatetimeStoragePlan.md}); only the rendered time can be
  * re-localized.
  */
 public sealed interface SubtitleLine {

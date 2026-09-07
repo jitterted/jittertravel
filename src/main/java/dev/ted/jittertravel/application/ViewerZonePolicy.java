@@ -2,7 +2,7 @@ package dev.ted.jittertravel.application;
 
 /**
  * Decides which zone a viewer sees times in, from their role (decision 4 of
- * {@code docs/UtcDatetimeStoragePlan.md}):
+ * {@code docs/archived/UtcDatetimeStoragePlan.md}):
  *
  * <ul>
  *   <li><b>OWNER</b> — the traveler. Entry-local, always: each endpoint in the zone it happens

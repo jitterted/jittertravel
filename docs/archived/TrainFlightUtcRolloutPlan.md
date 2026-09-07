@@ -1,6 +1,6 @@
 # Plan: Roll UTC + zone storage out to Trains, then Flights
 
-Continuation of `docs/UtcDatetimeStoragePlan.md`. Hotels already ship the full pattern
+Continuation of `UtcDatetimeStoragePlan.md`. Hotels already ship the full pattern
 (`ZonedTimestamp` events, boundary zone resolution, read-time upcaster, `<time>` rendering, audit).
 This slice extends it to **trains first, then flights**, following the hotel template exactly.
 

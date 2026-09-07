@@ -53,7 +53,8 @@ time, on the day its last open item closed.
 | `Remove-Local-Profile.md` | 2026-06-17 (`e962915`) | |
 | `j2html_Migration_Analysis.md` | 2026-06-06 (`b0e6f11`) | Views migrated; the shared renderer infrastructure it proposed was never extracted — that follow-up lives in `../Backlog.md`. |
 | `GeneralControllerRefactorPlan.md` | shipped | Open items 1 and 2 resolved; item 3 moved to `../Backlog.md`. |
-| `UtcDatetimePlanReview.md` | folded in | The 2026-08-05 review of `../UtcDatetimeStoragePlan.md`; its findings were folded into that plan, so its checkboxes are no longer maintained. Historical record only. |
+| `UtcDatetimeStoragePlan.md` | 2026-08-05 (`25104b9`) | All 7 phases. Arrived here 2026-09-07, later than the rest, because it was held in `docs/` while it still owned one open decision — ISO alpha-2 zone aliases, closed as **not built** once eight production backups showed no alpha-2 code had ever been stored. Keep for that evidence, for the state/province step that made `WA` unambiguous, and for decisions 5, 7, 8 and 10, which four production classes cite by number. |
+| `UtcDatetimePlanReview.md` | folded in | The 2026-08-05 review of `UtcDatetimeStoragePlan.md`; its findings were folded into that plan, so its checkboxes are no longer maintained. Historical record only. |
 
 ## Links, from in here
 

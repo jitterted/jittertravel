@@ -16,6 +16,51 @@ for open work.
 
 ## Open
 
+- [ ] **Locations and addresses should be valid before they are stored.** Raised by Ted 2026-09-07,
+      while closing the alpha-2 zone-alias item: the real problem in that area is not a missing
+      country alias, it is that **anything typed into a location field gets stored**. Production
+      data carries `"Brussels"` as a *country* (14 rows — a city in the country field) and
+      `"Germany "` untrimmed (9 rows). Both are survivable today by accident rather than design:
+      `LocationZoneResolver.normalize()` trims, `Address`'s compact constructor repairs the space on
+      binding, and Brussels resolves **only** because someone added an `antwerp` entry to the city
+      table to rescue that one hotel.
+
+      **The shape already exists in the tree** — `EnteredLocation` rejects a station name pasted
+      into a city box on the four train/hotel write commands (CLAUDE.md, "A city that is really a
+      station is rejected on the write path"). This is the same rule pointed at the country field,
+      and at the kinds `EnteredLocation` was never wired to (gatherings, conferences, private
+      events, ground transfer — two of their stored events would trip its first rule today).
+
+      **Two constraints carry over from that rule and are not negotiable.** Reject in the *command*,
+      never in the record's compact constructor: Jackson binds stored payloads through the
+      constructor, so a rule there applies retroactively to every event in the log and one old row
+      breaks a replay *and* a restore. And **validate a proposed rule against the production backups
+      before shipping it** — a plausible-sounding fourth rule was written and deleted the same day
+      once it scored one false positive and no true ones.
+
+      Open questions, all genuinely open: does a country field become a picker rather than free
+      text (which ends the class of bug outright, at the cost of every existing row needing to map
+      onto the list)? Does an unresolvable *zone* stay the enforcement mechanism, or does the
+      country get its own rule? And what happens to the 14 Brussels rows — left as history, or
+      repaired by a migration? Note the `antwerp` city entry is load-bearing until they are.
+
+- [ ] **Three notes lifted from `archived/UtcDatetimeStoragePlan.md`** when it was archived
+      2026-09-07. The archived doc has the full reasoning for each; these lines exist so they stay
+      findable.
+
+      - **`events()` implementations construct their own `LocationZoneResolver`** (improvement 1).
+        Eleven implementations each `new` one up. Harmless while the resolver is a stateless,
+        dependency-free table, but import validation cannot be exercised with a stub, and every site
+        goes stale the day the resolver gains configuration. If that day comes, thread it through
+        `events(...)` (or an import context) in **one** sweep — the interface change touches all
+        eleven. Deliberately not done preemptively; written down so it is a decision, not a surprise.
+      - **`EventSourcingConfig` projector wiring** (improvement 4) repeats the subscribe-then-replay
+        triple fifteen times; a small private `wire(projector)` helper collapses it without Spring
+        cleverness. Cosmetic — do it opportunistically.
+      - **`CommonZone` coverage** (improvement 5) is USA/Canada/UK/CET while itineraries already
+        include Japan. No action yet, but any new form must **reuse whatever list exists rather than
+        fork it**.
+
 - [ ] **An overlap and a location problem still take two submits.** The train forms report every
       problem in one response (CLAUDE.md, "A rejected form reports everything it can see"), but
       `OverlappingLegRefused` is outside that mechanism: `BookTrainCommand` runs

@@ -1,6 +1,6 @@
 # Review: UTC datetime plan & codebase (2026-08-05)
 
-> **Historical record — fully folded into `docs/UtcDatetimeStoragePlan.md` on 2026-08-05.**
+> **Historical record — fully folded into `UtcDatetimeStoragePlan.md` on 2026-08-05.**
 > Track progress there (bugs appear as R1–R3, plus the "Test backfill" and "Smaller design
 > improvements" sections); the checkboxes below are no longer maintained.
 
@@ -130,7 +130,7 @@ the gathering slice proved the pattern. Points to fold in:
 
 ## 3. Plan-status corrections (the master plan is stale in places)
 
-`docs/UtcDatetimeStoragePlan.md` should be updated — its phase 5 description no longer matches
+`UtcDatetimeStoragePlan.md` should be updated — its phase 5 description no longer matches
 the design that actually shipped:
 
 - `[ ]` **"`command_log` / import path is not upcast" (line ~212) is obsolete.** The import wire

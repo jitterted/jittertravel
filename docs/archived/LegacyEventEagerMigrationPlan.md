@@ -2,7 +2,7 @@
 
 **Status:** `built 2026-08-16` — shipped as an OWNER-only admin action plus a per-event schema-version
 stamp and a boot-replay preflight (see "What shipped" below). Drafted after the 2026-08-16 production
-incident (see "Why this exists"). **Related:** `../UtcDatetimeStoragePlan.md` (introduced read-time zone
+incident (see "Why this exists"). **Related:** `UtcDatetimeStoragePlan.md` (introduced read-time zone
 resolution), `EventOrientedBackupRestorePlan.md` (verbatim backup writes the raw payload, so it never
 heals a legacy row), `LocationZoneResolver`, `EventPayloadUpcaster`.
 

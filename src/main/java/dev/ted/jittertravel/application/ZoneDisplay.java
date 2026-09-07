@@ -6,7 +6,7 @@ package dev.ted.jittertravel.application;
  * <p>
  * The server always renders entry-local text; {@code active == BROWSER} means a client-side
  * script re-localizes it on load. With JavaScript off, every mode degrades to entry-local
- * (decision 8 of {@code docs/UtcDatetimeStoragePlan.md}).
+ * (decision 8 of {@code docs/archived/UtcDatetimeStoragePlan.md}).
  */
 public record ZoneDisplay(DisplayZone active, boolean toggleable) {
 

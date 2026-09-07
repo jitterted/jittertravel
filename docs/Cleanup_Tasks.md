@@ -595,6 +595,30 @@ for open work.
       strictly the zone half.
       Do this **after** hotels: hotels exercise the cause split and flights exercise the two-end
       collection, and doing the simpler-shaped one first keeps the shared vocabulary honest.
+- [ ] **`/conferences/{id}/cfp` is the one date form still on browser `required`, and
+      `RequiredEntryAdvice` cannot reach it.** After `846ee9d` it is the **only** `required`
+      attribute left on a date input in the tree (`open-cfp.html:107`) — the three others are the
+      hotel name/city text inputs queued two items above. The advice does not cover it *by design*:
+      `OpenCfpController.openCfp` binds `closesOn` as a `@RequestParam`, and
+      `RequiredEntryAdvice.formBeanType` returns null for a binder with no form bean, so the
+      required-fields machinery never runs.
+      **Not a 500** — that is the difference from the eleven forms the advice was written for.
+      `@RequestParam` defaults to `required = true` and Spring raises
+      `MissingServletRequestParameterException` *after* conversion when a present-but-blank value
+      converts to null, so a blank deadline is a 400 page rather than
+      `ZonedTimestamp.fromLocal(null, zone)`. It is still the failure `required` was dropped from
+      the train forms for, one door along: the browser bubble blocks the submit and the server
+      never hears about it, and when it does hear, the answer is an error page rather than
+      "Required" under the input. CLAUDE.md says a blank date is a field error **everywhere**, and
+      this is the one form where it is not.
+      Two ways out, and the choice is the work: give `OpenCfpRequest` a form-bean binding (it is
+      already a record, so `@ModelAttribute` + constructor binding puts it inside the advice's
+      reach and inside the `bindingResult.hasErrors()` shape every other POST now has), or teach
+      the advice about `@RequestParam` date parameters. Prefer the first — it is the shape the app
+      already has eleven times, and the second means the advice knowing about parameters that have
+      no `<span class="error">` to render into.
+      Whichever, the `required` attribute goes, and `open-cfp.html` needs an error span for the
+      deadline. Pin it in `RequiredEntryConventionTest` alongside the gathering and hotel cases.
 
 Not listed, and a decision rather than an oversight: **gatherings, conferences, private events and
 ground transfer** have the same banner. They are lower-traffic entry surfaces, and ground transfer

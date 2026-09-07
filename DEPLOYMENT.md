@@ -67,7 +67,7 @@ drops the app into read-only mode with empty projections — the 2026-08-16 Moro
 
 ## What this app is
 
-- Spring Boot **4.0.6**, **Java 26**, packaged as an executable jar (`spring-boot-maven-plugin`).
+- Spring Boot **4.0.7**, **Java 26**, packaged as an executable jar (`spring-boot-maven-plugin`).
 - Persistence: **PostgreSQL** (Spring `JdbcClient` + Hikari). Schema is created automatically on
   startup (`spring.sql.init.mode=always` runs `src/main/resources/schema.sql`, which is
   idempotent — `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`).

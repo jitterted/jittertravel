@@ -2,7 +2,9 @@
 
 **Status:** `unblocked — ready to build (was: blocked on the export/import rethink)`
 **Opened:** 2026-08-07 · **Unblocked:** 2026-08-10 · **Owns:** `DecisionsToReview.md` D1 and D2,
-and the "ChangeHotel/ChangeFlight still decide from a projector" follow-up in `Backlog.md`
+and the "ChangeHotel/ChangeFlight still decide from a projector" follow-up — which lived in a
+loose-ends list in `Backlog.md` until 2026-09-08 and is now owned here outright, this doc being the
+only place it is written down
 
 This is a discussion record, captured mid-conversation so it can be picked up later. Nothing here
 is built, but the blocker is gone. The design is close to settled; what stopped it was **item 1
@@ -312,6 +314,8 @@ Both of these are subsumed by this doc rather than settled independently:
   R7 (an event's shape is contract), R11 (a displayed time is a payload field) — the last two are
   what §5 rests on.
 - `Future_Feature_Slices.md` — "Undo Cancel Hotel Booking," the feature §5 answers *no* for.
-- `Backlog.md` — the "ChangeHotel/ChangeFlight still decide from a projector" and "export/import
-  needs a wider decision" follow-ups, both from the Cancel Hotel slice.
+- `Backlog.md` — indexes this doc among the live plans. It used to also carry the two Cancel Hotel
+  follow-ups behind this design ("ChangeHotel/ChangeFlight still decide from a projector" and
+  "export/import needs a wider decision") in a loose-ends list; that list went 2026-09-08, the first
+  being owned here and the second answered by `archived/EventOrientedBackupRestorePlan.md`.
 - `DecisionsToReview.md` — D1, D2.

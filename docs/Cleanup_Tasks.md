@@ -3,7 +3,14 @@
 A running list of smaller fixes, cleanups, and tech-debt items that don't warrant a
 dedicated planning doc. Add an item when you notice it; check it off (or delete it) when
 done. For larger structural refactors, see `Refactoring_Opportunities.md`. For an index of every
-plan doc and its status — including these items — see `Backlog.md`.
+**plan doc** and its status, see `Backlog.md`.
+
+**This file is the source of truth for small work, and `Backlog.md` points at it rather than
+summarizing it** (2026-09-08). It used to keep a roll-call table of these items, and that table went
+stale in both directions — three of nine deferred items were listed, and two done items had grown a
+*second, independently written* account there. So there is nothing to keep in step: add an item here
+and you are finished. The rule that keeps it that way is stated in `Backlog.md`'s header — a row
+there may not carry a fact that is not in the doc it points at.
 
 Three sections: **Open** is work that is wanted, **Deferred (until needed)** is work whose shape is
 known but whose need has not arrived — each item names the trigger that would promote it — and
@@ -625,6 +632,26 @@ ground transfer** have the same banner. They are lower-traffic entry surfaces, a
 picks its endpoints from a dropdown rather than typing them, so its zone failure is a different
 problem. Promote them if one of them actually bites.
 
+- [ ] **Stable `data-testid` attributes on the `index.html` nav groups.** Lifted from `Backlog.md`
+      2026-09-08, where it had lived since `archived/GeneralControllerRefactorPlan.md` was archived —
+      it was in a "loose follow-ups not tracked anywhere else" list that no longer exists, this file
+      now being where small work lives. The authorization tests assert on `href` substrings and on
+      the literal `>Admin</span>`: `SecurityAuthorizationTest:101` and `:205` are
+      `doesNotContain(">Admin</span>")`, which is precisely the too-loose absence assertion
+      CLAUDE.md's precise-HTML rule warns about — rename the label or restructure the group and the
+      claim passes for the wrong reason, on a **security** test. Testids would let each assertion
+      name the group it means. `index.html` plus the two test classes.
+
+- [ ] **The shared renderer infrastructure the j2html migration proposed was never extracted.**
+      Lifted from `Backlog.md` 2026-09-08, from `archived/j2html_Migration_Analysis.md`. There is no
+      `TemporalFormatter`, `ProblemCardRenderer` or `EntryCardRenderer`; `web/Page.java` (plus
+      `PageWindow`) is the only shared piece across **11** `*Renderer` classes, so formatting and
+      card markup are duplicated between them. Overlaps `Refactoring_Opportunities.md` §2, §6 and §7,
+      which measure the same duplication from the projector/template side — read it first, and do
+      not treat this as a separate programme. Deliberately not queued: CLAUDE.md's standing rule is
+      no abstraction before a second user, and the case for each extraction has to be made on the
+      duplication that exists now, one renderer pair at a time.
+
 ## Deferred (until needed)
 
 Items with a known shape and a named trigger, deliberately **not** queued: the cost of carrying
@@ -657,6 +684,53 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       corrected date, or an `infoUrl` he did not have when he planned it. Cancel-and-re-enter is not
       the workaround it is for a ground transfer, because a conference carries a CFP, a talk
       pipeline and a commitment that would all have to be re-recorded.
+- [ ] **A conference with two separate CFPs.** Raised by Ted 2026-09-08: JavaLand runs a
+      *training day* call for proposals (deadline 1 Sept, submitted) alongside the regular
+      conference CFP, which is still open and not yet submitted to. The model has no room for the
+      second track, in three places:
+
+      - **One CFP per conference.** `CfpOpened` is keyed by `ConferenceId` and the fold takes the
+        last one (`ConferenceProjector`, `withCfp`) — deliberately, since re-recording is how a
+        moved deadline is corrected. So recording the regular CFP **silently overwrites** the
+        training day's deadline and `submissionUrl`. `CfpDeadlineSource` is one-per-conference to
+        match: its uid is `{id}-cfp@jittertravel` off a single `view.cfpClosesOn()`, so one of the
+        two deadlines gets no alarms.
+      - **One speaking status per conference.** `SpeakingStatus` names this exact case as the cost
+        the conference-keyed design accepted — *"two proposals with different outcomes can only be
+        recorded as one… per-talk state is the change to make if that ever bites"*. It is biting.
+      - **No state for "submitted on one track, not the other."** `ConferenceActions` picks a row's
+        moves from a single `speakingStatus`, so the row offers `Accepted · Rejected · Withdrawn`
+        while half the story is still `Submitted · Ticket Bought · Decline`.
+
+      **The sharpest consequence is a wrong public badge.** Training day accepted, main talk
+      rejected folds `ACCEPTED` then, last-wins, `REJECTED` — and `ConferenceProgress.speaking()`
+      answers **false** for `REJECTED`, so the "A Ted Talk" badge disappears from a conference Ted
+      genuinely speaks at. Not reachable from any surface (`ConferenceActions` offers only
+      `Withdrawn` from `ACCEPTED`), but `RejectTalkCommand` refuses only `NOT_SPEAKING` and
+      `INVITED`, so `/conferences/{id}/talk?outcome=REJECTED` typed by hand does it.
+
+      **Workaround, and it is a good one: two conference entries.** "JavaLand Training Day" as its
+      own conference with `ACCEPTANCE_REQUIRED`, and JavaLand itself as `CALL_FOR_PAPERS`. Each gets
+      its own deadline, alarms, pipeline and badge, for zero code — and the format does the right
+      thing by itself, since a rejected training-day proposal drops that entry off both calendars
+      and leaves the conference untouched. Verified nothing objects to two conferences on
+      overlapping or adjacent days: `ScheduleGapProjector.overlappingOccupancies()` walks gatherings
+      and private events only, and `differentCityConflicts()` is gathering↔conference and same-city
+      here anyway. The costs are two rows on `/conferences` that Ted has to remember are one trip,
+      and the entry **name being public** — a stranger reads "JavaLand Training Day — Maybe" on
+      `/calendar`, which discloses no more than any watched conference does, but is a name Ted chose
+      to publish.
+
+      **The real fix is a track key on the CFP and submission axes** — the per-talk state the
+      submission-tracking plan deferred. It ripples: a `CfpOpened` schema bump, `ConferenceView`
+      going plural on `cfpClosesOn`/`cfpSubmissionUrl`, a uid suffix in `CfpDeadlineSource`,
+      `ConferenceProgress` holding a map instead of a status, `speaking()` becoming "any track
+      accepted", and `ConferenceActions` going per-track — which also breaks its three-move budget
+      and the dashboard's fixed 240px Actions column.
+      **Trigger:** a *second* conference running two CFPs, or one where the two tracks resolve
+      differently and the two-entry workaround has already been used and found wanting. One rare
+      instance is not a second user (CLAUDE.md, "no abstraction before a second user").
+
 - [ ] **The hotel zone divergence on the transfer submit path.** Lifted from
       `archived/GroundTransferEndpointReadModelPlan.md` 2026-08-23, which named it and deliberately
       left it alone. `GroundTransferEndpointResolver.hotelEndpoint` calls
@@ -761,6 +835,19 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       **Trigger:** Ted finds himself re-entering the same transfer often enough to notice — most
       likely if a mode/notes field ever arrives (D7), since that is the kind of detail you edit
       rather than re-type. Not before.
+- [ ] **Editing a hotel's check-in earlier than its existing `cancelBy` fails on a field nobody
+      touched.** Lifted from `Backlog.md` 2026-09-08, where it had sat since the Phase 1 `cancelBy`
+      review at the bottom of `HotelCancelReplacePlan.md`. `ChangeHotelCommand` (the `cancelBy` guard,
+      `:45`) refuses a deadline after check-in — correct in itself — but `change-hotel.html` prefills
+      `cancelBy` from the existing booking, so moving check-in earlier rejects a value Ted did not
+      edit, and the message names the deadline rather than the date he changed. **Recorded as
+      accepted behaviour, not a bug:** the alternative is clamping `cancelBy` to the new check-in,
+      which silently rewrites a deadline, and refusing is the safer of the two.
+      **Trigger:** Ted actually hits it and finds the refusal unhelpful — at which point the answer
+      is probably a field-level message on `checkIn` naming the deadline, not clamping. (The other
+      two findings from that review — the wrong cancel-by hint text and a duplicated
+      `cancelBy(LocalDateTime, ZoneId)` helper — were fixed inside `4efccaf` before it was committed;
+      the review had been written against the pre-fix working tree.)
 
 ## Done
 
@@ -1057,7 +1144,10 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       row and an admin nav card. Decided with Ted: **column not payload-key**, accept the backup bump,
       in-place admin UPDATE, FQCN→logical `type` normalization **deferred** (that pass is now **built**,
       2026-08-19 — see `archived/EventTypeColumnNormalizationPlan.md`; the same `UPDATE` now writes `type`),
-      versioning *framework* deferred (stamp only for now). Every new/changed test mutation-verified. Retirements still gated
+      versioning *framework* deferred (stamp only for now — **that framework is now built**, 2026-08-18,
+      shaped by the `format` v2→v3 migration: `EventPayloadUpcaster` is a version-ladder composite of
+      `EventUpcaster` rungs, see `EventPayloadUpcasterDesign.md`).
+      Every new/changed test mutation-verified. Retirements still gated
       on old backups leaving rotation: the upcaster's legacy timezone rungs (the `*TimeZoneUpcaster`
       classes — see `EventPayloadUpcasterDesign.md`), the FQCN mapping, and the Antwerp-style resolver
       hacks.

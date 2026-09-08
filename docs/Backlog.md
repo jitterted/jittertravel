@@ -23,7 +23,20 @@ Step 3 is the one that gets skipped, and skipping it is how eleven finished thin
 under "Open features" (found 2026-08-23). A done row that stays put is not a small untidiness: it
 defeats the one question this table exists to answer at a glance.
 
-Small cleanups keep living in `Cleanup_Tasks.md` — they are summarized here but not duplicated.
+**Small cleanups live in `Cleanup_Tasks.md`, which owns them outright — this file points at it and
+does not list them** (2026-09-08). It used to carry three tables of them, billed as a roll-call, and
+they went stale in both directions: three of nine deferred items were listed, and two done items had
+grown a *second, independently written* account here alongside the one in `Cleanup_Tasks.md`.
+
+**The rule that replaces "keep them in sync": a row here may not carry a fact that is not in the doc
+it points at.** Then going stale is impossible by construction rather than by discipline — the same
+argument CLAUDE.md makes for a test that must not need editing on every change. If you find yourself
+adding detail to a row, the detail belongs in the owning doc and the row belongs shorter.
+
+**The loss this accepts, named out loud:** this file no longer answers "what small work is
+outstanding" — it answers "which plans are live". For the first question, open `Cleanup_Tasks.md`,
+which is where you are going anyway to do the work.
+
 Decisions made during implementation that still need Ted's eye live in `DecisionsToReview.md` —
 a review queue, not a backlog; work through it one entry at a time.
 
@@ -63,84 +76,19 @@ Legend: `open` · `partial` · `done` · `exploration` (deliberately unbuilt des
 
 ## Open cleanups
 
-Detail lives in `Cleanup_Tasks.md`; this is the roll-call.
+**Owned entirely by `Cleanup_Tasks.md`; there is no roll-call here any more** (2026-09-08 — see the
+rule in this file's header). That file's three sections answer the three questions the table used to
+try to, and answer them in more detail than a row can hold:
 
-| Item | What's left |
-|---|---|
-| Removal events reaching both calendar read models | `done 2026-08-21` — raised by review of the S2 refactor: the owner's seven calendar projectors and `PublicCalendarProjector` read the same stream through two separate switches, and nothing made them agree; a removal handled on only one side fails silently, and in the dangerous direction it leaves a cancelled booking on the anonymous calendar. Ted chose lifecycle-propagation scenarios over a source-scan convention test. `CalendarRemovalPropagationTest` drives one stream into **both** models and asserts present-in-both then gone-from-both, for all four removal events plus a confirmed-then-cancelled conference. Found a real hole: `GroundTransferCancelled`'s owner branch had **no test at all**. Known residual cost: a fifth removal event needs a new row, and nothing forces that. |
-| Projector bean registration untested | `done 2026-08-21` — every calendar test mocks its projectors, so reducing `bootstrapper.register(...)` to a bare constructor would have left every anonymous visitor a permanently empty calendar with the suite green. Fixed for **all 23** consumer beans rather than the one: `EveryProjectorBeanIsRegisteredTest` derives the set by **reflection** over `EventSourcingConfig` (so a new projector bean is covered the day it is written — no fixture to forget) and checks each calls `register(...)`; a second test pins the guard against its own rot. Mutation-verified on two different beans. |
-| Startup-failure (read-only) warning banner | `done 2026-08-16` — home page shows a prominent red `role="alert"` banner to every viewer when `EventStore.isReadOnly()` (failed boot replay or failed save); `GeneralController` injects `EventStore` and exposes a `readOnly` flag. Two mutation-verified `@WebMvcTest` cases; `EventStore` mock added to the two `GeneralController` auth slices. Detail in `Cleanup_Tasks.md`. The companion **boot-replay preflight** row below is the *prevention* to this banner's *detection*. |
-| `/booked-hotels` ignores `bookingIntent` | `done 2026-08-15` (`6df5f63`) — `BookedHotelsProjector` now threads the real intent from `HotelBooked`/`HotelChanged` into the view; FINAL bookings read FINAL. Promoted to `EventSourcingRulesHeuristics.md` R8. |
-| `ClearConflictController` POST error handling | `done 2026-08-15` (`6df5f63`) — malformed id / generic failure re-render the form via `bindingResult`; `ReadOnlyModeException` redirects to `/read-only`; summary rides as hidden inputs. Three mutation-verified `@WebMvcTest` cases. |
-| Eager-migrate legacy bare-scalar events + schema-version stamp | `done 2026-08-16` — owning doc `archived/LegacyEventEagerMigrationPlan.md` (now `built`, with a "What shipped" section). Added a per-event `event_log.schema_version` stamp (column; per-type version in `EventTypes`; backup format bumped to v3, restores v2+v3). `LegacyEventMigration` + `PostgresPersister.migrateEventPayloads` rewrite each stale row's payload and stamp in one transaction (identity columns untouched); idempotent, validate-then-apply, read-only-guarded; OWNER-only `/admin/migrate-legacy-events` (GET preview + POST) with an `AuthorizationMatrixTest` row and admin nav card. Decisions settled with Ted: column not payload-key; in-place UPDATE; FQCN `type` normalization deferred. The versioning *framework* was deferred here but is **now built** (`2026-08-18`, shaped by the `format` v2→v3 migration) — `EventPayloadUpcaster` is a version-ladder composite of `EventUpcaster` rungs; see `EventPayloadUpcasterDesign.md`. Retirements (the `*TimeZoneUpcaster` rung classes, FQCN mapping, Antwerp resolver hacks) still gated on old backups leaving rotation. Detail in `Cleanup_Tasks.md`. |
-| Boot-replay preflight (pre-deploy) | `done 2026-08-16` — `BootReplayPreflightTest`, a `@Tag("replay-preflight")` tier excluded from the default build (`mvn test -Preplay-preflight -Dpreflight.dump=…`; no dump ⇒ skips). Restores a prod backup into a scratch Testcontainer DB (validate pass = the exact upcast→classFor→bind boot uses) then drives `loadAllEvents()`, failing with the offending row named. Verified against clean + bad dumps (the 2026-08-16 Morocco/Antwerp failure mode). Certifies each retirement the eager migration unlocks; `/admin/zone-audit` is not a substitute. |
-| `ConfirmedCalendar*` → `Calendar*` | `done 2026-08-19` — "confirmed" distinguished nothing: the route was already `/calendar` and the adjective survived only in class names. `ConfirmedCalendarRenderer` → `CalendarRenderer` (+ its one call site in `CalendarController`), and the three tests → `CalendarRendererTest`, `CalendarDayMenuJsTest`, `CalendarToggleJsTest`. Pure rename: no route, template, CSS class, event, or stored-data impact, and no collision (`CalendarViewBuilder` is a different thing). Docs naming the class swept. 962 unit + 36 js green, both js tests running under their new names. |
-| `locationForMatching` may be droppable from hotels | `decision` — raised with the conference item, and the evidence is stronger than expected (checked 2026-08-20): **`ScheduleGapProjector` is its only reader**; `AddressParseService:89-95` fills it with the *same* `coalesce(locality)` it puts in `city`, so every geocoded address already has the two identical; and `Address`'s compact constructor falls back to `city` when blank. So it only ever does anything when **hand-edited** — and that hand-edit is the widen-a-suburb-to-its-metro move ground transfer now answers honestly, which hides a real journey. What would be lost is *normalizing* two spellings of one place ("Frankfurt" vs "Frankfurt am Main"), a different job that the paste widget mostly already does; only a hand-typed address can still disagree with itself. Two scopes: **stop offering the input** on the five forms that expose it (no schema change, fully reversible, the field just always equals the city) — recommended; or **remove it from `Address`**, which is an R6 event-schema change touching an upcaster, every golden sample and **backup-file compatibility**, for a field that costs nothing at rest — probably never. |
-| Conferences have no `locationForMatching` | `decision` — **may no longer be needed (Ted, 2026-08-20)**. `PlanConferenceRequest:130` always passes `null`, so a conference matches on its city alone and **Lone Tree, CO** never matches the **Denver** a `DEN` flight resolves to; `/schedule-problems` then reported missing travel (found 2026-08-20). But ground transfer now answers that case honestly — there really *is* a hop from DEN to a Lone Tree venue, and recording it closes the gap; setting `locationForMatching` to "Denver" would have **hidden a real journey** instead, and a silenced gap is indistinguishable from one that was never there. The same objection applies to using the field on a hotel. What might still justify it is narrow — two nearby addresses under different city names with no journey between them at all — and it is not the case that raised the item. Decide before building; if dropped, delete it and record why here. |
-| Action affordances that still move | `open` — the standing rule is in CLAUDE.md and `/conferences` was fixed 2026-08-19 (two virtual slots, greyed `Confirm` with its reason). Two known violations left alone: `PlannedGatheringsRenderer.actionsCell` (`:157`) moves `Edit` between lines depending on an optional `Event page →`, and `ItineraryRenderer`'s train card (`:163`) slides the OWNER pencil when a train has no service id. |
-| "Restart needed" banner after a truncate | `open` — `/admin/database/truncate` empties the tables while `EventStore` and every projector keep the old data, so the app serves read models for events that no longer exist and only a restart clears it. Bites Ted's wipe-then-import workflow every time. Detection is derivable (persisted count lower than in-memory); render like the read-only banner, not as a post-deploy task. Split out of `PostDeployTaskBannerPlan.md` decision 4, which deliberately excludes it. |
-| Shared admin nav bar | `open` — three hand-rolled shapes across the admin pages, and `admin-calendar-feed` / `admin-restore` / `admin-restore-success` have **no nav at all** (verified 2026-08-21). Extract one Thymeleaf fragment, as `Page.viewNav` already does for the eight j2html view pages. |
-| Itinerary: add-entry day dropdown | `open` — `/calendar` has a future-day disclosure menu; `/itinerary` has no equivalent. Reuse the `DAY_MENU` pattern, OWNER-only. |
-| Itinerary: where he is on an eventless day | `done 2026-08-21` — a stay's middle nights had no entries at all, so the itinerary went blank on exactly the days Ted is somewhere. A fully empty day now renders a tinted `.whereabouts` row in the empty-day slot, in one of three shapes: in a stay, two green lines with a hotel icon (`In Frankfurt, DE` over the hotel name); away with no bed, two **amber** lines plus an OWNER-only `Book hotel →` link (`In Denver` over `No hotel booked`); at home, one green line with a house icon (`You’re Home`). From `OngoingStay` + `ItineraryProjector.ongoingStayOn(date)` (derived from hotel entries already held), `ScheduleGapProjector.missingHotelOn(date)`, and `.atHomeOn(date)`. The no-bed row reads the `MissingHotel` read model and gets its links from `ProblemFix`, so it and `/schedule-problems` can never offer different dates or a different destination for the same gap. **The home claim needs positive evidence:** absence of an away band is not enough — a trip with no return booked bands nothing — so a fourth cached read model asks whether each day's *last* fact left him in a home city, and both must hold. Check-in/check-out days excluded (their own entries say it better); days with *any* entry untouched, per Ted. Detail in `Cleanup_Tasks.md`. |
-| Read-only redirect untested on the conference controllers | `open` — `ConfirmConferenceAttendanceController` and `DeclineConferenceController` both catch `ReadOnlyModeException` and redirect, and neither slice test exercises the branch (still true 2026-08-21); the `catch` could be deleted with both suites green. Worth checking the other write controllers for the same hole. |
-| Malformed conference id on the GET of `/conferences/{id}/confirm` | `open` — only the POST path has a `malformedConferenceIdRedirects…` test, so the GET-side catch is unpinned. Same on `/decline`. |
-| Mockito replacement | `open` — replace with better test doubles. |
-| Event-type filter on `/admin/eventlog` | `open` — the command-log filter is already done. |
-| `setState` shims on the hotel requests | `open` — lifted from `archived/CuratedResolversToDomainPlan.md` 2026-08-23. Two one-line setters kept "for old exports" — the **command-export** format `BackupService` can no longer read. Same measurement that retired `Address`'s `@JsonAlias("state")`, one layer up. Not `AddressParseService`'s geocoder `"state"`, which stays. |
-| `/admin/commandlog` "Out of order" badge | `open` — only detects divergence *within* a page; `PostgresPersister.loadTimelinePage` resets `runningMaxSeq` per call (`PostgresPersister.java:291`), so the first entry of any page can never be flagged. |
+- **Open** — small work that is wanted. It includes the two `locationForMatching` items, which are
+  waiting on **Ted's decision** rather than on code; the table used to flag that with a `decision`
+  status, and both items now carry the question in their own titles instead ("ask whether that is
+  still a problem", "may be droppable").
+- **Deferred (until needed)** — known shape, named trigger, deliberately not queued. Do not promote
+  one without its trigger firing.
+- **Done** — the record.
 
-### Deferred until needed — not queued
-
-`Cleanup_Tasks.md` ends in a **Deferred (until needed)** section: items with a known shape and a
-named trigger, deliberately not worked down. They are listed here only so this index matches that
-file; do not promote one without its trigger firing.
-
-| Item | Trigger |
-|---|---|
-| **Private events in `DifferentCityConflict`** — detection is already indifferent to entry kind, but the *clearing* event types its subject as a `GatheringId`, so a private event in the wrong city would be unclearable. Additive fix: a `PrivateEventCityConflictCleared` (or a one-of subject) plus the detector branch; nothing stored changes. Tabled by Ted 2026-08-20 after problem-calendar slice 4 shipped without it. | Ted plans a private event on a day a conference runs elsewhere and wants the clash surfaced. |
-| **Change a ground transfer** — the other half of D11 in `archived/GroundTransferPlan.md`. Cancel shipped 2026-08-20 and took the urgency with it: correcting a transfer is cancel-then-enter, and both ends are snapshots by design, so nothing is lost in the round trip. | Ted re-enters the same transfer often enough to notice — most likely once a mode/notes field (D7) arrives. |
-| **No logout affordance, and `GET /logout` is a 404** — deferred by Ted 2026-08-21, incognito is sufficient. `POST /logout` works; the custom login page (`0435623`) dropped Spring's generated logout page along with its generated login page, leaving GET unmapped. Rides along: `login.html`'s `?logout` notice is unreachable because `logoutSuccessUrl` points at `/`, while a test pins the notice — the two disagree. | A second person needs an account, or Ted wants to switch roles where a private window is awkward (the iPad). |
-
-### Loose follow-ups not tracked anywhere else
-
-From the Phase 1 `cancelBy` review (bottom of `HotelCancelReplacePlan.md`):
-
-- Editing check-in earlier than an existing `cancelBy` fails on a field the user never touched
-  (the form prefills it) — `ChangeHotelCommand.java:43`. Accepted behavior, not a bug; the
-  alternative is clamping rather than rejecting.
-
-*(The other two items on that list — the wrong cancel-by hint text and the duplicated
-`cancelBy(LocalDateTime, ZoneId)` helper — were fixed inside `4efccaf` before it was committed.
-The review had been written against the pre-fix working tree.)*
-
-From the Cancel Hotel slice (2026-08-07):
-
-- **`ChangeHotel` and `ChangeFlight` still decide from a projector**, which R1 in
-  `EventSourcingRulesHeuristics.md` forbids ("never use a projection to make an automated
-  decision"). Both read a details projector for an existence check; `CancelHotel` now folds from
-  the event stream via `CommandExecutor.eventsForDecision()` and is the pattern to follow. Ted
-  asked for this follow-up when choosing the fold for Cancel. Low risk today (the existence check
-  is not a time gate and subscribers are synchronous), but the codebase currently contradicts its
-  own rule doc. **Now owned by `DecisionContextQueryDesign.md`**, which replaces both the projector
-  reads and `eventsForDecision()` with a tagged query — **unblocked 2026-08-10** (see next).
-- **Export/import → event-oriented backup/restore. `done 2026-08-11` — owning doc `archived/EventOrientedBackupRestorePlan.md`.**
-  Ted's call (2026-08-10): events are the source of truth, so backup/restore stores and restores
-  events **verbatim** and stops re-executing commands; commands stay in the backup as opaque history
-  for a future undo feature. This resolves the "wider decision before more commands need folded
-  context" question that had blocked the decision-context query design — with no command replay on
-  restore, there is no import context to fake. `DecisionContextQueryDesign.md` is therefore
-  unblocked.
-
-From `archived/GeneralControllerRefactorPlan.md`:
-
-- Stable `data-testid` attributes on the `index.html` nav groups, so the authorization tests stop
-  asserting on `href` substrings and `>Admin</span>`.
-
-From `archived/j2html_Migration_Analysis.md`:
-
-- The shared renderer infrastructure the migration proposed was never extracted — no
-  `TemporalFormatter`, `ProblemCardRenderer`, or `EntryCardRenderer`; only `web/Page.java` exists.
-  Formatting and card markup are duplicated across renderers.
+Larger structural duplication has its own doc: `Refactoring_Opportunities.md`.
 
 ## Decisions waiting on Ted
 

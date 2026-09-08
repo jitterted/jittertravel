@@ -389,3 +389,32 @@ body {
     color: #b45309;
     text-decoration: underline;
 }
+
+/* "Add to Google" — the per-entry push into Google Calendar (see web/GoogleCalendarLink), shared
+   by the conference, gathering and private-event lists. The icon is always visible and is itself
+   the affordance; the label's underline is permanent for the same reason .overlap-link's is.
+   Sized in em so it rides at the text size of whichever cell it lands in. */
+.gcal-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--accent-color);
+    text-decoration: none;
+    /* Padding cancelled by an equal negative margin: it buys a finger-sized hit area on the iPad
+       without moving the glyph or the line it sits on. The icon-only form is otherwise a ~18px
+       target, which is half what a thumb needs. */
+    padding: 0.35rem;
+    margin: -0.35rem;
+}
+.gcal-add svg {
+    /* Absolute rather than em-relative: the icon-only form has no text beside it to take its size
+       from, and at the label's 0.8rem it rendered as a speck. flex: none so a narrow column
+       squeezes the label rather than the glyph. */
+    width: 1.15rem;
+    height: 1.15rem;
+    flex: none;
+}
+.gcal-add .gcal-label {
+    font-size: 0.8rem;
+    text-decoration: underline;
+}

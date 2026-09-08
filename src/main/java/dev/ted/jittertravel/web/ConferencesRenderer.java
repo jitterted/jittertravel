@@ -95,6 +95,10 @@ public class ConferencesRenderer {
                the fixed Actions column. Each date is its own nowrap unit in a wrapping row, so a
                squeezed column breaks between the two dates and never inside one. */
             .conf-dates { display: flex; flex-wrap: wrap; gap: 0 4px; color: var(--muted-text); }
+            /* "Add to Google" hangs under the dates rather than joining their flex row — it is a
+               second line, and the Dates column is the one with vertical room to spare. The look
+               is site.css's .gcal-add; this only places it. */
+            .conf-gcal { margin-top: 0.2rem; }
             /* City and country in one cell, for the same reason. */
             .conf-city { color: var(--muted-text); overflow-wrap: break-word; }
             /* The venue under the city, in the same relationship the CFP line has to the name: the
@@ -547,10 +551,42 @@ public class ConferencesRenderer {
      * day would put a UTC timestamp in the markup that nothing renders.
      */
     private static DomContent datesCell(ConferenceView conf) {
-        return div().withClass("conf-dates").with(
-                span(day(conf.startDate()) + " -").withClass("nowrap"),
-                span(day(conf.endDate())).withClass("nowrap")
+        return div().with(
+                div().withClass("conf-dates").with(
+                        span(day(conf.startDate()) + " -").withClass("nowrap"),
+                        span(day(conf.endDate())).withClass("nowrap")
+                ),
+                div().withClass("conf-gcal").with(googleCalendarLink(conf))
         );
+    }
+
+    /**
+     * "Add to Google" under the dates, and it sits here rather than in the Actions cell on purpose
+     * (Ted, 2026-09-08): dates and calendars are the same subject, so this is the line a reader is
+     * already looking at when the question occurs to them. Keeping it out of the actions cell also
+     * leaves that cell at the three state-machine moves it is capped at — a fourth link there would
+     * force the dropdown the affordance rules reserve for more than three.
+     * <p>
+     * On <em>every</em> row, including a dropped one: it is not a move the state machine offers, so
+     * it does not come and go with the talk's status, and a control that changes position between
+     * rows is the thing the never-move rule exists to prevent.
+     */
+    private static DomContent googleCalendarLink(ConferenceView conf) {
+        String href = GoogleCalendarLink.href(
+                conf.name(),
+                conf.startDate(),
+                conf.endDate(),
+                googleLocation(conf),
+                conf.infoUrl());
+        return GoogleCalendarLink.labelled(href, "Add to Google",
+                                           "Add " + conf.name() + " to Google Calendar");
+    }
+
+    /** Venue first, then the city line the cell beside it already shows — blanks drop out. */
+    private static String googleLocation(ConferenceView conf) {
+        return conf.venueName().isBlank()
+                ? cityLine(conf)
+                : conf.venueName() + ", " + cityLine(conf);
     }
 
     private static String day(ZonedTimestamp when) {

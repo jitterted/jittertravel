@@ -326,6 +326,13 @@ for open work.
       feed with everything, or scoped feeds (`…/deadlines.ics` vs `…/all.ics`). Watch the token:
       the feed URL is the only credential, so widening what it serves widens what one leaked URL
       exposes.
+      **Partly answered from the other side, 2026-09-08:** `web/GoogleCalendarLink` puts a
+      per-entry "Add to Google" push on conferences, gatherings and private events — a plain
+      pre-filled `render?action=TEMPLATE` link, no API. It is a *different* answer, not this one:
+      the push is manual, one entry at a time, and lands in Google specifically, where this item
+      is automatic, everything, and subscribed. The two do not conflict, but whoever picks this up
+      should ask which entries still want a feed once the push exists — the deadline reminders
+      clearly do (a push cannot remind), the schedule may not.
 - [ ] **One open question on the problem calendar**, lifted from `archived/ProblemCalendarPlan.md`
       2026-08-21 (slices 1–5 all shipped):
       - Should a **day number link to `/itinerary?date=`**? It is a fix link, so it belongs with the

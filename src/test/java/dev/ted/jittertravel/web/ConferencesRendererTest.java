@@ -1132,6 +1132,41 @@ class ConferencesRendererTest {
         return List.of(new DashboardSection(DashboardGroup.CFP_CLOSES_SOON, List.of(conferences)));
     }
 
+    /**
+     * "Add to Google" hangs under the dates, carrying the conference's own wall-clock and zone —
+     * not the UTC instant behind them, which Google would re-display wherever it thinks Ted is.
+     * The venue leads the location, and the whole attribute is asserted because a bare word here
+     * would pass on any URL at all.
+     */
+    @Test
+    void datesCellCarriesAnAddToGoogleLinkWithTheVenuesWallClock() {
+        String html = ConferencesRenderer.render(oneSection(
+                view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "City", "Country")
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<div class=\"conf-gcal\">")
+                .contains("href=\"https://calendar.google.com/calendar/render?action=TEMPLATE"
+                          + "&amp;text=Conf"
+                          + "&amp;dates=20260607T110000/20260610T170000"
+                          + "&amp;ctz=Europe%2FAmsterdam"
+                          + "&amp;location=Venue%2C+City%2C+Country\"")
+                .contains("<span class=\"gcal-label\">Add to Google</span>")
+                .doesNotContain("20260607T090000");
+    }
+
+    /** Its own glyph, never the pencil or the bin: those two already mean edit and cancel. */
+    @Test
+    void theAddToGoogleControlUsesItsOwnIcon() {
+        String html = ConferencesRenderer.render(oneSection(
+                view("Conf", "2026-06-07T11:00", "2026-06-10T17:00", "City", "Country")
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("class=\"gcal-add\"")
+                .contains("viewBox=\"0 0 640 640\"");
+    }
+
     private static ConferenceView view(String name, String start, String end,
                                        String city, String country) {
         return view(name, start, end, city, country, AttendanceCommitment.WATCHING);

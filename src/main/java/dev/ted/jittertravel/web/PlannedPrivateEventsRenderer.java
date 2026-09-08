@@ -48,6 +48,9 @@ public class PlannedPrivateEventsRenderer {
                 .private-event-row { border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
                 .private-event-row:last-child { border-bottom: none; }
                 .private-event-row:hover { background: var(--hover-bg); }
+                /* Times on the left, the Add-to-Google icon on their right — the gathering list's
+                   .gathering-when arrangement, kept identical so the two pages read the same. */
+                .private-event-when { display: flex; align-items: center; gap: 0.5rem; }
                 .private-event-when-date { font-weight: 700; color: #475569; white-space: nowrap; }
                 .private-event-when-time { color: #64748b; font-size: 0.85rem; white-space: nowrap; margin-top: 0.1rem; }
                 .private-event-title { font-weight: 700; }
@@ -114,13 +117,44 @@ public class PlannedPrivateEventsRenderer {
     private static DomContent whenCell(PlannedPrivateEventView e) {
         return div().with(
                 legLabel("When"),
-                div().withClass("private-event-when-date").with(ZonedTimeTag.render(e.startsAt(), DATE_FORMAT)),
-                div().withClass("private-event-when-time").with(
-                        ZonedTimeTag.render(e.startsAt(), TIME_FORMAT),
-                        rawHtml(" &ndash; "),
-                        ZonedTimeTag.render(e.endsAt(), TIME_FORMAT)
+                div().withClass("private-event-when").with(
+                        div().with(
+                                div().withClass("private-event-when-date")
+                                     .with(ZonedTimeTag.render(e.startsAt(), DATE_FORMAT)),
+                                div().withClass("private-event-when-time").with(
+                                        ZonedTimeTag.render(e.startsAt(), TIME_FORMAT),
+                                        rawHtml(" &ndash; "),
+                                        ZonedTimeTag.render(e.endsAt(), TIME_FORMAT)
+                                )
+                        ),
+                        googleCalendarIcon(e)
                 )
         );
+    }
+
+    /**
+     * The push into Google Calendar, beside the times it copies — the gathering list's arrangement
+     * exactly (Ted, 2026-09-08), because the two pages share a shape and a control that sat in
+     * different places on each would be two vocabularies for one action.
+     * <p>
+     * No {@code details}: a private event has no {@code infoUrl}, and the title and address are
+     * already the whole of what it is.
+     */
+    private static DomContent googleCalendarIcon(PlannedPrivateEventView e) {
+        String href = GoogleCalendarLink.href(
+                e.title(),
+                e.startsAt(),
+                e.endsAt(),
+                googleLocation(e),
+                "");
+        return GoogleCalendarLink.icon(href, "Add " + e.title() + " to Google Calendar");
+    }
+
+    /** Venue first, then the full address the Venue cell shows — blanks drop out. */
+    private static String googleLocation(PlannedPrivateEventView e) {
+        return e.venueName().isBlank()
+                ? buildAddress(e)
+                : e.venueName() + ", " + buildAddress(e);
     }
 
     // No link on the title: a private event has no infoUrl, and there is no detail page to point

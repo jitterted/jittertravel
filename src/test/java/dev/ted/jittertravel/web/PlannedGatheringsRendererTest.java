@@ -149,6 +149,39 @@ class PlannedGatheringsRendererTest {
                         + gatheringId.id() + "\">Edit</a>");
     }
 
+    /**
+     * The Add-to-Google icon sits to the right of the When value, carrying the gathering's own
+     * wall-clock and zone rather than the UTC instant behind it. Whole attribute asserted: a bare
+     * "calendar.google.com" would pass on any URL, including one with the wrong times in it.
+     */
+    @Test
+    void whenCellCarriesAnAddToGoogleIconWithTheVenuesWallClock() {
+        String html = PlannedGatheringsRenderer.render(List.of(
+                view("London Java Community", "Skills Matter", "London", "GB", false, "")
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<div class=\"gathering-when\">")
+                .contains("href=\"https://calendar.google.com/calendar/render?action=TEMPLATE"
+                          + "&amp;text=London+Java+Community"
+                          + "&amp;dates=20260820T180000/20260820T210000"
+                          + "&amp;ctz=Europe%2FLondon"
+                          + "&amp;location=Skills+Matter%2C+London%2C+GB\"")
+                .contains("class=\"gcal-add\"")
+                .contains("viewBox=\"0 0 640 640\"")
+                .contains("title=\"Add London Java Community to Google Calendar\"");
+    }
+
+    /** A gathering's own page rides along as the event's details when it has one. */
+    @Test
+    void infoUrlBecomesTheGoogleEventsDetails() {
+        String html = PlannedGatheringsRenderer.render(List.of(
+                view("LJC", "Skills Matter", "London", "GB", false, "https://ljc.example/e")
+        ), TimeView.FUTURE);
+
+        assertThat(html).contains("&amp;details=https%3A%2F%2Fljc.example%2Fe");
+    }
+
     private static ZonedTimestamp ukTime(LocalDate date, LocalTime time) {
         return ZonedTimestamp.fromLocal(date.atTime(time), ZoneId.of("Europe/London"));
     }

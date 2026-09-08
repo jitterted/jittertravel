@@ -44,6 +44,10 @@ public class PlannedGatheringsRenderer {
                 .gathering-row { border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
                 .gathering-row:last-child { border-bottom: none; }
                 .gathering-row:hover { background: var(--hover-bg); }
+                /* Times on the left, the Add-to-Google icon on their right — this column has the
+                   horizontal room, and align-items: center keeps the glyph between the two lines
+                   rather than hanging off the date. The look is site.css's .gcal-add. */
+                .gathering-when { display: flex; align-items: center; gap: 0.5rem; }
                 .gathering-when-date { font-weight: 700; color: #5b21b6; white-space: nowrap; }
                 .gathering-when-time { color: #6d28d9; font-size: 0.85rem; white-space: nowrap; margin-top: 0.1rem; }
                 .gathering-title { font-weight: 700; }
@@ -117,13 +121,44 @@ public class PlannedGatheringsRenderer {
     private static DomContent whenCell(PlannedGatheringView g) {
         return div().with(
                 legLabel("When"),
-                div().withClass("gathering-when-date").with(ZonedTimeTag.render(g.startsAt(), DATE_FORMAT)),
-                div().withClass("gathering-when-time").with(
-                        ZonedTimeTag.render(g.startsAt(), TIME_FORMAT),
-                        rawHtml(" &ndash; "),
-                        ZonedTimeTag.render(g.endsAt(), TIME_FORMAT)
+                div().withClass("gathering-when").with(
+                        div().with(
+                                div().withClass("gathering-when-date")
+                                     .with(ZonedTimeTag.render(g.startsAt(), DATE_FORMAT)),
+                                div().withClass("gathering-when-time").with(
+                                        ZonedTimeTag.render(g.startsAt(), TIME_FORMAT),
+                                        rawHtml(" &ndash; "),
+                                        ZonedTimeTag.render(g.endsAt(), TIME_FORMAT)
+                                )
+                        ),
+                        googleCalendarIcon(g)
                 )
         );
+    }
+
+    /**
+     * The push into Google Calendar, beside the times it copies (Ted, 2026-09-08). This column has
+     * the horizontal room, and the icon sits next to the very values it carries across — start and
+     * end in the venue's own zone, so a dinner can be booked either side of them.
+     * <p>
+     * Icon alone, no words: the column header and the value beside it have already said what this
+     * is. It is on every row in every state, so it never moves.
+     */
+    private static DomContent googleCalendarIcon(PlannedGatheringView g) {
+        String href = GoogleCalendarLink.href(
+                g.title(),
+                g.startsAt(),
+                g.endsAt(),
+                googleLocation(g),
+                g.infoUrl());
+        return GoogleCalendarLink.icon(href, "Add " + g.title() + " to Google Calendar");
+    }
+
+    /** Venue first, then the full address the Venue cell shows — blanks drop out. */
+    private static String googleLocation(PlannedGatheringView g) {
+        return g.venueName().isBlank()
+                ? buildAddress(g)
+                : g.venueName() + ", " + buildAddress(g);
     }
 
     // Its own column; empty when Ted is only attending, so the badge alone reads as "Speaking".

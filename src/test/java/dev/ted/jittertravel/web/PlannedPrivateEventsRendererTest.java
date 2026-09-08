@@ -163,6 +163,28 @@ class PlannedPrivateEventsRendererTest {
                 .contains("grid-template-columns: 1fr");
     }
 
+    /**
+     * The gathering list's arrangement exactly — icon to the right of the When value, wall-clock
+     * and zone rather than the instant. No details parameter: a private event has no infoUrl.
+     */
+    @Test
+    void whenCellCarriesAnAddToGoogleIconWithTheVenuesWallClock() {
+        String html = PlannedPrivateEventsRenderer.render(List.of(
+                view("Dinner with Sam", "The Ivy")
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<div class=\"private-event-when\">")
+                .contains("href=\"https://calendar.google.com/calendar/render?action=TEMPLATE"
+                          + "&amp;text=Dinner+with+Sam"
+                          + "&amp;dates=20260820T190000/20260820T220000"
+                          + "&amp;ctz=Europe%2FLondon"
+                          + "&amp;location=The+Ivy%2C+26+Dean+St%2C+London%2C+Greater+London+W1D+3LL%2C+GB\"")
+                .contains("class=\"gcal-add\"")
+                .contains("viewBox=\"0 0 640 640\"")
+                .doesNotContain("&amp;details=");
+    }
+
     private static ZonedTimestamp ukTime(LocalDate date, LocalTime time) {
         return ZonedTimestamp.fromLocal(date.atTime(time), ZoneId.of("Europe/London"));
     }

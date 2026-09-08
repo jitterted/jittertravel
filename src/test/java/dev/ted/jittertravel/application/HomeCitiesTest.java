@@ -68,6 +68,31 @@ class HomeCitiesTest {
     }
 
     @Test
+    void primaryCityIsTheFirstConfiguredOneAsItWasConfigured() {
+        assertThat(BAY_AREA.primaryCity())
+                .as("the name reaches the page and a booking form, so it keeps its casing")
+                .isEqualTo("San Francisco");
+    }
+
+    @Test
+    void primaryCitySkipsBlankConfiguredEntries() {
+        HomeCities homeCities = new HomeCities(List.of("  ", " San Jose ", "Oakland"));
+
+        assertThat(homeCities.primaryCity())
+                .as("a blank entry is not a city and cannot be the one we name")
+                .isEqualTo("San Jose");
+    }
+
+    @Test
+    void emptyHomeCitiesHaveNoPrimaryCity() {
+        HomeCities noHome = new HomeCities(List.of());
+
+        assertThat(noHome.primaryCity())
+                .as("with no home configured there is no name to give home")
+                .isEmpty();
+    }
+
+    @Test
     void emptyHomeCitiesIncludesNothing() {
         HomeCities noHome = new HomeCities(List.of());
 

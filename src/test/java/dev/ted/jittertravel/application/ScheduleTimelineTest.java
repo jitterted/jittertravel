@@ -134,6 +134,91 @@ class ScheduleTimelineTest {
                                 ScheduleProblem.MissingHotel::checkOut)
                     .containsExactly(tuple("New York", date("2026-07-28"), date("2026-08-04")));
         }
+
+        @Test
+        void aBreakLongEnoughToHaveGoneHomeIsTwoMissingJourneysAndNotOne() {
+            // Ted's real schedule, 2026-09-08: ATD in Potsdam in November, Jfokus in Stockholm in
+            // February, no flights entered for either. One gap read "No travel — Potsdam →
+            // Stockholm" across twelve weeks, which no single booking fixes.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(),
+                    List.of(occupancy("ATD", "Potsdam", "2026-11-16 09:00", "2026-11-19 17:00"),
+                            occupancy("Jfokus", "Stockholm", "2027-02-08 09:00", "2027-02-10 17:00")),
+                    List.of(), HOME_IN_SF);
+
+            assertThat(timeline.missingTravel())
+                    .extracting(ScheduleProblem.MissingTravel::fromCity,
+                                ScheduleProblem.MissingTravel::toCity)
+                    .containsExactly(tuple("Potsdam", "San Francisco"),
+                                     tuple("San Francisco", "Stockholm"));
+        }
+
+        @Test
+        void neitherHalfOfASplitGapSpansTheMonthsBetweenTheTwoTrips() {
+            // Each half is anchored at its own away end, so its window is one moment wide: the
+            // flight out of Potsdam is needed when the conference ends, the flight to Stockholm
+            // when the next one starts, and neither problem occupies the winter in between.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(),
+                    List.of(occupancy("ATD", "Potsdam", "2026-11-16 09:00", "2026-11-19 17:00"),
+                            occupancy("Jfokus", "Stockholm", "2027-02-08 09:00", "2027-02-10 17:00")),
+                    List.of(), HOME_IN_SF);
+
+            assertThat(timeline.missingTravel())
+                    .extracting(ScheduleProblem.MissingTravel::arrivedAt,
+                                ScheduleProblem.MissingTravel::nextDepartureAt)
+                    .containsExactly(tuple(at("2026-11-19 17:00"), at("2026-11-19 17:00")),
+                                     tuple(at("2027-02-08 09:00"), at("2027-02-08 09:00")));
+        }
+
+        @Test
+        void aQuietStretchInsideATripIsStillOneJourney() {
+            // A fortnight is the line, and six days is well inside a trip: he is still in Europe,
+            // and Potsdam → Stockholm is exactly the one flight to book.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(),
+                    List.of(occupancy("ATD", "Potsdam", "2026-11-16 09:00", "2026-11-19 17:00"),
+                            occupancy("Jfokus", "Stockholm", "2026-11-25 09:00", "2026-11-27 17:00")),
+                    List.of(), HOME_IN_SF);
+
+            assertThat(timeline.missingTravel())
+                    .extracting(ScheduleProblem.MissingTravel::fromCity,
+                                ScheduleProblem.MissingTravel::toCity)
+                    .containsExactly(tuple("Potsdam", "Stockholm"));
+        }
+
+        @Test
+        void withNoHomeConfiguredThereIsNowhereToSplitTheGapAt() {
+            // Splitting needs a city to name, and an empty HomeCities has none. Reporting the one
+            // long gap is then the honest answer rather than inventing a homecoming.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(),
+                    List.of(occupancy("ATD", "Potsdam", "2026-11-16 09:00", "2026-11-19 17:00"),
+                            occupancy("Jfokus", "Stockholm", "2027-02-08 09:00", "2027-02-10 17:00")),
+                    List.of(), NO_HOME);
+
+            assertThat(timeline.missingTravel())
+                    .extracting(ScheduleProblem.MissingTravel::fromCity,
+                                ScheduleProblem.MissingTravel::toCity)
+                    .containsExactly(tuple("Potsdam", "Stockholm"));
+        }
+
+        @Test
+        void aBreakWithHomeAtOneEndIsAlreadyOneJourneyAndIsNotSplit() {
+            // He flies home from Potsdam in November and to Stockholm in February, and only the
+            // second flight is missing. Splitting here would report a journey from home to home.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(),
+                    List.of(occupancy("ATD", "Potsdam", "2026-11-16 09:00", "2026-11-19 17:00"),
+                            occupancy("Jfokus", "Stockholm", "2027-02-08 09:00", "2027-02-10 17:00")),
+                    List.of(movement("Potsdam", "2026-11-19 19:00", "San Francisco", "2026-11-20 06:00")),
+                    HOME_IN_SF);
+
+            assertThat(timeline.missingTravel())
+                    .extracting(ScheduleProblem.MissingTravel::fromCity,
+                                ScheduleProblem.MissingTravel::toCity)
+                    .containsExactly(tuple("San Francisco", "Stockholm"));
+        }
     }
 
     @Nested

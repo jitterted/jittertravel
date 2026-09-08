@@ -40,6 +40,8 @@ class ScheduleTimeline {
      * How long the schedule may go quiet before last-known-location stops applying. Ted's trips are
      * dense — a booked leg, a stay, a conference, a gathering every day or two — so a fortnight
      * with nothing recorded anywhere means the trip ended and the next one has not started.
+     * <p>
+     * Read only through {@link #wentQuiet}, by both detectors that care.
      */
     private static final int TRIP_BREAK_NIGHTS = 14;
 
@@ -61,7 +63,8 @@ class ScheduleTimeline {
     /**
      * Gaps where the schedule moves Ted between cities with nothing booked to carry him: one
      * problem per adjacent pair of locations, so two gatherings in the same city raise one gap
-     * before them and not two.
+     * before them and not two — except across a break long enough to have been a trip home, which
+     * raises the two journeys it really is. See {@link #gapsLeaving}.
      */
     List<ScheduleProblem.MissingTravel> missingTravel() {
         return walk().gaps();
@@ -294,6 +297,7 @@ class ScheduleTimeline {
 
         for (Point point : points) {
             fillNights(locationByNight, currentDay, point.day(), currentCity);
+            boolean tripEnded = wentQuiet(currentDay, point.day());
             currentDay = point.day();
             switch (point.role()) {
                 case LEAVE -> {
@@ -310,7 +314,7 @@ class ScheduleTimeline {
                 }
                 case REQUIRE -> {
                     if (!homeCities.sameLocation(point.city(), currentCity)) {
-                        gaps.add(gapLeaving(currentCity, lastMoment, point));
+                        gaps.addAll(gapsLeaving(currentCity, lastMoment, point, tripEnded));
                     }
                     currentCity = point.city();
                     lastMoment = point.moment();
@@ -372,6 +376,42 @@ class ScheduleTimeline {
         return homeByDay;
     }
 
+    /**
+     * The missing journeys between two points the schedule does not connect — <strong>usually one,
+     * but two when the schedule went quiet for a trip's length in between</strong>.
+     * <p>
+     * A conference in Potsdam ending in November and one in Stockholm starting in February are not
+     * one flight apart. {@link #fillNights} already reads a stretch that long as <em>"the trip
+     * ended and the next one has not started"</em> — that is what stops it demanding a Potsdam
+     * hotel every night until February — and this is the same reading applied to travel. Under it
+     * there are two missing journeys, Potsdam→home and home→Stockholm, and reporting them as one
+     * was wrong three ways: no single booking fixes it, the fix link prefilled a Potsdam→Stockholm
+     * flight nobody would buy, and the window spanned twelve weeks of amber (Ted, 2026-09-08).
+     * <p>
+     * <strong>Both halves are reported, deliberately.</strong> The flight home is as missing as the
+     * flight out, and dropping it would leave the report saying he is still in Potsdam in January.
+     * <p>
+     * Each half is anchored at its <em>away</em> end and so is a single moment wide, which is
+     * {@link #gapLeaving}'s rule — time at home is not part of any problem — pointing in both
+     * directions for the first time: the home half is literally {@code gapLeaving} with home as the
+     * origin, and the outbound half is its mirror.
+     * <p>
+     * It takes a configured home to split at, and it must not fire where one end is already home:
+     * that is the single gap {@code gapLeaving} handles, and splitting it would report a journey
+     * from home to home.
+     */
+    private List<ScheduleProblem.MissingTravel> gapsLeaving(String fromCity, ZonedTimestamp lastMoment,
+                                                            Point arrival, boolean tripEnded) {
+        if (!tripEnded || homeCities.isEmpty()
+            || homeCities.includes(fromCity) || homeCities.includes(arrival.city())) {
+            return List.of(gapLeaving(fromCity, lastMoment, arrival));
+        }
+        String home = homeCities.primaryCity();
+        return List.of(
+                new ScheduleProblem.MissingTravel(fromCity, lastMoment, home, lastMoment),
+                gapLeaving(home, lastMoment, arrival));
+    }
+
     private ScheduleProblem.MissingTravel gapLeaving(String fromCity, ZonedTimestamp lastMoment, Point arrival) {
         ZonedTimestamp windowStart = homeCities.includes(fromCity) ? arrival.moment() : lastMoment;
         return new ScheduleProblem.MissingTravel(fromCity, windowStart, arrival.city(), arrival.moment());
@@ -385,18 +425,29 @@ class ScheduleTimeline {
      * two days later, he is in Hamburg that night and Aachen after. Carried far enough it becomes
      * absurd — a conference in January and the next one in December would demand eleven months of
      * hotel rooms in Oslo. A stretch this long with nothing at all recorded is not a trip in
-     * progress; it is the gap before the next trip, spent at home. The travel gap between the two
-     * is still reported, which is the real problem in that schedule.
+     * progress; it is the gap before the next trip, spent at home. The travel between the two is
+     * still reported, as the two journeys that reading implies — see {@link #gapsLeaving}.
      */
     private static void fillNights(Map<LocalDate, String> locationByNight,
                                    LocalDate from, LocalDate until, String city) {
-        if (ChronoUnit.DAYS.between(from, until) > TRIP_BREAK_NIGHTS) {
+        if (wentQuiet(from, until)) {
             locationByNight.put(from, city);
             return;
         }
         for (LocalDate night = from; night.isBefore(until); night = night.plusDays(1)) {
             locationByNight.put(night, city);
         }
+    }
+
+    /**
+     * Whether the schedule says nothing at all for longer than {@link #TRIP_BREAK_NIGHTS} — the one
+     * definition of "the trip ended", read by {@link #fillNights} for the nights it stops claiming
+     * and by {@link #gapsLeaving} for the journey it splits in two. One definition on purpose: the
+     * night after which he is no longer in Potsdam and the flight that got him out of Potsdam are
+     * the same fact seen twice, and two constants would let them disagree.
+     */
+    private static boolean wentQuiet(LocalDate from, LocalDate until) {
+        return ChronoUnit.DAYS.between(from, until) > TRIP_BREAK_NIGHTS;
     }
 
     private static List<Point> orderedPoints(List<Stay> stays,

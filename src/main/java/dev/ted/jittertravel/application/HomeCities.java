@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -15,13 +16,31 @@ import java.util.Set;
 public class HomeCities {
 
     private final Set<String> cities = new LinkedHashSet<>();
+    private final List<String> asConfigured;
 
     public HomeCities(Collection<String> cityNames) {
-        cityNames.stream()
+        this.asConfigured = cityNames.stream()
                 .map(String::trim)
                 .filter(name -> !name.isEmpty())
+                .toList();
+        asConfigured.stream()
                 .map(String::toLowerCase)
                 .forEach(cities::add);
+    }
+
+    /**
+     * The one home city to <em>name</em> when the schedule has to say "home" out loud — the first
+     * configured, with the casing it was configured in, because everything else here is lowercased
+     * for comparison and "san jose" has no business on the page.
+     * <p>
+     * Which one it is barely matters and is settled by the order in {@code jittertravel.home-cities}:
+     * they are interchangeable for travel by the definition above, so a gap reported into any of
+     * them is the same gap, and the name only has to be a real city that a booking form will accept
+     * as a prefill. {@code ""} when no home is configured — a caller that intends to name home must
+     * ask {@link #isEmpty()} first.
+     */
+    public String primaryCity() {
+        return asConfigured.isEmpty() ? "" : asConfigured.getFirst();
     }
 
     public boolean includes(String city) {

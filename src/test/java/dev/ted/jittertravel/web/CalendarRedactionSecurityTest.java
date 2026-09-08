@@ -45,6 +45,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -84,7 +85,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 // path this test exercises.
 @WebMvcTest(CalendarController.class)
 @Import({SecurityConfig.class, ViewerZonePolicy.class, WebTodayTestConfig.class})
-@TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass"})
+@TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass",
+                                  "REMEMBER_ME_KEY=test-remember-me-key"})
 class CalendarRedactionSecurityTest {
 
     private static final LocalDateTime CHECK_IN = LocalDateTime.of(2026, 7, 1, 15, 0);
@@ -94,6 +96,11 @@ class CalendarRedactionSecurityTest {
 
     @Autowired
     MockMvcTester mockMvc;
+
+    // SecurityConfig's remember-me needs a token store, and a @WebMvcTest slice has no DataSource
+    // for the JDBC one. Anonymous redaction is unaffected: a stranger carries no cookie.
+    @MockitoBean
+    PersistentTokenRepository persistentTokenRepository;
 
     @MockitoBean
     CalendarAggregator calendarAggregator;

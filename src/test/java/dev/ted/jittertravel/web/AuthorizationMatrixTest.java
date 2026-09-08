@@ -14,6 +14,7 @@ import org.springframework.boot.info.BuildProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
+import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -42,13 +43,19 @@ import static org.mockito.Mockito.lenient;
  */
 @WebMvcTest(GeneralController.class)
 @Import(SecurityConfig.class)
-@TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass"})
+@TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass",
+                                  "REMEMBER_ME_KEY=test-remember-me-key"})
 class AuthorizationMatrixTest {
 
     private enum Outcome { OK, LOGIN, DENIED_HOME }
 
     @Autowired
     MockMvcTester mockMvc;
+
+    // SecurityConfig's remember-me needs a token store, and a @WebMvcTest slice has no DataSource
+    // for the JDBC one. The matrix below is unaffected: remember-me adds a filter, not a rule.
+    @MockitoBean
+    PersistentTokenRepository persistentTokenRepository;
 
     @MockitoBean
     PostgresPersister persister;

@@ -48,6 +48,18 @@
             outline-offset: 1px;
             border-color: transparent;
         }
+        /* Its own class rather than .field: that one stacks its label in a column and stretches
+           the input to width 100%, which turns a checkbox into a full-width block. */
+        .remember { margin-bottom: 1rem; }
+        .remember label {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+            cursor: pointer;
+        }
+        .remember input { accent-color: var(--accent-color); }
 
         button.primary {
             background: var(--accent-color);
@@ -93,6 +105,16 @@
             <label>
                 Password
                 <input type="password" name="password" autocomplete="current-password"/>
+            </label>
+        </div>
+        <div class="remember">
+            <!--/* The name is Spring's AbstractRememberMeServices.DEFAULT_PARAMETER and must stay
+                   "remember-me". Checked by default because staying signed in is the point; the
+                   tick is worth keeping as a control because unticking it is the only way to say
+                   "not on this device", the app having no logout affordance yet. */-->
+            <label>
+                <input type="checkbox" name="remember-me" checked/>
+                Stay signed in on this device for 30 days
             </label>
         </div>
         <!--/* Reports the browser's own zone so the calendar/itinerary can compute "today" in it.

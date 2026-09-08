@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -28,13 +29,19 @@ import static org.mockito.Mockito.when;
  */
 @WebMvcTest({AddressParseController.class, SessionizePrefillController.class})
 @Import(SecurityConfig.class)
-@TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass"})
+@TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass",
+                                  "REMEMBER_ME_KEY=test-remember-me-key"})
 class ApiAccessDeniedSecurityTest {
 
     private static final String SESSIONIZE_URL = "https://sessionize.com/jfokus-2027/";
 
     @Autowired
     MockMvcTester mockMvc;
+
+    // SecurityConfig's remember-me needs a token store, and a @WebMvcTest slice has no DataSource
+    // for the JDBC one.
+    @MockitoBean
+    PersistentTokenRepository persistentTokenRepository;
 
     @MockitoBean
     AddressParseService parseService;

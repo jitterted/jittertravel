@@ -13,6 +13,7 @@ import org.springframework.boot.info.BuildProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -20,6 +21,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import jakarta.servlet.http.Cookie;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -39,11 +41,18 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  */
 @WebMvcTest(GeneralController.class)
 @Import(SecurityConfig.class)
-@TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass"})
+@TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass",
+                                  "REMEMBER_ME_KEY=test-remember-me-key"})
 class SecurityAuthorizationTest {
 
     @Autowired
     MockMvcTester mockMvc;
+
+    // SecurityConfig's remember-me needs a token store, and a @WebMvcTest slice has no DataSource
+    // for the JDBC one. Mocking the interface keeps the filter chain whole: the cookie is still
+    // minted and cancelled through the real PersistentTokenBasedRememberMeServices.
+    @MockitoBean
+    PersistentTokenRepository persistentTokenRepository;
 
     @MockitoBean
     PostgresPersister persister;
@@ -228,6 +237,61 @@ class SecurityAuthorizationTest {
                 .param("password", "testpass"))
                 .hasStatus3xxRedirection()
                 .hasHeader("Location", "/login?expired");
+    }
+
+    @Test
+    @WithAnonymousUser
+    void loginWithRememberMeTickedSetsAPersistentCookie() {
+        // The whole point of the feature: the cookie is what survives a restart, since the
+        // HttpSession does not. A max-age well past a session cookie's is what makes it
+        // persistent, so assert on that rather than merely on the cookie existing.
+        MvcTestResult result = mockMvc.post().uri("/login")
+                .param("username", "ted")
+                .param("password", "testpass")
+                .param("remember-me", "on")
+                .with(csrf())
+                .exchange();
+
+        Cookie rememberMe = result.getResponse().getCookie("remember-me");
+        assertThat(rememberMe)
+                .as("a remember-me cookie is set when the box is ticked")
+                .isNotNull();
+        assertThat(rememberMe.getMaxAge())
+                .as("cookie outlives the session, for the configured 30 days")
+                .isEqualTo((int) Duration.ofDays(30).toSeconds());
+        assertThat(rememberMe.isHttpOnly())
+                .as("a credential is never readable by page scripts")
+                .isTrue();
+    }
+
+    @Test
+    @WithAnonymousUser
+    void loginWithoutRememberMeSetsNoPersistentCookie() {
+        // Unticking the box is the only "not on this device" control the app has — there is no
+        // logout affordance — so it has to actually suppress the cookie.
+        MvcTestResult result = mockMvc.post().uri("/login")
+                .param("username", "ted")
+                .param("password", "testpass")
+                .with(csrf())
+                .exchange();
+
+        assertThat(result.getResponse().getCookie("remember-me"))
+                .as("no remember-me cookie when the box is unticked")
+                .isNull();
+    }
+
+    @Test
+    @WithMockUser(username = "ted", roles = "OWNER")
+    void successfulLogoutReturnsToLoginPageWithSignedOutNotice() {
+        // login.html renders a "signed out" notice on ?logout, and until 2026-09-08
+        // logoutSuccessUrl sent a successful logout to "/" instead — so the notice was
+        // unreachable in production and a deliberate sign-out looked exactly like arriving
+        // signed out. LoginControllerTest pins that the notice renders; this pins that a
+        // logout actually goes to the URL that shows it.
+        assertThat(mockMvc.post().uri("/logout")
+                .with(csrf()))
+                .hasStatus3xxRedirection()
+                .hasHeader("Location", "/login?logout");
     }
 
     @Test

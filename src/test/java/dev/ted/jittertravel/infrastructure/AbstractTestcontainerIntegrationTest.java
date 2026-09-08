@@ -9,15 +9,16 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 // Full-context integration tests run under the default (secured) profile — the only security
 // chain there is. These tests never hit secured web routes, so they need no authentication;
-// they only supply TED_PASSWORD/FAMILY_PASSWORD so the userDetailsService bean can start. The
-// testcontainer @ServiceConnection supplies the datasource.
+// they only supply TED_PASSWORD/FAMILY_PASSWORD/REMEMBER_ME_KEY so the userDetailsService and
+// rememberMeServices beans can start. The testcontainer @ServiceConnection supplies the datasource.
 @SuppressWarnings("SqlWithoutWhere")
 @TestPropertySource(properties = {
         "spring.sql.init.mode=always",
         "spring.datasource.hikari.maximum-pool-size=2",
         "spring.datasource.hikari.minimum-idle=0",
         "TED_PASSWORD=test",
-        "FAMILY_PASSWORD=test"
+        "FAMILY_PASSWORD=test",
+        "REMEMBER_ME_KEY=test-remember-me-key"
 })
 // ensure the database is empty before each test by running it in its own transaction
 @Sql(

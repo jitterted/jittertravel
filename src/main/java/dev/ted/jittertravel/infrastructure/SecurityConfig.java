@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.infrastructure;
 
 import jakarta.servlet.http.HttpServletResponse;
+import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,9 +12,15 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.RememberMeServices;
+import org.springframework.security.web.authentication.rememberme.JdbcTokenRepositoryImpl;
+import org.springframework.security.web.authentication.rememberme.PersistentTokenBasedRememberMeServices;
+import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
+
+import java.time.Duration;
 
 /**
  * One security chain, always on. There is no permissive/no-auth variant: local development runs
@@ -30,8 +37,16 @@ import org.springframework.security.web.csrf.CsrfTokenRepository;
 @Configuration
 public class SecurityConfig {
 
+    /**
+     * How long an unused device stays signed in. Each successful remember-me login rotates the
+     * token and rewrites {@code last_used}, so a device in regular use never expires — this window
+     * only reaches one that has been idle for a month.
+     */
+    private static final int TOKEN_VALIDITY_SECONDS = (int) Duration.ofDays(30).toSeconds();
+
     @Bean
-    public SecurityFilterChain securedFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securedFilterChain(HttpSecurity http,
+                                                  RememberMeServices rememberMeServices) throws Exception {
         return http
                 .authorizeHttpRequests(auth -> auth
                         // Admin (includes /admin/eventlog, /admin/commandlog, /admin/pending-commands)
@@ -117,7 +132,24 @@ public class SecurityConfig {
                         .loginPage("/login")
                         .successHandler(new ZoneCapturingAuthenticationSuccessHandler())
                         .permitAll())
-                .logout(logout -> logout.logoutSuccessUrl("/"))
+                // A successful logout lands on /login?logout, where login.html already renders a
+                // "you have been signed out" notice. It used to go to "/", which left that notice
+                // unreachable in production (only LoginControllerTest saw it, by requesting the URL
+                // directly) and made a deliberate sign-out indistinguishable from arriving signed
+                // out. There is still no logout *affordance* anywhere — see docs/Cleanup_Tasks.md,
+                // "No logout affordance" — but POST /logout works, and now it says so.
+                // Stay signed in across a restart. The HTTP session is in-memory and dies with
+                // every redeploy and every devtools restart, and the 2026-08-18 CSRF-cookie fix
+                // only made the *next* login succeed — it did not keep anyone logged in. The
+                // remember-me cookie re-authenticates instead, so a restart is invisible.
+                // Persistent tokens (a row per device in persistent_logins), never the hash-based
+                // variant: that one signs the cookie with the *encoded* password, and
+                // userDetailsService below BCrypt-encodes at every startup with a fresh salt, so
+                // the signature would stop matching on the very restart this is meant to survive.
+                // The DSL takes the key from the services (RememberMeConfigurer.getKey()), so it
+                // is stated once, on the bean.
+                .rememberMe(rememberMe -> rememberMe.rememberMeServices(rememberMeServices))
+                .logout(logout -> logout.logoutSuccessUrl("/login?logout"))
                 // Authenticated-but-unauthorized users are redirected to the home page instead
                 // of seeing a bare 403. Anonymous users still go to /login via the entry point.
                 // Exception: /api/** callers (our fetch endpoints) get a real 403 — a 302 redirect
@@ -141,6 +173,42 @@ public class SecurityConfig {
                             }
                         }))
                 .build();
+    }
+
+    /**
+     * One row per remembered device, in the existing Postgres. Revoking a device is a delete, and
+     * Spring rotates the token on every use so a replayed cookie is detected as theft — neither of
+     * which the hash-based variant offers. The table is created by {@code schema.sql}, not by
+     * {@code setCreateTableOnStartup}, so schema lives in one place.
+     */
+    @Bean
+    public PersistentTokenRepository persistentTokenRepository(DataSource dataSource) {
+        JdbcTokenRepositoryImpl repository = new JdbcTokenRepositoryImpl();
+        repository.setDataSource(dataSource);
+        return repository;
+    }
+
+    /**
+     * REMEMBER_ME_KEY signs every remember-me cookie and must be stable across restarts — an
+     * absent key would make Spring mint a random one per boot, silently defeating the whole
+     * feature. Changing it invalidates every remembered device, which is the one revocation
+     * control that does not need a logged-in browser.
+     * <p>
+     * The cookie's Secure flag is deliberately left to {@code request.isSecure()} rather than
+     * pinned true: {@code server.forward-headers-strategy=framework} makes that correct behind
+     * Railway's TLS-terminating proxy, and it keeps the cookie usable over the plain-http local
+     * prod-preview, where a pinned Secure cookie would be dropped by the browser and the feature
+     * would look broken locally while being fine in production. HttpOnly is set unconditionally
+     * by AbstractRememberMeServices.
+     */
+    @Bean
+    public RememberMeServices rememberMeServices(@Value("${REMEMBER_ME_KEY}") String rememberMeKey,
+                                                 UserDetailsService userDetailsService,
+                                                 PersistentTokenRepository tokenRepository) {
+        PersistentTokenBasedRememberMeServices services =
+                new PersistentTokenBasedRememberMeServices(rememberMeKey, userDetailsService, tokenRepository);
+        services.setTokenValiditySeconds(TOKEN_VALIDITY_SECONDS);
+        return services;
     }
 
     private CsrfTokenRepository csrfTokenRepository() {

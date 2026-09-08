@@ -7,6 +7,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -34,7 +35,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 @TestPropertySource(properties = {
         "TED_PASSWORD=testpass",
         "FAMILY_PASSWORD=testpass",
-        "jittertravel.calendar-feed.token=goodtoken"})
+        "jittertravel.calendar-feed.token=goodtoken",
+        "REMEMBER_ME_KEY=test-remember-me-key"})
 class CalendarFeedSecurityTest {
 
     private static final Instant NOW = Instant.parse("2026-07-01T12:00:00Z");
@@ -49,6 +51,11 @@ class CalendarFeedSecurityTest {
 
     @Autowired
     MockMvcTester mockMvc;
+
+    // SecurityConfig's remember-me needs a token store, and a @WebMvcTest slice has no DataSource
+    // for the JDBC one. The feed authenticates by URL token, not by cookie, so it is unaffected.
+    @MockitoBean
+    PersistentTokenRepository persistentTokenRepository;
 
     @MockitoBean
     CalendarFeedAssembler assembler;

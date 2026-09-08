@@ -49,7 +49,9 @@ public class AdminController {
     }
 
     @GetMapping("")
-    public String adminHome() {
+    public String adminHome(HttpServletRequest request, Model model) {
+        model.addAttribute("secureCookieProbe", new SecureCookieProbe(
+                request.isSecure(), request.getScheme(), request.getHeader("X-Forwarded-Proto")));
         return "admin-home";
     }
 

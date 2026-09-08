@@ -93,6 +93,29 @@ class AdminControllerTest {
     }
 
     @Test
+    void adminHomeReportsAPlainRequestAsNotSecure() {
+        // The probe's whole job is to answer, from the deployed app, whether the remember-me and
+        // viewerZone cookies actually carry Secure — the one thing a local run cannot tell Ted.
+        // A MockMvc request is plain http with no forwarded header, which is the local shape.
+        assertThat(mockMvc.get().uri("/admin"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("Cookies on this request are NOT marked Secure.")
+                .contains("No X-Forwarded-Proto header arrived")
+                .contains("<dd>(none)</dd>");
+    }
+
+    @Test
+    void adminHomeReportsASecureRequestAsProtected() {
+        assertThat(mockMvc.get().uri("/admin").secure(true))
+                .hasStatusOk()
+                .bodyText()
+                .contains("Cookies on this request are marked Secure.")
+                .contains("The remember-me and viewerZone cookies are protected in transit.")
+                .doesNotContain("NOT marked Secure");
+    }
+
+    @Test
     void restoreFormMapsToOkWithHtmlContentType() {
         assertThat(mockMvc.get().uri("/admin/restore"))
                 .hasStatusOk()

@@ -29,3 +29,17 @@ CREATE TABLE IF NOT EXISTS event_log (
 -- appends stamp it explicitly, so only pre-migration rows are ever NULL. Deliberately no DEFAULT:
 -- legacy event_log rows are a *mix* of versions per type, so no single backfill value is correct.
 ALTER TABLE event_log ADD COLUMN IF NOT EXISTS schema_version INTEGER;
+
+-- Remembered logins, one row per device (Spring Security's PersistentTokenBasedRememberMeServices).
+-- Column names and types are Spring's, verbatim from JdbcTokenRepositoryImpl.CREATE_TABLE_SQL: its
+-- queries bind a java.util.Date, so this is the one table here that deliberately does NOT use
+-- TIMESTAMP WITH TIME ZONE like event_log and command_log. Created here rather than via
+-- setCreateTableOnStartup so all schema lives in this file.
+-- Not domain data: it is absent from the backup, and PostgresPersister's Danger Zone truncate names
+-- event_log and command_log explicitly — so wiping or restoring the event log does not sign Ted out.
+CREATE TABLE IF NOT EXISTS persistent_logins (
+    username VARCHAR(64) NOT NULL,
+    series VARCHAR(64) PRIMARY KEY,
+    token VARCHAR(64) NOT NULL,
+    last_used TIMESTAMP NOT NULL
+);

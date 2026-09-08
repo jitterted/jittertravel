@@ -662,8 +662,10 @@ problem. Promote them if one of them actually bites.
 ## Deferred (until needed)
 
 Items with a known shape and a named trigger, deliberately **not** queued: the cost of carrying
-them is a paragraph, and building either one now would be work ahead of a need. Move an item up to
-**Open** when its trigger fires — do not treat this section as a backlog to work down.
+them is a paragraph, and building any one of them now would be work ahead of a need. Move an item up
+to **Open** when its trigger fires — do not treat this section as a backlog to work down.
+(Said "either one" until 2026-09-08, from when the section held two; it has grown since, and the
+count is deliberately not stated here so it cannot go stale again.)
 
 - [ ] **The near-term empty lane band, 120px → 80px.** Lifted from `archived/QuietWeekRunsPlan.md`
       2026-08-31. Ted proposed it there and it was neither taken nor refused; the plan it belonged to
@@ -815,18 +817,20 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       "are you sure?" form that POSTed back with the CSRF token. With CSRF on, `LogoutFilter` matches
       **POST only**, so losing the generated page left `GET /logout` unmapped. Nothing was
       misconfigured; the way to *reach* logout was collateral.
-      **A real inconsistency rides along:** `login.html:78` renders a `th:if="${param.logout}"`
-      notice and `LoginControllerTest:49` pins that `/login?logout` shows it — but `logoutSuccessUrl`
-      sends a successful logout to `/`, so in production that notice is **unreachable**. The test
-      passes only because it requests the URL directly. The two disagree; whichever is wrong, fixing
-      one without the other keeps them disagreeing.
+      **An inconsistency that rode along — fixed 2026-09-08.** `login.html:78` renders a
+      `th:if="${param.logout}"` notice and `LoginControllerTest:49` pins that `/login?logout` shows
+      it, but `logoutSuccessUrl` sent a successful logout to `/`, so the notice was **unreachable**
+      in production and the test passed only because it requested the URL directly. `logoutSuccessUrl`
+      now points at `/login?logout`, pinned by
+      `SecurityAuthorizationTest.successfulLogoutReturnsToLoginPageWithSignedOutNotice`. Note this
+      changed only where a logout *lands*: there is still no affordance and `GET /logout` is still a
+      404, so the rest of this item stands.
       **Do not suggest driving `POST /logout` from the console as a workaround:** the CSRF cookie is
       deliberately `httpOnly(true)`, so page scripts cannot read a token to submit and `CsrfFilter`
       rejects it. That is the cookie working as designed.
       **The work, if it ever lands:** a POST form (Thymeleaf, for CSRF — j2html renderers stay
       uncoupled from Spring MVC's CSRF per the standing split), rendered only for authenticated
-      viewers and **nothing at all** for anonymous ones per the affordances rule, plus pointing
-      `logoutSuccessUrl` at `/login?logout` so the existing notice stops being dead code. Restoring
+      viewers and **nothing at all** for anonymous ones per the affordances rule. Restoring
       `GET /logout` itself would mean writing a confirm page — the generated one is not coming back
       while the login page is custom.
       **Trigger:** a second person needs an account, or Ted wants to switch roles on a device where
@@ -855,8 +859,91 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       two findings from that review — the wrong cancel-by hint text and a duplicated
       `cancelBy(LocalDateTime, ZoneId)` helper — were fixed inside `4efccaf` before it was committed;
       the review had been written against the pre-fix working tree.)
+- [ ] **Externalize the auth `HttpSession` for multi-instance.** Lifted 2026-09-08 out of the
+      **done** `Login "have to sign in twice"` item (2026-08-18), whose closing sentence was the only
+      record of it anywhere in the tree — a deferral buried in a ticked box is a deferral nobody can
+      find, which is exactly how Ted came to go looking for it. Unchanged in substance: the
+      CSRF-cookie fix is **single-instance only**; running more than one replica also needs the
+      authentication session off the heap — Spring Session JDBC on the existing Postgres
+      (`spring-session-jdbc`, its two tables added to `schema.sql` the way everything else is).
+      **This is not the fix for being signed out by a restart** — that shipped 2026-09-08 as
+      remember-me with persistent tokens (see **Done**), and it also covers the idle timeout, which
+      a persisted session would not. Externalizing the session would survive a restart as a side
+      effect, but it is a much larger change to get there and it is not the reason you would do it. The other half of going
+      multi-instance is `CommandConsistencyEventStore.md` (the in-memory `EventStore` and a
+      conditional append); it does not mention sessions, so neither doc is complete on its own.
+      **Trigger:** actually running more than one replica.
 
 ## Done
+
+- [x] **Staying logged in across a restart** (2026-09-08). Raised when Ted went looking for the
+      deferral and could not find it — the only record was a trailing sentence inside the **done**
+      `Login "have to sign in twice"` item, and that sentence defers the *multi-instance* problem
+      (still in **Deferred**), not this one. The CSRF-cookie fix made the first login after a
+      restart *succeed*; it did nothing to keep anyone logged in, so every redeploy and every
+      devtools restart signed Ted out.
+
+      **Built as Spring Security remember-me with persistent tokens**, decided over Spring Session
+      JDBC after checking what the session actually holds: there is no `HttpSession` use anywhere in
+      `src/main`, `viewerZone` is a cookie, CSRF moved to a cookie in the 2026-08-18 fix, and the
+      only contents are the `SecurityContext`, the saved request, and flash attributes living for
+      one redirect. **Nothing in that session was worth persisting except the authentication
+      itself**, which is exactly and only what remember-me persists — so Session JDBC would have
+      added a dependency and a serialized-blob table to save the one thing in the box. It also would
+      not have fixed the whole complaint on its own: the session timeout is 30 minutes and
+      unconfigured, so it survives a redeploy but not an idle afternoon.
+
+      **Persistent tokens, never the hash-based variant, and this is the trap worth remembering.**
+      `TokenBasedRememberMeServices` signs `username:expiry:password:key` with the **encoded**
+      password, and `userDetailsService` BCrypt-encodes `TED_PASSWORD` at every startup with a fresh
+      salt — so the signature would stop matching on the very restart the cookie exists to survive.
+      `PersistentTokenBasedRememberMeServices` + `JdbcTokenRepositoryImpl` depends on no hash,
+      rotates the token on every use (so a replayed cookie reads as theft), and makes revoking one
+      device a `DELETE`. Verified on the classpath first: Boot 4.0.7 → Security 7.0.6 has all of it,
+      so **no new Maven dependency**.
+
+      **As shipped.** `persistent_logins` added to `schema.sql` as `CREATE TABLE IF NOT EXISTS`
+      (`spring.sql.init.mode=always` runs it on boot, so no manual migration on Railway) with
+      Spring's own column types verbatim — the one table here that is deliberately not
+      `TIMESTAMP WITH TIME ZONE`, because `JdbcTokenRepositoryImpl` binds a `java.util.Date`. Two
+      beans in `SecurityConfig` and `.rememberMe(...)` on the chain; the DSL takes the key from the
+      services (`RememberMeConfigurer.getKey()`), so `REMEMBER_ME_KEY` is stated once. **30 days**
+      (Ted): each use rotates the token and rewrites `last_used`, so the window only reaches an idle
+      device. **A checkbox, ticked by default** (Ted) — staying signed in is the point, and
+      unticking it is the only "not on this device" control the app has. **FAMILY and OWNER both**
+      (Ted), and the Danger Zone was deliberately **not** put behind `fullyAuthenticated()`.
+      Revocation needs no code: `AbstractRememberMeServices` is a `LogoutHandler`, so `POST /logout`
+      already deletes the series and cancels the cookie.
+
+      **`server.forward-headers-strategy=framework`, and it is not incidental.** Railway terminates
+      TLS and speaks plain HTTP to the container, so without it `request.isSecure()` is false in
+      production and the remember-me cookie — a credential — ships unmarked. `useSecureCookie(true)`
+      was rejected as the fix: it would be silently dropped by the browser over the plain-http local
+      prod-preview, so the feature would look broken locally while being fine deployed. The strategy
+      is correct in both. It also repairs the `viewerZone` cookie's Secure flag, which had the same
+      `request.isSecure()` line and was very likely shipping unmarked in production all along.
+
+      **`/admin` grew a `SecureCookieProbe`** because that is the one claim a local run cannot
+      check. It leads with the derived answer ("Cookies on this request are marked Secure") over the
+      raw `isSecure()` / scheme / `X-Forwarded-Proto` beneath, and distinguishes *no header arrived*
+      from *header arrived and was ignored* — the two causes are indistinguishable from the summary
+      line, and they have different fixes. Deliberately **uncoloured**: "not secure" is the correct
+      answer over local http, so amber there would cry wolf daily and stop being read in production,
+      where it is the only thing that matters.
+
+      Six `@WebMvcTest` classes importing `SecurityConfig` gained a `@MockitoBean
+      PersistentTokenRepository` and a `REMEMBER_ME_KEY` property — a slice has no `DataSource`, so
+      the JDBC store cannot be built there. Four new tests, all mutation-verified: the ticked
+      checkbox, the 30-day HttpOnly cookie, that unticking suppresses it, and the probe's branches.
+      Local `REMEMBER_ME_KEY` stand-in added to `application-prod-preview.properties` — **required**,
+      since a random per-boot key would fail the local restart test for the wrong reason and look
+      exactly like the feature not working.
+
+      **Still true and not fixed here:** the only revocation path is `POST /logout`, which has no
+      affordance anywhere (see the deferred logout item). A remember-me cookie makes that gap
+      sharper than it was, since incognito — the current answer — is where the cookie does not
+      persist anyway. Also unverified until deployed: that production actually reports secure. The
+      probe is on `/admin` for exactly that check.
 
 - [x] **A city typed with a trailing space was a different city** (2026-08-30). Ted planned a
       private event in Hamburg from an iPhone; the space bar that committed an autocorrect
@@ -1045,6 +1132,10 @@ them is a paragraph, and building either one now would be work ahead of a need. 
       verified end-to-end against the running app; full suite green (938 + 36 js). **Single-instance
       only fixes CSRF** — going multi-instance would also need the auth `HttpSession` externalized
       (Spring Session JDBC on the existing Postgres), **deferred until actually scaling**.
+      That deferral now has its own entry under **Deferred** (promoted 2026-09-08, because a
+      deferral recorded only inside a ticked box is unfindable). The separate question this item
+      does *not* answer — staying logged in across a restart on one instance — shipped the same day
+      as remember-me with persistent tokens; see its own entry above.
 - [x] **Lateral nav across the read-only view pages** (2026-08-17). The old "nav" was the same
       two-link `JitterTravel · Calendar` breadcrumb on every page (and inconsistently built — the
       calendar's was an inline-styled indigo link, trains wrapped it in `<h3>`), so from any view

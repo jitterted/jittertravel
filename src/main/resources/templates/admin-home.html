@@ -95,6 +95,32 @@
             color: var(--text-primary);
         }
 
+        .probe {
+            margin-top: 1.75rem;
+            padding: 0.85rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+        .probe-summary {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        .probe-detail {
+            margin: 0.25rem 0 0;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+        .probe-values {
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            gap: 0.15rem 0.75rem;
+            margin: 0.6rem 0 0;
+            font-size: 0.78rem;
+            color: var(--muted-text);
+        }
+        .probe-values dt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+        .probe-values dd { margin: 0; }
         .nav-card-sub {
             display: block;
             font-size: 0.9rem;
@@ -226,6 +252,24 @@
         </a>
 
     </nav>
+
+    <!--/* Not a nav card and not an action: the one fact about the deployment that cannot be
+           checked from a local run. Leads with the derived answer; the raw values it came from sit
+           underneath, per the standing rule. Deliberately uncoloured — "not secure" is the correct
+           and expected answer over the plain-http local prod-preview, so amber here would cry wolf
+           every day and stop being read in the one place it matters. */-->
+    <section class="probe" aria-label="Cookie transport">
+        <p class="probe-summary" th:text="${secureCookieProbe.summary()}">Cookies are marked Secure.</p>
+        <p class="probe-detail" th:text="${secureCookieProbe.explanation()}">Explanation.</p>
+        <dl class="probe-values">
+            <dt>request.isSecure()</dt>
+            <dd th:text="${secureCookieProbe.secure()}">true</dd>
+            <dt>scheme</dt>
+            <dd th:text="${secureCookieProbe.scheme()}">https</dd>
+            <dt>X-Forwarded-Proto</dt>
+            <dd th:text="${secureCookieProbe.forwardedProtoOrNone()}">https</dd>
+        </dl>
+    </section>
 </main>
 
 <footer>

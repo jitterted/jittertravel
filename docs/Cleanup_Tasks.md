@@ -51,6 +51,41 @@ for open work.
       country get its own rule? And what happens to the 14 Brussels rows — left as history, or
       repaired by a migration? Note the `antwerp` city entry is load-bearing until they are.
 
+- [ ] **Two conferences at one venue join on the city string, and a conference cannot be edited.**
+      Raised by Ted 2026-09-08, planning JavaLand 2027 (Mar 2–4) alongside the co-located DevLand
+      (Mar 3–5), each with its own CFP. **The overlap itself is fine and needs no work**: conference
+      × conference is never compared (`overlappingOccupancies` pairs gatherings and private events;
+      `differentCityConflicts` is gathering × conference), `CalendarViewBuilder` stacks overlapping
+      same-lane bands into extra sub-rows, one hotel over the whole span merges into a single
+      missing-hotel run, and the two CFPs are separate rows, separate iCal UIDs and separate Google
+      links because everything is keyed by `ConferenceId`.
+
+      **What is not fine is the spelling of the venue city.** `Place.of(venueAddress)` yields
+      `locationForMatching`, which defaults to the typed city, and `HomeCities.sameLocation` is
+      exact apart from case and trim. Enter one as `"Nürnberg"` and the other as `"Nuremberg"` and
+      `ScheduleTimeline` sees two cities: a false `MissingTravel` gap between them, the missing-hotel
+      run splits at the city change, a hotel booked under one spelling does **not** cover the nights
+      attributed to the other — a missing-hotel row for a room that is booked — and any gathering in
+      those days raises a `DifferentCityConflict` against one of the pair. This is event 92's failure
+      (CLAUDE.md, "Typed text is normalized where it lands") through a third door: not a stray space,
+      not a station name in a city box, but two spellings of one place that only *look* like one
+      place because they are never displayed side by side.
+
+      **Conferences are the worst kind to hit it with, for two reasons.** `plan-conference.html`
+      exposes `venueCity` but **not** `locationForMatching` — hotels, gatherings and private events
+      all have that override input, so on those kinds a mismatch is repairable by naming a shared
+      match location. And there is **no conference edit at all**: no `ChangeConference` command, no
+      `ConferenceChanged` event, no template. A mistyped venue city on a conference is therefore not
+      fixable from inside the app.
+
+      **Today's mitigation is a convention, which is why this is written down**: when entering the
+      second of two co-located conferences, copy the city from the first. Fixes worth weighing, in
+      rising order of cost — add the `locationForMatching` input to `plan-conference.html` (one
+      field, matches four existing forms, and repairs the *next* pair rather than an existing one);
+      warn on the plan form when a city is a near-miss for one already in the schedule; or build
+      conference editing, which is wanted anyway and settles the whole class. Related: the
+      validate-locations item above, whose `EnteredLocation` rule is also not wired to conferences.
+
 - [ ] **Three notes lifted from `archived/UtcDatetimeStoragePlan.md`** when it was archived
       2026-09-07. The archived doc has the full reasoning for each; these lines exist so they stay
       findable.
@@ -804,12 +839,13 @@ count is deliberately not stated here so it cannot go stale again.)
       clash surfaced. Until then `/schedule-problems` is quietly incomplete in one direction only,
       which is the safe direction — it under-reports rather than reporting something he cannot act
       on. See `archived/ScheduleProblemsRewritePlan.md` and `archived/PrivateSocialEventPlan.md`.
-- [ ] **No logout affordance, and `GET /logout` is a 404** — **deferred by Ted 2026-08-21: incognito
-      is sufficient.** Not a bug to chase; recorded so the next person to notice it stops here
-      instead of re-deriving it.
-      **What is true today** (probed 2026-08-21, not inferred): `POST /logout` works and redirects
-      to `/` — the `.logout(logout -> logout.logoutSuccessUrl("/"))` config has been correct since
-      `e6f4b33`. `GET /logout` returns **404**, and no page anywhere links to logout.
+- [ ] **`GET /logout` is still a 404** — the remnant of a larger item, most of which **shipped
+      2026-09-08**; see "Sign out, from the top-left of the home page" in **Done**. What is left is
+      only the bare URL: typing `/logout` in the address bar 404s, because with CSRF on
+      `LogoutFilter` matches POST and the generated confirm page is gone (below). Nothing links to
+      it, so nothing depends on it.
+      **What is true today**: `POST /logout` works, lands on `/login?logout`, and is reachable from
+      a **Sign out** button on `/` for anyone signed in.
       **Why it went:** `.formLogin(form -> form.loginPage("/login"))` arrived in `0435623` with the
       custom login page. A custom login page makes Spring Security drop
       `DefaultLoginPageGeneratingFilter`, and the *same* configurer registers
@@ -817,24 +853,14 @@ count is deliberately not stated here so it cannot go stale again.)
       "are you sure?" form that POSTed back with the CSRF token. With CSRF on, `LogoutFilter` matches
       **POST only**, so losing the generated page left `GET /logout` unmapped. Nothing was
       misconfigured; the way to *reach* logout was collateral.
-      **An inconsistency that rode along — fixed 2026-09-08.** `login.html:78` renders a
-      `th:if="${param.logout}"` notice and `LoginControllerTest:49` pins that `/login?logout` shows
-      it, but `logoutSuccessUrl` sent a successful logout to `/`, so the notice was **unreachable**
-      in production and the test passed only because it requested the URL directly. `logoutSuccessUrl`
-      now points at `/login?logout`, pinned by
-      `SecurityAuthorizationTest.successfulLogoutReturnsToLoginPageWithSignedOutNotice`. Note this
-      changed only where a logout *lands*: there is still no affordance and `GET /logout` is still a
-      404, so the rest of this item stands.
       **Do not suggest driving `POST /logout` from the console as a workaround:** the CSRF cookie is
       deliberately `httpOnly(true)`, so page scripts cannot read a token to submit and `CsrfFilter`
       rejects it. That is the cookie working as designed.
-      **The work, if it ever lands:** a POST form (Thymeleaf, for CSRF — j2html renderers stay
-      uncoupled from Spring MVC's CSRF per the standing split), rendered only for authenticated
-      viewers and **nothing at all** for anonymous ones per the affordances rule. Restoring
-      `GET /logout` itself would mean writing a confirm page — the generated one is not coming back
-      while the login page is custom.
-      **Trigger:** a second person needs an account, or Ted wants to switch roles on a device where
-      a private window is awkward (the iPad).
+      **The work, if it ever lands:** restoring `GET /logout` means writing a confirm page, since
+      the generated one is not coming back while the login page is custom — and a confirm page for
+      an action that is already one button away is ceremony. So this stays deferred on purpose.
+      **Trigger:** somebody actually types `/logout` and is confused by the 404, which now means
+      somebody who has not seen the button.
 - [ ] **Change a ground transfer** — the other half of D11 in `archived/GroundTransferPlan.md`. Cancel
       shipped 2026-08-20 and took the urgency with it: correcting a transfer is now
       cancel-then-enter, two forms instead of one, and **nothing is lost in the round trip** —
@@ -875,6 +901,42 @@ count is deliberately not stated here so it cannot go stale again.)
       **Trigger:** actually running more than one replica.
 
 ## Done
+
+- [x] **Sign out, from the top-left of the home page** (2026-09-08). Deferred since 2026-08-21 on
+      "incognito is sufficient", and remember-me is what fired the trigger: a persistent cookie in
+      a private window dies with the window, so the device that actually stays signed in is the
+      normal browser and the iPad — and `POST /logout`, the only thing that revokes it, had no
+      affordance anywhere. Ted asked for the button in the same breath as the feature.
+
+      **Where and what.** Top-left of `/`, opposite the local badge's top-right, in **normal flow**
+      rather than `position: fixed` so it can never land on top of the read-only, tasks or pending
+      banners underneath it. A Thymeleaf POST form — CSRF is on, `LogoutFilter` matches POST only,
+      and `th:action` supplies the token; j2html renderers stay uncoupled from Spring MVC's CSRF
+      per the standing split. 44px minimum height, because the iPad has no pointer to aim with.
+
+      **Not red**, and that is the colour rule doing its job rather than an oversight: signing out
+      destroys nothing and you can sign back in, so it is not what red is reserved for. No typed
+      word either, for the same reason.
+
+      **Absent for anonymous, not greyed.** `signedIn` comes from `request.getRemoteUser() != null`
+      — not from the two role flags, so a future role gets signed out rather than stranded. A
+      stranger could never trigger it, and a visible-but-dead control would tell them an account
+      exists here; the affordances rule greys what a viewer could trigger later and hides what they
+      never could, and redaction wins where the two appear to disagree.
+
+      **Revocation came free.** `AbstractRememberMeServices` is a `LogoutHandler`, so the same POST
+      deletes this device's `persistent_logins` row and cancels the cookie. No new code, and it is
+      why the button closes the gap the remember-me work opened rather than merely covering it.
+
+      Three tests, mutation-verified (dropped the `th:if` → the anonymous case went red; narrowed
+      `signedIn` to OWNER → the family case did). One thing worth knowing for the next such
+      assertion: the anonymous check asserts the **whole button element**, because `.signout-button`
+      lives in this page's inlined `<style>` and therefore ships to every viewer — a
+      `doesNotContain("signout-button")` fails on the stylesheet and never reaches the markup.
+      Rendered headlessly at the iPad's 820px to confirm placement.
+
+      **Left undone deliberately:** `GET /logout` is still a 404 (see **Deferred**), and signing out
+      does not clear the 400-day `viewerZone` cookie — a zone is not a credential.
 
 - [x] **Staying logged in across a restart** (2026-09-08). Raised when Ted went looking for the
       deferral and could not find it — the only record was a trailing sentence inside the **done**
@@ -939,11 +1001,9 @@ count is deliberately not stated here so it cannot go stale again.)
       since a random per-boot key would fail the local restart test for the wrong reason and look
       exactly like the feature not working.
 
-      **Still true and not fixed here:** the only revocation path is `POST /logout`, which has no
-      affordance anywhere (see the deferred logout item). A remember-me cookie makes that gap
-      sharper than it was, since incognito — the current answer — is where the cookie does not
-      persist anyway. Also unverified until deployed: that production actually reports secure. The
-      probe is on `/admin` for exactly that check.
+      **The revocation gap this opened was closed the same day** — see "Sign out, from the top-left
+      of the home page" above. Still unverified until deployed: that production actually reports
+      secure. The probe is on `/admin` for exactly that check.
 
 - [x] **A city typed with a trailing space was a different city** (2026-08-30). Ted planned a
       private event in Hamburg from an iPhone; the space bar that committed an autocorrect

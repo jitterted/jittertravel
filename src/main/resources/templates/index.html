@@ -49,6 +49,37 @@
             flex-direction: column;
         }
 
+        /* Sign out sits top-left, opposite the local badge's top-right, and in normal flow rather
+           than fixed so it can never land on top of the banners below it. It is the only way to
+           revoke a remembered device from inside the app, so it is always visible — no hover, no
+           menu. Not red: signing out destroys nothing and you can sign back in, and red is
+           reserved for what cannot be undone from inside the app. */
+        .session-bar {
+            display: flex;
+            justify-content: flex-start;
+            padding: 0.75rem 0.75rem 0;
+        }
+        .signout-button {
+            display: inline-flex;
+            align-items: center;
+            /* A comfortable thumb target on the iPad, which has no pointer to aim with. */
+            min-height: 44px;
+            padding: 0 1rem;
+            background: var(--surface);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            cursor: pointer;
+        }
+        .signout-button:hover {
+            border-color: var(--border-hover);
+            color: var(--text-primary);
+        }
+
         .local-badge {
             position: fixed;
             top: 0.75rem;
@@ -334,6 +365,16 @@
     </style>
 </head>
 <body>
+
+<!--/* A POST, because CSRF is on and LogoutFilter matches POST only — GET /logout is a 404 (the
+       custom login page drops Spring's generated logout form). Thymeleaf's th:action adds the
+       CSRF field. Signing out also deletes this device's persistent_logins row and cancels the
+       remember-me cookie: AbstractRememberMeServices is a LogoutHandler, so that is free. */-->
+<div class="session-bar" th:if="${signedIn}">
+    <form th:action="@{/logout}" method="post">
+        <button type="submit" class="signout-button">Sign out</button>
+    </form>
+</div>
 
 <div th:if="${readOnly}" class="readonly-banner" role="alert">
     <span class="readonly-banner-label">Read-only mode</span>

@@ -96,6 +96,48 @@ class SecurityAuthorizationTest {
     }
 
     @Test
+    @WithMockUser(username = "ted", roles = "OWNER")
+    void ownerHomeOffersSignOut() {
+        given(persister.countPendingCommands()).willReturn(0);
+
+        // Signing out is the only way to revoke a remembered device from inside the app, so it
+        // has to be on the page rather than behind a menu. Asserting the form's whole action
+        // attribute as well as the button: a button that posts nowhere would satisfy either alone.
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("action=\"/logout\"")
+                .contains("<button type=\"submit\" class=\"signout-button\">Sign out</button>");
+    }
+
+    @Test
+    @WithMockUser(username = "family", roles = "FAMILY")
+    void familyHomeOffersSignOutToo() {
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<button type=\"submit\" class=\"signout-button\">Sign out</button>");
+    }
+
+    @Test
+    @WithAnonymousUser
+    void anonymousHomeOffersNoSignOutAtAll() {
+        given(persister.countPendingCommands()).willReturn(0);
+
+        // Not greyed out — absent. A stranger could never trigger it, and a visible-but-dead
+        // control would tell them an account exists here. Hiding by permission stays hiding.
+        //
+        // Asserting the whole element, not the class name: the .signout-button rule lives in this
+        // page's inlined <style> and therefore ships to every viewer including this one, so
+        // doesNotContain("signout-button") would fail on the stylesheet and never see the markup.
+        assertThat(mockMvc.get().uri("/"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("<button type=\"submit\" class=\"signout-button\">Sign out</button>")
+                .doesNotContain("action=\"/logout\"");
+    }
+
+    @Test
     @WithAnonymousUser
     void anonymousHomeShowsCalendarOnly() {
         given(persister.countPendingCommands()).willReturn(0);

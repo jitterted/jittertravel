@@ -64,6 +64,11 @@ class GeneralController {
 
         // Read-only mode means a boot replay or a save failed and writes are now disabled: the
         // page can be silently stale/empty, so surface it to every viewer as a top-of-page banner.
+        // Sign out renders only for someone who is signed in. Anonymous viewers get nothing at
+        // all rather than a disabled control: the affordances rule greys an action a viewer could
+        // trigger later, and hides one they could never trigger. Derived from getRemoteUser()
+        // rather than the two role flags so a future role is signed out too, not stranded.
+        model.addAttribute("signedIn", request.getRemoteUser() != null);
         model.addAttribute("readOnly", eventStore.isReadOnly());
         model.addAttribute("runningLocally", isRunningLocally);
         model.addAttribute("showDataEntryNav", isOwner);

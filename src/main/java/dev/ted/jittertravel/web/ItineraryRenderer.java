@@ -9,6 +9,7 @@ import j2html.tags.specialized.DivTag;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 
 import static j2html.TagCreator.*;
 
@@ -91,6 +92,11 @@ public class ItineraryRenderer {
                 .cancel-bin svg { width: 12px; height: 12px; }
                 .entry-location { font-weight: 700; }
                 .speaking-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: #7c3aed; color: #fff; border-radius: 4px; padding: 0.1rem 0.4rem; margin-top: 0.25rem; }
+                /* "Maybe" on a speculative conference. Amber rather than the speaking chip's
+                   colour so the two read as different statements, and solid rather than muted:
+                   muted conventionally reads as *cancelled*. Same reasoning, and the same amber,
+                   as .entry-maybe-badge on the calendar. */
+                .maybe-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: #b45309; color: #fff; border-radius: 4px; padding: 0.1rem 0.4rem; margin-top: 0.25rem; }
             """;
 
     public static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate, LocalDate today, boolean isOwner) {
@@ -360,12 +366,36 @@ public class ItineraryRenderer {
                 : "Conference";
         String location = e.venueAddress().city() + ", " + e.venueAddress().country();
         DomContent titleContent = conferenceTitle(e, isOwner);
-        return div().withClass("entry-card entry-card--conference").with(
+        DivTag card = div().withClass("entry-card entry-card--conference").with(
                 div(kindLabel).withClass("entry-kind entry-kind--conference"),
                 div().withClass("entry-title").with(titleContent),
                 div(e.venueName()).withClass("entry-detail"),
                 div(location).withClass("entry-detail entry-location")
         );
+        conferenceBadge(e).ifPresent(card::with);
+        return card;
+    }
+
+    /**
+     * <strong>At most one chip, and never both</strong> — the rule
+     * {@code CalendarViewBuilder.conferenceBadges} holds, repeated here rather than reinvented:
+     * "Maybe" while the conference is still speculative, "Speaking" once Ted is committed and
+     * speaking. They cannot co-occur, because {@code ItineraryProjector} sets the speaking flag
+     * only on a committed conference — so a pair saying "he was asked to speak somewhere he has
+     * not decided about" is not constructible. A committed conference he merely attends wears
+     * nothing, which is the right default reading of an itinerary card.
+     * <p>
+     * The word is "Speaking" rather than the calendar's "A Ted Talk" because that is what the
+     * gathering card beside it already says; the two pages disagreeing on wording is noted in
+     * {@code docs/Cleanup_Tasks.md} rather than settled here.
+     */
+    private static Optional<DivTag> conferenceBadge(ConferenceItineraryEntry e) {
+        if (e.commitment() == AttendanceCommitment.WATCHING) {
+            return Optional.of(div("Maybe").withClass("maybe-badge"));
+        }
+        return e.speaking()
+                ? Optional.of(div("Speaking").withClass("speaking-badge"))
+                : Optional.empty();
     }
 
     private static DomContent conferenceTitle(ConferenceItineraryEntry e, boolean isOwner) {

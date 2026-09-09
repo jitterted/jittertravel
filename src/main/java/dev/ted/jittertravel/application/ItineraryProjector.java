@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 public class ItineraryProjector implements EventStreamConsumer {
@@ -17,7 +18,7 @@ public class ItineraryProjector implements EventStreamConsumer {
     private final Map<FlightId, List<FlightItineraryEntry>> flightEntries = new ConcurrentHashMap<>();
     private final Map<TrainTripId, List<TrainItineraryEntry>> trainEntries = new ConcurrentHashMap<>();
     private final Map<HotelBookingId, List<HotelItineraryEntry>> hotelEntries = new ConcurrentHashMap<>();
-    private final Map<ConferenceId, List<ConferenceItineraryEntry>> conferenceEntries = new ConcurrentHashMap<>();
+    private final Map<ConferenceId, TrackedConference> conferences = new ConcurrentHashMap<>();
     private final Map<GatheringId, GatheringItineraryEntry> gatheringEntries = new ConcurrentHashMap<>();
     private final Map<PrivateEventId, PrivateEventItineraryEntry> privateEventEntries = new ConcurrentHashMap<>();
     private final Map<GroundTransferId, GroundTransferItineraryEntry> groundTransferEntries = new ConcurrentHashMap<>();
@@ -36,9 +37,18 @@ public class ItineraryProjector implements EventStreamConsumer {
                 case HotelBooked e -> hotelEntries.put(e.hotelBookingId(), toHotelEntries(e));
                 case HotelChanged e -> hotelEntries.put(e.hotelBookingId(), toHotelEntries(e));
                 case HotelBookingCancelled(HotelBookingId hotelBookingId, String _) -> hotelEntries.remove(hotelBookingId);
-                case ConferencePlanned e -> conferenceEntries.put(e.conferenceId(), toConferenceEntries(e));
-                case ConferenceCancelled(ConferenceId conferenceId, String _) -> conferenceEntries.remove(conferenceId);
-                case ConferenceAttendanceDeclined e -> conferenceEntries.remove(e.conferenceId());
+                // The conference state machine, folded exactly as ConferenceCalendarProjector folds
+                // it — same nine events, same ConferenceProgress, so the itinerary cannot disagree
+                // with the calendar about whether Ted is going or speaking.
+                case ConferencePlanned e -> conferences.put(e.conferenceId(), TrackedConference.from(e));
+                case ConferenceCancelled(ConferenceId conferenceId, String _) -> conferences.remove(conferenceId);
+                case ConferenceAttendanceConfirmed e -> updateConference(e.conferenceId(), p -> p.confirmed(e.basis()));
+                case ConferenceAttendanceDeclined e -> updateConference(e.conferenceId(), ConferenceProgress::declined);
+                case TalkSubmitted e -> updateConference(e.conferenceId(), ConferenceProgress::submitted);
+                case TalkAccepted e -> updateConference(e.conferenceId(), ConferenceProgress::accepted);
+                case TalkRejected e -> updateConference(e.conferenceId(), ConferenceProgress::rejected);
+                case TalkWithdrawn e -> updateConference(e.conferenceId(), ConferenceProgress::withdrawn);
+                case InvitedToSpeak e -> updateConference(e.conferenceId(), ConferenceProgress::invited);
                 case GatheringPlanned e -> gatheringEntries.put(e.gatheringId(), toGatheringEntry(
                         e.gatheringId(), e.title(), e.venueName(), e.location(),
                         e.speaking(), e.infoUrl(), e.startsAt(), e.endsAt()));
@@ -59,7 +69,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                         flightEntries.values().stream().flatMap(List::stream),
                         trainEntries.values().stream().flatMap(List::stream),
                         hotelEntries.values().stream().flatMap(List::stream),
-                        conferenceEntries.values().stream().flatMap(List::stream),
+                        conferences.values().stream().flatMap(t -> t.entries().stream()),
                         gatheringEntries.values().stream(),
                         privateEventEntries.values().stream(),
                         groundTransferEntries.values().stream()
@@ -112,8 +122,8 @@ public class ItineraryProjector implements EventStreamConsumer {
                 .flatMap(List::stream)
                 .filter(e -> e.anchorTime().toLocalDate().equals(date))
                 .forEach(result::add);
-        conferenceEntries.values().stream()
-                .flatMap(List::stream)
+        conferences.values().stream()
+                .flatMap(t -> t.entries().stream())
                 .filter(e -> e.anchorDateTime().toLocalDate().equals(date))
                 .forEach(result::add);
         gatheringEntries.values().stream()
@@ -256,18 +266,72 @@ public class ItineraryProjector implements EventStreamConsumer {
                 e.departsAt(), e.arrivesAt(), e.mode());
     }
 
-    private static List<ConferenceItineraryEntry> toConferenceEntries(ConferencePlanned e) {
+    /**
+     * Moves one conference along its state machine, dropping it from the itinerary the moment it
+     * leaves — a declined conference, and one an {@code ACCEPTANCE_REQUIRED} rejection took with
+     * it. Both already left the calendar; before 2026-09-09 neither left here, so a conference Ted
+     * had been rejected from stayed on the family itinerary.
+     * <p>
+     * An event naming a conference this projector has never seen is ignored, which is the same
+     * thing {@code ConferenceCalendarProjector.update} does.
+     */
+    private void updateConference(ConferenceId conferenceId, UnaryOperator<ConferenceProgress> change) {
+        TrackedConference tracked = conferences.get(conferenceId);
+        if (tracked == null) {
+            return;
+        }
+        ConferenceProgress moved = change.apply(tracked.progress());
+        if (moved.dropped()) {
+            conferences.remove(conferenceId);
+        } else {
+            conferences.put(conferenceId, tracked.showing(moved));
+        }
+    }
+
+    /**
+     * One conference's itinerary days alongside where it stands. The days are rebuilt whenever the
+     * progress moves, because every {@link ConferenceItineraryEntry} carries the commitment and the
+     * speaking flag — the same arrangement {@code ConferenceCalendarProjector.Tracked} uses, and for
+     * the same reason: {@link ConferenceProgress} holds what the entries may not.
+     */
+    private record TrackedConference(ConferencePlanned planned, ConferenceProgress progress,
+                                     List<ConferenceItineraryEntry> entries) {
+
+        static TrackedConference from(ConferencePlanned planned) {
+            ConferenceProgress progress = ConferenceProgress.planned(planned.format());
+            return new TrackedConference(planned, progress, toConferenceEntries(planned, progress));
+        }
+
+        TrackedConference showing(ConferenceProgress moved) {
+            return new TrackedConference(planned, moved, toConferenceEntries(planned, moved));
+        }
+    }
+
+    private static List<ConferenceItineraryEntry> toConferenceEntries(ConferencePlanned e,
+                                                                     ConferenceProgress progress) {
         // Itinerary days are venue-local days (see CalendarEntry), so the entry keeps the
         // wall-clock the traveler will actually read off a clock when they get there.
         LocalDateTime startDateTime = e.startDate().localDateTime();
         LocalDate start = startDateTime.toLocalDate();
         int totalDays = (int) ChronoUnit.DAYS.between(start, e.endDate().localDateTime().toLocalDate()) + 1;
+        // Published only for a conference Ted is committed to: a "Maybe" entry wearing the badge
+        // would say he was asked to speak somewhere he has not decided about.
+        //
+        // The commitment half of this test is belt-and-braces and today unreachable — verified by
+        // mutation, which no test catches. ConferenceProgress.speaking() already answers false for
+        // every uncommitted state (INVITED and NOT_SPEAKING both go through
+        // committedOnASpeakingBasis), and the one status that answers true unconditionally,
+        // ACCEPTED, is set by accepted(), which commits attendance in the same move. It stays for
+        // the reason PublicCalendarProjector's identical repeat stays: the rule lives in
+        // ConferenceProgress, and a read model that publishes the badge says out loud what it
+        // requires rather than inheriting it silently.
+        boolean speaking = progress.commitment() == AttendanceCommitment.GOING && progress.speaking();
         List<ConferenceItineraryEntry> entries = new ArrayList<>();
         for (int i = 0; i < totalDays; i++) {
             entries.add(new ConferenceItineraryEntry(
                     e.conferenceId(), e.name(), e.venueName(), e.venueAddress(),
                     i + 1, totalDays, start.plusDays(i).atTime(startDateTime.toLocalTime()),
-                    e.infoUrl()));
+                    e.infoUrl(), speaking, progress.commitment()));
         }
         return entries;
     }

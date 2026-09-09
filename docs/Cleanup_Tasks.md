@@ -23,6 +23,44 @@ for open work.
 
 ## Open
 
+- [ ] **DISCUSS: the conference fold is now written out in three read models.** Raised by Ted
+      2026-09-09 while approving the `/itinerary` conference sync: *"this looks like computing the
+      same information in 2 (or more) different places."* He is right —
+      `ConferenceCalendarProjector`, `ItineraryProjector` and the dashboard's `ConferenceProjector`
+      each keep their own `Map<ConferenceId, ConferenceProgress>` and each write out the **same nine
+      `case` arms** (`ConferencePlanned`, `ConferenceCancelled`, `ConferenceAttendanceConfirmed`,
+      `ConferenceAttendanceDeclined`, and the five talk events) to drive it.
+      **What is already shared, and what is not.** `ConferenceProgress` holds the *rules* — the
+      auto-commit on acceptance, the auto-drop on rejection, that an invitation commits nothing —
+      and its javadoc explains why they are shared: written out three times they would be three
+      chances to disagree, and one of the three is the anonymous calendar, where disagreeing means
+      leaking. What is **not** shared is the *fold* — the switch that walks the event stream and
+      applies those rules. That is the duplication.
+      **The constraint any answer has to respect:** R12 forbids one read model being built from
+      another, so the fix is **not** "let the itinerary read the calendar projector". The shape to
+      discuss is a shared *folder* — something that turns a `Stream<StoredEvent>` into
+      `Map<ConferenceId, ConferenceProgress>` — that each projector composes while still building
+      its own view. That keeps every read model event-sourced and removes only the copied switch.
+      **Do not act on this without the discussion**, for two reasons. It is a fourth user arriving,
+      so "no abstraction before the second user" no longer objects — but the three current copies
+      are not quite identical (each also builds its own view type in the same switch, and the
+      dashboard keeps dropped conferences that the other two remove), and pulling out a shared fold
+      that has to carry those differences may buy nothing. **Measure first:** the honest question is
+      how many lines actually coincide once the view-building is set aside.
+
+- [ ] **`/itinerary` and `/calendar` disagree on the speaking chip's wording and colour.** Noticed
+      2026-09-09 while adding the conference chips to the itinerary. `/calendar` says **"A Ted
+      Talk"** on a near-black pill (`.entry-speaking-badge`, `#111827`); `/itinerary` says
+      **"Speaking"** on purple (`.speaking-badge`, `#7c3aed`) — and has done since gatherings
+      arrived. The new conference chip on the itinerary follows its own page rather than the
+      calendar, so the page is at least self-consistent, but the same fact now wears two names and
+      two colours depending on which surface Ted is looking at. The "Maybe" chip was deliberately
+      **not** given this treatment: it uses the calendar's amber (`#b45309`) on both pages, because
+      CLAUDE.md's reasoning for that colour (amber so it reads as a different statement from the
+      speaking chip; solid rather than muted, since muted reads as *cancelled*) is about the
+      meaning, not the page. Deciding which wording wins is a judgment call for Ted, not a cleanup
+      to apply.
+
 - [ ] **Locations and addresses should be valid before they are stored.** Raised by Ted 2026-09-07,
       while closing the alpha-2 zone-alias item: the real problem in that area is not a missing
       country alias, it is that **anything typed into a location field gets stored**. Production

@@ -770,6 +770,187 @@ class ItineraryProjectorTest {
         return ZonedTimestamp.fromLocal(date.atTime(time), ZoneId.of("Europe/London"));
     }
 
+    // --- Conference commitment and speaking, folded through ConferenceProgress ---
+    //
+    // Until 2026-09-09 this projector read three conference events and ignored six, so /itinerary
+    // showed family neither the commitment chip nor the speaking badge that an anonymous visitor
+    // could already see on /calendar, and — worse — kept a conference Ted had been rejected from.
+
+    @Test
+    void aPlannedConferenceStartsOutMerelyWatched() {
+        ItineraryProjector projector = new ItineraryProjector();
+
+        projector.handle(Stream.of(stored(conferencePlanned(ConferenceId.random()))));
+
+        assertThat(conferenceOn(projector, DATE))
+                .extracting(ConferenceItineraryEntry::commitment, ConferenceItineraryEntry::speaking)
+                .containsExactly(AttendanceCommitment.WATCHING, false);
+    }
+
+    @Test
+    void confirmingAttendanceOnASpeakingBasisMakesEveryDayGoingAndSpeaking() {
+        ItineraryProjector projector = new ItineraryProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+
+        projector.handle(Stream.of(
+                stored(conferencePlanned(conferenceId)),
+                stored(new ConferenceAttendanceConfirmed(
+                        conferenceId, AttendanceBasis.SPEAKING_ACCEPTED, Instant.now()))));
+
+        assertThat(List.of(conferenceOn(projector, DATE), conferenceOn(projector, DATE.plusDays(1))))
+                .extracting(ConferenceItineraryEntry::commitment, ConferenceItineraryEntry::speaking)
+                .containsExactly(tuple(AttendanceCommitment.GOING, true),
+                                 tuple(AttendanceCommitment.GOING, true));
+    }
+
+    /**
+     * A bought ticket is attending, not speaking — the partition {@code AttendanceBasis} exists for.
+     */
+    @Test
+    void confirmingOnABoughtTicketIsGoingWithoutSpeaking() {
+        ItineraryProjector projector = new ItineraryProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+
+        projector.handle(Stream.of(
+                stored(conferencePlanned(conferenceId)),
+                stored(new ConferenceAttendanceConfirmed(
+                        conferenceId, AttendanceBasis.TICKET_PURCHASED, Instant.now()))));
+
+        assertThat(conferenceOn(projector, DATE))
+                .extracting(ConferenceItineraryEntry::commitment, ConferenceItineraryEntry::speaking)
+                .containsExactly(AttendanceCommitment.GOING, false);
+    }
+
+    /** An acceptance commits attendance on its own — submitting the talk was already the opt-in. */
+    @Test
+    void anAcceptedTalkCommitsAttendanceWithNoConfirmationEvent() {
+        ItineraryProjector projector = new ItineraryProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+
+        projector.handle(Stream.of(
+                stored(conferencePlanned(conferenceId)),
+                stored(new TalkSubmitted(conferenceId, Instant.now())),
+                stored(new TalkAccepted(conferenceId, Instant.now()))));
+
+        assertThat(conferenceOn(projector, DATE))
+                .extracting(ConferenceItineraryEntry::commitment, ConferenceItineraryEntry::speaking)
+                .containsExactly(AttendanceCommitment.GOING, true);
+    }
+
+    /**
+     * An invitation is an offer, so it commits nothing — and an uncommitted conference never wears
+     * the speaking badge, whatever the stream says about the talk. This is the pair that must not
+     * co-occur: "he was asked to speak somewhere he has not decided about".
+     */
+    @Test
+    void anUnansweredInvitationCommitsNothingAndDoesNotSayHeIsSpeaking() {
+        ItineraryProjector projector = new ItineraryProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+
+        projector.handle(Stream.of(
+                stored(conferencePlanned(conferenceId)),
+                stored(new InvitedToSpeak(conferenceId, Instant.now()))));
+
+        assertThat(conferenceOn(projector, DATE))
+                .extracting(ConferenceItineraryEntry::commitment, ConferenceItineraryEntry::speaking)
+                .containsExactly(AttendanceCommitment.WATCHING, false);
+    }
+
+    /**
+     * <strong>The bug this change was written for.</strong> Where acceptance was the way in, a
+     * rejection drops the conference — it already left both calendars, and it stayed on the family
+     * itinerary, so family were planning around a trip that was not happening.
+     */
+    @Test
+    void aRejectionDropsAConferenceThatNeededAcceptanceToGetIn() {
+        ItineraryProjector projector = new ItineraryProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+
+        projector.handle(Stream.of(
+                stored(conferencePlanned(conferenceId, ConferenceFormat.ACCEPTANCE_REQUIRED)),
+                stored(new TalkSubmitted(conferenceId, Instant.now())),
+                stored(new TalkRejected(conferenceId, Instant.now()))));
+
+        assertThat(projector.entriesForDate(DATE))
+                .as("a conference whose only way in was acceptance must leave the itinerary")
+                .isEmpty();
+    }
+
+    /** Everywhere else the same rejection leaves the conference merely watched, still on the list. */
+    @Test
+    void aRejectionElsewhereLeavesTheConferenceWatchedRatherThanDropped() {
+        ItineraryProjector projector = new ItineraryProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+
+        projector.handle(Stream.of(
+                stored(conferencePlanned(conferenceId, ConferenceFormat.CALL_FOR_PAPERS)),
+                stored(new TalkSubmitted(conferenceId, Instant.now())),
+                stored(new TalkRejected(conferenceId, Instant.now()))));
+
+        assertThat(conferenceOn(projector, DATE))
+                .extracting(ConferenceItineraryEntry::commitment, ConferenceItineraryEntry::speaking)
+                .containsExactly(AttendanceCommitment.WATCHING, false);
+    }
+
+    /** Pulling a talk moves one axis only: a conference Ted committed to stays committed. */
+    @Test
+    void withdrawingATalkKeepsTheConferenceButStopsSayingHeSpeaks() {
+        ItineraryProjector projector = new ItineraryProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+
+        projector.handle(Stream.of(
+                stored(conferencePlanned(conferenceId)),
+                stored(new TalkSubmitted(conferenceId, Instant.now())),
+                stored(new TalkAccepted(conferenceId, Instant.now())),
+                stored(new TalkWithdrawn(conferenceId, Instant.now()))));
+
+        assertThat(conferenceOn(projector, DATE))
+                .extracting(ConferenceItineraryEntry::commitment, ConferenceItineraryEntry::speaking)
+                .containsExactly(AttendanceCommitment.GOING, false);
+    }
+
+    @Test
+    void decliningRemovesTheConferenceEntirely() {
+        ItineraryProjector projector = new ItineraryProjector();
+        ConferenceId conferenceId = ConferenceId.random();
+
+        projector.handle(Stream.of(
+                stored(conferencePlanned(conferenceId)),
+                stored(new ConferenceAttendanceDeclined(
+                        conferenceId, "clashes with SoCraTes", Instant.now()))));
+
+        assertThat(projector.entriesForDate(DATE)).isEmpty();
+    }
+
+    /** A talk event for a conference this projector never saw planned changes nothing. */
+    @Test
+    void anEventForAnUnknownConferenceIsIgnored() {
+        ItineraryProjector projector = new ItineraryProjector();
+
+        projector.handle(Stream.of(stored(new TalkAccepted(ConferenceId.random(), Instant.now()))));
+
+        assertThat(projector.entriesForDate(DATE)).isEmpty();
+    }
+
+    private static ConferenceItineraryEntry conferenceOn(ItineraryProjector projector, LocalDate date) {
+        return (ConferenceItineraryEntry) projector.entriesForDate(date).getFirst();
+    }
+
+    private static ConferencePlanned conferencePlanned(ConferenceId conferenceId) {
+        return conferencePlanned(conferenceId, ConferenceFormat.CALL_FOR_PAPERS);
+    }
+
+    /** Two days, so the per-day rebuild is exercised rather than a single entry. */
+    private static ConferencePlanned conferencePlanned(ConferenceId conferenceId,
+                                                       ConferenceFormat format) {
+        return new ConferencePlanned(
+                conferenceId, "JitterConf 2026",
+                zt(DATE.atStartOfDay()), zt(DATE.plusDays(1).atStartOfDay()),
+                "Moscone Center",
+                new Address("747 Howard St", "San Francisco", "CA", "94103", "USA", null),
+                format);
+    }
+
     private static StoredEvent stored(Event event) {
         return new StoredEvent(1, event.getClass(), UUID.randomUUID(), Instant.now(), event, UUID.randomUUID());
     }

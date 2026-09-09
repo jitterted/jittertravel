@@ -525,6 +525,52 @@ class ItineraryRendererTest {
     }
 
     /**
+     * Both chips were missing here until 2026-09-09 while an anonymous visitor saw them on
+     * {@code /calendar} — family were shown less than a stranger. The four cases below are the
+     * whole vocabulary; the fourth is the one that must stay unconstructible.
+     */
+    @Test
+    void speculativeConferenceWearsTheMaybeChip() {
+        String html = renderWithEntry(conference(1, 1, "", false, AttendanceCommitment.WATCHING));
+
+        assertThat(html)
+                .contains("<div class=\"maybe-badge\">Maybe</div>")
+                .doesNotContain("<div class=\"speaking-badge\">Speaking</div>");
+    }
+
+    @Test
+    void committedSpeakingConferenceWearsTheSpeakingChip() {
+        String html = renderWithEntry(conference(1, 1, "", true, AttendanceCommitment.GOING));
+
+        assertThat(html)
+                .contains("<div class=\"speaking-badge\">Speaking</div>")
+                .doesNotContain("<div class=\"maybe-badge\">Maybe</div>");
+    }
+
+    @Test
+    void committedConferenceHeMerelyAttendsWearsNoChip() {
+        String html = renderWithEntry(conference(1, 1, "", false, AttendanceCommitment.GOING));
+
+        assertThat(html)
+                .doesNotContain("<div class=\"speaking-badge\">Speaking</div>")
+                .doesNotContain("<div class=\"maybe-badge\">Maybe</div>");
+    }
+
+    /**
+     * A "Maybe" conference must never also say he is speaking: that pair would tell the reader he
+     * was asked to speak somewhere he has not decided about. The projector is what makes it
+     * unconstructible, and this pins the renderer's half — the chip is chosen by commitment first.
+     */
+    @Test
+    void aSpeculativeConferenceNeverWearsBothChips() {
+        String html = renderWithEntry(conference(1, 1, "", true, AttendanceCommitment.WATCHING));
+
+        assertThat(html)
+                .contains("<div class=\"maybe-badge\">Maybe</div>")
+                .doesNotContain("<div class=\"speaking-badge\">Speaking</div>");
+    }
+
+    /**
      * A family viewer gets the conference's own page, in a new tab — the same treatment a
      * gathering's title gets. The detail page is a surface they cannot reach at all.
      */
@@ -924,10 +970,17 @@ class ItineraryRendererTest {
     private static final ConferenceId CONFERENCE_ID =
             ConferenceId.of(UUID.fromString("22222222-3333-4444-5555-666666666666"));
 
+    /** A committed conference Ted merely attends — the state that wears no chip at all. */
     private static ConferenceItineraryEntry conference(int dayNumber, int totalDays, String infoUrl) {
+        return conference(dayNumber, totalDays, infoUrl, false, AttendanceCommitment.GOING);
+    }
+
+    private static ConferenceItineraryEntry conference(int dayNumber, int totalDays, String infoUrl,
+                                                       boolean speaking,
+                                                       AttendanceCommitment commitment) {
         Address venue = new Address("747 Howard St", "San Francisco", "CA", "94103", "US", null);
         return new ConferenceItineraryEntry(CONFERENCE_ID, "JitterConf 2026", "Moscone Center", venue,
-                dayNumber, totalDays, JUN_1.atTime(9, 0), infoUrl);
+                dayNumber, totalDays, JUN_1.atTime(9, 0), infoUrl, speaking, commitment);
     }
 
     private static GatheringItineraryEntry gathering(String title, boolean speaking, String infoUrl) {

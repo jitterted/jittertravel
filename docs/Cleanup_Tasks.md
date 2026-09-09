@@ -21,6 +21,25 @@ Some items below were **lifted out of a shipped plan doc** when that doc moved t
 this list is what makes the item findable, because an archived doc is history and nobody scans it
 for open work.
 
+**When an entry declares some *other* component stale, that same change opens an item against that
+component** (2026-09-09). Writing "X is not a substitute", "X went stale", or "X gave no warning
+before Y failed" into the record of building **Y** files the supersession under the replacement and
+nowhere else — and once that entry is ticked it is history, which by the paragraph above nobody
+scans for open work. The reasoning is never cheaper to write down than at the moment you are
+already making it, so spend the one line then. It does not have to propose the deletion; "superseded
+by Y, does it still earn its place?" is enough to make X findable.
+
+**The incident.** `/admin/zone-audit` was called runtime-only and stale in the boot-replay preflight
+entry, backwards for the wipe-then-import workflow in the dry-run validation entry (it "gave no
+warning before the 2026-08-06 production import failed on three venues"), and "not a substitute" in
+`DEPLOYMENT.md` — three verdicts, each written to justify building its *replacement*, all ticked and
+archived. Meanwhile its only appearance in **Open** was an item to *add* `PrivateEventPlanned`
+coverage to `LocationAuditProjector`: scheduled investment in a tool three documents had already
+retired in prose, with neither half aware of the other. Nothing in the tree proposed ending it, and
+it took Ted asking — *"why wasn't zone audit deletion already scheduled or completed without my
+prompting?"* — for the two to meet. Same shape as the `Pre-Push-Tasks.md` rule: a need not written
+down when it is created does not get written down later.
+
 ## Open
 
 - [ ] **DISCUSS: the conference fold is now written out in three read models.** Raised by Ted
@@ -622,6 +641,30 @@ for open work.
       `ZonedTimestamp`s, and it has no legacy payload shape needing read-time resolution, so the
       audit has nothing to warn about. It is an inconsistency waiting for the day one of those
       stops being true; add the branch if you are in that file anyway.
+      **Do the item below first** — if `/admin/zone-audit` goes, this item goes with it, and
+      extending a superseded tool is the exact waste that rule in the header exists to prevent.
+- [ ] **DECIDE: does `/admin/zone-audit` still earn its place?** Filed 2026-09-09 under the header
+      rule above, which this case produced; **not yet decided, and nothing deleted.** Three
+      documents already call it superseded, each from inside the record of building its replacement:
+      the boot-replay preflight entry and `DEPLOYMENT.md` both say it "is not a substitute: it is
+      runtime-only, and it went stale", and the dry-run validation entry says it reads `event_log`
+      — data *already imported* — "which is backwards for a wipe-then-import workflow; it gave no
+      warning before the 2026-08-06 production import failed on three venues". Add two known
+      coverage holes: it silently missed `GatheringChanged` (`MigrationLessonsLearned.md`, where an
+      edited venue would have passed the audit and killed replay) and it never sees
+      `PrivateEventPlanned` (the item above). **The case against keeping it is that a green audit
+      with holes is a false assurance, which is worse than no audit.** Its two replacements are
+      `BootReplayPreflightTest` (pre-deploy, against a real production dump) and
+      `BackupService.validateJson` (pre-import, via `/admin/restore/validate`) — between them they
+      cover both directions the audit was reaching for, and neither went stale.
+      **Scope if it goes:** `ZoneAuditController`, `LocationZoneAudit`, `LocationAuditProjector`,
+      `admin-zone-audit.html`, the nav card in `admin-home.html:208`, two `EventSourcingConfig`
+      beans, three test classes, plus mentions in `EventPayloadUpcaster`'s Javadoc and
+      `BootReplayPreflightTest`. No `SecurityConfig` matcher of its own (covered by `/admin/**`).
+      Two methods in the cancellation-propagation tests assert *about the audit projector*
+      (`locationAuditStillReportsTheCancelledStaysLocation`) and go with it — no cancellation
+      coverage is lost. Ted declined the deletion on 2026-09-09 and asked for it to be filed
+      instead, so this is a decision waiting on him, not agreed work.
 - [ ] **`PlanGroundTransferHandler` compares two addresses with `equals`.** `:30` rejects a transfer
       whose origin equals its destination by comparing whole `Address` records, so the record's
       generated (case-sensitive) `equals` decides — "Hamburg" and "hamburg" are two different

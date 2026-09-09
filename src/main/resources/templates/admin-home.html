@@ -118,9 +118,25 @@
             margin: 0.6rem 0 0;
             font-size: 0.78rem;
             color: var(--muted-text);
+            /* The page centres its nav cards, and that inherits in here: without this the three
+               readings each centre inside their own row, so "true", "http" and "(none)" never form
+               a column and a wrapped verdict centres its last line. Both make the values harder to
+               scan than the single line of prose above them. */
+            text-align: left;
         }
         .probe-values dt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
         .probe-values dd { margin: 0; }
+        /* The reading is the fact, so it gets the full-strength colour; the verdict beside it is
+           what makes the fact usable, so it stays readable rather than dropping to a whisper. The
+           arrow is decoration and lives in CSS, so it is never read aloud and never lands in the
+           text a test asserts on. */
+        .probe-reading {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            color: var(--text-primary);
+        }
+        .probe-verdict::before {
+            content: "\2192\A0";
+        }
         .nav-card-sub {
             display: block;
             font-size: 0.9rem;
@@ -255,19 +271,27 @@
 
     <!--/* Not a nav card and not an action: the one fact about the deployment that cannot be
            checked from a local run. Leads with the derived answer; the raw values it came from sit
-           underneath, per the standing rule. Deliberately uncoloured — "not secure" is the correct
-           and expected answer over the plain-http local prod-preview, so amber here would cry wolf
-           every day and stop being read in the one place it matters. */-->
+           underneath, per the standing rule — and each one carries its own verdict, because a
+           reading you cannot tell is good or bad is no better than not showing it. "(none)" for
+           X-Forwarded-Proto is the case that earns this: it looks like a gap and is in fact the
+           evidence the strategy worked.
+
+           Still deliberately uncoloured. The verdicts now say which state we are in, but the probe
+           still cannot tell the plain-http local prod-preview from a production instance that lost
+           its header — both read the same — so amber would cry wolf every day locally and stop
+           being read in the one place it matters. Colouring only the unambiguous HEADER_IGNORED
+           state was considered and is Ted's call, not a tidy-up. */-->
     <section class="probe" aria-label="Cookie transport">
         <p class="probe-summary" th:text="${secureCookieProbe.summary()}">Cookies are marked Secure.</p>
         <p class="probe-detail" th:text="${secureCookieProbe.explanation()}">Explanation.</p>
         <dl class="probe-values">
-            <dt>request.isSecure()</dt>
-            <dd th:text="${secureCookieProbe.secure()}">true</dd>
-            <dt>scheme</dt>
-            <dd th:text="${secureCookieProbe.scheme()}">https</dd>
-            <dt>X-Forwarded-Proto</dt>
-            <dd th:text="${secureCookieProbe.forwardedProtoOrNone()}">https</dd>
+            <th:block th:each="reading : ${secureCookieProbe.values()}">
+                <dt th:text="${reading.label()}">request.isSecure()</dt>
+                <dd>
+                    <span class="probe-reading" th:text="${reading.value()}">true</span>
+                    <span class="probe-verdict" th:text="${reading.verdict()}">working as desired</span>
+                </dd>
+            </th:block>
         </dl>
     </section>
 </main>

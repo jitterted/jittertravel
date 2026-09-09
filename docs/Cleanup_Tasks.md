@@ -983,6 +983,31 @@ count is deliberately not stated here so it cannot go stale again.)
 
 ## Done
 
+- [x] **Every reading on the cookie probe carries a verdict** (2026-09-09). Ted, on being shown the
+      raw values: *"showing me values without knowing if they're good or bad is useless."* The case
+      that proves it is `X-Forwarded-Proto (none)` on a **healthy** deploy — it sits beside two green
+      values looking like a gap, and is in fact the evidence the thing worked. With
+      `server.forward-headers-strategy=framework`, Spring wraps the request in a
+      `ForwardedHeaderExtractingRequest extends ForwardedHeaderRemovingRequest`, which hides all
+      seven forwarded headers from `getHeader` **after** applying them; a controller runs downstream,
+      so while the strategy works that value is *always* blank. A reader could have "fixed" that gap
+      and broken a working config. Verified against `spring-web-6.2.6`, not from memory.
+      `SecureCookieProbe` now derives one `Outcome` from the two readings and switches over it
+      exhaustively for every sentence — so the lines cannot disagree, and a fifth state will not
+      compile until each says what it reads in it. The template **loops** over
+      `ProbeValue(label, value, verdict)` rather than naming the three values, which is what makes
+      "a value always has a verdict" structural; `everyReadingCarriesAVerdictInEveryState` drives all
+      four states and pins that none is blank. Two wording fixes in the same pass: the `forwardedProto`
+      Javadoc said blank meant the proxy had stopped sending it and now names all three causes, and
+      the `!secure && blank` branch no longer asserts "the proxy is not sending one" — a header
+      saying `http` is applied *and* stripped too, so blank cannot support that claim (there is a
+      `doesNotContain` on the old wording). Also `text-align: left` on `.probe-values`: the page
+      centres its nav cards and that inherited in, so the three readings never formed a column —
+      caught by screenshotting the real rendered response at 820px, not by reading the CSS. Both new
+      assertions mutation-verified (blanking a verdict reddens 3 tests incl. the render test).
+      **The general rule is now in memory, and the other admin diagnostics have not been swept for
+      it** — `/admin/database` table stats and `/admin/zone-audit` are the candidates, the latter
+      only if it survives the DECIDE item above.
 - [x] **Sign out, from the top-left of the home page** (2026-09-08). Deferred since 2026-08-21 on
       "incognito is sufficient", and remember-me is what fired the trigger: a persistent cookie in
       a private window dies with the window, so the device that actually stays signed in is the

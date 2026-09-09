@@ -101,8 +101,10 @@ class AdminControllerTest {
                 .hasStatusOk()
                 .bodyText()
                 .contains("Cookies on this request are NOT marked Secure.")
-                .contains("No X-Forwarded-Proto header arrived")
-                .contains("<dd>(none)</dd>");
+                .contains("No usable X-Forwarded-Proto reached the app")
+                .contains("<span class=\"probe-reading\">(none)</span>")
+                .contains("<span class=\"probe-verdict\">expected over plain http locally; "
+                          + "wrong in production</span>");
     }
 
     @Test
@@ -110,9 +112,24 @@ class AdminControllerTest {
         assertThat(mockMvc.get().uri("/admin").secure(true))
                 .hasStatusOk()
                 .bodyText()
-                .contains("Cookies on this request are marked Secure.")
-                .contains("The remember-me and viewerZone cookies are protected in transit.")
+                .contains("Cookies on this request are marked Secure, as desired.")
+                .contains("The remember-me and viewerZone cookies are protected in transit, as expected.")
                 .doesNotContain("NOT marked Secure");
+    }
+
+    @Test
+    void adminHomeCallsTheConsumedForwardedHeaderCorrectRatherThanLeavingItLookingLikeAGap() {
+        // The reading Ted is most likely to misread on a healthy deploy: "(none)" beside two
+        // green values looks like a gap, and is in fact the evidence that ForwardedHeaderFilter
+        // applied the header and then consumed it. The page has to say which.
+        assertThat(mockMvc.get().uri("/admin").secure(true))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"probe-reading\">(none)</span>")
+                .contains("<span class=\"probe-verdict\">this is correct — the header was consumed "
+                          + "after being applied, which is what the strategy does</span>")
+                .contains("<span class=\"probe-verdict\">working as desired — this is the value "
+                          + "that marks both cookies</span>");
     }
 
     @Test

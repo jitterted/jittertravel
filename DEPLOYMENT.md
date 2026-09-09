@@ -65,6 +65,12 @@ never sees, and boot replays all of it. A row that no longer binds either fails 
 drops the app into read-only mode with empty projections — the 2026-08-16 Morocco/Antwerp failure.
 `/admin/zone-audit` is not a substitute: it is runtime-only, and it went stale.
 
+The fourth gate is also **not** automatic, and nothing in the repo can check it, because it happens
+outside the repo: **[`Pre-Push-Tasks.md`](Pre-Push-Tasks.md)**, the checklist of Railway-side setup
+that unpushed commits are waiting on. A commit that needs a new environment variable, a dashboard
+setting or a one-off admin run leaves an unticked box there; pushing with one still unticked deploys
+a build whose environment does not exist yet. Read it before every push, and empty it as you go.
+
 ## What this app is
 
 - Spring Boot **4.0.7**, **Java 26**, packaged as an executable jar (`spring-boot-maven-plugin`).
@@ -163,12 +169,43 @@ you do not set it.
 |---|---|---|---|
 | `TED_PASSWORD` | ✅ | **yes** | Login password for the `ted` user. **App fails to start if unset.** |
 | `FAMILY_PASSWORD` | ✅ | **yes** | Login password for the `family` user. **App fails to start if unset.** |
+| `REMEMBER_ME_KEY` | ✅ | mildly | Identifies this app to the remember-me provider. **App fails to start if unset.** Generate once with `openssl rand -hex 32`; see [what it actually protects](#remember_me_key-stability-matters-more-than-secrecy). |
+| `CALENDAR_FEED_TOKEN` | optional | **yes** | The **only** credential on the private iCal feed — treat it like a password. Unset ⇒ the feed is disabled and `/calendar/feed/**` 404s (safe, opt-in default). Rotating it means re-subscribing on every device. |
+| `JITTERTRAVEL_BASE_URL` | optional | no | Base URL (e.g. `https://jittertravel.com`) used to build the subscribe/probe links on the OWNER-only admin page. Pin it in production: deriving it from the request is unreliable behind Railway's proxy. Blank ⇒ falls back to the request's own scheme + host. |
 | `AERODATABOX_API_KEY` | optional | **yes** | RapidAPI key for AeroDataBox flight lookups. If unset the app still starts but flight lookup is non-functional. |
 
-> **Secrets:** `PGPASSWORD`, `TED_PASSWORD`, `FAMILY_PASSWORD`, `AERODATABOX_API_KEY` are
-> private. Set them as Railway service variables; never commit them. There is no `.env` file in
-> the repo and none should be added. (The two login passwords double as a fail-fast guard — a
-> production boot without them errors immediately rather than coming up misconfigured.)
+> **Secrets:** `PGPASSWORD`, `TED_PASSWORD`, `FAMILY_PASSWORD`, `CALENDAR_FEED_TOKEN` and
+> `AERODATABOX_API_KEY` are private. Set them as Railway service variables; never commit them.
+> There is no `.env` file in the repo and none should be added. (The two login passwords and
+> `REMEMBER_ME_KEY` double as a fail-fast guard — a production boot without them errors immediately
+> rather than coming up misconfigured.)
+
+#### `REMEMBER_ME_KEY`: stability matters more than secrecy
+
+It is **not** a cookie-signing secret, whatever its name suggests. We use
+`PersistentTokenBasedRememberMeServices`, whose cookie is a random series + token pair from
+`SecureRandom`, stored in `persistent_logins`; the key never enters it. Spring passes the key only
+to the `RememberMeAuthenticationToken` it mints, and `RememberMeAuthenticationProvider` compares
+`key.hashCode()` — 32 bits — to decide the token came from a services instance it trusts. (The
+hash-based variant *does* sign its cookie with the key; we deliberately do not use it, because it
+signs with the **encoded** password and `TED_PASSWORD` is BCrypted with a fresh salt at every
+startup.)
+
+Two consequences:
+
+- **It must be stable across restarts**, and that is the property doing the work. A key that changed
+  per boot would defeat the whole feature — which is exactly what an *absent* one does, since Spring
+  then mints a random key per boot. Hence no default on the `@Value`: fail to start rather than come
+  up looking fine and signing Ted out on every deploy.
+- **Changing it signs out every remembered device.** That is the one revocation control that needs
+  no logged-in browser, so it is a feature, not just a hazard. Its low entropy in the provider check
+  is not worth losing sleep over — but do generate a long random value anyway, since it costs
+  nothing, and do not treat leaking it as equivalent to leaking `TED_PASSWORD`.
+
+The `persistent_logins` table needs no manual migration: `schema.sql` creates it with
+`CREATE TABLE IF NOT EXISTS` and `spring.sql.init.mode=always` runs that on every boot. It holds no
+domain data, so it is absent from the backup and untouched by the Danger Zone truncate — wiping the
+event log does not sign anyone out.
 
 ## Build & deploy: Dockerfile, not Nixpacks
 
@@ -190,7 +227,7 @@ Local build sanity check:
 ```
 docker build -t jittertravel . && docker run --rm -p 8080:8080 \
   -e PGHOST=... -e PGPORT=... -e PGDATABASE=... -e PGUSER=... -e PGPASSWORD=... \
-  -e TED_PASSWORD=... -e FAMILY_PASSWORD=... jittertravel
+  -e TED_PASSWORD=... -e FAMILY_PASSWORD=... -e REMEMBER_ME_KEY=... jittertravel
 ```
 
 ## Open items
@@ -297,8 +334,11 @@ database.
 1. Create a Railway project; add the **PostgreSQL** plugin.
 2. Add this repo as a service (Railway uses the committed `Dockerfile` per `railway.json`).
 3. Set variables: the five Postgres references (`PGDATABASE`, `PGHOST`, `PGPASSWORD`, `PGPORT`,
-   `PGUSER` → `${{Postgres.*}}`), plus `TED_PASSWORD`, `FAMILY_PASSWORD`, and optionally
-   `AERODATABOX_API_KEY`. **Leave `SPRING_PROFILES_ACTIVE` unset.**
-4. Deploy; the health check (`/actuator/health`, from `railway.json`) gates the rollout.
-5. Watch logs for `Replayed N events from persistent store` (DB connect + replay succeeded) and
+   `PGUSER` → `${{Postgres.*}}`), plus `TED_PASSWORD`, `FAMILY_PASSWORD` and `REMEMBER_ME_KEY`
+   (all three required — the app will not start without them), and optionally
+   `CALENDAR_FEED_TOKEN`, `JITTERTRAVEL_BASE_URL` and `AERODATABOX_API_KEY`.
+   **Leave `SPRING_PROFILES_ACTIVE` unset.**
+4. Check [`Pre-Push-Tasks.md`](Pre-Push-Tasks.md) is empty of unticked boxes.
+5. Deploy; the health check (`/actuator/health`, from `railway.json`) gates the rollout.
+6. Watch logs for `Replayed N events from persistent store` (DB connect + replay succeeded) and
    confirm `/` redirects to the login form.

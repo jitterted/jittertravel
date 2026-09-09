@@ -770,6 +770,38 @@ Three things follow when you add a form.
 
 Pinned by `RequiredEntryConventionTest`; nothing at a controller mentions the advice.
 
+## Deployment
+
+### A change needing manual setup outside the repo writes itself into `Pre-Push-Tasks.md`
+
+**Pushing to `main` deploys.** So a change that expects something the deployed environment does not
+have yet — a new environment variable, a dashboard or DNS setting, a one-off `/admin` run after the
+rollout, a device that must be re-subscribed — is only half shipped when the code is committed. The
+other half happens in the Railway dashboard, where nothing in the build can see it: no test goes
+red, the pre-push hook is happy, and the first sign of trouble is a failed health check or, worse,
+an app that comes up misconfigured and looks fine.
+
+**So: in the same change that introduces the need, add a box to `Pre-Push-Tasks.md`** (repo root,
+next to `DEPLOYMENT.md`, which names it as the fourth pre-push gate). That file states the rule in
+full and carries the current boxes; the short version is that a box names the literal thing to do
+including any generating command, which service it goes on, what happens if it is skipped —
+*before* the push or *after* the rollout — and the commit that created the need.
+
+This is not a substitute for `DEPLOYMENT.md`: **a new variable goes in both**, and they say
+different things. `DEPLOYMENT.md`'s table is the standing description of a configured instance —
+what the variable is for, whether it is required, what it does when absent — and it stays true
+forever. A `Pre-Push-Tasks.md` box is a one-shot instruction that stops being true the moment it is
+ticked. Recording only the second means the reference goes stale (which is exactly how
+`REMEMBER_ME_KEY`, `CALENDAR_FEED_TOKEN` and `JITTERTRAVEL_BASE_URL` were all missing from that
+table on 2026-09-09); recording only the first means nobody notices they have to *do* anything.
+
+**Prefer wiring the variable up before the push, not after.** Set early it is inert; set late the
+deploy meets an environment that does not exist. Note the two failure shapes, because only one of
+them is safe: a variable bound with no default (`TED_PASSWORD`, `FAMILY_PASSWORD`,
+`REMEMBER_ME_KEY`) fails the boot, so the health check rejects the rollout and the healthy instance
+survives — while one with an empty default (`CALENDAR_FEED_TOKEN`) starts happily with the feature
+silently off. Prefer the fail-fast form for anything whose absence is a bug rather than a choice.
+
 ## Testing
 
 ### Every test is isolated: order must not matter, and a subset must run

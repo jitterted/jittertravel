@@ -1005,6 +1005,35 @@ count is deliberately not stated here so it cannot go stale again.)
       of the home page" above. Still unverified until deployed: that production actually reports
       secure. The probe is on `/admin` for exactly that check.
 
+      **Two gaps found on 2026-09-09, before the push, when Ted went looking for the Railway
+      variable and found nothing telling him about it.** Both now fixed.
+
+      **First: it was never written down where deployment is written down.** This item recorded the
+      variable and `application-prod-preview.properties` supplies a local stand-in, but
+      `DEPLOYMENT.md`'s "Application secrets" table was untouched — and the same audit found
+      `CALENDAR_FEED_TOKEN` and `JITTERTRAVEL_BASE_URL` missing from it too, so this was a habit and
+      not a slip. All three added. The fix for the habit is **`Pre-Push-Tasks.md`** (repo root), a
+      checklist of manual, outside-the-repo setup that unpushed commits are waiting on, plus a
+      CLAUDE.md rule ("A change needing manual setup outside the repo writes itself into
+      `Pre-Push-Tasks.md`") saying a new variable goes in **both** files, because they answer
+      different questions: the table is the standing description of a configured instance and stays
+      true forever, a box is a one-shot instruction that stops being true when it is ticked.
+      `DEPLOYMENT.md` names the checklist as the fourth pre-push gate, beside the two automatic ones
+      and the boot-replay preflight. **Deliberately not mechanized:** the hook cannot tell a
+      genuinely done box from an unticked one, and a gate that has to be overridden routinely is the
+      docs gate's `DOCS_OK=1` all over again.
+
+      **Second: the bean's javadoc was wrong about the mechanism**, saying `REMEMBER_ME_KEY` "signs
+      every remember-me cookie". True of `TokenBasedRememberMeServices`, not of the persistent
+      variant we chose: checked against Spring Security 7.0.6's sources, our cookie is a random
+      series + token from `SecureRandom` held in `persistent_logins`, and `AbstractRememberMeServices`
+      passes the key only to the `RememberMeAuthenticationToken` it mints (line 198), whose
+      `key.hashCode()` — 32 bits — `RememberMeAuthenticationProvider` compares. So the *consequences*
+      the javadoc listed were right (stable across restarts, changing it revokes every device) while
+      the reason was wrong, which matters because it overstates the secrecy and understates the
+      stability — and stability is the whole property. Corrected in the javadoc and explained under
+      "`REMEMBER_ME_KEY`: stability matters more than secrecy" in `DEPLOYMENT.md`.
+
 - [x] **A city typed with a trailing space was a different city** (2026-08-30). Ted planned a
       private event in Hamburg from an iPhone; the space bar that committed an autocorrect
       suggestion left `"Hamburg "` in `city`, `country` and `locationForMatching` (production event

@@ -189,10 +189,20 @@ public class SecurityConfig {
     }
 
     /**
-     * REMEMBER_ME_KEY signs every remember-me cookie and must be stable across restarts — an
-     * absent key would make Spring mint a random one per boot, silently defeating the whole
-     * feature. Changing it invalidates every remembered device, which is the one revocation
-     * control that does not need a logged-in browser.
+     * REMEMBER_ME_KEY must be stable across restarts — an absent key would make Spring mint a
+     * random one per boot, silently defeating the whole feature, which is why the {@code @Value}
+     * has no default and an unset variable fails the boot instead. Changing it invalidates every
+     * remembered device, which is the one revocation control that does not need a logged-in
+     * browser.
+     * <p>
+     * It does <em>not</em> sign the cookie, whatever the name suggests: this variant's cookie is a
+     * random series + token pair from {@code SecureRandom}, held in {@code persistent_logins}, and
+     * the key never enters it. Spring passes the key only to the {@code RememberMeAuthenticationToken}
+     * it mints, whose {@code key.hashCode()} {@code RememberMeAuthenticationProvider} compares to
+     * decide the token came from a services instance it trusts. So stability is the load-bearing
+     * property and secrecy is worth much less here than it is for TED_PASSWORD — generate a long
+     * random value anyway, since it costs nothing. (The hash-based variant rejected above is the
+     * one that signs with the key.)
      * <p>
      * The cookie's Secure flag is deliberately left to {@code request.isSecure()} rather than
      * pinned true: {@code server.forward-headers-strategy=framework} makes that correct behind

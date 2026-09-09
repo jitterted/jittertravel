@@ -37,16 +37,7 @@ health check at best and comes up misconfigured at worst.
 
 ## Open
 
-- [ ] **After that deploy, confirm on `/admin` that production reports cookies as Secure.**
-      This is the one claim a local run cannot check, and it is why `SecureCookieProbe` exists.
-      Expect **"Cookies on this request are marked Secure"**; the raw lines beneath it distinguish
-      *no `X-Forwarded-Proto` arrived* from *one arrived and was ignored*, which have different
-      fixes. A wrong answer means `server.forward-headers-strategy=framework` is not taking effect
-      and the remember-me cookie — a real credential — is shipping unmarked.
-
-      **If skipped:** nothing breaks visibly; the risk is silent. *After* the rollout, not before.
-
-      Introduced by `8e86ac8`.
+_nothing open yet_
 
 ## Done
 
@@ -67,3 +58,15 @@ health check at best and comes up misconfigured at worst.
       under `spring.sql.init.mode=always`, so there is no manual migration.
 
       Introduced by `8e86ac8` "Stay signed in across a restart, with persistent remember-me tokens".
+
+- [x] **After that deploy, confirm on `/admin` that production reports cookies as Secure.**
+      This is the one claim a local run cannot check, and it is why `SecureCookieProbe` exists.
+      Expect **"Cookies on this request are marked Secure"**; the raw lines beneath it distinguish
+      *no `X-Forwarded-Proto` arrived* from *one arrived and was ignored*, which have different
+      fixes. A wrong answer means `server.forward-headers-strategy=framework` is not taking effect
+      and the remember-me cookie — a real credential — is shipping unmarked.
+
+      **If skipped:** nothing breaks visibly; the risk is silent. *After* the rollout, not before.
+
+      Introduced by `8e86ac8`.
+

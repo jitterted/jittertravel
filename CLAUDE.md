@@ -47,9 +47,13 @@ Backup/restore is **event-oriented**: `BackupService` writes every `event_log` r
 (same ids, sequences, timestamps, `schema_version` stamp) and restores them verbatim — it does
 **not** re-execute commands (commands ride along as opaque history for a future undo; see
 `docs/archived/EventOrientedBackupRestorePlan.md`). `BackupService.restoreJson` runs two passes: pass one
-deserializes, upcasts, and **bind-checks** every event **writing nothing**, pass two applies them
-(via `CommandExecutor`, per the rule above). Any validation error means zero writes, and *all* bad
-entries are reported together. `validateJson` exposes pass one on its own as a dry run for
+deserializes, upcasts, and **bind-checks** every event **writing nothing**, pass two inserts them
+**verbatim through `PostgresPersister.restoreCommandsAndEvents`** — not through `EventStore.append`,
+so no projector and no reactor sees a restored row until the next boot replays it. (`CommandExecutor`
+is consulted only for read-only mode. This sentence said "via `CommandExecutor`" until 2026-09-10,
+which was stale; the distinction matters because a consumer with side effects — the email sender in
+`docs/FamilyEmailNotificationsPlan.md` — is safe from restore *only* because of it.) Any validation
+error means zero writes, and *all* bad entries are reported together. `validateJson` exposes pass one on its own as a dry run for
 `/admin/restore/validate`.
 
 **Why:** restore failures are usually data problems in a few events (an address whose zone

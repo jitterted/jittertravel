@@ -1,10 +1,13 @@
 # Family Email Notifications — Plan
 
 **Status:** `open` — designed 2026-09-09 (Ted), **revised 2026-09-10 after a review against the
-code**, nothing built. The revision changed three things materially — the conference trigger set
-(§4.5), the idempotency key (§4.4), and what `/admin/pending-commands` actually shows (§4.3) — and
-opened five questions in §9 that need Ted before slice 2 is buildable. Everything the review checked
-and found sound is marked *(verified 2026-09-10)* where it matters.
+code**, and **every open question answered by Ted the same day** in a second review pass. Nothing
+built; **all four slices are now buildable as written.** The first revision changed three things
+materially — the conference trigger set (§4.5), the idempotency key (§4.4), and what
+`/admin/pending-commands` actually shows (§4.3). The second pass answered Q1–Q5 (§9), found one
+unreachable row in §4.4's table, a second half to failure mode #2, and two gaps that became decisions:
+an **admin probe** (§4.6) and the **multi-leg subject line** (§5). Everything the review checked and
+found sound is marked *(verified 2026-09-10)* where it matters.
 
 Push an email to family when Ted books a flight or commits to a conference, so they learn it from a
 message rather than by remembering to open `/itinerary`. Built as a **Translator** (Processor): an
@@ -31,6 +34,18 @@ and no notion of a person.
 | Content bound | **Anything an OWNER surface shows may go to family** (§5) |
 | Body | **`textContent` only**, no HTML part (§9.2) |
 | Sender | **`notifications@jittertravel.com`**, with **`replyTo` Ted** so a reply reaches him (§9.3) |
+
+### Decisions settled 2026-09-10 (Ted), closing the review's questions
+
+| Decision | Choice |
+|---|---|
+| Speaking axis changes while still attending (Q1) | **Silent.** The trip is the news; a stale "his talk was accepted" clause is accepted. Covers `TalkWithdrawn` after a speaking mail *and* `TalkAccepted` after a ticket-bought mail (§4.5, §9) |
+| Decline / cancellation `reason` (Q2) | **Never reaches family.** The email says what happened, not why (§5) |
+| Failed rows on `/admin/pending-commands` (Q3) | **Widen the list only.** The admin-home badge and the boot warning stay on `PENDING` (§4.3a) |
+| Rejection wording (Q4) | **Say it plainly** — *"His talk was rejected, so he is not going."* Within the OWNER bound (§5) |
+| `NotifiedFact` on the event (Q5) | **Stored**, not recomputed (§4.4) |
+| Multi-leg trips | **One email per leg, route in the subject** — `Ted booked a flight: SFO → FRA`. No digest (§5) |
+| Verifying the rollout | **An OWNER-only admin probe** sends a fixed message through the real client, writing no row and no event (§4.6) |
 
 ---
 
@@ -94,14 +109,27 @@ Three mechanisms, and **the first one is the whole fix**:
 ### Deploy dark
 
 Ship with `jittertravel.family-notify.enabled=false` (env `FAMILY_NOTIFY_ENABLED` — see §4.5 for why
-the name matters), confirm a real booking produces **no** email and **no** `FamilyNotified`, then
-flip the variable. The kill switch is not only for incidents.
+the name matters). The kill switch is not only for incidents.
 
-**Then send one real email to Ted before family ever see one.** Point `FAMILY_NOTIFY_EMAIL` at Ted's
-own address, make a real booking, confirm the mail arrives and reads correctly, *then* repoint it at
-the family address. A mistyped recipient sends OWNER-bounded content — travel detail,
-`AttendanceBasis`, a conference's speaking history — to a stranger, and the only symptom is a reply
-that never comes. §5 sets a wide content bound; this is the step that makes the wide bound safe.
+**Verify with the probe, not with real bookings** (decided 2026-09-10, Ted). An earlier draft of this
+section needed three genuine `FlightBooked` events in production — one dark, one to Ted, one to
+family — because there was no other way to make the app send anything. That is a real booking as a
+test fixture, three times, on a feature Ted uses about twenty times a year. §4.6's probe replaces
+it: `POST /admin/family-notify/probe` sends a fixed message through the real `BrevoEmailClient` to
+whatever `FAMILY_NOTIFY_EMAIL` currently names, and reports the address it sent to. The rollout is
+then:
+
+1. Deploy dark. Point `FAMILY_NOTIFY_EMAIL` at **Ted's own address**. Probe; read the mail; check it
+   did not land in spam (§10's SPF/DKIM box is what this step tests).
+2. Repoint `FAMILY_NOTIFY_EMAIL` at the family address. Probe again — family get one mail that says
+   in its own body that it is a test — and confirm from the reply that it arrived where intended.
+3. Flip `FAMILY_NOTIFY_ENABLED`. The next real booking is the first real notification, and every
+   link in the chain before the booking itself has already been exercised.
+
+A mistyped recipient sends OWNER-bounded content — travel detail, `AttendanceBasis`, a conference's
+speaking history — to a stranger, and the only symptom is a reply that never comes. §5 sets a wide
+content bound; step 1 is what makes the wide bound safe, and the probe is what makes step 1 cheap
+enough to actually do.
 
 ---
 
@@ -323,6 +351,11 @@ than violated. Say so in the javadoc; it reads like a violation otherwise.
 Copy `AeroDataBoxClient`'s shape. One difference: its blank-key `return` becomes a
 `boolean configured()` the **service** consults *before* opening a command (§4.3), so an
 unconfigured notifier writes no `command_log` row rather than an immediately-failed one.
+**`configured()` means key *and* recipient** (2026-09-10): §4.5's table says a blank
+`FAMILY_NOTIFY_EMAIL` is a no-op too, and the client is the one place that holds both values, so
+it answers for both. A blank `TED_REPLY_EMAIL` is not part of `configured()` — the mail still goes —
+but the client must **omit the `replyTo` object entirely** rather than send `{"email":""}`, which
+Brevo rejects as a malformed address and would turn a missing optional into a `FAILED_SEND`.
 
 ```
 POST https://api.brevo.com/v3/smtp/email
@@ -437,20 +470,28 @@ the crash could have been after Brevo accepted it. So:
 nothing warns about, and which nobody visits unless they already suspect something.
 
 Building `executeExternalAction` to reach a surface it does not in fact reach is the whole cost with
-none of the benefit, so **slice 1 widens the surface** rather than correcting the claim downwards:
+none of the benefit, so **slice 1a widens the surface** rather than correcting the claim downwards.
+**Decided 2026-09-10 (Ted): widen the list only** — Q3 option (b):
 
-- `countPendingCommands()` and `findPendingCommands()` take `status IN ('PENDING')` **or** a
-  `status LIKE 'FAILED%'` — the exact predicate is §9's open question Q3, because widening the count
-  also changes the `pendingCount` badge on the admin home and the boot warning for **every**
-  command, not just this one. That is a change to an existing surface, so it is Ted's call, not a
-  side effect of a notification feature.
+- `findPendingCommands()` takes `status = 'PENDING' OR status LIKE 'FAILED%'`.
+  **`countPendingCommands()` is unchanged**, so the `pendingCount` badge on the admin home and
+  `PendingCommandStartupCheck`'s boot warning stay on `PENDING` exactly. Widening the count would
+  have resurfaced every past `FAILED_DOMAIN` row — a bad form submission from a year ago — as a boot
+  warning demanding attention, on every boot, until each was abandoned by hand. Listing them is
+  findable; counting them is noise.
+- **The abandon action stays PENDING-only.** `PostgresPersister`'s abandon `UPDATE` is guarded by
+  `WHERE ... AND status = 'PENDING'` (line 83, checked 2026-09-10), so a failed row on the widened
+  list renders **no** Abandon/Keep buttons: it is already resolved, and the page says so. That is
+  the affordance rule about state — the action is absent because it is meaningless for that row, not
+  greyed. Option (a) would have needed that guard relaxed too, which is one more reason it lost.
 - `TimelineCommand.statusLabel()` gains a `FAILED_SEND` arm. Its `switch` ends in `default -> status`
   so an unmapped value renders as the raw enum string rather than failing — visible, ugly, and
   exactly the kind of thing that ships green. `failed()` already returns true for it, since it
   prefix-matches `FAILED`.
-- the page's own wording (`admin-pending-commands.html`) has to say what it now lists.
+- the page's own wording (`admin-pending-commands.html`) has to say what it now lists: pending
+  commands that need a decision, **and** failed ones, for the record.
 
-**Until Q3 is answered, treat §6.1's "the loss leaves a trace" as aspirational.** It is true of the
+**Until slice 1a ships, treat §6.1's "the loss leaves a trace" as aspirational.** It is true of the
 row in `command_log`; it is not yet true of any surface that volunteers it.
 
 #### `NotifyFamily` (application)
@@ -476,8 +517,9 @@ already passes `Clock` and the persister. `BrevoEmailClient.configured()` needs 
 it is an infrastructure `@Component` and already holds its own `@Value` fields, exactly like
 `AeroDataBoxClient`.
 
-`NotifyFamilyCommand(NotifiedSubject subject, Instant requestedAt)` is the record persisted to
-`command_log` — the intent, no recipient and no prose (§4.4). It lives next to the boundary that
+`NotifyFamilyCommand(NotifiedSubject subject, NotifiedFact fact, Instant requestedAt)` is the record
+persisted to `command_log` — the intent, no recipient and no prose (§4.4, which says why `fact` is
+on the command as well as the event; an earlier draft of this paragraph left it off). It lives next to the boundary that
 mints it, the processor; compare `ClearDifferentCityConflict`, which lives in `web` because its
 boundary is a web request.
 
@@ -540,9 +582,20 @@ send only on a difference. Every case falls out of that one rule —
 | confirm | `CONFERENCE_GOING`, nothing prior ⇒ send | ✅ |
 | confirm, re-confirm with corrected `basis` | fact unchanged ⇒ silent | ✅ the 2026-09-09 decision, preserved |
 | confirm, decline | `GOING` → `NOT_GOING` ⇒ send | ✅ the case that was broken |
-| confirm, decline, confirm again | three sends | ✅ each is news |
+| accept, reject, confirm with a ticket (`ACCEPTANCE_REQUIRED`) | three sends | ✅ each is news — see the note below on which re-entry is reachable |
 | decline a conference family were never told about | see the rule below ⇒ silent | ✅ |
 | book flight (only ever one `FlightBooked` per `FlightId`) | one send, ever | ✅ |
+
+**The three-send row read "confirm, decline, confirm again" until 2026-09-10, and that sequence is
+unreachable.** Both `ConfirmConferenceAttendance.contextFor` and `TalkTracking.contextFor` fold a
+`ConferenceAttendanceDeclined` as *the conference no longer exists*, and every command refuses on
+existence first — so after a decline nothing can move the commitment again, and the fold's
+"re-confirm" branch would only ever be exercised by a test hand-building events the write path
+cannot produce. A **rejection** is different: `RejectTalkCommand` accepts an `ACCEPTED` talk, and
+neither confirm fold clears existence on `TalkRejected`, so on an `ACCEPTANCE_REQUIRED` conference
+the reachable re-entry is accept (GOING) → reject (NOT_GOING) → confirm on a bought ticket (GOING).
+The row and its §8 test name that sequence. The rule itself is unchanged; only the example was
+wrong, and it was wrong in the direction of testing a path production cannot take.
 
 **The one rule that does not fall out of "did it change", and it is load-bearing: an exit is sent
 only where a `CONFERENCE_GOING` was sent first.** With no prior notification the "change" from
@@ -561,7 +614,9 @@ notifier made, and a decision that is recomputed can silently change when the fo
 a later edit to `ConferenceProgress` would retroactively alter what the log says family were told.
 `fact` is also what makes the comparison a one-line read instead of a sequence-aware fold that
 nothing in the codebase does today. Recorded rather than assumed: this is the one place the plan
-stores a derived value, and Q5 in §9 is the invitation to overrule it.
+stores a derived value. **Confirmed 2026-09-10 (Ted, Q5): stored.** The distinction that decided it
+is the one above — `summary` was a rendering the log can reproduce, `fact` is a decision the log
+must remember.
 
 `NotifiedSubject` is a **sealed** interface over `FlightId` and `ConferenceId` wrappers, following
 the `ScheduledLegId` / `TravelLeg` precedent from `CancelTrainAndOverlappingLegsPlan.md`. Adding a
@@ -653,9 +708,15 @@ with `entries.remove(conferenceId)`, a hard removal, while every other conferenc
 
 **`TalkSubmitted`, `TalkWithdrawn` and `InvitedToSpeak` are not triggers**, because they move only
 the speaking axis and leave the commitment where it was — which under the fact-comparison rule
-(§4.4) would produce no email even if they were. `TalkWithdrawn` on a conference Ted is still
-attending is the interesting one and is **Q1** in §9: family were told he is speaking, he no longer
-is, and nothing corrects it.
+(§4.4) would produce no email even if they were. Two consequences, both **accepted 2026-09-10 (Ted,
+Q1)**: a `TalkWithdrawn` on a conference Ted still attends leaves family holding *"His talk was
+accepted"* after it stopped being true, and — the mirror the first review missed — a `TalkAccepted`
+on a conference he had already confirmed on a bought ticket is *also* silent, because the commitment
+was GOING before and is GOING after. The trip is the news and the talk is detail; the alternative
+was splitting `CONFERENCE_GOING` into speaking and not-speaking facts to correct one clause in
+either direction, and it was not worth doubling the vocabulary. **`FamilyNotificationMessagesTest`
+does not need a case for these**, but `NotifyFamilyTest` pins both as *silent*, so a future change
+that makes them send is a decision rather than a drift.
 
 Runtime configuration is only:
 
@@ -674,6 +735,42 @@ writing the binding down. Do not rely on relaxed binding to connect them: an ear
 **not** bind to each other (relaxed binding strips the hyphen, so that env var names
 `jittertravel.family.notify.enabled`). The feature would have shipped permanently dark with nothing
 to show for it. Four lines in `application.properties`, in the same commit as the four variables.
+
+### 4.6 The probe: `POST /admin/family-notify/probe`
+
+**Decided 2026-09-10 (Ted).** Without it there is no way to make the app send an email except a real
+booking, so every step of §3's rollout was a genuine `FlightBooked` in production used as a test
+fixture. The standing rule is *for device or external behaviour, ship an in-app probe on the real
+code path* — the cookie-transport probe already on `/admin` is the precedent and the neighbour.
+
+What it is:
+
+- **OWNER-only**, a matcher in `SecurityConfig` and a row in `AuthorizationMatrixTest`'s `policy()`
+  in the same change — a new route is public until it is listed, and this one sends mail.
+- A **form on `/admin`** beside the cookie probe (Thymeleaf, POST, CSRF), landing back on `/admin`
+  with a flash saying **which address it sent to** and the Brevo response. The address is the whole
+  point: a probe that says "sent" without saying *where* cannot catch the typo §3 exists to catch.
+  Errors render on the page it was submitted from, per the standing rule.
+- It calls **`BrevoEmailClient.send` directly** with a fixed subject and body that say, in the body,
+  that this is a test from JitterTravel and can be ignored. It goes through **no command and writes
+  no event**: the rejected alternative ran `NotifyFamily` end to end and left a `FamilyNotified`
+  with a probe subject in the log — and in every backup — forever, for a message that was never
+  about travel.
+- It **ignores the kill switch** and requires only `configured()`. The switch governs whether
+  bookings notify; the probe's job is to verify the path *before* the switch is flipped, which it
+  cannot do if the switch also gates it. So the probe is what makes "deploy dark, verify, flip" a
+  sequence rather than a contradiction.
+- The Danger Zone rule does not apply: nothing stored is destroyed. It is an ordinary red-free
+  button, and the one word it needs is on its face — *"Send a test email to &lt;address&gt;"* — so the
+  recipient is visible **before** the click, not only in the flash after.
+
+What it is not: a retry for a failed notification, a way to re-send a `FamilyNotified`, or a
+template preview. Each of those would be a feature; this is a wire check.
+
+Tests: a `@WebMvcTest` on the controller asserting the client is called with the configured
+recipient, that the flash names it, and that a `send` that throws renders the error rather than a
+500; the `AuthorizationMatrixTest` row (anonymous 401/redirect, FAMILY 403, OWNER 200 — the matrix
+says the exact shape); and `HoverIsNeverTheAffordanceTest` stays green, since the form adds CSS.
 
 ---
 
@@ -704,7 +801,7 @@ Every field the email needs is on `FlightBooked` itself (`airline`, `flightNumbe
 `FlightItineraryEntry` carries exactly the same set. **No fold needed.**
 
 ```
-Subject: Ted booked a flight to London
+Subject: Ted booked a flight: SFO → LHR
 
 UA 195
 San Francisco (SFO) → London (LHR)
@@ -716,6 +813,18 @@ City names come from `StaticAirportCityResolver` (already a bean with four injec
 come from `ZonedTimestamp.atEntryZone()` — a payload field, never the envelope (R11) — and **the
 zone is labelled**. An unlabelled local time in an email is the `project_flight_history_timestamps`
 bug in a place with no page around it to give context.
+
+**The subject names the route, not the destination city — decided 2026-09-10 (Ted), because of
+layovers.** `BookFlightCommand` emits exactly one `FlightBooked`, and a connection is entered as
+separate flights (see `project_layovers_as_separate_flights`), so SFO → FRA → HAM is **two emails
+minutes apart**. The first draft's subject, *"Ted booked a flight to Frankfurt"*, would have named
+the layover as if it were the trip. With the route in the subject the two mails read as two legs of
+one journey, which is what they are, and it costs nothing. **One email per leg is accepted**: a
+digest that holds flight mails for a window needs a timer and state on the worker, and it reopens
+the at-most-once decision at shutdown — a different design for a cosmetic gain. The subject uses
+the airport codes rather than the city names because the codes are what the body's route line
+repeats, and because a subject that says *"San Francisco → Frankfurt"* for a leg bound for Hamburg
+is the same wrong emphasis in longer words.
 
 ### Conference — needs a fold
 
@@ -770,13 +879,31 @@ Mon 24 Aug – Thu 27 Aug 2026
 Three notes. The exits are **different facts** — Ted withdrew, the organizers cancelled the event,
 the talk was rejected — and CLAUDE.md keeps the first two distinct for good reason, so they get
 distinct wording rather than one shared "not going" template. A decline *does* carry a `reason`
-(free text, may be blank) and `ConferenceCancelled` carries one too; whether either reaches family
-is **Q2** in §9, and the default until answered is no — the email says what happened and not why.
+(free text, may be blank) and `ConferenceCancelled` carries one too; **neither reaches family —
+decided 2026-09-10 (Ted, Q2).** It is text Ted typed for himself in an admin form, the one field in
+these emails not written with an audience in mind, and *"venue flooded"* is a sentence he can send
+himself. The email says what happened and not why, and `FamilyNotificationMessagesTest` asserts the
+reason's text is absent.
 
-**The rejection wording is its own question and is deliberately not settled here.** `NotifiedFact`
-records `CONFERENCE_NOT_GOING` for all three, so the *decision* is uniform, but the sentence is
-chosen from the triggering event, and "his talk was rejected" tells family a submission outcome that
-CLAUDE.md guards carefully — against anonymous viewers, admittedly, and §5's bound is wider. Q4.
+**The rejection is said plainly — decided 2026-09-10 (Ted, Q4).** `NotifiedFact` records
+`CONFERENCE_NOT_GOING` for all three exits, so the *decision* is uniform, but the sentence is chosen
+from the triggering event, and for a `TalkRejected` it reads:
+
+```
+Subject: Ted is no longer going to SoCraTes 2026
+
+SoCraTes 2026
+Mon 24 Aug – Thu 27 Aug 2026
+His talk was rejected, so he is not going.
+```
+
+That is a submission outcome, which CLAUDE.md guards more carefully than anything else about a
+conference — **against anonymous viewers**. §5's bound is "anything an OWNER surface shows", the
+dashboard shows the rejection, and the audience is four people who know his working life. The
+neutral wording was the safe default and was rejected because it says less than family would be told
+in conversation. Note what this does *not* change: the exit is still sent only where a
+`CONFERENCE_GOING` went out first (§4.4), so a rejection on a conference family never heard about
+stays silent — the plain sentence is only ever a correction to something they were already told.
 
 ---
 
@@ -789,7 +916,7 @@ Named here rather than discovered later, per the standing "name the losses out l
    nothing retries it. Chosen deliberately over a boot-time backlog send, whose failure mode —
    emailing the entire flight history on one bad deploy — is far worse and much harder to undo.
    **Since §4.3 the loss leaves a row in `command_log`** — `FAILED_SEND`, or PENDING on a crash.
-   Whether any *surface* volunteers that row depends on §4.3a, which is unbuilt and gated on Q3:
+   Whether any *surface* volunteers that row depends on §4.3a, which is unbuilt (slice 1a, decided):
    today `/admin/pending-commands`, the admin home's `pendingCount` and
    `PendingCommandStartupCheck` all filter `status = 'PENDING'` exactly, so a `FAILED_SEND` shows up
    only under `/admin/commandlog?status=FAILED`. **Do not describe this failure mode as "visible"
@@ -800,8 +927,14 @@ Named here rather than discovered later, per the standing "name the losses out l
    flight this is invisible downstream (there is only ever one `FlightBooked` per `FlightId`); for a
    conference the lost `FamilyNotified` means the fact-comparison in §4.4 has no record of what
    family were told, so the **next** commitment change re-sends from a stale baseline — a
-   re-confirmation would send a second, identical "going" email. Note it inverts the meaning of a
-   PENDING row — see the caveat in §4.3.
+   re-confirmation would send a second, identical "going" email. **The other half, found
+   2026-09-10:** the same lost record makes the positive-first rule in §4.4 misfire in the opposite
+   direction. A "going" mail sent but unrecorded, then a decline — the fold sees no prior
+   `FamilyNotified`, treats the exit as news about a conference family never heard of, and stays
+   **silent**. Family hold a stale "going" with nothing to correct it, which is the one outcome
+   §9.1 was written to prevent. Same root cause, two symptoms; the PENDING `NotifyFamily` row is the
+   only trace of either, which is why a human resolving one needs to know what it means. Note it
+   inverts the meaning of a PENDING row — see the caveat in §4.3.
 3. **Family is told about commitments and never about changes.** `FlightChanged` sends nothing (no
    `FlightCancelled` event exists in the codebase at all), and neither does a `TalkWithdrawn` that
    leaves Ted attending but no longer speaking. **This was the biggest gap in the feature as
@@ -812,6 +945,15 @@ Named here rather than discovered later, per the standing "name the losses out l
 4. **Ordering is not guaranteed against the page.** The email is sent from a worker thread after the
    HTTP response has returned, so family can in principle receive it before Ted's browser finishes
    loading the confirmation page. Harmless here, but true.
+5. **A backfill through the real write path is a real booking to the reactor** (added 2026-09-10).
+   §3 closes the *replay* doors — boot and restore — but a one-off task or a hand-driven backfill
+   that emits a trigger event through `CommandExecutor` goes through `EventStore.append` like any
+   other command, and the reactor cannot tell a backfilled `TalkAccepted` from a fresh one. The
+   2026-08-21 conference backfill was exactly that: real events through the real forms, in
+   production. **Run any backfill with `FAMILY_NOTIFY_ENABLED=false`**, and say so in the task's plan
+   doc, the way `docs/BookingProvenancePlan.md` plans its own backfill. (That particular one emits
+   `*Changed` events, which are not triggers — but the next conference backfill will not be so
+   lucky.) `OneOffTaskCompleted` itself is on the not-notified list and is harmless.
 
 ### Two things that are NOT hazards, checked so nobody re-checks them
 
@@ -845,16 +987,18 @@ and no behaviour change, so the seam is reviewable on its own rather than inside
 **three** amendments to the PENDING invariant (§4.3 — javadoc, boot log, the page's own wording);
 `FamilyNotified` + `NotifiedSubject` + `NotifiedFact` + `NotifyFamilyCommand` + `EventTypes` +
 golden sample; `BrevoEmailClient`; `NotifyFamily` with the fact-comparison fold;
-`FamilyNotificationTranslator`; `FamilyNotificationMessages` with the flight arm only; wiring in
+`FamilyNotificationTranslator`; `FamilyNotificationMessages` with the flight arm only (route in the
+subject, §5); **the probe** (§4.6 — route, matcher, matrix row, `/admin` form); wiring in
 `EventSourcingConfig` (including the kill switch passed in as a `boolean`); the completeness test;
-the four properties **and** the four env vars; the `DEPLOYMENT.md` rows. Deploy dark, verify with
-`FAMILY_NOTIFY_EMAIL` pointed at Ted, then repoint and flip.
+the four properties **and** the four env vars; the `DEPLOYMENT.md` rows. Deploy dark, probe to Ted,
+repoint, probe to family, flip (§3).
 
-**Slice 1a — §4.3a, the failure surface.** Widening `findPendingCommands`/`countPendingCommands`,
-the `FAILED_SEND` arm on `TimelineCommand.statusLabel()`, the page wording. Separate because it
-changes an existing admin surface for *every* command, not just this feature, and it is gated on Q3.
-Ship it with slice 1 if Q3 is answered by then; ship slice 1 without it if not, and correct §6.1's
-wording in that commit rather than leaving the claim standing.
+**Slice 1a — §4.3a, the failure surface.** Widening `findPendingCommands` only (the count and the
+boot warning stay on `PENDING` — Q3, answered), the `FAILED_SEND` arm on
+`TimelineCommand.statusLabel()`, no Abandon/Keep buttons on a failed row, the page wording. Separate
+because it changes an existing admin surface for *every* command, not just this feature. Ship it
+with slice 1; if it slips, correct §6.1's wording in slice 1's commit rather than leaving the claim
+standing.
 
 **Slice 2 — conferences, every commitment transition together.** Adds the `ConferencePlanned` +
 `ConferenceProgress` + cancelled fold, the second `NotifiedSubject` variant, and **five** trigger
@@ -892,23 +1036,31 @@ tells them he is going at all (§4.5).
 - **`NotifyFamilyTest`, the fact-comparison cases — one per row of §4.4's table**, because the table
   is the specification and every row is a bug that shipped in an earlier draft or nearly did:
   confirm ⇒ send; re-confirm with a corrected `basis` ⇒ silent; **confirm then decline ⇒ send** (the
-  case the entity-only key made unreachable); confirm, decline, confirm ⇒ three sends; **decline a
-  conference with no prior `FamilyNotified` ⇒ silent** (the positive-first rule, which is a
-  different rule from the comparison and needs its own test); `TalkAccepted` with no confirmation
-  anywhere ⇒ send `CONFERENCE_GOING` (the auto-commit path, absent from the design until
-  2026-09-10); `TalkRejected` on an `ACCEPTANCE_REQUIRED` conference already notified ⇒ send
-  `CONFERENCE_NOT_GOING`; the same on a `CALL_FOR_PAPERS` conference ⇒ silent, because the
-  commitment does not move.
+  case the entity-only key made unreachable); accept, reject, ticket-confirm on an
+  `ACCEPTANCE_REQUIRED` conference ⇒ three sends (**not** confirm-decline-confirm, which the write
+  path refuses — §4.4); **decline a conference with no prior `FamilyNotified` ⇒ silent** (the
+  positive-first rule, which is a different rule from the comparison and needs its own test);
+  `TalkAccepted` with no confirmation anywhere ⇒ send `CONFERENCE_GOING` (the auto-commit path,
+  absent from the design until 2026-09-10); `TalkRejected` on an `ACCEPTANCE_REQUIRED` conference
+  already notified ⇒ send `CONFERENCE_NOT_GOING`; the same on a `CALL_FOR_PAPERS` conference ⇒
+  silent, because the commitment does not move; **`TalkWithdrawn` after a speaking "going" mail ⇒
+  silent, and `TalkAccepted` after a ticket-bought "going" mail ⇒ silent** (Q1 — both pinned so a
+  change is a decision).
+- `FamilyNotifyProbeControllerTest` (`@WebMvcTest`) — §4.6: the client is called with the configured
+  recipient; the flash names that recipient; a throwing `send` renders the error on `/admin` rather
+  than a 500; the kill switch being `false` does **not** stop the probe. Plus the
+  `AuthorizationMatrixTest` row.
 - `BrevoEmailClientTest` — `MockRestServiceServer`; assert the `api-key` header and the exact JSON
   body; blank key ⇒ no request at all.
 - `FamilyNotificationMessagesTest` — the exact body for each arm, asserted as whole lines rather
   than bare words (the precise-assertions rule); the speaking line is produced on **both** entry
   paths (a confirmation carrying a basis, and an auto-commit carrying none — §5); every
   `AttendanceBasis` value maps to its own sentence; a decline, an organizer cancellation and a
-  rejection produce **different** text; the flight body labels both zones. **Also `doesNotContain`
-  for what is deliberately left out** — a decline says what happened and not why, and no message
-  contains a `reason` field's text until Q2 says otherwise — because absence is the half that stops
-  being pinned when the message is reworded.
+  rejection produce **different** text, and the rejection's says *"His talk was rejected, so he is
+  not going."* (Q4); the flight subject is the route (`SFO → LHR`), asserted as the whole subject
+  line; the flight body labels both zones. **Also `doesNotContain` for what is deliberately left
+  out** — a decline says what happened and not why, and no message contains a `reason` field's text
+  (Q2, settled) — because absence is the half that stops being pinned when the message is reworded.
 - `FamilyNotificationTriggerCompletenessTest` — every `EventTypes`-registered class has an explicit
   notify / do-not-notify decision.
 - `GoldenEventDeserializationTest` case; `EventTypesTest` completeness.
@@ -937,46 +1089,44 @@ tells them he is going at all (§4.5).
    reaches him. `no-reply@` rejected — the audience is family, not customers. → §4.2, §10.
 4. **`AttendanceBasis` is included.** CLAUDE.md's rule about it is written against anonymous
    viewers; family already know his working life. → §5.
-5. **`summary` is dropped** from `FamilyNotified`; both remaining fields are pure. The subject as
-   sent is recoverable by folding the log to that event's own sequence. → §4.4.
+5. **`summary` is dropped** from `FamilyNotified`; the remaining fields are pure (two on
+   2026-09-09; three since `fact` was added the next day). The subject as sent is recoverable by
+   folding the log to that event's own sequence. → §4.4.
 6. **New, created by (4): the content bound is now "anything an OWNER surface shows."** `/itinerary`
    no longer bounds it. The deny-list risk that creates, and the two things holding it honest, are
    in §5 — the important one being **do not refactor the messages to render from a shared view
    record**.
 
-### Opened by the 2026-09-10 review — these need Ted
+### Opened by the 2026-09-10 review — all answered by Ted the same day
 
-Ordered by what blocks what. **Q3 blocks slice 1a; Q1, Q2 and Q4 block slice 2; Q5 is a chance to
-overrule a call already folded in.** Slice 0 and slice 1 are buildable as written.
+Kept with their options so the reasoning survives; the answer and where it landed are in bold at the
+end of each. **Nothing here blocks a slice any more.**
 
 **Q1 — does family hear when Ted stops speaking but still attends?** `TalkWithdrawn` leaves the
 commitment where it was, so under the fact-comparison rule it sends nothing. But the "going" email
 family received said *"His talk was accepted."*, and after a withdrawal that sentence is false while
-the trip is still on. Three ways out: (a) leave it — the trip is the news, the talk is detail, and
-family will hear about it in conversation; (b) add a `CONFERENCE_GOING_NOT_SPEAKING` fact, making
-`TalkWithdrawn` a trigger and the speaking status part of what is compared; (c) drop the speaking
-line from the email entirely, so nothing can go stale. **My read: (a).** The feature is
-"family learn about the trip", and (b) doubles the fact vocabulary to correct one clause. But (c) is
-the honest answer if you would rather the emails never say anything they might later contradict.
+the trip is still on. The second review added the mirror: `TalkAccepted` after a ticket-bought
+"going" mail is silent too, though it is news. Three ways out: (a) leave it — the trip is the news,
+the talk is detail, and family will hear about it in conversation; (b) split `CONFERENCE_GOING` into
+speaking and not-speaking facts, making `TalkWithdrawn` and `TalkAccepted` triggers and the speaking
+status part of what is compared; (c) drop the speaking line from the email entirely, so nothing can
+go stale. **Answered: (a), silent.** → §4.5, and both cases pinned as silent in `NotifyFamilyTest`.
 
 **Q2 — does the `reason` on a decline or an organizer cancellation reach family?** Both
 `ConferenceAttendanceDeclined` and `ConferenceCancelled` carry free text (may be blank). §5's bound
 permits it, and *"the organizers cancelled — venue flooded"* is exactly the sentence a person would
 send. Against: it is free text Ted wrote for himself in an admin form, so it is the one field in
-these emails not written with an audience in mind. Default until answered: **not included**, which
-is what `FamilyNotificationMessagesTest` asserts.
+these emails not written with an audience in mind. **Answered: not included.** → §5.
 
 **Q3 — should `/admin/pending-commands` list failed commands, or only pending ones?** §4.3a. The
 narrow fix is to widen `findPendingCommands` to `status = 'PENDING' OR status LIKE 'FAILED%'` and
 rename the page's heading accordingly. The consequence is not local: `countPendingCommands` feeds
 the `pendingCount` badge on the admin home and `PendingCommandStartupCheck`'s boot warning, so
 widening it makes **every** past `FAILED_DOMAIN` row — a bad form submission from a year ago —
-resurface as something demanding attention. Options: (a) widen both, and add an "abandon" for
-failed rows so the list can be emptied; (b) widen only the *list*, leave the count and the boot
-warning on PENDING; (c) leave it alone and give `FamilyNotified` failures their own line on the
-admin home instead. **My read: (b)** — it is the smallest change that makes the row findable, and
-it does not turn a boot warning into noise. But (a) is the one that actually makes the surface
-mean "things needing a human", which is what it is for.
+resurface as something demanding attention. Options: (a) widen both, and relax the abandon action's
+`status = 'PENDING'` guard so the list can be emptied; (b) widen only the *list*, leave the count
+and the boot warning on PENDING; (c) leave it alone and give `FamilyNotified` failures their own
+line on the admin home instead. **Answered: (b).** → §4.3a, slice 1a.
 
 **Q4 — what does the email say when a rejection drops a conference?** `TalkRejected` on an
 `ACCEPTANCE_REQUIRED` conference removes it from every calendar. Family were told he is going, so
@@ -986,16 +1136,32 @@ outcome, which CLAUDE.md guards more carefully than anything else about a confer
 life, so this is not a redaction violation — it is a question about what Ted wants said. Options:
 (a) say it plainly; (b) use the neutral *"Ted is no longer going to X"* used for the other two exits,
 which says the true and useful thing without the outcome; (c) do not send at all for this path.
-**My read: (b)** — it is the one exit wording that is already written, it needs no new decision
-about what family should know, and (c) reintroduces the stale-fact problem §9.1 refuses.
+**Answered: (a), say it plainly** — the reviewer's read was (b), and Ted overruled it: within the
+bound, and less than family would be told in conversation is the wrong amount. → §5.
 
 **Q5 — store `NotifiedFact` on the event, or recompute it by folding to that event's sequence?**
 §4.4 folds in the stored field. The alternative is purer and is the same argument that dropped
 `summary` on 2026-09-09: fold the log to the sequence of the last `FamilyNotified` and recompute
 what was true then, storing nothing derived. It costs a sequence-aware fold that nothing in the
 codebase does today, and it makes the "what did we tell family" answer change if the folding rules
-ever change. Stated because the `summary` decision is recent and the reasoning here deliberately
-does not follow it.
+ever change. **Answered: stored.** → §4.4.
+
+### Opened by the second 2026-09-10 pass — answered in the same sitting
+
+**Q6 — one email per leg?** A multi-leg trip is one `FlightBooked` per leg, so two or three mails
+minutes apart, the first of them titled for the layover city. Options: one per leg with the route
+in the subject; one per leg as drafted; a digest window. **Answered: one per leg, route in the
+subject.** → §5.
+
+**Q7 — a probe, or verify with real bookings?** The rollout needed three genuine bookings. Options:
+an OWNER-only admin probe through the real client writing nothing; a probe through the full command
+path leaving a `FamilyNotified` in the log; no probe. **Answered: the probe, writing nothing.**
+→ §4.6, §3.
+
+**Q8 — CLAUDE.md's restore section says pass two applies events "via `CommandExecutor`".** The code
+and §3(2) say pass two goes straight to `persister.restoreCommandsAndEvents`. That sentence is the
+one that makes restore safe from the reactor, so a stale version of it is the kind of thing a future
+reader would act on. **Answered: fix CLAUDE.md now**, in the same commit as this revision.
 
 ### Still open from 2026-09-09
 
@@ -1020,15 +1186,17 @@ does not follow it.
       *Skipped ⇒ mail is accepted by the API and lands in spam, which looks exactly like the feature
       not working.* **Before the push.**
 - [ ] `BREVO_API_KEY` set on the **app** Railway service (secret; variables are scoped per service).
-- [ ] `FAMILY_NOTIFY_EMAIL` set on the app service — **Ted's own address for the first rollout**,
-      repointed at the family address or group alias only after one real notification has been
-      received and read (§3, "Deploy dark"). *Skipped ⇒ the first email family ever get is also the
-      first anyone has seen, and a typo sends travel detail to a stranger.*
+- [ ] `FAMILY_NOTIFY_EMAIL` set on the app service — **Ted's own address for the first rollout**.
+      Run the probe (§4.6) from `/admin`, read the mail, check it is not in spam. *Skipped ⇒ the
+      first email family ever get is also the first anyone has seen, and a typo sends travel detail
+      to a stranger.* **After the rollout.**
+- [ ] `FAMILY_NOTIFY_EMAIL` repointed at the family address or group alias; probe again, and confirm
+      with them that the test mail arrived. **After the step above.**
 - [ ] `TED_REPLY_EMAIL` set on the app service — where a family reply lands (§9.3). *Skipped ⇒
-      replies go to the unattended `notifications@` mailbox and are never seen.* **After the
-      rollout**, but before telling family the emails are live.
-- [ ] `FAMILY_NOTIFY_ENABLED` left `false` for the first rollout; flipped to `true` only after a
-      real booking is confirmed to have produced no email and no `FamilyNotified`.
+      replies go to the unattended `notifications@` mailbox and are never seen.* **Before the family
+      probe**, so the reply to the test mail is itself the check.
+- [ ] `FAMILY_NOTIFY_ENABLED` left `false` for the first rollout; flipped to `true` only after both
+      probes above have been received. No real booking is needed to verify anything before the flip.
       *Skipped ⇒ the first booking after the rollout emails family from an unverified sender.*
       **After the rollout.** (Named `FAMILY_NOTIFY_ENABLED`, not
       `JITTERTRAVEL_FAMILY_NOTIFY_ENABLED` — see §4.5 for why the longer name does not bind.)

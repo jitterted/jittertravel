@@ -181,20 +181,22 @@ down when it is created does not get written down later.
 - [ ] **Test isolation: the test half is enforced, the production half is not.**
       Raised by Ted 2026-09-06 (*"if the tests can't be isolated due to production code, that is
       absolutely a problem with the implementation"*); designed and built the same day, parked on a
-      misdiagnosed deadlock, **and the test half shipped 2026-09-11**. What is left open is
+      misdiagnosed deadlock, **and the test half shipped 2026-09-12**. What is left open is
       `/admin/database`: a truncate or restore still leaves `EventStore` stale in a running app.
       The rule itself is in CLAUDE.md, "Every test is isolated".
 
       **The problem.** `EventStore` fills its in-memory event list once at boot and only ever
-      appends. No database truncation reaches it, so the seven integration classes sharing a Spring
-      context shared event state — with each other and, because the container is `withReuse(true)`,
-      with previous runs. `CommandExecutor.eventsForDecision()` folds **every write-path decision**
+      appends. No database truncation reaches it, so the **five** integration classes whose context
+      holds an `EventStore` shared event state — with each other and, because the container is
+      `withReuse(true)`, with previous runs. (Seven classes extend the base; `PostgresPersisterTest`
+      is a `@JdbcTest` slice with no such bean and a context of its own, and `BootReplayPreflightTest`
+      is tag-excluded from the default build.) `CommandExecutor.eventsForDecision()` folds **every write-path decision**
       from that list, which is why this was never only a test problem: `/admin/database` truncate
       and restore both leave it wrong — **still true today** — and a stale entry can make the domain
       refuse a booking that is fine. Invisible until 2026-09-06 because every earlier fold asked
       about one specific id; the overlapping-legs rule is the first cross-aggregate question.
 
-      **The test half SHIPPED 2026-09-11**, and the deadlock that parked it was a misdiagnosis —
+      **The test half SHIPPED 2026-09-12** (commit `72e216b`), and the deadlock that parked it was a misdiagnosis —
       see below. Three of the four reverted pieces are back, plus a fourth the pre-commit review
       added:
       1. `EventStore.reload()` — the boot replay extracted so it can run more than once. A failed
@@ -209,8 +211,12 @@ down when it is created does not get written down later.
          **asserting the store is empty** — the assertion is the point, so the next leak fails
          loudly. Injected as `ObjectProvider<EventStore>`, because `PostgresPersisterTest` extends
          the base class with a `@JdbcTest` context that has no such bean. Remove the `reload()` and
-         **16** methods fail on it by name — every method of the five classes whose context has an
-         `EventStore`, which is how much was leaking. `ifAvailable` is the one place this design
+         methods start failing on it by name, across the five classes whose context has an
+         `EventStore` — **12 of 16 on the run that measured it** (2026-09-12), which is how much was
+         leaking. **The count is order-dependent and always will be**: a method whose predecessor
+         happened to write nothing starts with an empty store anyway, and the order is now shuffled.
+         So treat any number here as one observation, never as a property of the code — 16 is the
+         method count, not the failure count. `ifAvailable` is the one place this design
          degrades quietly: an integration test whose context ever loses the bean gets no guard and
          no signal. One of seven subclasses today, and named in the comment.
       3. `<runOrder>random</runOrder>` in the Surefire config, so order-dependence fails on the run
@@ -230,14 +236,14 @@ down when it is created does not get written down later.
          or not at all. Both seeds have to be passed back to reproduce a run exactly.
          The whole suite was run with methods shuffled before this landed: **green**, so there is
          no method-level order-dependence in the tree today.
-      4. **`EventStoreTest` cases for `reload()` itself** (added 2026-09-11 in review, before the
-         commit). The `@BeforeEach` guard asserts the store is *empty* immediately after the `@Sql`
+      4. **`EventStoreTest` cases for `reload()` itself** (added in review, before the commit). The `@BeforeEach` guard asserts the store is *empty* immediately after the `@Sql`
          truncate, so it **cannot distinguish a real reload from a bare `events.clear()`** —
-         demonstrated by deleting the re-read, which left all 2413 tests green. It also left the
+         demonstrated by deleting the re-read, which left the whole suite green — all **2411** tests
+         as it then stood, the two cases below being what took it to 2413. It also left the
          *boot replay* unguarded, which it had been all along. Two unit cases now carry the
          contract: reload **replaces** the list from the durable log and re-points `nextSequence`,
          and a **failed** load leaves the previous list in place and **latches** read-only.
-         Mutation-verified five ways — drop the re-read (2 fail), drop the clear (1), move the
+         Mutation-verified five ways — drop the re-read (2 fail), drop the clear (**2**), move the
          clear before the load (1), drop the `nextSequence` set (1), lift read-only on a successful
          reload (1). The lesson generalises past this item: **a guard that asserts a component is
          empty proves the emptying, never the refilling.**
@@ -247,6 +253,41 @@ down when it is created does not get written down later.
          "enters read-only" was extended to reload successfully afterwards and assert it is still
          read-only. Written down and mutation-verified are different claims, and only the second
          one survives a refactor.
+
+      **The post-commit review found one thing in the code, fixed 2026-09-12: `reload()` read the
+      log twice.** It took `nextSequence` from `persister.getMaxSequence()` — a separate
+      `SELECT COALESCE(MAX(sequence), 0) FROM event_log` — and the rows from `loadAllEvents()`. Two
+      reads of one table are not atomic with each other, so a row landing between them left
+      `nextSequence` pointing at a sequence the list already held and the next `append` would
+      collide on the primary key. Narrow while `reload()` ran only at boot under a single writer,
+      which is exactly why it was worth closing *here*: the point of this item is that `reload()`
+      becomes reachable at runtime, and one of the two named future callers (restore) writes rows
+      through the persister directly. `loadAllEvents()` is `ORDER BY sequence`, so the last row it
+      returns **is** the maximum — one read that cannot disagree with itself.
+
+      `getMaxSequence()` had no other caller and was **deleted** along with the second read, plus
+      its one assertion in `PostgresPersisterTest`: leaving a public `MAX(sequence)` query on the
+      persister is leaving the bug one call away, and deletion is a guard no test has to remember.
+      The ordering it now depends on was **unpinned**, so `loadAllEvents`'s `ORDER BY` has a test of
+      its own (rows written 3, 1, 2 and read back 1, 2, 3 — Postgres returns heap order without it).
+      Also renamed the log line from `Replayed N events` to `Loaded N events`: at runtime the old
+      wording claims the projectors were replayed, which is the one thing `reload()` documents that
+      it does not do.
+
+      Three more mutations on top of the five above, all caught: drop the `ORDER BY` (1 fail), take
+      the first row's sequence instead of the last (1), and start an empty log at 0 instead of 1 (1).
+      The second of those **only** fails because the reload case now holds two rows with a gap in
+      their sequences, written in the wrong order — with the single row it had, first and last were
+      the same event and the mutation passed. A fixture of one proves nothing about *which* one.
+
+      **Also still open on the test side: nothing returns the projectors to a known state**, and
+      unlike the event store nothing asserts it either. Checked 2026-09-12: none of the five classes
+      reads a projection today (they autowire `PostgresPersister`, `BackupService`, `FlightBooking`,
+      `HotelBooking`, `LegacyEventMigration`), so this is latent rather than live — but the next
+      integration test that asserts on a projection gets state from whatever ran before it, with no
+      guard failing by name. That is the shape of the bug this whole item fixed, one layer out. It is
+      the same question as the production half below, because the answer is the same mechanism, so
+      decide it there rather than bolting a projector reset onto the base class.
 
       The fourth *reverted* piece — an `AFTER_TEST_METHOD` truncate — **is not coming back, and was
       never needed.**
@@ -259,7 +300,7 @@ down when it is created does not get written down later.
       `CommandExecutor.eventsForDecision()` folds every write-path decision from it — so a stale
       entry can still make the domain refuse a booking that is fine. Note that `reload()` alone is
       not the whole answer there: the projectors are stale too and only a restart rebuilds them,
-      which is what the "Surface *restart needed* after a truncate" item above is about. Decide
+      which is what the "Surface *restart needed* after a truncate" item below is about. Decide
       those two together.
 
       **Decide the guard with them, and an arch test is the wrong one.** Asked 2026-09-12 (Ted):

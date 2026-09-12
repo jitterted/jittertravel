@@ -271,9 +271,28 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
                 .isEqualTo(1L);
         assertThat(((ConferencePlanned) persister.loadAllEvents().getFirst().payload()).name())
                 .isEqualTo("Test Conference");
+    }
 
-        assertThat(persister.getMaxSequence())
-                .isEqualTo(1L);
+    /**
+     * {@code loadAllEvents()} orders by sequence, and that is <strong>contract</strong>:
+     * {@code EventStore.reload()} takes its next sequence from the last row, so a dropped
+     * {@code ORDER BY} would hand the store a sequence the log already holds and the next append
+     * would collide on the primary key. Rows are written out of order here because Postgres
+     * returns heap order without one, so nothing else in this class would notice.
+     */
+    @Test
+    void loadAllEventsReturnsEventsInSequenceOrderHoweverTheyWereWritten() {
+        for (long sequence : new long[]{3L, 1L, 2L}) {
+            UUID commandId = UUID.randomUUID();
+            PlanConferenceRequest request = newRequest(commandId, "Conference " + sequence);
+            persister.saveCommand(commandId, request);
+            persister.appendEvents(List.of(storedEvent(sequence, commandId, "Conference " + sequence, request)), commandId);
+        }
+
+        assertThat(persister.loadAllEvents())
+                .extracting(StoredEvent::sequence)
+                .as("the last row is the highest sequence, which is what reload() relies on")
+                .containsExactly(1L, 2L, 3L);
     }
 
     @Test

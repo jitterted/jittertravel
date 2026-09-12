@@ -223,7 +223,12 @@ has **4 call sites** (1 production, 3 test), so the extra constructor parameter 
 3. **The `Executor` is injected, so tests are deterministic.** Pass `Runnable::run` and delivery is
    same-thread and ordered; production passes the real one. Async-ness becomes a wiring decision
    rather than something baked into each processor — which also keeps this feature out of the
-   open test-isolation problem instead of adding to it.
+   test-isolation problem instead of adding to it. (That problem's **test half shipped 2026-09-12**:
+   `EventStore.reload()` plus a reset-and-assert `@BeforeEach` in
+   `AbstractTestcontainerIntegrationTest`, with the run order shuffled. What is still open is the
+   production half — an `/admin/database` truncate or restore — and the projectors, which no reset
+   reaches in either place. Same conclusion for this plan either way: a reactor whose delivery is
+   same-thread and ordered in tests adds nothing to it.)
 
    **`Runnable::run` is only safe where the reactor under test does not itself append**, and that
    restriction is not optional: it is byte-for-byte the `CallerRunsPolicy` interleaving banned two

@@ -129,7 +129,7 @@ class BackupRestoreRoundTripTest extends AbstractTestcontainerIntegrationTest {
 
     /**
      * Every booking gets its <strong>own</strong> window, derived from its own id. This was
-     * load-bearing until 2026-09-11 and is now belt-and-braces; it stays because it costs nothing.
+     * load-bearing until 2026-09-12 and is now belt-and-braces; it stays because it costs nothing.
      * <p>
      * It was written when nothing returned {@code EventStore}'s in-memory event list to a known
      * state: the list is filled at boot and only ever appended to, while the {@code @Sql}

@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import static java.util.Comparator.comparingLong;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -83,17 +84,20 @@ class EventStoreTest {
                 .as("the constructor's boot replay reads the durable log")
                 .hasSize(2);
 
-        persister.holds(storedEvent(7, new DummyEvent3()));
+        // Two rows, with a hole in the sequences and written in the wrong order: the next sequence
+        // has to come from the HIGHEST row, which a single-row log cannot tell from the first one,
+        // and the log is read back in sequence order however the rows went in.
+        persister.holds(storedEvent(9, new DummyEvent3()), storedEvent(7, new DummyEvent3()));
         eventStore.reload();
 
         assertThat(eventStore.findAll().map(StoredEvent::payload))
                 .as("reload replaces the in-memory list rather than adding to it")
-                .containsExactly(new DummyEvent3());
+                .containsExactly(new DummyEvent3(), new DummyEvent3());
 
         eventStore.append(Stream.of(new DummyEvent1()), UUID.randomUUID());
         assertThat(eventStore.findAll().map(StoredEvent::sequence))
-                .as("the next sequence continues the reloaded log, not the one replaced")
-                .containsExactly(7L, 8L);
+                .as("the next sequence continues past the highest of the reloaded log, not the log it replaced")
+                .containsExactly(7L, 9L, 10L);
     }
 
     @Test
@@ -145,6 +149,11 @@ class EventStoreTest {
      * Appending is not reflected in what a later load returns; nothing here appends and then
      * reloads, and a fake that kept the two in step would be claiming a fidelity it has not been
      * asked for.
+     * <p>
+     * It does however <strong>sort by sequence on load</strong>, because the real
+     * {@code loadAllEvents()} is {@code ORDER BY sequence} and {@link EventStore#reload()} takes
+     * its next sequence from the last row. A fake handing back insertion order would let a case
+     * pass on an ordering the database never produces.
      */
     private static final class InMemoryPersister extends PostgresPersister {
         private List<StoredEvent> stored = List.of();
@@ -171,15 +180,13 @@ class EventStoreTest {
             appendFails = true;
         }
 
-        @Override public long getMaxSequence() {
-            return stored.stream().mapToLong(StoredEvent::sequence).max().orElse(0);
-        }
-
         @Override public List<StoredEvent> loadAllEvents() {
             if (loadFails) {
                 throw new RuntimeException("simulated DB failure");
             }
-            return stored;
+            return stored.stream()
+                    .sorted(comparingLong(StoredEvent::sequence))
+                    .toList();
         }
 
         @Override public void appendEvents(List<StoredEvent> events, UUID commandId) {

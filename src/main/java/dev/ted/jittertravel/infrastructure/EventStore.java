@@ -67,6 +67,14 @@ public class EventStore {
      * reason {@link #append} persists before it notifies: the in-memory view never gets ahead of
      * what is durable.
      *
+     * <p><strong>{@code nextSequence} comes from the loaded list, not from a second query, and that
+     * is not only a saved round trip.</strong> A separate {@code MAX(sequence)} read is not atomic
+     * with the read of the rows: a row landing between the two leaves {@code nextSequence} pointing
+     * at a sequence the list already holds, and the next {@link #append} collides on the
+     * {@code event_log} primary key. {@code loadAllEvents()} is {@code ORDER BY sequence}, so the
+     * last row it returns <em>is</em> the maximum — one read that cannot disagree with itself. Do
+     * not re-introduce the second query.
+     *
      * <p>Read-only is a <strong>one-way latch, and a later successful reload does not lift it</strong>
      * — only a restart does. That is deliberate rather than an oversight: read-only means something
      * went wrong that a person should look at, and a store that quietly healed itself on the next
@@ -76,12 +84,15 @@ public class EventStore {
     public final void reload() {
         synchronized (transactionLock) {
             try {
-                long maxSeq = persister.getMaxSequence();
                 List<StoredEvent> existingEvents = persister.loadAllEvents();
                 events.clear();
                 events.addAll(existingEvents);
-                nextSequence.set(maxSeq + 1);
-                log.info("Replayed {} events from persistent store. Next sequence: {}", existingEvents.size(), nextSequence.get());
+                nextSequence.set(existingEvents.isEmpty()
+                                 ? 1
+                                 : existingEvents.getLast().sequence() + 1);
+                // "Loaded", not "Replayed": this fills the in-memory list and nothing else — the
+                // read models are rebuilt by ProjectorBootstrapper at boot and not at all here.
+                log.info("Loaded {} events from persistent store. Next sequence: {}", existingEvents.size(), nextSequence.get());
             } catch (Exception e) {
                 log.error("Failed to Load and Process ALL Events from persistent store. Entering read-only mode.", e);
                 isReadOnly.set(true);

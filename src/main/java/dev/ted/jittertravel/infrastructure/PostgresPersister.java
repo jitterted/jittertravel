@@ -551,13 +551,14 @@ public class PostgresPersister {
         return new HashSet<>(found);
     }
 
-    public long getMaxSequence() {
-        // Returns max event sequence number, but if there are no events yet, returns 0.
-        return jdbcClient.sql("SELECT COALESCE(MAX(sequence), 0) FROM event_log")
-                .query(Long.class)
-                .single();
-    }
-
+    /**
+     * Every stored event, oldest first. <strong>The ordering is contract, not convenience</strong>:
+     * {@code EventStore.reload()} takes its next sequence from the last row this returns, which is
+     * what lets it fill the list and pick the sequence in one non-divergent read. A
+     * {@code MAX(sequence)} query used to live beside this one and was deleted with the second read
+     * (2026-09-12) — see {@code EventStore.reload()} for why re-adding one is a bug and not an
+     * optimisation.
+     */
     public List<StoredEvent> loadAllEvents() {
         return jdbcClient.sql("""
                         SELECT sequence,

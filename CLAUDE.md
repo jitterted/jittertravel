@@ -816,7 +816,7 @@ be returned to a known state is one the app itself cannot return to a known stat
 simply the first thing to notice. Do **not** reach for `@DirtiesContext`, and do not quietly arrange
 fixtures so they stop colliding: both hide the report instead of acting on it.
 
-**Enforced for the event store since 2026-09-11, and enforced by an assertion rather than by
+**Enforced for the event store since 2026-09-12, and enforced by an assertion rather than by
 hope.** `EventStore` fills its in-memory event list once at boot and only ever appends, so no
 database truncation reaches it; every integration test sharing a Spring context therefore shared
 event state — with its siblings and, the container being reused, with previous runs.
@@ -829,17 +829,29 @@ What is in place today, and what is not:
 
 - **`EventStore.reload()`** re-reads the log into the in-memory list, and
   `AbstractTestcontainerIntegrationTest` calls it in a `@BeforeEach` that then **asserts the store
-  is empty**. The assertion is the guard: remove the `reload()` and **every method of the five
-  integration classes whose context has an `EventStore`** fails on it by name — 16 of them on the
-  run that measured it — which is how much state was leaking before.
+  is empty**. The assertion is the guard: remove the `reload()` and methods across **the five
+  integration classes whose context has an `EventStore`** fail on it by name — 12 of those 16
+  methods on the run that measured it — which is how much state was leaking before. Treat any such
+  count as one observation: a method whose predecessor wrote nothing starts clean anyway, and the
+  order is shuffled, so the number moves run to run.
+  **`reload()` reads the log once.** `nextSequence` comes from the last row `loadAllEvents()`
+  returns (it is `ORDER BY sequence`), never from a separate `MAX(sequence)` query — two reads of
+  one table are not atomic, and a row landing between them points `nextSequence` at a sequence the
+  list already holds, so the next `append` collides on the primary key. The `MAX` query was deleted
+  outright (2026-09-12) rather than left unused, and `loadAllEvents`'s ordering now has a test of
+  its own, because the sequence rule depends on it.
 - **`EventStoreTest` covers `reload()` directly, and this is not optional.** The `@BeforeEach`
   guard asserts the store is *empty* right after the `@Sql` truncate, so it cannot tell a real
   reload from a bare `events.clear()` — verified by deleting the re-read, which left the whole
   suite green. Two unit cases carry the contract instead: that reload **replaces** the list from
   the durable log and re-points `nextSequence` at it, and that a **failed** load leaves the
-  previous list in place and **latches** read-only. Mutation-verified five ways (drop the re-read,
+  previous list in place and **latches** read-only. Mutation-verified eight ways (drop the re-read,
   drop the clear, move the clear before the load, drop the `nextSequence` set, lift read-only on a
-  successful reload) — each fails the assertion that claims it. Note what the second case pins:
+  successful reload, drop `loadAllEvents`'s `ORDER BY`, take the first row's sequence rather than
+  the last, start an empty log at 0) — each fails the assertion that claims it. The first-vs-last
+  one only fails because the reload case holds **two** rows with a gap in their sequences, written
+  in the wrong order; with the single row it shipped with, first and last were the same event and
+  the mutation passed. **A fixture of one proves nothing about *which* one.** Note what the second case pins:
   the store's read-only latch is one-way, and a later successful reload does **not** lift it —
   it reloads, fails, then reloads successfully and asserts the store is read-only still. That last
   assertion arrived in the pre-push review, where the latch was written down in three places and
@@ -867,6 +879,11 @@ What is in place today, and what is not:
   those too and only a restart rebuilds them, so the two questions want answering together; see
   **"Test isolation: the test half is enforced, the production half is not"** in
   `docs/Cleanup_Tasks.md`.
+- **Still open — the projectors, in tests too.** The `@BeforeEach` guard returns the *event store*
+  to a known state and says so; nothing returns the projectors, and nothing asserts it. No
+  integration test reads a projection today, so it is latent — but if you add one that does, it
+  sees whatever ran before it and no guard fails by name. Raise it against the open item above
+  rather than bolting a reset onto the base class; the mechanism is the same question.
 - **No longer load-bearing:** `BackupRestoreRoundTripTest` derives each booking's window from its
   own flight id. That was the workaround while the base class was untouched; it is harmless and
   stays, but the guard is what keeps that test green now.

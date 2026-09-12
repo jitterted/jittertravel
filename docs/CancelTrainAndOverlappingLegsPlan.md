@@ -693,9 +693,17 @@ what surfaced that.
    event list that `eventsForDecision()` folds from — so one case's flight was still visible to the
    next, and a shared window made the second booking a collision. **Every earlier fold asked about a
    specific id** ("does *this* trip exist?"), so stale events from another case were harmless; this
-   is the first *cross-aggregate* question in the codebase and therefore the first to notice. Fixed
-   by staggering the fixtures, with the reason written into the helper. Not a production bug: the
-   same divergence after a truncate is why a restore requires a restart.
+   is the first *cross-aggregate* question in the codebase and therefore the first to notice.
+   Worked around at the time by staggering the fixtures, with the reason written into the helper.
+   Not a production bug: the same divergence after a truncate is why a restore requires a restart.
+
+   **Superseded 2026-09-12, and the workaround is the part to *not* copy.** Staggering fixtures so
+   they stop colliding is what CLAUDE.md now names as the wrong move — a component that cannot be
+   returned to a known state is one the app cannot return to a known state either. `EventStore`
+   gained `reload()` and `AbstractTestcontainerIntegrationTest` a `@BeforeEach` that reloads and
+   **asserts the store is empty**, so a leak now fails by name; the staggered windows stay as
+   belt-and-braces and are no longer what keeps that test green. See "Test isolation: the test half
+   is enforced, the production half is not" in `Cleanup_Tasks.md`.
 2. **`NoFullyQualifiedClassReferencesTest` earned its keep**, catching an FQCN left in a test
    helper's return type.
 3. **The dependency this plan warned about was overstated.** It said the flight forms "print one

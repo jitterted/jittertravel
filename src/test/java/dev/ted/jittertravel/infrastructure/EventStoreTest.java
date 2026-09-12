@@ -22,7 +22,7 @@ class EventStoreTest {
 
     @Test
     void appendingEventsAssignsSequencesAndNotifiesSubscribers() {
-        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), mockPersister(), FIXED_CLOCK);
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), new InMemoryPersister(), FIXED_CLOCK);
         List<StoredEvent> receivedEvents = new ArrayList<>();
         eventStore.subscribe(eventStream -> receivedEvents.addAll(eventStream.toList()));
 
@@ -59,7 +59,9 @@ class EventStoreTest {
 
     @Test
     void subscribersNotNotifiedWhenPersistenceFails() {
-        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), failingPersister(), FIXED_CLOCK);
+        InMemoryPersister persister = new InMemoryPersister();
+        persister.failOnAppend();
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), persister, FIXED_CLOCK);
         List<StoredEvent> receivedEvents = new ArrayList<>();
         eventStore.subscribe(eventStream -> receivedEvents.addAll(eventStream.toList()));
 
@@ -71,22 +73,120 @@ class EventStoreTest {
                 .isEmpty();
     }
 
-    private PostgresPersister failingPersister() {
-        return new PostgresPersister(null, null, null, FIXED_CLOCK) {
-            @Override public long getMaxSequence() { return 0; }
-            @Override public List<StoredEvent> loadAllEvents() { return List.of(); }
-            @Override public void appendEvents(List<StoredEvent> events, UUID commandId) {
-                throw new RuntimeException("simulated DB failure");
-            }
-        };
+    @Test
+    void reloadReplacesTheInMemoryEventsWithWhatTheDurableStoreNowHolds() {
+        InMemoryPersister persister = new InMemoryPersister();
+        persister.holds(storedEvent(1, new DummyEvent1()), storedEvent(2, new DummyEvent2()));
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), persister, FIXED_CLOCK);
+
+        assertThat(eventStore.findAll())
+                .as("the constructor's boot replay reads the durable log")
+                .hasSize(2);
+
+        persister.holds(storedEvent(7, new DummyEvent3()));
+        eventStore.reload();
+
+        assertThat(eventStore.findAll().map(StoredEvent::payload))
+                .as("reload replaces the in-memory list rather than adding to it")
+                .containsExactly(new DummyEvent3());
+
+        eventStore.append(Stream.of(new DummyEvent1()), UUID.randomUUID());
+        assertThat(eventStore.findAll().map(StoredEvent::sequence))
+                .as("the next sequence continues the reloaded log, not the one replaced")
+                .containsExactly(7L, 8L);
     }
 
-    private PostgresPersister mockPersister() {
-        return new PostgresPersister(null, null, null, FIXED_CLOCK) {
-            @Override public long getMaxSequence() { return 0; }
-            @Override public List<StoredEvent> loadAllEvents() { return List.of(); }
-            @Override public void appendEvents(List<StoredEvent> events, UUID commandId) {}
-        };
+    @Test
+    void failedReloadKeepsThePreviousEventsAndLatchesReadOnly() {
+        InMemoryPersister persister = new InMemoryPersister();
+        persister.holds(storedEvent(1, new DummyEvent1()));
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), persister, FIXED_CLOCK);
+
+        persister.failOnLoad();
+        eventStore.reload();
+
+        assertThat(eventStore.findAll().map(StoredEvent::payload))
+                .as("a reload that cannot read the log leaves the previous events in place")
+                .containsExactly(new DummyEvent1());
+        assertThat(eventStore.isReadOnly())
+                .as("a reload that cannot read the log enters read-only mode")
+                .isTrue();
+
+        persister.loadsAgain();
+        persister.holds(storedEvent(2, new DummyEvent2()));
+        eventStore.reload();
+
+        assertThat(eventStore.findAll().map(StoredEvent::payload))
+                .as("the recovered reload still replaces the list")
+                .containsExactly(new DummyEvent2());
+        assertThat(eventStore.isReadOnly())
+                .as("read-only is a one-way latch: a later successful reload does not lift it, only a restart does")
+                .isTrue();
+    }
+
+    private StoredEvent storedEvent(long sequence, Event payload) {
+        return new StoredEvent(
+                sequence,
+                payload.getClass(),
+                UUID.randomUUID(),
+                Instant.now(FIXED_CLOCK),
+                payload,
+                UUID.randomUUID()
+        );
+    }
+
+    /**
+     * Stands in for the database, and for what it can do to a store running on top of it: `holds`
+     * is a truncate-and-refill of the log underneath one, `failOnLoad`/`loadsAgain` are the log
+     * becoming unreadable and then readable again — the second being what the store must read and
+     * still not treat as reason to leave read-only — and `failOnAppend` is a write that does not
+     * land. Fresh, it is an empty readable log, which is what most cases here want.
+     * <p>
+     * Appending is not reflected in what a later load returns; nothing here appends and then
+     * reloads, and a fake that kept the two in step would be claiming a fidelity it has not been
+     * asked for.
+     */
+    private static final class InMemoryPersister extends PostgresPersister {
+        private List<StoredEvent> stored = List.of();
+        private boolean loadFails;
+        private boolean appendFails;
+
+        private InMemoryPersister() {
+            super(null, null, null, FIXED_CLOCK);
+        }
+
+        private void holds(StoredEvent... events) {
+            stored = List.of(events);
+        }
+
+        private void failOnLoad() {
+            loadFails = true;
+        }
+
+        private void loadsAgain() {
+            loadFails = false;
+        }
+
+        private void failOnAppend() {
+            appendFails = true;
+        }
+
+        @Override public long getMaxSequence() {
+            return stored.stream().mapToLong(StoredEvent::sequence).max().orElse(0);
+        }
+
+        @Override public List<StoredEvent> loadAllEvents() {
+            if (loadFails) {
+                throw new RuntimeException("simulated DB failure");
+            }
+            return stored;
+        }
+
+        @Override public void appendEvents(List<StoredEvent> events, UUID commandId) {
+            if (appendFails) {
+                throw new RuntimeException("simulated DB failure");
+            }
+        }
     }
 
     record DummyEvent1() implements Event { }

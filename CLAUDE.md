@@ -816,24 +816,60 @@ be returned to a known state is one the app itself cannot return to a known stat
 simply the first thing to notice. Do **not** reach for `@DirtiesContext`, and do not quietly arrange
 fixtures so they stop colliding: both hide the report instead of acting on it.
 
-**This rule is currently ASPIRATIONAL — nothing enforces it, and one known violation is worked
-around.** `EventStore` fills its in-memory event list once at boot and only ever appends, so no
-database truncation can reach it; the nine integration tests sharing a Spring context therefore
-share event state. `CommandExecutor.eventsForDecision()` folds every write-path decision from that
-list, which is why it matters beyond tests. It stayed invisible for a long time because every fold
-until 2026-09-06 asked about one specific id ("does *this* trip exist?"); the overlapping-legs rule
-is the first **cross-aggregate** question and the first thing that could trip over it.
+**Enforced for the event store since 2026-09-11, and enforced by an assertion rather than by
+hope.** `EventStore` fills its in-memory event list once at boot and only ever appends, so no
+database truncation reaches it; every integration test sharing a Spring context therefore shared
+event state — with its siblings and, the container being reused, with previous runs.
+`CommandExecutor.eventsForDecision()` folds every write-path decision from that list, which is why
+it matters beyond tests. It stayed invisible for a long time because every fold until 2026-09-06
+asked about one specific id ("does *this* trip exist?"); the overlapping-legs rule is the first
+**cross-aggregate** question and the first thing that could trip over it.
 
 What is in place today, and what is not:
 
-- **In place, and it is a workaround:** `BackupRestoreRoundTripTest` derives each booking's window
-  from its own flight id, so no sibling method and no leg replayed from a previous run can occupy
-  it. Verified 6/6; pin those windows and it fails about half the time.
-- **Parked, with a diagnosed deadlock:** `EventStore.reload()`, a base-class reset-and-assert guard,
-  `runOrder=random`, and an after-method truncate. A connection is left *idle in transaction* by the
-  boot replay, so a second TRUNCATE anywhere blocks forever. See **"Test isolation is not
-  enforced"** in `docs/Cleanup_Tasks.md` for the diagnosis, the misreads to avoid, and how to pick
-  it up.
+- **`EventStore.reload()`** re-reads the log into the in-memory list, and
+  `AbstractTestcontainerIntegrationTest` calls it in a `@BeforeEach` that then **asserts the store
+  is empty**. The assertion is the guard: remove the `reload()` and **every method of the five
+  integration classes whose context has an `EventStore`** fails on it by name — 16 of them on the
+  run that measured it — which is how much state was leaking before.
+- **`EventStoreTest` covers `reload()` directly, and this is not optional.** The `@BeforeEach`
+  guard asserts the store is *empty* right after the `@Sql` truncate, so it cannot tell a real
+  reload from a bare `events.clear()` — verified by deleting the re-read, which left the whole
+  suite green. Two unit cases carry the contract instead: that reload **replaces** the list from
+  the durable log and re-points `nextSequence` at it, and that a **failed** load leaves the
+  previous list in place and **latches** read-only. Mutation-verified five ways (drop the re-read,
+  drop the clear, move the clear before the load, drop the `nextSequence` set, lift read-only on a
+  successful reload) — each fails the assertion that claims it. Note what the second case pins:
+  the store's read-only latch is one-way, and a later successful reload does **not** lift it —
+  it reloads, fails, then reloads successfully and asserts the store is read-only still. That last
+  assertion arrived in the pre-push review, where the latch was written down in three places and
+  asserted in none: **a rule stated in a javadoc is not a rule the code has to keep.**
+- **Both orders are shuffled, and it takes two settings, not one.** `runOrder=random` in the
+  Surefire config shuffles test **classes**; `junit.jupiter.testmethod.order.default=…
+  MethodOrderer$Random` in `src/test/resources/junit-platform.properties` shuffles the **methods**
+  inside one. Surefire's setting alone — which is what shipped first — leaves method order
+  deterministic, and *"one method leaves state the next one reads"* is the commoner shape of the
+  problem, so half the rule would have gone unenforced. No measurable cost to the clock either way.
+
+  **Both halves print a seed, and a shuffle without a visible seed is a flakiness generator rather
+  than a guard** — the failure reads as flake and gets re-run until green, which is the thing
+  shuffling exists to prevent. The class seed is logged by Surefire (`To reproduce ordering use
+  flag -Dsurefire.runOrder.random.seed=<n>`). The method seed is logged by JUnit
+  (`MethodOrderer.Random default seed: <n>`, replayed with
+  `-Djunit.jupiter.execution.order.random.seed=<n>`) — but **at CONFIG level**, and nothing else in
+  this build logs below INFO, so out of the box it goes nowhere and a failing order cannot be
+  recovered. That is the *only* reason `src/test/resources/logging.properties` exists and the only
+  reason `argLine` names it: it drops `org.junit` alone to CONFIG. Delete either and the method
+  shuffle silently stops being reproducible, which is worse than not shuffling. Reproducing a run
+  exactly means passing **both** seeds back.
+- **Still open — the production half.** Nothing calls `reload()` outside the constructor, so
+  `/admin/database` truncate and restore still leave the list wrong. Projectors are stale after
+  those too and only a restart rebuilds them, so the two questions want answering together; see
+  **"Test isolation: the test half is enforced, the production half is not"** in
+  `docs/Cleanup_Tasks.md`.
+- **No longer load-bearing:** `BackupRestoreRoundTripTest` derives each booking's window from its
+  own flight id. That was the workaround while the base class was untouched; it is harmless and
+  stays, but the guard is what keeps that test green now.
 
 **When adding shared, long-lived state to production code, ask how it is returned to a known state.**
 If the answer is "restart the process", it will be wrong in a test and wrong for an admin action

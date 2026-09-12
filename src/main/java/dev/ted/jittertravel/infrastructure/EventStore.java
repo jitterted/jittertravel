@@ -39,15 +39,53 @@ public class EventStore {
         this.persister = persister;
         this.clock = clock;
 
-        try {
-            long maxSeq = persister.getMaxSequence();
-            nextSequence.set(maxSeq + 1);
-            List<StoredEvent> existingEvents = persister.loadAllEvents();
-            this.events.addAll(existingEvents);
-            log.info("Replayed {} events from persistent store. Next sequence: {}", existingEvents.size(), nextSequence.get());
-        } catch (Exception e) {
-            log.error("Failed to Load and Process ALL Events from persistent store. Entering read-only mode.", e);
-            isReadOnly.set(true);
+        reload();
+    }
+
+    /**
+     * Replaces the in-memory event list with whatever the durable store currently holds, and
+     * re-points {@code nextSequence} at the end of it. Called once from the constructor — that is
+     * the boot replay — and again whenever the stored log has changed underneath the store.
+     *
+     * <p><strong>Today the only such caller is a test returning to a known state</strong>
+     * ({@code AbstractTestcontainerIntegrationTest}). An {@code /admin/database} truncate and a
+     * restore both change the log underneath a running store and both still leave this list stale;
+     * wiring them up is open work, because the projectors are stale after those too and the two
+     * want deciding together — see "Test isolation: the test half is enforced, the production half
+     * is not" in {@code docs/Cleanup_Tasks.md}.
+     *
+     * <p><strong>Why it exists at all.</strong> The list is filled at boot and otherwise only ever
+     * appended to, so nothing that empties the tables reaches it. Since
+     * {@code CommandExecutor.eventsForDecision()} folds every write-path decision from this list, a
+     * stale entry can make the domain refuse a booking that is fine.
+     *
+     * <p>It deliberately does <strong>not</strong> rebuild the read models. Projectors accumulate
+     * state, so replaying a shorter stream over them adds nothing and removes nothing; a projector
+     * that has to forget needs rebuilding, which is a restart today.
+     *
+     * <p>A failed load leaves the previous list in place rather than emptying it, for the same
+     * reason {@link #append} persists before it notifies: the in-memory view never gets ahead of
+     * what is durable.
+     *
+     * <p>Read-only is a <strong>one-way latch, and a later successful reload does not lift it</strong>
+     * — only a restart does. That is deliberate rather than an oversight: read-only means something
+     * went wrong that a person should look at, and a store that quietly healed itself on the next
+     * reload would hide the failure that set it. It matters more now than at boot, because this
+     * method is reachable at runtime.
+     */
+    public final void reload() {
+        synchronized (transactionLock) {
+            try {
+                long maxSeq = persister.getMaxSequence();
+                List<StoredEvent> existingEvents = persister.loadAllEvents();
+                events.clear();
+                events.addAll(existingEvents);
+                nextSequence.set(maxSeq + 1);
+                log.info("Replayed {} events from persistent store. Next sequence: {}", existingEvents.size(), nextSequence.get());
+            } catch (Exception e) {
+                log.error("Failed to Load and Process ALL Events from persistent store. Entering read-only mode.", e);
+                isReadOnly.set(true);
+            }
         }
     }
 

@@ -178,72 +178,155 @@ down when it is created does not get written down later.
       same work as extending field-level errors to flights and hotels, already queued below. Do them
       together.
 
-- [ ] **Test isolation is not enforced — `EventStore` cannot return to a known state.**
+- [ ] **Test isolation: the test half is enforced, the production half is not.**
       Raised by Ted 2026-09-06 (*"if the tests can't be isolated due to production code, that is
-      absolutely a problem with the implementation"*); designed, built, and **parked with a
-      diagnosed defect** the same day. The rule itself is in CLAUDE.md, "Every test is isolated".
+      absolutely a problem with the implementation"*); designed and built the same day, parked on a
+      misdiagnosed deadlock, **and the test half shipped 2026-09-11**. What is left open is
+      `/admin/database`: a truncate or restore still leaves `EventStore` stale in a running app.
+      The rule itself is in CLAUDE.md, "Every test is isolated".
 
       **The problem.** `EventStore` fills its in-memory event list once at boot and only ever
-      appends. No database truncation reaches it, so the nine integration tests sharing a Spring
-      context share event state — with each other and, because the container is `withReuse(true)`,
+      appends. No database truncation reaches it, so the seven integration classes sharing a Spring
+      context shared event state — with each other and, because the container is `withReuse(true)`,
       with previous runs. `CommandExecutor.eventsForDecision()` folds **every write-path decision**
-      from that list, so this is a production concern too: `/admin/database` truncate and restore
-      both leave it wrong, and a stale entry can make the domain refuse a booking that is fine.
-      Invisible until 2026-09-06 because every earlier fold asked about one specific id; the
-      overlapping-legs rule is the first cross-aggregate question.
+      from that list, which is why this was never only a test problem: `/admin/database` truncate
+      and restore both leave it wrong — **still true today** — and a stale entry can make the domain
+      refuse a booking that is fine. Invisible until 2026-09-06 because every earlier fold asked
+      about one specific id; the overlapping-legs rule is the first cross-aggregate question.
 
-      **What shipped and must stay:** `BackupRestoreRoundTripTest` derives each booking's window
-      from its own flight id, so neither a sibling method nor a leg replayed from a previous run can
-      occupy it. Verified green 6/6 consecutively; pin those windows and it fails ~half the time.
-      That is the *whole* workaround — the base class is untouched.
-
-      **What was reverted, and why — pick up from here.**
-      1. `EventStore.reload()` — the boot replay extracted so it can run more than once, clearing
-         the list before re-reading. Production-justified (see above); deliberately does **not**
-         rebuild read models, since projectors hold accumulated state and replaying a shorter
-         stream over them removes nothing.
+      **The test half SHIPPED 2026-09-11**, and the deadlock that parked it was a misdiagnosis —
+      see below. Three of the four reverted pieces are back, plus a fourth the pre-commit review
+      added:
+      1. `EventStore.reload()` — the boot replay extracted so it can run more than once. A failed
+         load leaves the previous list in place rather than emptying it, for the reason `append`
+         persists before it notifies. Deliberately does **not** rebuild read models, since
+         projectors hold accumulated state and replaying a shorter stream over them removes nothing.
+         **Read-only stays a one-way latch**: a later successful reload does not lift it, only a
+         restart does. Deliberate, said in the javadoc, and pinned by (4) below — read-only means a
+         person should look, and a store that healed itself on the next reload would hide what set
+         it. It only became a question worth answering because `reload()` is reachable at runtime.
       2. A `@BeforeEach` in `AbstractTestcontainerIntegrationTest` calling `reload()` and then
          **asserting the store is empty** — the assertion is the point, so the next leak fails
-         loudly. Inject as `ObjectProvider<EventStore>`: `PostgresPersisterTest` extends the base
-         class with a narrower context that has no such bean.
-      3. `<runOrder>random</runOrder>` in the Surefire config, so order-dependence fails fast
-         instead of hiding behind the default `filesystem` order.
-      4. An `AFTER_TEST_METHOD` truncate in `AbstractTestcontainerIntegrationTest`, to stop the
-         reused container carrying rows into the next run's boot replay. **Reverted — it is the
-         deadlock trigger, see below.** Whatever replaces it must not add a second TRUNCATE.
+         loudly. Injected as `ObjectProvider<EventStore>`, because `PostgresPersisterTest` extends
+         the base class with a `@JdbcTest` context that has no such bean. Remove the `reload()` and
+         **16** methods fail on it by name — every method of the five classes whose context has an
+         `EventStore`, which is how much was leaking. `ifAvailable` is the one place this design
+         degrades quietly: an integration test whose context ever loses the bean gets no guard and
+         no signal. One of seven subclasses today, and named in the comment.
+      3. `<runOrder>random</runOrder>` in the Surefire config, so order-dependence fails on the run
+         that introduces it instead of hiding behind the default `filesystem` order. **Use the
+         seed** — every run logs `To reproduce ordering use flag -Dsurefire.runOrder.random.seed=<n>`
+         and re-running with it reproduces the order exactly. That line is what stops a shuffled
+         failure from reading as flake and being re-run until green.
 
-      **THE DEFECT TO FIX FIRST — this is why it is parked.** Something leaves a connection
-      **idle in transaction** after the `loadAllEvents()` SELECT, holding a lock that blocks a
-      TRUNCATE. With the single `BEFORE_TEST_METHOD` truncate the suite never noticed; **adding a
-      second TRUNCATE makes it fatal** and the suite hangs forever, part-way through.
+         **Extended in the pre-push review to the methods as well**, because `runOrder` shuffles
+         **classes only** and says nothing about the methods inside one — and one method leaving
+         state the next one reads is the commoner shape. `junit-platform.properties` sets
+         `junit.jupiter.testmethod.order.default=…MethodOrderer$Random`. **That needed a third
+         file to be honest**: JUnit prints its seed at CONFIG level, nothing else here logs below
+         INFO, so the method order of a failing run was unrecoverable — `logging.properties`,
+         named from `argLine`, drops `org.junit` alone to CONFIG so the line appears. A shuffle
+         whose seed is invisible is a flakiness generator, not a guard, so the three ship together
+         or not at all. Both seeds have to be passed back to reproduce a run exactly.
+         The whole suite was run with methods shuffled before this landed: **green**, so there is
+         no method-level order-dependence in the tree today.
+      4. **`EventStoreTest` cases for `reload()` itself** (added 2026-09-11 in review, before the
+         commit). The `@BeforeEach` guard asserts the store is *empty* immediately after the `@Sql`
+         truncate, so it **cannot distinguish a real reload from a bare `events.clear()`** —
+         demonstrated by deleting the re-read, which left all 2413 tests green. It also left the
+         *boot replay* unguarded, which it had been all along. Two unit cases now carry the
+         contract: reload **replaces** the list from the durable log and re-points `nextSequence`,
+         and a **failed** load leaves the previous list in place and **latches** read-only.
+         Mutation-verified five ways — drop the re-read (2 fail), drop the clear (1), move the
+         clear before the load (1), drop the `nextSequence` set (1), lift read-only on a successful
+         reload (1). The lesson generalises past this item: **a guard that asserts a component is
+         empty proves the emptying, never the refilling.**
 
-      **Isolate the cause before building on this.** It was first blamed on `reload()` and that was
-      wrong: the hang reproduced with `reload()` fully reverted and only the `AFTER` truncate in
-      place. So the lingering transaction comes from the ordinary boot replay, not from calling it
-      twice — which means it is a **pre-existing production issue**, and a reload that leaks a
-      transaction would hold locks in the running app too. Reproduced on a clean container with a
-      live JVM:
+         The fifth of those came from the pre-push review, and it is the same lesson once more:
+         the latch was *documented* in three places and asserted in none, so the case that says
+         "enters read-only" was extended to reload successfully afterwards and assert it is still
+         read-only. Written down and mutation-verified are different claims, and only the second
+         one survives a refactor.
+
+      The fourth *reverted* piece — an `AFTER_TEST_METHOD` truncate — **is not coming back, and was
+      never needed.**
+      Its purpose was to stop the reused container carrying rows into the *next run's* boot replay,
+      which is a once-per-JVM concern that a per-method `@Sql` was the wrong tool for; (2) covers the
+      same ground from the other side, by reloading rather than by leaving the tables clean.
+
+      **Still open: the production half.** `reload()` exists but nothing calls it outside the
+      constructor. `/admin/database` truncate and restore still leave the in-memory list wrong, and
+      `CommandExecutor.eventsForDecision()` folds every write-path decision from it — so a stale
+      entry can still make the domain refuse a booking that is fine. Note that `reload()` alone is
+      not the whole answer there: the projectors are stale too and only a restart rebuilds them,
+      which is what the "Surface *restart needed* after a truncate" item above is about. Decide
+      those two together.
+
+      **Decide the guard with them, and an arch test is the wrong one.** Asked 2026-09-12 (Ted):
+      should an ArchUnit rule assert that only tests call `reload()`? **No, and not in this shape** —
+      the rule points away from the fix, since the open work above is to *add* a production caller,
+      so the test would have to be deleted the day that lands (CLAUDE.md's own "a test that has to
+      be edited on every change stops guarding"). It would also be the tree's first ArchUnit
+      dependency for one rule, which `ApplicationServicesUseCommandExecutorTest` and
+      `DomainIsPureTest` both deliberately declined — if such a rule is ever wanted it is a plain
+      source scan beside them. And the surface hardly needs it: application services cannot take an
+      `EventStore` at all (that same test), so the only production holders are `CommandExecutor`
+      (append), `ProjectorBootstrapper` (`subscribe` + `findAll` at boot) and `GeneralController`
+      (one `isReadOnly()` read).
+      **The decisive reason is that a call-site rule cannot see the hazard.** The trap is not that
+      someone called `reload()`, it is that they called it and left the projectors stale — the
+      thing its javadoc warns about. Ban the call and the admin fix is blocked; allow it and
+      nothing has been asserted about what bites. So the guard that ships with the production half
+      is **behavioural**: truncate through `/admin/database`, then assert the store reports empty
+      *and* whatever is decided about the projectors. The one arch-flavoured rule worth having is
+      narrower and only becomes writable once that caller exists — *"`/admin/database` is the only
+      production caller of `reload()`"*, as a source scan.
+
+      **The deadlock: what it actually was.** Diagnosed 2026-09-11 and it is **not** a production
+      issue and **not** the boot replay. `PostgresPersisterTest` is a `@JdbcTest` slice, so it is
+      transactional-with-rollback: each method runs inside a test-managed transaction. Spring calls
+      `afterTestMethod` on its listeners in **reverse** order, so `SqlScriptsTestExecutionListener`
+      fires an `AFTER_TEST_METHOD` `@Sql` *before* `TransactionalTestExecutionListener` rolls that
+      transaction back. With `transactionMode = ISOLATED` the truncate takes a second connection,
+      `TRUNCATE` wants `ACCESS EXCLUSIVE`, and the only thread that could end the blocking
+      transaction is the main thread — which is blocked on the truncate. Permanent, by construction,
+      and `PostgresPersisterTest` **alone** reproduces it.
+
+      **The misread that cost a day, and it is subtler than the one recorded here before.** The
+      blocking connection's last statement was read off `pg_stat_activity.query` as
+      `loadAllEvents()` — the boot replay — and everything followed from that. It was
+      `findAllEventsForBackup()`. Collapse both to one line and they are **identical for the first
+      ~80 characters** (`SELECT sequence, event_id AS eventId, command_id AS commandId, timestamp,
+      type, payload::text AS payl…`), which is all the column shows. Two checks would have caught
+      it: that context has **no `EventStore` bean at all**, so no boot replay happens in it; and the
+      connection never ran `SELECT COALESCE(MAX(sequence), 0)`, the replay's own first statement.
+
+      **So read the statement history, not the snapshot.** `log_statement=all` on the container,
+      then the whole connection's story in one grep — that is what made it obvious:
 
       ```
-      pid  | state               | wait  | query
-      2232 | idle in transaction | Client| SELECT sequence, event_id AS eventId, ...
-      2233 | active              | Lock  | TRUNCATE TABLE event_log, command_log ...
+      docker exec jittertravel-test-postgres psql -U test -d test -c "ALTER SYSTEM SET log_statement='all'"
+      docker exec jittertravel-test-postgres psql -U test -d test -c "ALTER SYSTEM SET log_line_prefix='%m [%p] '"
+      docker exec jittertravel-test-postgres psql -U test -d test -c "select pg_reload_conf()"
+      # reproduce, find the blocked pid, then:
+      docker logs --since 3m jittertravel-test-postgres 2>&1 | grep '\[<pid>\]'
       ```
 
-      Diagnose with `docker exec jittertravel-test-postgres psql -U test -d test -tAc
-      "select pid, state, wait_event_type, left(query,60) from pg_stat_activity where datname='test'"`.
-      **A misread to avoid:** `pg_stat_activity.query` shows a connection's *last* query and
-      `wait_event_type = Client` looks like a dead client, so this reads convincingly as an orphaned
-      connection from a killed JVM. It is not — it reproduces with a live one. Verify on a clean
-      container before concluding anything.
-      The fix belongs in `reload()`, not in the test harness: a reload that leaks a transaction
-      would hold locks in the running app too.
+      It printed one `BEGIN` at the start of the test method, the method's own writes, the SELECT,
+      and then nothing — a transaction still open with no COMMIT and no ROLLBACK, which is exactly
+      what `@JdbcTest` is *supposed* to look like mid-method. (`ALTER SYSTEM RESET log_statement`
+      afterwards; it is noisy.)
 
-      **How to verify when picked up:** `BackupRestoreRoundTripTest` green 6/6 consecutively, then
-      the full suite green twice under `runOrder=random`. **Watch the clock, not just the result:**
-      the parked-state suite runs in **~24s**, so a run stretching past a couple of minutes is the
-      deadlock, not slowness. (An earlier guess that random order would cost time by destroying
-      Spring context-cache locality was never substantiated — the long runs were all the deadlock.)
+      **Cost of `runOrder=random`: none measurable.** 24.4s in filesystem order, then 32.1s,
+      25.1s and 27.9s under random — and the 32.1s run was the one that recompiled. So the old note
+      stands: the guess that shuffling would cost time by destroying Spring context-cache locality is
+      still unsubstantiated. Watch the clock anyway, for the opposite reason: a run stretching past a
+      couple of minutes is a deadlock, not slowness. 2411 tests, green on every run.
+
+      **What is no longer load-bearing:** `BackupRestoreRoundTripTest` derives each booking's window
+      from its own flight id so no sibling method and no leg replayed from a previous run can occupy
+      it. That was the whole workaround while the base class was untouched. It is harmless and
+      stays, but it is no longer what keeps that test green.
 
 
 - [x] **A fix action does not come back to the report it was launched from. FIXED 2026-09-06.** Ted, 2026-09-06:

@@ -180,8 +180,29 @@
         <configuration>
           <excludedGroups>js,replay-preflight</excludedGroups>
           <!-- Pin the test JVM to UTC so timezone-dependent tests behave the same
-               on every machine and on CI, regardless of the host's default zone. -->
-          <argLine>-Duser.timezone=UTC</argLine>
+               on every machine and on CI, regardless of the host's default zone.
+               The logging config exists for one line of output and src/test/resources/
+               logging.properties says which — the seed below has a twin that JUnit prints
+               at CONFIG level, which nothing else in this build would show. -->
+          <argLine>-Duser.timezone=UTC -Djava.util.logging.config.file=${project.basedir}/src/test/resources/logging.properties</argLine>
+          <!-- Order must not matter (CLAUDE.md, "Every test is isolated"), so shuffle it
+               rather than trusting the default filesystem order to keep proving nothing.
+               An order-dependence then fails on the run that introduces it, instead of
+               years later when an unrelated rename moves two classes past each other.
+
+               This setting shuffles test CLASSES only. The METHODS inside a class are
+               shuffled by junit-platform.properties, which is the commoner kind of
+               order-dependence and the half this alone would leave unenforced.
+
+               A shuffled failure is still REPRODUCIBLE, and that is what makes this
+               usable rather than a flakiness generator: every run logs
+                 "Tests will run in random order. To reproduce ordering use flag
+                  -Dsurefire.runOrder.random.seed=<n>"
+               Re-run with that seed to get the same order back. Without it the failure
+               reads as flake and gets re-run until green, which is what shuffling is
+               here to prevent. The method order has its own seed and its own line —
+               both halves have to be passed back to reproduce a run exactly. -->
+          <runOrder>random</runOrder>
         </configuration>
       </plugin>
     </plugins>

@@ -128,22 +128,22 @@ class BackupRestoreRoundTripTest extends AbstractTestcontainerIntegrationTest {
     }
 
     /**
-     * Every booking gets its <strong>own</strong> window, derived from its own id — and that is
-     * load-bearing rather than tidy.
+     * Every booking gets its <strong>own</strong> window, derived from its own id. This was
+     * load-bearing until 2026-09-11 and is now belt-and-braces; it stays because it costs nothing.
      * <p>
-     * Nothing returns {@code EventStore}'s in-memory event list to a known state: it is filled once
-     * at boot and only ever appended to, and the {@code @Sql} truncation clears the database only.
-     * So a flight booked by one method stays visible to the next, and — because the container is
-     * {@code withReuse(true)} and the next run replays the database at boot — to the next
-     * <em>run</em> as well. Under the overlapping-leg rule (2026-09-06) either one refuses the
-     * booking, and a fixed window failed roughly half the time.
-     * <p>
+     * It was written when nothing returned {@code EventStore}'s in-memory event list to a known
+     * state: the list is filled at boot and only ever appended to, while the {@code @Sql}
+     * truncation clears the database alone. So a flight booked by one method stayed visible to the
+     * next, and — because the container is {@code withReuse(true)} and the next run replays the
+     * database at boot — to the next <em>run</em> as well. Under the overlapping-leg rule
+     * (2026-09-06) either one refuses the booking, and a fixed window failed roughly half the time.
      * Deriving the offset from the flight id makes every booking unique, so neither a sibling
      * method nor a replayed leg from a previous run can occupy the same window.
      * <p>
-     * This is a <strong>workaround</strong>. The fix is for {@code EventStore} to be able to return
-     * to a known state, which is parked with a diagnosed deadlock — see "Test isolation is not
-     * enforced" in {@code docs/Cleanup_Tasks.md}. Until that lands, do not pin these windows.
+     * What actually keeps this test green now is
+     * {@code AbstractTestcontainerIntegrationTest.returnTheEventStoreToAKnownState()}, which
+     * reloads the store and asserts it is empty before every method — see "Test isolation: the
+     * test half is enforced, the production half is not" in {@code docs/Cleanup_Tasks.md}.
      */
     private static BookFlightRequest bookFlight(String flightId) {
         return bookFlight(flightId, Math.floorMod(flightId.hashCode(), 3000));

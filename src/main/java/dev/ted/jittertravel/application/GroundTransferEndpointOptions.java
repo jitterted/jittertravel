@@ -21,9 +21,12 @@ import java.util.Locale;
  * <strong>Flight legs, split by direction.</strong> "From" lists arrivals and "To" lists
  * departures, because you only travel away from an airport you landed at and toward one you fly out
  * of (Ted, 2026-08-20). Each option carries the leg's own date and time so the form can fill them
- * in — the whole reason this is a leg and not just an airport. The submitted <em>token</em> is
- * still {@code airport:<CODE>}: a transfer is between places, not between flights, so nothing about
- * the stored event changes.
+ * in — the whole reason this is a leg and not just an airport. The <em>place</em> a token resolves
+ * to is still just {@code <CODE>}: a transfer is between places, not between flights, so nothing
+ * about the stored event changes. The token itself names the leg
+ * ({@code airport:<CODE>:<flightId>}) only so that two options through one airport are two distinct
+ * values for the {@code <select>} to be selected by — see
+ * {@link GroundTransferEndpointResolver#airportToken}.
  * <p>
  * <strong>Train legs follow the flight rule exactly</strong> (2026-08-23), which is the bug this
  * whole read model was built to fix: a gap that starts or ends at a station had nothing to pick, so

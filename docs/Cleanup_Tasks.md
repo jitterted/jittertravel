@@ -979,18 +979,21 @@ count is deliberately not stated here so it cannot go stale again.)
       `ProblemCalendarViewBuilder` and the itinerary for no additional guarantee. **Trigger:** a
       second comparison that has to case-fold by hand, or a bug traced to one of those strings being
       compared with `equals`.
-- [ ] **Ground-transfer endpoint prefill from a fix link.** Lifted from
+- [ ] **Ground-transfer endpoint prefill — the ambiguous and empty cases.** Lifted from
       `archived/ProblemContextOnFixPagesPlan.md` 2026-08-23, when that doc was archived — it was
-      the one piece of future work that doc still named, and nothing else tracked it. Today
-      `/plan-ground-transfer` receives only `?date=` from a fix link, because the gap knows
-      **cities** while the form takes **endpoint tokens** (`airport:DEN`, `hotel:<bookingId>`), and
-      one city maps to zero, one or many of them. **Why this is not a wasted click if it guesses
-      wrong:** preselecting the wrong endpoint writes a `GroundTransferPlanned` event that *removes
-      the very gap it was entered to close* — the failure hides itself. The safe shape is named in
-      both docs: preselect only on an unambiguous single match, group the candidates when there are
-      several, say so when there are none. Reasoning is D13 in `archived/GroundTransferPlan.md`.
-      **Trigger:** Ted following a travel-gap fix link to `/plan-ground-transfer` often enough that
-      re-picking both ends annoys — most likely alongside the Change-a-ground-transfer item above.
+      the one piece of future work that doc still named, and nothing else tracked it. **The
+      single-match third of it shipped 2026-08-21** (D16, `GroundTransferPreselection`): a fix link
+      carries `?problem=<key>`, the gap it names is resolved server-side, and an end the gap leaves
+      **exactly one** candidate for opens already chosen. What is left is the other two thirds of
+      the safe shape both docs named: **group the candidates when there are several, and say so when
+      there are none** — today either case simply leaves "Choose a place…" showing, silently, so Ted
+      cannot tell "the app has nothing for this end" from "the app found two and will not guess".
+      **Why it never guesses:** preselecting the wrong endpoint writes a `GroundTransferPlanned`
+      event that *removes the very gap it was entered to close* — the failure hides itself. That is
+      D13's reasoning in `archived/GroundTransferPlan.md`, and it is why the exactly-one rule counts
+      across airports, stations and stays together.
+      **Trigger:** a gap whose end has two candidates often enough that the empty select annoys —
+      most likely alongside the Change-a-ground-transfer item above.
 - [ ] **Private events in `DifferentCityConflict`** — tabled by Ted 2026-08-20, and it outlived the
       slice it was pencilled into: it was to ride along with problem-calendar slice 4, but slice 4
       shipped 2026-08-20 as clash *markers* only, so this now has no home but this list.

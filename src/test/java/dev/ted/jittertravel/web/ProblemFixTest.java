@@ -80,9 +80,10 @@ class ProblemFixTest {
 
     /**
      * The transfer form takes no typed cities — each end is a select of flight legs and booked
-     * hotels — so its link carries the date alone. Preselecting an end is deliberately not
-     * attempted: one {@code airport:} value can belong to several legs, so it would silently pick
-     * a trip (docs/archived/GroundTransferPlan.md D13).
+     * hotels — so its link carries the date and the problem reference, and no endpoint of its own.
+     * The ends <em>are</em> preselected as of D16, from that reference, server-side and only where
+     * the gap leaves one candidate; putting a token in the URL would be a second way to say it, and
+     * one that goes stale the moment the booking changes.
      */
     @Test
     void theGroundTransferFixCarriesOnlyTheDateNeverCities() {

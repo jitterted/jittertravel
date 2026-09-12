@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.Event;
+import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
@@ -154,6 +155,50 @@ class PlanGroundTransferHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 request("airport:DEN", "airport:DEN", bookedHotel())))
                 .isInstanceOf(SameTransferEndpoints.class);
+    }
+
+    /**
+     * The leg an airport option carries is for the form, not for the write path: the place it
+     * resolves to is the airport, exactly as a bare {@code airport:DEN} resolves.
+     */
+    @Test
+    void aLegScopedAirportTokenResolvesToTheSameAirportABareOneDoes() {
+        PlanGroundTransferCommand command = handler.handle(
+                request("airport:DEN:" + FlightId.random().id(), "hotel:" + BOOKING.id(),
+                        bookedHotel()));
+
+        assertThat(command.originAirportCode())
+                .isEqualTo("DEN");
+        assertThat(command.origin())
+                .as("the flight id reaches neither the command nor the event")
+                .isEqualTo(new Address("", "Denver", "", "", "", "Denver"));
+    }
+
+    /**
+     * The rule the leg could have broken: landing at DEN on Monday's flight and leaving from DEN on
+     * Thursday's is two tokens and one place, and a transfer between them still records no journey.
+     * So "two different places" is asked of the place token, never of the submitted one.
+     */
+    @Test
+    void twoLegsThroughOneAirportAreStillTheSamePlace() {
+        assertThatThrownBy(() -> handler.handle(
+                request("airport:DEN:" + FlightId.random().id(),
+                        "airport:DEN:" + FlightId.random().id(),
+                        bookedHotel())))
+                .isInstanceOf(SameTransferEndpoints.class);
+    }
+
+    /** And two airports are still two places, however the legs that offered them line up. */
+    @Test
+    void twoLegsThroughTwoAirportsAreAcceptedAsEver() {
+        FlightId oneLeg = FlightId.random();
+        PlanGroundTransferCommand command = handler.handle(
+                request("airport:DEN:" + oneLeg.id(), "airport:SFO:" + oneLeg.id(), bookedHotel()));
+
+        assertThat(command.originAirportCode())
+                .isEqualTo("DEN");
+        assertThat(command.destinationAirportCode())
+                .isEqualTo("SFO");
     }
 
     /**

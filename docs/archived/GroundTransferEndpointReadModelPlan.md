@@ -86,6 +86,17 @@ between places, not between flights"). Two arrivals into DEN are two rows sharin
 map is keyed `(subjectId, end)` and carries the token as data. Nothing about the stored event
 changes.
 
+**Amended 2026-09-12: the token now names the leg as well, and the key is why that is not a
+reversal.** The rows were always two, and the *place* one — that part stands, and it is still all
+the write path sees. What "two rows sharing one token" missed is that a token is also an
+`<option>`'s `value`, and a `<select>` is selected *by* its value: once D16's preselection set
+`airport:DEN`, Thymeleaf marked **both** DEN departures `selected` and the browser took the last, so
+a form preselected from a Sep 28 gap displayed the Oct 15 flight. So an airport option's value is
+now `airport:DEN:<flightId>` (`GroundTransferEndpointResolver.airportToken`), the leg is dropped on
+the way in, and `placeToken` drops it again for the two-different-places rule — landing at DEN and
+leaving from DEN are two tokens and one place. The map's key is unchanged: `(subjectId, end)` was
+already the occurrence, which is exactly the identity the token had been missing.
+
 ### D4 — Direction is event-derived and lives in the row; `now` does not
 
 Each row is tagged with the end it can serve, because that is a fact about the event:

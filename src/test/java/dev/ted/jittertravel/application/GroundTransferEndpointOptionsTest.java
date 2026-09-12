@@ -46,18 +46,19 @@ class GroundTransferEndpointOptionsTest {
      */
     @Test
     void aFlightOffersItsArrivalAirportAsAnOriginAndItsDepartureAirportAsADestination() {
-        given(flight("SFO", "DEN", "2026-09-14 08:00", "2026-09-14 11:30"));
+        FlightId leg = FlightId.random();
+        given(flight(leg, "SFO", "DEN", "2026-09-14 08:00", "2026-09-14 11:30"));
 
         GroundTransferEndpointChoices choices = options.choicesAt(NOW);
 
         assertThat(choices.arrivals())
                 .extracting(TransferEndpointOption::token)
                 .as("you leave from where you landed")
-                .containsExactly("airport:DEN");
+                .containsExactly("airport:DEN:" + leg.id());
         assertThat(choices.departures())
                 .extracting(TransferEndpointOption::token)
                 .as("you travel to where you fly out from")
-                .containsExactly("airport:SFO");
+                .containsExactly("airport:SFO:" + leg.id());
     }
 
     @Test
@@ -110,15 +111,17 @@ class GroundTransferEndpointOptionsTest {
      */
     @Test
     void arrivalsInDifferentZonesAreOrderedByWhenTheyActuallyHappened() {
-        given(new FlightBooked(FlightId.random(), "Airline", "F1",
+        FlightId intoLondon = FlightId.random();
+        FlightId intoDenver = FlightId.random();
+        given(new FlightBooked(intoLondon, "Airline", "F1",
                       AirportCode.of("JFK"), at("2026-09-14 03:00"),
                       AirportCode.of("LHR"), london("2026-09-14 09:00")),
-              flight("SFO", "DEN", "2026-09-14 06:00", "2026-09-14 08:00"));
+              flight(intoDenver, "SFO", "DEN", "2026-09-14 06:00", "2026-09-14 08:00"));
 
         assertThat(options.choicesAt(NOW).arrivals())
                 .extracting(TransferEndpointOption::token)
                 .as("08:00Z in London beats 14:00Z in Denver, whatever the two clocks read")
-                .containsExactly("airport:LHR", "airport:DEN");
+                .containsExactly("airport:LHR:" + intoLondon.id(), "airport:DEN:" + intoDenver.id());
     }
 
     /**
@@ -179,29 +182,31 @@ class GroundTransferEndpointOptionsTest {
     @Test
     void aFlightEarlierTodayStillOffersBothOfItsAirports() {
         // Denver is UTC-6 here: took off 03:00 local, landed 08:00 local. Both are behind NOW.
-        given(flight("SFO", "DEN", "2026-09-01 03:00", "2026-09-01 08:00"));
+        FlightId leg = FlightId.random();
+        given(flight(leg, "SFO", "DEN", "2026-09-01 03:00", "2026-09-01 08:00"));
 
         GroundTransferEndpointChoices choices = options.choicesAt(NOW);
 
         assertThat(choices.arrivals())
                 .extracting(TransferEndpointOption::token)
                 .as("the taxi from the airport is normally entered that evening")
-                .containsExactly("airport:DEN");
+                .containsExactly("airport:DEN:" + leg.id());
         assertThat(choices.departures())
                 .extracting(TransferEndpointOption::token)
                 .as("and so is the taxi that got you to it")
-                .containsExactly("airport:SFO");
+                .containsExactly("airport:SFO:" + leg.id());
     }
 
     @Test
     void aFlightStillInTheAirOffersTheAirportItIsAboutToLandAt() {
         // Lands 23:00 local, hours after NOW — the flight's own departure-based FUTURE window has
         // already closed, but the arrival has not happened yet at all.
-        given(flight("SFO", "DEN", "2026-09-01 03:00", "2026-09-01 23:00"));
+        FlightId leg = FlightId.random();
+        given(flight(leg, "SFO", "DEN", "2026-09-01 03:00", "2026-09-01 23:00"));
 
         assertThat(options.choicesAt(NOW).arrivals())
                 .extracting(TransferEndpointOption::token)
-                .containsExactly("airport:DEN");
+                .containsExactly("airport:DEN:" + leg.id());
     }
 
     @Test
@@ -346,7 +351,17 @@ class GroundTransferEndpointOptionsTest {
     }
 
     private static FlightBooked flight(String from, String to, String departure, String arrival) {
-        return new FlightBooked(FlightId.random(), "Airline", "F1",
+        return flight(FlightId.random(), from, to, departure, arrival);
+    }
+
+    /**
+     * The same flight with its id named, for the cases that spell out the token it mints: an
+     * airport option's value carries the leg that offered it
+     * ({@link GroundTransferEndpointResolver#airportToken}).
+     */
+    private static FlightBooked flight(FlightId flightId, String from, String to,
+                                       String departure, String arrival) {
+        return new FlightBooked(flightId, "Airline", "F1",
                 AirportCode.of(from), at(departure), AirportCode.of(to), at(arrival));
     }
 

@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.AirportCityResolver;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.AirportZoneResolver;
+import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.InvalidAirportCode;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
@@ -22,8 +23,9 @@ import java.util.UUID;
  *
  * <table>
  *   <tr><th>Token</th><th>Resolves to</th></tr>
- *   <tr><td>{@code airport:DEN}</td>
- *       <td>the code {@code DEN}, the city from {@link AirportCityResolver}, and the airport's zone</td></tr>
+ *   <tr><td>{@code airport:DEN:<flightId>}<br>{@code airport:DEN}</td>
+ *       <td>the code {@code DEN}, the city from {@link AirportCityResolver}, and the airport's zone.
+ *           The leg is dropped: a transfer is between places, not between flights (D3)</td></tr>
  *   <tr><td>{@code hotel:<bookingId>}</td>
  *       <td>the hotel's name and its {@link Address} copied <em>verbatim</em> (including
  *           {@code locationForMatching}), and the zone its address resolves to</td></tr>
@@ -32,8 +34,9 @@ import java.util.UUID;
  *           {@code ZonedTimestamp} — resolved once at booking, never looked up again (D5)</td></tr>
  * </table>
  *
- * A trip has two stations, so the end is part of the token; an airport and a hotel each name one
- * place, so theirs are not (D7).
+ * A trip has two stations, so the end is part of the token; a hotel names one place, so its is not
+ * (D7). An airport names one place too, and its leg is in the token for a different reason
+ * entirely — see {@link #airportToken}.
  *
  * There is deliberately <strong>no free-text fallback</strong> (D12): a transfer whose end is a bare
  * venue cannot be recorded yet, rather than being recorded as an unmatched string that the schedule
@@ -81,6 +84,39 @@ public class GroundTransferEndpointResolver {
     }
 
     /**
+     * The token a flight leg's airport submits — {@code airport:DEN:<flightId>}. The airport is the
+     * place; the flight id says <em>which leg</em> offered it, and it exists for the form rather
+     * than for the write path — {@link #resolve} reads the code and drops the rest.
+     * <p>
+     * <strong>Why a leg at all, when a transfer is between places (D3).</strong> An option's
+     * {@code value} is what a {@code <select>} is selected <em>by</em>. Two legs out of DEN used to
+     * be two options carrying one token, so {@code th:field} marked <em>both</em>
+     * {@code selected="selected"} and the browser took the last — a form preselected from a Sep 28
+     * gap displayed the Oct 15 flight, while the value it submitted and the times it filled in were
+     * the right ones (2026-09-12). The place cannot identify the option, so the option carries the
+     * occurrence too. Nothing about the stored event changes.
+     * <p>
+     * A bare {@code airport:DEN} still resolves and still means the same airport, so the leg is
+     * never load-bearing. Where "is this the same place?" is asked, ask {@link #placeToken}.
+     */
+    public static String airportToken(AirportCode airport, FlightId flightId) {
+        return AIRPORT_PREFIX + airport.code() + ":" + flightId.id();
+    }
+
+    /**
+     * The part of a token that names the place, with an airport's leg dropped — what the
+     * two-different-places rule compares, because landing at DEN on one flight and leaving from DEN
+     * on another is still a transfer that goes nowhere. Every other token names one place already
+     * and comes back unchanged, {@code null} included.
+     */
+    public static String placeToken(String token) {
+        if (token == null || !token.startsWith(AIRPORT_PREFIX)) {
+            return token;
+        }
+        return AIRPORT_PREFIX + codePartOf(token.substring(AIRPORT_PREFIX.length()));
+    }
+
+    /**
      * @throws UnknownTransferEndpoint when the token has no recognized prefix, or names a hotel
      *         booking that no longer exists (cancelled between GET and POST).
      * @throws ZoneResolutionException when the airport code or the hotel's address is one the
@@ -103,8 +139,8 @@ public class GroundTransferEndpointResolver {
                 "Not an airport, a booked hotel or a train station: " + token);
     }
 
-    private TransferEndpoint airportEndpoint(String rawCode) {
-        AirportCode airport = parseAirportCode(rawCode);
+    private TransferEndpoint airportEndpoint(String rawEndpoint) {
+        AirportCode airport = parseAirportCode(codePartOf(rawEndpoint));
         // The same derivation the gap report and the options list use, so what gets frozen into the
         // event is the place the schedule will look for when it decides the gap is closed.
         String city = Place.of(airport, airportCities).value();
@@ -114,6 +150,16 @@ public class GroundTransferEndpointResolver {
         return new TransferEndpoint(airport.code(), "",
                 new Address("", city, "", "", "", city),
                 airportZones.resolve(airport));
+    }
+
+    /**
+     * The code out of an airport token's tail, dropping the leg {@link #airportToken} appends. A
+     * tail with no leg is the whole of it, which is what keeps a bare {@code airport:DEN}
+     * resolvable.
+     */
+    private static String codePartOf(String rawEndpoint) {
+        int leg = rawEndpoint.indexOf(':');
+        return leg < 0 ? rawEndpoint : rawEndpoint.substring(0, leg);
     }
 
     private AirportCode parseAirportCode(String rawCode) {

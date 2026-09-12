@@ -25,9 +25,14 @@ public class PlanGroundTransferHandler {
     }
 
     public PlanGroundTransferCommand handle(PlanGroundTransferRequest request) {
-        // Compared as tokens, before resolution: two tokens that differ can never name the same
-        // place (an airport is not a hotel, and each hotel token carries its own booking id).
-        if (request.getOrigin() != null && request.getOrigin().equals(request.getDestination())) {
+        // Compared as places, before resolution: two place tokens that differ can never name the
+        // same place (an airport is not a hotel, and each hotel token carries its own booking id).
+        // It is the *place* token rather than the submitted one because an airport's carries the
+        // flight leg that offered it — landing at DEN and leaving from DEN are two tokens and one
+        // place, and a transfer between them still goes nowhere.
+        String originPlace = GroundTransferEndpointResolver.placeToken(request.getOrigin());
+        if (originPlace != null && originPlace.equals(
+                GroundTransferEndpointResolver.placeToken(request.getDestination()))) {
             throw new SameTransferEndpoints("A transfer needs two different places");
         }
         TransferEndpoint origin = endpoints.resolve(request.getOrigin());

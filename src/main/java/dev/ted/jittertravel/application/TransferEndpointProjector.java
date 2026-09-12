@@ -34,10 +34,12 @@ import java.util.stream.Stream;
  * a conversion layer over other people's views is what that heuristic exists to avoid, and it is why
  * adding a third source meant teaching the conversion a third set of accessors.
  * <p>
- * <strong>Keyed by occurrence, not by token</strong> (D3). Two flights landing at DEN are two rows
- * that both submit {@code airport:DEN}, because a transfer is between places and not between
- * flights — so the key is (subject, {@link TransferEnd}) and the token rides along as data. Nothing
- * about the stored event changes.
+ * <strong>Keyed by occurrence, not by place</strong> (D3). Two flights landing at DEN are two rows,
+ * because they are two moments Ted can be picked up — so the key is (subject,
+ * {@link TransferEnd}). Each carries its own token, scoped to its leg, because the form selects an
+ * option by its value and one token on two options selects both (2026-09-12); the <em>place</em> a
+ * token resolves to is still just the airport, so nothing about the stored event changes. See
+ * {@link GroundTransferEndpointResolver#airportToken}.
  * <p>
  * <strong>A cancelled stay is absent, not flagged.</strong> {@code /booked-hotels} keeps a tombstone
  * row so the cancellation is visible; this is a list of places Ted can be dropped off, and a
@@ -125,7 +127,10 @@ public class TransferEndpointProjector implements EventStreamConsumer {
         Place place = Place.of(airport, airportCities);
         put(new RowKey(flightId.id().toString(), end), new TransferEndpointRow(
                 end,
-                GroundTransferEndpointResolver.AIRPORT_PREFIX + airport.code(),
+                // The airport is the place this row offers; the leg is in the token because the
+                // form selects an option by its value, and two legs through one airport are two
+                // options. See GroundTransferEndpointResolver.airportToken.
+                GroundTransferEndpointResolver.airportToken(airport, flightId),
                 airport.code(),
                 // An airport's label city and its matching place are the same value; a hotel's are
                 // not. Both are read from the row, so the options class never has to know which.

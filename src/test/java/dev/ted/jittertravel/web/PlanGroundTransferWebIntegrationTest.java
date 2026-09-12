@@ -5,10 +5,18 @@ import dev.ted.jittertravel.application.GroundTransferEndpointOptions;
 import dev.ted.jittertravel.application.GroundTransferPlanning;
 import dev.ted.jittertravel.application.SameTransferEndpoints;
 import dev.ted.jittertravel.application.ScheduleGapProjector;
+import dev.ted.jittertravel.application.ScheduleProblem;
 import dev.ted.jittertravel.application.TransferEndpointOption;
+import dev.ted.jittertravel.application.TransferEndpointProjector;
 import dev.ted.jittertravel.application.UnknownTransferEndpoint;
+import dev.ted.jittertravel.domain.AirportCode;
+import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.InvalidGroundTransferTimeRange;
+import dev.ted.jittertravel.domain.StaticAirportCityResolver;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
+import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,8 +28,11 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -43,6 +54,10 @@ class PlanGroundTransferWebIntegrationTest {
     private static final String TRANSFER_ID = "770e8400-e29b-41d4-a716-446655440000";
     private static final String HOTEL_TOKEN = "hotel:99999999-9999-9999-9999-999999999999";
     private static final String TRIP_ID = "88888888-8888-8888-8888-888888888888";
+    private static final Instant NOW = Instant.parse("2026-09-01T00:00:00Z");
+    private static final String SEP_28_LEG = "11111111-1111-1111-1111-111111111111";
+    private static final String OCT_15_LEG = "22222222-2222-2222-2222-222222222222";
+    private static final ZoneId DENVER = ZoneId.of("America/Denver");
     private static final String TRAIN_ARRIVAL_TOKEN = "train:" + TRIP_ID + ":arrival";
     private static final String TRAIN_DEPARTURE_TOKEN = "train:" + TRIP_ID + ":departure";
 
@@ -69,7 +84,7 @@ class PlanGroundTransferWebIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        given(clock.instant()).willReturn(Instant.parse("2026-09-01T00:00:00Z"));
+        given(clock.instant()).willReturn(NOW);
         given(clock.getZone()).willReturn(ZoneId.systemDefault());
         given(endpointOptions.choicesAt(any())).willReturn(new GroundTransferEndpointChoices(
                 List.of(new TransferEndpointOption("airport:DEN",
@@ -168,6 +183,59 @@ class PlanGroundTransferWebIntegrationTest {
                 .contains("<option value=\"" + TRAIN_DEPARTURE_TOKEN + "\"")
                 .contains("data-date=\"2026-09-16\" data-time=\"11:00\">"
                           + "Hamburg Hbf — Hamburg · arrive Wed Sep 16, 11:00 AM (ICE 573)</option>");
+    }
+
+    /**
+     * Ted's bug, 2026-09-12, and the reason an airport option's value carries its flight leg. The
+     * fix link off the calendar named a Sep 28 Estes Park → Denver gap; the "To" select showed the
+     * <em>Oct 15</em> DEN flight. Nothing had chosen it: both DEN departures carried the token
+     * {@code airport:DEN}, so {@code th:field} marked both {@code selected="selected"} and a
+     * single-select browser takes the last — while the value posted and the times filled in were
+     * the right ones all along.
+     * <p>
+     * So the claim is about the <em>markup</em>, which is why it is here and not in
+     * {@link GroundTransferPreselectionTest}: that one asserts the token on the request, and it was
+     * green throughout.
+     * <p>
+     * The two options are minted by a <strong>real</strong> {@link TransferEndpointProjector} and
+     * {@link GroundTransferEndpointOptions} from two real flights, rather than by two fixture
+     * strings this test chose to differ — otherwise it would assert its own fixture's uniqueness
+     * and stay green with the old one-token-per-airport rule restored.
+     */
+    @Test
+    void withTwoLegsOutOfOneAirportOnlyTheLegTheGapNamesIsSelected() {
+        String sep28 = "airport:DEN:" + SEP_28_LEG;
+        String oct15 = "airport:DEN:" + OCT_15_LEG;
+        TransferEndpointProjector endpoints =
+                new TransferEndpointProjector(new StaticAirportCityResolver());
+        endpoints.handle(Stream.of(
+                // Two flights home out of Denver, three weeks apart. Estes Park is a conference
+                // venue, so the "From" end has nothing of its own to offer.
+                flightOutOfDenver(SEP_28_LEG, "1", "SFO", "2026-09-28T17:45"),
+                flightOutOfDenver(OCT_15_LEG, "2", "LAX", "2026-10-15T08:00")));
+        given(endpointOptions.choicesAt(any()))
+                .willReturn(new GroundTransferEndpointOptions(endpoints).choicesAt(NOW));
+        ScheduleProblem.MissingTravel gap = new ScheduleProblem.MissingTravel(
+                "Estes Park", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-28T11:00"), DENVER),
+                "Denver", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-28T17:45"), DENVER));
+        given(scheduleGapProjector.problems(any())).willReturn(List.of(gap));
+        given(scheduleGapProjector.context()).willReturn(List.of());
+
+        assertThat(mockMvc.get().uri("/plan-ground-transfer")
+                .param("date", "2026-09-28")
+                .param("problem", ProblemKey.of(gap).value()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<option value=\"" + sep28 + "\"")
+                .as("the leg the gap names is the selected one")
+                .contains("data-date=\"2026-09-28\" data-time=\"17:45\" selected=\"selected\">"
+                          + "DEN — Denver · depart Mon Sep 28, 5:45 PM (UA 1)</option>")
+                .contains("<option value=\"" + oct15 + "\"")
+                .as("and the other leg through the same airport is offered with no selection of its"
+                    + " own — one more selected attribute in this select and the browser takes the last")
+                .contains("data-date=\"2026-10-15\" data-time=\"08:00\">"
+                          + "DEN — Denver · depart Thu Oct 15, 8:00 AM (UA 2)</option>")
+                .doesNotContain("data-time=\"08:00\" selected=\"selected\"");
     }
 
     @Test
@@ -276,6 +344,22 @@ class PlanGroundTransferWebIntegrationTest {
                 .hasStatusOk()
                 .bodyText()
                 .contains("Arrival time must be after departure time");
+    }
+
+    /**
+     * One flight leaving Denver, whose departure row is the "To" option under test. The flight id is
+     * fixed so the token it mints can be spelled out in the assertions.
+     */
+    private static StoredEvent flightOutOfDenver(String flightId, String flightNumber,
+                                                 String to, String departsAt) {
+        FlightBooked booked = new FlightBooked(
+                FlightId.of(UUID.fromString(flightId)), "UA", flightNumber,
+                AirportCode.of("DEN"),
+                ZonedTimestamp.fromLocal(LocalDateTime.parse(departsAt), DENVER),
+                AirportCode.of(to),
+                ZonedTimestamp.fromLocal(LocalDateTime.parse(departsAt).plusHours(3), DENVER));
+        return new StoredEvent(1, FlightBooked.class, UUID.randomUUID(), NOW, booked,
+                UUID.randomUUID());
     }
 
     private MvcTestResult post(

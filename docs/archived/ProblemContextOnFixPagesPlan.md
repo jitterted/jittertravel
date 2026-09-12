@@ -278,5 +278,12 @@ version — preselect only on an unambiguous single match, group the candidates 
 there are none — is a separate plan, and it helps one problem kind where this one helps all of them.
 That is why this goes first (Ted, 2026-08-21).
 
+> **Its first third shipped the same day, on this plan's own `?problem=`** — D16,
+> `GroundTransferPreselection`: the gap the reference names is resolved server-side and an end with
+> **exactly one** candidate opens already chosen. The other two thirds (group several, say so when
+> none) are tracked in `Cleanup_Tasks.md`. The token example above is now
+> `airport:DEN:<flightId>` — an option's value carries the leg that offered it, because two options
+> sharing one value are both marked `selected` and the browser takes the last (2026-09-12).
+
 **Fixing in place.** A flow that never leaves `/schedule-problems` would beat a banner outright.
 It is also a much larger change, and the banner is the cheap 90%.

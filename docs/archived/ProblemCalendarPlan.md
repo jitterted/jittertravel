@@ -243,6 +243,17 @@ before it existed and was wrong in three ways:
 So the transfer fix link carries the **date alone** — `/plan-ground-transfer?date=…` — which is
 what populates the option lists, and Ted picks the ends. No cities ride in its query string.
 
+**Superseded 2026-09-12, and the second bullet called the bug three weeks early.** Preselection came
+back on 2026-08-21 (D16, `GroundTransferPreselection`) on a rule that answers the objection: the
+link carries `?problem=<key>`, the gap is resolved *server-side*, and an end opens chosen only where
+the gap leaves **exactly one** candidate — never the first of several. Still no cities in the query
+string. What the bullet got exactly right is what one `airport:DEN` value on several options does:
+`th:field` marked **both** DEN departures `selected`, a single-select browser took the last, and a
+form preselected from a Sep 28 gap displayed the Oct 15 flight. The fix was not to stop preselecting
+but to stop two options sharing a value — an airport option's value is now
+`airport:DEN:<flightId>`, and the leg is dropped again on the way in, so the event is unchanged
+(`GroundTransferEndpointResolver.airportToken`).
+
 Sequencing: the two slices are independent, and the cost of doing fix links first is **one added
 item in one exhaustive switch** when ground transfer lands. Ground transfer first is still the
 better order — it makes real gaps closable, and then the menu ships complete.

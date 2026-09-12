@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 /**
  * The read model itself: what the events say, with no clock anywhere near it.
@@ -49,19 +50,20 @@ class TransferEndpointProjectorTest {
     /** The direction rule, decided where the event is read (Ted, 2026-08-20). */
     @Test
     void aFlightYieldsAnArrivalRowAndADepartureRowAtTheRightAirports() {
-        given(flight(FlightId.random(), "SFO", "DEN",
+        FlightId leg = FlightId.random();
+        given(flight(leg, "SFO", "DEN",
                 "2026-09-14 08:00", "2026-09-14 11:30"));
 
         assertThat(endpoints.rowsFor(TransferEnd.FLIGHT_ARRIVAL))
                 .singleElement()
                 .extracting(TransferEndpointRow::token, TransferEndpointRow::name)
                 .as("you leave from where you landed")
-                .containsExactly("airport:DEN", "DEN");
+                .containsExactly("airport:DEN:" + leg.id(), "DEN");
         assertThat(endpoints.rowsFor(TransferEnd.FLIGHT_DEPARTURE))
                 .singleElement()
                 .extracting(TransferEndpointRow::token, TransferEndpointRow::name)
                 .as("you travel to where you fly out from")
-                .containsExactly("airport:SFO", "SFO");
+                .containsExactly("airport:SFO:" + leg.id(), "SFO");
     }
 
     @Test
@@ -106,20 +108,28 @@ class TransferEndpointProjectorTest {
     }
 
     /**
-     * D3, the reason the map is keyed by occurrence and not by token: two trips through DEN are two
-     * distinct choices with distinct times, and they both submit the same token because a transfer
-     * is between places, not between flights.
+     * D3, the reason the map is keyed by occurrence: two trips through DEN are two distinct choices
+     * with distinct times. They name <strong>one place</strong>, because a transfer is between
+     * places and not between flights — and they carry <strong>two tokens</strong>, because the form
+     * selects an option by its value, and one token on two options selects both (Ted's bug,
+     * 2026-09-12). The leg is dropped again on the way in, so the event is unaffected.
      */
     @Test
-    void twoFlightsIntoOneAirportAreTwoRowsSharingOneToken() {
-        given(flight(FlightId.random(), "SFO", "DEN", "2026-09-14 08:00", "2026-09-14 11:30"),
-              flight(FlightId.random(), "JFK", "DEN", "2026-10-02 09:00", "2026-10-02 11:00"));
+    void twoFlightsIntoOneAirportAreTwoRowsNamingOnePlaceThroughTwoTokens() {
+        FlightId viaSanFrancisco = FlightId.random();
+        FlightId viaNewYork = FlightId.random();
+        given(flight(viaSanFrancisco, "SFO", "DEN", "2026-09-14 08:00", "2026-09-14 11:30"),
+              flight(viaNewYork, "JFK", "DEN", "2026-10-02 09:00", "2026-10-02 11:00"));
 
         assertThat(endpoints.rowsFor(TransferEnd.FLIGHT_ARRIVAL))
                 .hasSize(2)
-                .allSatisfy(row -> assertThat(row.token()).isEqualTo("airport:DEN"))
-                .extracting(TransferEndpointRow::moment)
-                .containsExactlyInAnyOrder(at("2026-09-14 11:30"), at("2026-10-02 11:00"));
+                .as("one place, so the transfer written from either row is a transfer from Denver")
+                .allSatisfy(row -> assertThat(row.place()).isEqualTo(new Place("Denver")))
+                .extracting(TransferEndpointRow::token, TransferEndpointRow::moment)
+                .as("and two tokens, so a <select> can tell the two options apart")
+                .containsExactlyInAnyOrder(
+                        tuple("airport:DEN:" + viaSanFrancisco.id(), at("2026-09-14 11:30")),
+                        tuple("airport:DEN:" + viaNewYork.id(), at("2026-10-02 11:00")));
     }
 
     /** A snapshot event, so the later one replaces the flight's rows rather than adding to them. */
@@ -132,7 +142,7 @@ class TransferEndpointProjectorTest {
         assertThat(endpoints.rowsFor(TransferEnd.FLIGHT_ARRIVAL))
                 .singleElement()
                 .extracting(TransferEndpointRow::token, TransferEndpointRow::moment)
-                .containsExactly("airport:JFK", at("2026-09-15 16:30"));
+                .containsExactly("airport:JFK:" + rebooked.id(), at("2026-09-15 16:30"));
     }
 
     /**

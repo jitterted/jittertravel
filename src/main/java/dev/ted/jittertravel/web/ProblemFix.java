@@ -106,10 +106,14 @@ public record ProblemFix(String label, String href) {
         return List.of(
                 new ProblemFix("Book flight", "/book-flight?" + cities + "&date=" + date),
                 new ProblemFix("Book train", "/book-train?" + cities + "&date=" + date),
-                // Only the date: the transfer form takes no typed cities, and its endpoint options
-                // are flight legs and booked hotels that the date itself brings into range. It is
-                // deliberately not preselected — one `airport:` value can belong to several legs,
-                // so a preselection would silently pick a trip. See docs/archived/GroundTransferPlan.md D13.
+                // Only the date and, appended by explaining() below, the problem reference: the
+                // transfer form takes no typed cities, and its endpoint options are flight legs and
+                // booked hotels that the date itself brings into range. The two ends *are*
+                // preselected as of D16 — from the gap the reference names, server-side, and only
+                // when the gap leaves exactly one candidate at that end (GroundTransferPreselection).
+                // The earlier "never preselect, one `airport:` value can belong to several legs"
+                // (D13) was superseded there, and the hazard it named is why an option's value now
+                // carries its leg — see GroundTransferEndpointResolver.airportToken.
                 new ProblemFix("Ground transfer", "/plan-ground-transfer?date=" + date));
     }
 

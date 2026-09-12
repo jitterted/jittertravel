@@ -25,9 +25,11 @@ import dev.ted.jittertravel.domain.ZonedTimestamp;
  * blank means the label ends after the moment.
  *
  * @param end          which of the form's four lists this belongs in, and the verb its label uses
- * @param token        the submitted value — {@code airport:DEN}, {@code hotel:<bookingId>}. Two
- *                     arrivals into DEN are two rows sharing one token, because a transfer is
- *                     between places and not between flights (D3)
+ * @param token        the submitted value — {@code airport:DEN:<flightId>},
+ *                     {@code hotel:<bookingId>}. Two arrivals into DEN are two rows naming one
+ *                     place, because a transfer is between places and not between flights (D3) —
+ *                     but two <em>tokens</em>, because an option is selected by its value
+ *                     ({@link GroundTransferEndpointResolver#airportToken})
  * @param name         the label's first part: an airport code, or the hotel's name
  * @param city         the label's second part — display only
  * @param place        what the schedule reasons about this endpoint in, for matching a gap

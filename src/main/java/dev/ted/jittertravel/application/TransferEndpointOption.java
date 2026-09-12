@@ -2,7 +2,10 @@ package dev.ted.jittertravel.application;
 
 /**
  * One choice in a ground-transfer endpoint {@code <select>}: the {@code token} is the submitted
- * value ({@code airport:DEN}, {@code hotel:<bookingId>}), the {@code label} is what Ted reads.
+ * value ({@code airport:DEN:<flightId>}, {@code hotel:<bookingId>}), the {@code label} is what Ted
+ * reads. The token is unique across one {@code <select>} — an airport's carries the leg that
+ * offered it for exactly that reason, since a browser selects an option <em>by</em> its value
+ * ({@link GroundTransferEndpointResolver#airportToken}).
  * <p>
  * {@code city} is never displayed on its own — the label already names it. It is the place the
  * <em>schedule</em> reasons about this endpoint in (an airport's city, a stay's

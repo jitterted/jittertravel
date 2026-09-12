@@ -10,9 +10,9 @@ import java.time.LocalTime;
  * subway back.
  * <p>
  * Notice what is <em>not</em> here: no address fields. Each end is an endpoint <em>token</em>
- * ({@code airport:DEN}, {@code hotel:<bookingId>}) picked from a {@code <select>} of places the app
- * already knows, and the server resolves it at submit time. Ted never types an address (D3), and
- * there is no free-text fallback (D12).
+ * ({@code airport:DEN:<flightId>}, {@code hotel:<bookingId>}) picked from a {@code <select>} of
+ * places the app already knows, and the server resolves it at submit time. Ted never types an
+ * address (D3), and there is no free-text fallback (D12).
  * <p>
  * One date and two times: a transfer that crosses midnight, like one that crosses a zone boundary,
  * is out of scope for this slice.

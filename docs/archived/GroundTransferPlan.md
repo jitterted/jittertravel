@@ -54,6 +54,15 @@ asked for once he had used the form and read the result. Everything else is the 
     the `<option>` as `data-date`/`data-time`, which is presentation only. Two arrivals into the same
     airport are therefore two options with one shared value, which is correct: they resolve
     identically and differ only in what they prefill.
+    - **Superseded 2026-09-12 — "one shared value" was the half that was wrong.** The sentence is
+      true of *resolution* and false of *selection*: an `<option>`'s value is what a `<select>` is
+      selected by, so once D16 preselected `airport:DEN`, `th:field` marked **both** DEN departures
+      `selected="selected"`, a single-select browser took the last, and a form preselected from a
+      Sep 28 gap displayed the Oct 15 flight — while the value it posted and the times it filled in
+      were the right ones throughout. An airport option's value is now `airport:<CODE>:<flightId>`
+      (`GroundTransferEndpointResolver.airportToken`); the leg is dropped on the way in, so the
+      command, the event and the stored data really are untouched, and `placeToken` drops it again
+      for the two-different-places rule, which two legs through one airport must still trip.
   - **Leg scoping sharpens D10** rather than replacing it. Each leg is FUTURE-scoped by *its own*
     moment instead of by the flight's departure, so a flight already in the air still offers the
     airport it is about to land at — the trip-already-under-way case D6 exists for. Hotels keep the
@@ -199,7 +208,7 @@ Each end is one `<select>`, whose value is a token:
 
 | Token | Source | Resolves to |
 |---|---|---|
-| `airport:DEN` | the airports on FUTURE-scoped booked flights (`BookedFlightsProjector`), deduplicated | code `DEN`, city from `StaticAirportCityResolver` (`Denver`), `locationForMatching` = that city |
+| `airport:DEN` (now `airport:DEN:<flightId>`, see D13) | the airports on FUTURE-scoped booked flights (`BookedFlightsProjector`, since 2026-08-23 `TransferEndpointProjector`), one option per leg | code `DEN`, city from `StaticAirportCityResolver` (`Denver`), `locationForMatching` = that city — the leg is dropped |
 | `hotel:<bookingId>` | FUTURE-scoped, non-cancelled booked hotels (`BookedHotelsProjector` for the list, `HotelDetailsViewProjector` for the address) | name + the hotel's `Address`, copied verbatim, `locationForMatching` included |
 
 **D10 (Ted, 2026-08-20): the option lists are FUTURE-scoped, with no date window.** "Near that

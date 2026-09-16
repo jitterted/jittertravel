@@ -188,6 +188,28 @@ class PlanGroundTransferHandlerTest {
                 .isInstanceOf(SameTransferEndpoints.class);
     }
 
+    /**
+     * The resolver reads {@code den} and {@code " DEN"} as DEN, so the same-place rule has to read
+     * them that way too — otherwise a spelling difference is a way round it. The form never offers
+     * two spellings; a hand-made POST can.
+     */
+    @Test
+    void anAirportCodeInAnotherCaseOrWithSpacesIsStillTheSamePlace() {
+        assertThatThrownBy(() -> handler.handle(
+                request("airport:den", "airport: DEN :" + FlightId.random().id(), bookedHotel())))
+                .isInstanceOf(SameTransferEndpoints.class);
+    }
+
+    /** A hotel id is a UUID, which parses in either case — so upper and lower name one booking. */
+    @Test
+    void aHotelIdInAnotherCaseIsStillTheSameBooking() {
+        String bookingId = BOOKING.id().toString();
+        assertThatThrownBy(() -> handler.handle(
+                request("hotel:" + bookingId.toUpperCase(), "hotel:" + bookingId.toLowerCase(),
+                        bookedHotel())))
+                .isInstanceOf(SameTransferEndpoints.class);
+    }
+
     /** And two airports are still two places, however the legs that offered them line up. */
     @Test
     void twoLegsThroughTwoAirportsAreAcceptedAsEver() {

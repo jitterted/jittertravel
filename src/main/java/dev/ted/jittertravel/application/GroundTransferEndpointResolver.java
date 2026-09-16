@@ -106,14 +106,24 @@ public class GroundTransferEndpointResolver {
     /**
      * The part of a token that names the place, with an airport's leg dropped — what the
      * two-different-places rule compares, because landing at DEN on one flight and leaving from DEN
-     * on another is still a transfer that goes nowhere. Every other token names one place already
-     * and comes back unchanged, {@code null} included.
+     * on another is still a transfer that goes nowhere. {@code null} comes back unchanged.
+     * <p>
+     * <strong>Normalized exactly as {@link #resolve} reads it</strong>, or two spellings of one place
+     * compare as two places and the rule is walked round: an airport code is trimmed and upper-cased
+     * as {@link #parseAirportCode} does, and every other token is lower-cased, because the ids in
+     * {@code hotel:} and {@code train:} tokens are UUIDs and {@code UUID.fromString} reads either
+     * case. The form never offers two spellings; a hand-made POST can.
      */
     public static String placeToken(String token) {
-        if (token == null || !token.startsWith(AIRPORT_PREFIX)) {
-            return token;
+        if (token == null) {
+            return null;
         }
-        return AIRPORT_PREFIX + codePartOf(token.substring(AIRPORT_PREFIX.length()));
+        if (!token.startsWith(AIRPORT_PREFIX)) {
+            return token.toLowerCase(Locale.ENGLISH);
+        }
+        return AIRPORT_PREFIX + codePartOf(token.substring(AIRPORT_PREFIX.length()))
+                .trim()
+                .toUpperCase(Locale.ENGLISH);
     }
 
     /**

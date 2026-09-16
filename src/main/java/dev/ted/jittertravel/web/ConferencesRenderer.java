@@ -147,7 +147,10 @@ public class ConferencesRenderer {
                 font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
                 padding: 2px 6px; border-radius: 4px; white-space: nowrap;
             }
-            .conf-commitment--watching { background: #b45309; color: #ffffff; }
+            /* Yellow, not amber: amber is what a problem wears, and "Maybe" is not one. Dark text
+               for contrast, and an inset edge rather than a border so the box stays the same size
+               as the Going chip beside it. Same colours as the calendar's Maybe chip. */
+            .conf-commitment--watching { background: #facc15; color: #422006; box-shadow: inset 0 0 0 1px #a16207; }
             .conf-commitment--going { background: #166534; color: #ffffff; }
             /* The one chip whose fill is nearly the row's own colour, so without an edge it had no
                visible left boundary and read as sitting a pixel or two off from the solid chips

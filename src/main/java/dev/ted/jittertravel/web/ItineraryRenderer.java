@@ -92,11 +92,12 @@ public class ItineraryRenderer {
                 .cancel-bin svg { width: 12px; height: 12px; }
                 .entry-location { font-weight: 700; }
                 .speaking-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: #7c3aed; color: #fff; border-radius: 4px; padding: 0.1rem 0.4rem; margin-top: 0.25rem; }
-                /* "Maybe" on a speculative conference. Amber rather than the speaking chip's
+                /* "Maybe" on a speculative conference. Yellow rather than the speaking chip's
                    colour so the two read as different statements, and solid rather than muted:
-                   muted conventionally reads as *cancelled*. Same reasoning, and the same amber,
-                   as .entry-maybe-badge on the calendar. */
-                .maybe-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: #b45309; color: #fff; border-radius: 4px; padding: 0.1rem 0.4rem; margin-top: 0.25rem; }
+                   muted conventionally reads as *cancelled*. Not amber, which the missing-hotel
+                   marker above wears — an undecided conference is not a problem. Same reasoning,
+                   and the same colours, as .entry-maybe-badge on the calendar. */
+                .maybe-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: #facc15; color: #422006; box-shadow: inset 0 0 0 1px #a16207; border-radius: 4px; padding: 0.1rem 0.4rem; margin-top: 0.25rem; }
             """;
 
     public static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate, LocalDate today, boolean isOwner) {

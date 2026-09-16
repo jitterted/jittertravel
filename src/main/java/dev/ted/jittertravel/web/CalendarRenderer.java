@@ -176,14 +176,20 @@ public class CalendarRenderer {
                 font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
                 padding: 2px 6px; border-radius: 4px; background: #111827; color: #ffffff;
             }
-            /* Public "Maybe" chip on a speculative conference. Amber rather than the speaking
+            /* Public "Maybe" chip on a speculative conference. Yellow rather than the speaking
                chip's near-black so the two read as different statements, and solid rather than
                muted: muted conventionally reads as *cancelled*, and a distinction nobody knows
-               the convention for is no distinction at all. */
+               the convention for is no distinction at all.
+               Yellow, not amber (Ted, 2026-09-13): amber is what every *problem* wears, and an
+               undecided conference is not a problem. Dark text on the fill is ~9.5:1; white on
+               yellow would be unreadable. The inset edge gives the chip a shape on a pale
+               background without changing its box, so it lines up with its neighbours.
+               Same colours as .maybe-badge on /itinerary and .conf-commitment--watching. */
             .entry-maybe-badge {
                 align-self: flex-start; margin-top: 3px;
                 font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
-                padding: 2px 6px; border-radius: 4px; background: #b45309; color: #ffffff;
+                padding: 2px 6px; border-radius: 4px; background: #facc15; color: #422006;
+                box-shadow: inset 0 0 0 1px #a16207;
             }
             .edit-pencil { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
             .edit-pencil:hover { opacity: 1; }

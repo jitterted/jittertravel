@@ -279,7 +279,7 @@
            Still deliberately uncoloured. The verdicts now say which state we are in, but the probe
            still cannot tell the plain-http local prod-preview from a production instance that lost
            its header — both read the same — so amber would cry wolf every day locally and stop
-           being read in the one place it matters. Colouring only the unambiguous HEADER_IGNORED
+           being read in the one place it matters. Colouring only the unambiguous HTTPS_HEADER_IGNORED
            state was considered and is Ted's call, not a tidy-up. */-->
     <section class="probe" aria-label="Cookie transport">
         <p class="probe-summary" th:text="${secureCookieProbe.summary()}">Cookies are marked Secure.</p>

@@ -53,8 +53,8 @@ public record SecureCookieProbe(boolean secure, String scheme, String forwardedP
     }
 
     /**
-     * The four states the two readings can be in. Deriving this once keeps every sentence below
-     * agreeing with every other one, and the switches over it are exhaustive so a fifth state
+     * The five states the readings can be in. Deriving this once keeps every sentence below
+     * agreeing with every other one, and the switches over it are exhaustive so a sixth state
      * cannot be added without saying what each line reads in it.
      */
     private enum Outcome {
@@ -64,8 +64,13 @@ public record SecureCookieProbe(boolean secure, String scheme, String forwardedP
         SECURE_HEADER_SURVIVED,
         /** The local prod-preview shape, and a fault if it is what production reports. */
         PLAIN_NO_HEADER,
-        /** The proxy is doing its part and the strategy is not: the header is here and ignored. */
-        HEADER_IGNORED
+        /** The proxy is doing its part and the strategy is not: the header says https and is ignored. */
+        HTTPS_HEADER_IGNORED,
+        /**
+         * A surviving header that does <em>not</em> say https. The strategy did not run, but "not
+         * secure" agrees with what the proxy reported, so nothing here may claim it should be true.
+         */
+        PLAIN_HEADER_SURVIVED
     }
 
     private Outcome outcome() {
@@ -73,8 +78,11 @@ public record SecureCookieProbe(boolean secure, String scheme, String forwardedP
             return forwardedProto.isBlank() ? Outcome.SECURE_BEHIND_PROXY
                                             : Outcome.SECURE_HEADER_SURVIVED;
         }
-        return forwardedProto.isBlank() ? Outcome.PLAIN_NO_HEADER
-                                        : Outcome.HEADER_IGNORED;
+        if (forwardedProto.isBlank()) {
+            return Outcome.PLAIN_NO_HEADER;
+        }
+        return forwardedProto.equalsIgnoreCase("https") ? Outcome.HTTPS_HEADER_IGNORED
+                                                        : Outcome.PLAIN_HEADER_SURVIVED;
     }
 
     /**
@@ -87,7 +95,7 @@ public record SecureCookieProbe(boolean secure, String scheme, String forwardedP
                     "Cookies on this request are marked Secure, as desired.";
             case SECURE_HEADER_SURVIVED ->
                     "Cookies on this request are marked Secure, but not by the route we expect.";
-            case PLAIN_NO_HEADER, HEADER_IGNORED ->
+            case PLAIN_NO_HEADER, HTTPS_HEADER_IGNORED, PLAIN_HEADER_SURVIVED ->
                     "Cookies on this request are NOT marked Secure.";
         };
     }
@@ -108,9 +116,14 @@ public record SecureCookieProbe(boolean secure, String scheme, String forwardedP
                     "No usable X-Forwarded-Proto reached the app — expected over plain http "
                     + "locally, but in production it means none arrived, or one arrived saying "
                     + "http.";
-            case HEADER_IGNORED ->
+            case HTTPS_HEADER_IGNORED ->
                     "X-Forwarded-Proto says " + forwardedProto
                     + ", so server.forward-headers-strategy is not being applied.";
+            case PLAIN_HEADER_SURVIVED ->
+                    "X-Forwarded-Proto says " + forwardedProto
+                    + ", so not secure agrees with the proxy — this request reached it without "
+                    + "https. The header also reached the app instead of being consumed, so "
+                    + "server.forward-headers-strategy is not being applied either.";
         };
     }
 
@@ -130,7 +143,8 @@ public record SecureCookieProbe(boolean secure, String scheme, String forwardedP
             case SECURE_BEHIND_PROXY -> "working as desired — this is the value that marks both cookies";
             case SECURE_HEADER_SURVIVED -> "as desired, but reached by an unexpected route";
             case PLAIN_NO_HEADER -> "expected over plain http locally; wrong in production";
-            case HEADER_IGNORED -> "wrong — the proxy said https, so this should be true";
+            case HTTPS_HEADER_IGNORED -> "wrong — the proxy said https, so this should be true";
+            case PLAIN_HEADER_SURVIVED -> "consistent with the proxy, which said " + forwardedProto;
         };
     }
 
@@ -138,7 +152,8 @@ public record SecureCookieProbe(boolean secure, String scheme, String forwardedP
         return switch (outcome()) {
             case SECURE_BEHIND_PROXY, SECURE_HEADER_SURVIVED -> "as expected";
             case PLAIN_NO_HEADER -> "expected over plain http locally; wrong in production";
-            case HEADER_IGNORED -> "wrong — should be https";
+            case HTTPS_HEADER_IGNORED -> "wrong — should be https";
+            case PLAIN_HEADER_SURVIVED -> "consistent with the proxy, which said " + forwardedProto;
         };
     }
 
@@ -156,8 +171,10 @@ public record SecureCookieProbe(boolean secure, String scheme, String forwardedP
                     "unexpected — a header still here was never consumed, so the strategy did not run";
             case PLAIN_NO_HEADER ->
                     "expected locally; in production it means none arrived, or one said http";
-            case HEADER_IGNORED ->
+            case HTTPS_HEADER_IGNORED ->
                     "arrived but was ignored — the strategy did not run";
+            case PLAIN_HEADER_SURVIVED ->
+                    "unexpected — a header still here was never consumed, so the strategy did not run";
         };
     }
 

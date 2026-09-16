@@ -38,12 +38,13 @@ class SecureCookieProbeTest {
     @Test
     void everyReadingCarriesAVerdictInEveryState() {
         // The point of the record: a value shown without a verdict puts the reader back where they
-        // started. Driven over all four states so a new one cannot ship a blank verdict.
+        // started. Driven over all five states so a new one cannot ship a blank verdict.
         for (SecureCookieProbe probe : new SecureCookieProbe[]{
                 new SecureCookieProbe(true, "https", ""),
                 new SecureCookieProbe(true, "https", "https"),
                 new SecureCookieProbe(false, "http", ""),
-                new SecureCookieProbe(false, "http", "https")}) {
+                new SecureCookieProbe(false, "http", "https"),
+                new SecureCookieProbe(false, "http", "http")}) {
             assertThat(probe.values())
                     .as("readings for %s", probe)
                     .isNotEmpty()
@@ -101,6 +102,37 @@ class SecureCookieProbeTest {
                 .containsExactly("wrong — the proxy said https, so this should be true",
                                  "wrong — should be https",
                                  "arrived but was ignored — the strategy did not run");
+    }
+
+    @Test
+    void aSurvivingHeaderThatSaysHttpDoesNotClaimTheRequestShouldBeSecure() {
+        // Not secure, and the header survived — but it says http, so "not secure" agrees with the
+        // proxy. The verdicts written for a surviving https header ("should be true", "should be
+        // https") would contradict the very value printed beside them.
+        SecureCookieProbe probe = new SecureCookieProbe(false, "http", "http");
+
+        assertThat(probe.summary())
+                .isEqualTo("Cookies on this request are NOT marked Secure.");
+        assertThat(probe.explanation())
+                .isEqualTo("X-Forwarded-Proto says http, so not secure agrees with the proxy — this "
+                           + "request reached it without https. The header also reached the app "
+                           + "instead of being consumed, so server.forward-headers-strategy is not "
+                           + "being applied either.");
+        assertThat(probe.values())
+                .extracting(ProbeValue::verdict)
+                .containsExactly("consistent with the proxy, which said http",
+                                 "consistent with the proxy, which said http",
+                                 "unexpected — a header still here was never consumed, so the strategy did not run");
+    }
+
+    @Test
+    void anHttpsHeaderIsRecognisedWhateverItsCase() {
+        SecureCookieProbe probe = new SecureCookieProbe(false, "http", "HTTPS");
+
+        assertThat(probe.values())
+                .extracting(ProbeValue::verdict)
+                .first()
+                .isEqualTo("wrong — the proxy said https, so this should be true");
     }
 
     @Test

@@ -7,3 +7,11 @@ services:
       POSTGRES_PASSWORD: travel
     ports:
       - "5432:5432"
+    volumes:
+      # The image's own VOLUME, and the parent of PGDATA (/var/lib/postgresql/18/docker).
+      # Named rather than anonymous so `docker compose down` leaves the dev data behind
+      # instead of orphaning it and minting an empty volume on the next `up`.
+      - jittertravel-postgres-data:/var/lib/postgresql
+
+volumes:
+  jittertravel-postgres-data:

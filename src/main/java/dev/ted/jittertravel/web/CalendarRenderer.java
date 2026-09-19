@@ -184,12 +184,16 @@ public class CalendarRenderer {
                undecided conference is not a problem. Dark text on the fill is ~9.5:1; white on
                yellow would be unreadable. The inset edge gives the chip a shape on a pale
                background without changing its box, so it lines up with its neighbours.
-               Same colours as .maybe-badge on /itinerary and .conf-commitment--watching. */
+               The three colours are site.css's --chip-maybe-* tokens, shared with .maybe-badge on
+               /itinerary and .conf-commitment--watching on /conferences. They live there rather than
+               here because 11cfc56 had to edit all three by hand to move amber->yellow, and the
+               chips are on three pages nobody sees side by side, so a missed one drifts unnoticed. */
             .entry-maybe-badge {
                 align-self: flex-start; margin-top: 3px;
                 font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
-                padding: 2px 6px; border-radius: 4px; background: #facc15; color: #422006;
-                box-shadow: inset 0 0 0 1px #a16207;
+                padding: 2px 6px; border-radius: 4px;
+                background: var(--chip-maybe-bg); color: var(--chip-maybe-fg);
+                box-shadow: inset 0 0 0 1px var(--chip-maybe-edge);
             }
             .edit-pencil { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
             .edit-pencil:hover { opacity: 1; }

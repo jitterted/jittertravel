@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.Place;
 import dev.ted.jittertravel.domain.PrivateEventId;
 
 import java.time.LocalDateTime;
@@ -39,11 +40,15 @@ public record PrivateEventMatchingLocationView(
 
     /**
      * Whether the schedule is already being told something other than the venue's own city — which
-     * is exactly when the page has something to explain. Case-insensitive, because that is how
-     * {@code Place.matches} compares and a page that called "denver" a different place from
-     * "Denver" would be lying about what the schedule does.
+     * is exactly when the page has something to explain.
+     * <p>
+     * Asked through {@link Place#matches} rather than with a hand-written {@code equalsIgnoreCase},
+     * so this page and {@code ScheduleGapProjector} cannot answer it differently — a value compared
+     * as a city has one normalization and not two. The day {@code Place} is strengthened past
+     * {@code trim()} (U+00A0 is the gap CLAUDE.md names), the page that exists to explain the
+     * override picks the fix up instead of quietly disagreeing with the schedule it describes.
      */
     public boolean isOverridden() {
-        return !locationForMatching.equalsIgnoreCase(city);
+        return !new Place(locationForMatching).matches(new Place(city));
     }
 }

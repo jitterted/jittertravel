@@ -7,6 +7,11 @@
     --muted-text: #495057;
     --hover-bg: #fdfdfd;
     --event-bg: #e0e7ff;
+    /* The "Maybe" chip, on three pages that are never seen side by side. One definition so they
+       cannot drift apart; the reasoning for the colours is on .entry-maybe-badge in CalendarRenderer. */
+    --chip-maybe-bg: #facc15;
+    --chip-maybe-fg: #422006;
+    --chip-maybe-edge: #a16207;
     --font-main: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 

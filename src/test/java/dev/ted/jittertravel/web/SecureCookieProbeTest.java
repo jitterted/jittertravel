@@ -141,8 +141,9 @@ class SecureCookieProbeTest {
         // that happens to be empty rather than a header that never arrived.
         SecureCookieProbe probe = new SecureCookieProbe(false, "http", null);
 
-        assertThat(probe.forwardedProtoOrNone())
-                .isEqualTo("(none)");
+        assertThat(probe.values())
+                .extracting(ProbeValue::value)
+                .containsExactly("false", "http", "(none)");
         assertThat(probe.forwardedProto())
                 .as("null normalizes to the empty-string sentinel, never null")
                 .isEmpty();
@@ -163,7 +164,8 @@ class SecureCookieProbeTest {
 
         assertThat(probe.scheme())
                 .isEqualTo("http");
-        assertThat(probe.forwardedProtoOrNone())
-                .isEqualTo("https");
+        assertThat(probe.values())
+                .extracting(ProbeValue::value)
+                .containsExactly("false", "http", "https");
     }
 }

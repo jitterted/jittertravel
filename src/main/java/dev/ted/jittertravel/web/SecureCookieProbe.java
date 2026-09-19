@@ -167,18 +167,16 @@ public record SecureCookieProbe(boolean secure, String scheme, String forwardedP
             case SECURE_BEHIND_PROXY ->
                     "this is correct — the header was consumed after being applied, which is what "
                     + "the strategy does";
-            case SECURE_HEADER_SURVIVED ->
-                    "unexpected — a header still here was never consumed, so the strategy did not run";
             case PLAIN_NO_HEADER ->
                     "expected locally; in production it means none arrived, or one said http";
             case HTTPS_HEADER_IGNORED ->
                     "arrived but was ignored — the strategy did not run";
-            case PLAIN_HEADER_SURVIVED ->
+            case SECURE_HEADER_SURVIVED, PLAIN_HEADER_SURVIVED ->
                     "unexpected — a header still here was never consumed, so the strategy did not run";
         };
     }
 
-    public String forwardedProtoOrNone() {
+    private String forwardedProtoOrNone() {
         return forwardedProto.isBlank() ? "(none)" : forwardedProto;
     }
 

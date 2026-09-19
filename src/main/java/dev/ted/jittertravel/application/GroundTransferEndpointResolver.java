@@ -48,9 +48,9 @@ import java.util.UUID;
  */
 public class GroundTransferEndpointResolver {
 
-    static final String AIRPORT_PREFIX = "airport:";
+    private static final String AIRPORT_PREFIX = "airport:";
     static final String HOTEL_PREFIX = "hotel:";
-    static final String TRAIN_PREFIX = "train:";
+    private static final String TRAIN_PREFIX = "train:";
 
     private static final String ARRIVAL_SUFFIX = ":arrival";
     private static final String DEPARTURE_SUFFIX = ":departure";

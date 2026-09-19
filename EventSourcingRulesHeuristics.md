@@ -431,11 +431,43 @@ sequence in `EventSourcingConfig` builds projector state at boot, and the
 same `notifySynchronousSubscribers(...)` path runs on every append. Replay
 is just a special case of "events happened".
 
-### H6. Tests share the in-memory EventStore across integration test classes.
+### H6. Integration tests share the Spring context, but **not** event state — each one starts from an empty store.
 
-Only the DB is truncated between tests; the in-process `EventStore` is reused.
-Write integration-test assertions to be **specific** (filter by a unique
-flight number, conference name, etc.) rather than relying on global counts.
+**Revised 2026-09-12. This heuristic used to say the opposite**, and the old
+wording is kept here because acting on it now would reintroduce the bug it
+described: *"Only the DB is truncated between tests; the in-process `EventStore`
+is reused. Write integration-test assertions to be **specific** … rather than
+relying on global counts."*
+
+That was an accurate description of a defect, offered as advice. `EventStore`
+fills its in-memory list once at boot and only ever appends, so no `@Sql`
+truncation reached it and every integration test sharing a context inherited its
+siblings' events — and, the container being reused, previous runs'. It matters
+beyond tests, because `CommandExecutor.eventsForDecision()` folds every
+write-path decision from that same list.
+
+**What is true now:** `AbstractTestcontainerIntegrationTest` has a `@BeforeEach`
+that calls `EventStore.reload()` — re-reading the durable log and re-pointing
+`nextSequence` at its last row — and then **asserts the store is empty**. The
+assertion is the guard, not the reload: delete the reload and methods fail by
+name.
+
+**So write the assertion you actually mean.** Steering around shared state —
+filtering by a unique flight number to dodge a sibling's rows, or staggering
+fixtures so they stop colliding — is now the thing to avoid: it hides a report
+instead of acting on it, and CLAUDE.md's "Every test is isolated" section says
+why that is a *production* concern first. Specificity is still good when it is
+what the test means; it is no longer a workaround you owe.
+
+Both orders are shuffled (`runOrder=random` for classes,
+`MethodOrderer$Random` for methods), and both seeds are printed, so an ordering
+failure is reproducible rather than flake.
+
+**Still open:** nothing calls `reload()` outside the constructor, so
+`/admin/database` truncate and restore leave the production list wrong, and
+nothing returns the *projectors* to a known state in either tests or production.
+See `docs/Cleanup_Tasks.md`, "Test isolation: the test half is enforced, the
+production half is not".
 
 ### H7. There are no aggregates in this application
 

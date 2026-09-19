@@ -38,14 +38,10 @@ public class ClearConflictController {
             @RequestParam String conferenceCity,
             @RequestParam String date,
             Model model) {
-        ClearConflictRequest request = new ClearConflictRequest();
-        request.setGatheringId(gatheringId.toString());
-        request.setConferenceId(conferenceId.toString());
-        request.setGatheringName(gatheringName);
-        request.setGatheringCity(gatheringCity);
-        request.setConferenceName(conferenceName);
-        request.setConferenceCity(conferenceCity);
-        request.setDate(LocalDate.parse(date));
+        ClearConflictRequest request = new ClearConflictRequest(
+                gatheringId.toString(), conferenceId.toString(), null,
+                gatheringName, gatheringCity, conferenceName, conferenceCity,
+                LocalDate.parse(date));
         model.addAttribute("clearConflictRequest", request);
         return "clear-conflict";
     }
@@ -60,9 +56,9 @@ public class ClearConflictController {
         try {
             // commandId is captured here at the boundary; the service generates no UUIDs of its own.
             gatheringPlanning.clearConflict(
-                    GatheringId.of(UUID.fromString(request.getGatheringId())),
-                    ConferenceId.of(UUID.fromString(request.getConferenceId())),
-                    request.getReason() != null ? request.getReason() : "",
+                    GatheringId.of(UUID.fromString(request.gatheringId())),
+                    ConferenceId.of(UUID.fromString(request.conferenceId())),
+                    request.reason() != null ? request.reason() : "",
                     UUID.randomUUID());
         } catch (IllegalArgumentException malformedId) {
             // The hidden ids came back unparseable (hand-edited URL, truncated form). Report it on

@@ -5,47 +5,22 @@ import org.springframework.format.annotation.DateTimeFormat;
 import java.time.LocalDate;
 
 /**
- * The conflict summary fields (names, cities, date) are display-only, but they ride the form as
- * hidden inputs rather than as loose model attributes: a rejected POST re-renders this same page,
- * and without them the summary would come back blank.
+ * Form-backing record for clearing a schedule conflict.
+ * <p>
+ * The two ids and the four name/city fields arrive as hidden inputs the GET filled in, so they are
+ * form data rather than path data and stay components here. Only {@code reason} is typed.
  */
-public class ClearConflictRequest {
-    private String gatheringId;
-    private String conferenceId;
-    private String reason;
-    private String gatheringName;
-    private String gatheringCity;
-    private String conferenceName;
-    private String conferenceCity;
-
-    // Optional to RequiredEntryAdvice, unlike every other bound date: nothing is written from it,
-    // so refusing a clear-conflict because a display-only hidden input arrived empty would fail a
-    // valid submit to protect a summary line.
-    @OptionalEntry
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-    private LocalDate date;
-
-    public String getGatheringId() { return gatheringId; }
-    public void setGatheringId(String gatheringId) { this.gatheringId = gatheringId; }
-
-    public String getConferenceId() { return conferenceId; }
-    public void setConferenceId(String conferenceId) { this.conferenceId = conferenceId; }
-
-    public String getReason() { return reason; }
-    public void setReason(String reason) { this.reason = reason; }
-
-    public String getGatheringName() { return gatheringName; }
-    public void setGatheringName(String gatheringName) { this.gatheringName = gatheringName; }
-
-    public String getGatheringCity() { return gatheringCity; }
-    public void setGatheringCity(String gatheringCity) { this.gatheringCity = gatheringCity; }
-
-    public String getConferenceName() { return conferenceName; }
-    public void setConferenceName(String conferenceName) { this.conferenceName = conferenceName; }
-
-    public String getConferenceCity() { return conferenceCity; }
-    public void setConferenceCity(String conferenceCity) { this.conferenceCity = conferenceCity; }
-
-    public LocalDate getDate() { return date; }
-    public void setDate(LocalDate date) { this.date = date; }
+public record ClearConflictRequest(
+        String gatheringId,
+        String conferenceId,
+        String reason,
+        String gatheringName,
+        String gatheringCity,
+        String conferenceName,
+        String conferenceCity,
+        // Optional to RequiredEntryAdvice, unlike every other bound date: nothing is written from
+        // it, so refusing a clear-conflict because a display-only hidden input arrived empty would
+        // fail a valid submit to protect a summary line.
+        @OptionalEntry @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+) {
 }

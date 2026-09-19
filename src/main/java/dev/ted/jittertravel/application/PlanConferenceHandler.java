@@ -28,17 +28,17 @@ public class PlanConferenceHandler {
     }
 
     public PlanConferenceCommand handle(PlanConferenceRequest request) {
-        Address venueAddress = request.getVenueAddress();
-        ZoneId zone = venueZone.resolve(request.getZone(), venueAddress);
+        Address venueAddress = request.venueAddress();
+        ZoneId zone = venueZone.resolve(request.zone(), venueAddress);
         return new PlanConferenceCommand(
-                ConferenceId.of(UUID.fromString(request.getConferenceId())),
-                request.getName(),
-                zonedOrNull(request.getStartDate(), zone),
-                zonedOrNull(request.getEndDate(), zone),
-                request.getVenueName(),
+                ConferenceId.of(UUID.fromString(request.conferenceId())),
+                request.name(),
+                zonedOrNull(request.startDate(), zone),
+                zonedOrNull(request.endDate(), zone),
+                request.venueName(),
                 venueAddress,
-                ConferenceFormat.fromParam(request.getFormat()),
-                request.getInfoUrl()
+                ConferenceFormat.fromParam(request.format()),
+                request.infoUrl()
         );
     }
 

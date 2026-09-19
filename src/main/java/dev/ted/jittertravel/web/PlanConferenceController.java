@@ -67,14 +67,14 @@ public class PlanConferenceController {
         if (applicationService.isReadOnly()) {
             return "redirect:/read-only";
         }
-        PlanConferenceRequest request = new PlanConferenceRequest();
-        request.setConferenceId(UUID.randomUUID().toString());
         // ?date= from the calendar day-menu seeds the start day; the default (one week out)
         // stands when absent so the index nav card is unaffected.
         LocalDate day = date != null ? date : LocalDate.now(clock).plusWeeks(1);
         LocalDateTime startDateTime = day.atStartOfDay().plusHours(9);
-        request.setStartDate(startDateTime);
-        request.setEndDate(startDateTime.plusDays(2).plusHours(8));
+        PlanConferenceRequest request = new PlanConferenceRequest(
+                UUID.randomUUID().toString(), null,
+                startDateTime, startDateTime.plusDays(2).plusHours(8),
+                null, null, null, null, null, null, null, null, null, null, null);
 
         model.addAttribute("planConference", request);
         return "plan-conference";

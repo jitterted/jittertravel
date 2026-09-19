@@ -29,8 +29,8 @@ class PlanConferenceControllerTest {
 
         PlanConferenceRequest request =
                 (PlanConferenceRequest) model.getAttribute("planConference");
-        assertThat(request.getStartDate()).isEqualTo(LocalDateTime.of(2026, 6, 7, 9, 0));
-        assertThat(request.getEndDate()).isEqualTo(LocalDateTime.of(2026, 6, 9, 17, 0));
+        assertThat(request.startDate()).isEqualTo(LocalDateTime.of(2026, 6, 7, 9, 0));
+        assertThat(request.endDate()).isEqualTo(LocalDateTime.of(2026, 6, 9, 17, 0));
     }
 
     @Test
@@ -42,8 +42,8 @@ class PlanConferenceControllerTest {
 
         PlanConferenceRequest request =
                 (PlanConferenceRequest) model.getAttribute("planConference");
-        assertThat(request.getStartDate()).isEqualTo(LocalDateTime.of(2026, 7, 20, 9, 0));
-        assertThat(request.getEndDate()).isEqualTo(LocalDateTime.of(2026, 7, 22, 17, 0));
+        assertThat(request.startDate()).isEqualTo(LocalDateTime.of(2026, 7, 20, 9, 0));
+        assertThat(request.endDate()).isEqualTo(LocalDateTime.of(2026, 7, 22, 17, 0));
     }
 
     // The form GET only reads isReadOnly() and the clock; the projector is unused here.

@@ -38,13 +38,12 @@ public class PlanPrivateEventController {
     @GetMapping("/plan-private-event")
     public String planPrivateEventForm(Model model,
                                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        PlanPrivateEventRequest request = new PlanPrivateEventRequest();
-        request.setPrivateEventId(UUID.randomUUID().toString());
         // ?date= from the calendar day-menu seeds the day; the default (one week out) stands when
         // absent so the index nav card is unaffected.
-        request.setDate(date != null ? date : LocalDate.now(clock).plusWeeks(1));
-        request.setStartTime(LocalTime.of(18, 0));
-        request.setEndTime(LocalTime.of(21, 0));
+        PlanPrivateEventRequest request = new PlanPrivateEventRequest(
+                UUID.randomUUID().toString(), null, null, null, null, null, null, null, null, null,
+                date != null ? date : LocalDate.now(clock).plusWeeks(1),
+                LocalTime.of(18, 0), LocalTime.of(21, 0));
         model.addAttribute("planPrivateEvent", request);
         return "plan-private-event";
     }

@@ -6,81 +6,48 @@ import org.springframework.format.annotation.DateTimeFormat;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-public class PlanGatheringRequest {
-    private String gatheringId;
-    private String title;
-    private String venueName;
-    private String street;
-    private String city;
-    private String region;
-    private String postalCode;
-    private String country;
-    private String locationForMatching;
-    // Optional explicit time-zone pick (a CommonZone enum name). Empty/absent means "derive from
-    // the location"; a value wins over derivation. The form requires it only when derivation fails.
-    // Backups exported before this field existed simply lack it, and still import.
-    private String zone;
+/**
+ * Form-backing record for planning a gathering — a meetup, a user group, anything whose venue and
+ * time are public by decision.
+ * <p>
+ * {@code gatheringId} stays a component: it is minted for a new gathering and carried in a hidden
+ * field, so it is form data rather than something the path already says.
+ */
+public record PlanGatheringRequest(
+        String gatheringId,
+        String title,
+        String venueName,
+        String street,
+        String city,
+        String region,
+        String postalCode,
+        String country,
+        String locationForMatching,
+        String zone,
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+        @DateTimeFormat(pattern = "HH:mm") LocalTime startTime,
+        @DateTimeFormat(pattern = "HH:mm") LocalTime endTime,
+        Boolean speaking,
+        String infoUrl
+) {
 
-    // The wire shape stays date + two times even though the event now stores two instants: that is
-    // what keeps pre-migration backups importable (see docs/archived/GatheringConferenceUtcRolloutPlan.md).
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-    private LocalDate date;
+    /**
+     * {@code speaking} is boxed, and that is load-bearing rather than style. An unchecked checkbox
+     * submits <em>nothing</em>, and constructor binding cannot pass {@code null} to a primitive, so
+     * a {@code boolean} component turns "Ted is not speaking" into a binding error on the field —
+     * which is what RequiredEntryConventionTest caught the moment this record landed. A mutable
+     * bean never had the problem because an absent value simply left the field {@code false}.
+     * Boxed and defaulted here, the absent case means the same thing it always did.
+     */
+    public PlanGatheringRequest {
+        speaking = speaking != null && speaking;
+    }
 
-    @DateTimeFormat(pattern = "HH:mm")
-    private LocalTime startTime;
-
-    @DateTimeFormat(pattern = "HH:mm")
-    private LocalTime endTime;
-
-    private boolean speaking;
-    private String infoUrl;
-
-    public String getGatheringId() { return gatheringId; }
-    public void setGatheringId(String gatheringId) { this.gatheringId = gatheringId; }
-
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-
-    public String getVenueName() { return venueName; }
-    public void setVenueName(String venueName) { this.venueName = venueName; }
-
-    public String getStreet() { return street; }
-    public void setStreet(String street) { this.street = street; }
-
-    public String getCity() { return city; }
-    public void setCity(String city) { this.city = city; }
-
-    public String getRegion() { return region; }
-    public void setRegion(String region) { this.region = region; }
-
-    public String getPostalCode() { return postalCode; }
-    public void setPostalCode(String postalCode) { this.postalCode = postalCode; }
-
-    public String getCountry() { return country; }
-    public void setCountry(String country) { this.country = country; }
-
-    public String getLocationForMatching() { return locationForMatching; }
-    public void setLocationForMatching(String locationForMatching) { this.locationForMatching = locationForMatching; }
-
-    public LocalDate getDate() { return date; }
-    public void setDate(LocalDate date) { this.date = date; }
-
-    public LocalTime getStartTime() { return startTime; }
-    public void setStartTime(LocalTime startTime) { this.startTime = startTime; }
-
-    public LocalTime getEndTime() { return endTime; }
-    public void setEndTime(LocalTime endTime) { this.endTime = endTime; }
-
-    public boolean isSpeaking() { return speaking; }
-    public void setSpeaking(boolean speaking) { this.speaking = speaking; }
-
-    public String getInfoUrl() { return infoUrl; }
-    public void setInfoUrl(String infoUrl) { this.infoUrl = infoUrl; }
-
-    public String getZone() { return zone; }
-    public void setZone(String zone) { this.zone = zone; }
-
-    public Address getLocation() {
+    /**
+     * The address the six location fields describe. Derived rather than stored, so the form's
+     * fields and the value the write path uses cannot disagree.
+     */
+    public Address location() {
         return new Address(street, city, region, postalCode, country, locationForMatching);
     }
 }

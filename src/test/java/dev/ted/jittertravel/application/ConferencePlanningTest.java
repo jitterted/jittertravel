@@ -106,8 +106,7 @@ class ConferencePlanningTest {
         RecordingCommandExecutor executor = new RecordingCommandExecutor();
         ConferencePlanning planning = planningWith(executor);
 
-        PlanConferenceRequest request = request(null, null);
-        request.setInfoUrl("https://jfall.nl/");
+        PlanConferenceRequest request = request(null, null, null, "https://jfall.nl/");
 
         planning.planConference(request, NOW, UUID.randomUUID());
 
@@ -126,8 +125,8 @@ class ConferencePlanningTest {
         RecordingCommandExecutor executor = new RecordingCommandExecutor();
         ConferencePlanning planning = planningWith(executor);
 
-        PlanConferenceRequest request = request(LocalDateTime.of(2026, 9, 12, 23, 59), "");
-        request.setFormat("OPEN_SPACE");
+        PlanConferenceRequest request =
+                request(LocalDateTime.of(2026, 9, 12, 23, 59), "", "OPEN_SPACE", null);
 
         assertThatExceptionOfType(ConferenceHasNoCfp.class)
                 .isThrownBy(() -> planning.planConference(request, NOW, UUID.randomUUID()));
@@ -142,8 +141,8 @@ class ConferencePlanningTest {
         RecordingCommandExecutor executor = new RecordingCommandExecutor();
         ConferencePlanning planning = planningWith(executor);
 
-        PlanConferenceRequest request = request(null, "https://sessionize.com/socrates/");
-        request.setFormat("OPEN_SPACE");
+        PlanConferenceRequest request =
+                request(null, "https://sessionize.com/socrates/", "OPEN_SPACE", null);
 
         assertThatExceptionOfType(ConferenceHasNoCfp.class)
                 .isThrownBy(() -> planning.planConference(request, NOW, UUID.randomUUID()));
@@ -193,17 +192,17 @@ class ConferencePlanningTest {
      * half is what these cases are about.
      */
     private static PlanConferenceRequest request(LocalDateTime cfpClosesOn, String cfpSubmissionUrl) {
-        PlanConferenceRequest request = new PlanConferenceRequest();
-        request.setConferenceId(UUID.randomUUID().toString());
-        request.setName("J-Fall");
-        request.setStartDate(LocalDateTime.of(2026, 11, 5, 9, 0));
-        request.setEndDate(LocalDateTime.of(2026, 11, 5, 18, 0));
-        request.setVenueName("Reehorst");
-        request.setVenueCity("Ede");
-        request.setVenueCountry("Netherlands");
-        request.setCfpClosesOn(cfpClosesOn);
-        request.setCfpSubmissionUrl(cfpSubmissionUrl);
-        return request;
+        return request(cfpClosesOn, cfpSubmissionUrl, null, null);
+    }
+
+    /** The same form, for the two cases that also pick a format or fill the conference's own page. */
+    private static PlanConferenceRequest request(LocalDateTime cfpClosesOn, String cfpSubmissionUrl,
+                                                 String format, String infoUrl) {
+        return new PlanConferenceRequest(
+                UUID.randomUUID().toString(), "J-Fall",
+                LocalDateTime.of(2026, 11, 5, 9, 0), LocalDateTime.of(2026, 11, 5, 18, 0),
+                "Reehorst", null, "Ede", null, "Netherlands", null, null,
+                format, infoUrl, cfpClosesOn, cfpSubmissionUrl);
     }
 
     /**

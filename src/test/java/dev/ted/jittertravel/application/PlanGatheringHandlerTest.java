@@ -71,22 +71,10 @@ class PlanGatheringHandlerTest {
     }
 
     private static PlanGatheringRequest requestIn(String city, String country, String zone) {
-        PlanGatheringRequest request = new PlanGatheringRequest();
-        request.setGatheringId(UUID.randomUUID().toString());
-        request.setTitle("Some Meetup");
-        request.setVenueName("Some Venue");
-        request.setStreet("1 Example St");
-        request.setCity(city);
-        request.setRegion("");
-        request.setPostalCode("");
-        request.setCountry(country);
-        request.setLocationForMatching(city);
-        request.setZone(zone);
-        request.setDate(LocalDate.of(2026, 9, 15));
-        request.setStartTime(LocalTime.of(18, 0));
-        request.setEndTime(LocalTime.of(21, 0));
-        request.setSpeaking(false);
-        request.setInfoUrl("");
-        return request;
+        return new PlanGatheringRequest(
+                UUID.randomUUID().toString(), "Some Meetup", "Some Venue",
+                "1 Example St", city, "", "", country, city, zone,
+                LocalDate.of(2026, 9, 15), LocalTime.of(18, 0), LocalTime.of(21, 0),
+                false, "");
     }
 }

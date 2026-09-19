@@ -64,9 +64,8 @@ class PlanConferenceControllerValidationTest {
     @Test
     void anUnresolvableVenueWithNoZonePickIsRejectedOnTheZoneField() {
         PlanConferenceRequest request = conferenceForm(
-                LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 22, 17, 0), null);
-        request.setVenueCity("Springfield");
-        request.setVenueCountry("Freedonia");
+                LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 22, 17, 0), null,
+                "Springfield", "Freedonia", null);
 
         BindingResult bindingResult = submit(request);
 
@@ -78,9 +77,8 @@ class PlanConferenceControllerValidationTest {
     @Test
     void anUnresolvableVenueIsAcceptedOnceAZoneIsPicked() {
         PlanConferenceRequest request = conferenceForm(
-                LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 22, 17, 0), "US_CENTRAL");
-        request.setVenueCity("Springfield");
-        request.setVenueCountry("Freedonia");
+                LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 22, 17, 0),
+                "US_CENTRAL", "Springfield", "Freedonia", null);
 
         BindingResult bindingResult = submit(request);
 
@@ -95,8 +93,8 @@ class PlanConferenceControllerValidationTest {
         // A non-default format (OPEN_SPACE) proves the handler reads the form value rather than
         // defaulting. Runs the real handler → command → event, minus persistence.
         PlanConferenceRequest request = conferenceForm(
-                LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 22, 17, 0), null);
-        request.setFormat("OPEN_SPACE");
+                LocalDateTime.of(2026, 5, 20, 9, 0), LocalDateTime.of(2026, 5, 22, 17, 0), null,
+                "San Francisco", "USA", "OPEN_SPACE");
 
         ConferencePlanned event =
                 new PlanConferenceHandler(new LocationZoneResolver()).handle(request)
@@ -136,18 +134,19 @@ class PlanConferenceControllerValidationTest {
     private static PlanConferenceRequest conferenceForm(LocalDateTime start,
                                                         LocalDateTime end,
                                                         String zone) {
-        PlanConferenceRequest request = new PlanConferenceRequest();
-        request.setConferenceId(UUID.randomUUID().toString());
-        request.setName("JitterConf");
-        request.setStartDate(start);
-        request.setEndDate(end);
-        request.setVenueName("Moscone Center");
-        request.setVenueStreet("747 Howard St");
-        request.setVenueCity("San Francisco");
-        request.setVenueState("CA");
-        request.setVenueCountry("USA");
-        request.setVenuePostalCode("94103");
-        request.setZone(zone);
-        return request;
+        return conferenceForm(start, end, zone, "San Francisco", "USA", null);
+    }
+
+    /** The same form for the cases that move the venue somewhere unresolvable, or pick a format. */
+    private static PlanConferenceRequest conferenceForm(LocalDateTime start,
+                                                        LocalDateTime end,
+                                                        String zone,
+                                                        String venueCity,
+                                                        String venueCountry,
+                                                        String format) {
+        return new PlanConferenceRequest(
+                UUID.randomUUID().toString(), "JitterConf", start, end,
+                "Moscone Center", "747 Howard St", venueCity, "CA", venueCountry, "94103",
+                zone, format, null, null, null);
     }
 }

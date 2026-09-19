@@ -24,15 +24,15 @@ public class PlanPrivateEventHandler {
     }
 
     public PlanPrivateEventCommand handle(PlanPrivateEventRequest request) {
-        Address location = request.getLocation();
-        ZoneId zone = venueZone.resolve(request.getZone(), location);
+        Address location = request.location();
+        ZoneId zone = venueZone.resolve(request.zone(), location);
         return new PlanPrivateEventCommand(
-                PrivateEventId.of(UUID.fromString(request.getPrivateEventId())),
-                request.getTitle(),
-                request.getVenueName(),
+                PrivateEventId.of(UUID.fromString(request.privateEventId())),
+                request.title(),
+                request.venueName(),
                 location,
-                ZonedTimestamp.fromLocal(request.getDate().atTime(request.getStartTime()), zone),
-                ZonedTimestamp.fromLocal(request.getDate().atTime(request.getEndTime()), zone)
+                ZonedTimestamp.fromLocal(request.date().atTime(request.startTime()), zone),
+                ZonedTimestamp.fromLocal(request.date().atTime(request.endTime()), zone)
         );
     }
 }

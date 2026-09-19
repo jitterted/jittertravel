@@ -63,13 +63,13 @@ public class ConferencePlanning {
         PlanConferenceContext context = new PlanConferenceContext(now);
         commandExecutor.execute(command.conferenceId().id(), request, context, command);
 
-        if (request.getCfpClosesOn() != null) {
+        if (request.cfpClosesOn() != null) {
             // The conference's own zone, off the dates the command just resolved.
             openCfp.openCfp(cfpCommandId,
                             new OpenCfpRequest(command.conferenceId().id(),
-                                               request.getCfpClosesOn(),
-                                               request.getCfpSubmissionUrl()),
-                            ZonedTimestamp.fromLocal(request.getCfpClosesOn(),
+                                               request.cfpClosesOn(),
+                                               request.cfpSubmissionUrl()),
+                            ZonedTimestamp.fromLocal(request.cfpClosesOn(),
                                                      command.startDate().zone()));
         }
     }
@@ -88,9 +88,9 @@ public class ConferencePlanning {
      * the worse of the two ways to handle it.
      */
     private void refuseImpossibleCfp(PlanConferenceRequest request, ConferenceFormat format) {
-        LocalDateTime closesOn = request.getCfpClosesOn();
-        boolean hasSubmissionUrl = request.getCfpSubmissionUrl() != null
-                                   && !request.getCfpSubmissionUrl().isBlank();
+        LocalDateTime closesOn = request.cfpClosesOn();
+        boolean hasSubmissionUrl = request.cfpSubmissionUrl() != null
+                                   && !request.cfpSubmissionUrl().isBlank();
         if (format == ConferenceFormat.OPEN_SPACE && (closesOn != null || hasSubmissionUrl)) {
             throw new ConferenceHasNoCfp(
                     "An open-space conference chooses its sessions on the day — there is no call for papers");

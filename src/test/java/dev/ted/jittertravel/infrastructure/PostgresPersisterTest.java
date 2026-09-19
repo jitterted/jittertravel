@@ -158,17 +158,11 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
     }
 
     private PlanConferenceRequest newRequest(UUID id, String name) {
-        PlanConferenceRequest r = new PlanConferenceRequest();
-        r.setConferenceId(id.toString());
-        r.setName(name);
-        r.setStartDate(LocalDateTime.now().plusDays(10));
-        r.setEndDate(LocalDateTime.now().plusDays(12));
-        r.setVenueName("Venue");
-        r.setVenueStreet("Street");
-        r.setVenueCity("City");
-        r.setVenueCountry("Country");
-        r.setVenuePostalCode("12345");
-        return r;
+        return new PlanConferenceRequest(
+                id.toString(), name,
+                LocalDateTime.now().plusDays(10), LocalDateTime.now().plusDays(12),
+                "Venue", "Street", "City", null, "Country", "12345", null,
+                null, null, null, null);
     }
 
     private StoredEvent storedEvent(long sequence, UUID commandId, String name, PlanConferenceRequest req) {
@@ -180,8 +174,8 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
                 new ConferencePlanned(
                         ConferenceId.of(commandId),
                         name,
-                        ZonedTimestamp.fromLocal(req.getStartDate(), ZoneId.of("UTC")),
-                        ZonedTimestamp.fromLocal(req.getEndDate(), ZoneId.of("UTC")),
+                        ZonedTimestamp.fromLocal(req.startDate(), ZoneId.of("UTC")),
+                        ZonedTimestamp.fromLocal(req.endDate(), ZoneId.of("UTC")),
                         "Venue",
                         new Address("Street", "City", null, "12345", "Country", null)
                 ),
@@ -234,16 +228,11 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
     @Test
     void canSaveAndLoadCommandAndEvents() {
         UUID commandId = UUID.randomUUID();
-        PlanConferenceRequest request = new PlanConferenceRequest();
-        request.setConferenceId(commandId.toString());
-        request.setName("Test Conference");
-        request.setStartDate(LocalDateTime.now().plusDays(10));
-        request.setEndDate(LocalDateTime.now().plusDays(12));
-        request.setVenueName("Test Venue");
-        request.setVenueStreet("Street");
-        request.setVenueCity("City");
-        request.setVenueCountry("Country");
-        request.setVenuePostalCode("12345");
+        PlanConferenceRequest request = new PlanConferenceRequest(
+                commandId.toString(), "Test Conference",
+                LocalDateTime.now().plusDays(10), LocalDateTime.now().plusDays(12),
+                "Test Venue", "Street", "City", null, "Country", "12345", null,
+                null, null, null, null);
 
         persister.saveCommand(commandId, request);
 
@@ -255,8 +244,8 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
                 new ConferencePlanned(
                         ConferenceId.of(commandId),
                         "Test Conference",
-                        ZonedTimestamp.fromLocal(request.getStartDate(), ZoneId.of("UTC")),
-                        ZonedTimestamp.fromLocal(request.getEndDate(), ZoneId.of("UTC")),
+                        ZonedTimestamp.fromLocal(request.startDate(), ZoneId.of("UTC")),
+                        ZonedTimestamp.fromLocal(request.endDate(), ZoneId.of("UTC")),
                         "Test Venue",
                         new Address("Street", "City", null, "12345", "Country", null)
                 ),

@@ -28,9 +28,9 @@ class PlanGatheringControllerTest {
         controller.planGatheringForm(model, null);
 
         PlanGatheringRequest request = (PlanGatheringRequest) model.getAttribute("planGathering");
-        assertThat(request.getDate()).isEqualTo(LocalDate.of(2026, 6, 7));
-        assertThat(request.getStartTime()).isEqualTo(LocalTime.of(18, 0));
-        assertThat(request.getEndTime()).isEqualTo(LocalTime.of(21, 0));
+        assertThat(request.date()).isEqualTo(LocalDate.of(2026, 6, 7));
+        assertThat(request.startTime()).isEqualTo(LocalTime.of(18, 0));
+        assertThat(request.endTime()).isEqualTo(LocalTime.of(21, 0));
     }
 
     @Test
@@ -41,8 +41,8 @@ class PlanGatheringControllerTest {
         controller.planGatheringForm(model, LocalDate.of(2026, 7, 20));
 
         PlanGatheringRequest request = (PlanGatheringRequest) model.getAttribute("planGathering");
-        assertThat(request.getDate()).isEqualTo(LocalDate.of(2026, 7, 20));
-        assertThat(request.getStartTime()).isEqualTo(LocalTime.of(18, 0));
-        assertThat(request.getEndTime()).isEqualTo(LocalTime.of(21, 0));
+        assertThat(request.date()).isEqualTo(LocalDate.of(2026, 7, 20));
+        assertThat(request.startTime()).isEqualTo(LocalTime.of(18, 0));
+        assertThat(request.endTime()).isEqualTo(LocalTime.of(21, 0));
     }
 }

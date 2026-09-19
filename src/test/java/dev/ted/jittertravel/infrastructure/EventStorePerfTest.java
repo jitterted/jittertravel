@@ -89,17 +89,11 @@ class EventStorePerfTest extends AbstractTestcontainerIntegrationTest {
     }
 
     private PlanConferenceRequest createCommandRequest(UUID commandId) {
-        PlanConferenceRequest request = new PlanConferenceRequest();
-        request.setConferenceId(commandId.toString());
-        request.setName("Test Conference");
-        request.setStartDate(LocalDateTime.now().plusDays(10));
-        request.setEndDate(LocalDateTime.now().plusDays(12));
-        request.setVenueName("Test Venue");
-        request.setVenueStreet("Street");
-        request.setVenueCity("City");
-        request.setVenueCountry("Country");
-        request.setVenuePostalCode("12345");
-        return request;
+        return new PlanConferenceRequest(
+                commandId.toString(), "Test Conference",
+                LocalDateTime.now().plusDays(10), LocalDateTime.now().plusDays(12),
+                "Test Venue", "Street", "City", null, "Country", "12345", null,
+                null, null, null, null);
     }
 
     private Event createSampleEvent() {

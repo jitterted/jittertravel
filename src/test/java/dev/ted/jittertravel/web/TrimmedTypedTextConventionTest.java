@@ -95,11 +95,11 @@ class TrimmedTypedTextConventionTest {
                 ArgumentCaptor.forClass(PlanGatheringRequest.class);
         verify(gatheringPlanning).planGathering(submitted.capture(), any());
 
-        assertThat(submitted.getValue().getTitle())
+        assertThat(submitted.getValue().title())
                 .isEqualTo("London Java Community");
-        assertThat(submitted.getValue().getVenueName())
+        assertThat(submitted.getValue().venueName())
                 .isEqualTo("Skills Matter");
-        assertThat(submitted.getValue().getInfoUrl())
+        assertThat(submitted.getValue().infoUrl())
                 .isEqualTo("https://example.com/meetup");
     }
 
@@ -131,7 +131,7 @@ class TrimmedTypedTextConventionTest {
                 ArgumentCaptor.forClass(PlanGatheringRequest.class);
         verify(gatheringPlanning).planGathering(submitted.capture(), any());
 
-        assertThat(submitted.getValue().getInfoUrl())
+        assertThat(submitted.getValue().infoUrl())
                 .isEqualTo("");
     }
 

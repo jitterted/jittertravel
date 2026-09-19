@@ -38,14 +38,12 @@ public class PlanGatheringController {
     @GetMapping("/plan-gathering")
     public String planGatheringForm(Model model,
                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        PlanGatheringRequest request = new PlanGatheringRequest();
-        request.setGatheringId(UUID.randomUUID().toString());
         // ?date= from the calendar day-menu seeds the gathering day; the default (one week
         // out) stands when absent so the index nav card is unaffected.
-        request.setDate(date != null ? date : LocalDate.now(clock).plusWeeks(1));
-        request.setStartTime(LocalTime.of(18, 0));
-        request.setEndTime(LocalTime.of(21, 0));
-        request.setSpeaking(true);
+        PlanGatheringRequest request = new PlanGatheringRequest(
+                UUID.randomUUID().toString(), null, null, null, null, null, null, null, null, null,
+                date != null ? date : LocalDate.now(clock).plusWeeks(1),
+                LocalTime.of(18, 0), LocalTime.of(21, 0), true, null);
         model.addAttribute("planGathering", request);
         return "plan-gathering";
     }

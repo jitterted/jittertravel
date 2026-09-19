@@ -1,8 +1,11 @@
 # Family Email Notifications — Plan
 
-**Status:** `open` — designed 2026-09-09 (Ted), **revised 2026-09-10 after a review against the
-code**, and **every open question answered by Ted the same day** in a second review pass. Nothing
-built; **all four slices are now buildable as written.** The first revision changed three things
+**Status:** `partial` — designed 2026-09-09 (Ted), **revised 2026-09-10 after a review against the
+code**, **every open question answered by Ted the same day** in a second review pass, and the last
+one — `FlightChanged` — **closed as decided rather than deferred on 2026-09-15** (§1, §9). **Slice 0
+ships 2026-09-18**; slices 1, 1a and 2 are buildable as written and **no longer blocked** — the Brevo
+account and its DNS records are ready (Ted, 2026-09-18), so §10's prerequisites are met and slice 1
+can start as soon as slice 0 lands. The first revision changed three things
 materially — the conference trigger set (§4.5), the idempotency key (§4.4), and what
 `/admin/pending-commands` actually shows (§4.3). The second pass answered Q1–Q5 (§9), found one
 unreachable row in §4.4's table, a second half to failure mode #2, and two gaps that became decisions:
@@ -46,6 +49,37 @@ and no notion of a person.
 | `NotifiedFact` on the event (Q5) | **Stored**, not recomputed (§4.4) |
 | Multi-leg trips | **One email per leg, route in the subject** — `Ted booked a flight: SFO → FRA`. No digest (§5) |
 | Verifying the rollout | **An OWNER-only admin probe** sends a fixed message through the real client, writing no row and no event (§4.6) |
+
+### The scope rule, stated 2026-09-15 (Ted)
+
+**Family want to know two things and no others: that there is a *new trip*, and that a trip they
+were told about is *no longer happening*.** Everything in §4.5's trigger set already follows from
+it, and it is the sentence to test a future trigger against.
+
+> *"Family only wants to know about new trips, usually those are anchored by flights booked, or
+> conferences confirmed (paper accepted or ticket bought)… however, they want to know about
+> 'Declined' or 'Cancelled', because they think I'm going unless they receive that."* (Ted,
+> 2026-09-15)
+
+Three things fall out, and each closes something this plan had left open or ajar:
+
+| Question | Answer, 2026-09-15 |
+|---|---|
+| Does `FlightChanged` notify? | **No, and it is now *decided* rather than deferred.** A changed flight is not a new trip and is not a cancelled one. The §9 bullet that left it "for a later slice with its eyes open" is retired — there is no design work owed (§9) |
+| Does `TalkRejected` stay a trigger? | **Yes, unchanged.** The rule that implements *"family never got a confirmation I was going"* is the **positive-first rule** in §4.4, not the trigger list. See below |
+| One email per flight leg? | **Yes, unchanged** — *"each flight leg booked is a new trip, even if it's a stopover, so that's fine."* The digest was reconsidered and there is no easy way to build one (§5) |
+
+**Why `TalkRejected` is not removed, written down because the conclusion does not follow from the
+rule and the next reader will re-derive it.** Ted's reasoning for dropping it — family never heard
+he was going, so a rejection is not news — is exactly right, and the plan **already behaves that
+way**: §4.4's positive-first rule sends an exit only where a `CONFERENCE_GOING` was sent first, so on
+the ordinary CFP path (WATCHING → rejected, never mentioned) the rejection is silent with the trigger
+in place. Removing the trigger buys nothing there and **loses the case Ted does want**: `TalkAccepted`
+auto-commits to GOING and sends *"his talk was accepted"*, and a later `TalkRejected` on an
+`ACCEPTANCE_REQUIRED` conference drops it from every calendar. Family were told he is going; without
+the trigger they would never be told he is not. That is the reachable accept → reject → ticket-confirm
+sequence §4.4's table names, and Q4's wording (*"His talk was rejected, so he is not going."*) exists
+for it and renders nowhere else. **The decision lives in the rule, not in the list.**
 
 ---
 
@@ -202,7 +236,10 @@ replayed into", not "a class cannot be both".
 
 `append` keeps `notifySynchronousSubscribers(...)` exactly as it is, then hands the same batch to
 each reactor via an **injected `Executor`**. Cost measured rather than asserted: `new EventStore(`
-has **4 call sites** (1 production, 3 test), so the extra constructor parameter is a trivial change.
+had **4 call sites** when this was written on 2026-09-10 and **6** when slice 0 was built on
+2026-09-18 (1 production, 5 test — `EventStoreTest` grew two reload cases on 2026-09-12), so the
+extra constructor parameter was a trivial change either way. Slice 0's own tests then take it to
+11; the number that measured the cost is the one before the change.
 
 **Four things make this the right place for it:**
 
@@ -611,6 +648,12 @@ back door, and against a wider audience than §5's bound was argued for. So: no 
 predicate, not as a condition inside the comparison, because it is a different rule with a different
 reason.
 
+**This rule is load-bearing in a second way, confirmed 2026-09-15 (Ted).** It is what implements
+*"family never got a confirmation I was going, so a rejection is not news"* — so the trigger list
+does **not** need pruning to get that behaviour, and pruning it would lose the accept-then-reject
+case where family *were* told. If anyone proposes dropping `TalkRejected` (or any other exit) from
+§4.5's set, the answer is in §1's scope-rule block: the decision lives here, in the predicate.
+
 **Why store `fact` rather than recompute it.** The alternative that needs no new field is to fold
 the log **to the sequence of the last `FamilyNotified`** and recompute what was true then — which is
 exactly the argument §9.5 used to drop `summary`, and it is a good argument there. It is weaker
@@ -831,6 +874,25 @@ the airport codes rather than the city names because the codes are what the body
 repeats, and because a subject that says *"San Francisco → Frankfurt"* for a leg bound for Hamburg
 is the same wrong emphasis in longer words.
 
+**Re-opened and re-confirmed 2026-09-15 (Ted): *"each flight leg booked is a new trip, even if it's
+a stopover, so that's fine, unless there's an _easy_ way to combine them into a single email."*
+There is not, and the reason is structural rather than a matter of effort.** Each leg is its own
+`FlightBooked`, under its own command, in its own `append` — so the reactor receives them as
+*separate dispatches* with nothing linking them. Combining needs one of two things and both are
+features rather than tweaks:
+
+- **A debounce window**, which needs a timer this codebase does not have (`@EnableScheduling`
+  appears nowhere — the same absence that ruled out the pull/cursor processor in §4.1), and a window
+  reopens the at-most-once and shutdown decisions §3 is built on.
+- **A "trip" concept**, which the domain does not have: flights are independent, and nothing today
+  says two of them are one journey.
+
+**The one door that would make it easy, noted for whoever next touches the booking form rather than
+for this plan.** `EventReactor.react` takes the whole batch of one append (§4.1), and one command
+can append several events — so a **multi-leg book-flight form** would put every leg in a single
+append and the digest falls out for free, with no timer and no new state. That is a change to the
+flight entry path, not to the notifier. Until it exists, one email per leg stands.
+
 ### Conference — needs a fold
 
 No conference trigger carries what the email needs. `ConferenceAttendanceConfirmed` carries only
@@ -963,7 +1025,9 @@ Named here rather than discovered later, per the standing "name the losses out l
 ### Two things that are NOT hazards, checked so nobody re-checks them
 
 - **The existing integration tests cannot send mail, and cannot pollute the event log.** They share
-  one in-memory `EventStore` (H6), so every test that books a flight will reach the translator. Two
+  one real `EventStore` bean with the reactors attached (H6 — the *instance* is shared; since
+  2026-09-12 its *event state* is not, which changes nothing here), so every test that books a
+  flight will reach the translator. Two
   independent gates stop it there, both at their defaults: `jittertravel.family-notify.enabled` is
   `false`, and `BREVO_API_KEY` is blank — the `AeroDataBoxClient` idiom. Either alone means no
   request **and** no `FamilyNotified` appended, since the event records a successful send. Nothing
@@ -982,11 +1046,27 @@ Named here rather than discovered later, per the standing "name the losses out l
 
 ## 7. Slices
 
-**Slice 0 — the async seam, no feature.** `EventReactor` (taking `List<StoredEvent>`);
-`EventStore.subscribeAsync` + the injected `Executor` (4 constructor call sites) + reactor dispatch,
-error counting and rejection handling; the `ExecutorService` bean in `EventSourcingConfig` with
-`destroyMethod = "shutdownNow"`; the `EventStoreTest` cases. Ships green with no reactor registered
-and no behaviour change, so the seam is reviewable on its own rather than inside a feature diff.
+**Slice 0 — the async seam, no feature. SHIPS 2026-09-18.** `EventReactor` (taking
+`List<StoredEvent>`); `EventStore.subscribeAsync` + the injected `Executor` + reactor dispatch, error
+counting and rejection handling; the `ExecutorService` bean in `EventSourcingConfig` with
+`destroyMethod = "shutdownNow"`; the `EventStoreTest` cases and a new `EventReactorExecutorTest`.
+Green with no reactor registered and no behaviour change, so the seam is reviewable on its own
+rather than inside a feature diff. **Nothing in `src/main` calls `subscribeAsync` yet** — that is the
+point of the slice, and it is what slice 1 arrives to use.
+
+**Two things the mutation verification found, both worth carrying into the later slices**, because
+both are the *"a fixture of one proves nothing about which one"* shape that `EventStoreTest`'s reload
+case already records:
+
+- **A test named for one thread asserted on the thread's *name*, and passed against a two-thread
+  pool** — every thread the factory makes is called `event-reactor`, so the name could not tell two
+  apart. It asserts on thread **identity** now. The reactor executor's single thread is a
+  correctness premise for §4.4's fold, so a test that cannot see a second thread is worse than none.
+- **The behavioural `shutdownNow` test calls `shutdownNow()` itself**, so deleting
+  `destroyMethod = "shutdownNow"` from the bean leaves it green — and deleting it does not fall back
+  to "no shutdown" but to Spring's inferred `shutdown()`, which **drains** the queue. A second test
+  reads the annotation reflectively. Until it existed, the rule lived only in a javadoc, and a rule
+  stated in a javadoc is not a rule the code has to keep.
 
 **Slice 1 — flights, end to end.** `ExternalAction` + `CommandExecutor.executeExternalAction`; the
 **three** amendments to the PENDING invariant (§4.3 — javadoc, boot log, the page's own wording);
@@ -1168,15 +1248,24 @@ and §3(2) say pass two goes straight to `persister.restoreCommandsAndEvents`. T
 one that makes restore safe from the reactor, so a stale version of it is the kind of thing a future
 reader would act on. **Answered: fix CLAUDE.md now**, in the same commit as this revision.
 
-### Still open from 2026-09-09
+### Closed 2026-09-15 (Ted) — nothing is open
 
-- **`FlightChanged`** notifies nobody, deliberately. There is no `FlightCancelled` event in the
-  codebase at all, and `FlightChanged` is a full snapshot, so "what changed" means diffing against
-  prior state rather than reading the event. Left for a later slice with its eyes open: a flight
-  moved by six hours is exactly the kind of thing family would want, and today they get silence.
-  Note that §4.4's fact-comparison does **not** help here — a changed flight is the same fact
-  (`FLIGHT_BOOKED`) with different content, so it needs either a content comparison or a second
-  fact, and that is the design work the later slice owes.
+- **`FlightChanged` notifies nobody, and that is now a decision rather than a deferral.** This bullet
+  read *"left for a later slice with its eyes open… a flight moved by six hours is exactly the kind of
+  thing family would want, and today they get silence"* until 2026-09-15, when the scope rule in §1
+  retired it: **a changed flight is neither a new trip nor a cancelled one**, so it is outside what
+  family are being told. There is no later slice and no design work owed.
+
+  The mechanics that made it look like unfinished business are still true and are worth keeping, in
+  case the scope rule is ever revisited: there is no `FlightCancelled` event in the codebase at all,
+  `FlightChanged` is a full snapshot, and §4.4's fact-comparison does not help — a changed flight is
+  the same fact (`FLIGHT_BOOKED`) with different content, so it would need either a content
+  comparison or a second fact. That is what it *would* cost, not what it owes.
+
+  Note the asymmetry this leaves, recorded so it is not reported as a bug: a booked flight that is
+  later moved leaves family holding the original times. It is the same accepted trade as Q1's stale
+  *"his talk was accepted"* clause, and for the same reason — **the trip is the news, the detail is
+  not** — and `/itinerary` is where family read the current truth.
 - ~~**`/admin/eventlog` shows a `FamilyNotified` as a typed id with no prose**~~ — largely closed by
   `NotifiedFact` (§4.4): the row now reads as a subject plus what was said about it. The exact
   sentence is still not recoverable without folding to that sequence, which remains unbuilt and
@@ -1186,10 +1275,18 @@ reader would act on. **Answered: fix CLAUDE.md now**, in the same commit as this
 
 ## 10. Pre-Push tasks (belong in `Pre-Push-Tasks.md` with the commit)
 
-- [ ] Brevo account created; `notifications@jittertravel.com` added as a sending identity.
-- [ ] **SPF and DKIM DNS records** published for `jittertravel.com` and verified in Brevo.
+> **The two account/DNS prerequisites are done (Ted, 2026-09-18)** — they were the stated blocker on
+> slices 1, 1a and 2, and they are not one any more. The boxes stay ticked rather than deleted,
+> because a box that has been met is the record that it was; the remaining unticked ones are all
+> per-service variables, which is the half no build can see (CLAUDE.md, "A change needing manual
+> setup outside the repo"). **Slice 0 needs none of them** — it registers no reactor and reads no
+> variable.
+
+- [x] Brevo account created; `notifications@jittertravel.com` added as a sending identity.
+      **Done 2026-09-18.**
+- [x] **SPF and DKIM DNS records** published for `jittertravel.com` and verified in Brevo.
       *Skipped ⇒ mail is accepted by the API and lands in spam, which looks exactly like the feature
-      not working.* **Before the push.**
+      not working.* **Done 2026-09-18.**
 - [ ] `BREVO_API_KEY` set on the **app** Railway service (secret; variables are scoped per service).
 - [ ] `FAMILY_NOTIFY_EMAIL` set on the app service — **Ted's own address for the first rollout**.
       Run the probe (§4.6) from `/admin`, read the mail, check it is not in spam. *Skipped ⇒ the

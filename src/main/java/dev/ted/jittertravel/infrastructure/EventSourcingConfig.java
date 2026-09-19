@@ -15,6 +15,10 @@ import tools.jackson.databind.json.JsonMapper;
 import java.time.Clock;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 @Configuration
 public class EventSourcingConfig {
@@ -91,8 +95,52 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public EventStore eventStore(MeterRegistry meterRegistry, PostgresPersister persister, Clock clock) {
-        return new EventStore(meterRegistry, persister, clock);
+    public EventStore eventStore(MeterRegistry meterRegistry,
+                                 PostgresPersister persister,
+                                 Clock clock,
+                                 ExecutorService eventReactorExecutor) {
+        return new EventStore(meterRegistry, persister, clock, eventReactorExecutor);
+    }
+
+    /**
+     * The one thread every {@link EventReactor} runs on. Bounded, single-threaded, and it drops
+     * rather than blocks — each of the three is load-bearing, and
+     * {@code docs/FamilyEmailNotificationsPlan.md} §4.1 has the full reasoning.
+     *
+     * <p><strong>One thread is a correctness property, not a performance choice.</strong> It is what
+     * makes events reach every reactor in log order, and what lets a reactor read the log to decide
+     * whether it has already acted without a second trigger for the same subject racing it.
+     * Thread-per-task — including a virtual-thread executor — loses both.
+     *
+     * <p><strong>{@code AbortPolicy}, never {@code CallerRunsPolicy}.</strong> Caller-runs would run
+     * the reactor on the append thread, inside {@code append}, holding {@code transactionLock}; its
+     * own append would then interleave sequence assignment with the batch still being written. A
+     * dropped notification is a counted loss, and that is silent corruption.
+     *
+     * <p><strong>{@code destroyMethod} must be stated, because Spring's inferred default is wrong
+     * here.</strong> Spring infers {@code shutdown()} for an {@code ExecutorService} bean, and
+     * {@code shutdown()} <em>drains</em> the queue — every queued task would run against a closing
+     * datasource. {@code shutdownNow()} makes the drop at shutdown the real behaviour. Note what it
+     * also does: it interrupts the task already running, so a reactor stopped between an external
+     * call and its own append is the sent-but-unrecorded case. That is the accepted trade — one
+     * in-flight task rather than the whole queue — and the command row is what makes it visible.
+     */
+    @Bean(destroyMethod = "shutdownNow")
+    public ExecutorService eventReactorExecutor() {
+        return new ThreadPoolExecutor(
+                1, 1,
+                0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(REACTOR_QUEUE_CAPACITY),
+                EventSourcingConfig::reactorThread,
+                new ThreadPoolExecutor.AbortPolicy());
+    }
+
+    private static final int REACTOR_QUEUE_CAPACITY = 100;
+
+    private static Thread reactorThread(Runnable runnable) {
+        Thread thread = new Thread(runnable, "event-reactor");
+        thread.setDaemon(true);
+        return thread;
     }
 
     @Bean

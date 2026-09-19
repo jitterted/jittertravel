@@ -46,7 +46,7 @@ class EventStorePerfTest extends AbstractTestcontainerIntegrationTest {
     @Test
     void benchmarkSynchronousDatabaseWrites() {
         try {
-            var eventStore = new EventStore(meterRegistry, realPersister, clock);
+            var eventStore = new EventStore(meterRegistry, realPersister, clock, Runnable::run);
             int warmupIterations = 100;
             int measuredIterations = 1_000;
 

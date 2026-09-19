@@ -13,6 +13,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
@@ -21,23 +23,29 @@ public class EventStore {
     private final Object transactionLock = new Object();
     private final List<StoredEvent> events = new ArrayList<>();
     private final List<EventStreamConsumer> synchronousSubscribers = new ArrayList<>();
+    private final List<EventReactor> asynchronousReactors = new ArrayList<>();
     private final AtomicLong nextSequence = new AtomicLong(1);
     private final MeterRegistry meterRegistry;
     private final DistributionSummary batchSizeSummary;
     private final PostgresPersister persister;
     private final Clock clock;
+    private final Executor reactorExecutor;
     private final AtomicBoolean isReadOnly = new AtomicBoolean(false);
 
     private static final Logger log = LoggerFactory.getLogger(EventStore.class);
     private static final Duration NOTIFICATION_WARN_THRESHOLD = Duration.ofMillis(100);
 
-    public EventStore(MeterRegistry meterRegistry, PostgresPersister persister, Clock clock) {
+    public EventStore(MeterRegistry meterRegistry,
+                      PostgresPersister persister,
+                      Clock clock,
+                      Executor reactorExecutor) {
         this.meterRegistry = meterRegistry;
         this.batchSizeSummary = DistributionSummary.builder("eventstore.batch.size")
                 .description("Number of events per append batch")
                 .register(meterRegistry);
         this.persister = persister;
         this.clock = clock;
+        this.reactorExecutor = reactorExecutor;
 
         reload();
     }
@@ -129,6 +137,7 @@ public class EventStore {
 
             events.addAll(storedEvents);
             notifySynchronousSubscribers(List.copyOf(synchronousSubscribers), storedEvents);
+            dispatchToReactors(List.copyOf(asynchronousReactors), storedEvents);
         }
     }
 
@@ -138,9 +147,67 @@ public class EventStore {
         }
     }
 
+    /**
+     * Registers a reactor to receive each appended batch on the injected {@code Executor}, after the
+     * synchronous subscribers have been notified. Unlike {@link #subscribe}, <strong>no history is
+     * replayed</strong> — a reactor only ever sees events appended after it was registered, which is
+     * the at-most-once guarantee {@code docs/FamilyEmailNotificationsPlan.md} §3 depends on.
+     *
+     * <p>The handoff is a synchronous {@code execute} on the append thread, inside the critical
+     * section; only the reactor's own work happens on the worker. A rejected task is logged,
+     * counted and <strong>dropped</strong> — never run on the caller — and never fails the append,
+     * because by then the events are durable and refusing would undo nothing.
+     *
+     * <p><strong>{@code Runnable::run} is a test-only executor.</strong> It makes delivery
+     * same-thread and ordered, which is what a unit test wants, but it is {@code CallerRunsPolicy}
+     * by another name and carries exactly the corruption
+     * {@code EventSourcingConfig.eventReactorExecutor} describes. Safe for a recording reactor;
+     * never for one that appends.
+     */
+    public void subscribeAsync(EventReactor reactor) {
+        synchronized (transactionLock) {
+            asynchronousReactors.add(reactor);
+        }
+    }
+
     public Stream<StoredEvent> findAll() {
         synchronized (transactionLock) {
             return new ArrayList<>(events).stream();
+        }
+    }
+
+    /**
+     * Hands the batch to each reactor on the executor. Errors are caught and counted rather than
+     * propagated, for the same reason subscriber errors are: by the time this runs the events are
+     * durable and the append has already succeeded, so there is nobody left to report to.
+     */
+    private void dispatchToReactors(List<EventReactor> reactors, List<StoredEvent> storedEvents) {
+        for (EventReactor reactor : reactors) {
+            String reactorName = reactor.getClass().getSimpleName();
+            try {
+                reactorExecutor.execute(() -> reactTo(reactor, reactorName, storedEvents));
+            } catch (RejectedExecutionException ex) {
+                meterRegistry.counter("eventstore.reactor.rejected",
+                        "reactor", reactorName).increment();
+                log.warn("Reactor {} could not be dispatched to and its batch of {} was dropped",
+                        reactorName, storedEvents.size(), ex);
+            }
+        }
+    }
+
+    private void reactTo(EventReactor reactor, String reactorName, List<StoredEvent> storedEvents) {
+        Timer.Sample reactorSample = Timer.start(meterRegistry);
+        try {
+            reactor.react(storedEvents);
+        } catch (RuntimeException ex) {
+            meterRegistry.counter("eventstore.reactor.failures",
+                    "reactor", reactorName).increment();
+            log.warn("Reactor {} failed", reactorName, ex);
+        } finally {
+            reactorSample.stop(Timer.builder("eventstore.reactor.duration")
+                    .description("Per-reactor asynchronous handling duration")
+                    .tag("reactor", reactorName)
+                    .register(meterRegistry));
         }
     }
 

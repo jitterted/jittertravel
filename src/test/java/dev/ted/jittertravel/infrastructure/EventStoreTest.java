@@ -10,6 +10,8 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.stream.Stream;
 
 import static java.util.Comparator.comparingLong;
@@ -23,7 +25,7 @@ class EventStoreTest {
 
     @Test
     void appendingEventsAssignsSequencesAndNotifiesSubscribers() {
-        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), new InMemoryPersister(), FIXED_CLOCK);
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), new InMemoryPersister(), FIXED_CLOCK, Runnable::run);
         List<StoredEvent> receivedEvents = new ArrayList<>();
         eventStore.subscribe(eventStream -> receivedEvents.addAll(eventStream.toList()));
 
@@ -62,7 +64,7 @@ class EventStoreTest {
     void subscribersNotNotifiedWhenPersistenceFails() {
         InMemoryPersister persister = new InMemoryPersister();
         persister.failOnAppend();
-        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), persister, FIXED_CLOCK);
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), persister, FIXED_CLOCK, Runnable::run);
         List<StoredEvent> receivedEvents = new ArrayList<>();
         eventStore.subscribe(eventStream -> receivedEvents.addAll(eventStream.toList()));
 
@@ -78,7 +80,7 @@ class EventStoreTest {
     void reloadReplacesTheInMemoryEventsWithWhatTheDurableStoreNowHolds() {
         InMemoryPersister persister = new InMemoryPersister();
         persister.holds(storedEvent(1, new DummyEvent1()), storedEvent(2, new DummyEvent2()));
-        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), persister, FIXED_CLOCK);
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), persister, FIXED_CLOCK, Runnable::run);
 
         assertThat(eventStore.findAll())
                 .as("the constructor's boot replay reads the durable log")
@@ -104,7 +106,7 @@ class EventStoreTest {
     void failedReloadKeepsThePreviousEventsAndLatchesReadOnly() {
         InMemoryPersister persister = new InMemoryPersister();
         persister.holds(storedEvent(1, new DummyEvent1()));
-        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), persister, FIXED_CLOCK);
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), persister, FIXED_CLOCK, Runnable::run);
 
         persister.failOnLoad();
         eventStore.reload();
@@ -126,6 +128,132 @@ class EventStoreTest {
         assertThat(eventStore.isReadOnly())
                 .as("read-only is a one-way latch: a later successful reload does not lift it, only a restart does")
                 .isTrue();
+    }
+
+    @Test
+    void reactorsReceiveOneBatchPerAppendAfterTheSynchronousSubscribers() {
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), new InMemoryPersister(), FIXED_CLOCK, Runnable::run);
+        List<String> order = new ArrayList<>();
+        List<List<Event>> batches = new ArrayList<>();
+        eventStore.subscribe(_ -> order.add("subscriber"));
+        eventStore.subscribeAsync(events -> {
+            order.add("reactor");
+            batches.add(events.stream().map(StoredEvent::payload).toList());
+        });
+
+        eventStore.append(Stream.of(new DummyEvent1(), new DummyEvent2()), UUID.randomUUID());
+        eventStore.append(Stream.of(new DummyEvent3()), UUID.randomUUID());
+
+        assertThat(batches)
+                .as("a reactor is handed the whole batch of one append, not one event at a time — "
+                    + "which is what would let a multi-leg booking become a single email")
+                .containsExactly(
+                        List.of(new DummyEvent1(), new DummyEvent2()),
+                        List.of(new DummyEvent3()));
+        assertThat(order)
+                .as("reactors are dispatched to after the synchronous subscribers have run, so a projector is never behind a reactor")
+                .containsExactly("subscriber", "reactor", "subscriber", "reactor");
+    }
+
+    @Test
+    void reactorsAreNotReplayedIntoWhenTheySubscribe() {
+        InMemoryPersister persister = new InMemoryPersister();
+        persister.holds(storedEvent(1, new DummyEvent1()), storedEvent(2, new DummyEvent2()));
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), persister, FIXED_CLOCK, Runnable::run);
+        List<StoredEvent> received = new ArrayList<>();
+
+        eventStore.subscribeAsync(received::addAll);
+
+        assertThat(received)
+                .as("subscribing a reactor replays no history: the first email reactor must not mail years of bookings at boot")
+                .isEmpty();
+
+        eventStore.append(Stream.of(new DummyEvent3()), UUID.randomUUID());
+
+        assertThat(received.stream().map(StoredEvent::payload))
+                .as("it sees only what is appended after it subscribed")
+                .containsExactly(new DummyEvent3());
+    }
+
+    @Test
+    void reactorsNotDispatchedToWhenPersistenceFails() {
+        InMemoryPersister persister = new InMemoryPersister();
+        persister.failOnAppend();
+        EventStore eventStore = new EventStore(new SimpleMeterRegistry(), persister, FIXED_CLOCK, Runnable::run);
+        List<StoredEvent> received = new ArrayList<>();
+        eventStore.subscribeAsync(received::addAll);
+
+        assertThatThrownBy(() -> eventStore.append(Stream.of(new DummyEvent1()), UUID.randomUUID()))
+                .isInstanceOf(RuntimeException.class);
+
+        assertThat(received)
+                .as("a reactor must not act on events from a command that failed to persist")
+                .isEmpty();
+    }
+
+    @Test
+    void aThrowingReactorIsCountedAndLeavesTheAppendAndTheOtherReactorsAlone() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        EventStore eventStore = new EventStore(meterRegistry, new InMemoryPersister(), FIXED_CLOCK, Runnable::run);
+        List<StoredEvent> received = new ArrayList<>();
+        eventStore.subscribeAsync(new ThrowingReactor());
+        eventStore.subscribeAsync(received::addAll);
+
+        eventStore.append(Stream.of(new DummyEvent1()), UUID.randomUUID());
+
+        assertThat(received)
+                .as("a reactor that throws does not stop the next one being dispatched to")
+                .hasSize(1);
+        assertThat(eventStore.findAll())
+                .as("nor does it undo the append: the events are already durable when reactors run")
+                .hasSize(1);
+        assertThat(meterRegistry.counter("eventstore.reactor.failures", "reactor", "ThrowingReactor").count())
+                .as("the failure is counted, because after append returns there is nobody to report it to")
+                .isEqualTo(1.0);
+    }
+
+    @Test
+    void aRejectedBatchIsDroppedAndCountedRatherThanRunOnTheAppendThread() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        EventStore eventStore = new EventStore(meterRegistry, new InMemoryPersister(), FIXED_CLOCK, rejectingExecutor());
+        RecordingReactor reactor = new RecordingReactor();
+        eventStore.subscribeAsync(reactor);
+
+        eventStore.append(Stream.of(new DummyEvent1()), UUID.randomUUID());
+
+        assertThat(reactor.received)
+                .as("a rejected task is dropped, never run on the caller: caller-runs would append inside another append's critical section")
+                .isEmpty();
+        assertThat(eventStore.findAll())
+                .as("a full reactor queue must not fail the append — the events are durable and refusing would undo nothing")
+                .hasSize(1);
+        assertThat(meterRegistry.counter("eventstore.reactor.rejected", "reactor", "RecordingReactor").count())
+                .as("the drop is counted, because it is the only record that a notification was lost")
+                .isEqualTo(1.0);
+    }
+
+    private static Executor rejectingExecutor() {
+        return _ -> {
+            throw new RejectedExecutionException("queue full");
+        };
+    }
+
+    private static final class ThrowingReactor implements EventReactor {
+        @Override public void react(List<StoredEvent> events) {
+            throw new RuntimeException("reactor blew up");
+        }
+    }
+
+    /**
+     * A named class rather than a lambda, because the metric this test reads is tagged with the
+     * reactor's {@code getSimpleName()} and a lambda's is generated and unstable.
+     */
+    private static final class RecordingReactor implements EventReactor {
+        private final List<StoredEvent> received = new ArrayList<>();
+
+        @Override public void react(List<StoredEvent> events) {
+            received.addAll(events);
+        }
     }
 
     private StoredEvent storedEvent(long sequence, Event payload) {

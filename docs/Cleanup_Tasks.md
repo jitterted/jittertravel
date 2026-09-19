@@ -42,6 +42,32 @@ down when it is created does not get written down later.
 
 ## Open
 
+- [ ] **BUG: a ground transfer can be planned between two endpoints days apart.** Reported by Ted
+      2026-09-19: *"allows me to select from/to that are on different days more than 24 hours
+      apart."* Pick an origin whose own moment is a hotel check-out on Sep 13 and a destination
+      whose own moment is a flight departure on Sep 20, type any single date, and it records a
+      "taxi" between two points a week apart. Nothing objects, anywhere.
+      **Why nothing catches it.** `PlanGroundTransferCommand.execute` has exactly one rule —
+      `arrivesAt.utc().isAfter(departsAt.utc())` — and its comment says so ("The ONLY rule"). Both
+      timestamps are built by `PlanGroundTransferHandler` from the *single* typed date
+      (`request.date().atTime(request.departureTime())` and `…atTime(request.arrivalTime())`), so
+      they are always on the same day and that rule is always satisfiable. The endpoints' own
+      moments never reach the command: `TransferEndpointOption` carries `prefillDate`/`prefillTime`
+      but only to seed the form, and resolution throws the moment away —
+      `TransferEndpoint(String airportCode, String name, Address address, ZoneId zone)` keeps only
+      the **zone**, and `GroundTransferEndpointResolver.stationEndpoint` reads the trip's
+      `ZonedTimestamp` solely to call `moment.zone()`. So the command is not failing to apply a
+      rule; it has no way to know.
+      **What a fix has to change.** `TransferEndpoint` would have to carry each end's own moment
+      through to the command, so a rule can compare them — which makes this a change to the
+      resolver's output type, not a validation one-liner. Worth deciding at the same time: whether
+      the rule is "the two endpoints are within N hours of each other", or the stronger and probably
+      more useful "the typed date matches the endpoints' own day", which would also catch a
+      right-pair/wrong-day entry that the 24-hour rule lets through.
+      **Mind D6 while doing it.** There is deliberately no future-date rule here — a transfer is
+      normally entered mid-trip for a day already under way or already past — so any new rule must
+      constrain the ends *relative to each other*, never relative to now.
+
 - [ ] **DISCUSS: the conference fold is now written out in three read models.** Raised by Ted
       2026-09-09 while approving the `/itinerary` conference sync: *"this looks like computing the
       same information in 2 (or more) different places."* He is right —

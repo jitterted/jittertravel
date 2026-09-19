@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Match Location</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .summary {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.9rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }
+        .summary .name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .summary .line { font-size: 0.9rem; color: var(--muted-text); margin-top: 0.15rem; }
+        /* The one line that is the reason the page exists, so it is not muted like its neighbours. */
+        .summary .matched { font-size: 0.9rem; color: var(--text-color); margin-top: 0.4rem; }
+        .summary .matched strong { font-weight: 600; }
+
+        p.explain { font-size: 0.9rem; color: var(--text-color); margin: 0 0 1rem; }
+
+        .field { margin-bottom: 1rem; }
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+        .field input[type=text] {
+            padding: 0.35rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+        .hint { font-size: 0.78rem; color: var(--muted-text); margin-top: 0.25rem; display: block; }
+        .error { font-size: 0.78rem; color: #b91c1c; margin-top: 0.25rem; display: block; }
+
+        .actions { display: flex; align-items: center; gap: 1.25rem; }
+
+        /* Neither red nor gated: appending a correction destroys nothing, and the undo is typing
+           the old value back in. This is an ordinary save. */
+        button.save {
+            background: var(--accent-color);
+            color: #fff;
+            border: 1px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        button.save:hover { opacity: 0.88; }
+
+        .back-link { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a th:href="@{/planned-private-events}">Private Events</a>
+    </nav>
+
+    <h1>Match Location</h1>
+
+    <div class="summary">
+        <div class="name" th:text="${privateEvent.title()}">Dinner with friends</div>
+        <!--/* Venue only when one was recorded: an empty line would say less in more space. */-->
+        <div class="line" th:if="${!privateEvent.venueName().isBlank()}"
+             th:text="${privateEvent.venueName()}">venue</div>
+        <div class="line"
+             th:text="${privateEvent.city() + (privateEvent.country().isBlank() ? '' : ', ' + privateEvent.country())}">city</div>
+        <div class="line" th:text="${#temporals.format(privateEvent.startsAt(), 'EEE, MMM d, yyyy')}">date</div>
+        <div class="line">
+            <span th:text="${#temporals.format(privateEvent.startsAt(), 'h:mm a')}">time</span>
+            &ndash;
+            <span th:text="${#temporals.format(privateEvent.endsAt(), 'h:mm a')}">time</span>
+        </div>
+        <!--/* Shown only when the two differ, which is the only time it says anything the line
+               above has not already said. */-->
+        <div class="matched" th:if="${privateEvent.isOverridden()}">
+            Currently matched as <strong th:text="${privateEvent.locationForMatching()}">Lone Tree</strong>
+        </div>
+    </div>
+
+    <p class="explain">
+        The schedule uses this city, not the venue's own, when it looks for missing travel between
+        this evening and everything around it. Set it to the city you are already staying in when
+        the venue is close enough that getting there is not a journey worth recording. It changes
+        nothing about where the event is shown.
+    </p>
+
+    <form th:action="@{|/planned-private-events/${privateEvent.privateEventId().id()}/matching-location|}"
+          th:object="${matchingLocation}" method="post">
+        <div class="field">
+            <label>
+                Location for matching
+                <input type="text" th:field="*{locationForMatching}" placeholder="Lone Tree"/>
+            </label>
+            <span class="error"
+                  th:if="${#fields.hasErrors('locationForMatching')}"
+                  th:errors="*{locationForMatching}"></span>
+            <span class="hint">City name used to match with conferences and travel</span>
+        </div>
+
+        <div class="actions">
+            <button type="submit" class="save">Save</button>
+            <a class="back-link" th:href="@{/planned-private-events}">Back to the list</a>
+        </div>
+    </form>
+
+</div>
+</body>
+</html>

@@ -21,7 +21,15 @@ public class ScheduleProblemsRenderer {
     /** Above this many choices a list of links becomes a menu — the standing dropdown rule. */
     private static final int MENU_THRESHOLD = 3;
 
-    /** Why a scheduling clash has no link: neither side carries an id to edit (F6 in the plan). */
+    /**
+     * Why a scheduling clash has no link: neither side carries an id to edit. Specified as F6 of
+     * {@code docs/archived/ProblemCalendarPlan.md}; the gap itself is now owned by
+     * {@code docs/ProblemCauseLinkingPlan.md}, which is what "cause-linking" here names.
+     * <p>
+     * The wording stays as it is — it is a rendered {@code title} and pinned by
+     * {@code ScheduleProblemsRendererTest} — and it stays honest only while this really is the
+     * only unlinkable problem. Build the plan and this constant goes, rather than being reworded.
+     */
     private static final String NO_FIX_REASON =
             "Editing a gathering from here arrives with cause-linking";
 

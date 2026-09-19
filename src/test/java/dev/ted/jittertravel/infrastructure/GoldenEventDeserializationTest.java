@@ -19,6 +19,7 @@ import dev.ted.jittertravel.domain.InvitedToSpeak;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.OneOffTaskCompleted;
 import dev.ted.jittertravel.domain.PrivateEventCancelled;
+import dev.ted.jittertravel.domain.PrivateEventMatchingLocationChanged;
 import dev.ted.jittertravel.domain.PrivateEventPlanned;
 import dev.ted.jittertravel.domain.TalkAccepted;
 import dev.ted.jittertravel.domain.TalkRejected;
@@ -882,6 +883,65 @@ class GoldenEventDeserializationTest {
         PrivateEventCancelled event = deserialize(json, PrivateEventCancelled.class);
 
         assertThat(event.reason())
+                .isEmpty();
+    }
+
+    @Test
+    void privateEventMatchingLocationChangedSampleDeserializes() {
+        // Two fields and no Address, deliberately: this event changes the one field of the address
+        // that only ScheduleGapProjector reads. See docs/PrivateEventMatchingLocationPlan.md D1.
+        String json = """
+                {
+                  "privateEventId": {"id": "88888888-8888-8888-8888-888888888888"},
+                  "locationForMatching": "Lone Tree"
+                }
+                """;
+
+        PrivateEventMatchingLocationChanged event =
+                deserialize(json, PrivateEventMatchingLocationChanged.class);
+
+        assertThat(event.privateEventId().id())
+                .isEqualTo(UUID.fromString("88888888-8888-8888-8888-888888888888"));
+        assertThat(event.locationForMatching())
+                .isEqualTo("Lone Tree");
+    }
+
+    @Test
+    void privateEventMatchingLocationChangedTrimsAStoredValueOnTheWayIn() {
+        // A read-time normalization, exactly as Address does it and for the same reason: the city
+        // is compared, not merely displayed, so "Lone Tree " is a different place to Place.matches
+        // while rendering identically. Repairs history on every replay without rewriting a row.
+        String json = """
+                {
+                  "privateEventId": {"id": "88888888-8888-8888-8888-888888888888"},
+                  "locationForMatching": "  Lone Tree  "
+                }
+                """;
+
+        PrivateEventMatchingLocationChanged event =
+                deserialize(json, PrivateEventMatchingLocationChanged.class);
+
+        assertThat(event.locationForMatching())
+                .isEqualTo("Lone Tree");
+    }
+
+    @Test
+    void privateEventMatchingLocationChangedReadsAnAbsentLocationAsEmptyRatherThanNull() {
+        // The command refuses a blank on the way in, so no payload in the log carries one — but
+        // Jackson binds stored payloads through the same compact constructor, and the
+        // no-null-Strings rule holds for history too. A field that is absent (a hand-edited backup,
+        // or a shape this type may one day be upcast from) must read as "" and not NPE the first
+        // projector to call equalsIgnoreCase on it.
+        String json = """
+                {
+                  "privateEventId": {"id": "88888888-8888-8888-8888-888888888888"}
+                }
+                """;
+
+        PrivateEventMatchingLocationChanged event =
+                deserialize(json, PrivateEventMatchingLocationChanged.class);
+
+        assertThat(event.locationForMatching())
                 .isEmpty();
     }
 

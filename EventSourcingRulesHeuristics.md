@@ -197,6 +197,41 @@ default) and asserts the view reflects it. When you add a field to an existing
 event, walk every projector that folds that event and thread the new field
 through rather than defaulting it.
 
+### Corollary of R8
+
+**R8a. A read model behind an edit form must fold every event that changes what
+the form prefills.** R8 is the field-level rule — a projector must not ignore a
+field on an event it handles. This is its event-level twin, and it is sharper on
+an edit form than anywhere else, because an edit form *writes back what it was
+given*. A read-only view that misses an event shows a stale value; an edit form
+that misses one **offers** the stale value and then **persists** it, so the next
+submit silently reverts a change the log already recorded. A page that reports
+the past wrongly is a bug; a page that rewrites it is a worse one.
+
+It follows from R12 (a read model is built from events alone) plus H2 (one
+projector per web view): a new edit form gets a *new* projector, and nothing
+compiler-forces that projector to handle an event some *other* projector already
+handles. The hazard is exactly the event-exhaustiveness one R8 names in passing
+above, met at the place where it does the most damage.
+
+**The rule is "fold the events", not "avoid snapshot events".** A full-snapshot
+`*Changed` written from correctly-folded current state carries every earlier
+correction forward and reverts nothing — the snapshot is not the problem, an
+under-folded read model is. (H1 still prefers the smaller delta, for its own
+reasons.)
+
+**Enforcement.** A propagation test per edit form, in the shape of
+`PrivateEventCancellationPropagationTest`: record the narrower event, then assert
+the edit form's read model offers the *corrected* value rather than the originally
+entered one. Nothing else fails when the branch is missing.
+
+Concretely, and why this is written down (2026-09-18): shipping
+`PrivateEventMatchingLocationChanged` means `ChangePrivateEventPlan.md` slice 2's
+`PrivateEventEditView` has to fold it. If it does not, editing a dinner's end time
+writes back the address the event was *planned* with, and a `MissingTravel` row
+reappears on `/schedule-problems` weeks later, pointing nowhere near the edit that
+caused it.
+
 ---
 
 ### R9. A projector computes its read model while handling events; reads return that maintained state.

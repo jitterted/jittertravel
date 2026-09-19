@@ -119,14 +119,86 @@ class PlannedPrivateEventsRendererTest {
 
     @Test
     void cancelIsTheFirstThingInTheActionsCellSoALaterEditLinkCannotShiftIt() {
-        // The cell is a column flex: the edit flow's future "Edit" is appended BELOW this one, so
-        // nothing that is here today moves when it ships (CLAUDE.md, affordances never move).
+        // The cell is a column flex: everything added later is appended BELOW this one, so nothing
+        // that is here today moves when it ships (CLAUDE.md, affordances never move). "Match
+        // location" took that slot on 2026-09-18 and Cancel did not budge.
         String html = PlannedPrivateEventsRenderer.render(List.of(
                 view("Dinner with the Harrisons", "Barrafina")), TimeView.FUTURE);
 
         assertThat(html)
                 .contains("<div class=\"private-event-actions\">"
                           + "<a class=\"private-event-cancel-link\"");
+    }
+
+    @Test
+    void eachRowLinksToItsMatchingLocationPage() {
+        PrivateEventId privateEventId = PrivateEventId.random();
+        PlannedPrivateEventView privateEvent = new PlannedPrivateEventView(
+                privateEventId, "Dinner with the Harrisons", "Barrafina",
+                "26 Dean St", "London", "", "W1D 3LL", "GB",
+                ukTime(AUG_20_2026, SEVEN_PM), ukTime(AUG_20_2026, TEN_PM));
+
+        String html = PlannedPrivateEventsRenderer.render(List.of(privateEvent), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<a class=\"private-event-match-link\" href=\"/planned-private-events/"
+                          + privateEventId.id() + "/matching-location\" "
+                          + "title=\"Change the city the schedule matches this evening in\">"
+                          + "Match location</a>");
+    }
+
+    @Test
+    void matchLocationFollowsCancelRatherThanPrecedingIt() {
+        // Cancel keeps the position it has had since the list shipped; the new link goes under it.
+        String html = PlannedPrivateEventsRenderer.render(List.of(
+                view("Dinner with the Harrisons", "Barrafina")), TimeView.FUTURE);
+
+        assertThat(html.indexOf("private-event-match-link"))
+                .as("Match location is appended below Cancel, not above it")
+                .isGreaterThan(html.indexOf("private-event-cancel-link"));
+    }
+
+    @Test
+    void theTwoActionsAreLinksRatherThanAMenu() {
+        // Two choices, and a menu starts above three (CLAUDE.md, the dropdown rule) — a menu here
+        // would be a door in front of a door.
+        String html = PlannedPrivateEventsRenderer.render(List.of(
+                view("Dinner with the Harrisons", "Barrafina")), TimeView.FUTURE);
+
+        assertThat(html)
+                .doesNotContain("<details")
+                .doesNotContain("<summary");
+    }
+
+    @Test
+    void neitherActionBorrowsAnIcon() {
+        // A pencil means edit and nothing else app-wide; re-matching is not the general edit, and
+        // a borrowed pencil that opens this page would teach that pencils are unreliable.
+        String html = PlannedPrivateEventsRenderer.render(List.of(
+                view("Dinner with the Harrisons", "Barrafina")), TimeView.FUTURE);
+
+        assertThat(html)
+                .doesNotContain("edit-pencil")
+                .doesNotContain("cancel-bin");
+    }
+
+    @Test
+    void theMatchLocationLinkIsUnderlinedAtRestRatherThanOnHover() {
+        // The iPad has no pointer, so a hover-only affordance is invisible at every moment
+        // (CLAUDE.md, "never have an affordance that relies on :hover").
+        //
+        // Both halves are needed, and the first alone is what this test shipped with: asserting
+        // the declaration without its selector passes just as happily against
+        // `.private-event-match-link:hover { text-decoration: underline; ... }`, which is the exact
+        // mutation the test exists to catch. HoverIsNeverTheAffordanceTest does not catch it either
+        // — the rule declares its own colour, so that scan's precondition never fires.
+        String html = PlannedPrivateEventsRenderer.render(List.of(
+                view("Dinner with the Harrisons", "Barrafina")), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("text-decoration: underline; white-space: nowrap;")
+                .as("the underline must not move into a :hover rule")
+                .doesNotContain(".private-event-match-link:hover");
     }
 
     @Test

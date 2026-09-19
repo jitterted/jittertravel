@@ -125,6 +125,10 @@ class AuthorizationMatrixTest {
                 // action needs its own matcher beside the bare list path below. The evening's
                 // title is on that page.
                 arguments("/planned-private-events/abc/cancel", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
+                // Same shape once more for the matching-location page, which prints the same
+                // identification the cancel page does and writes the value /schedule-problems
+                // reasons from.
+                arguments("/planned-private-events/abc/matching-location", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/conferences", Outcome.OK,      Outcome.DENIED_HOME,  Outcome.LOGIN),
                 // The conference detail page. It prints the CFP, where the talk stands and why Ted
                 // is going — the last of which is on CLAUDE.md's private list and appears nowhere

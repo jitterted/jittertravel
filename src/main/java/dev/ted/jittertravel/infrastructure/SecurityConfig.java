@@ -86,6 +86,10 @@ public class SecurityConfig {
                                 // The edit page will take "/planned-private-events/*"
                                 // (docs/ChangePrivateEventPlan.md D4).
                                 "/planned-private-events/*/cancel",
+                                // The matching-location page prints the venue name, the city and
+                                // the evening's times — the same content as the cancel page above,
+                                // and the value it writes reshapes /schedule-problems.
+                                "/planned-private-events/*/matching-location",
                                 "/conferences/*", "/conferences/*/decline",
                                 "/conferences/*/confirm", "/conferences/*/cfp",
                                 // Submission status is the most private thing the conference model

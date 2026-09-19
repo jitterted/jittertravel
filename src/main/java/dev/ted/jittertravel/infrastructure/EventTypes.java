@@ -19,6 +19,7 @@ import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.domain.InvitedToSpeak;
 import dev.ted.jittertravel.domain.OneOffTaskCompleted;
 import dev.ted.jittertravel.domain.PrivateEventCancelled;
+import dev.ted.jittertravel.domain.PrivateEventMatchingLocationChanged;
 import dev.ted.jittertravel.domain.PrivateEventPlanned;
 import dev.ted.jittertravel.domain.TalkAccepted;
 import dev.ted.jittertravel.domain.TalkRejected;
@@ -118,6 +119,9 @@ public final class EventTypes {
         register("GatheringChanged", GatheringChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("PrivateEventPlanned", PrivateEventPlanned.class);
         register("PrivateEventCancelled", PrivateEventCancelled.class);
+        // Additive at schema_version 1: no bump, no upcaster, no migration, and the backup format
+        // stays v3 — the shape PrivateEventCancelled and TrainCancelled both went in as.
+        register("PrivateEventMatchingLocationChanged", PrivateEventMatchingLocationChanged.class);
         register("GroundTransferPlanned", GroundTransferPlanned.class);
         register("GroundTransferCancelled", GroundTransferCancelled.class);
         register("DifferentCityConflictCleared", DifferentCityConflictCleared.class);

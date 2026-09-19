@@ -452,6 +452,30 @@ public class EventSourcingConfig {
     }
 
     /**
+     * The matching-location page's read model. The second projector in the tree to apply
+     * {@code PrivateEventMatchingLocationChanged} — the first being {@link ScheduleGapProjector},
+     * which is what the override exists for. This one applies it so the form offers the value
+     * already in force.
+     */
+    @Bean
+    public PrivateEventMatchingLocationViewProjector privateEventMatchingLocationViewProjector(
+            ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new PrivateEventMatchingLocationViewProjector());
+    }
+
+    /**
+     * No projector dependency, like the cancels around it: {@link ChangePrivateEventMatchingLocation}
+     * folds its one decision fact — does this evening still exist — from the event stream (R1), not
+     * from the read model above. No {@code now}: re-matching is not time-gated, and a past evening
+     * is the one still shaping away days with the wrong city.
+     */
+    @Bean
+    public ChangePrivateEventMatchingLocation changePrivateEventMatchingLocationApplicationService(
+            CommandExecutor commandExecutor) {
+        return new ChangePrivateEventMatchingLocation(commandExecutor);
+    }
+
+    /**
      * No projector dependency, for the same reason as {@link CancelGroundTransfer} below:
      * {@link CancelPrivateEvent} folds its one decision fact from the event stream (R1), not from a
      * read model. No {@code now} either — cancelling is not time-gated.

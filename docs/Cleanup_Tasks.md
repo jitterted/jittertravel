@@ -499,7 +499,14 @@ down when it is created does not get written down later.
       correction is removing a wrong entry) and a wrong one is a false presence fact in
       `ScheduleGapProjector`. **Slice 1 shipped 2026-08-24** — cancel is live, linked from the
       **itinerary**, OWNER-only; the edit flow itself (slice 2) is what is still open here, and it
-      brings the pencil *and* the calendar's bin with it. Read the plan, not this bullet. Lifted
+      brings the pencil *and* the calendar's bin with it. Read the plan, not this bullet.
+      **One field has since been peeled off and shipped on its own (2026-09-18)**: a private
+      event's `locationForMatching` is changeable at
+      `/planned-private-events/{id}/matching-location`, via a field-specific
+      `PrivateEventMatchingLocationChanged` that reaches one read model instead of six — see
+      `PrivateEventMatchingLocationPlan.md`. **One requirement lands on slice 2**, also in the
+      change plan's status block: `PrivateEventEditView` must fold that event (**R8a**), or the
+      form offers the location originally typed and writes it back. Lifted
       here from
       `archived/PrivateSocialEventPlan.md` 2026-08-21; the third item on that list, the itinerary
       entry, **shipped** — `PrivateEventItineraryEntry` is live.

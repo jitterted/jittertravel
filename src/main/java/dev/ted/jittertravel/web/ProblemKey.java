@@ -66,8 +66,8 @@ public record ProblemKey(String value) {
                     cityConflict.conferenceId().id().toString(),
                     cityConflict.date().toString());
             // No fix link reaches this today — its two sides carry no ids, which is the
-            // cause-linking gap — but the switch is exhaustive, and a future fix link for it will
-            // want exactly this.
+            // cause-linking gap (docs/ProblemCauseLinkingPlan.md) — but the switch is exhaustive,
+            // and a future fix link for it will want exactly this.
             case ScheduleProblem.SchedulingConflict clash -> join(
                     "clash", clash.first().name(), clash.first().startsAt().utc().toString(),
                     clash.second().name(), clash.second().startsAt().utc().toString());

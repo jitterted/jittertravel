@@ -582,6 +582,16 @@ class ScheduleTimeline {
 
         enum Kind { CONFERENCE, GATHERING, PRIVATE_EVENT }
 
+        /**
+         * The same occupancy, reasoned about in a different city — what a
+         * {@code PrivateEventMatchingLocationChanged} does to one. A copy-with rather than five
+         * positional arguments at the call site: two of the five components are
+         * {@link ZonedTimestamp}s, and transposed they would compile and be wrong.
+         */
+        Occupancy inCity(String otherCity) {
+            return new Occupancy(name, otherCity, startsAt, endsAt, kind);
+        }
+
         /** Only a conference lends its name to a missing-hotel row. */
         String conferenceName() {
             return kind == Kind.CONFERENCE ? name : null;

@@ -159,6 +159,27 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 case PrivateEventPlanned e -> privateEvents.put(e.privateEventId(),
                         new ScheduleTimeline.Occupancy(e.title(), Place.of(e.location()).value(),
                                 e.startsAt(), e.endsAt(), ScheduleTimeline.Occupancy.Kind.PRIVATE_EVENT));
+                // The one read model that reads locationForMatching, and so the only one this
+                // event reaches — a dinner four miles from the hotel is not a journey, and saying
+                // so here is what stops /schedule-problems demanding the drive out to it. One gap,
+                // not a symmetric pair: an occupancy's end is a rank-0 LEAVE, which asserts nothing
+                // about where Ted must be, so no return journey is ever reported (pinned by
+                // PrivateEventMatchingLocationPropagationTest).
+                // computeIfPresent, not put: an override for an evening already cancelled is a
+                // no-op rather than a resurrected occupancy.
+                //
+                // Through Place, like every other city in this file, and not because the event is
+                // unnormalized — its compact constructor trims, exactly as Address does for the
+                // branch above. It is so that a value compared as a city has one normalization and
+                // not two: strengthen Place past trim() (U+00A0 is the known gap CLAUDE.md names)
+                // and a re-matched city picks the fix up with the planned one. A branch that missed
+                // it would fail as event 92 did — a city that renders identically, compares as
+                // somewhere else, and grows back the very MissingTravel and MissingHotel rows this
+                // event exists to remove.
+                case PrivateEventMatchingLocationChanged e ->
+                        privateEvents.computeIfPresent(e.privateEventId(),
+                                (id, occupancy) ->
+                                        occupancy.inCity(new Place(e.locationForMatching()).value()));
                 // The point of cancelling, and the reason cancel was built before edit: a wrong
                 // private event must stop asserting Ted is in that city, or it goes on shaping
                 // away days and hiding the night it appears to account for.

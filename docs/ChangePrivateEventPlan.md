@@ -16,6 +16,29 @@
 > - **Six existing read models need a `PrivateEventChanged` branch, not five** — the list's projector
 >   is the sixth (phase 2).
 > - **The list row gains the Edit link** alongside the calendar and itinerary pencils (phase 3).
+>
+> **Revised again 2026-09-18.** `PrivateEventMatchingLocationPlan.md` shipped
+> `PrivateEventMatchingLocationChanged(PrivateEventId, String)` — a field-specific event that
+> changes `Address.locationForMatching` and reaches exactly one read model, `ScheduleGapProjector`.
+> Three consequences for slice 2:
+>
+> - **`PrivateEventEditView` must fold `PrivateEventMatchingLocationChanged`** — **R8a**, the rule
+>   that a read model behind an edit form folds every event that changes what the form prefills.
+>   Miss it and the form offers the location originally typed and writes it back, so an edit that
+>   only touched the end time silently reverts a correction, surfacing weeks later as a
+>   `MissingTravel` row that points nowhere near its cause. A5 gives slice 2 its own projector, so
+>   nothing compiler-forces this: write the branch, guard it with a propagation case in the shape of
+>   `PrivateEventCancellationPropagationTest`. **The full-snapshot `PrivateEventChanged` is not the
+>   hazard** — written from correctly-folded state it carries every earlier correction forward.
+> - **Decomposing the rest is deliberately deferred, not rejected** (Ted, 2026-09-18): *"defer
+>   decomposing the rest until the specific reasons for change become more clear from additional
+>   use."* That is a **pause on H1**, which prefers the fine-grained events. So slice 2 stands as
+>   written below — but re-read `PrivateEventMatchingLocationPlan.md` D1 first (H1's wording, plus
+>   the count: one projector reads that field, six would need a branch) if a second
+>   reason-for-change has since shown up.
+> - **The list row's actions cell is no longer empty below `Cancel`.** "Match location" took that
+>   slot on 2026-09-18, so phase 3's `Edit` appends below *it*. Nothing moves either way; the cell
+>   is still a column flex and still under the three-link cap.
 
 ## Context
 

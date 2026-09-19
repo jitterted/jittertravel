@@ -57,6 +57,14 @@ public class PlannedPrivateEventsRenderer {
                 .private-event-venue-address { font-size: 0.82rem; color: var(--muted-text); margin-top: 0.1rem; }
                 .private-event-actions { display: flex; flex-direction: column; gap: 0.3rem; align-items: start; }
                 .private-event-cancel-link { font-size: 0.85rem; color: #475569; text-decoration: underline; }
+                /* Same weight as Cancel beside it: neither is the primary action, and making this
+                   one louder would say re-matching is the usual thing to do here. Underlined at
+                   rest, not on hover — the iPad has no pointer. nowrap so the two-word label does
+                   not stack into two lines and push Cancel's remembered position around. */
+                .private-event-match-link {
+                    font-size: 0.85rem; color: #475569;
+                    text-decoration: underline; white-space: nowrap;
+                }
                 .empty-state { font-style: italic; font-size: 0.9rem; }
                 /* Per-column labels: hidden while the header row is visible, shown once the grid stacks. */
                 .leg-label {
@@ -180,14 +188,23 @@ public class PlannedPrivateEventsRenderer {
 
     /**
      * Cancel goes <em>first</em> in the cell, and that ordering is load-bearing: the cell is a
-     * column flex, so the edit flow's future "Edit" link is appended <em>below</em> this one rather
-     * than above it, and no control that is here today moves when it arrives (CLAUDE.md, "action
-     * affordances never move").
+     * column flex, so anything added later is appended <em>below</em> this one rather than above
+     * it, and no control that is here today moves when it arrives (CLAUDE.md, "action affordances
+     * never move"). "Match location" took that slot on 2026-09-18; the edit flow's future "Edit"
+     * link appends below it in turn.
+     * <p>
+     * Two links, so they stay links — a menu starts above three (CLAUDE.md, the dropdown rule).
+     * No icon on either: a pencil means edit and nothing else app-wide, and re-matching is not the
+     * general edit. It is a plain permanently-underlined link, never a hover-only affordance.
      */
     private static DomContent actionsCell(PlannedPrivateEventView e) {
+        String base = "/planned-private-events/" + e.privateEventId().id();
         return div().withClass("private-event-actions").with(
                 a("Cancel").withClass("private-event-cancel-link")
-                        .withHref("/planned-private-events/" + e.privateEventId().id() + "/cancel")
+                        .withHref(base + "/cancel"),
+                a("Match location").withClass("private-event-match-link")
+                        .withHref(base + "/matching-location")
+                        .withTitle("Change the city the schedule matches this evening in")
         );
     }
 

@@ -78,7 +78,13 @@ public record ProblemFix(String label, String href) {
             case ScheduleProblem.DifferentCityConflict cityConflict -> List.of(clearConflict(cityConflict));
             // Its two sides are names, cities and times with no ids, and either may be a gathering
             // or a private event — so a link would need a kind+id reference the record does not
-            // carry. That is the cause-linking gap, tracked with slice 4.
+            // carry. That is the cause-linking gap: docs/ProblemCauseLinkingPlan.md.
+            //
+            // MissingTravel above has the same gap for a different reason — it knows the two
+            // cities and not which entry raised them — which is why a dinner four miles from the
+            // hotel cannot offer "same place as where I'm staying" here, though the page that
+            // does it exists (/planned-private-events/{id}/matching-location). That second,
+            // sharper case is what the plan was written for.
             case ScheduleProblem.SchedulingConflict ignored -> List.of();
         };
     }

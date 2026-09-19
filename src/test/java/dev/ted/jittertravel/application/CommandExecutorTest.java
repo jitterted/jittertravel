@@ -41,7 +41,9 @@ class CommandExecutorTest {
         executor.execute(COMMAND_ID, "request", new TestContext(), command);
 
         InOrder inOrder = inOrder(persister, eventStore);
-        inOrder.verify(persister).saveCommand(COMMAND_ID, "request");
+        // The DomainCommand is the logged payload, never the web-layer request: the command
+        // carries the resolved subject, so the row cannot name nothing.
+        inOrder.verify(persister).saveCommand(COMMAND_ID, command);
         inOrder.verify(eventStore).append(any(), eq(COMMAND_ID));
         verify(persister, never()).markCommandFailed(any(), any(), any());
     }
@@ -57,7 +59,9 @@ class CommandExecutorTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("departure not in future");
 
-        verify(persister).saveCommand(COMMAND_ID, "request");
+        // Written ahead, and it is the command that is written — a FAILED row still names its
+        // subject.
+        verify(persister).saveCommand(COMMAND_ID, rejecting);
         verify(persister).markCommandFailed(COMMAND_ID, "FAILED_DOMAIN", "departure not in future");
         verify(eventStore, never()).append(any(), any());
     }

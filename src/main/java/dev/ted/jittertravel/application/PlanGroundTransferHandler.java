@@ -30,20 +30,20 @@ public class PlanGroundTransferHandler {
         // It is the *place* token rather than the submitted one because an airport's carries the
         // flight leg that offered it — landing at DEN and leaving from DEN are two tokens and one
         // place, and a transfer between them still goes nowhere.
-        String originPlace = GroundTransferEndpointResolver.placeToken(request.getOrigin());
+        String originPlace = GroundTransferEndpointResolver.placeToken(request.origin());
         if (originPlace != null && originPlace.equals(
-                GroundTransferEndpointResolver.placeToken(request.getDestination()))) {
+                GroundTransferEndpointResolver.placeToken(request.destination()))) {
             throw new SameTransferEndpoints("A transfer needs two different places");
         }
-        TransferEndpoint origin = endpoints.resolve(request.getOrigin());
-        TransferEndpoint destination = endpoints.resolve(request.getDestination());
+        TransferEndpoint origin = endpoints.resolve(request.origin());
+        TransferEndpoint destination = endpoints.resolve(request.destination());
         ZoneId zone = origin.zone();
         return new PlanGroundTransferCommand(
-                GroundTransferId.of(UUID.fromString(request.getGroundTransferId())),
+                GroundTransferId.of(UUID.fromString(request.groundTransferId())),
                 origin.airportCode(), origin.name(), origin.address(),
                 destination.airportCode(), destination.name(), destination.address(),
-                ZonedTimestamp.fromLocal(request.getDate().atTime(request.getDepartureTime()), zone),
-                ZonedTimestamp.fromLocal(request.getDate().atTime(request.getArrivalTime()), zone),
+                ZonedTimestamp.fromLocal(request.date().atTime(request.departureTime()), zone),
+                ZonedTimestamp.fromLocal(request.date().atTime(request.arrivalTime()), zone),
                 mode(request)
         );
     }
@@ -55,6 +55,6 @@ public class PlanGroundTransferHandler {
      * comparing against one absent value.
      */
     private String mode(PlanGroundTransferRequest request) {
-        return request.getMode() == null ? "" : request.getMode().strip();
+        return request.mode() == null ? "" : request.mode().strip();
     }
 }

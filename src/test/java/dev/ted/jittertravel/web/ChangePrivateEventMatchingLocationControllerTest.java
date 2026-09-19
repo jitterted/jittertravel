@@ -148,10 +148,12 @@ class ChangePrivateEventMatchingLocationControllerTest {
 
         ArgumentCaptor<ChangePrivateEventMatchingLocationRequest> request =
                 ArgumentCaptor.forClass(ChangePrivateEventMatchingLocationRequest.class);
-        then(changeMatchingLocation).should().changeMatchingLocation(any(), request.capture());
+        ArgumentCaptor<UUID> evening = ArgumentCaptor.forClass(UUID.class);
+        then(changeMatchingLocation).should()
+                .changeMatchingLocation(any(), evening.capture(), request.capture());
         assertThat(request.getValue().locationForMatching())
                 .isEqualTo("Lone Tree");
-        assertThat(request.getValue().privateEventId())
+        assertThat(evening.getValue())
                 .as("the id comes from the path, so a submit cannot re-target another evening")
                 .isEqualTo(privateEventId);
     }
@@ -164,7 +166,7 @@ class ChangePrivateEventMatchingLocationControllerTest {
         given(viewProjector.findById(any()))
                 .willReturn(Optional.of(viewFor(privateEventId, "Centennial")));
         willThrow(new InvalidMatchingLocation("Location is required"))
-                .given(changeMatchingLocation).changeMatchingLocation(any(), any());
+                .given(changeMatchingLocation).changeMatchingLocation(any(), any(), any());
 
         assertThat(mockMvc.post()
                 .uri("/planned-private-events/" + privateEventId + "/matching-location")
@@ -184,7 +186,7 @@ class ChangePrivateEventMatchingLocationControllerTest {
         given(viewProjector.findById(any()))
                 .willReturn(Optional.of(viewFor(privateEventId, "Centennial")));
         willThrow(new InvalidMatchingLocation("Location is required"))
-                .given(changeMatchingLocation).changeMatchingLocation(any(), any());
+                .given(changeMatchingLocation).changeMatchingLocation(any(), any(), any());
 
         assertThat(mockMvc.post()
                 .uri("/planned-private-events/" + privateEventId + "/matching-location")
@@ -206,7 +208,7 @@ class ChangePrivateEventMatchingLocationControllerTest {
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/planned-private-events");
 
-        then(changeMatchingLocation).should(never()).changeMatchingLocation(any(), any());
+        then(changeMatchingLocation).should(never()).changeMatchingLocation(any(), any(), any());
     }
 
     @Test
@@ -219,7 +221,7 @@ class ChangePrivateEventMatchingLocationControllerTest {
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/planned-private-events");
 
-        then(changeMatchingLocation).should(never()).changeMatchingLocation(any(), any());
+        then(changeMatchingLocation).should(never()).changeMatchingLocation(any(), any(), any());
     }
 
     @Test
@@ -228,7 +230,7 @@ class ChangePrivateEventMatchingLocationControllerTest {
         given(viewProjector.findById(any()))
                 .willReturn(Optional.of(viewFor(privateEventId, "Centennial")));
         willThrow(new PrivateEventNotFound("gone"))
-                .given(changeMatchingLocation).changeMatchingLocation(any(), any());
+                .given(changeMatchingLocation).changeMatchingLocation(any(), any(), any());
 
         assertThat(mockMvc.post()
                 .uri("/planned-private-events/" + privateEventId + "/matching-location")

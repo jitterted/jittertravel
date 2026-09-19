@@ -37,9 +37,9 @@ class PlanGroundTransferControllerTest {
         controller.planGroundTransferForm(model, NO_CHOICES, null, null);
 
         PlanGroundTransferRequest request = (PlanGroundTransferRequest) model.getAttribute("planGroundTransfer");
-        assertThat(request.getDate()).isEqualTo(LocalDate.of(2026, 5, 31));
-        assertThat(request.getDepartureTime()).isEqualTo(LocalTime.of(12, 0));
-        assertThat(request.getArrivalTime()).isEqualTo(LocalTime.of(12, 45));
+        assertThat(request.date()).isEqualTo(LocalDate.of(2026, 5, 31));
+        assertThat(request.departureTime()).isEqualTo(LocalTime.of(12, 0));
+        assertThat(request.arrivalTime()).isEqualTo(LocalTime.of(12, 45));
     }
 
     @Test
@@ -51,9 +51,9 @@ class PlanGroundTransferControllerTest {
         controller.planGroundTransferForm(model, NO_CHOICES, LocalDate.of(2026, 9, 14), null);
 
         PlanGroundTransferRequest request = (PlanGroundTransferRequest) model.getAttribute("planGroundTransfer");
-        assertThat(request.getDate()).isEqualTo(LocalDate.of(2026, 9, 14));
-        assertThat(request.getDepartureTime()).isEqualTo(LocalTime.of(12, 0));
-        assertThat(request.getArrivalTime()).isEqualTo(LocalTime.of(12, 45));
+        assertThat(request.date()).isEqualTo(LocalDate.of(2026, 9, 14));
+        assertThat(request.departureTime()).isEqualTo(LocalTime.of(12, 0));
+        assertThat(request.arrivalTime()).isEqualTo(LocalTime.of(12, 45));
     }
 
     @Test
@@ -66,7 +66,7 @@ class PlanGroundTransferControllerTest {
         controller.planGroundTransferForm(first, NO_CHOICES, null, null);
         controller.planGroundTransferForm(second, NO_CHOICES, null, null);
 
-        assertThat(((PlanGroundTransferRequest) first.getAttribute("planGroundTransfer")).getGroundTransferId())
-                .isNotEqualTo(((PlanGroundTransferRequest) second.getAttribute("planGroundTransfer")).getGroundTransferId());
+        assertThat(((PlanGroundTransferRequest) first.getAttribute("planGroundTransfer")).groundTransferId())
+                .isNotEqualTo(((PlanGroundTransferRequest) second.getAttribute("planGroundTransfer")).groundTransferId());
     }
 }

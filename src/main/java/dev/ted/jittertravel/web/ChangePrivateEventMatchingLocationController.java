@@ -56,12 +56,10 @@ public class ChangePrivateEventMatchingLocationController {
         }
         PrivateEventMatchingLocationView view = maybe.get();
 
-        ChangePrivateEventMatchingLocationRequest request =
-                new ChangePrivateEventMatchingLocationRequest();
-        request.setPrivateEventId(view.privateEventId().id());
         // Prefilled with the value already in force, not the one originally typed: the form must
         // not quietly undo an earlier correction when Ted submits it again.
-        request.setLocationForMatching(view.locationForMatching());
+        ChangePrivateEventMatchingLocationRequest request =
+                new ChangePrivateEventMatchingLocationRequest(view.locationForMatching());
 
         model.addAttribute("privateEvent", view);
         model.addAttribute("matchingLocation", request);
@@ -79,13 +77,13 @@ public class ChangePrivateEventMatchingLocationController {
             return "redirect:/planned-private-events";
         }
         PrivateEventMatchingLocationView view = maybe.get();
-        // From the path, never from the form: a bound id would let a submit re-target another
-        // evening.
-        request.setPrivateEventId(view.privateEventId().id());
 
         try {
             // The commandId, the one nondeterministic input, is captured here at the boundary.
-            applicationService.changeMatchingLocation(UUID.randomUUID(), request);
+            // The evening comes from the path, never from the form: the request has no id
+            // component, so there is nothing on the page a crafted POST could re-target.
+            applicationService.changeMatchingLocation(UUID.randomUUID(),
+                                                      view.privateEventId().id(), request);
         } catch (InvalidMatchingLocation e) {
             // Field-level, under the input that fixes it — the error goes where the fix is, not
             // where the failure was raised (CLAUDE.md, "A rejected form reports everything it can

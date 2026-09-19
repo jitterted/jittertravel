@@ -27,9 +27,14 @@ public class ChangePrivateEventMatchingLocation {
         this.commandExecutor = commandExecutor;
     }
 
-    public void changeMatchingLocation(UUID commandId,
+    /**
+     * {@code privateEventId} arrives from the path rather than on the request: which evening is
+     * re-matched is not something the form submits, so there is nothing on the page for a crafted
+     * POST to re-target.
+     */
+    public void changeMatchingLocation(UUID commandId, UUID privateEventIdValue,
                                        ChangePrivateEventMatchingLocationRequest request) {
-        PrivateEventId privateEventId = PrivateEventId.of(request.privateEventId());
+        PrivateEventId privateEventId = PrivateEventId.of(privateEventIdValue);
         commandExecutor.execute(commandId, request, contextFor(privateEventId),
                 new ChangePrivateEventMatchingLocationCommand(
                         privateEventId, request.locationForMatching()));

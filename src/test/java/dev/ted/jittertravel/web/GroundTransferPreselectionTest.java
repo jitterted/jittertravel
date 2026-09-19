@@ -33,17 +33,15 @@ class GroundTransferPreselectionTest {
 
     @Test
     void bothEndsSettledPutTheirTokensAndTheirMomentsOnTheForm() {
-        PlanGroundTransferRequest request = formWithDefaults();
+        PlanGroundTransferRequest request = preselect(both()).applyTo(formWithDefaults());
 
-        preselect(both()).applyTo(request);
-
-        assertThat(request.getOrigin()).isEqualTo("hotel:seminarzentrum");
-        assertThat(request.getDestination()).isEqualTo("hotel:holiday-inn");
-        assertThat(request.getDate()).isEqualTo(LocalDate.of(2026, 9, 13));
-        assertThat(request.getDepartureTime())
+        assertThat(request.origin()).isEqualTo("hotel:seminarzentrum");
+        assertThat(request.destination()).isEqualTo("hotel:holiday-inn");
+        assertThat(request.date()).isEqualTo(LocalDate.of(2026, 9, 13));
+        assertThat(request.departureTime())
                 .as("the ride starts when he checks out")
                 .isEqualTo(LocalTime.of(11, 0));
-        assertThat(request.getArrivalTime())
+        assertThat(request.arrivalTime())
                 .as("and has to get him there by check-in")
                 .isEqualTo(LocalTime.of(15, 0));
     }
@@ -54,17 +52,15 @@ class GroundTransferPreselectionTest {
      */
     @Test
     void anUnsettledEndIsLeftForTedToChoose() {
-        PlanGroundTransferRequest request = formWithDefaults();
-
-        preselect(new GroundTransferEndpointChoices(
+        PlanGroundTransferRequest request = preselect(new GroundTransferEndpointChoices(
                 List.of(), List.of(), List.of(), List.of(),
-                List.of(SEMINAR_ZENTRUM), List.of())).applyTo(request);
+                List.of(SEMINAR_ZENTRUM), List.of())).applyTo(formWithDefaults());
 
-        assertThat(request.getOrigin()).isEqualTo("hotel:seminarzentrum");
-        assertThat(request.getDestination())
+        assertThat(request.origin()).isEqualTo("hotel:seminarzentrum");
+        assertThat(request.destination())
                 .as("nothing in Frankfurt to choose, so the select stays on its placeholder")
                 .isNull();
-        assertThat(request.getArrivalTime())
+        assertThat(request.arrivalTime())
                 .as("and its time keeps the form's own default")
                 .isEqualTo(LocalTime.of(12, 45));
     }
@@ -72,15 +68,13 @@ class GroundTransferPreselectionTest {
     /** Only the far end known: its day is the best the form can say. */
     @Test
     void aSettledDestinationAloneStillSeedsTheDay() {
-        PlanGroundTransferRequest request = formWithDefaults();
-
-        preselect(new GroundTransferEndpointChoices(
+        PlanGroundTransferRequest request = preselect(new GroundTransferEndpointChoices(
                 List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(HOLIDAY_INN))).applyTo(request);
+                List.of(), List.of(HOLIDAY_INN))).applyTo(formWithDefaults());
 
-        assertThat(request.getOrigin()).isNull();
-        assertThat(request.getDate()).isEqualTo(LocalDate.of(2026, 9, 13));
-        assertThat(request.getArrivalTime()).isEqualTo(LocalTime.of(15, 0));
+        assertThat(request.origin()).isNull();
+        assertThat(request.date()).isEqualTo(LocalDate.of(2026, 9, 13));
+        assertThat(request.arrivalTime()).isEqualTo(LocalTime.of(15, 0));
     }
 
     /**
@@ -90,17 +84,16 @@ class GroundTransferPreselectionTest {
      */
     @Test
     void anArrivalThatWouldLandBeforeTheDepartureIsPushedPastIt() {
-        PlanGroundTransferRequest request = formWithDefaults();
         TransferEndpointOption earlyFlight = new TransferEndpointOption(
                 "airport:FRA", "FRA — Frankfurt · depart Sun Sep 13, 9:00 AM (LH 1)",
                 "Frankfurt", "2026-09-13", "09:00");
 
-        preselect(new GroundTransferEndpointChoices(
+        PlanGroundTransferRequest request = preselect(new GroundTransferEndpointChoices(
                 List.of(), List.of(earlyFlight), List.of(), List.of(),
-                List.of(SEMINAR_ZENTRUM), List.of())).applyTo(request);
+                List.of(SEMINAR_ZENTRUM), List.of())).applyTo(formWithDefaults());
 
-        assertThat(request.getDepartureTime()).isEqualTo(LocalTime.of(11, 0));
-        assertThat(request.getArrivalTime())
+        assertThat(request.departureTime()).isEqualTo(LocalTime.of(11, 0));
+        assertThat(request.arrivalTime())
                 .as("09:00 is before the 11:00 check-out, so it moves to check-out + 45 min")
                 .isEqualTo(LocalTime.of(11, 45));
     }
@@ -117,11 +110,9 @@ class GroundTransferPreselectionTest {
 
     /** The form as the controller hands it over: today's date and its short midday hop. */
     private static PlanGroundTransferRequest formWithDefaults() {
-        PlanGroundTransferRequest request = new PlanGroundTransferRequest();
-        request.setDate(LocalDate.of(2026, 9, 1));
-        request.setDepartureTime(LocalTime.of(12, 0));
-        request.setArrivalTime(LocalTime.of(12, 45));
-        return request;
+        return new PlanGroundTransferRequest(null, null, null, null,
+                                             LocalDate.of(2026, 9, 1),
+                                             LocalTime.of(12, 0), LocalTime.of(12, 45));
     }
 
     private static ScheduleProblem.MissingTravel johannesbergToFrankfurt() {

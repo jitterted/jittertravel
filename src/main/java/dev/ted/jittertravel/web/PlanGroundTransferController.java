@@ -67,17 +67,17 @@ public class PlanGroundTransferController {
                                          @ModelAttribute("endpointChoices") GroundTransferEndpointChoices endpointChoices,
                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
                                          @RequestParam(required = false) String problem) {
-        PlanGroundTransferRequest request = new PlanGroundTransferRequest();
-        request.setGroundTransferId(UUID.randomUUID().toString());
         // Absent a date, the default is today: a transfer is normally added to a trip already under
         // way, which is exactly why it has no future-date rule.
-        request.setDate(date != null ? date : LocalDate.now(clock));
-        request.setDepartureTime(LocalTime.of(12, 0));
-        request.setArrivalTime(LocalTime.of(12, 45));
+        PlanGroundTransferRequest defaults = new PlanGroundTransferRequest(
+                UUID.randomUUID().toString(), null, null, null,
+                date != null ? date : LocalDate.now(clock),
+                LocalTime.of(12, 0), LocalTime.of(12, 45));
         // now is captured here at the boundary; the gap is read from the same report the banner
         // above the form is read from, so the two cannot describe different problems.
-        gapNamedBy(problem, clock.instant())
-                .ifPresent(gap -> new GroundTransferPreselection(endpointChoices, gap).applyTo(request));
+        PlanGroundTransferRequest request = gapNamedBy(problem, clock.instant())
+                .map(gap -> new GroundTransferPreselection(endpointChoices, gap).applyTo(defaults))
+                .orElse(defaults);
         model.addAttribute("planGroundTransfer", request);
         return "plan-ground-transfer";
     }

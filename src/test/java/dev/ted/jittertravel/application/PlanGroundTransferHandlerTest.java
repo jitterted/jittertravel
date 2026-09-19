@@ -106,8 +106,9 @@ class PlanGroundTransferHandlerTest {
 
     private PlanGroundTransferRequest requestWithMode(String mode) {
         PlanGroundTransferRequest request = request("airport:DEN", "hotel:" + BOOKING.id(), bookedHotel());
-        request.setMode(mode);
-        return request;
+        return new PlanGroundTransferRequest(request.groundTransferId(), request.origin(),
+                                             request.destination(), mode, request.date(),
+                                             request.departureTime(), request.arrivalTime());
     }
 
     @Test
@@ -286,14 +287,9 @@ class PlanGroundTransferHandlerTest {
     private PlanGroundTransferRequest request(String origin, String destination, StoredEvent... history) {
         hotelDetails.handle(Stream.of(history));
         trainDetails.handle(Stream.of(history));
-        PlanGroundTransferRequest request = new PlanGroundTransferRequest();
-        request.setGroundTransferId(UUID.randomUUID().toString());
-        request.setOrigin(origin);
-        request.setDestination(destination);
-        request.setDate(LocalDate.of(2026, 9, 14));
-        request.setDepartureTime(LocalTime.of(12, 0));
-        request.setArrivalTime(LocalTime.of(12, 45));
-        return request;
+        return new PlanGroundTransferRequest(UUID.randomUUID().toString(), origin, destination,
+                                             null, LocalDate.of(2026, 9, 14),
+                                             LocalTime.of(12, 0), LocalTime.of(12, 45));
     }
 
     private static StoredEvent bookedHotel() {

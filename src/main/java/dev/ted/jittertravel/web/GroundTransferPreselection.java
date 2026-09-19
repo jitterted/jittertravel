@@ -43,22 +43,40 @@ public class GroundTransferPreselection {
     /**
      * Applies whatever this gap can settle, leaving everything else as the controller set it — an
      * unmatched end keeps its empty select, and an untouched time keeps its default.
+     * <p>
+     * Returns a new request rather than mutating one: the form bean is a record, so what was a run
+     * of conditional setters is a run of conditional locals, settled once at the end. The order the
+     * decisions are made in is unchanged, and so is which of them wins.
      */
-    public void applyTo(PlanGroundTransferRequest request) {
-        choices.originFor(gap).ifPresent(origin -> {
-            request.setOrigin(origin.token());
-            dayOf(origin).ifPresent(request::setDate);
-            timeOf(origin).ifPresent(request::setDepartureTime);
-        });
-        choices.destinationFor(gap).ifPresent(destination -> {
-            request.setDestination(destination.token());
-            if (request.getOrigin() == null) {
-                // Only the far end is known, so its own day is the best the form can say.
-                dayOf(destination).ifPresent(request::setDate);
+    public PlanGroundTransferRequest applyTo(PlanGroundTransferRequest request) {
+        String origin = request.origin();
+        String destination = request.destination();
+        LocalDate date = request.date();
+        LocalTime departureTime = request.departureTime();
+        LocalTime arrivalTime = request.arrivalTime();
+
+        Optional<TransferEndpointOption> originEnd = choices.originFor(gap);
+        if (originEnd.isPresent()) {
+            origin = originEnd.get().token();
+            date = dayOf(originEnd.get()).orElse(date);
+            departureTime = timeOf(originEnd.get()).orElse(departureTime);
+        }
+
+        Optional<TransferEndpointOption> destinationEnd = choices.destinationFor(gap);
+        if (destinationEnd.isPresent()) {
+            destination = destinationEnd.get().token();
+            if (origin == null) {
+                // Only the far end is known, so its own day is the best the form can say. Read
+                // after the origin block, exactly as the setter version read it back off the
+                // request: this asks whether that block fired, not what arrived.
+                date = dayOf(destinationEnd.get()).orElse(date);
             }
-            timeOf(destination).ifPresent(request::setArrivalTime);
-        });
-        keepTheRangeValid(request);
+            arrivalTime = timeOf(destinationEnd.get()).orElse(arrivalTime);
+        }
+
+        return new PlanGroundTransferRequest(request.groundTransferId(), origin, destination,
+                                             request.mode(), date, departureTime,
+                                             keepTheRangeValid(departureTime, arrivalTime));
     }
 
     /**
@@ -67,12 +85,11 @@ public class GroundTransferPreselection {
      * typed. It happens honestly: a stay checked out of at 11:00 whose far end checks in at 15:00 is
      * fine, but reach an <em>airport</em> whose flight left at 09:00 and the pair inverts.
      */
-    private void keepTheRangeValid(PlanGroundTransferRequest request) {
-        LocalTime departure = request.getDepartureTime();
-        LocalTime arrival = request.getArrivalTime();
+    private LocalTime keepTheRangeValid(LocalTime departure, LocalTime arrival) {
         if (departure != null && arrival != null && !arrival.isAfter(departure)) {
-            request.setArrivalTime(departure.plusMinutes(GAP_MINUTES));
+            return departure.plusMinutes(GAP_MINUTES);
         }
+        return arrival;
     }
 
     private Optional<LocalDate> dayOf(TransferEndpointOption option) {

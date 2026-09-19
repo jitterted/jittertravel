@@ -297,7 +297,7 @@ class PlanGroundTransferWebIntegrationTest {
                 .hasStatus3xxRedirection();
 
         then(groundTransferPlanning).should().planGroundTransfer(argThat(
-                request -> "A16 hotel shuttle".equals(request.getMode())));
+                request -> "A16 hotel shuttle".equals(request.mode())));
     }
 
     @Test

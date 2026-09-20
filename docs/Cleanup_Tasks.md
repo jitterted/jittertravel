@@ -724,11 +724,10 @@ down when it is created does not get written down later.
       `EnteredLocation` wholesale would refuse the entry Ted most wants to be able to make.
       (This also answers the CLAUDE.md note that wiring it to gatherings/conferences/private events
       is "a decision, not a chore": the decision is **no**, for the venue-name rule.)
-      Still open, and worth asking rather than assuming: whether the **city** stays required on
-      these kinds when the venue is unknown. `locationForMatching` is what the schedule matches on,
-      so a blank city has consequences a blank venue name does not — but "I know I am in Denver
-      that evening, not where" is exactly the case Ted described, so the two fields may want
-      different answers.
+      - **`city` is REQUIRED too** (Ted, 2026-09-19): *"city is always required, that much I'll
+        know (or will edit later)."* So venue name is the only one of the three that may be blank.
+        That matters because `locationForMatching` derives from the city and is what the schedule
+        matches on — a blank one is the shape that produced the "Hamburg → Hamburg" phantom gap.
 
       **Mind the split when doing it:** normalize in the record, **reject in the command**. A blank
       check in a compact constructor applies retroactively to every event in the log and would stop

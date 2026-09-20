@@ -27,7 +27,7 @@ class BookTrainControllerTest {
         controller.bookTrainForm(model, null, null, null);
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
-        assertThat(request.getDepartureDateTime())
+        assertThat(request.departureDateTime())
                 .isEqualTo(LocalDateTime.of(2026, 6, 9, 9, 0));
     }
 
@@ -39,9 +39,9 @@ class BookTrainControllerTest {
         controller.bookTrainForm(model, LocalDate.of(2026, 7, 15), null, null);
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
-        assertThat(request.getDepartureDateTime())
+        assertThat(request.departureDateTime())
                 .isEqualTo(LocalDateTime.of(2026, 7, 15, 9, 0));
-        assertThat(request.getArrivalDateTime())
+        assertThat(request.arrivalDateTime())
                 .isEqualTo(LocalDateTime.of(2026, 7, 15, 13, 0));
     }
 
@@ -53,8 +53,8 @@ class BookTrainControllerTest {
         controller.bookTrainForm(model, null, null, null);
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
-        assertThat(request.getArrivalDateTime().toLocalDate())
-                .isEqualTo(request.getDepartureDateTime().toLocalDate());
+        assertThat(request.arrivalDateTime().toLocalDate())
+                .isEqualTo(request.departureDateTime().toLocalDate());
     }
 
     @Test
@@ -68,10 +68,10 @@ class BookTrainControllerTest {
 
         BookTrainRequest r1 = (BookTrainRequest) model1.getAttribute("bookTrain");
         BookTrainRequest r2 = (BookTrainRequest) model2.getAttribute("bookTrain");
-        assertThat(r1.getTrainTripId())
+        assertThat(r1.trainTripId())
                 .isNotNull()
                 .isNotEmpty()
-                .isNotEqualTo(r2.getTrainTripId());
+                .isNotEqualTo(r2.trainTripId());
     }
     /**
      * The cleanest prefill in the slice: {@link BookTrainRequest} already carries city names, so a
@@ -85,9 +85,9 @@ class BookTrainControllerTest {
         controller.bookTrainForm(model, LocalDate.of(2026, 6, 22), "Frankfurt", "Leipzig");
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
-        assertThat(request.getDepartureCityName()).isEqualTo("Frankfurt");
-        assertThat(request.getArrivalCityName()).isEqualTo("Leipzig");
-        assertThat(request.getDepartureDateTime()).isEqualTo(LocalDateTime.of(2026, 6, 22, 9, 0));
+        assertThat(request.departureCityName()).isEqualTo("Frankfurt");
+        assertThat(request.arrivalCityName()).isEqualTo("Leipzig");
+        assertThat(request.departureDateTime()).isEqualTo(LocalDateTime.of(2026, 6, 22, 9, 0));
     }
 
     @Test
@@ -98,8 +98,8 @@ class BookTrainControllerTest {
         controller.bookTrainForm(model, null, "  ", null);
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
-        assertThat(request.getDepartureCityName()).isNull();
-        assertThat(request.getArrivalCityName()).isNull();
+        assertThat(request.departureCityName()).isNull();
+        assertThat(request.arrivalCityName()).isNull();
     }
 
 }

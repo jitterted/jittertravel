@@ -56,13 +56,23 @@ public class ChangeGatheringController {
         return "change-gathering";
     }
 
+    /**
+     * The gathering being changed, for the form's own action URL.
+     * <p>
+     * It reaches the template as its own model attribute rather than as a component of the form
+     * bean, because it is path data: there is no hidden input carrying it, so a crafted POST has
+     * nothing to re-target with. Declared as an {@code @ModelAttribute} so it is present on the
+     * GET and on both re-render paths of the POST without three places having to remember it.
+     */
+    @ModelAttribute("gatheringId")
+    String gatheringId(@PathVariable(value = "gatheringId", required = false) String gatheringId) {
+        return gatheringId;
+    }
+
     @PostMapping("/planned-gatherings/{gatheringId}")
     public String changeGatheringSubmit(@PathVariable("gatheringId") String gatheringIdString,
                                         @ModelAttribute("changeGathering") ChangeGatheringRequest command,
                                         BindingResult bindingResult) {
-        // Path is the source of truth for gatheringId; it is not user-editable.
-        command.setGatheringId(gatheringIdString);
-
         // A date or time left blank, or one that would not parse, is null on the request.
         if (bindingResult.hasErrors()) {
             return "change-gathering";
@@ -70,7 +80,10 @@ public class ChangeGatheringController {
 
         try {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
-            applicationService.changeGathering(UUID.randomUUID(), command, Instant.now(clock));
+            // The gathering comes from the path, never from the form: the request has no id
+            // component, so there is nothing on the page a crafted POST could re-target.
+            applicationService.changeGathering(UUID.randomUUID(), gatheringIdString, command,
+                                               Instant.now(clock));
         } catch (GatheringNotFound e) {
             // The gathering vanished between GET and POST (e.g. removed in another tab). Report it on
             // the form itself — never by redirecting to the view-only list, which drops the flash.
@@ -100,25 +113,18 @@ public class ChangeGatheringController {
     }
 
     private static ChangeGatheringRequest toRequest(GatheringDetailsView view) {
-        ChangeGatheringRequest request = new ChangeGatheringRequest();
-        request.setGatheringId(view.gatheringId().id().toString());
-        request.setTitle(view.title());
-        request.setVenueName(view.venueName());
-        request.setStreet(view.location().street());
-        request.setCity(view.location().city());
-        request.setRegion(view.location().region());
-        request.setPostalCode(view.location().postalCode());
-        request.setCountry(view.location().country());
-        request.setLocationForMatching(view.location().locationForMatching());
         // Prefill from the venue-zone wall-clock, so re-opening the form shows the time that was
         // entered rather than one shifted into the server's zone. The zone picker is left on
         // "derive from location" (as the hotel edit form does); an explicit pick is only needed
         // again if the location still doesn't resolve.
-        request.setDate(view.startsAt().localDateTime().toLocalDate());
-        request.setStartTime(view.startsAt().localDateTime().toLocalTime());
-        request.setEndTime(view.endsAt().localDateTime().toLocalTime());
-        request.setSpeaking(view.speaking());
-        request.setInfoUrl(view.infoUrl());
-        return request;
+        return new ChangeGatheringRequest(
+                view.title(), view.venueName(),
+                view.location().street(), view.location().city(), view.location().region(),
+                view.location().postalCode(), view.location().country(),
+                view.location().locationForMatching(), null,
+                view.startsAt().localDateTime().toLocalDate(),
+                view.startsAt().localDateTime().toLocalTime(),
+                view.endsAt().localDateTime().toLocalTime(),
+                view.speaking(), view.infoUrl());
     }
 }

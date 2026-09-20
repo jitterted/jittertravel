@@ -32,8 +32,13 @@ public class ChangeTrain {
         this.liveScheduledLegs = liveScheduledLegs;
     }
 
-    public void changeTrain(UUID commandId, ChangeTrainRequest request, Instant now) {
-        ChangeTrainCommand command = new ChangeTrainHandler(zoneResolver).handle(request);
+    /**
+     * {@code tripId} arrives from the path rather than on the request: which trip is being changed
+     * is not something the form submits, so there is nothing on the page for a crafted POST to
+     * re-target.
+     */
+    public void changeTrain(UUID commandId, String tripId, ChangeTrainRequest request, Instant now) {
+        ChangeTrainCommand command = new ChangeTrainHandler(zoneResolver).handle(tripId, request);
         boolean tripExists = detailsProjector.findById(command.tripId()).isPresent();
         // Every live scheduled leg, folded from the event stream (R1) — the command refuses a
         // journey that collides with one. Shared with the other three write paths.

@@ -62,9 +62,6 @@ public class ChangeTrainController {
                                     @ModelAttribute("changeTrain") ChangeTrainRequest command,
                                     BindingResult bindingResult,
                                     Model model) {
-        // Path is the source of truth for tripId; it is not user-editable.
-        command.setTrainTripId(tripIdString);
-
         TrainFormErrors errors = new TrainFormErrors(bindingResult);
         // Binding already failed: a date left blank, or one that would not parse. Those values are
         // null on the request, so calling the service would only reach the write path with them.
@@ -74,7 +71,10 @@ public class ChangeTrainController {
         }
         try {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
-            applicationService.changeTrain(UUID.randomUUID(), command, Instant.now(clock));
+            // The trip comes from the path, never from the form: the request has no id component,
+            // so there is nothing on the page a crafted POST could re-target.
+            applicationService.changeTrain(UUID.randomUUID(), tripIdString, command,
+                                           Instant.now(clock));
         } catch (TrainNotFound e) {
             // The trip vanished between GET and POST (e.g. removed in another tab). Report it on the
             // form itself — never by redirecting to the view-only list, which drops the flash.
@@ -110,21 +110,25 @@ public class ChangeTrainController {
     }
 
     private static ChangeTrainRequest toRequest(TrainDetailsView view) {
-        ChangeTrainRequest request = new ChangeTrainRequest();
-        request.setTrainTripId(view.tripId().id().toString());
-        request.setServiceId(view.serviceId());
-        request.setDepartureStationName(view.departureStation().name());
-        request.setDepartureCityName(view.departureStation().city());
-        request.setDepartureCountry(view.departureStation().country());
-        request.setDepartureMapsUrl(view.departureStation().mapsUrl());
         // The form is a datetime-local: it reads a wall clock and nothing else, so the zone the view
         // carries is narrowed away here rather than in the read model.
-        request.setDepartureDateTime(view.departureDateTime().localDateTime());
-        request.setArrivalStationName(view.arrivalStation().name());
-        request.setArrivalCityName(view.arrivalStation().city());
-        request.setArrivalCountry(view.arrivalStation().country());
-        request.setArrivalMapsUrl(view.arrivalStation().mapsUrl());
-        request.setArrivalDateTime(view.arrivalDateTime().localDateTime());
-        return request;
+        return new ChangeTrainRequest(
+                view.serviceId(),
+                view.departureStation().name(), view.departureStation().city(),
+                view.departureStation().country(), view.departureStation().mapsUrl(), null,
+                view.departureDateTime().localDateTime(),
+                view.arrivalStation().name(), view.arrivalStation().city(),
+                view.arrivalStation().country(), view.arrivalStation().mapsUrl(), null,
+                view.arrivalDateTime().localDateTime());
+    }
+
+    /**
+     * The trip being changed, for the form's own action URL — path data, so it reaches the template
+     * as its own model attribute rather than as a hidden input a crafted POST could re-target.
+     * Declared here so it is present on the GET and on every re-render path of the POST.
+     */
+    @ModelAttribute("tripId")
+    String tripId(@PathVariable(value = "tripId", required = false) String tripId) {
+        return tripId;
     }
 }

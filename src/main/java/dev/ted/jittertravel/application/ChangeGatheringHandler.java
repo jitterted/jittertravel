@@ -23,18 +23,18 @@ public class ChangeGatheringHandler {
      * another zone re-derives its instants instead of keeping the old zone. See
      * {@link PlanGatheringHandler} for the date+times to instants conversion.
      */
-    public ChangeGatheringCommand handle(ChangeGatheringRequest request) {
-        Address location = request.getLocation();
-        ZoneId zone = venueZone.resolve(request.getZone(), location);
+    public ChangeGatheringCommand handle(String gatheringId, ChangeGatheringRequest request) {
+        Address location = request.location();
+        ZoneId zone = venueZone.resolve(request.zone(), location);
         return new ChangeGatheringCommand(
-                GatheringId.of(UUID.fromString(request.getGatheringId())),
-                request.getTitle(),
-                request.getVenueName(),
+                GatheringId.of(UUID.fromString(gatheringId)),
+                request.title(),
+                request.venueName(),
                 location,
-                ZonedTimestamp.fromLocal(request.getDate().atTime(request.getStartTime()), zone),
-                ZonedTimestamp.fromLocal(request.getDate().atTime(request.getEndTime()), zone),
-                request.isSpeaking(),
-                request.getInfoUrl()
+                ZonedTimestamp.fromLocal(request.date().atTime(request.startTime()), zone),
+                ZonedTimestamp.fromLocal(request.date().atTime(request.endTime()), zone),
+                request.speaking(),
+                request.infoUrl()
         );
     }
 }

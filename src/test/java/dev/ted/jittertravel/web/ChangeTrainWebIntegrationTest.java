@@ -109,7 +109,7 @@ class ChangeTrainWebIntegrationTest {
     @Test
     void postOnUnknownTripIdReRendersFormWithError() {
         willThrow(new TrainNotFound("No train exists with that tripId"))
-                .given(changeTrain).changeTrain(any(), any(), any());
+                .given(changeTrain).changeTrain(any(), any(), any(), any());
 
         // The trip vanished between GET and POST; the error must render on the form, never be
         // handed to the view-only /booked-trains list, which silently drops flash messages.
@@ -131,7 +131,7 @@ class ChangeTrainWebIntegrationTest {
     @Test
     void postWithPastDepartureRendersFormAgain() {
         willThrow(new DepartureNotInFuture("Departure date/time must be in the future"))
-                .given(changeTrain).changeTrain(any(), any(), any());
+                .given(changeTrain).changeTrain(any(), any(), any(), any());
 
         assertThat(mockMvc.post().uri("/booked-trains/" + UUID.randomUUID())
                 .with(csrf())
@@ -151,7 +151,7 @@ class ChangeTrainWebIntegrationTest {
         willThrow(new InvalidTrainEntry(List.of(
                 new InvalidLocationEntry(LocationRole.DEPARTURE, LocationField.CITY,
                         "Venue name, not a city")), List.of()))
-                .given(changeTrain).changeTrain(any(), any(), any());
+                .given(changeTrain).changeTrain(any(), any(), any(), any());
 
         MvcTestResult result = mockMvc.post().uri("/booked-trains/" + UUID.randomUUID())
                 .with(csrf())
@@ -184,7 +184,7 @@ class ChangeTrainWebIntegrationTest {
         willThrow(new InvalidTrainEntry(List.of(), List.of(
                 new UnresolvedStationZone(LocationRole.ARRIVAL,
                         UnresolvedStationZone.Cause.COUNTRY_MISSING))))
-                .given(changeTrain).changeTrain(any(), any(), any());
+                .given(changeTrain).changeTrain(any(), any(), any(), any());
 
         MvcTestResult result = mockMvc.post().uri("/booked-trains/" + UUID.randomUUID())
                 .with(csrf())
@@ -215,7 +215,7 @@ class ChangeTrainWebIntegrationTest {
         willThrow(new InvalidTrainEntry(List.of(), List.of(
                 new UnresolvedStationZone(LocationRole.DEPARTURE,
                         UnresolvedStationZone.Cause.COUNTRY_UNRECOGNISED))))
-                .given(changeTrain).changeTrain(any(), any(), any());
+                .given(changeTrain).changeTrain(any(), any(), any(), any());
 
         MvcTestResult result = mockMvc.post().uri("/booked-trains/" + UUID.randomUUID())
                 .with(csrf())

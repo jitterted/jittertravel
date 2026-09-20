@@ -49,22 +49,21 @@ public class BookTrainController {
                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
                                 @RequestParam(required = false) String fromCity,
                                 @RequestParam(required = false) String toCity) {
-        BookTrainRequest request = new BookTrainRequest();
-        request.setTrainTripId(UUID.randomUUID().toString());
-        if (fromCity != null && !fromCity.isBlank()) {
-            request.setDepartureCityName(fromCity);
-        }
-        if (toCity != null && !toCity.isBlank()) {
-            request.setArrivalCityName(toCity);
-        }
         // ?date= from the calendar day-menu seeds the departure day; the default (one week
         // out) stands when absent so the index nav card is unaffected.
         LocalDate day = date != null ? date : LocalDate.now(clock).plusWeeks(1);
         LocalDateTime departure = day.atStartOfDay().plusHours(9);
-        request.setDepartureDateTime(departure);
-        request.setArrivalDateTime(departure.plusHours(4));
+        BookTrainRequest request = new BookTrainRequest(
+                UUID.randomUUID().toString(), null,
+                null, blankToNull(fromCity), null, null, null, departure,
+                null, blankToNull(toCity), null, null, null, departure.plusHours(4));
         model.addAttribute("bookTrain", request);
         return "book-train";
+    }
+
+    /** A prefill parameter that arrived blank seeds nothing, exactly as the setters skipped it. */
+    private static String blankToNull(String prefill) {
+        return prefill == null || prefill.isBlank() ? null : prefill;
     }
 
     @PostMapping("/book-train")

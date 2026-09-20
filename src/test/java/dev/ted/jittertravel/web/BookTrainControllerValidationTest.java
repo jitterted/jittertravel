@@ -27,8 +27,7 @@ class BookTrainControllerValidationTest {
     @Test
     void departureInPastProducesFieldErrorOnDepartureDateTime() {
         TrainBooking service = mockService();
-        BookTrainRequest request = validRequest();
-        request.setDepartureDateTime(NOW.minusHours(1));
+        BookTrainRequest request = validRequestWith(NOW.minusHours(1), null);
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookTrain");
 
         invokeService(service, request, bindingResult);
@@ -41,8 +40,8 @@ class BookTrainControllerValidationTest {
     @Test
     void arrivalBeforeDepartureProducesFieldErrorOnArrivalDateTime() {
         TrainBooking service = mockService();
-        BookTrainRequest request = validRequest();
-        request.setArrivalDateTime(request.getDepartureDateTime().minusMinutes(1));
+        BookTrainRequest request =
+                validRequestWith(null, validRequest().departureDateTime().minusMinutes(1));
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookTrain");
 
         invokeService(service, request, bindingResult);
@@ -76,17 +75,17 @@ class BookTrainControllerValidationTest {
     }
 
     private BookTrainRequest validRequest() {
-        BookTrainRequest request = new BookTrainRequest();
-        request.setTrainTripId(UUID.randomUUID().toString());
-        request.setDepartureStationName("London Euston");
-        request.setDepartureCityName("London");
-        request.setDepartureCountry("UK");
-        request.setDepartureDateTime(NOW.plusWeeks(1).withHour(9).withMinute(0));
-        request.setArrivalStationName("Manchester Piccadilly");
-        request.setArrivalCityName("Manchester");
-        request.setArrivalCountry("UK");
-        request.setArrivalDateTime(NOW.plusWeeks(1).withHour(13).withMinute(0));
-        return request;
+        return validRequestWith(null, null);
+    }
+
+    /** The valid trip, with either end's moment overridden -- null keeps the valid one. */
+    private BookTrainRequest validRequestWith(LocalDateTime departure, LocalDateTime arrival) {
+        return new BookTrainRequest(
+                UUID.randomUUID().toString(), null,
+                "London Euston", "London", "UK", null, null,
+                departure != null ? departure : NOW.plusWeeks(1).withHour(9).withMinute(0),
+                "Manchester Piccadilly", "Manchester", "UK", null, null,
+                arrival != null ? arrival : NOW.plusWeeks(1).withHour(13).withMinute(0));
     }
 
     private TrainBooking mockService() {

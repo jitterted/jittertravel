@@ -6,77 +6,45 @@ import org.springframework.format.annotation.DateTimeFormat;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-public class ChangeGatheringRequest {
-    private String gatheringId;
-    private String title;
-    private String venueName;
-    private String street;
-    private String city;
-    private String region;
-    private String postalCode;
-    private String country;
-    private String locationForMatching;
-    // See PlanGatheringRequest: optional CommonZone pick, wins over location-derived resolution.
-    private String zone;
+/**
+ * Form-backing record for changing a planned gathering.
+ * <p>
+ * <strong>The id is not here.</strong> Which gathering is being changed is path data — nothing on
+ * the page submits it, and a hidden field holding it would let a submit re-target another
+ * gathering. The controller reads it from the path and hands it to the application service
+ * alongside this request.
+ */
+public record ChangeGatheringRequest(
+        String title,
+        String venueName,
+        String street,
+        String city,
+        String region,
+        String postalCode,
+        String country,
+        String locationForMatching,
+        String zone,
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+        @DateTimeFormat(pattern = "HH:mm") LocalTime startTime,
+        @DateTimeFormat(pattern = "HH:mm") LocalTime endTime,
+        Boolean speaking,
+        String infoUrl
+) {
 
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-    private LocalDate date;
+    /**
+     * {@code speaking} is boxed for the same reason {@link PlanGatheringRequest}'s is: an unchecked
+     * checkbox submits nothing, and constructor binding cannot pass {@code null} to a primitive, so
+     * a {@code boolean} component would turn "Ted is not speaking" into a binding error.
+     */
+    public ChangeGatheringRequest {
+        speaking = speaking != null && speaking;
+    }
 
-    @DateTimeFormat(pattern = "HH:mm")
-    private LocalTime startTime;
-
-    @DateTimeFormat(pattern = "HH:mm")
-    private LocalTime endTime;
-
-    private boolean speaking;
-    private String infoUrl;
-
-    public String getGatheringId() { return gatheringId; }
-    public void setGatheringId(String gatheringId) { this.gatheringId = gatheringId; }
-
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-
-    public String getVenueName() { return venueName; }
-    public void setVenueName(String venueName) { this.venueName = venueName; }
-
-    public String getStreet() { return street; }
-    public void setStreet(String street) { this.street = street; }
-
-    public String getCity() { return city; }
-    public void setCity(String city) { this.city = city; }
-
-    public String getRegion() { return region; }
-    public void setRegion(String region) { this.region = region; }
-
-    public String getPostalCode() { return postalCode; }
-    public void setPostalCode(String postalCode) { this.postalCode = postalCode; }
-
-    public String getCountry() { return country; }
-    public void setCountry(String country) { this.country = country; }
-
-    public String getLocationForMatching() { return locationForMatching; }
-    public void setLocationForMatching(String locationForMatching) { this.locationForMatching = locationForMatching; }
-
-    public LocalDate getDate() { return date; }
-    public void setDate(LocalDate date) { this.date = date; }
-
-    public LocalTime getStartTime() { return startTime; }
-    public void setStartTime(LocalTime startTime) { this.startTime = startTime; }
-
-    public LocalTime getEndTime() { return endTime; }
-    public void setEndTime(LocalTime endTime) { this.endTime = endTime; }
-
-    public boolean isSpeaking() { return speaking; }
-    public void setSpeaking(boolean speaking) { this.speaking = speaking; }
-
-    public String getInfoUrl() { return infoUrl; }
-    public void setInfoUrl(String infoUrl) { this.infoUrl = infoUrl; }
-
-    public String getZone() { return zone; }
-    public void setZone(String zone) { this.zone = zone; }
-
-    public Address getLocation() {
+    /**
+     * The address the six location fields describe. Derived rather than stored, so the form's
+     * fields and the value the write path uses cannot disagree.
+     */
+    public Address location() {
         return new Address(street, city, region, postalCode, country, locationForMatching);
     }
 }

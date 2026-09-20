@@ -109,7 +109,7 @@ class ChangeGatheringWebIntegrationTest {
     @Test
     void postOnUnknownGatheringIdReRendersFormWithError() {
         willThrow(new GatheringNotFound("No gathering exists with that gatheringId"))
-                .given(changeGathering).changeGathering(any(), any(), any());
+                .given(changeGathering).changeGathering(any(), any(), any(), any());
 
         // The gathering vanished between GET and POST; the error must render on the form, never be
         // handed to the view-only /planned-gatherings list, which silently drops flash messages.
@@ -128,7 +128,7 @@ class ChangeGatheringWebIntegrationTest {
     @Test
     void postWithPastDateRendersFormAgain() {
         willThrow(new GatheringDateNotInFuture("Gathering date must be in the future"))
-                .given(changeGathering).changeGathering(any(), any(), any());
+                .given(changeGathering).changeGathering(any(), any(), any(), any());
 
         assertThat(mockMvc.post().uri("/planned-gatherings/" + UUID.randomUUID())
                 .with(csrf())

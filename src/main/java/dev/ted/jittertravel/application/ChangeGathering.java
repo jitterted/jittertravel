@@ -30,8 +30,15 @@ public class ChangeGathering {
         this.zoneResolver = zoneResolver;
     }
 
-    public void changeGathering(UUID commandId, ChangeGatheringRequest request, Instant now) {
-        ChangeGatheringCommand command = new ChangeGatheringHandler(zoneResolver).handle(request);
+    /**
+     * {@code gatheringId} arrives from the path rather than on the request: which gathering is
+     * being changed is not something the form submits, so there is nothing on the page for a
+     * crafted POST to re-target.
+     */
+    public void changeGathering(UUID commandId, String gatheringId, ChangeGatheringRequest request,
+                                Instant now) {
+        ChangeGatheringCommand command =
+                new ChangeGatheringHandler(zoneResolver).handle(gatheringId, request);
         boolean gatheringExists = detailsProjector.findById(command.gatheringId()).isPresent();
         ChangeGatheringContext context = new ChangeGatheringContext(gatheringExists, now);
         commandExecutor.execute(commandId, request, context, command);

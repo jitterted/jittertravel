@@ -25,7 +25,7 @@ class ChangeGatheringHandlerTest {
 
     @Test
     void movingTheVenueToAnotherCountryRederivesTheZone() {
-        ChangeGatheringCommand command = handler.handle(requestIn("Lisbon", "Portugal", null));
+        ChangeGatheringCommand command = handler.handle(SOME_GATHERING, requestIn("Lisbon", "Portugal", null));
 
         assertThat(command.startsAt().zone())
                 .isEqualTo(ZoneId.of("Europe/Lisbon"));
@@ -36,7 +36,7 @@ class ChangeGatheringHandlerTest {
 
     @Test
     void explicitZonePickWinsOverTheLocation() {
-        ChangeGatheringCommand command = handler.handle(requestIn("Lisbon", "Portugal", "UK"));
+        ChangeGatheringCommand command = handler.handle(SOME_GATHERING, requestIn("Lisbon", "Portugal", "UK"));
 
         assertThat(command.startsAt().zone())
                 .isEqualTo(ZoneId.of("Europe/London"));
@@ -44,27 +44,17 @@ class ChangeGatheringHandlerTest {
 
     @Test
     void unresolvableLocationWithNoPickIsRejected() {
-        assertThatThrownBy(() -> handler.handle(requestIn("Springfield", "Freedonia", null)))
+        assertThatThrownBy(() -> handler.handle(SOME_GATHERING, requestIn("Springfield", "Freedonia", null)))
                 .isInstanceOf(ZoneResolutionException.class);
     }
 
+    /** The id is the controller's to supply now, from the path; these cases are about the zone. */
+    private static final String SOME_GATHERING = UUID.randomUUID().toString();
+
     private static ChangeGatheringRequest requestIn(String city, String country, String zone) {
-        ChangeGatheringRequest request = new ChangeGatheringRequest();
-        request.setGatheringId(UUID.randomUUID().toString());
-        request.setTitle("Some Meetup");
-        request.setVenueName("Some Venue");
-        request.setStreet("1 Example St");
-        request.setCity(city);
-        request.setRegion("");
-        request.setPostalCode("");
-        request.setCountry(country);
-        request.setLocationForMatching(city);
-        request.setZone(zone);
-        request.setDate(LocalDate.of(2026, 9, 15));
-        request.setStartTime(LocalTime.of(18, 0));
-        request.setEndTime(LocalTime.of(21, 0));
-        request.setSpeaking(false);
-        request.setInfoUrl("");
-        return request;
+        return new ChangeGatheringRequest(
+                "Some Meetup", "Some Venue", "1 Example St", city, "", "", country, city, zone,
+                LocalDate.of(2026, 9, 15), LocalTime.of(18, 0), LocalTime.of(21, 0),
+                false, "");
     }
 }

@@ -124,8 +124,9 @@
 
     <h1>Change Gathering</h1>
 
-    <form th:action="@{|/planned-gatherings/${changeGathering.gatheringId}|}" th:object="${changeGathering}" method="post">
-        <input type="hidden" th:field="*{gatheringId}"/>
+    <!--/* The id is path data, so it is a model attribute rather than a form field: with no hidden
+           input carrying it, a crafted POST has nothing to re-target with. */-->
+    <form th:action="@{|/planned-gatherings/${gatheringId}|}" th:object="${changeGathering}" method="post">
 
         <div class="field" style="margin-bottom: 0.5rem;">
             <label>

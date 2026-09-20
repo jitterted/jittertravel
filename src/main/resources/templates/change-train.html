@@ -122,8 +122,9 @@
 
     <h1>Change Train Trip</h1>
 
-    <form th:action="@{|/booked-trains/${changeTrain.trainTripId}|}" th:object="${changeTrain}" method="post">
-        <input type="hidden" th:field="*{trainTripId}"/>
+    <!--/* The id is path data, so it is a model attribute rather than a form field: with no hidden
+           input carrying it, a crafted POST has nothing to re-target with. */-->
+    <form th:action="@{|/booked-trains/${tripId}|}" th:object="${changeTrain}" method="post">
 
         <div class="error error-summary" th:if="${#fields.hasGlobalErrors()}" th:errors="*{global}"></div>
 

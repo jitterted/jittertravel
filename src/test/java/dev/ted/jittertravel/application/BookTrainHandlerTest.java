@@ -148,21 +148,11 @@ class BookTrainHandlerTest {
 
     private static BookTrainRequest trip(String fromCity, String fromCountry, String fromZone,
                                          String toCity, String toCountry, String toZone) {
-        BookTrainRequest request = new BookTrainRequest();
-        request.setTrainTripId(UUID.randomUUID().toString());
-        request.setServiceId("Eurostar 9024");
-        request.setDepartureStationName(fromCity + " Station");
-        request.setDepartureCityName(fromCity);
-        request.setDepartureCountry(fromCountry);
-        request.setDepartureMapsUrl("");
-        request.setDepartureZone(fromZone);
-        request.setDepartureDateTime(LocalDateTime.of(2026, 9, 15, 9, 0));
-        request.setArrivalStationName(toCity + " Station");
-        request.setArrivalCityName(toCity);
-        request.setArrivalCountry(toCountry);
-        request.setArrivalMapsUrl("");
-        request.setArrivalZone(toZone);
-        request.setArrivalDateTime(LocalDateTime.of(2026, 9, 15, 11, 30));
-        return request;
+        return new BookTrainRequest(
+                UUID.randomUUID().toString(), "Eurostar 9024",
+                fromCity + " Station", fromCity, fromCountry, "", fromZone,
+                LocalDateTime.of(2026, 9, 15, 9, 0),
+                toCity + " Station", toCity, toCountry, "", toZone,
+                LocalDateTime.of(2026, 9, 15, 11, 30));
     }
 }

@@ -18,31 +18,31 @@ public class ChangeTrainHandler {
         this.zoneResolver = zoneResolver;
     }
 
-    public ChangeTrainCommand handle(ChangeTrainRequest request) {
+    public ChangeTrainCommand handle(String tripId, ChangeTrainRequest request) {
         TrainStations stations = new TrainStations(
                 new TrainStationAddress(
-                        request.getDepartureStationName(),
-                        request.getDepartureCityName(),
-                        request.getDepartureCountry(),
-                        request.getDepartureMapsUrl()),
+                        request.departureStationName(),
+                        request.departureCityName(),
+                        request.departureCountry(),
+                        request.departureMapsUrl()),
                 new TrainStationAddress(
-                        request.getArrivalStationName(),
-                        request.getArrivalCityName(),
-                        request.getArrivalCountry(),
-                        request.getArrivalMapsUrl()));
+                        request.arrivalStationName(),
+                        request.arrivalCityName(),
+                        request.arrivalCountry(),
+                        request.arrivalMapsUrl()));
 
         // Both ends asked in full, location before zone within each — see TrainEndpoints for why
         // that distinction is load-bearing rather than incidental.
         TrainZones zones = new TrainEndpoints(zoneResolver).resolve(stations,
-                request.getDepartureZone(), request.getArrivalZone());
+                request.departureZone(), request.arrivalZone());
 
         return new ChangeTrainCommand(
-                TrainTripId.of(UUID.fromString(request.getTrainTripId())),
+                TrainTripId.of(UUID.fromString(tripId)),
                 stations.departure(),
-                ZonedTimestamp.fromLocal(request.getDepartureDateTime(), zones.departure()),
+                ZonedTimestamp.fromLocal(request.departureDateTime(), zones.departure()),
                 stations.arrival(),
-                ZonedTimestamp.fromLocal(request.getArrivalDateTime(), zones.arrival()),
-                request.getServiceId()
+                ZonedTimestamp.fromLocal(request.arrivalDateTime(), zones.arrival()),
+                request.serviceId()
         );
     }
 }

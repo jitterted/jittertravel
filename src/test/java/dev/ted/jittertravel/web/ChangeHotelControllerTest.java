@@ -30,7 +30,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
@@ -59,16 +61,7 @@ class ChangeHotelControllerTest {
     @Test
     void getWithKnownBookingIdRendersChangeForm() {
         String bookingId = UUID.randomUUID().toString();
-        HotelDetailsView view = new HotelDetailsView(
-                HotelBookingId.of(UUID.fromString(bookingId)),
-                "Grand Hotel",
-                new Address("123 Unter den Linden", "Berlin", "", "10117", "Germany", "Berlin"),
-                LocalDateTime.of(2026, 7, 1, 15, 0),
-                LocalDateTime.of(2026, 7, 5, 11, 0),
-                BookingIntent.TENTATIVE,
-                "https://maps.example/grand",
-                LocalDateTime.of(2026, 6, 24, 18, 0));
-        given(detailsProjector.findById(any())).willReturn(Optional.of(view));
+        given(detailsProjector.findById(any())).willReturn(Optional.of(detailsFor(bookingId)));
 
         assertThat(mockMvc.get().uri("/booked-hotels/" + bookingId))
                 .hasStatusOk()
@@ -84,6 +77,25 @@ class ChangeHotelControllerTest {
                 // that way but cannot itself show that the engine honours it.
                 .doesNotContain("Thymeleaf parser comment")
                 .doesNotContain("<!--");
+    }
+
+    /**
+     * Which booking is being changed is path data: the template reads the URI template variable,
+     * so the form's action names it while the page submits no id of its own. Both halves matter —
+     * a hidden field would let a crafted POST re-target another booking, and an unresolved
+     * {@code ${hotelBookingId}} would quietly render an action of {@code /booked-hotels/} rather
+     * than fail, which is why the id is asserted and not merely its absence.
+     */
+    @Test
+    void theFormPostsBackToThePathAndCarriesNoIdOfItsOwn() {
+        String bookingId = UUID.randomUUID().toString();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(detailsFor(bookingId)));
+
+        assertThat(mockMvc.get().uri("/booked-hotels/" + bookingId))
+                .hasStatusOk()
+                .bodyText()
+                .contains("action=\"/booked-hotels/" + bookingId + "\"")
+                .doesNotContain("name=\"hotelBookingId\"");
     }
 
     @Test
@@ -114,16 +126,21 @@ class ChangeHotelControllerTest {
                 .param("bookingIntent", "FINAL"))
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/booked-hotels");
+
+        // Which booking was changed comes from the path. The request carries no id at all, so this
+        // is the only thing that decides it, and a form that grew one could no longer override it.
+        then(changeHotel).should().changeHotel(any(), eq(bookingId), any(), any());
     }
 
     @Test
     void postOnUnknownBookingIdReRendersFormWithError() {
+        String bookingId = UUID.randomUUID().toString();
         willThrow(new HotelBookingNotFound("No hotel booking exists with that id"))
-                .given(changeHotel).changeHotel(any(), any(), any());
+                .given(changeHotel).changeHotel(any(), any(), any(), any());
 
         // The booking vanished between GET and POST; the error must render on the form, never be
         // handed to the view-only /booked-hotels list, which silently drops flash messages.
-        assertThat(mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
+        assertThat(mockMvc.post().uri("/booked-hotels/" + bookingId)
                 .with(csrf())
                 .param("hotelName", "Grand Hotel")
                 .param("city", "Berlin")
@@ -133,13 +150,16 @@ class ChangeHotelControllerTest {
                 .param("bookingIntent", "FINAL"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("No hotel booking exists with that id");
+                .contains("No hotel booking exists with that id")
+                // The re-render is the other leg of the path-id arrangement: a resubmit has to go
+                // back to the same booking, and nothing on the page carries the id but this URL.
+                .contains("action=\"/booked-hotels/" + bookingId + "\"");
     }
 
     @Test
     void postWithPastCheckInRendersFormAgain() {
         willThrow(new CheckInNotInFuture("Check-in date/time must be in the future"))
-                .given(changeHotel).changeHotel(any(), any(), any());
+                .given(changeHotel).changeHotel(any(), any(), any(), any());
 
         assertThat(mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
                 .with(csrf())
@@ -170,7 +190,7 @@ class ChangeHotelControllerTest {
     @Test
     void postWithInvalidDateRangeRendersFormAgain() {
         willThrow(new InvalidHotelDateRange("Check-out must be at least one calendar day after check-in"))
-                .given(changeHotel).changeHotel(any(), any(), any());
+                .given(changeHotel).changeHotel(any(), any(), any(), any());
 
         assertThat(mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
                 .with(csrf())
@@ -187,7 +207,7 @@ class ChangeHotelControllerTest {
     void hotelNamePastedIntoTheCityErrorsOnTheCityField() {
         willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
                 "This looks like a station or venue name, not a city"))
-                .given(changeHotel).changeHotel(any(), any(), any());
+                .given(changeHotel).changeHotel(any(), any(), any(), any());
 
         MvcTestResult result = mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
                 .with(csrf())
@@ -209,5 +229,76 @@ class ChangeHotelControllerTest {
         assertThat(result)
                 .bodyText()
                 .contains("<span class=\"error\">This looks like a station or venue name, not a city</span>");
+    }
+
+    /**
+     * The two blank-field cases below are what the inputs' HTML {@code required} used to hide. The
+     * change form has its own copy of the fieldsets, so it needs its own copy of the proof that a
+     * blank name and a blank city each reach the input that fixes them.
+     */
+    @Test
+    void aBlankHotelNameErrorsOnTheHotelNameField() {
+        willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.VENUE_NAME,
+                "Name is required"))
+                .given(changeHotel).changeHotel(any(), any(), any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
+                .with(csrf())
+                .param("hotelName", "")
+                .param("city", "Berlin")
+                .param("country", "Germany")
+                .param("checkIn", "2026-08-02T16:00")
+                .param("checkOut", "2026-08-06T10:00")
+                .param("bookingIntent", "FINAL")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("changeHotel")
+                .hasOnlyFieldErrors("hotelName")
+                .hasFieldErrorCode("hotelName", "invalidLocation");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Name is required</span>");
+    }
+
+    @Test
+    void aBlankCityErrorsOnTheCityField() {
+        willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
+                "City is required"))
+                .given(changeHotel).changeHotel(any(), any(), any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
+                .with(csrf())
+                .param("hotelName", "Grand Hotel")
+                .param("city", "")
+                .param("country", "Germany")
+                .param("checkIn", "2026-08-02T16:00")
+                .param("checkOut", "2026-08-06T10:00")
+                .param("bookingIntent", "FINAL")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("changeHotel")
+                .hasOnlyFieldErrors("city")
+                .hasFieldErrorCode("city", "invalidLocation");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">City is required</span>");
+    }
+
+    private static HotelDetailsView detailsFor(String bookingId) {
+        return new HotelDetailsView(
+                HotelBookingId.of(UUID.fromString(bookingId)),
+                "Grand Hotel",
+                new Address("123 Unter den Linden", "Berlin", "", "10117", "Germany", "Berlin"),
+                LocalDateTime.of(2026, 7, 1, 15, 0),
+                LocalDateTime.of(2026, 7, 5, 11, 0),
+                BookingIntent.TENTATIVE,
+                "https://maps.example/grand",
+                LocalDateTime.of(2026, 6, 24, 18, 0));
     }
 }

@@ -29,11 +29,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class HotelHandlerTest {
 
+    private static final LocalDateTime CHECK_IN = LocalDateTime.of(2026, 9, 15, 15, 0);
+    private static final LocalDateTime CHECK_OUT = LocalDateTime.of(2026, 9, 17, 11, 0);
+    private static final String BOOKING_ID = UUID.randomUUID().toString();
+
     private final HotelHandler handler = new HotelHandler(new LocationZoneResolver());
 
     @Test
     void hotelZoneIsDerivedFromTheAddressWhenNoZoneIsPicked() {
-        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "Japan", null));
+        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "Japan", null, null));
 
         assertThat(command.checkIn().zone())
                 .isEqualTo(ZoneId.of("Asia/Tokyo"));
@@ -44,7 +48,7 @@ class HotelHandlerTest {
 
     @Test
     void theFormsWallClockBecomesAnInstantInThatZone() {
-        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "Japan", null));
+        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "Japan", null, null));
 
         assertThat(command.checkIn().utc())
                 .as("15:00 JST is 06:00Z")
@@ -53,7 +57,7 @@ class HotelHandlerTest {
 
     @Test
     void explicitZonePickWinsOverTheAddress() {
-        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "Japan", "US_CENTRAL"));
+        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "Japan", "US_CENTRAL", null));
 
         assertThat(command.checkIn().zone())
                 .isEqualTo(ZoneId.of("America/Chicago"));
@@ -61,13 +65,13 @@ class HotelHandlerTest {
 
     @Test
     void unresolvableAddressWithNoPickIsRejected() {
-        assertThatThrownBy(() -> handler.bookHotel(requestIn("Springfield", "Freedonia", null)))
+        assertThatThrownBy(() -> handler.bookHotel(requestIn("Springfield", "Freedonia", null, null)))
                 .isInstanceOf(ZoneResolutionException.class);
     }
 
     @Test
     void unresolvableAddressIsAcceptedOnceAZoneIsPicked() {
-        BookHotelCommand command = handler.bookHotel(requestIn("Springfield", "Freedonia", "US_CENTRAL"));
+        BookHotelCommand command = handler.bookHotel(requestIn("Springfield", "Freedonia", "US_CENTRAL", null));
 
         assertThat(command.checkIn().zone())
                 .isEqualTo(ZoneId.of("America/Chicago"));
@@ -75,10 +79,8 @@ class HotelHandlerTest {
 
     @Test
     void theCancelByDeadlineIsReadInTheHotelsZoneToo() {
-        BookHotelRequest request = requestIn("Tokyo", "Japan", null);
-        request.setCancelBy(LocalDateTime.of(2026, 9, 13, 18, 0));
-
-        BookHotelCommand command = handler.bookHotel(request);
+        BookHotelCommand command = handler.bookHotel(
+                requestIn("Tokyo", "Japan", null, LocalDateTime.of(2026, 9, 13, 18, 0)));
 
         assertThat(command.cancelBy().zone())
                 .as("a deadline read in the server's zone would shift by the offset")
@@ -90,7 +92,7 @@ class HotelHandlerTest {
 
     @Test
     void anOmittedCancelByStaysNullRatherThanBecomingAnInstant() {
-        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "Japan", null));
+        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "Japan", null, null));
 
         assertThat(command.cancelBy())
                 .isNull();
@@ -98,10 +100,8 @@ class HotelHandlerTest {
 
     @Test
     void changingAHotelReadsTheZoneAndTheDeadlineExactlyAsBookingDoes() {
-        ChangeHotelRequest request = changeRequestIn("Tokyo", "Japan", null);
-        request.setCancelBy(LocalDateTime.of(2026, 9, 13, 18, 0));
-
-        ChangeHotelCommand command = handler.changeHotel(request);
+        ChangeHotelCommand command = handler.changeHotel(BOOKING_ID,
+                changeRequestIn("Tokyo", "Japan", null, LocalDateTime.of(2026, 9, 13, 18, 0)));
 
         assertThat(command.checkIn().zone())
                 .isEqualTo(ZoneId.of("Asia/Tokyo"));
@@ -112,46 +112,28 @@ class HotelHandlerTest {
 
     @Test
     void clearingTheDeadlineOnAChangeLeavesItNull() {
-        ChangeHotelCommand command = handler.changeHotel(changeRequestIn("Tokyo", "Japan", null));
+        ChangeHotelCommand command =
+                handler.changeHotel(BOOKING_ID, changeRequestIn("Tokyo", "Japan", null, null));
 
         assertThat(command.cancelBy())
                 .as("HotelChanged is a full snapshot, so a cleared field must clear the deadline")
                 .isNull();
     }
 
-    private static BookHotelRequest requestIn(String city, String country, String zone) {
-        BookHotelRequest request = new BookHotelRequest();
-        request.setHotelBookingId(UUID.randomUUID().toString());
-        request.setHotelName("Some Hotel");
-        request.setStreet("1 Example St");
-        request.setCity(city);
-        request.setRegion("");
-        request.setPostalCode("");
-        request.setCountry(country);
-        request.setLocationForMatching(city);
-        request.setMapsUrl("");
-        request.setZone(zone);
-        request.setCheckIn(LocalDateTime.of(2026, 9, 15, 15, 0));
-        request.setCheckOut(LocalDateTime.of(2026, 9, 17, 11, 0));
-        request.setBookingIntent(BookingIntent.FINAL);
-        return request;
+    private static BookHotelRequest requestIn(String city, String country, String zone,
+                                              LocalDateTime cancelBy) {
+        return new BookHotelRequest(
+                UUID.randomUUID().toString(), "Some Hotel",
+                "1 Example St", city, "", country, "", city, "",
+                zone, CHECK_IN, CHECK_OUT, cancelBy, BookingIntent.FINAL);
     }
 
-    private static ChangeHotelRequest changeRequestIn(String city, String country, String zone) {
-        ChangeHotelRequest request = new ChangeHotelRequest();
-        request.setHotelBookingId(UUID.randomUUID().toString());
-        request.setHotelName("Some Hotel");
-        request.setStreet("1 Example St");
-        request.setCity(city);
-        request.setRegion("");
-        request.setPostalCode("");
-        request.setCountry(country);
-        request.setLocationForMatching(city);
-        request.setMapsUrl("");
-        request.setZone(zone);
-        request.setCheckIn(LocalDateTime.of(2026, 9, 15, 15, 0));
-        request.setCheckOut(LocalDateTime.of(2026, 9, 17, 11, 0));
-        request.setBookingIntent(BookingIntent.FINAL);
-        return request;
+    /** The same stay, minus the id: on the change path it comes from the path, not the form. */
+    private static ChangeHotelRequest changeRequestIn(String city, String country, String zone,
+                                                      LocalDateTime cancelBy) {
+        return new ChangeHotelRequest(
+                "Some Hotel",
+                "1 Example St", city, "", country, "", city, "",
+                zone, CHECK_IN, CHECK_OUT, cancelBy, BookingIntent.FINAL);
     }
 }

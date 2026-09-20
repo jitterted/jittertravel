@@ -24,12 +24,13 @@ class BookHotelControllerValidationTest {
     private static final ZoneId ZONE = ZoneId.of("America/Chicago"); // Springfield, IL
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 5, 31, 10, 0);
     private static final Instant NOW_INSTANT = NOW.atZone(ZONE).toInstant();
+    private static final LocalDateTime CHECK_IN = NOW.plusWeeks(2).withHour(15).withMinute(0);
+    private static final LocalDateTime CHECK_OUT = NOW.plusWeeks(2).plusDays(1).withHour(11).withMinute(0);
 
     @Test
     void checkInInPastProducesFieldErrorOnCheckIn() {
         HotelBooking service = mockService();
-        BookHotelRequest request = validRequest();
-        request.setCheckIn(NOW.minusHours(1));
+        BookHotelRequest request = requestCheckingIn(NOW.minusHours(1), CHECK_OUT, null);
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookHotel");
 
         invokeService(service, request, bindingResult);
@@ -42,9 +43,8 @@ class BookHotelControllerValidationTest {
     @Test
     void checkOutSameDayAsCheckInProducesFieldErrorOnCheckOut() {
         HotelBooking service = mockService();
-        BookHotelRequest request = validRequest();
-        request.setCheckIn(NOW.plusWeeks(2).withHour(15).withMinute(0));
-        request.setCheckOut(NOW.plusWeeks(2).withHour(23).withMinute(59));
+        BookHotelRequest request = requestCheckingIn(
+                CHECK_IN, NOW.plusWeeks(2).withHour(23).withMinute(59), null);
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookHotel");
 
         invokeService(service, request, bindingResult);
@@ -57,7 +57,7 @@ class BookHotelControllerValidationTest {
     @Test
     void validRequestProducesNoBindingErrors() {
         HotelBooking service = mockService();
-        BookHotelRequest request = validRequest();
+        BookHotelRequest request = requestCheckingIn(CHECK_IN, CHECK_OUT, null);
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookHotel");
 
         invokeService(service, request, bindingResult);
@@ -70,8 +70,7 @@ class BookHotelControllerValidationTest {
     @Test
     void cancelByAfterCheckInProducesFieldErrorOnCancelBy() {
         HotelBooking service = mockService();
-        BookHotelRequest request = validRequest();
-        request.setCancelBy(request.getCheckIn().plusHours(1));
+        BookHotelRequest request = requestCheckingIn(CHECK_IN, CHECK_OUT, CHECK_IN.plusHours(1));
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookHotel");
 
         invokeService(service, request, bindingResult);
@@ -84,8 +83,7 @@ class BookHotelControllerValidationTest {
     @Test
     void cancelByBeforeCheckInProducesNoBindingErrors() {
         HotelBooking service = mockService();
-        BookHotelRequest request = validRequest();
-        request.setCancelBy(request.getCheckIn().minusDays(3));
+        BookHotelRequest request = requestCheckingIn(CHECK_IN, CHECK_OUT, CHECK_IN.minusDays(3));
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookHotel");
 
         invokeService(service, request, bindingResult);
@@ -107,21 +105,16 @@ class BookHotelControllerValidationTest {
         }
     }
 
-    private BookHotelRequest validRequest() {
-        BookHotelRequest request = new BookHotelRequest();
-        request.setHotelBookingId(UUID.randomUUID().toString());
-        request.setHotelName("Grand Hotel");
-        request.setStreet("123 Main St");
-        request.setCity("Springfield");
-        request.setRegion("IL");
-        request.setCountry("US");
-        request.setPostalCode("62701");
-        // Springfield/US is ambiguous, so pin the zone explicitly (the supported fallback).
-        request.setZone("US_CENTRAL");
-        request.setCheckIn(NOW.plusWeeks(2).withHour(15).withMinute(0));
-        request.setCheckOut(NOW.plusWeeks(2).plusDays(1).withHour(11).withMinute(0));
-        request.setBookingIntent(BookingIntent.TENTATIVE);
-        return request;
+    /**
+     * A stay that is valid but for the dates the caller names. Springfield/US is ambiguous, so the
+     * zone is pinned explicitly (the supported fallback) rather than derived.
+     */
+    private BookHotelRequest requestCheckingIn(LocalDateTime checkIn, LocalDateTime checkOut,
+                                               LocalDateTime cancelBy) {
+        return new BookHotelRequest(
+                UUID.randomUUID().toString(), "Grand Hotel",
+                "123 Main St", "Springfield", "IL", "US", "62701", null, null,
+                "US_CENTRAL", checkIn, checkOut, cancelBy, BookingIntent.TENTATIVE);
     }
 
     private HotelBooking mockService() {

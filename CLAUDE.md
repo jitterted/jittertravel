@@ -695,10 +695,16 @@ a field error the form cannot show is half a fix.
 ### A rejected form reports everything it can see, under the input that fixes each thing
 
 Four rules, all agreed 2026-09-06 after a booking that took three submits to get through. They are
-written for the two train forms, which are where they are implemented (`TrainEndpoints`,
-`InvalidTrainEntry`, `TrainFormErrors`); flights, hotels, gatherings, conferences, private events
-and ground transfer still print one undifferentiated sentence in a banner and are the obvious next
-targets.
+written for the two train forms, which are where they are implemented in full (`TrainEndpoints`,
+`InvalidTrainEntry`, `TrainFormErrors`); flights, gatherings, conferences, private events and ground
+transfer still print one undifferentiated sentence in a banner and are the obvious next targets.
+
+**The hotel pair is half-converted, and the half it is missing is rule 1.** `/book-hotel` and
+`/booked-hotels/{id}` have carried field-level errors all along — a location problem lands on
+`hotelName` or `city`, a date problem on the input at fault, each with its own
+`<span class="error">` — so rules 2 to 4 hold there. What they do not have is the count banner, and
+they report only the **first** problem: `EnteredLocation.problem` returns one, so a blank name and a
+blank city are two submits. Do not read the field-level errors as meaning the hotel forms are done.
 
 1. **Every problem, in one response.** A trip has two ends and one submit. Reporting the first
    failure means fixing it, submitting again, and meeting a *fresh* error — which on screen is
@@ -746,11 +752,21 @@ targets.
    because Thymeleaf escaping turns `Can't` into `Can&#39;t` and every markup assertion then has to
    know it.
 
-**`required` is not used on these forms.** It was dropped from all eight inputs the same day: the
-browser blocks the submit and shows a bubble the server never hears about, so the page stays exactly
-as it was — which reads as "my fix changed nothing", and cost a real session. `EnteredLocation`
-already reports a blank name or city through the same field-level channel as everything else, so
-this is one error vocabulary rather than two. Do not re-add it here.
+**`required` is not used on these forms.** It was dropped from all eight train inputs the same day:
+the browser blocks the submit and shows a bubble the server never hears about, so the page stays
+exactly as it was — which reads as "my fix changed nothing", and cost a real session.
+`EnteredLocation` already reports a blank name or city through the same field-level channel as
+everything else, so this is one error vocabulary rather than two. Do not re-add it here.
+
+**The hotel pair followed on 2026-09-20**, for the same reason and with nothing else needed: the
+messages, the controller mapping and the `<span class="error">` were all already in place, so the
+four attributes came off and four `@WebMvcTest` cases now prove a blank name and a blank city each
+render under their own input. **`NoBrowserRequiredOnServerValidatedFormsTest` is what keeps it
+off** — a scan over the four converted templates, because re-adding `required` breaks nothing, looks
+like an improvement, and quietly restores the failure. It holds a **list of the forms that have made
+this choice, not a rule for every form**: add a form to it in the same change that drops its
+attributes, never before, or the test stops recording a decision and starts asserting that markup
+happens to be missing an attribute.
 
 **A blank date or time is a field error, everywhere, and nothing at a form says so.** The argument
 above only covered the *text* inputs. The date inputs never carried `required` either, and nothing

@@ -26,7 +26,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
@@ -55,19 +57,30 @@ class ChangeGatheringWebIntegrationTest {
     @Test
     void getWithKnownGatheringIdRendersChangeForm() {
         String gatheringId = UUID.randomUUID().toString();
-        GatheringDetailsView view = new GatheringDetailsView(
-                GatheringId.of(UUID.fromString(gatheringId)),
-                "London Java Community",
-                "Skills Matter",
-                new Address("1 Example St", "London", "", "EC1A 1BB", "GB", null),
-                ZonedTimestamp.fromLocal(LocalDate.of(2026, 7, 15).atTime(18, 0), ZoneId.of("Europe/London")),
-                ZonedTimestamp.fromLocal(LocalDate.of(2026, 7, 15).atTime(21, 0), ZoneId.of("Europe/London")),
-                true,
-                "https://meetup.com/ljc/events/123");
-        given(detailsProjector.findById(any())).willReturn(Optional.of(view));
+        given(detailsProjector.findById(any())).willReturn(Optional.of(detailsFor(gatheringId)));
 
         assertThat(mockMvc.get().uri("/planned-gatherings/" + gatheringId))
                 .hasStatusOk();
+    }
+
+    /**
+     * Which gathering is being changed is path data: the template reads the URI template variable,
+     * which Thymeleaf merges into the context on its own, so the form's action names the gathering
+     * while the page submits no id of its own. Both halves matter — a hidden field would let a
+     * crafted POST re-target another gathering, and an unresolved {@code ${gatheringId}} would
+     * quietly render an action of {@code /planned-gatherings/} rather than fail, which is why the
+     * id is asserted and not merely its absence.
+     */
+    @Test
+    void theFormPostsBackToThePathAndCarriesNoIdOfItsOwn() {
+        String gatheringId = UUID.randomUUID().toString();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(detailsFor(gatheringId)));
+
+        assertThat(mockMvc.get().uri("/planned-gatherings/" + gatheringId))
+                .hasStatusOk()
+                .bodyText()
+                .contains("action=\"/planned-gatherings/" + gatheringId + "\"")
+                .doesNotContain("name=\"gatheringId\"");
     }
 
     @Test
@@ -88,7 +101,9 @@ class ChangeGatheringWebIntegrationTest {
 
     @Test
     void postWithKnownGatheringIdRedirectsToPlannedGatherings() {
-        assertThat(mockMvc.post().uri("/planned-gatherings/" + UUID.randomUUID())
+        String gatheringId = UUID.randomUUID().toString();
+
+        assertThat(mockMvc.post().uri("/planned-gatherings/" + gatheringId)
                 .with(csrf())
                 .param("title", "London Java Community — December")
                 .param("venueName", "Federation House")
@@ -104,16 +119,21 @@ class ChangeGatheringWebIntegrationTest {
                 .param("infoUrl", ""))
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/planned-gatherings");
+
+        // Which gathering was changed comes from the path. The request carries no id at all, so
+        // this is the only thing that decides it, and a form that grew one could not override it.
+        then(changeGathering).should().changeGathering(any(), eq(gatheringId), any(), any());
     }
 
     @Test
     void postOnUnknownGatheringIdReRendersFormWithError() {
+        String gatheringId = UUID.randomUUID().toString();
         willThrow(new GatheringNotFound("No gathering exists with that gatheringId"))
                 .given(changeGathering).changeGathering(any(), any(), any(), any());
 
         // The gathering vanished between GET and POST; the error must render on the form, never be
         // handed to the view-only /planned-gatherings list, which silently drops flash messages.
-        assertThat(mockMvc.post().uri("/planned-gatherings/" + UUID.randomUUID())
+        assertThat(mockMvc.post().uri("/planned-gatherings/" + gatheringId)
                 .with(csrf())
                 .param("title", "Whatever")
                 .param("city", "London")
@@ -122,7 +142,10 @@ class ChangeGatheringWebIntegrationTest {
                 .param("endTime", "21:00"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("No gathering exists with that gatheringId");
+                .contains("No gathering exists with that gatheringId")
+                // The re-render is the other leg of the path-id arrangement: a resubmit has to go
+                // back to the same gathering, and nothing carries the id but this URL.
+                .contains("action=\"/planned-gatherings/" + gatheringId + "\"");
     }
 
     @Test
@@ -138,5 +161,17 @@ class ChangeGatheringWebIntegrationTest {
                 .param("startTime", "18:00")
                 .param("endTime", "21:00"))
                 .hasStatusOk();
+    }
+
+    private static GatheringDetailsView detailsFor(String gatheringId) {
+        return new GatheringDetailsView(
+                GatheringId.of(UUID.fromString(gatheringId)),
+                "London Java Community",
+                "Skills Matter",
+                new Address("1 Example St", "London", "", "EC1A 1BB", "GB", null),
+                ZonedTimestamp.fromLocal(LocalDate.of(2026, 7, 15).atTime(18, 0), ZoneId.of("Europe/London")),
+                ZonedTimestamp.fromLocal(LocalDate.of(2026, 7, 15).atTime(21, 0), ZoneId.of("Europe/London")),
+                true,
+                "https://meetup.com/ljc/events/123");
     }
 }

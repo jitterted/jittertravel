@@ -56,19 +56,6 @@ public class ChangeGatheringController {
         return "change-gathering";
     }
 
-    /**
-     * The gathering being changed, for the form's own action URL.
-     * <p>
-     * It reaches the template as its own model attribute rather than as a component of the form
-     * bean, because it is path data: there is no hidden input carrying it, so a crafted POST has
-     * nothing to re-target with. Declared as an {@code @ModelAttribute} so it is present on the
-     * GET and on both re-render paths of the POST without three places having to remember it.
-     */
-    @ModelAttribute("gatheringId")
-    String gatheringId(@PathVariable(value = "gatheringId", required = false) String gatheringId) {
-        return gatheringId;
-    }
-
     @PostMapping("/planned-gatherings/{gatheringId}")
     public String changeGatheringSubmit(@PathVariable("gatheringId") String gatheringIdString,
                                         @ModelAttribute("changeGathering") ChangeGatheringRequest command,

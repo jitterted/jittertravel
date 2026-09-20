@@ -27,8 +27,8 @@ class BookHotelControllerTest {
         controller.bookHotelForm(model, null, null, null, null);
 
         BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
-        assertThat(request.getCheckIn()).isEqualTo(LocalDateTime.of(2026, 6, 14, 15, 0));
-        assertThat(request.getCheckOut()).isEqualTo(LocalDateTime.of(2026, 6, 15, 11, 0));
+        assertThat(request.checkIn()).isEqualTo(LocalDateTime.of(2026, 6, 14, 15, 0));
+        assertThat(request.checkOut()).isEqualTo(LocalDateTime.of(2026, 6, 15, 11, 0));
     }
 
     @Test
@@ -39,8 +39,8 @@ class BookHotelControllerTest {
         controller.bookHotelForm(model, LocalDate.of(2026, 7, 20), null, null, null);
 
         BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
-        assertThat(request.getCheckIn()).isEqualTo(LocalDateTime.of(2026, 7, 20, 15, 0));
-        assertThat(request.getCheckOut()).isEqualTo(LocalDateTime.of(2026, 7, 21, 11, 0));
+        assertThat(request.checkIn()).isEqualTo(LocalDateTime.of(2026, 7, 20, 15, 0));
+        assertThat(request.checkOut()).isEqualTo(LocalDateTime.of(2026, 7, 21, 11, 0));
     }
 
     /**
@@ -57,9 +57,9 @@ class BookHotelControllerTest {
                 LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 14));
 
         BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
-        assertThat(request.getCity()).isEqualTo("Johannesberg");
-        assertThat(request.getCheckIn()).isEqualTo(LocalDateTime.of(2026, 9, 10, 15, 0));
-        assertThat(request.getCheckOut())
+        assertThat(request.city()).isEqualTo("Johannesberg");
+        assertThat(request.checkIn()).isEqualTo(LocalDateTime.of(2026, 9, 10, 15, 0));
+        assertThat(request.checkOut())
                 .as("the gap's own checkout, not a single night")
                 .isEqualTo(LocalDateTime.of(2026, 9, 14, 11, 0));
     }
@@ -73,7 +73,7 @@ class BookHotelControllerTest {
                 LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 10));
 
         BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
-        assertThat(request.getCheckOut()).isEqualTo(LocalDateTime.of(2026, 9, 11, 11, 0));
+        assertThat(request.checkOut()).isEqualTo(LocalDateTime.of(2026, 9, 11, 11, 0));
     }
 
     @Test
@@ -84,7 +84,7 @@ class BookHotelControllerTest {
         controller.bookHotelForm(model, null, "  ", null, null);
 
         BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
-        assertThat(request.getCity()).isNull();
+        assertThat(request.city()).isNull();
     }
 
     @Test
@@ -98,7 +98,7 @@ class BookHotelControllerTest {
 
         BookHotelRequest request1 = (BookHotelRequest) model1.getAttribute("bookHotel");
         BookHotelRequest request2 = (BookHotelRequest) model2.getAttribute("bookHotel");
-        assertThat(request1.getHotelBookingId()).isNotNull().isNotEmpty();
-        assertThat(request1.getHotelBookingId()).isNotEqualTo(request2.getHotelBookingId());
+        assertThat(request1.hotelBookingId()).isNotNull().isNotEmpty();
+        assertThat(request1.hotelBookingId()).isNotEqualTo(request2.hotelBookingId());
     }
 }

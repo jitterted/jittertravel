@@ -124,13 +124,15 @@
 
     <h1>Change Hotel Booking</h1>
 
-    <form th:action="@{|/booked-hotels/${changeHotel.hotelBookingId}|}" th:object="${changeHotel}" method="post">
-        <input type="hidden" th:field="*{hotelBookingId}"/>
+    <!--/* The id is path data, not a form field. ${hotelBookingId} is the URI template variable,
+           which Thymeleaf merges into the context on its own -- so the action names the booking
+           while no hidden input carries it, and a crafted POST has nothing to re-target with. */-->
+    <form th:action="@{|/booked-hotels/${hotelBookingId}|}" th:object="${changeHotel}" method="post">
 
         <div class="field" style="margin-bottom: 0.75rem;">
             <label>
                 Hotel Name
-                <input type="text" th:field="*{hotelName}" required/>
+                <input type="text" th:field="*{hotelName}"/>
             </label>
             <span class="error"
                   th:if="${#fields.hasErrors('hotelName')}"
@@ -152,7 +154,7 @@
                 <div class="field">
                     <label>
                         City
-                        <input type="text" th:field="*{city}" required/>
+                        <input type="text" th:field="*{city}"/>
                     </label>
                     <span class="error"
                           th:if="${#fields.hasErrors('city')}"

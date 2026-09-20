@@ -32,7 +32,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
@@ -63,17 +65,30 @@ class ChangeTrainWebIntegrationTest {
     @Test
     void getWithKnownTripIdRendersChangeForm() {
         String tripId = UUID.randomUUID().toString();
-        TrainDetailsView view = new TrainDetailsView(
-                TrainTripId.of(UUID.fromString(tripId)),
-                new TrainStationAddress("London Euston", "London", "UK", ""),
-                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 9, 0), LONDON),
-                new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", ""),
-                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 13, 0), LONDON),
-                "LNER - Azuma 1A34");
-        given(detailsProjector.findById(any())).willReturn(Optional.of(view));
+        given(detailsProjector.findById(any())).willReturn(Optional.of(detailsFor(tripId)));
 
         assertThat(mockMvc.get().uri("/booked-trains/" + tripId))
                 .hasStatusOk();
+    }
+
+    /**
+     * Which trip is being changed is path data: the template reads the URI template variable, which
+     * Thymeleaf merges into the context on its own, so the form's action names the trip while the
+     * page submits no id of its own. Both halves matter — a hidden field would let a crafted POST
+     * re-target another trip, and an unresolved {@code ${tripId}} would quietly render an action of
+     * {@code /booked-trains/} rather than fail, which is why the id is asserted and not merely its
+     * absence.
+     */
+    @Test
+    void theFormPostsBackToThePathAndCarriesNoIdOfItsOwn() {
+        String tripId = UUID.randomUUID().toString();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(detailsFor(tripId)));
+
+        assertThat(mockMvc.get().uri("/booked-trains/" + tripId))
+                .hasStatusOk()
+                .bodyText()
+                .contains("action=\"/booked-trains/" + tripId + "\"")
+                .doesNotContain("name=\"tripId\"");
     }
 
     @Test
@@ -104,16 +119,21 @@ class ChangeTrainWebIntegrationTest {
                 .param("arrivalDateTime", "2026-07-01T15:00"))
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/booked-trains");
+
+        // Which trip was changed comes from the path. The request carries no id at all, so this is
+        // the only thing that decides it, and a form that grew one could no longer override it.
+        then(changeTrain).should().changeTrain(any(), eq(tripId), any(), any());
     }
 
     @Test
     void postOnUnknownTripIdReRendersFormWithError() {
+        String tripId = UUID.randomUUID().toString();
         willThrow(new TrainNotFound("No train exists with that tripId"))
                 .given(changeTrain).changeTrain(any(), any(), any(), any());
 
         // The trip vanished between GET and POST; the error must render on the form, never be
         // handed to the view-only /booked-trains list, which silently drops flash messages.
-        assertThat(mockMvc.post().uri("/booked-trains/" + UUID.randomUUID())
+        assertThat(mockMvc.post().uri("/booked-trains/" + tripId)
                 .with(csrf())
                 .param("departureStationName", "London")
                 .param("departureCityName", "London")
@@ -125,7 +145,10 @@ class ChangeTrainWebIntegrationTest {
                 .param("arrivalDateTime", "2026-07-01T13:00"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("No train exists with that tripId");
+                .contains("No train exists with that tripId")
+                // The re-render is the other leg of the path-id arrangement: a resubmit has to go
+                // back to the same trip, and nothing on the page carries the id but this URL.
+                .contains("action=\"/booked-trains/" + tripId + "\"");
     }
 
     @Test
@@ -238,5 +261,15 @@ class ChangeTrainWebIntegrationTest {
                 .bodyText()
                 .contains("<span class=\"error\">Unknown country — pick a zone, "
                           + "or fix Country name above</span>");
+    }
+
+    private static TrainDetailsView detailsFor(String tripId) {
+        return new TrainDetailsView(
+                TrainTripId.of(UUID.fromString(tripId)),
+                new TrainStationAddress("London Euston", "London", "UK", ""),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 9, 0), LONDON),
+                new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", ""),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 13, 0), LONDON),
+                "LNER - Azuma 1A34");
     }
 }

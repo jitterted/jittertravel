@@ -149,13 +149,21 @@ class BookHotelWebIntegrationTest {
                 .contains("<span class=\"error\">This looks like a station or venue name, not a city</span>");
     }
 
+    /**
+     * The two blank-field cases below are what the inputs' HTML {@code required} used to hide, and
+     * why dropping it costs nothing: the browser refused the submit and showed a bubble the server
+     * never heard about, so the page came back untouched and read as having ignored the click.
+     * {@code EnteredLocation} reports both blanks through the same field-level channel as every
+     * other location problem, and the form can show them — which is the half that has to be
+     * asserted, because a field error the form cannot render is half a fix.
+     */
     @Test
     void missingHotelNameErrorsOnTheNameField() {
         willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.VENUE_NAME,
                 "Name is required"))
                 .given(hotelBooking).bookHotel(any(), any());
 
-        assertThat(mockMvc.post().uri("/book-hotel")
+        MvcTestResult result = mockMvc.post().uri("/book-hotel")
                 .with(csrf())
                 .param("hotelBookingId", "550e8400-e29b-41d4-a716-446655440000")
                 .param("hotelName", "")
@@ -165,10 +173,46 @@ class BookHotelWebIntegrationTest {
                 .param("postalCode", "62701")
                 .param("checkIn", "2026-07-01T15:00")
                 .param("checkOut", "2026-07-02T11:00")
-                .param("bookingIntent", "TENTATIVE"))
+                .param("bookingIntent", "TENTATIVE")
+                .exchange();
+
+        assertThat(result)
                 .hasStatusOk()
                 .model()
                 .extractingBindingResult("bookHotel")
                 .hasOnlyFieldErrors("hotelName");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Name is required</span>");
+    }
+
+    @Test
+    void aBlankCityErrorsOnTheCityField() {
+        willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
+                "City is required"))
+                .given(hotelBooking).bookHotel(any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/book-hotel")
+                .with(csrf())
+                .param("hotelBookingId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("hotelName", "Grand Hotel")
+                .param("street", "123 Main St")
+                .param("city", "")
+                .param("country", "US")
+                .param("postalCode", "62701")
+                .param("checkIn", "2026-07-01T15:00")
+                .param("checkOut", "2026-07-02T11:00")
+                .param("bookingIntent", "TENTATIVE")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookHotel")
+                .hasOnlyFieldErrors("city")
+                .hasFieldErrorCode("city", "invalidLocation");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">City is required</span>");
     }
 }

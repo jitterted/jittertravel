@@ -52,20 +52,17 @@ public class BookHotelController {
                                 @RequestParam(required = false) String city,
                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut) {
-        BookHotelRequest request = new BookHotelRequest();
-        request.setHotelBookingId(UUID.randomUUID().toString());
         // checkIn wins over date when both are present: it is the more specific statement of the
         // same thing, and only the fix link sends it.
         LocalDate arrival = firstPresent(checkIn, date, LocalDate.now(clock).plusWeeks(2));
-        request.setCheckIn(arrival.atTime(15, 0));
         // The gap's own checkout when the fix link supplies one, otherwise one night.
         LocalDate departure = checkOut != null && checkOut.isAfter(arrival)
                 ? checkOut
                 : arrival.plusDays(1);
-        request.setCheckOut(departure.atTime(11, 0));
-        if (city != null && !city.isBlank()) {
-            request.setCity(city);
-        }
+        BookHotelRequest request = new BookHotelRequest(
+                UUID.randomUUID().toString(), null,
+                null, blankToNull(city), null, null, null, null, null, null,
+                arrival.atTime(15, 0), departure.atTime(11, 0), null, null);
         model.addAttribute("bookHotel", request);
         return "book-hotel";
     }
@@ -75,6 +72,11 @@ public class BookHotelController {
             return preferred;
         }
         return fallback != null ? fallback : absent;
+    }
+
+    /** A prefill parameter that arrived blank seeds nothing, exactly as the setter skipped it. */
+    private static String blankToNull(String prefill) {
+        return prefill == null || prefill.isBlank() ? null : prefill;
     }
 
     @PostMapping("/book-hotel")

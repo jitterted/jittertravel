@@ -121,14 +121,4 @@ public class ChangeTrainController {
                 view.arrivalStation().country(), view.arrivalStation().mapsUrl(), null,
                 view.arrivalDateTime().localDateTime());
     }
-
-    /**
-     * The trip being changed, for the form's own action URL — path data, so it reaches the template
-     * as its own model attribute rather than as a hidden input a crafted POST could re-target.
-     * Declared here so it is present on the GET and on every re-render path of the POST.
-     */
-    @ModelAttribute("tripId")
-    String tripId(@PathVariable(value = "tripId", required = false) String tripId) {
-        return tripId;
-    }
 }

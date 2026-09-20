@@ -172,19 +172,11 @@ class RestoreSafetyTest extends AbstractTestcontainerIntegrationTest {
     }
 
     private static BookHotelRequest bookHotel(String hotelBookingId) {
-        BookHotelRequest r = new BookHotelRequest();
-        r.setHotelBookingId(hotelBookingId);
-        r.setHotelName("Marriott Downtown");
-        r.setStreet("742 Evergreen Terrace");
-        r.setCity("San Francisco");
-        r.setRegion("CA");
-        r.setCountry("USA");
-        r.setPostalCode("94103");
-        r.setLocationForMatching("San Francisco");
-        r.setMapsUrl("");
-        r.setCheckIn(FUTURE.atTime(15, 0));
-        r.setCheckOut(FUTURE.plusDays(2).atTime(11, 0));
-        r.setBookingIntent(BookingIntent.FINAL);
-        return r;
+        return new BookHotelRequest(
+                hotelBookingId, "Marriott Downtown",
+                "742 Evergreen Terrace", "San Francisco", "CA", "USA", "94103",
+                "San Francisco", "", null,
+                FUTURE.atTime(15, 0), FUTURE.plusDays(2).atTime(11, 0), null,
+                BookingIntent.FINAL);
     }
 }

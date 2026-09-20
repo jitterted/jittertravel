@@ -29,8 +29,15 @@ public class ChangeHotel {
         this.zoneResolver = zoneResolver;
     }
 
-    public void changeHotel(UUID commandId, ChangeHotelRequest request, Instant now) {
-        ChangeHotelCommand command = new HotelHandler(zoneResolver).changeHotel(request);
+    /**
+     * {@code hotelBookingId} arrives from the path rather than on the request: which booking is
+     * being changed is not something the form submits, so there is nothing on the page for a
+     * crafted POST to re-target.
+     */
+    public void changeHotel(UUID commandId, String hotelBookingId, ChangeHotelRequest request,
+                            Instant now) {
+        ChangeHotelCommand command =
+                new HotelHandler(zoneResolver).changeHotel(hotelBookingId, request);
         boolean bookingExists = detailsProjector.findById(command.hotelBookingId()).isPresent();
         ChangeHotelContext context = new ChangeHotelContext(bookingExists, now);
         commandExecutor.execute(commandId, request, context, command);

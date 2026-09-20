@@ -63,15 +63,15 @@ public class ChangeHotelController {
     public String changeHotelSubmit(@PathVariable("hotelBookingId") String hotelBookingIdString,
                                     @ModelAttribute("changeHotel") ChangeHotelRequest command,
                                     BindingResult bindingResult) {
-        // Path is the source of truth for hotelBookingId; it is not user-editable.
-        command.setHotelBookingId(hotelBookingIdString);
-
         if (bindingResult.hasErrors()) {
             return "change-hotel";
         }
         try {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
-            applicationService.changeHotel(UUID.randomUUID(), command, Instant.now(clock));
+            // The booking comes from the path, never from the form: the request has no id
+            // component, so there is nothing on the page a crafted POST could re-target.
+            applicationService.changeHotel(UUID.randomUUID(), hotelBookingIdString, command,
+                                           Instant.now(clock));
         } catch (HotelBookingNotFound e) {
             // The booking vanished between GET and POST (e.g. cancelled in another tab). Report it
             // on the form itself — never by redirecting to the view-only list, which drops the flash.
@@ -107,21 +107,27 @@ public class ChangeHotelController {
         }
     }
 
+    /**
+     * The stay, minus its id. Which booking this is stays path data on both legs: the template
+     * reads {@code ${hotelBookingId}} for the form's action, which Thymeleaf merges in from the
+     * URI template variables — so no model attribute and no hidden field has to carry it, and
+     * there is nothing on the page a crafted POST could re-target.
+     */
     private static ChangeHotelRequest toRequest(HotelDetailsView view) {
-        ChangeHotelRequest request = new ChangeHotelRequest();
-        request.setHotelBookingId(view.hotelBookingId().id().toString());
-        request.setHotelName(view.hotelName());
-        request.setStreet(view.address().street());
-        request.setCity(view.address().city());
-        request.setRegion(view.address().region());
-        request.setCountry(view.address().country());
-        request.setPostalCode(view.address().postalCode());
-        request.setLocationForMatching(view.address().locationForMatching());
-        request.setMapsUrl(view.mapsUrl());
-        request.setCheckIn(view.checkIn());
-        request.setCheckOut(view.checkOut());
-        request.setCancelBy(view.cancelBy());
-        request.setBookingIntent(view.bookingIntent());
-        return request;
+        return new ChangeHotelRequest(
+                view.hotelName(),
+                view.address().street(),
+                view.address().city(),
+                view.address().region(),
+                view.address().country(),
+                view.address().postalCode(),
+                view.address().locationForMatching(),
+                view.mapsUrl(),
+                // No zone pick: the select reopens on "derive from location", as it did before.
+                null,
+                view.checkIn(),
+                view.checkOut(),
+                view.cancelBy(),
+                view.bookingIntent());
     }
 }

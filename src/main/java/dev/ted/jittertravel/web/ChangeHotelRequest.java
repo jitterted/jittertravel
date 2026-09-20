@@ -5,71 +5,33 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
 
-public class ChangeHotelRequest implements HotelStayRequest {
-    private String hotelBookingId;
-    private String hotelName;
-    private String street;
-    private String city;
-    private String region;
-    private String country;
-    private String postalCode;
-    private String locationForMatching;
-    private String mapsUrl;
-    // Optional explicit time-zone pick (a CommonZone enum name). Empty/absent means "derive from
-    // the location"; a value wins over derivation. The form requires it only when derivation fails.
-    private String zone;
-    // @DateTimeFormat required to match browser's <input type="datetime-local" /> format
-    @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
-    private LocalDateTime checkIn;
-    @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
-    private LocalDateTime checkOut;
-    // Optional free-cancellation deadline, read in the hotel's zone. HotelChanged is a full
-    // snapshot, so the form must submit the current value back or the edit clears it.
-    @OptionalEntry
-    @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
-    private LocalDateTime cancelBy;
-    private BookingIntent bookingIntent;
-
-    public String getHotelBookingId() { return hotelBookingId; }
-    public void setHotelBookingId(String hotelBookingId) { this.hotelBookingId = hotelBookingId; }
-
-    public String getHotelName() { return hotelName; }
-    public void setHotelName(String hotelName) { this.hotelName = hotelName; }
-
-    public String getStreet() { return street; }
-    public void setStreet(String street) { this.street = street; }
-
-    public String getCity() { return city; }
-    public void setCity(String city) { this.city = city; }
-
-    public String getRegion() { return region; }
-    public void setRegion(String region) { this.region = region; }
-    public void setState(String state) { this.region = state; } // backward compat for old exports
-
-    public String getCountry() { return country; }
-    public void setCountry(String country) { this.country = country; }
-
-    public String getPostalCode() { return postalCode; }
-    public void setPostalCode(String postalCode) { this.postalCode = postalCode; }
-
-    public String getLocationForMatching() { return locationForMatching; }
-    public void setLocationForMatching(String locationForMatching) { this.locationForMatching = locationForMatching; }
-
-    public String getMapsUrl() { return mapsUrl; }
-    public void setMapsUrl(String mapsUrl) { this.mapsUrl = mapsUrl; }
-
-    public LocalDateTime getCheckIn() { return checkIn; }
-    public void setCheckIn(LocalDateTime checkIn) { this.checkIn = checkIn; }
-
-    public LocalDateTime getCheckOut() { return checkOut; }
-    public void setCheckOut(LocalDateTime checkOut) { this.checkOut = checkOut; }
-
-    public LocalDateTime getCancelBy() { return cancelBy; }
-    public void setCancelBy(LocalDateTime cancelBy) { this.cancelBy = cancelBy; }
-
-    public BookingIntent getBookingIntent() { return bookingIntent; }
-    public void setBookingIntent(BookingIntent bookingIntent) { this.bookingIntent = bookingIntent; }
-
-    public String getZone() { return zone; }
-    public void setZone(String zone) { this.zone = zone; }
+/**
+ * Form-backing record for changing a booked hotel stay.
+ * <p>
+ * <strong>The id is not here.</strong> Which booking is being changed is path data — nothing on the
+ * page submits it, and a hidden field holding it would let a submit re-target another booking. The
+ * controller reads it from the path and hands it to the application service alongside this request.
+ * Compare {@link BookHotelRequest}, whose id is minted for a new booking and so genuinely is form
+ * data.
+ */
+public record ChangeHotelRequest(
+        String hotelName,
+        String street,
+        String city,
+        String region,
+        String country,
+        String postalCode,
+        String locationForMatching,
+        String mapsUrl,
+        // Optional explicit time-zone pick (a CommonZone enum name). Empty/absent means "derive from
+        // the location"; a value wins over derivation. The form requires it only when derivation fails.
+        String zone,
+        // @DateTimeFormat required to match browser's <input type="datetime-local" /> format
+        @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm") LocalDateTime checkIn,
+        @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm") LocalDateTime checkOut,
+        // Optional free-cancellation deadline, read in the hotel's zone. HotelChanged is a full
+        // snapshot, so the form must submit the current value back or the edit clears it.
+        @OptionalEntry @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm") LocalDateTime cancelBy,
+        BookingIntent bookingIntent
+) {
 }

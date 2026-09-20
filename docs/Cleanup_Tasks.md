@@ -705,22 +705,39 @@ down when it is created does not get written down later.
       `PlanConferenceCommand` contain **no** `isBlank`/`isEmpty` check at all.
       `PlanPrivateEventCommand.execute` validates exactly two things — the date is in the future
       and the end follows the start — and nothing else.
-      **Why the hotel and train forms are already covered**, and this is the fix to extend rather
-      than a new mechanism: `EnteredLocation` (domain) checks a venue name and its city from the
-      four commands that write one — `BookTrainCommand`, `ChangeTrainCommand`, `BookHotelCommand`,
-      `ChangeHotelCommand` — with rule 1 being "the building has a name". CLAUDE.md already records
-      that it is *"not wired to gatherings, conferences or private events, which have the same
-      venue/city exposure"*, and that extending it is **"a decision, not a chore"** — partly
-      because two stored events would trip rule 1 today, so the rollout has to cope with existing
-      data. That is the decision this item is asking for.
+      **The rule, settled by Ted 2026-09-19 — and it is not `EnteredLocation`:**
+      - **`title`/`name` is REQUIRED**, must not be blank. His reason is that it is *display* text
+        and nothing else stands in for it: *"otherwise nothing is displayed on pages and if a
+        'clash' occurs."* Both halves check out. `PlannedPrivateEventsRenderer:173` renders
+        `div(e.title()).withClass("private-event-title")` with no blank guard, so an empty title is
+        an empty div — a row with a date, a time and no subject. And a clash names its entries by
+        exactly this field: `ScheduleProblem.SchedulingConflict` carries `String name`,
+        `ConflictingGathering` carries `gatheringName`, `DifferentCityConflict` carries both
+        `gatheringName` and `conferenceName`. A blank one makes the conflict report name nothing.
+      - **`venueName` is OPTIONAL**, deliberately: *"at time of entry i may not know where it's
+        happening."* An evening can be real and agreed before the restaurant is chosen.
+
+      **So do NOT extend `EnteredLocation` to these commands as it stands.** Its rule 1 is "the
+      building has a name" — precisely the field Ted wants left optional here — and it is wired to
+      the four hotel/train commands where a booking always names a building. What these four need
+      is the *other* half of the idea: a required-and-not-blank check on the display name. Reusing
+      `EnteredLocation` wholesale would refuse the entry Ted most wants to be able to make.
+      (This also answers the CLAUDE.md note that wiring it to gatherings/conferences/private events
+      is "a decision, not a chore": the decision is **no**, for the venue-name rule.)
+      Still open, and worth asking rather than assuming: whether the **city** stays required on
+      these kinds when the venue is unknown. `locationForMatching` is what the schedule matches on,
+      so a blank city has consequences a blank venue name does not — but "I know I am in Denver
+      that evening, not where" is exactly the case Ted described, so the two fields may want
+      different answers.
+
       **Mind the split when doing it:** normalize in the record, **reject in the command**. A blank
       check in a compact constructor applies retroactively to every event in the log and would stop
-      a replay — and a restore — dead. And each change needs the three tiers CLAUDE.md names: a
-      case in `EnteredLocationTest`, a case on the command, and a `@WebMvcTest` asserting both the
-      field error *and* the rendered `<span class="error">…</span>`.
-      **Open question worth asking Ted:** a `title` is not a venue name — it is free text nobody
-      matches on — so it may want rule 1 alone rather than the station-shaped-city rules. Confirm
-      whether "not blank" is the whole ask for `title`.
+      a replay — and a restore — dead. Each change needs the three tiers CLAUDE.md names: a case on
+      the command, a `@WebMvcTest` asserting both the field error *and* the rendered
+      `<span class="error">…</span>`, and — if a shared rule type is introduced — its own unit test.
+      Check the stored log before shipping, the way the fourth `EnteredLocation` rule was checked
+      against the production backup: an existing event with a blank title would fail a replay if
+      the check ever moved into a constructor, and needs finding either way.
 - [ ] **Action affordances that still move (general rule: they must not).** The standing rule and
       its state-vs-authorization split are in CLAUDE.md.
       **`/conferences` no longer follows it, deliberately (Ted, 2026-08-22).** The two-slot fix of

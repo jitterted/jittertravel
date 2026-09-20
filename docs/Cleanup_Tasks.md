@@ -656,6 +656,71 @@ down when it is created does not get written down later.
       disclosure menu lets the owner add an entry for a specific day; the itinerary has no such
       affordance. Add the same per-day "add an entry" dropdown to the itinerary so a day can be
       populated directly from that surface (OWNER-only; reuse the `DAY_MENU` pattern).
+      **The one item that differs (Ted, 2026-09-19): "Open itinerary" becomes "Open calendar",**
+      pointing back at `/calendar` for that day — his words were *"redirects back to the calendar
+      with `from=` that date"*. Everything else is the same seven `Add …` links.
+      Three things to settle while building it:
+      - **Which query parameter.** `CalendarViewBuilder.dayMenu` seeds every `Add …` link with
+        `?date=<iso>`, while `from=` is what `ProblemFix` appends to name the *origin surface* a
+        link was clicked on. Ted said `from=`; check whether he means "the calendar should scroll
+        to/open that date" (which is `?date=`, and `/calendar` would need to honour it — today
+        `/itinerary?date=` is the only one of the pair that does) or "remember I came from the
+        itinerary". Ask rather than guess: the two do different jobs and only one is implemented.
+      - **`CalendarDayMenuTest` must cover the second menu too.** It is the *only* thing in the
+        tree that fails when an `EntryKind` constant is added — driven from `EntryKind.values()`
+        with an exhaustive switch in `expectedAddItem`, deliberately written so adding a kind does
+        not require editing it. A second menu that does not share the builder would leave that
+        guard covering one of two surfaces, which is how `PRIVATE_EVENT` went eleven days without
+        a create link. Prefer extracting the shared builder over copying it.
+      - **Only future days, OWNER-only**, as on the calendar (`CalendarViewBuilderTest` pins
+        *where* the menu appears; the contents are pinned by calling `dayMenu` directly).
+
+- [ ] **"Plan/Book another …" belongs upper-right on every list page, and two pages have none**
+      (Ted, 2026-09-19). Two separate jobs, worth doing in one pass:
+      1. **Add it where missing.** `PlannedGatheringsRenderer` and `PlannedPrivateEventsRenderer`
+         have no "another" affordance at all — zero occurrences in either file. So the only way to
+         plan a second gathering or a second evening is the index nav card or the calendar day
+         menu; the list you are already looking at cannot do it.
+      2. **Move the ones that exist.** `BookedHotelsRenderer:84`, `BookedFlightsRenderer:120` and
+         `BookedTrainsRenderer:92` each render theirs in a `div().withClass("action-row")` **after
+         the table** — bottom-left, which Ted wants to move away from.
+      **`ConferencesRenderer.planLink()` is the shape to copy**, and its javadoc already argues the
+      case: the link used to sit at the bottom, *"and it grew further away the more conferences
+      there were — the one control on the page whose distance depended on the data."* It is now
+      bordered and accent-coloured at the toolbar's own height (`.conf-plan-link`), outlined rather
+      than filled because planning a new one is not the urgent move on a list of things needing
+      decisions.
+      Note this interacts with the standing **"action affordances never move"** rule: the point
+      here is that the control sits at a *fixed* place on every list page, which is the rule
+      pointing at consistency across pages rather than across rows. Also check `TimeFilterToggle`
+      placement, since on three of these pages the toggle already occupies the upper area and the
+      new link has to sit beside it rather than displace it.
+
+- [ ] **Blank text is unvalidated on four write paths, starting with a private event's title**
+      (Ted, 2026-09-19: *"don't allow 'title' to be empty for private event (there's likely other
+      similar validation missing, so make a note to look for those)"*). He is right, and the audit
+      turns up a clean pattern rather than a one-off.
+      **What was checked.** Every `*Command` in `domain` that carries a `title`/`name`/`venueName`:
+      `PlanPrivateEventCommand`, `PlanGatheringCommand`, `ChangeGatheringCommand` and
+      `PlanConferenceCommand` contain **no** `isBlank`/`isEmpty` check at all.
+      `PlanPrivateEventCommand.execute` validates exactly two things — the date is in the future
+      and the end follows the start — and nothing else.
+      **Why the hotel and train forms are already covered**, and this is the fix to extend rather
+      than a new mechanism: `EnteredLocation` (domain) checks a venue name and its city from the
+      four commands that write one — `BookTrainCommand`, `ChangeTrainCommand`, `BookHotelCommand`,
+      `ChangeHotelCommand` — with rule 1 being "the building has a name". CLAUDE.md already records
+      that it is *"not wired to gatherings, conferences or private events, which have the same
+      venue/city exposure"*, and that extending it is **"a decision, not a chore"** — partly
+      because two stored events would trip rule 1 today, so the rollout has to cope with existing
+      data. That is the decision this item is asking for.
+      **Mind the split when doing it:** normalize in the record, **reject in the command**. A blank
+      check in a compact constructor applies retroactively to every event in the log and would stop
+      a replay — and a restore — dead. And each change needs the three tiers CLAUDE.md names: a
+      case in `EnteredLocationTest`, a case on the command, and a `@WebMvcTest` asserting both the
+      field error *and* the rendered `<span class="error">…</span>`.
+      **Open question worth asking Ted:** a `title` is not a venue name — it is free text nobody
+      matches on — so it may want rule 1 alone rather than the station-shaped-city rules. Confirm
+      whether "not blank" is the whole ask for `title`.
 - [ ] **Action affordances that still move (general rule: they must not).** The standing rule and
       its state-vs-authorization split are in CLAUDE.md.
       **`/conferences` no longer follows it, deliberately (Ted, 2026-08-22).** The two-slot fix of

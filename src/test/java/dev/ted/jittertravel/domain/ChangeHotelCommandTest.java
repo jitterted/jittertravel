@@ -9,6 +9,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.assertj.core.api.Assertions.tuple;
 
 class ChangeHotelCommandTest {
 
@@ -125,19 +127,41 @@ class ChangeHotelCommandTest {
     }
 
     @Test
-    void hotelNamePastedIntoTheCityThrowsInvalidLocationEntry() {
+    void hotelNamePastedIntoTheCityIsRejectedAgainstTheCityField() {
         Address pasted = new Address("123 Main St", "Grand Hotel", "IL", "62701", "US", null);
         ChangeHotelCommand command = new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", pasted,
                 zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
 
-        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, at(NOW))))
-                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
-                    assertThat(invalid.role())
-                            .isEqualTo(LocationRole.STAY);
-                    assertThat(invalid.field())
-                            .isEqualTo(LocationField.CITY);
-                });
+        assertThat(locationProblems(command))
+                .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
+                .containsExactly(tuple(LocationRole.STAY, LocationField.CITY));
+    }
+
+    /** The change path answers with every problem too, not only the booking path. */
+    @Test
+    void aStayWithNoNameAndNoCityReportsBothInOneAnswer() {
+        Address cityless = new Address("123 Main St", "", "IL", "62701", "US", null);
+        ChangeHotelCommand command = new ChangeHotelCommand(
+                HotelBookingId.random(), "", cityless,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
+
+        assertThat(locationProblems(command))
+                .extracting(InvalidLocationEntry::field, InvalidLocationEntry::getMessage)
+                .containsExactly(
+                        tuple(LocationField.VENUE_NAME, "Name is required"),
+                        tuple(LocationField.CITY, "City is required"));
+    }
+
+    /** Every location problem the command refused, in the order the boundary will report them. */
+    private static List<InvalidLocationEntry> locationProblems(ChangeHotelCommand command) {
+        Throwable thrown =
+                catchThrowable(() -> command.execute(new ChangeHotelContext(true, at(NOW))));
+
+        assertThat(thrown)
+                .as("a location problem is reported through the carrier, never a bare entry")
+                .isInstanceOf(InvalidEnteredLocation.class);
+        return ((InvalidEnteredLocation) thrown).problems();
     }
 
     @Test

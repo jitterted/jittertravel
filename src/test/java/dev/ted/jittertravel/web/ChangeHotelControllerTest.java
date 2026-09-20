@@ -9,6 +9,7 @@ import dev.ted.jittertravel.domain.CheckInNotInFuture;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelBookingNotFound;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
+import dev.ted.jittertravel.domain.InvalidEnteredLocation;
 import dev.ted.jittertravel.domain.InvalidLocationEntry;
 import dev.ted.jittertravel.domain.LocationField;
 import dev.ted.jittertravel.domain.LocationRole;
@@ -27,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -151,6 +153,11 @@ class ChangeHotelControllerTest {
                 .hasStatusOk()
                 .bodyText()
                 .contains("No hotel booking exists with that id")
+                // A whole-form failure is its own global message, and it is not a problem to fix
+                // below — nothing on the page is marked, so a count would point at nothing. It
+                // shares the banner with the count rather than sitting in a list of its own, which
+                // is where this page used to put it: at the bottom, under the submit button.
+                .doesNotContain("to fix below.")
                 // The re-render is the other leg of the path-id arrangement: a resubmit has to go
                 // back to the same booking, and nothing on the page carries the id but this URL.
                 .contains("action=\"/booked-hotels/" + bookingId + "\"");
@@ -205,8 +212,9 @@ class ChangeHotelControllerTest {
 
     @Test
     void hotelNamePastedIntoTheCityErrorsOnTheCityField() {
-        willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
-                "This looks like a station or venue name, not a city"))
+        willThrow(new InvalidEnteredLocation(List.of(
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
+                                "This looks like a station or venue name, not a city"))))
                 .given(changeHotel).changeHotel(any(), any(), any(), any());
 
         MvcTestResult result = mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
@@ -238,8 +246,9 @@ class ChangeHotelControllerTest {
      */
     @Test
     void aBlankHotelNameErrorsOnTheHotelNameField() {
-        willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.VENUE_NAME,
-                "Name is required"))
+        willThrow(new InvalidEnteredLocation(List.of(
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.VENUE_NAME,
+                                "Name is required"))))
                 .given(changeHotel).changeHotel(any(), any(), any(), any());
 
         MvcTestResult result = mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
@@ -265,8 +274,9 @@ class ChangeHotelControllerTest {
 
     @Test
     void aBlankCityErrorsOnTheCityField() {
-        willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
-                "City is required"))
+        willThrow(new InvalidEnteredLocation(List.of(
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
+                                "City is required"))))
                 .given(changeHotel).changeHotel(any(), any(), any(), any());
 
         MvcTestResult result = mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
@@ -288,6 +298,64 @@ class ChangeHotelControllerTest {
         assertThat(result)
                 .bodyText()
                 .contains("<span class=\"error\">City is required</span>");
+    }
+
+    /**
+     * <strong>Rule 1 on the change form too.</strong> It has its own copy of the fieldsets, so it
+     * needs its own proof that two problems arrive in one body rather than one at a time.
+     */
+    @Test
+    void aBlankNameAndABlankCityAreBothReportedInOneResponse() {
+        willThrow(new InvalidEnteredLocation(List.of(
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.VENUE_NAME,
+                                "Name is required"),
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
+                                "City is required"))))
+                .given(changeHotel).changeHotel(any(), any(), any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
+                .with(csrf())
+                .param("hotelName", "")
+                .param("city", "")
+                .param("country", "Germany")
+                .param("checkIn", "2026-08-02T16:00")
+                .param("checkOut", "2026-08-06T10:00")
+                .param("bookingIntent", "FINAL")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("changeHotel")
+                .hasFieldErrorCode("hotelName", "invalidLocation")
+                .hasFieldErrorCode("city", "invalidLocation")
+                .hasOnlyFieldErrors("hotelName", "city");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Name is required</span>")
+                .contains("<span class=\"error\">City is required</span>")
+                .contains("2 problems to fix below.");
+    }
+
+    @Test
+    void aSingleProblemIsCountedInTheSingular() {
+        willThrow(new InvalidEnteredLocation(List.of(
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
+                                "City is required"))))
+                .given(changeHotel).changeHotel(any(), any(), any(), any());
+
+        assertThat(mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
+                .with(csrf())
+                .param("hotelName", "Grand Hotel")
+                .param("city", "")
+                .param("country", "Germany")
+                .param("checkIn", "2026-08-02T16:00")
+                .param("checkOut", "2026-08-06T10:00")
+                .param("bookingIntent", "FINAL"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("1 problem to fix below.")
+                .doesNotContain("1 problems to fix below.");
     }
 
     private static HotelDetailsView detailsFor(String bookingId) {

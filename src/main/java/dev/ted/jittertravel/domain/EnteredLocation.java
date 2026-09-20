@@ -1,8 +1,9 @@
 package dev.ted.jittertravel.domain;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -31,8 +32,8 @@ import java.util.Set;
  * form is a grid of narrow columns — an explanatory clause wraps to three lines there and pushes
  * the fieldset out of step with the one beside it. Say what is wrong, in as few words as carry it.
  *
- * <p><strong>The rules</strong> (in the order they are reported, so the earliest mistake is the one
- * shown):
+ * <p><strong>The rules</strong> (in the order they are reported, and all of them that apply — the
+ * city's two are exclusive of each other, so a location contributes at most one problem per field):
  * <ol>
  *   <li>the building has a name — the half of the paste that gets left blank;</li>
  *   <li>the city is filled in;</li>
@@ -93,34 +94,50 @@ public record EnteredLocation(String venueName, String city) {
     }
 
     /**
-     * @throws InvalidLocationEntry when this names something that cannot be a place, tagged with
-     *         {@code role} and the field at fault so the form can point at it.
+     * @throws InvalidEnteredLocation carrying every problem {@link #problems(LocationRole)} found,
+     *         when there is at least one.
      */
     public void check(LocationRole role) {
-        problem(role).ifPresent(invalid -> {
-            throw invalid;
-        });
+        List<InvalidLocationEntry> problems = problems(role);
+        if (!problems.isEmpty()) {
+            throw new InvalidEnteredLocation(problems);
+        }
     }
 
     /**
      * The same answer as {@link #check(LocationRole)}, handed back instead of thrown, so a caller
      * holding more than one location can ask all of them and report every problem in one go —
      * see {@link TrainStations#check()}. Empty means this names a place.
+     *
+     * <p><strong>Every problem, not the first.</strong> A blank name and a blank city are two
+     * mistakes in one submit, and reporting only the name means fixing it, submitting again, and
+     * meeting a *fresh* error — indistinguishable on screen from the first fix having done nothing.
+     * This returned one problem until 2026-09-20, which is exactly the shape of the 2026-09-06 bug
+     * that the two train forms were rebuilt to remove; it was reachable on the hotel forms the
+     * moment their HTML {@code required} came off.
+     *
+     * <p><strong>At most one problem per field</strong>, which the boundary depends on: an input has
+     * one {@code <span class="error">} to put a message in, and two messages under one label would
+     * be a form arguing with itself. For the city that follows from the rules themselves — a blank
+     * city has no brackets, no digit and no word, so it cannot also look like a building. The
+     * {@code else} below says so rather than establishing it, and <strong>no test can tell it from
+     * a plain {@code if}</strong> (verified by mutating it). If a future city rule could hold at the same
+     * time as another, the {@code else} stops being a restatement and the guarantee needs a test.
      */
-    public Optional<InvalidLocationEntry> problem(LocationRole role) {
+    public List<InvalidLocationEntry> problems(LocationRole role) {
+        List<InvalidLocationEntry> problems = new ArrayList<>();
         if (venueName.isBlank()) {
-            return Optional.of(new InvalidLocationEntry(role, LocationField.VENUE_NAME,
+            problems.add(new InvalidLocationEntry(role, LocationField.VENUE_NAME,
                     "Name is required"));
         }
         if (city.isBlank()) {
-            return Optional.of(new InvalidLocationEntry(role, LocationField.CITY,
+            problems.add(new InvalidLocationEntry(role, LocationField.CITY,
                     "City is required"));
-        }
-        if (looksLikeAVenue()) {
-            return Optional.of(new InvalidLocationEntry(role, LocationField.CITY,
+        } else if (looksLikeAVenue()) {
+            problems.add(new InvalidLocationEntry(role, LocationField.CITY,
                     "Venue name, not a city"));
         }
-        return Optional.empty();
+        return List.copyOf(problems);
     }
 
     /**

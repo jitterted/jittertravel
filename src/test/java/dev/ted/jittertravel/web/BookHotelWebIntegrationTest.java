@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.HotelBooking;
 import dev.ted.jittertravel.domain.CheckInNotInFuture;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
+import dev.ted.jittertravel.domain.InvalidEnteredLocation;
 import dev.ted.jittertravel.domain.InvalidLocationEntry;
 import dev.ted.jittertravel.domain.LocationField;
 import dev.ted.jittertravel.domain.LocationRole;
@@ -18,6 +19,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -120,8 +122,9 @@ class BookHotelWebIntegrationTest {
 
     @Test
     void hotelNamePastedIntoTheCityErrorsOnTheCityField() {
-        willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
-                "This looks like a station or venue name, not a city"))
+        willThrow(new InvalidEnteredLocation(List.of(
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
+                                "This looks like a station or venue name, not a city"))))
                 .given(hotelBooking).bookHotel(any(), any());
 
         MvcTestResult result = mockMvc.post().uri("/book-hotel")
@@ -159,8 +162,9 @@ class BookHotelWebIntegrationTest {
      */
     @Test
     void missingHotelNameErrorsOnTheNameField() {
-        willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.VENUE_NAME,
-                "Name is required"))
+        willThrow(new InvalidEnteredLocation(List.of(
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.VENUE_NAME,
+                                "Name is required"))))
                 .given(hotelBooking).bookHotel(any(), any());
 
         MvcTestResult result = mockMvc.post().uri("/book-hotel")
@@ -188,8 +192,9 @@ class BookHotelWebIntegrationTest {
 
     @Test
     void aBlankCityErrorsOnTheCityField() {
-        willThrow(new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
-                "City is required"))
+        willThrow(new InvalidEnteredLocation(List.of(
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
+                                "City is required"))))
                 .given(hotelBooking).bookHotel(any(), any());
 
         MvcTestResult result = mockMvc.post().uri("/book-hotel")
@@ -214,5 +219,90 @@ class BookHotelWebIntegrationTest {
         assertThat(result)
                 .bodyText()
                 .contains("<span class=\"error\">City is required</span>");
+    }
+
+    /**
+     * <strong>Rule 1 on the hotel form: every problem, in one response.</strong> A stay with
+     * neither a name nor a city is the ordinary way this form arrives now that its HTML
+     * {@code required} is gone, and reporting only the name would mean fixing it, submitting again,
+     * and meeting a fresh error — which on screen is indistinguishable from the first fix having
+     * done nothing. Both messages have to be in the one body, each under its own input.
+     */
+    @Test
+    void aBlankNameAndABlankCityAreBothReportedInOneResponse() {
+        willThrow(new InvalidEnteredLocation(List.of(
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.VENUE_NAME,
+                                "Name is required"),
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
+                                "City is required"))))
+                .given(hotelBooking).bookHotel(any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/book-hotel")
+                .with(csrf())
+                .param("hotelBookingId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("hotelName", "")
+                .param("street", "123 Main St")
+                .param("city", "")
+                .param("country", "US")
+                .param("postalCode", "62701")
+                .param("checkIn", "2026-07-01T15:00")
+                .param("checkOut", "2026-07-02T11:00")
+                .param("bookingIntent", "TENTATIVE")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookHotel")
+                .hasFieldErrorCode("hotelName", "invalidLocation")
+                .hasFieldErrorCode("city", "invalidLocation")
+                .hasOnlyFieldErrors("hotelName", "city");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Name is required</span>")
+                .contains("<span class=\"error\">City is required</span>")
+                // Rule 3: the count is the one global thing, and it is the only thing position
+                // cannot say when the second marked input is below the fold.
+                .contains("2 problems to fix below.");
+    }
+
+    @Test
+    void aSingleProblemIsCountedInTheSingular() {
+        willThrow(new InvalidEnteredLocation(List.of(
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.CITY,
+                                "City is required"))))
+                .given(hotelBooking).bookHotel(any(), any());
+
+        assertThat(mockMvc.post().uri("/book-hotel")
+                .with(csrf())
+                .param("hotelBookingId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("hotelName", "Grand Hotel")
+                .param("street", "123 Main St")
+                .param("city", "")
+                .param("country", "US")
+                .param("postalCode", "62701")
+                .param("checkIn", "2026-07-01T15:00")
+                .param("checkOut", "2026-07-02T11:00")
+                .param("bookingIntent", "TENTATIVE"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("1 problem to fix below.")
+                .doesNotContain("1 problems to fix below.");
+    }
+
+    @Test
+    void aSubmitThatSucceedsGetsNoCountBanner() {
+        assertThat(mockMvc.post().uri("/book-hotel")
+                .with(csrf())
+                .param("hotelBookingId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("hotelName", "Grand Hotel")
+                .param("street", "123 Main St")
+                .param("city", "Springfield")
+                .param("country", "US")
+                .param("postalCode", "62701")
+                .param("checkIn", "2026-07-01T15:00")
+                .param("checkOut", "2026-07-02T11:00")
+                .param("bookingIntent", "TENTATIVE"))
+                .hasStatus3xxRedirection();
     }
 }

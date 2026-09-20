@@ -83,6 +83,18 @@
             color: #b00;
         }
 
+        /* The count above the form. A field error is a label under its input and needs no
+           decoration; this one has to be found before the reader starts hunting, so it carries the
+           fill and the left rule that mark it as a banner rather than a stray line of red text. */
+        .error-summary {
+            background: #fdecec;
+            border-left: 3px solid #b00;
+            padding: 0.45rem 0.6rem;
+            margin-bottom: 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
         .intent-group {
             display: flex;
             gap: 1.5rem;
@@ -127,6 +139,8 @@
     <div th:replace="~{fragments/problem-context :: problemContext}"></div>
 
     <form th:action="@{/book-hotel}" th:object="${bookHotel}" method="post">
+
+        <div class="error error-summary" th:if="${#fields.hasGlobalErrors()}" th:errors="*{global}"></div>
 
         <!--/* Carries the fix link's origin through the POST (and through a validation
                re-render) so the action returns to the report it was launched from.

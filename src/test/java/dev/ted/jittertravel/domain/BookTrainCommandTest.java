@@ -138,6 +138,28 @@ class BookTrainCommandTest {
                                         tuple(LocationRole.ARRIVAL, LocationField.CITY)));
     }
 
+    /**
+     * <strong>One end can be wrong twice.</strong> Since 2026-09-20 {@code EnteredLocation}
+     * answers with every rule the location breaks rather than the earliest, so a station entered
+     * with neither a name nor a city contributes two entries and the form marks both inputs. The
+     * per-field exclusivity is what keeps it to two: a blank city is never also asked whether it
+     * looks like a building.
+     */
+    @Test
+    void oneEndWithNoNameAndNoCityContributesBothProblems() {
+        TrainStationAddress empty = new TrainStationAddress("", "", "UK", "");
+        BookTrainCommand command = new BookTrainCommand(
+                TrainTripId.random(), empty, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
+
+        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
+                .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid ->
+                        assertThat(invalid.locations())
+                                .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
+                                .containsExactly(
+                                        tuple(LocationRole.DEPARTURE, LocationField.VENUE_NAME),
+                                        tuple(LocationRole.DEPARTURE, LocationField.CITY)));
+    }
+
     @Test
     void locationIsCheckedBeforeTheTimes() {
         // Both are wrong; the location is the one reported, because a wrong place is the mistake

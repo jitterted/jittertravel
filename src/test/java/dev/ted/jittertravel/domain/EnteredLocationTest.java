@@ -5,10 +5,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.assertj.core.api.Assertions.tuple;
 
+/**
+ * The cases below ask {@link EnteredLocation#problems} directly rather than catching what
+ * {@link EnteredLocation#check} throws: the list is the answer, and asserting on it says which
+ * field and how many in one flat statement. {@code check}'s own contract — that it wraps the same
+ * list in an {@link InvalidEnteredLocation}, and stays quiet when there is nothing to say — is
+ * pinned in {@link Checking} at the bottom, once, rather than restated by every case.
+ */
 class EnteredLocationTest {
 
     @Nested
@@ -16,38 +27,101 @@ class EnteredLocationTest {
 
         @Test
         void blankVenueNameIsRejectedAgainstTheNameField() {
-            assertThatThrownBy(() -> new EnteredLocation("", "Frankfurt").check(LocationRole.DEPARTURE))
-                    .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
-                        assertThat(invalid.field())
-                                .isEqualTo(LocationField.VENUE_NAME);
-                        assertThat(invalid.role())
-                                .isEqualTo(LocationRole.DEPARTURE);
-                    });
+            List<InvalidLocationEntry> problems =
+                    new EnteredLocation("", "Frankfurt").problems(LocationRole.DEPARTURE);
+
+            assertThat(problems)
+                    .extracting(InvalidLocationEntry::field, InvalidLocationEntry::role,
+                                InvalidLocationEntry::getMessage)
+                    .containsExactly(tuple(LocationField.VENUE_NAME, LocationRole.DEPARTURE,
+                                           "Name is required"));
         }
 
         @Test
         void venueNameOfOnlySpacesCountsAsMissing() {
-            assertThatThrownBy(() -> new EnteredLocation("   ", "Frankfurt").check(LocationRole.ARRIVAL))
-                    .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid ->
-                            assertThat(invalid.field())
-                                    .isEqualTo(LocationField.VENUE_NAME));
+            List<InvalidLocationEntry> problems =
+                    new EnteredLocation("   ", "Frankfurt").problems(LocationRole.ARRIVAL);
+
+            assertThat(problems)
+                    .extracting(InvalidLocationEntry::field)
+                    .containsExactly(LocationField.VENUE_NAME);
         }
 
         @Test
         void blankCityIsRejectedAgainstTheCityField() {
-            assertThatThrownBy(() -> new EnteredLocation("Frankfurt (Main) Hbf", "").check(LocationRole.ARRIVAL))
-                    .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
-                        assertThat(invalid.field())
-                                .isEqualTo(LocationField.CITY);
-                        assertThat(invalid.role())
-                                .isEqualTo(LocationRole.ARRIVAL);
-                    });
+            List<InvalidLocationEntry> problems =
+                    new EnteredLocation("Frankfurt (Main) Hbf", "").problems(LocationRole.ARRIVAL);
+
+            assertThat(problems)
+                    .extracting(InvalidLocationEntry::field, InvalidLocationEntry::role,
+                                InvalidLocationEntry::getMessage)
+                    .containsExactly(tuple(LocationField.CITY, LocationRole.ARRIVAL,
+                                           "City is required"));
+        }
+    }
+
+    /**
+     * <strong>The reason {@code problems} returns a list.</strong> Both fields blank is one submit
+     * with two mistakes, and it is the ordinary way a form arrives once the browser's
+     * {@code required} is gone — which is how it reached the hotel forms on 2026-09-20. Reporting
+     * only the name would mean fixing it, submitting again, and meeting a fresh error that on
+     * screen is indistinguishable from the first fix having done nothing.
+     */
+    @Nested
+    class EveryProblemAtOnce {
+
+        @Test
+        void aBlankNameAndABlankCityAreBothReported() {
+            List<InvalidLocationEntry> problems =
+                    new EnteredLocation("", "").problems(LocationRole.STAY);
+
+            assertThat(problems)
+                    .extracting(InvalidLocationEntry::field, InvalidLocationEntry::getMessage)
+                    .containsExactly(
+                            tuple(LocationField.VENUE_NAME, "Name is required"),
+                            tuple(LocationField.CITY, "City is required"));
+        }
+
+        @Test
+        void aBlankNameDoesNotSuppressTheCityLookingLikeAVenue() {
+            List<InvalidLocationEntry> problems =
+                    new EnteredLocation("", "Frankfurt (Main) Hbf").problems(LocationRole.DEPARTURE);
+
+            assertThat(problems)
+                    .extracting(InvalidLocationEntry::field, InvalidLocationEntry::getMessage)
+                    .containsExactly(
+                            tuple(LocationField.VENUE_NAME, "Name is required"),
+                            tuple(LocationField.CITY, "Venue name, not a city"));
+        }
+
+        @Test
+        void aBlankCityIsReportedAsBlankAndNotAlsoAskedWhetherItLooksLikeABuilding() {
+            // One input never collects two messages — it has one <span class="error"> to put them
+            // in. This case records that, but it cannot prove the else in problems() is load-
+            // bearing: a blank city has no brackets, no digit and no word, so it passes with a
+            // plain if too (mutation-checked). It is here for the rule a new city rule would break.
+            List<InvalidLocationEntry> problems =
+                    new EnteredLocation("Grand Hotel", "  ").problems(LocationRole.STAY);
+
+            assertThat(problems)
+                    .extracting(InvalidLocationEntry::field, InvalidLocationEntry::getMessage)
+                    .containsExactly(tuple(LocationField.CITY, "City is required"));
         }
 
         @Test
         void nullsAreTreatedAsMissingRatherThanThrowingNullPointer() {
-            assertThatThrownBy(() -> new EnteredLocation(null, null).check(LocationRole.STAY))
-                    .isInstanceOf(InvalidLocationEntry.class);
+            List<InvalidLocationEntry> problems =
+                    new EnteredLocation(null, null).problems(LocationRole.STAY);
+
+            assertThat(problems)
+                    .extracting(InvalidLocationEntry::field)
+                    .containsExactly(LocationField.VENUE_NAME, LocationField.CITY);
+        }
+
+        @Test
+        void aLocationThatNamesAPlaceHasNoProblems() {
+            assertThat(new EnteredLocation("Grand Hotel", "Berlin").problems(LocationRole.STAY))
+                    .isEmpty();
         }
     }
 
@@ -56,25 +130,27 @@ class EnteredLocationTest {
 
         @Test
         void isRejectedAgainstTheCityField() {
-            assertThatThrownBy(() -> new EnteredLocation("Frankfurt (Main) Hbf", "Frankfurt (Main) Hbf")
-                    .check(LocationRole.DEPARTURE))
-                    .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid ->
-                            assertThat(invalid.field())
-                                    .isEqualTo(LocationField.CITY));
+            List<InvalidLocationEntry> problems =
+                    new EnteredLocation("Frankfurt (Main) Hbf", "Frankfurt (Main) Hbf")
+                            .problems(LocationRole.DEPARTURE);
+
+            assertThat(problems)
+                    .extracting(InvalidLocationEntry::field)
+                    .containsExactly(LocationField.CITY);
         }
 
         @Test
         void butAStationNamedForItsOwnTownIsNotAPaste() {
             // Gembloux is a real station named exactly for its town, and it is in the production
             // log twice. A rule rejecting "city repeats the name" was removed because of it.
-            assertThatCode(() -> new EnteredLocation("Gembloux", "Gembloux").check(LocationRole.ARRIVAL))
-                    .doesNotThrowAnyException();
+            assertThat(new EnteredLocation("Gembloux", "Gembloux").problems(LocationRole.ARRIVAL))
+                    .isEmpty();
         }
 
         @Test
         void norIsAnEventHeldInATownWithNoParticularVenue() {
-            assertThatCode(() -> new EnteredLocation("Hamburg", "Hamburg").check(LocationRole.STAY))
-                    .doesNotThrowAnyException();
+            assertThat(new EnteredLocation("Hamburg", "Hamburg").problems(LocationRole.STAY))
+                    .isEmpty();
         }
     }
 
@@ -98,17 +174,19 @@ class EnteredLocationTest {
                 "Grand Hotel"
         })
         void isRejectedAgainstTheCityField(String city) {
-            assertThatThrownBy(() -> new EnteredLocation("Some Station", city).check(LocationRole.DEPARTURE))
-                    .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid ->
-                            assertThat(invalid.field())
-                                    .isEqualTo(LocationField.CITY));
+            List<InvalidLocationEntry> problems =
+                    new EnteredLocation("Some Station", city).problems(LocationRole.DEPARTURE);
+
+            assertThat(problems)
+                    .extracting(InvalidLocationEntry::field, InvalidLocationEntry::getMessage)
+                    .containsExactly(tuple(LocationField.CITY, "Venue name, not a city"));
         }
 
         @Test
         void aVenueWordInsideALongerWordDoesNotTripTheRule() {
-            assertThatCode(() -> new EnteredLocation("Frankfurt (Main) Hbf", "Frankfurter Berg")
-                    .check(LocationRole.DEPARTURE))
-                    .doesNotThrowAnyException();
+            assertThat(new EnteredLocation("Frankfurt (Main) Hbf", "Frankfurter Berg")
+                    .problems(LocationRole.DEPARTURE))
+                    .isEmpty();
         }
     }
 
@@ -127,7 +205,38 @@ class EnteredLocationTest {
                 "Stoke-on-Trent"
         })
         void areAcceptedUnchanged(String city) {
-            assertThatCode(() -> new EnteredLocation("Some Station", city).check(LocationRole.ARRIVAL))
+            assertThat(new EnteredLocation("Some Station", city).problems(LocationRole.ARRIVAL))
+                    .isEmpty();
+        }
+    }
+
+    /** What {@code check} adds on top of {@code problems}: throw the whole list, or say nothing. */
+    @Nested
+    class Checking {
+
+        @Test
+        void throwsEveryProblemTogetherRatherThanTheFirst() {
+            Throwable thrown =
+                    catchThrowable(() -> new EnteredLocation("", "").check(LocationRole.STAY));
+
+            assertThat(thrown)
+                    .as("check reports through the carrier, never a bare entry")
+                    .isInstanceOf(InvalidEnteredLocation.class);
+            InvalidEnteredLocation invalid = (InvalidEnteredLocation) thrown;
+            assertThat(invalid.problems())
+                    .extracting(InvalidLocationEntry::field)
+                    .containsExactly(LocationField.VENUE_NAME, LocationField.CITY);
+        }
+
+        @Test
+        void theMessageNamesEveryProblem() {
+            assertThatThrownBy(() -> new EnteredLocation("", "").check(LocationRole.STAY))
+                    .hasMessage("Name is required City is required");
+        }
+
+        @Test
+        void aLocationThatNamesAPlaceThrowsNothing() {
+            assertThatCode(() -> new EnteredLocation("Grand Hotel", "Berlin").check(LocationRole.STAY))
                     .doesNotThrowAnyException();
         }
     }
@@ -154,10 +263,12 @@ class EnteredLocationTest {
 
         @Test
         void anAbsentAddressReadsAsAMissingCityRatherThanThrowingNullPointer() {
-            assertThatThrownBy(() -> EnteredLocation.of("Grand Hotel", null).check(LocationRole.STAY))
-                    .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid ->
-                            assertThat(invalid.field())
-                                    .isEqualTo(LocationField.CITY));
+            List<InvalidLocationEntry> problems =
+                    EnteredLocation.of("Grand Hotel", null).problems(LocationRole.STAY);
+
+            assertThat(problems)
+                    .extracting(InvalidLocationEntry::field)
+                    .containsExactly(LocationField.CITY);
         }
     }
 }

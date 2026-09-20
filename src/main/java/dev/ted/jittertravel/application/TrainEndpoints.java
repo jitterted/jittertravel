@@ -12,7 +12,6 @@ import dev.ted.jittertravel.domain.UnresolvedStationZone;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Asks both ends of a submitted trip everything that can be asked before a command is built, and
@@ -59,9 +58,9 @@ public class TrainEndpoints {
     private ZoneId endpoint(List<InvalidLocationEntry> locations,
                             List<UnresolvedStationZone> zones,
                             LocationRole role, String pick, TrainStationAddress station) {
-        Optional<InvalidLocationEntry> invalid = EnteredLocation.of(station).problem(role);
-        if (invalid.isPresent()) {
-            locations.add(invalid.get());
+        List<InvalidLocationEntry> invalid = EnteredLocation.of(station).problems(role);
+        if (!invalid.isEmpty()) {
+            locations.addAll(invalid);
             return null;
         }
         try {

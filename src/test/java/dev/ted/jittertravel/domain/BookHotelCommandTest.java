@@ -9,6 +9,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.assertj.core.api.Assertions.tuple;
 
 class BookHotelCommandTest {
 
@@ -137,31 +139,45 @@ class BookHotelCommandTest {
     }
 
     @Test
-    void hotelWithNoNameThrowsInvalidLocationEntry() {
+    void hotelWithNoNameIsRejectedAgainstTheNameField() {
         BookHotelCommand command = new BookHotelCommand(
                 HotelBookingId.random(), "", ADDRESS,
                 zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, null);
 
-        assertThatThrownBy(() -> command.execute(new BookHotelContext(at(NOW))))
-                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid -> {
-                    assertThat(invalid.role())
-                            .isEqualTo(LocationRole.STAY);
-                    assertThat(invalid.field())
-                            .isEqualTo(LocationField.VENUE_NAME);
-                });
+        assertThat(locationProblems(command))
+                .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
+                .containsExactly(tuple(LocationRole.STAY, LocationField.VENUE_NAME));
     }
 
     @Test
-    void hotelNamePastedIntoTheCityThrowsInvalidLocationEntry() {
+    void hotelNamePastedIntoTheCityIsRejectedAgainstTheCityField() {
         Address pasted = new Address("123 Main St", "Grand Hotel", "IL", "62701", "US", null);
         BookHotelCommand command = new BookHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", pasted,
                 zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, null);
 
-        assertThatThrownBy(() -> command.execute(new BookHotelContext(at(NOW))))
-                .isInstanceOfSatisfying(InvalidLocationEntry.class, invalid ->
-                        assertThat(invalid.field())
-                                .isEqualTo(LocationField.CITY));
+        assertThat(locationProblems(command))
+                .extracting(InvalidLocationEntry::field)
+                .containsExactly(LocationField.CITY);
+    }
+
+    /**
+     * A stay with neither a name nor a city is one submit with two mistakes, and the command has to
+     * hand the boundary both — reporting the name alone means fixing it, submitting again, and
+     * meeting a fresh error indistinguishable from the first fix having done nothing.
+     */
+    @Test
+    void aStayWithNoNameAndNoCityReportsBothInOneAnswer() {
+        Address cityless = new Address("123 Main St", "", "IL", "62701", "US", null);
+        BookHotelCommand command = new BookHotelCommand(
+                HotelBookingId.random(), "", cityless,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, null);
+
+        assertThat(locationProblems(command))
+                .extracting(InvalidLocationEntry::field, InvalidLocationEntry::getMessage)
+                .containsExactly(
+                        tuple(LocationField.VENUE_NAME, "Name is required"),
+                        tuple(LocationField.CITY, "City is required"));
     }
 
     @Test
@@ -174,7 +190,17 @@ class BookHotelCommandTest {
                 zt(NOW.minusHours(1)), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, null);
 
         assertThatThrownBy(() -> command.execute(new BookHotelContext(at(NOW))))
-                .isInstanceOf(InvalidLocationEntry.class);
+                .isInstanceOf(InvalidEnteredLocation.class);
+    }
+
+    /** Every location problem the command refused, in the order the boundary will report them. */
+    private static List<InvalidLocationEntry> locationProblems(BookHotelCommand command) {
+        Throwable thrown = catchThrowable(() -> command.execute(new BookHotelContext(at(NOW))));
+
+        assertThat(thrown)
+                .as("a location problem is reported through the carrier, never a bare entry")
+                .isInstanceOf(InvalidEnteredLocation.class);
+        return ((InvalidEnteredLocation) thrown).problems();
     }
 
     private static BookHotelCommand validCommand() {

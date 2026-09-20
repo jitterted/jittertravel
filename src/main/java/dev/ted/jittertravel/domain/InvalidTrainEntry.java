@@ -32,7 +32,12 @@ public class InvalidTrainEntry extends RuntimeException {
         this.zones = List.copyOf(zones);
     }
 
-    /** Ends naming something that cannot be a place. At most one entry per end. */
+    /**
+     * Ends naming something that cannot be a place. One entry per broken rule, so an end can appear
+     * twice — a station with neither a name nor a city marks both of its inputs (2026-09-20). Never
+     * more than once per <em>field</em>, which is what lets {@code TrainFormErrors} reject each
+     * entry against its own input; see {@link EnteredLocation#problems}.
+     */
     public List<InvalidLocationEntry> locations() {
         return locations;
     }

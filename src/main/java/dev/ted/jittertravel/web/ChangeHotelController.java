@@ -8,9 +8,8 @@ import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelBookingNotFound;
 import dev.ted.jittertravel.domain.InvalidCancelByDate;
+import dev.ted.jittertravel.domain.InvalidEnteredLocation;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
-import dev.ted.jittertravel.domain.InvalidLocationEntry;
-import dev.ted.jittertravel.domain.LocationField;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -63,7 +62,11 @@ public class ChangeHotelController {
     public String changeHotelSubmit(@PathVariable("hotelBookingId") String hotelBookingIdString,
                                     @ModelAttribute("changeHotel") ChangeHotelRequest command,
                                     BindingResult bindingResult) {
+        HotelFormErrors errors = new HotelFormErrors(bindingResult);
+        // Binding already failed: a date left blank, or one that would not parse. Those values are
+        // null on the request, so calling the service would only reach the write path with them.
         if (bindingResult.hasErrors()) {
+            errors.summarize();
             return "change-hotel";
         }
         try {
@@ -82,15 +85,16 @@ public class ChangeHotelController {
             bindingResult.rejectValue("checkOut", "afterCheckIn", e.getMessage());
         } catch (InvalidCancelByDate e) {
             bindingResult.rejectValue("cancelBy", "notAfterCheckIn", e.getMessage());
-        } catch (InvalidLocationEntry e) {
-            // A stay has one location, so the field the domain names maps straight onto an input.
-            bindingResult.rejectValue(
-                    e.field() == LocationField.VENUE_NAME ? "hotelName" : "city",
-                    "invalidLocation", e.getMessage());
+        } catch (InvalidEnteredLocation e) {
+            // Every problem the stay has, in one response — a blank name and a blank city are two
+            // mistakes in one submit, and reporting only the first reads as the fix having done
+            // nothing.
+            errors.reject(e);
         } catch (ZoneResolutionException e) {
             bindingResult.rejectValue("zone", "zoneUnresolved",
                     "Could not determine the time zone from the location — please choose one.");
         }
+        errors.summarize();
 
         if (bindingResult.hasErrors()) {
             return "change-hotel";

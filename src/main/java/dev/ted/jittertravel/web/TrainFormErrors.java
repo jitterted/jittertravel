@@ -12,7 +12,8 @@ import org.springframework.validation.BindingResult;
  * reader are the form's own business, and {@code book-train.html} and {@code change-train.html}
  * share both — which is why this is one place and not a copy in each controller.
  *
- * <p><strong>Nothing here is a global error except the count.</strong> The form has two identical
+ * <p><strong>Nothing here is a global error except the count</strong>, which lives on
+ * {@link FormErrors} because the hotel forms say the same sentence. The form has two identical
  * fieldsets side by side, so a banner saying "a station" could not be resolved names neither of
  * them and points the reader at four inputs, two of which are fine. Position answers "which end?"
  * for free, so the message goes under the input; the banner is left saying only how many there are,
@@ -23,12 +24,10 @@ import org.springframework.validation.BindingResult;
  * zone follows from cannot be repaired by retyping it — the curated table is what it is — so that
  * one lands on the time-zone select, which is the way through.
  */
-class TrainFormErrors {
-
-    private final BindingResult bindingResult;
+class TrainFormErrors extends FormErrors {
 
     TrainFormErrors(BindingResult bindingResult) {
-        this.bindingResult = bindingResult;
+        super(bindingResult);
     }
 
     void reject(InvalidTrainEntry invalid) {
@@ -42,23 +41,6 @@ class TrainFormErrors {
 
     private void reject(UnresolvedStationZone unresolved) {
         bindingResult.rejectValue(zoneField(unresolved), "zoneUnresolved", message(unresolved));
-    }
-
-    /**
-     * The one thing said at the top of the form: how many inputs are marked below. It is a count
-     * and not a description on purpose — a reader who can see the marked field does not need it,
-     * and a reader who cannot needs to know the submit failed and that there is more than one.
-     *
-     * <p>Counts field errors only. A whole-form failure (the trip vanished between GET and POST)
-     * is already its own global message and is not a problem to fix below.
-     */
-    void summarize() {
-        int count = bindingResult.getFieldErrorCount();
-        if (count == 0) {
-            return;
-        }
-        bindingResult.reject("problemCount",
-                count == 1 ? "1 problem to fix below." : count + " problems to fix below.");
     }
 
     private String locationField(InvalidLocationEntry invalid) {

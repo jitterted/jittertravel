@@ -280,6 +280,36 @@ class BookTrainWebIntegrationTest {
                 .contains("2 problems to fix below.");
     }
 
+    /**
+     * <strong>Two problems at the <em>same</em> end, which only became possible on 2026-09-20</strong>
+     * when {@code EnteredLocation} started answering with every rule a location breaks rather than
+     * the earliest. Both inputs of the one fieldset are marked and the count says two — position
+     * cannot distinguish them, since they are the two halves of the same station.
+     */
+    @Test
+    void oneEndMissingBothItsNameAndItsCityMarksBothInputs() {
+        willThrow(new InvalidTrainEntry(
+                List.of(new InvalidLocationEntry(LocationRole.ARRIVAL, LocationField.VENUE_NAME,
+                                "Name is required"),
+                        new InvalidLocationEntry(LocationRole.ARRIVAL, LocationField.CITY,
+                                "City is required")),
+                List.of()))
+                .given(trainBooking).bookTrain(any(), any());
+
+        MvcTestResult result = trip("", "Germany");
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookTrain")
+                .hasOnlyFieldErrors("arrivalStationName", "arrivalCityName");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Name is required</span>")
+                .contains("<span class=\"error\">City is required</span>")
+                .contains("2 problems to fix below.");
+    }
+
     @Test
     void aSubmitThatSucceedsGetsNoCountBanner() {
         assertThat(trip("Frankfurt", "Germany"))

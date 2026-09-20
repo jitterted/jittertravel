@@ -83,6 +83,18 @@
             color: #b00;
         }
 
+        /* The count above the form. A field error is a label under its input and needs no
+           decoration; this one has to be found before the reader starts hunting, so it carries the
+           fill and the left rule that mark it as a banner rather than a stray line of red text. */
+        .error-summary {
+            background: #fdecec;
+            border-left: 3px solid #b00;
+            padding: 0.45rem 0.6rem;
+            margin-bottom: 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
         .intent-group {
             display: flex;
             gap: 1.5rem;
@@ -128,6 +140,8 @@
            which Thymeleaf merges into the context on its own -- so the action names the booking
            while no hidden input carries it, and a crafted POST has nothing to re-target with. */-->
     <form th:action="@{|/booked-hotels/${hotelBookingId}|}" th:object="${changeHotel}" method="post">
+
+        <div class="error error-summary" th:if="${#fields.hasGlobalErrors()}" th:errors="*{global}"></div>
 
         <div class="field" style="margin-bottom: 0.75rem;">
             <label>
@@ -255,10 +269,6 @@
                 Already booked as final
             </label>
         </div>
-
-        <ul class="global-errors" th:if="${#fields.hasGlobalErrors()}">
-            <li th:each="err : ${#fields.globalErrors()}" th:text="${err}"></li>
-        </ul>
 
         <button type="submit">Save changes</button>
     </form>

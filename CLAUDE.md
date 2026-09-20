@@ -694,17 +694,32 @@ a field error the form cannot show is half a fix.
 
 ### A rejected form reports everything it can see, under the input that fixes each thing
 
-Four rules, all agreed 2026-09-06 after a booking that took three submits to get through. They are
-written for the two train forms, which are where they are implemented in full (`TrainEndpoints`,
-`InvalidTrainEntry`, `TrainFormErrors`); flights, gatherings, conferences, private events and ground
-transfer still print one undifferentiated sentence in a banner and are the obvious next targets.
+Four rules, all agreed 2026-09-06 after a booking that took three submits to get through. They were
+written for the two train forms (`TrainEndpoints`, `InvalidTrainEntry`, `TrainFormErrors`) and the
+**hotel pair joined them on 2026-09-20** (`HotelFormErrors`); flights, gatherings, conferences,
+private events and ground transfer still print one undifferentiated sentence in a banner and are the
+obvious next targets.
 
-**The hotel pair is half-converted, and the half it is missing is rule 1.** `/book-hotel` and
-`/booked-hotels/{id}` have carried field-level errors all along — a location problem lands on
-`hotelName` or `city`, a date problem on the input at fault, each with its own
-`<span class="error">` — so rules 2 to 4 hold there. What they do not have is the count banner, and
-they report only the **first** problem: `EnteredLocation.problem` returns one, so a blank name and a
-blank city are two submits. Do not read the field-level errors as meaning the hotel forms are done.
+**What the hotel conversion took, and what it changed for trains.** The hotel forms had carried
+field-level errors all along — a location problem on `hotelName` or `city`, a date problem on the
+input at fault, each with its own `<span class="error">` — so rules 2 and 4 already held. Rule 1
+arrived with `EnteredLocation.problems`, which returns **every** rule the location breaks rather
+than the earliest; `check` throws them together in an `InvalidEnteredLocation` and `HotelFormErrors`
+rejects each against its own input. Rule 3 arrived as the same `.error-summary` banner the train
+forms wear, and the count itself lives on `FormErrors`, which both mappers extend — **one home for
+the sentence**, because "2 problems to fix below." said two slightly different ways on two forms is
+a copy that will drift.
+
+That widened the train forms too: an **end** can now contribute two entries, so a station missing
+both its name and its city marks both inputs of its fieldset and the count reads 2. The per-end
+ordering rule is untouched — location before zone within an end, no order across the two.
+
+**At most one problem per input**, which the markup depends on: an input has one
+`<span class="error">` and two messages under one label would be a form arguing with itself. For a
+location that follows from the rules themselves — a blank city has no brackets, no digit and no
+word, so it cannot also look like a building. The `else` in `EnteredLocation.problems` says so
+rather than establishing it, and **no test can tell it from a plain `if`** (verified by mutating
+it); a future city rule that could hold alongside another is the moment that guarantee needs one.
 
 1. **Every problem, in one response.** A trip has two ends and one submit. Reporting the first
    failure means fixing it, submitting again, and meeting a *fresh* error — which on screen is

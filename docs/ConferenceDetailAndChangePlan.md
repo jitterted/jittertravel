@@ -1,7 +1,8 @@
 # Conference detail page + Change Conference
 
 > **Status: `partial` — slices 1 and 2 shipped (2026-09-04, 2026-09-05); slice 4 folded into
-> slice 2; slice 3 deferred.** Written after Ted asked where the details for a planned conference
+> slice 2; slice 3 brought back as dates only (2026-09-22), the rest of it still deferred.** See
+> "Slice 3a" under Slices. Written after Ted asked where the details for a planned conference
 > are and whether the gap was tracked. It was not: `Cleanup_Tasks.md` (Deferred) tracks *"No way to
 > change a conference"*, which is the **edit** half; nothing named the **view** half at all.
 
@@ -303,6 +304,37 @@ Four things worth knowing that the plan above did not predict:
 Thymeleaf) + a **Change** link on the detail page. Every projector that folds `ConferencePlanned`
 grows a `ConferenceChanged` arm — find them via `EventTypes` and the lifecycle-propagation
 scenario pattern, not by grepping.
+
+**Slice 3a — the dates alone. SHIPPED 2026-09-22.** Brought back because DevNexus 2027 moved from
+April 5–7 back a week to March 29–31. Ted chose a field-specific **`ConferenceDatesChanged`** over
+D4's full snapshot (H1, "as minimal as possible"), which removes D4's trap outright — `format` and
+`infoUrl` are not on the event, so an edit cannot reset them — and, with no venue on the form,
+Q2 and D5 stay dissolved. What shipped:
+
+- `ConferenceDatesChanged(conferenceId, startDate, endDate)`, additive at schema version 1, with a
+  golden sample.
+- `ChangeConferenceDatesCommand` + context. **The zone is a decision fact, not a form field**: the
+  service folds it off the conference's own `ConferencePlanned`, so a move can never put the
+  conference, or a CFP deadline stamped in the same zone, in another one. Refuses a conference that
+  is not live (the `OpenCfp` fold: cancelled or declined clears it) and an end before the start.
+  **No future gate and no CFP cross-check**, both agreed with Ted: it records what the organizers
+  did, and correcting a past conference is legitimate.
+- `GET`/`POST /conferences/{id}/dates` (Thymeleaf, `change-conference-dates.html`), prefilled with
+  the dates in force, returning to the detail page. **It needed its own `SecurityConfig` matcher** —
+  `/conferences/*` matches one segment, so without `/conferences/*/dates` the form would have been
+  public. Row added to `AuthorizationMatrixTest`.
+- The detail page's **first pencil**, on the When heading, since the dates are the one editable
+  thing there. Absent on a dropped conference (state machine beats the affordance rule).
+- A `ConferenceDatesChanged` arm in the five read models that hold the days: `ConferenceProjector`
+  (list and detail page), `ConferenceCalendarProjector`, `PublicCalendarProjector`,
+  `ItineraryProjector`, `ScheduleGapProjector`. The iCal feed and the year overview read those, so
+  they follow. Guarded by `ConferenceDatesPropagationTest`, which covers both orders: a move after
+  a commitment keeps the commitment, and a commitment after a move keeps the move.
+  `ConferenceLifecyclePropagationTest` lists the event as not part of the lifecycle, with that test
+  named as its guard.
+
+**Still deferred:** name, venue and `infoUrl`. When one of them comes up, the same H1 argument says
+to add another narrow event rather than reviving the snapshot.
 
 ~~**Slice 4 — the calendar pencil.**~~ **Folded into slice 2 and shipped without a pencil**: a
 pencil means edit and there is nothing to edit, so the *title* carries it instead. What shipped is

@@ -42,6 +42,8 @@ public class ItineraryProjector implements EventStreamConsumer {
                 // with the calendar about whether Ted is going or speaking.
                 case ConferencePlanned e -> conferences.put(e.conferenceId(), TrackedConference.from(e));
                 case ConferenceCancelled(ConferenceId conferenceId, String _) -> conferences.remove(conferenceId);
+                case ConferenceDatesChanged e -> conferences.computeIfPresent(e.conferenceId(),
+                        (id, tracked) -> tracked.movedTo(e.startDate(), e.endDate()));
                 case ConferenceAttendanceConfirmed e -> updateConference(e.conferenceId(), p -> p.confirmed(e.basis()));
                 case ConferenceAttendanceDeclined e -> updateConference(e.conferenceId(), ConferenceProgress::declined);
                 case TalkSubmitted e -> updateConference(e.conferenceId(), ConferenceProgress::submitted);
@@ -293,27 +295,41 @@ public class ItineraryProjector implements EventStreamConsumer {
      * progress moves, because every {@link ConferenceItineraryEntry} carries the commitment and the
      * speaking flag — the same arrangement {@code ConferenceCalendarProjector.Tracked} uses, and for
      * the same reason: {@link ConferenceProgress} holds what the entries may not.
+     * <p>
+     * The dates are held apart from {@code planned} because a {@link ConferenceDatesChanged} moves
+     * them; everything else is read off the plan, which nothing changes.
      */
-    private record TrackedConference(ConferencePlanned planned, ConferenceProgress progress,
+    private record TrackedConference(ConferencePlanned planned,
+                                     ZonedTimestamp startDate, ZonedTimestamp endDate,
+                                     ConferenceProgress progress,
                                      List<ConferenceItineraryEntry> entries) {
 
         static TrackedConference from(ConferencePlanned planned) {
             ConferenceProgress progress = ConferenceProgress.planned(planned.format());
-            return new TrackedConference(planned, progress, toConferenceEntries(planned, progress));
+            return new TrackedConference(planned, planned.startDate(), planned.endDate(), progress,
+                    toConferenceEntries(planned, planned.startDate(), planned.endDate(), progress));
         }
 
         TrackedConference showing(ConferenceProgress moved) {
-            return new TrackedConference(planned, moved, toConferenceEntries(planned, moved));
+            return new TrackedConference(planned, startDate, endDate, moved,
+                    toConferenceEntries(planned, startDate, endDate, moved));
+        }
+
+        TrackedConference movedTo(ZonedTimestamp newStart, ZonedTimestamp newEnd) {
+            return new TrackedConference(planned, newStart, newEnd, progress,
+                    toConferenceEntries(planned, newStart, newEnd, progress));
         }
     }
 
     private static List<ConferenceItineraryEntry> toConferenceEntries(ConferencePlanned e,
+                                                                     ZonedTimestamp startDate,
+                                                                     ZonedTimestamp endDate,
                                                                      ConferenceProgress progress) {
         // Itinerary days are venue-local days (see CalendarEntry), so the entry keeps the
         // wall-clock the traveler will actually read off a clock when they get there.
-        LocalDateTime startDateTime = e.startDate().localDateTime();
+        LocalDateTime startDateTime = startDate.localDateTime();
         LocalDate start = startDateTime.toLocalDate();
-        int totalDays = (int) ChronoUnit.DAYS.between(start, e.endDate().localDateTime().toLocalDate()) + 1;
+        int totalDays = (int) ChronoUnit.DAYS.between(start, endDate.localDateTime().toLocalDate()) + 1;
         // Published only for a conference Ted is committed to: a "Maybe" entry wearing the badge
         // would say he was asked to speak somewhere he has not decided about.
         //

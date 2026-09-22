@@ -423,3 +423,40 @@ body {
     font-size: 0.8rem;
     text-decoration: underline;
 }
+
+/* The pencil (edit) and the bin (cancel), on the calendar, the itinerary and the conference detail
+   page. One rule for both, here rather than in each renderer, because they share a slot and must
+   match exactly: three hand-kept copies is how they drift (the .chip-maybe tokens above were moved
+   here for the same reason). Settled with Ted 2026-09-22, after the 12px, 65%-opacity versions were
+   too small and too faint to find on the iPad.
+   - Accent colour at full opacity, the app's "this is a control" colour. Never red: cancelling a
+     transfer or a train is recorded as a new event, and red is kept for what cannot be undone.
+   - 16px glyph, and a 28x44 hit area from padding cancelled by an equal negative margin — the
+     .gcal-add trick — so the glyph and the line it sits on do not move.
+   - The hit area is 28 wide rather than 44 so a pencil and the bin beside it do not overlap: each
+     reaches 6px past its glyph, and the 8px margin-left keeps the bin's area starting where the
+     pencil's ends. Widen the padding and the margin has to grow with it, or a tap meant for edit
+     lands on cancel. */
+.edit-pencil,
+.cancel-bin {
+    display: inline-block;
+    color: var(--accent-color);
+    text-decoration: none;
+    /* Centred on the capitals of the text beside it, not on its x-height. `middle` centres on
+       baseline + half an x-height, which at 16px put the glyph visibly low, below the baseline of a
+       title (WebKit, 2026-09-22). With the SVG a block, this box's baseline is its bottom margin
+       edge, so this lifts the glyph's bottom to 0.35em (half a cap height) minus half the glyph. */
+    vertical-align: calc(0.35em - 8px);
+    line-height: 0;
+    padding: 14px 6px;
+    margin: -14px -6px -14px 0.5rem;
+}
+.edit-pencil svg,
+.cancel-bin svg {
+    /* Block, so the link has no line box of its own: its baseline is then its bottom margin edge,
+       which is what the vertical-align above is measured from. Left inline, the baseline is the
+       SVG's, and the offset would land somewhere else. */
+    display: block;
+    width: 16px;
+    height: 16px;
+}

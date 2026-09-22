@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.CfpOpened;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
+import dev.ted.jittertravel.domain.ConferenceDatesChanged;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.DifferentCityConflictCleared;
 import dev.ted.jittertravel.domain.Event;
@@ -105,6 +106,9 @@ public final class EventTypes {
         register("ConferenceCancelled", ConferenceCancelled.class);
         register("ConferenceAttendanceConfirmed", ConferenceAttendanceConfirmed.class);
         register("ConferenceAttendanceDeclined", ConferenceAttendanceDeclined.class);
+        // Born with ZonedTimestamps, like CfpOpened below: additive at version 1, no upcaster, and
+        // the backup format stays v3.
+        register("ConferenceDatesChanged", ConferenceDatesChanged.class);
         // Born with a ZonedTimestamp, so there is no pre-zone form of it to upcast: version 1 is
         // the only shape this event has ever had.
         register("CfpOpened", CfpOpened.class);

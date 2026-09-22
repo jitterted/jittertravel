@@ -146,6 +146,9 @@ class AuthorizationMatrixTest {
                 // talk titles, outcomes and their dates are all on CLAUDE.md's private list, and
                 // this page names the outcome in its query string.
                 arguments("/conferences/abc/talk", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
+                // The dates themselves are public, but the page is a write surface, and a stranger
+                // who could reach it could move a conference on Ted's calendar.
+                arguments("/conferences/abc/dates", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/planned-gatherings",   Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/planned-gatherings/abc", Outcome.OK,     Outcome.DENIED_HOME,  Outcome.LOGIN),
                 // The only surface that prints a private event's venue name and street address.

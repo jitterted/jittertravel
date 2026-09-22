@@ -5,6 +5,7 @@ import dev.ted.jittertravel.domain.CfpOpened;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
+import dev.ted.jittertravel.domain.ConferenceDatesChanged;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
@@ -87,6 +88,8 @@ public class ConferenceProjector implements EventStreamConsumer {
                 // included: the two are one fact, and a re-record replaces both together.
                 case CfpOpened event -> conferences.computeIfPresent(event.conferenceId(),
                         (id, tracked) -> tracked.withCfp(event.closesOn(), event.submissionUrl()));
+                case ConferenceDatesChanged event -> conferences.computeIfPresent(event.conferenceId(),
+                        (id, tracked) -> tracked.withDates(event.startDate(), event.endDate()));
                 // The basis is collapsed for the dashboard row — *which* speaking basis applies is
                 // submission status, so ConferenceView carries only its consequence — and kept
                 // whole for the detail page, which is OWNER-only and may say it. See Tracked#basis.
@@ -211,6 +214,16 @@ public class ConferenceProjector implements EventStreamConsumer {
                     view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
                     view.startDate(), view.endDate(), view.commitment(), view.speaking(),
                     view.speakingStatus(), closesOn, submissionUrl,
+                    view.format(), view.infoUrl()
+            ), progress, basis);
+        }
+
+        /** The organizers moved it. Like a CFP, it says nothing about either axis. */
+        Tracked withDates(ZonedTimestamp startDate, ZonedTimestamp endDate) {
+            return new Tracked(new ConferenceView(
+                    view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
+                    startDate, endDate, view.commitment(), view.speaking(),
+                    view.speakingStatus(), view.cfpClosesOn(), view.cfpSubmissionUrl(),
                     view.format(), view.infoUrl()
             ), progress, basis);
         }

@@ -95,6 +95,7 @@ public class SecurityConfig {
                                 // Submission status is the most private thing the conference model
                                 // holds — CLAUDE.md keeps the whole pipeline OWNER-only.
                                 "/conferences/*/talk",
+                                "/conferences/*/dates",
                                 "/planned-gatherings/*").hasRole("OWNER")
                         // Booking lists: OWNER-only (FAMILY cannot view booking details).
                         .requestMatchers(

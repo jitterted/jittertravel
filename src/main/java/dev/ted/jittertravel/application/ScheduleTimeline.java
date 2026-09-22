@@ -592,6 +592,11 @@ class ScheduleTimeline {
             return new Occupancy(name, otherCity, startsAt, endsAt, kind);
         }
 
+        /** The same occupancy on other days — what a {@code ConferenceDatesChanged} does to one. */
+        Occupancy during(ZonedTimestamp newStart, ZonedTimestamp newEnd) {
+            return new Occupancy(name, city, newStart, newEnd, kind);
+        }
+
         /** Only a conference lends its name to a missing-hotel row. */
         String conferenceName() {
             return kind == Kind.CONFERENCE ? name : null;

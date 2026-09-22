@@ -134,6 +134,9 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                         ConferenceProgress.planned(e.format())));
                 // The organizers called it off: there is no event to be at, so it does not come back.
                 case ConferenceCancelled e -> conferences.remove(e.conferenceId());
+                // The organizers moved it: the gaps and the away band follow it to its new days.
+                case ConferenceDatesChanged e -> conferences.computeIfPresent(e.conferenceId(),
+                        (id, tracked) -> tracked.during(e.startDate(), e.endDate()));
 
                 // Everything below moves the conference along the two axes and lets
                 // ConferenceProgress decide whether that dropped it. Only `declined` and
@@ -298,6 +301,10 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     private record TrackedConference(ScheduleTimeline.Occupancy occupancy, ConferenceProgress progress) {
         TrackedConference movedTo(ConferenceProgress moved) {
             return new TrackedConference(occupancy, moved);
+        }
+
+        TrackedConference during(ZonedTimestamp newStart, ZonedTimestamp newEnd) {
+            return new TrackedConference(occupancy.during(newStart, newEnd), progress);
         }
     }
 

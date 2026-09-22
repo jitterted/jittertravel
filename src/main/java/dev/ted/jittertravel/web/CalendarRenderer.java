@@ -195,15 +195,6 @@ public class CalendarRenderer {
                 background: var(--chip-maybe-bg); color: var(--chip-maybe-fg);
                 box-shadow: inset 0 0 0 1px var(--chip-maybe-edge);
             }
-            .edit-pencil { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
-            .edit-pencil:hover { opacity: 1; }
-            .edit-pencil svg { width: 12px; height: 12px; }
-            /* The cancel bin sits in the pencil's slot on the kinds that have no edit page, and
-               matches it exactly — no red: removing one ground transfer is recoverable by entering
-               it again, and red is reserved for what cannot be undone. */
-            .cancel-bin { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
-            .cancel-bin:hover { opacity: 1; }
-            .cancel-bin svg { width: 12px; height: 12px; }
             /* Kind glyph before the title. Sized to the title's cap height and inheriting
                currentColor, so it tints with the lane rather than sitting on it as a second
                colour. Slightly under full opacity: it marks the lane, it is not the content. */

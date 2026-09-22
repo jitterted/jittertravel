@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Conference Dates</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .summary {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.9rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }
+        .summary .name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .summary .line { font-size: 0.9rem; color: var(--muted-text); margin-top: 0.15rem; }
+
+        .field { margin-bottom: 1rem; }
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+        .field input[type=datetime-local] {
+            padding: 0.35rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+        .hint { font-size: 0.8rem; color: var(--muted-text); margin: 0 0 1rem; }
+        .error { font-size: 0.78rem; color: #b91c1c; margin-top: 0.25rem; display: block; }
+
+        .actions { display: flex; align-items: center; gap: 1.25rem; }
+
+        /* Neither red nor gated: appending a correction destroys nothing, and the undo is typing
+           the old dates back in. This is an ordinary save. */
+        button.save {
+            background: var(--accent-color);
+            color: #fff;
+            border: 1px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        button.save:hover { opacity: 0.88; }
+
+        .back-link { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/conferences">Conferences</a>
+    </nav>
+
+    <h1>Conference Dates</h1>
+
+    <!--/* Identification only: which conference, and where it is. The dates it has now are already
+           in the inputs below, so repeating them here would say the same thing twice. */-->
+    <div class="summary">
+        <div class="name" th:text="${conference.name()}">Conference Name</div>
+        <div class="line" th:if="${!conference.venueName().isBlank()}" th:text="${conference.venueName()}">Venue</div>
+        <div class="line"
+             th:text="${conference.city() + (conference.country().isBlank() ? '' : ', ' + conference.country())}">City, Country</div>
+    </div>
+
+    <form th:action="@{|/conferences/${conference.conferenceId().id()}/dates|}"
+          th:object="${changeDates}" method="post">
+        <div class="field">
+            <label>
+                Starts
+                <input type="datetime-local" th:field="*{startDate}"/>
+            </label>
+            <span class="error"
+                  th:if="${#fields.hasErrors('startDate')}"
+                  th:errors="*{startDate}"></span>
+        </div>
+        <div class="field">
+            <label>
+                Ends
+                <input type="datetime-local" th:field="*{endDate}"/>
+            </label>
+            <span class="error"
+                  th:if="${#fields.hasErrors('endDate')}"
+                  th:errors="*{endDate}"></span>
+        </div>
+        <!--/* The zone is not an input: a dates change keeps the conference in the zone it was
+               planned in, which is also the zone any recorded CFP deadline is stamped in. */-->
+        <p class="hint">
+            In the conference's local time
+            (<span th:text="${conference.startDate().zone().getId()}">zone</span>).
+        </p>
+
+        <div class="actions">
+            <button type="submit" class="save">Save dates</button>
+            <a class="back-link" th:href="@{|/conferences/${conference.conferenceId().id()}|}">Back to the conference</a>
+        </div>
+    </form>
+
+</div>
+</body>
+</html>

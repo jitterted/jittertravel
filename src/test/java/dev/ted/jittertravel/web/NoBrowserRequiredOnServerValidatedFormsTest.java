@@ -36,7 +36,9 @@ class NoBrowserRequiredOnServerValidatedFormsTest {
     /** The forms whose blank-field errors are reported and rendered by the server. */
     private static final List<String> SERVER_VALIDATED_FORMS = List.of(
             "book-train.html", "change-train.html",
-            "book-hotel.html", "change-hotel.html");
+            "book-hotel.html", "change-hotel.html",
+            // Born without it (2026-09-22): a blank date is RequiredEntryAdvice's field error.
+            "change-conference-dates.html");
 
     @Test
     void noServerValidatedFormLetsTheBrowserBlockTheSubmit() throws IOException {

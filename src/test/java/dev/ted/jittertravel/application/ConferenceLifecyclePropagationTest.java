@@ -6,6 +6,7 @@ import dev.ted.jittertravel.domain.CfpOpened;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
+import dev.ted.jittertravel.domain.ConferenceDatesChanged;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
@@ -87,7 +88,10 @@ class ConferenceLifecyclePropagationTest {
             CfpOpened.class,
             // An acknowledgement of a schedule conflict between a gathering and a conference; it
             // moves neither axis.
-            DifferentCityConflictCleared.class);
+            DifferentCityConflictCleared.class,
+            // Moves the days and neither axis. Its own guard is ConferenceDatesPropagationTest,
+            // which walks the same five read models.
+            ConferenceDatesChanged.class);
 
     private final AtomicLong sequence = new AtomicLong();
 

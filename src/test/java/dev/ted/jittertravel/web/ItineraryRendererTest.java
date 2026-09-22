@@ -376,6 +376,21 @@ class ItineraryRendererTest {
                 .contains("class=\"edit-pencil\" href=\"/booked-trains/" + tripId.id() + "\"");
     }
 
+    /**
+     * The pencil and bin take the control colour from site.css, and the card's own link rule
+     * outranks it — which is how they shipped grey here and accent everywhere else (2026-09-22).
+     * The pair is what makes it precise: the exclusion is present, and the unexcluded rule is gone.
+     */
+    @Test
+    void theCardsLinkRuleLeavesThePencilAndBinTheirControlColour() {
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains(".entry-detail a:not(.edit-pencil):not(.cancel-bin) { color: inherit;")
+                .doesNotContain(".entry-detail a { color: inherit;");
+    }
+
     @Test
     void trainShowsCancelBinAfterTheEditPencilForOwner() {
         // The train is the first kind carrying both icons. Cancel goes after edit so the pencil

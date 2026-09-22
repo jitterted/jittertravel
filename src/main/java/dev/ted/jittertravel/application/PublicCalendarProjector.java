@@ -5,6 +5,7 @@ import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
+import dev.ted.jittertravel.domain.ConferenceDatesChanged;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.FlightBooked;
@@ -115,6 +116,8 @@ public class PublicCalendarProjector implements EventStreamConsumer {
                 // calendar entirely — for everyone, not just for strangers.
                 case ConferenceCancelled e -> forget(e.conferenceId());
                 case ConferenceAttendanceDeclined e -> forget(e.conferenceId());
+                // Conference dates are public, so a move is published like the plan was.
+                case ConferenceDatesChanged e -> reschedule(e);
 
                 // The submission pipeline is OWNER-only, and none of it is published: what these
                 // move is the collapsed commitment and the speaking badge, nothing else. A talk
@@ -237,6 +240,26 @@ public class PublicCalendarProjector implements EventStreamConsumer {
                 // Blank becomes null so a title with nowhere to point stays plain text, exactly as
                 // a gathering's does.
                 infoUrl.isBlank() ? null : infoUrl);
+    }
+
+    /**
+     * Rewrites a conference's entry onto its new days. The details are rebuilt through
+     * {@link #publishable} from the tracked progress rather than carried off the old entry, so this
+     * arm goes through {@link #entry} like every other and stays inside the allow-list. A conference
+     * this projector has forgotten — dropped, or never seen — is a no-op.
+     */
+    private void reschedule(ConferenceDatesChanged event) {
+        ConferenceProgress current = progress.get(event.conferenceId());
+        if (current == null) {
+            return;
+        }
+        entriesBySubject.computeIfPresent(event.conferenceId(), (id, entries) -> entries.stream()
+                .map(entry -> entry(
+                        event.startDate().localDateTime(), event.endDate().localDateTime(),
+                        entry.mainTitle(), entry.subTitle(),
+                        entry.continuationTitle(), entry.continuationSubTitle(),
+                        publishable(current, conferenceInfoUrls.getOrDefault(id, ""))))
+                .toList());
     }
 
     private void forget(ConferenceId conferenceId) {

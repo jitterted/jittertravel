@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceCancelled;
+import dev.ted.jittertravel.domain.ConferenceDatesChanged;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.InvitedToSpeak;
@@ -13,6 +14,7 @@ import dev.ted.jittertravel.domain.TalkWithdrawn;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +75,10 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                 // never carried onto the entry — see the class comment.
                 case ConferenceAttendanceConfirmed event ->
                         update(event.conferenceId(), progress -> progress.confirmed(event.basis()));
+                // A dropped conference is already gone from `entries`, so a move for it is a no-op.
+                case ConferenceDatesChanged event -> entries.computeIfPresent(event.conferenceId(),
+                        (id, tracked) -> tracked.movedTo(event.startDate().localDateTime(),
+                                                         event.endDate().localDateTime()));
                 case ConferenceCancelled event -> entries.remove(event.conferenceId());
                 case ConferenceAttendanceDeclined event ->
                         update(event.conferenceId(), ConferenceProgress::declined);
@@ -129,6 +135,16 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                     new EntryDetails.Conference(moved.commitment(), speakingBadge(moved),
                                                 infoUrl, detailPath)
             ), moved, infoUrl, detailPath);
+        }
+
+        /** The organizers moved it: the same entry on other days, still in venue-local wall-clock. */
+        Tracked movedTo(LocalDateTime start, LocalDateTime end) {
+            return new Tracked(new CalendarEntry(
+                    start, end,
+                    entry.mainTitle(), entry.subTitle(),
+                    entry.continuationTitle(), entry.continuationSubTitle(),
+                    entry.details()
+            ), progress, infoUrl, detailPath);
         }
 
         /**

@@ -770,15 +770,31 @@ class ConferenceDetailRendererTest {
     }
 
     /**
-     * A pencil means edit and nothing else (CLAUDE.md), and there is nothing to edit here yet —
-     * Change Conference is deferred. Pinned so the pencil is not borrowed for "open this page"
-     * when someone next looks for an affordance.
+     * A pencil means edit and nothing else (CLAUDE.md), and the dates are the one thing on this page
+     * that can be edited — so the pencil sits on the When heading, and there is exactly one.
      */
     @Test
-    void thereIsNoEditPencilAnywhereOnThePage() {
+    void theWhenHeadingCarriesThePencilThatChangesTheDates() {
         String html = ConferenceDetailRenderer.render(conference().build(), NOW);
 
-        assertThat(html).doesNotContain("class=\"edit-pencil\"");
+        assertThat(html)
+                .contains("<h2>When<a class=\"edit-pencil\" href=\"" + BASE + "/dates\" title=\"Change dates\">");
+        assertThat(html.split("class=\"edit-pencil\"", -1))
+                .as("one pencil on the page, not one on the title as well")
+                .hasSize(2);
+    }
+
+    /**
+     * A dropped conference has no pencil: the write path refuses a declined one, and where a state
+     * machine decides what applies, an inapplicable action is absent rather than greyed.
+     */
+    @Test
+    void aDroppedConferenceHasNoPencil() {
+        String html = ConferenceDetailRenderer.render(conference().dropped().build(), NOW);
+
+        assertThat(html)
+                .contains("<h2>When</h2>")
+                .doesNotContain("class=\"edit-pencil\"");
     }
 
     // --- Fixture ---

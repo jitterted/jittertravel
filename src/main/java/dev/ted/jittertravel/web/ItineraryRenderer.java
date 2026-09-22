@@ -80,16 +80,9 @@ public class ItineraryRenderer {
                 .entry-kind--ground-transfer { color: #854d0e; }
                 .entry-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; line-height: 1.3; }
                 .entry-detail { font-size: 0.82rem; color: #374151; line-height: 1.4; }
-                .entry-detail a { color: inherit; text-decoration: underline; }
-                .edit-pencil { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
-                .edit-pencil:hover { opacity: 1; }
-                .edit-pencil svg { width: 12px; height: 12px; }
-                /* The cancel bin sits where the pencil sits on the kinds that have an edit page,
-                   and looks the same — no red: re-entering a removed transfer puts it back, and
-                   red is reserved for what cannot be undone. */
-                .cancel-bin { margin-left: 0.4rem; color: inherit; opacity: 0.65; text-decoration: none; vertical-align: middle; }
-                .cancel-bin:hover { opacity: 1; }
-                .cancel-bin svg { width: 12px; height: 12px; }
+                /* The pencil and the bin are excluded: they take the control colour from site.css,
+                   and this rule outranks it, which left them grey on the itinerary alone. */
+                .entry-detail a:not(.edit-pencil):not(.cancel-bin) { color: inherit; text-decoration: underline; }
                 .entry-location { font-weight: 700; }
                 .speaking-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: #7c3aed; color: #fff; border-radius: 4px; padding: 0.1rem 0.4rem; margin-top: 0.25rem; }
                 /* "Maybe" on a speculative conference. Yellow rather than the speaking chip's

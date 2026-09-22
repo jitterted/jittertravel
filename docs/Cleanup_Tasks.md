@@ -1030,9 +1030,11 @@ count is deliberately not stated here so it cannot go stale again.)
       **Trigger:** the linear calendar feeling too airy once the year overview is carrying the
       "sense of things" job. One token in `CalendarRenderer`.
 
-- [ ] **No way to change a conference.** **Now owned by `ConferenceDetailAndChangePlan.md`
-      (planned 2026-09-04, slice 3)** — keep this entry only until that plan ships, then delete it
-      rather than ticking it, since the plan is the record. The *view* half it also answered is
+- [ ] **No way to change a conference's name, venue or `infoUrl`.** **Now owned by
+      `ConferenceDetailAndChangePlan.md` (planned 2026-09-04, slice 3)** — keep this entry only until
+      that plan ships, then delete it rather than ticking it, since the plan is the record. **The
+      dates are no longer part of it**: `ConferenceDatesChanged` shipped 2026-09-22 at
+      `/conferences/{id}/dates` (DevNexus 2027 moving a week earlier). The *view* half it also answered is
       **done**: the venue shipped on `/conferences` 2026-09-04 (`b380f0b`) and `/conferences/{id}`
       shipped 2026-09-05, so what is left here is exactly the edit half named below.
       Lifted from `archived/ConferenceSubmissionTrackingPlan.md`

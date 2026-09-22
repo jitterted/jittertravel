@@ -3,6 +3,7 @@ package dev.ted.jittertravel.infrastructure;
 import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.AttendanceBasis;
 import dev.ted.jittertravel.domain.CfpOpened;
+import dev.ted.jittertravel.domain.ConferenceDatesChanged;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceFormat;
@@ -292,6 +293,30 @@ class GoldenEventDeserializationTest {
                 .isEqualTo(AttendanceBasis.SPEAKING_ACCEPTED);
         assertThat(event.confirmedOn())
                 .isEqualTo(Instant.parse("2026-08-19T16:45:00Z"));
+    }
+
+    @Test
+    void conferenceDatesChangedCurrentPayloadDeserializes() {
+        // Born with ZonedTimestamps, so version 1 and nothing to upcast. DevNexus 2027, moved from
+        // April 5–7 back to March 29–31 (Ted, 2026-09-22), in the zone it was planned in.
+        String json = """
+                {
+                  "conferenceId": {"id": "22222222-2222-2222-2222-222222222222"},
+                  "startDate": {"utc": "2027-03-29T13:00:00Z", "zone": "America/New_York"},
+                  "endDate": {"utc": "2027-03-31T21:00:00Z", "zone": "America/New_York"}
+                }
+                """;
+
+        ConferenceDatesChanged event = deserialize(json, ConferenceDatesChanged.class);
+
+        assertThat(event.conferenceId().id())
+                .isEqualTo(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        assertThat(event.startDate().localDateTime())
+                .isEqualTo(LocalDateTime.of(2027, 3, 29, 9, 0));
+        assertThat(event.endDate().localDateTime())
+                .isEqualTo(LocalDateTime.of(2027, 3, 31, 17, 0));
+        assertThat(event.endDate().zone())
+                .isEqualTo(ZoneId.of("America/New_York"));
     }
 
     @Test

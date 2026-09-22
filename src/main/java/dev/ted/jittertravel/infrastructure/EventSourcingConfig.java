@@ -205,6 +205,15 @@ public class EventSourcingConfig {
     }
 
     /**
+     * Moving a conference needs the same two facts off its plan as recording a CFP does: that it is
+     * still live, and the zone its dates are stamped in.
+     */
+    @Bean
+    public ChangeConferenceDates changeConferenceDatesApplicationService(CommandExecutor commandExecutor) {
+        return new ChangeConferenceDates(commandExecutor);
+    }
+
+    /**
      * The whole speaking axis in one service: the five moves share a state machine and a fold, so
      * they share a service rather than getting one each ({@link TalkTracking}).
      */

@@ -59,8 +59,11 @@ import static j2html.TagCreator.*;
  * <em>basis</em> showable here and nowhere else — see {@link ConferenceDetailView}. Everything CFP-
  * and talk-shaped on this page is on CLAUDE.md's private list for the same reason.
  * <p>
- * <strong>No pencil.</strong> A pencil means edit and nothing else (Ted, 2026-09-04), and there is
- * nothing to edit yet — Change Conference is deferred. When it ships, the pencil is what it earns.
+ * <strong>One pencil, on the When block, and nowhere else.</strong> A pencil means edit and nothing
+ * else (Ted, 2026-09-04), and the dates are the one thing on this page that can be edited — so the
+ * pencil sits on them rather than on the page title, where it would promise the name and venue too.
+ * It is absent on a conference Ted has dropped: the write path refuses a declined one, and where
+ * a state machine decides what a row offers, an action that cannot apply is absent, not greyed.
  */
 public class ConferenceDetailRenderer {
 
@@ -74,6 +77,8 @@ public class ConferenceDetailRenderer {
 
     /** The far end of a range, where the year is already established by the near end. */
     private static final String DAY_AND_TIME_SHORT = "EEE, MMM d 'at' h:mm a";
+
+    private static final String PENCIL_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z\"/></svg>";
 
     /**
      * A CFP deadline names its zone, and it is the only time on this page that does (Ted,
@@ -536,7 +541,7 @@ public class ConferenceDetailRenderer {
                 conference.endDate().localDateTime().toLocalDate()) + 1;
         DivTag rail = div().withClass("conf-rail").with(
                 div().withClass("conf-rail-block").with(
-                        h2("When"),
+                        whenHeading(conference),
                         div().withClass("conf-rail-lead").with(
                                 ZonedTimeTag.render(conference.startDate(), DAY_AND_TIME)),
                         p().withClass("conf-rail-line").with(
@@ -555,6 +560,16 @@ public class ConferenceDetailRenderer {
                                            .withHref(conference.infoUrl())));
         }
         return rail;
+    }
+
+    private static DomContent whenHeading(ConferenceDetailView conference) {
+        if (conference.commitment() == AttendanceCommitment.NOT_GOING) {
+            return h2("When");
+        }
+        return h2(text("When"),
+                  a(rawHtml(PENCIL_SVG)).withClass("edit-pencil")
+                                        .withHref("/conferences/" + conference.conferenceId().id() + "/dates")
+                                        .withTitle("Change dates"));
     }
 
     private static String dayCount(long days) {

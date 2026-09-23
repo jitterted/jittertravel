@@ -15,10 +15,10 @@ public record PlanGatheringCommand(
 
     @Override
     public Stream<GatheringPlanned> execute(GatheringPlanningContext context) {
-        // Unchanged rule: a gathering must be planned for a later *date*, not merely a later
-        // moment — now judged in the gathering's own zone rather than the server's.
-        if (startsAt == null || !startsAt.isOnDayAfter(context.now())) {
-            throw new GatheringDateNotInFuture("Gathering date must be in the future");
+        // Today or later, judged by *date* in the gathering's own zone rather than the server's.
+        // Today is allowed because gatherings can be last-minute (Ted, 2026-09-22).
+        if (startsAt == null || !startsAt.isOnOrAfterDayOf(context.now())) {
+            throw new GatheringDateNotInFuture("Gathering date must be today or later");
         }
         // Both endpoints share the venue's zone, so comparing instants is the same as comparing
         // wall-clock — and stays right if that ever stops being true.

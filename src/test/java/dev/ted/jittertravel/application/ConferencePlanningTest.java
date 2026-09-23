@@ -1,12 +1,14 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.CfpOpened;
+import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceHasNoCfp;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.DecisionContext;
 import dev.ted.jittertravel.domain.DomainCommand;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import dev.ted.jittertravel.web.PlanConferenceRequest;
 import org.junit.jupiter.api.Test;
@@ -114,6 +116,46 @@ class ConferencePlanningTest {
                 .isEqualTo("https://jfall.nl/");
     }
 
+    /** A non-default format proves the form's choice is read rather than defaulted. */
+    @Test
+    void theChosenFormatRidesOnThePlanEvent() {
+        RecordingCommandExecutor executor = new RecordingCommandExecutor();
+        ConferencePlanning planning = planningWith(executor);
+
+        planning.planConference(request(null, null, "OPEN_SPACE", null), NOW, UUID.randomUUID());
+
+        assertThat(((ConferencePlanned) executor.emitted.getFirst()).format())
+                .as("the form's format choice reaches the event")
+                .isEqualTo(ConferenceFormat.OPEN_SPACE);
+    }
+
+    @Test
+    void anUnresolvableVenueWithNoZonePickIsRefusedAndWritesNothing() {
+        RecordingCommandExecutor executor = new RecordingCommandExecutor();
+        ConferencePlanning planning = planningWith(executor);
+
+        assertThatExceptionOfType(ZoneResolutionException.class)
+                .as("with no zone derivable and none picked, the form must ask for one")
+                .isThrownBy(() -> planning.planConference(
+                        requestAt("Springfield", "Freedonia", null), NOW, UUID.randomUUID()));
+        assertThat(executor.emitted)
+                .isEmpty();
+    }
+
+    @Test
+    void anUnresolvableVenueIsPlannedOnceAZoneIsPicked() {
+        RecordingCommandExecutor executor = new RecordingCommandExecutor();
+        ConferencePlanning planning = planningWith(executor);
+
+        planning.planConference(requestAt("Springfield", "Freedonia", "US_CENTRAL"),
+                                NOW, UUID.randomUUID());
+
+        assertThat(executor.emitted)
+                .as("an explicit pick is what makes an unresolvable location usable")
+                .singleElement()
+                .isInstanceOf(ConferencePlanned.class);
+    }
+
     /**
      * <strong>Refused before anything is written.</strong> The domain refuses this too, but only
      * once the plan command has already landed — which would leave a conference planned and a form
@@ -203,6 +245,15 @@ class ConferencePlanningTest {
                 LocalDateTime.of(2026, 11, 5, 9, 0), LocalDateTime.of(2026, 11, 5, 18, 0),
                 "Reehorst", null, "Ede", null, "Netherlands", null, null,
                 format, infoUrl, cfpClosesOn, cfpSubmissionUrl);
+    }
+
+    /** The same form with no CFP, at a venue whose zone may or may not be derivable. */
+    private static PlanConferenceRequest requestAt(String city, String country, String zone) {
+        return new PlanConferenceRequest(
+                UUID.randomUUID().toString(), "J-Fall",
+                LocalDateTime.of(2026, 11, 5, 9, 0), LocalDateTime.of(2026, 11, 5, 18, 0),
+                "Reehorst", null, city, null, country, null, zone,
+                null, null, null, null);
     }
 
     /**

@@ -47,10 +47,33 @@ class PlanPrivateEventCommandTest {
     }
 
     @Test
-    void privateEventLaterTodayThrowsPrivateEventDateNotInFuture() {
-        // The rule is about the date, not the moment: 18:00 is still ahead of NOW (13:00), but a
-        // private event must be planned for a later day.
+    void privateEventLaterTodayIsAccepted() {
+        // Plans can be last-minute: a dinner arranged this morning for this evening is plannable.
         PlanPrivateEventCommand command = commandFor(londonTime(TODAY, START), londonTime(TODAY, END));
+
+        List<PrivateEventPlanned> events = command.execute(new PlanPrivateEventContext(NOW)).toList();
+
+        assertThat(events)
+                .hasSize(1);
+    }
+
+    @Test
+    void privateEventEarlierTodayIsAccepted() {
+        // The rule is about the date, not the moment: a start already behind NOW is still today.
+        PlanPrivateEventCommand command = commandFor(
+                londonTime(TODAY, LocalTime.of(9, 0)), londonTime(TODAY, LocalTime.of(11, 0)));
+
+        List<PrivateEventPlanned> events = command.execute(new PlanPrivateEventContext(NOW)).toList();
+
+        assertThat(events)
+                .hasSize(1);
+    }
+
+    @Test
+    void privateEventLateYesterdayThrowsPrivateEventDateNotInFuture() {
+        PlanPrivateEventCommand command = commandFor(
+                londonTime(TODAY.minusDays(1), LocalTime.of(23, 0)),
+                londonTime(TODAY.minusDays(1), LocalTime.of(23, 59)));
 
         assertThatThrownBy(() -> command.execute(new PlanPrivateEventContext(NOW)))
                 .isInstanceOf(PrivateEventDateNotInFuture.class);
@@ -66,13 +89,13 @@ class PlanPrivateEventCommandTest {
     }
 
     @Test
-    void futureDateIsJudgedAtTheVenueNotInUtc() {
-        // 20:00 UTC on 1 June is already 08:00 on 2 June in Auckland, so an Auckland event that
-        // evening is *today* there and must be rejected — even though its date is "tomorrow" by UTC.
+    void todayIsJudgedAtTheVenueNotInUtc() {
+        // 20:00 UTC on 1 June is already 08:00 on 2 June in Auckland, so an Auckland event on
+        // 1 June is *yesterday* there and must be rejected — even though 1 June is still today by UTC.
         ZoneId auckland = ZoneId.of("Pacific/Auckland");
         Instant now = Instant.parse("2026-06-01T20:00:00Z");
-        ZonedTimestamp startsAt = ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 2, 19, 0), auckland);
-        ZonedTimestamp endsAt = ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 2, 21, 0), auckland);
+        ZonedTimestamp startsAt = ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, 19, 0), auckland);
+        ZonedTimestamp endsAt = ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, 21, 0), auckland);
 
         PlanPrivateEventCommand command = commandFor(startsAt, endsAt);
 

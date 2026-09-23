@@ -13,10 +13,10 @@ public record PlanPrivateEventCommand(
 
     @Override
     public Stream<PrivateEventPlanned> execute(PlanPrivateEventContext context) {
-        // Same rule as a gathering: a private event must be planned for a later *date*, not merely
-        // a later moment — judged in the event's own zone rather than the server's.
-        if (startsAt == null || !startsAt.isOnDayAfter(context.now())) {
-            throw new PrivateEventDateNotInFuture("Private event date must be in the future");
+        // Same rule as a gathering: today or later, judged by *date* in the event's own zone
+        // rather than the server's. Today is allowed because plans can be last-minute.
+        if (startsAt == null || !startsAt.isOnOrAfterDayOf(context.now())) {
+            throw new PrivateEventDateNotInFuture("Private event date must be today or later");
         }
         // Both endpoints share the venue's zone, so comparing instants is the same as comparing
         // wall-clock — and stays right if that ever stops being true.

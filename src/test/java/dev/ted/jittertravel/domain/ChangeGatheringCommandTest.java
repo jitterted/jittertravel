@@ -59,10 +59,48 @@ class ChangeGatheringCommandTest {
     }
 
     @Test
-    void newDateLaterTodayThrowsGatheringDateNotInFuture() {
+    void newDateLaterTodayIsAccepted() {
         ChangeGatheringCommand command = commandFor(londonTime(TODAY, START), londonTime(TODAY, END));
 
+        List<GatheringChanged> events = command.execute(new ChangeGatheringContext(true, NOW)).toList();
+
+        assertThat(events)
+                .hasSize(1);
+    }
+
+    @Test
+    void newDateEarlierTodayIsAccepted() {
+        // The rule is day-granularity: a start that has already passed today is still "today".
+        ChangeGatheringCommand command = commandFor(
+                londonTime(TODAY, LocalTime.of(9, 0)), londonTime(TODAY, LocalTime.of(11, 0)));
+
+        List<GatheringChanged> events = command.execute(new ChangeGatheringContext(true, NOW)).toList();
+
+        assertThat(events)
+                .hasSize(1);
+    }
+
+    @Test
+    void newDateLateYesterdayThrowsGatheringDateNotInFuture() {
+        ChangeGatheringCommand command = commandFor(
+                londonTime(TODAY.minusDays(1), LocalTime.of(23, 0)),
+                londonTime(TODAY.minusDays(1), LocalTime.of(23, 59)));
+
         assertThatThrownBy(() -> command.execute(new ChangeGatheringContext(true, NOW)))
+                .isInstanceOf(GatheringDateNotInFuture.class);
+    }
+
+    @Test
+    void todayIsJudgedInTheGatheringsOwnZone() {
+        // 16:00Z on 1 June is still 1 June in London but already 01:00 on 2 June in Tokyo.
+        ZoneId tokyo = ZoneId.of("Asia/Tokyo");
+        Instant lateUtc = Instant.parse("2026-06-01T16:00:00Z");
+        ChangeGatheringCommand command = commandFor(
+                ZonedTimestamp.fromLocal(TODAY.atTime(START), tokyo),
+                ZonedTimestamp.fromLocal(TODAY.atTime(END), tokyo));
+
+        assertThatThrownBy(() -> command.execute(new ChangeGatheringContext(true, lateUtc)))
+                .as("1 June in Tokyo is yesterday once it is 2 June there")
                 .isInstanceOf(GatheringDateNotInFuture.class);
     }
 

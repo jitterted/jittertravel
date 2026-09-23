@@ -10,9 +10,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
- * The venue zone is what every rule is read in: "at least a day out" asks whether the conference
- * starts on a later calendar day <em>where it happens</em>, so the answer never depends on where
- * the server runs. The test JVM is pinned to UTC (pom.xml), so the fixtures deliberately sit in a
+ * The venue zone is what every rule is read in: "not yet ended" asks whether the conference's last
+ * day is today or later <em>where it happens</em>, so the answer never depends on where the server
+ * runs. The test JVM is pinned to UTC (pom.xml), so the fixtures deliberately sit in a
  * far-away zone — a rule accidentally evaluated in the server zone fails here.
  */
 class PlanConferenceCommandTest {
@@ -22,26 +22,64 @@ class PlanConferenceCommandTest {
                                                      "94103", "USA", null);
 
     @Test
-    void startLaterOnTheSameVenueDayIsRejected() {
-        Instant now = instantAt(LocalDateTime.of(2026, 5, 16, 10, 0));
+    void aConferenceAlreadyUnderwayIsAccepted() {
+        Instant now = instantAt(LocalDateTime.of(2026, 9, 23, 10, 0));
 
-        assertThatExceptionOfType(DateRangeNotInFuture.class)
-                .isThrownBy(() -> conference(LocalDateTime.of(2026, 5, 16, 18, 0),
-                                             LocalDateTime.of(2026, 5, 18, 17, 0))
+        var events = conference(LocalDateTime.of(2026, 9, 21, 9, 0),
+                                LocalDateTime.of(2026, 9, 25, 17, 0))
+                .execute(new PlanConferenceContext(now)).toList();
+
+        assertThat(events)
+                .as("Ted may go to one he only just heard about, after it has started")
+                .hasSize(1);
+    }
+
+    @Test
+    void theLastDayItselfIsAcceptedEvenAfterItsEndTime() {
+        Instant now = instantAt(LocalDateTime.of(2026, 9, 25, 20, 0));
+
+        var events = conference(LocalDateTime.of(2026, 9, 21, 9, 0),
+                                LocalDateTime.of(2026, 9, 25, 17, 0))
+                .execute(new PlanConferenceContext(now)).toList();
+
+        assertThat(events)
+                .as("'ended' is a calendar-day question: the last day is still today")
+                .hasSize(1);
+    }
+
+    @Test
+    void aConferenceThatEndedYesterdayIsRejected() {
+        Instant now = instantAt(LocalDateTime.of(2026, 9, 26, 0, 30));
+
+        assertThatExceptionOfType(ConferenceAlreadyEnded.class)
+                .isThrownBy(() -> conference(LocalDateTime.of(2026, 9, 21, 9, 0),
+                                             LocalDateTime.of(2026, 9, 25, 23, 0))
                         .execute(new PlanConferenceContext(now)).toList());
     }
 
     @Test
-    void startOnTheNextVenueDayIsAcceptedEvenIfLessThanTwentyFourHoursAway() {
-        Instant now = instantAt(LocalDateTime.of(2026, 5, 16, 10, 0));
+    void theLastDayIsJudgedAtTheVenueNotInUtc() {
+        // 02:00Z on 26 September is still 19:00 on the 25th in San Francisco.
+        Instant now = Instant.parse("2026-09-26T02:00:00Z");
 
-        var events = conference(LocalDateTime.of(2026, 5, 17, 9, 0),
-                                LocalDateTime.of(2026, 5, 18, 17, 0))
+        var events = conference(LocalDateTime.of(2026, 9, 21, 9, 0),
+                                LocalDateTime.of(2026, 9, 25, 17, 0))
                 .execute(new PlanConferenceContext(now)).toList();
 
         assertThat(events)
-                .as("the rule is 'a later day at the venue', not 'a full 24 hours out'")
+                .as("the 25th is still today at the venue, though it is already the 26th in UTC")
                 .hasSize(1);
+    }
+
+    @Test
+    void aBackwardsRangeIsReportedEvenWhenItHasAlsoEnded() {
+        Instant now = instantAt(LocalDateTime.of(2026, 9, 26, 10, 0));
+
+        assertThatExceptionOfType(InvalidDateRange.class)
+                .as("a backwards range is a typo, and the more useful thing to report")
+                .isThrownBy(() -> conference(LocalDateTime.of(2026, 9, 21, 9, 0),
+                                             LocalDateTime.of(2026, 9, 20, 17, 0))
+                        .execute(new PlanConferenceContext(now)).toList());
     }
 
     @Test

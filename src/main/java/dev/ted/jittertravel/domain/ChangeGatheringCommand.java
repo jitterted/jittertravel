@@ -4,11 +4,12 @@ import java.util.stream.Stream;
 
 /**
  * Changes an existing planned gathering in place, keeping the same {@link GatheringId}. Validation
- * rules (same as planning, plus existence):
+ * rules:
  * <ul>
  *   <li>The gathering must already exist ({@link GatheringNotFound} otherwise).</li>
- *   <li>The new date must be in the future, judged in the gathering's own zone
- *       ({@link GatheringDateNotInFuture}).</li>
+ *   <li>The new date must be today or later, judged in the gathering's own zone
+ *       ({@link GatheringDateNotInFuture}). Unlike planning, today is allowed: a gathering
+ *       happening today can still have its details corrected.</li>
  *   <li>The end must be after the start ({@link InvalidGatheringTimeRange}).</li>
  * </ul>
  * Emits a single {@link GatheringChanged} event carrying the full new snapshot.
@@ -29,8 +30,8 @@ public record ChangeGatheringCommand(
         if (!context.gatheringExists()) {
             throw new GatheringNotFound("No gathering exists with that gatheringId");
         }
-        if (startsAt == null || !startsAt.isOnDayAfter(context.now())) {
-            throw new GatheringDateNotInFuture("Gathering date must be in the future");
+        if (startsAt == null || !startsAt.isOnOrAfterDayOf(context.now())) {
+            throw new GatheringDateNotInFuture("Gathering date must be today or later");
         }
         if (endsAt == null || !endsAt.utc().isAfter(startsAt.utc())) {
             throw new InvalidGatheringTimeRange("End time must be after start time");

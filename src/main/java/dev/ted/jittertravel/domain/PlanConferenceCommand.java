@@ -28,17 +28,17 @@ public record PlanConferenceCommand(
 
     @Override
     public Stream<ConferencePlanned> execute(PlanConferenceContext context) {
-        // "At least a day out" is a calendar-day question read in the venue's own zone, matching
-        // PlanGatheringCommand. It used to be a 24-hour wall-clock comparison against the server's
-        // clock, so a conference starting tomorrow morning is now accepted even when that is less
-        // than 24 hours away — which is what "at least 1 day in the future" reads as.
-        if (startDate == null || !startDate.isOnDayAfter(context.now())) {
-            throw new DateRangeNotInFuture("Start date must be at least 1 day in the future");
-        }
+        // A backwards range is checked first: it is a typo, and the more useful thing to report.
         // Both endpoints share the venue's zone, so comparing instants is the same as comparing
         // wall-clock — and stays right if that ever stops being true.
-        if (endDate == null || endDate.utc().isBefore(startDate.utc())) {
+        if (startDate == null || endDate == null || endDate.utc().isBefore(startDate.utc())) {
             throw new InvalidDateRange("End date must be on or after start date");
+        }
+        // Only a conference that is over is refused: Ted may go to one he only just heard about,
+        // even after it has started (Ted, 2026-09-22). "Over" is a calendar-day question read in
+        // the venue's own zone, so the last day itself still counts.
+        if (!endDate.isOnOrAfterDayOf(context.now())) {
+            throw new ConferenceAlreadyEnded("Conference has already ended");
         }
         return Stream.of(new ConferencePlanned(
                 conferenceId, name, startDate, endDate, venueName, venueAddress, format, infoUrl));

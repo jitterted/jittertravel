@@ -43,9 +43,9 @@ public class PlanConferenceHandler {
     }
 
     /**
-     * A missing date stays null for the command to reject ({@code DateRangeNotInFuture} /
-     * {@code InvalidDateRange}), which the controller maps to a field error — rather than the
-     * handler throwing a raw NPE the form has no way to report.
+     * A missing date stays null for the command to reject ({@code InvalidDateRange}), which the
+     * controller maps to a field error — rather than the handler throwing a raw NPE the form has no
+     * way to report.
      */
     private ZonedTimestamp zonedOrNull(LocalDateTime wallClock, ZoneId zone) {
         return wallClock == null ? null : ZonedTimestamp.fromLocal(wallClock, zone);

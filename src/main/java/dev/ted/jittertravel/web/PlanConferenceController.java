@@ -8,9 +8,9 @@ import dev.ted.jittertravel.application.ConferenceDashboard;
 import dev.ted.jittertravel.application.DroppedView;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.CommonZone;
+import dev.ted.jittertravel.domain.ConferenceAlreadyEnded;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceHasNoCfp;
-import dev.ted.jittertravel.domain.DateRangeNotInFuture;
 import dev.ted.jittertravel.domain.InvalidDateRange;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.slf4j.Logger;
@@ -101,8 +101,8 @@ public class PlanConferenceController {
             // form carried a CFP — it costs nothing unused, and branching on the form's contents
             // out here would put the decision in the wrong place.
             applicationService.planConference(command, Instant.now(clock), UUID.randomUUID());
-        } catch (DateRangeNotInFuture e) {
-            bindingResult.rejectValue("startDate", "future", e.getMessage());
+        } catch (ConferenceAlreadyEnded e) {
+            bindingResult.rejectValue("endDate", "ended", e.getMessage());
         } catch (InvalidDateRange e) {
             bindingResult.rejectValue("endDate", "afterStartDate", e.getMessage());
         } catch (ConferenceHasNoCfp e) {

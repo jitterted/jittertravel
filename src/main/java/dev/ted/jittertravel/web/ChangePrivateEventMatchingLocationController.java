@@ -34,13 +34,13 @@ import java.util.UUID;
 @Controller
 public class ChangePrivateEventMatchingLocationController {
 
-    private final ChangePrivateEventMatchingLocation applicationService;
+    private final ChangePrivateEventMatchingLocation changePrivateEventMatchingLocation;
     private final PrivateEventMatchingLocationViewProjector viewProjector;
 
     public ChangePrivateEventMatchingLocationController(
-            ChangePrivateEventMatchingLocation applicationService,
+            ChangePrivateEventMatchingLocation changePrivateEventMatchingLocation,
             PrivateEventMatchingLocationViewProjector viewProjector) {
-        this.applicationService = applicationService;
+        this.changePrivateEventMatchingLocation = changePrivateEventMatchingLocation;
         this.viewProjector = viewProjector;
     }
 
@@ -82,7 +82,7 @@ public class ChangePrivateEventMatchingLocationController {
             // The commandId, the one nondeterministic input, is captured here at the boundary.
             // The evening comes from the path, never from the form: the request has no id
             // component, so there is nothing on the page a crafted POST could re-target.
-            applicationService.changeMatchingLocation(UUID.randomUUID(),
+            changePrivateEventMatchingLocation.changeMatchingLocation(UUID.randomUUID(),
                                                       view.privateEventId().id(), request);
         } catch (InvalidMatchingLocation e) {
             // Field-level, under the input that fixes it — the error goes where the fix is, not

@@ -51,14 +51,14 @@ public class RecordTalkController {
 
     private static final Logger log = LoggerFactory.getLogger(RecordTalkController.class);
 
-    private final TalkTracking applicationService;
+    private final TalkTracking talkTracking;
     private final ConferenceProjector projector;
     private final Clock clock;
 
-    public RecordTalkController(TalkTracking applicationService,
+    public RecordTalkController(TalkTracking talkTracking,
                                 ConferenceProjector projector,
                                 Clock clock) {
-        this.applicationService = applicationService;
+        this.talkTracking = talkTracking;
         this.projector = projector;
         this.clock = clock;
     }
@@ -95,7 +95,7 @@ public class RecordTalkController {
             // commandId and the timestamp — the nondeterministic inputs — are captured here at the
             // boundary. The timestamp is when Ted recorded this, never when the organizers decided:
             // the app cannot know that, and does not pretend to.
-            applicationService.record(UUID.randomUUID(),
+            talkTracking.record(UUID.randomUUID(),
                     new RecordTalkRequest(conference.conferenceId().id(), outcome.get()),
                     Instant.now(clock));
         } catch (ConferenceNotFound e) {

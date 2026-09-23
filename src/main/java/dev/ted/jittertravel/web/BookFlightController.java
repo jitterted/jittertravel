@@ -34,17 +34,17 @@ import java.util.UUID;
 public class BookFlightController {
 
     private static final Logger log = LoggerFactory.getLogger(BookFlightController.class);
-    private final FlightBooking applicationService;
+    private final FlightBooking flightBooking;
     private final AeroDataBoxClient aeroDataBoxClient;
     private final Clock clock;
 
     private final AirportCityResolver airportCities;
 
-    public BookFlightController(FlightBooking applicationService,
+    public BookFlightController(FlightBooking flightBooking,
                                 AeroDataBoxClient aeroDataBoxClient,
                                 AirportCityResolver airportCities,
                                 Clock clock) {
-        this.applicationService = applicationService;
+        this.flightBooking = flightBooking;
         this.aeroDataBoxClient = aeroDataBoxClient;
         this.airportCities = airportCities;
         this.clock = clock;
@@ -68,7 +68,7 @@ public class BookFlightController {
                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
                                  @RequestParam(required = false) String fromCity,
                                  @RequestParam(required = false) String toCity) {
-        if (applicationService.isReadOnly()) {
+        if (flightBooking.isReadOnly()) {
             return "redirect:/read-only";
         }
         BookFlightRequest request = new BookFlightRequest();
@@ -94,7 +94,7 @@ public class BookFlightController {
                                    BindingResult bindingResult,
                                    @RequestParam(value = "from", required = false) String from,
                                    Model model) {
-        if (applicationService.isReadOnly()) {
+        if (flightBooking.isReadOnly()) {
             return "redirect:/read-only";
         }
         // Binding failed: a date left blank, or one that would not parse. Those values are null on
@@ -104,7 +104,7 @@ public class BookFlightController {
         }
 
         try {
-            applicationService.bookFlight(command, Instant.now(clock));
+            flightBooking.bookFlight(command, Instant.now(clock));
         } catch (DepartureNotInFuture e) {
             bindingResult.rejectValue("departureDateTime", "future", e.getMessage());
         } catch (InvalidDateRange e) {
@@ -138,7 +138,7 @@ public class BookFlightController {
                                @RequestParam("lookupDepartureDate")
                                @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate departureDate,
                                Model model) {
-        if (applicationService.isReadOnly()) {
+        if (flightBooking.isReadOnly()) {
             return "redirect:/read-only";
         }
 
@@ -182,7 +182,7 @@ public class BookFlightController {
                             @RequestParam("lookupDepartureDate")
                             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate lookupDepartureDate,
                             Model model) {
-        if (applicationService.isReadOnly()) {
+        if (flightBooking.isReadOnly()) {
             return "redirect:/read-only";
         }
 

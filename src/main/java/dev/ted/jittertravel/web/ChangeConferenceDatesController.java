@@ -35,12 +35,12 @@ public class ChangeConferenceDatesController {
 
     private static final Logger log = LoggerFactory.getLogger(ChangeConferenceDatesController.class);
 
-    private final ChangeConferenceDates applicationService;
+    private final ChangeConferenceDates changeConferenceDates;
     private final ConferenceProjector projector;
 
-    public ChangeConferenceDatesController(ChangeConferenceDates applicationService,
+    public ChangeConferenceDatesController(ChangeConferenceDates changeConferenceDates,
                                            ConferenceProjector projector) {
-        this.applicationService = applicationService;
+        this.changeConferenceDates = changeConferenceDates;
         this.projector = projector;
     }
 
@@ -78,7 +78,7 @@ public class ChangeConferenceDatesController {
         try {
             // commandId is the nondeterministic input, captured here at the boundary. The
             // conference comes from the path, and the zone from the stream — neither is on the form.
-            applicationService.changeDates(UUID.randomUUID(), conference.conferenceId().id(), request);
+            changeConferenceDates.changeDates(UUID.randomUUID(), conference.conferenceId().id(), request);
         } catch (InvalidDateRange e) {
             bindingResult.rejectValue("endDate", "afterStartDate", e.getMessage());
             return "change-conference-dates";

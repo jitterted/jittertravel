@@ -27,12 +27,12 @@ import java.util.UUID;
 @Controller
 public class CancelHotelController {
 
-    private final CancelHotel applicationService;
+    private final CancelHotel cancelHotel;
     private final HotelDetailsViewProjector detailsProjector;
 
-    public CancelHotelController(CancelHotel applicationService,
+    public CancelHotelController(CancelHotel cancelHotel,
                                  HotelDetailsViewProjector detailsProjector) {
-        this.applicationService = applicationService;
+        this.cancelHotel = cancelHotel;
         this.detailsProjector = detailsProjector;
     }
 
@@ -65,7 +65,7 @@ public class CancelHotelController {
 
         try {
             // The commandId, the one nondeterministic input, is captured here at the boundary.
-            applicationService.cancelHotel(UUID.randomUUID(),
+            cancelHotel.cancelHotel(UUID.randomUUID(),
                     new CancelHotelRequest(hotelBookingId, reason));
         } catch (HotelBookingNotFound e) {
             // The booking is already gone (e.g. cancelled in another tab); there is nothing left to

@@ -36,12 +36,12 @@ public class CancelTrainController {
 
     private static final Logger log = LoggerFactory.getLogger(CancelTrainController.class);
 
-    private final CancelTrain applicationService;
+    private final CancelTrain cancelTrain;
     private final TrainDetailsViewProjector detailsProjector;
 
-    public CancelTrainController(CancelTrain applicationService,
+    public CancelTrainController(CancelTrain cancelTrain,
                                  TrainDetailsViewProjector detailsProjector) {
-        this.applicationService = applicationService;
+        this.cancelTrain = cancelTrain;
         this.detailsProjector = detailsProjector;
     }
 
@@ -67,7 +67,7 @@ public class CancelTrainController {
 
         try {
             // The commandId, the one nondeterministic input, is captured here at the boundary.
-            applicationService.cancelTrain(UUID.randomUUID(),
+            cancelTrain.cancelTrain(UUID.randomUUID(),
                     new CancelTrainRequest(maybe.get().tripId().id(), reason));
         } catch (TrainNotFound e) {
             // Already cancelled in another tab: there is nothing left to cancel, and nothing to

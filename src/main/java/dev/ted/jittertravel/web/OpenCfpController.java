@@ -40,11 +40,11 @@ public class OpenCfpController {
 
     private static final Logger log = LoggerFactory.getLogger(OpenCfpController.class);
 
-    private final OpenCfp applicationService;
+    private final OpenCfp openCfp;
     private final ConferenceProjector projector;
 
-    public OpenCfpController(OpenCfp applicationService, ConferenceProjector projector) {
-        this.applicationService = applicationService;
+    public OpenCfpController(OpenCfp openCfp, ConferenceProjector projector) {
+        this.openCfp = openCfp;
         this.projector = projector;
     }
 
@@ -82,7 +82,7 @@ public class OpenCfpController {
         try {
             // commandId is the nondeterministic input, captured here at the boundary; the deadline's
             // zone comes from the conference's own dates rather than the clock or the resolver.
-            applicationService.openCfp(UUID.randomUUID(),
+            openCfp.openCfp(UUID.randomUUID(),
                     new OpenCfpRequest(conference.conferenceId().id(), closesOn, submissionUrl),
                     ZonedTimestamp.fromLocal(closesOn, conference.startDate().zone()));
         } catch (ConferenceNotFound e) {

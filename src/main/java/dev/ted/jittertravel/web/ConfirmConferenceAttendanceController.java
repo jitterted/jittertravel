@@ -39,14 +39,14 @@ public class ConfirmConferenceAttendanceController {
 
     private static final Logger log = LoggerFactory.getLogger(ConfirmConferenceAttendanceController.class);
 
-    private final ConfirmConferenceAttendance applicationService;
+    private final ConfirmConferenceAttendance confirmConferenceAttendance;
     private final ConferenceProjector projector;
     private final Clock clock;
 
-    public ConfirmConferenceAttendanceController(ConfirmConferenceAttendance applicationService,
+    public ConfirmConferenceAttendanceController(ConfirmConferenceAttendance confirmConferenceAttendance,
                                                  ConferenceProjector projector,
                                                  Clock clock) {
-        this.applicationService = applicationService;
+        this.confirmConferenceAttendance = confirmConferenceAttendance;
         this.projector = projector;
         this.clock = clock;
     }
@@ -103,7 +103,7 @@ public class ConfirmConferenceAttendanceController {
         try {
             // The commandId and confirmedOn — the nondeterministic inputs — are captured here at
             // the boundary.
-            applicationService.confirmAttendance(UUID.randomUUID(),
+            confirmConferenceAttendance.confirmAttendance(UUID.randomUUID(),
                     new ConfirmConferenceAttendanceRequest(conferenceId, basis.get()),
                     Instant.now(clock));
         } catch (ConferenceNotFound e) {

@@ -30,12 +30,12 @@ import java.util.UUID;
 @Controller
 public class CancelGroundTransferController {
 
-    private final CancelGroundTransfer applicationService;
+    private final CancelGroundTransfer cancelGroundTransfer;
     private final GroundTransferDetailsViewProjector detailsProjector;
 
-    public CancelGroundTransferController(CancelGroundTransfer applicationService,
+    public CancelGroundTransferController(CancelGroundTransfer cancelGroundTransfer,
                                           GroundTransferDetailsViewProjector detailsProjector) {
-        this.applicationService = applicationService;
+        this.cancelGroundTransfer = cancelGroundTransfer;
         this.detailsProjector = detailsProjector;
     }
 
@@ -65,7 +65,7 @@ public class CancelGroundTransferController {
 
         try {
             // The commandId, the one nondeterministic input, is captured here at the boundary.
-            applicationService.cancelGroundTransfer(UUID.randomUUID(),
+            cancelGroundTransfer.cancelGroundTransfer(UUID.randomUUID(),
                     new CancelGroundTransferRequest(maybe.get().groundTransferId().id()));
         } catch (GroundTransferNotFound e) {
             // Already cancelled in another tab: there is nothing left to cancel, and nothing to

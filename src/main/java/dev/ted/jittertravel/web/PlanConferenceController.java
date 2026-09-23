@@ -38,15 +38,15 @@ import java.util.UUID;
 public class PlanConferenceController {
 
     private static final Logger log = LoggerFactory.getLogger(PlanConferenceController.class);
-    private final ConferencePlanning applicationService;
+    private final ConferencePlanning conferencePlanning;
     private final ConferenceProjector projector;
-    private final ConferenceDashboard dashboard = new ConferenceDashboard();
+    private final ConferenceDashboard conferenceDashboard = new ConferenceDashboard();
     private final Clock clock;
 
-    public PlanConferenceController(ConferencePlanning applicationService,
+    public PlanConferenceController(ConferencePlanning conferencePlanning,
                                     ConferenceProjector projector,
                                     Clock clock) {
-        this.applicationService = applicationService;
+        this.conferencePlanning = conferencePlanning;
         this.projector = projector;
         this.clock = clock;
     }
@@ -64,7 +64,7 @@ public class PlanConferenceController {
     @GetMapping("/plan-conference")
     public String planConferenceForm(Model model,
                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        if (applicationService.isReadOnly()) {
+        if (conferencePlanning.isReadOnly()) {
             return "redirect:/read-only";
         }
         // ?date= from the calendar day-menu seeds the start day; the default (one week out)
@@ -87,7 +87,7 @@ public class PlanConferenceController {
     public String planConferenceSubmit(@ModelAttribute("planConference")
                                            PlanConferenceRequest command,
                                        BindingResult bindingResult) {
-        if (applicationService.isReadOnly()) {
+        if (conferencePlanning.isReadOnly()) {
             return "redirect:/read-only";
         }
         // A date left blank, or one that would not parse, is null on the request.
@@ -100,7 +100,7 @@ public class PlanConferenceController {
             // boundary; the zone is resolved inward. The second id is minted whether or not the
             // form carried a CFP — it costs nothing unused, and branching on the form's contents
             // out here would put the decision in the wrong place.
-            applicationService.planConference(command, Instant.now(clock), UUID.randomUUID());
+            conferencePlanning.planConference(command, Instant.now(clock), UUID.randomUUID());
         } catch (ConferenceAlreadyEnded e) {
             bindingResult.rejectValue("endDate", "ended", e.getMessage());
         } catch (InvalidDateRange e) {
@@ -145,7 +145,7 @@ public class PlanConferenceController {
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
                 .body(ConferencesRenderer.render(
-                        dashboard.sections(projector.views(timeView, droppedView, now), now),
+                        conferenceDashboard.sections(projector.views(timeView, droppedView, now), now),
                         timeView, droppedView, projector.droppedCount(timeView, now)));
     }
 

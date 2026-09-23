@@ -26,14 +26,14 @@ import java.util.UUID;
 @Controller
 public class ChangeTrainController {
 
-    private final ChangeTrain applicationService;
+    private final ChangeTrain changeTrain;
     private final TrainDetailsViewProjector detailsProjector;
     private final Clock clock;
 
-    public ChangeTrainController(ChangeTrain applicationService,
+    public ChangeTrainController(ChangeTrain changeTrain,
                                  TrainDetailsViewProjector detailsProjector,
                                  Clock clock) {
-        this.applicationService = applicationService;
+        this.changeTrain = changeTrain;
         this.detailsProjector = detailsProjector;
         this.clock = clock;
     }
@@ -73,7 +73,7 @@ public class ChangeTrainController {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
             // The trip comes from the path, never from the form: the request has no id component,
             // so there is nothing on the page a crafted POST could re-target.
-            applicationService.changeTrain(UUID.randomUUID(), tripIdString, command,
+            changeTrain.changeTrain(UUID.randomUUID(), tripIdString, command,
                                            Instant.now(clock));
         } catch (TrainNotFound e) {
             // The trip vanished between GET and POST (e.g. removed in another tab). Report it on the

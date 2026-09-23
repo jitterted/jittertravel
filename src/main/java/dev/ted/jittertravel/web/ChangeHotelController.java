@@ -27,14 +27,14 @@ import java.util.UUID;
 @Controller
 public class ChangeHotelController {
 
-    private final ChangeHotel applicationService;
+    private final ChangeHotel changeHotel;
     private final HotelDetailsViewProjector detailsProjector;
     private final Clock clock;
 
-    public ChangeHotelController(ChangeHotel applicationService,
+    public ChangeHotelController(ChangeHotel changeHotel,
                                  HotelDetailsViewProjector detailsProjector,
                                  Clock clock) {
-        this.applicationService = applicationService;
+        this.changeHotel = changeHotel;
         this.detailsProjector = detailsProjector;
         this.clock = clock;
     }
@@ -73,7 +73,7 @@ public class ChangeHotelController {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
             // The booking comes from the path, never from the form: the request has no id
             // component, so there is nothing on the page a crafted POST could re-target.
-            applicationService.changeHotel(UUID.randomUUID(), hotelBookingIdString, command,
+            changeHotel.changeHotel(UUID.randomUUID(), hotelBookingIdString, command,
                                            Instant.now(clock));
         } catch (HotelBookingNotFound e) {
             // The booking vanished between GET and POST (e.g. cancelled in another tab). Report it

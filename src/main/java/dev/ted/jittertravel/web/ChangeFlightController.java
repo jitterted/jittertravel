@@ -29,16 +29,16 @@ public class ChangeFlightController {
 
     private static final Logger log = LoggerFactory.getLogger(ChangeFlightController.class);
 
-    private final ChangeFlight applicationService;
+    private final ChangeFlight changeFlight;
     private final FlightDetailsViewProjector detailsProjector;
     private final AeroDataBoxClient aeroDataBoxClient;
     private final Clock clock;
 
-    public ChangeFlightController(ChangeFlight applicationService,
+    public ChangeFlightController(ChangeFlight changeFlight,
                                   FlightDetailsViewProjector detailsProjector,
                                   AeroDataBoxClient aeroDataBoxClient,
                                   Clock clock) {
-        this.applicationService = applicationService;
+        this.changeFlight = changeFlight;
         this.detailsProjector = detailsProjector;
         this.aeroDataBoxClient = aeroDataBoxClient;
         this.clock = clock;
@@ -52,7 +52,7 @@ public class ChangeFlightController {
     @GetMapping("/booked-flights/{flightId}")
     public String changeFlightForm(@PathVariable("flightId") String flightIdString,
                                    Model model) {
-        if (applicationService.isReadOnly()) {
+        if (changeFlight.isReadOnly()) {
             return "redirect:/read-only";
         }
 
@@ -79,7 +79,7 @@ public class ChangeFlightController {
                                      @ModelAttribute("changeFlight") ChangeFlightRequest command,
                                      BindingResult bindingResult,
                                      Model model) {
-        if (applicationService.isReadOnly()) {
+        if (changeFlight.isReadOnly()) {
             return "redirect:/read-only";
         }
 
@@ -93,7 +93,7 @@ public class ChangeFlightController {
 
         try {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
-            applicationService.changeFlight(UUID.randomUUID(), command, Instant.now(clock));
+            changeFlight.changeFlight(UUID.randomUUID(), command, Instant.now(clock));
         } catch (FlightNotFound e) {
             // The flight vanished between GET and POST (e.g. removed in another tab). Report it on
             // the form itself — never by redirecting to the view-only list, which drops the flash.
@@ -132,7 +132,7 @@ public class ChangeFlightController {
                                @RequestParam("lookupDepartureDate")
                                @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate departureDate,
                                Model model) {
-        if (applicationService.isReadOnly()) {
+        if (changeFlight.isReadOnly()) {
             return "redirect:/read-only";
         }
 
@@ -175,7 +175,7 @@ public class ChangeFlightController {
                             @RequestParam("lookupDepartureDate")
                             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate lookupDepartureDate,
                             Model model) {
-        if (applicationService.isReadOnly()) {
+        if (changeFlight.isReadOnly()) {
             return "redirect:/read-only";
         }
 

@@ -34,14 +34,14 @@ public class DeclineConferenceController {
 
     private static final Logger log = LoggerFactory.getLogger(DeclineConferenceController.class);
 
-    private final DeclineConference applicationService;
+    private final DeclineConference declineConference;
     private final ConferenceProjector projector;
     private final Clock clock;
 
-    public DeclineConferenceController(DeclineConference applicationService,
+    public DeclineConferenceController(DeclineConference declineConference,
                                        ConferenceProjector projector,
                                        Clock clock) {
-        this.applicationService = applicationService;
+        this.declineConference = declineConference;
         this.projector = projector;
         this.clock = clock;
     }
@@ -76,7 +76,7 @@ public class DeclineConferenceController {
         try {
             // The commandId and declinedOn — the nondeterministic inputs — are captured here at the
             // boundary.
-            applicationService.declineConference(UUID.randomUUID(),
+            declineConference.declineConference(UUID.randomUUID(),
                     new DeclineConferenceRequest(conferenceId, reason), Instant.now(clock));
         } catch (ConferenceNotFound e) {
             // The conference is already gone (declined or cancelled in another tab); there is nothing

@@ -31,12 +31,12 @@ import java.util.UUID;
 @Controller
 public class CancelPrivateEventController {
 
-    private final CancelPrivateEvent applicationService;
+    private final CancelPrivateEvent cancelPrivateEvent;
     private final PrivateEventDetailsViewProjector detailsProjector;
 
-    public CancelPrivateEventController(CancelPrivateEvent applicationService,
+    public CancelPrivateEventController(CancelPrivateEvent cancelPrivateEvent,
                                         PrivateEventDetailsViewProjector detailsProjector) {
-        this.applicationService = applicationService;
+        this.cancelPrivateEvent = cancelPrivateEvent;
         this.detailsProjector = detailsProjector;
     }
 
@@ -67,7 +67,7 @@ public class CancelPrivateEventController {
 
         try {
             // The commandId, the one nondeterministic input, is captured here at the boundary.
-            applicationService.cancelPrivateEvent(UUID.randomUUID(),
+            cancelPrivateEvent.cancelPrivateEvent(UUID.randomUUID(),
                     new CancelPrivateEventRequest(maybe.get().privateEventId().id(), reason));
         } catch (PrivateEventNotFound e) {
             // Already cancelled in another tab: there is nothing left to cancel, and nothing to

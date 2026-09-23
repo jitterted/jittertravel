@@ -25,14 +25,14 @@ import java.util.UUID;
 @Controller
 public class ChangeGatheringController {
 
-    private final ChangeGathering applicationService;
+    private final ChangeGathering changeGathering;
     private final GatheringDetailsViewProjector detailsProjector;
     private final Clock clock;
 
-    public ChangeGatheringController(ChangeGathering applicationService,
+    public ChangeGatheringController(ChangeGathering changeGathering,
                                      GatheringDetailsViewProjector detailsProjector,
                                      Clock clock) {
-        this.applicationService = applicationService;
+        this.changeGathering = changeGathering;
         this.detailsProjector = detailsProjector;
         this.clock = clock;
     }
@@ -69,7 +69,7 @@ public class ChangeGatheringController {
             // Nondeterministic inputs (commandId, now) are captured here at the boundary.
             // The gathering comes from the path, never from the form: the request has no id
             // component, so there is nothing on the page a crafted POST could re-target.
-            applicationService.changeGathering(UUID.randomUUID(), gatheringIdString, command,
+            changeGathering.changeGathering(UUID.randomUUID(), gatheringIdString, command,
                                                Instant.now(clock));
         } catch (GatheringNotFound e) {
             // The gathering vanished between GET and POST (e.g. removed in another tab). Report it on

@@ -80,6 +80,27 @@ class ItineraryRendererTest {
         assertThat(html).doesNotContain("/itinerary?date=2026-06-01");
     }
 
+    @Test
+    void nextEntryLinksToTheDateItIsGiven() {
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1,
+                Optional.of(JUN_10), false, ZoneDisplay.entryOnly());
+
+        assertThat(html)
+                .contains("<a class=\"next-entry-link\" href=\"/itinerary?date=2026-06-10\">Next entry &rArr;</a>");
+    }
+
+    @Test
+    void nextEntryIsGreyedWithAReasonWhenNothingIsBookedFurtherOut() {
+        String html = ItineraryRenderer.render(
+                threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1,
+                Optional.empty(), false, ZoneDisplay.entryOnly());
+
+        assertThat(html)
+                .contains("<span class=\"next-entry-link next-entry-link--none\" title=\"Nothing booked after these days\">Next entry &rArr;</span>")
+                .doesNotContain("<a class=\"next-entry-link\"");
+    }
+
     // --- Day headers ---
 
     @Test

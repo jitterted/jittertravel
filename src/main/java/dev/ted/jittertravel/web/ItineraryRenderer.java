@@ -39,6 +39,7 @@ public class ItineraryRenderer {
                 .date-nav a { color: var(--accent-color); text-decoration: none; font-weight: 600; }
                 .date-nav a:hover { text-decoration: underline; }
                 .today-link--current { font-weight: 400; color: var(--muted-text); cursor: default; }
+                .next-entry-link--none { font-weight: 400; color: var(--muted-text); cursor: default; }
                 .itinerary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; align-items: start; }
                 .day-header { font-weight: 700; font-size: 1rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--border-color); margin-bottom: 0.6rem; color: var(--text-color); }
                 .empty-day { font-size: 0.85rem; color: var(--muted-text); font-style: italic; }
@@ -97,11 +98,12 @@ public class ItineraryRenderer {
             """;
 
     public static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate, LocalDate today, boolean isOwner) {
-        return render(days, prevDate, nextDate, today, isOwner, ZoneDisplay.entryOnly());
+        return render(days, prevDate, nextDate, today, Optional.empty(), isOwner, ZoneDisplay.entryOnly());
     }
 
     public static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate,
-                                LocalDate today, boolean isOwner, ZoneDisplay zoneDisplay) {
+                                LocalDate today, Optional<LocalDate> nextEntryDate,
+                                boolean isOwner, ZoneDisplay zoneDisplay) {
         return "<!DOCTYPE html>\n" + BrowserZoneScript.markRoot(html(
                 Page.head("Itinerary", CSS),
                 body(
@@ -110,7 +112,7 @@ public class ItineraryRenderer {
                                         "/itinerary"),
                                 h1("Itinerary"),
                                 ZoneToggle.render(zoneDisplay),
-                                renderDateNav(days, prevDate, nextDate, today),
+                                renderDateNav(days, prevDate, nextDate, today, nextEntryDate),
                                 div().withClass("itinerary-grid").with(
                                         days.stream().map(day -> renderDay(day, isOwner)).toList()
                                 )
@@ -120,7 +122,8 @@ public class ItineraryRenderer {
         ), zoneDisplay).withLang("en").render();
     }
 
-    private static DivTag renderDateNav(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate, LocalDate today) {
+    private static DivTag renderDateNav(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate,
+                                        LocalDate today, Optional<LocalDate> nextEntryDate) {
         DivTag dateNav = div().withClass("date-nav").with(
                 a().withHref("/itinerary?date=" + prevDate).with(rawHtml("&larr; Previous"))
         );
@@ -133,6 +136,15 @@ public class ItineraryRenderer {
             dateNav.with(a("Today").withClass("today-link").withHref("/itinerary?date=" + today));
         }
         dateNav.with(a().withHref("/itinerary?date=" + nextDate).with(rawHtml("Next &rarr;")));
+        // Greyed rather than dropped when nothing is booked further out, so the slot never empties.
+        // A double arrow, so a jump past empty days is not mistaken for the one-day step beside it.
+        dateNav.with(nextEntryDate
+                .<DomContent>map(date -> a().withClass("next-entry-link")
+                        .withHref("/itinerary?date=" + date)
+                        .with(rawHtml("Next entry &rArr;")))
+                .orElseGet(() -> span().withClass("next-entry-link next-entry-link--none")
+                        .withTitle("Nothing booked after these days")
+                        .with(rawHtml("Next entry &rArr;"))));
         return dateNav;
     }
 

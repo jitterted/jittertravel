@@ -21,6 +21,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 @Controller
 public class ItineraryController {
@@ -51,15 +52,17 @@ public class ItineraryController {
         boolean isOwner = request.isUserInRole("OWNER");
         ZoneDisplay zoneDisplay = viewerZonePolicy.forViewer(isOwner, request.isUserInRole("FAMILY"), tz);
         if (date == null) {
-            date = itineraryProjector.firstDateOnOrAfter(today);
+            date = today;
         }
         List<ItineraryDay> days = List.of(
                 dayFor(date),
                 dayFor(date.plusDays(1)),
                 dayFor(date.plusDays(2))
         );
+        // Past the three days on screen: an entry inside them is already visible.
+        Optional<LocalDate> nextEntryDate = itineraryProjector.firstEntryDateOnOrAfter(date.plusDays(3));
         String html = ItineraryRenderer.render(days, date.minusDays(1), date.plusDays(1), today,
-                isOwner, zoneDisplay);
+                nextEntryDate, isOwner, zoneDisplay);
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
                 .body(html);

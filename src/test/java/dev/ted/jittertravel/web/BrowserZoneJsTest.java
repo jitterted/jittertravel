@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -227,6 +228,6 @@ class BrowserZoneJsTest extends JsBehaviorTest {
                 new ItineraryDay(JUN_1.plusDays(1), List.of()),
                 new ItineraryDay(JUN_1.plusDays(2), List.of()));
         return ItineraryRenderer.render(days, JUN_1.minusDays(1), JUN_1.plusDays(1), JUN_1,
-                                        false, zoneDisplay);
+                                        Optional.empty(), false, zoneDisplay);
     }
 }

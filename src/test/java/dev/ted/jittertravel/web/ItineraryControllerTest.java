@@ -41,14 +41,29 @@ class ItineraryControllerTest {
 
     @Test
     void itineraryUrlMapsToOkWithHtmlContentType() {
-        given(projector.firstDateOnOrAfter(TODAY)).willReturn(TODAY);
-        given(projector.entriesForDate(TODAY)).willReturn(List.of());
-        given(projector.entriesForDate(TODAY.plusDays(1))).willReturn(List.of());
-        given(projector.entriesForDate(TODAY.plusDays(2))).willReturn(List.of());
-
         assertThat(mockMvc.get().uri("/itinerary"))
                 .hasStatusOk()
                 .hasContentTypeCompatibleWith(MediaType.TEXT_HTML);
+    }
+
+    @Test
+    void withNoDateTheItineraryStartsOnTodayEvenWhenTodayHasNoEntries() {
+        given(projector.firstEntryDateOnOrAfter(TODAY)).willReturn(Optional.of(TODAY.plusDays(1)));
+
+        assertThat(mockMvc.get().uri("/itinerary"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a href=\"/itinerary?date=2026-06-24\">&larr; Previous</a>");
+    }
+
+    @Test
+    void nextEntryLinkSearchesFromTheDayAfterTheThreeOnScreen() {
+        given(projector.firstEntryDateOnOrAfter(TODAY.plusDays(3))).willReturn(Optional.of(LocalDate.of(2026, 7, 14)));
+
+        assertThat(mockMvc.get().uri("/itinerary"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"next-entry-link\" href=\"/itinerary?date=2026-07-14\">Next entry &rArr;</a>");
     }
 
     @Test

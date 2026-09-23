@@ -24,27 +24,42 @@ class ItineraryProjectorTest {
     private static final LocalDateTime ARRIVAL = DATE.atTime(11, 15);
 
     @Test
-    void firstDateOnOrAfterReturnsTodayWhenNoEntries() {
+    void firstEntryDateOnOrAfterIsEmptyWhenNoEntries() {
         ItineraryProjector projector = new ItineraryProjector();
 
-        assertThat(projector.firstDateOnOrAfter(DATE))
-                .isEqualTo(DATE);
+        assertThat(projector.firstEntryDateOnOrAfter(DATE))
+                .as("No entries at all")
+                .isEmpty();
     }
 
     @Test
-    void firstDateOnOrAfterReturnsTodayWhenAllEntriesAreInPast() {
+    void firstEntryDateOnOrAfterIsEmptyWhenAllEntriesAreInPast() {
         ItineraryProjector projector = new ItineraryProjector();
         projector.handle(Stream.of(stored(new FlightBooked(
                 FlightId.random(), "BA", "BA1",
                 AirportCode.of("SFO"), zt(DATE.minusDays(5).atTime(9, 0)),
                 AirportCode.of("LHR"), zt(DATE.minusDays(4).atTime(17, 0))))));
 
-        assertThat(projector.firstDateOnOrAfter(DATE))
-                .isEqualTo(DATE);
+        assertThat(projector.firstEntryDateOnOrAfter(DATE))
+                .as("Every entry is before " + DATE)
+                .isEmpty();
     }
 
     @Test
-    void firstDateOnOrAfterReturnsEarliestFutureEntryDate() {
+    void firstEntryDateOnOrAfterIncludesAnEntryOnTheDateItself() {
+        ItineraryProjector projector = new ItineraryProjector();
+        projector.handle(Stream.of(stored(new FlightBooked(
+                FlightId.random(), "BA", "BA1",
+                AirportCode.of("SFO"), zt(DATE.atTime(9, 0)),
+                AirportCode.of("LHR"), zt(DATE.atTime(17, 0))))));
+
+        assertThat(projector.firstEntryDateOnOrAfter(DATE))
+                .as("An entry on " + DATE + " itself")
+                .hasValue(DATE);
+    }
+
+    @Test
+    void firstEntryDateOnOrAfterReturnsEarliestFutureEntryDate() {
         ItineraryProjector projector = new ItineraryProjector();
         LocalDate nextWeek = DATE.plusWeeks(1);
         LocalDate twoWeeks = DATE.plusWeeks(2);
@@ -56,8 +71,9 @@ class ItineraryProjectorTest {
                         AirportCode.of("LHR"), zt(nextWeek.atTime(10, 0)),
                         AirportCode.of("SFO"), zt(nextWeek.atTime(14, 0))))));
 
-        assertThat(projector.firstDateOnOrAfter(DATE))
-                .isEqualTo(nextWeek);
+        assertThat(projector.firstEntryDateOnOrAfter(DATE))
+                .as("The earlier of two future entries")
+                .hasValue(nextWeek);
     }
 
     @Test

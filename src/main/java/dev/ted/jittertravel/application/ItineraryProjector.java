@@ -66,7 +66,11 @@ public class ItineraryProjector implements EventStreamConsumer {
         });
     }
 
-    public LocalDate firstDateOnOrAfter(LocalDate date) {
+    /**
+     * The earliest day on or after {@code date} that has an entry of its own. An ongoing stay is
+     * not an entry: a day spent mid-stay has nothing on it to jump to.
+     */
+    public Optional<LocalDate> firstEntryDateOnOrAfter(LocalDate date) {
         return Stream.of(
                         flightEntries.values().stream().flatMap(List::stream),
                         trainEntries.values().stream().flatMap(List::stream),
@@ -79,8 +83,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                 .flatMap(s -> s)
                 .map(e -> e.anchorTime().toLocalDate())
                 .filter(d -> !d.isBefore(date))
-                .min(Comparator.naturalOrder())
-                .orElse(date);
+                .min(Comparator.naturalOrder());
     }
 
     /**

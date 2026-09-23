@@ -4,8 +4,10 @@ import dev.ted.jittertravel.application.ChangeFlight;
 import dev.ted.jittertravel.application.FlightDetailsView;
 import dev.ted.jittertravel.application.FlightDetailsViewProjector;
 import dev.ted.jittertravel.domain.AirportCode;
+import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightNotFound;
+import dev.ted.jittertravel.domain.InvalidDateRange;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.AeroDataBoxClient;
 import dev.ted.jittertravel.infrastructure.FlightLookupCandidates;
@@ -17,6 +19,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -141,7 +144,44 @@ class ChangeFlightWebIntegrationTest {
                 .param("arrivalDateTime", "2026-07-01T12:00"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("Flight not found");
+                .contains("<li>Flight not found</li>");
+    }
+
+    // Render checks for the two date inputs. Which refusal lands where is
+    // ChangeFlightControllerTest's to say; these prove the form can show it.
+
+    @Test
+    void aDepartureErrorRendersUnderTheDepartureTime() {
+        willThrow(new DepartureNotInFuture("Departure must be in the future"))
+                .given(changeFlight).changeFlight(any(), any(), any());
+
+        assertThat(submitChange())
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"error\">Departure must be in the future</span>");
+    }
+
+    @Test
+    void anArrivalErrorRendersUnderTheArrivalTime() {
+        willThrow(new InvalidDateRange("Arrival must be after departure"))
+                .given(changeFlight).changeFlight(any(), any(), any());
+
+        assertThat(submitChange())
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"error\">Arrival must be after departure</span>");
+    }
+
+    private MvcTestResult submitChange() {
+        return mockMvc.post().uri("/booked-flights/" + UUID.randomUUID())
+                .with(csrf())
+                .param("airline", "Lufthansa")
+                .param("flightNumber", "LH400")
+                .param("departureAirport", "SFO")
+                .param("departureDateTime", "2026-07-01T09:00")
+                .param("arrivalAirport", "MUC")
+                .param("arrivalDateTime", "2026-07-02T06:00")
+                .exchange();
     }
 
     @Test

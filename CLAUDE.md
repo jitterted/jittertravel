@@ -866,10 +866,9 @@ The replacement is the next section.
 
 Enforced — narrowly — by `TestsNeverWriteToABindingResultTest`: production code writes a
 `BindingResult` and tests only read one, so a `rejectValue(`/`bindingResult.reject(` in
-`src/test/java` is the catch-block copy. It holds a **shrink-only** list of the files that still do
-it, and fails if a listed file stops doing it, so a fix has to take its entry out. **It cannot see
-the second shape**, or a copy of anything else — apply the English rule in review and treat the
-test as the floor.
+`src/test/java` is the catch-block copy. It has **no exemption list**: the five classes that carried
+the copy when it arrived were all replaced the same day. **It cannot see the second shape**, or a
+copy of anything else — apply the English rule in review and treat the test as the floor.
 
 ### Testing a form's validation: three claims, three tiers — this is the standard
 

@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.ChangeFlightCommand;
+import dev.ted.jittertravel.domain.InvalidAirportCode;
 import dev.ted.jittertravel.web.ChangeFlightRequest;
 import org.junit.jupiter.api.Test;
 
@@ -9,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ChangeFlightHandlerTest {
 
@@ -34,6 +36,16 @@ class ChangeFlightHandlerTest {
                 .handle(requestWithReason("  Schedule shifted by airline  "));
 
         assertThat(command.reason()).isEqualTo("Schedule shifted by airline");
+    }
+
+    /** A malformed code is refused as a code, before any zone question can be asked of it. */
+    @Test
+    void aMalformedAirportCodeIsRejectedAsACode() {
+        ChangeFlightRequest request = requestWithReason("");
+        request.setDepartureAirport("BADCODE");
+
+        assertThatThrownBy(() -> new ChangeFlightHandler(new AirportZoneResolver()).handle(request))
+                .isInstanceOf(InvalidAirportCode.class);
     }
 
     private ChangeFlightRequest requestWithReason(String reason) {

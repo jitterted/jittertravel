@@ -839,6 +839,23 @@ silently off. Prefer the fail-fast form for anything whose absence is a bug rath
 
 ## Testing
 
+### Test double terminology
+
+Use Meszaros's names (<http://gerardmeszaros.com/Test%20Double.html>), and use them exactly
+(Ted, 2026-09-22):
+
+- **Stub** — returns programmed answers, or throws programmed exceptions.
+- **Fake** — a simplified *working* implementation (e.g. an in-memory store). There is no
+  "programmable fake"; a double told what to answer is a stub.
+- **Spy** — records the calls made to it, for the test to inspect afterwards.
+- **Mock** — verifies that the calls it expected were made.
+
+Name a double by what it *does* in the test, not by the library that built it: a Mockito
+`@MockitoBean` given `willThrow(...)` and never verified is a stub. Examples in the tree: the
+`refusing(...)` services in the `*ControllerTest` classes are stubs; `ConferencePlanningTest`'s
+`RecordingCommandExecutor` runs each command for real and keeps the events in memory — a fake
+that also records what it emitted.
+
 ### A test never contains a copy of production code
 
 **Never copy production code, or any part of it, into a test to make it testable** (Ted,

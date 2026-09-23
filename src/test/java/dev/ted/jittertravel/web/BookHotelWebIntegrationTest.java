@@ -2,11 +2,13 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.HotelBooking;
 import dev.ted.jittertravel.domain.CheckInNotInFuture;
+import dev.ted.jittertravel.domain.InvalidCancelByDate;
 import dev.ted.jittertravel.domain.InvalidHotelDateRange;
 import dev.ted.jittertravel.domain.InvalidEnteredLocation;
 import dev.ted.jittertravel.domain.InvalidLocationEntry;
 import dev.ted.jittertravel.domain.LocationField;
 import dev.ted.jittertravel.domain.LocationRole;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -86,7 +88,9 @@ class BookHotelWebIntegrationTest {
                 .param("checkIn", "2025-01-01T15:00")
                 .param("checkOut", "2025-01-02T11:00")
                 .param("bookingIntent", "TENTATIVE"))
-                .hasStatusOk();
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"error\">Check-in must be in the future</span>");
     }
 
     @Test
@@ -117,7 +121,48 @@ class BookHotelWebIntegrationTest {
                 .param("checkIn", "2026-07-01T15:00")
                 .param("checkOut", "2026-07-01T23:59")
                 .param("bookingIntent", "TENTATIVE"))
-                .hasStatusOk();
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"error\">Check-out must be at least one day after check-in</span>");
+    }
+
+    @Test
+    void aCancelByAfterCheckInErrorRendersUnderCancelBy() {
+        willThrow(new InvalidCancelByDate("Cancel-by must not be after check-in"))
+                .given(hotelBooking).bookHotel(any(), any());
+
+        assertThat(mockMvc.post().uri("/book-hotel")
+                .with(csrf())
+                .param("hotelBookingId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("hotelName", "Grand Hotel")
+                .param("city", "Springfield")
+                .param("country", "US")
+                .param("checkIn", "2026-07-01T15:00")
+                .param("checkOut", "2026-07-02T11:00")
+                .param("cancelBy", "2026-07-01T18:00")
+                .param("bookingIntent", "TENTATIVE"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"error\">Cancel-by must not be after check-in</span>");
+    }
+
+    @Test
+    void anUnresolvableZoneErrorRendersUnderTheZonePicker() {
+        willThrow(new ZoneResolutionException("Springfield", "Freedonia"))
+                .given(hotelBooking).bookHotel(any(), any());
+
+        assertThat(mockMvc.post().uri("/book-hotel")
+                .with(csrf())
+                .param("hotelBookingId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("hotelName", "Grand Hotel")
+                .param("city", "Springfield")
+                .param("country", "Freedonia")
+                .param("checkIn", "2026-07-01T15:00")
+                .param("checkOut", "2026-07-02T11:00")
+                .param("bookingIntent", "TENTATIVE"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"error\">Could not determine the time zone from the location — please choose one.</span>");
     }
 
     @Test

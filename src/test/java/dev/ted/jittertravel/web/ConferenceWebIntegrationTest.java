@@ -1,11 +1,9 @@
 package dev.ted.jittertravel.web;
 
-import dev.ted.jittertravel.application.CfpDeadlineMissing;
 import dev.ted.jittertravel.application.ConferencePlanning;
 import dev.ted.jittertravel.application.ConferenceProjector;
 import dev.ted.jittertravel.domain.ConferenceAlreadyEnded;
 import dev.ted.jittertravel.domain.ConferenceHasNoCfp;
-import dev.ted.jittertravel.domain.InvalidDateRange;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -120,8 +118,8 @@ class ConferenceWebIntegrationTest {
     }
 
     /**
-     * A conference already underway is plannable, so the start date is never the problem — the
-     * end date is what says it is over, and it is the input that fixes it.
+     * The render check for the End date input: its {@code <span class="error">} exists and shows
+     * the message. Which refusals land there is {@code PlanConferenceControllerTest}'s to say.
      */
     @Test
     void aConferenceThatHasEndedRerendersTheFormWithAnEndDateError() {
@@ -148,55 +146,6 @@ class ConferenceWebIntegrationTest {
         assertThat(result)
                 .bodyText()
                 .contains("<span class=\"error\">Conference has already ended</span>");
-    }
-
-    @Test
-    void anEndBeforeTheStartRerendersTheFormWithAnEndDateError() {
-        given(conferencePlanning.isReadOnly()).willReturn(false);
-        willThrow(new InvalidDateRange("End date must be on or after start date"))
-                .given(conferencePlanning).planConference(any(), any(), any());
-
-        MvcTestResult result = mockMvc.post().uri("/plan-conference")
-                .with(csrf())
-                .param("conferenceId", "550e8400-e29b-41d4-a716-446655440000")
-                .param("name", "Backwards Conf")
-                .param("startDate", "2026-07-03T09:00")
-                .param("endDate", "2026-07-01T17:00")
-                .param("venueName", "Moscone Center")
-                .param("venueCity", "San Francisco")
-                .param("venueCountry", "USA")
-                .exchange();
-
-        assertThat(result)
-                .hasStatusOk()
-                .model()
-                .extractingBindingResult("planConference")
-                .hasOnlyFieldErrors("endDate");
-        assertThat(result)
-                .bodyText()
-                .contains("<span class=\"error\">End date must be on or after start date</span>");
-    }
-
-    @Test
-    void aSubmissionUrlWithNoDeadlineRerendersTheFormWithAFieldError() {
-        given(conferencePlanning.isReadOnly()).willReturn(false);
-        willThrow(new CfpDeadlineMissing(
-                "Recording where the talk is submitted needs the closing date too"))
-                .given(conferencePlanning).planConference(any(), any(), any());
-
-        assertThat(mockMvc.post().uri("/plan-conference")
-                .with(csrf())
-                .param("conferenceId", "550e8400-e29b-41d4-a716-446655440000")
-                .param("name", "J-Fall")
-                .param("startDate", "2026-11-05T09:00")
-                .param("endDate", "2026-11-05T18:00")
-                .param("cfpSubmissionUrl", "https://sessionize.com/jfall-2027/")
-                .param("venueName", "Reehorst")
-                .param("venueCity", "Ede")
-                .param("venueCountry", "Netherlands"))
-                .hasStatusOk()
-                .bodyText()
-                .contains("needs the closing date too");
     }
 
     /**

@@ -839,6 +839,67 @@ silently off. Prefer the fail-fast form for anything whose absence is a bug rath
 
 ## Testing
 
+### A test never contains a copy of production code
+
+**Never copy production code, or any part of it, into a test to make it testable** (Ted,
+2026-09-22). A test that runs a copy tests the copy: it stays green when the real code is wrong,
+and it stays green when the real code grows a branch the copy does not have. It is worse than no
+test, because it reads as coverage.
+
+**If the real code cannot be reached from a test, that is a design problem to fix in production
+code — or a question to ask Ted — never a reason to reproduce it.** The same goes for a copy you
+find: do not edit it to keep it passing (that is maintaining the violation), move each case to a
+tier that runs the real code and delete it.
+
+The two shapes this has taken, both in `*ControllerValidationTest` classes:
+
+- **A controller's `catch` block, re-typed in the test** — `catch (DepartureNotInFuture e) {
+  bindingResult.rejectValue("departureDateTime", ...) }` — so the test decided which field an
+  error lands on, and the controller could put it anywhere.
+- **A service's method body, re-typed in an anonymous subclass** — `new FlightBooking(null, null,
+  null) { @Override public void bookFlight(...) { new BookFlightHandler(...).handle(...).execute(
+  ...) } }` — "what the service does, minus the persistence". Stubbing a collaborator is fine
+  (`isReadOnly()` returning `false` so a controller can be reached); re-implementing the thing
+  under test is not.
+
+The replacement is the next section.
+
+Enforced — narrowly — by `TestsNeverWriteToABindingResultTest`: production code writes a
+`BindingResult` and tests only read one, so a `rejectValue(`/`bindingResult.reject(` in
+`src/test/java` is the catch-block copy. It holds a **shrink-only** list of the files that still do
+it, and fails if a listed file stops doing it, so a fix has to take its entry out. **It cannot see
+the second shape**, or a copy of anything else — apply the English rule in review and treat the
+test as the floor.
+
+### Testing a form's validation: three claims, three tiers — this is the standard
+
+A rejected form makes three separate claims, and each has exactly one place it is tested (Ted,
+2026-09-22). Worked example: the plan-conference form.
+
+1. **The rule** — "a conference that has ended is refused" — is the **command's own unit test**
+   (`PlanConferenceCommandTest`), with the boundaries: the last day, yesterday, the venue's zone.
+2. **Which input each refusal lands on** is a **plain unit test of the controller, parameterized
+   `exception → field`** (`PlanConferenceControllerTest.eachRefusalLandsOnTheInputThatFixesIt`).
+   Construct the controller directly with a **stub service programmed to throw** the given
+   exception, build a `BeanPropertyBindingResult` for the request, call the submit method, and
+   assert the view is the form (re-rendered, not redirected) and that
+   `getFieldErrors()` names exactly that one field. No Spring context, one row per `catch`, and
+   the table is the specification — a new `catch` is a new row.
+   Not a `@WebMvcTest`: the mapping is plain Java, and a Spring slice per exception is slow
+   ceremony for a claim that needs none of it.
+3. **That the error can be seen** is a `@WebMvcTest` — the only claim that needs a real render,
+   because a Thymeleaf mistake surfaces only at render time. **One per input that can carry an
+   error, not one per exception**: stub any refusal that lands there and assert the binding result
+   and the whole `<span class="error">…</span>` (`ConferenceWebIntegrationTest`).
+
+**Plus, where the form is translated into a command** (a handler resolving zones, reading a
+format), the real application service with a recording `CommandExecutor` — `ConferencePlanningTest`
+— proves a real input reaches the command intact.
+
+The stub in (2) is legitimate where the anonymous subclasses above were not: it throws what it was
+given and does nothing else. **A stub decides what a collaborator returns; it never re-implements
+the thing under test.**
+
 ### Every test is isolated: order must not matter, and a subset must run
 
 **A test must pass alone, in any order, and in any arbitrary subset.** If it does not, the test is

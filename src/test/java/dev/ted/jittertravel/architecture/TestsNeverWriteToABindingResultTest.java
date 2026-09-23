@@ -40,7 +40,6 @@ class TestsNeverWriteToABindingResultTest {
      * Never add to it.
      */
     private static final Set<String> COPIES_NOT_YET_REPLACED = Set.of(
-            "src/test/java/dev/ted/jittertravel/web/BookFlightControllerValidationTest.java",
             "src/test/java/dev/ted/jittertravel/web/ChangeFlightControllerValidationTest.java");
 
     private static final Path PROJECT_ROOT = Path.of(System.getProperty("user.dir"));

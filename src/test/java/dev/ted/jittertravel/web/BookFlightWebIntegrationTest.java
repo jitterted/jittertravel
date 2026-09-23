@@ -2,6 +2,9 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.FlightBooking;
 import dev.ted.jittertravel.domain.AirportCityResolver;
+import dev.ted.jittertravel.domain.DepartureNotInFuture;
+import dev.ted.jittertravel.domain.InvalidAirportCode;
+import dev.ted.jittertravel.domain.InvalidDateRange;
 import dev.ted.jittertravel.domain.StaticAirportCityResolver;
 import dev.ted.jittertravel.infrastructure.AeroDataBoxClient;
 import dev.ted.jittertravel.infrastructure.FlightLookupCandidates;
@@ -16,6 +19,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -25,7 +29,9 @@ import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
@@ -155,6 +161,55 @@ class BookFlightWebIntegrationTest {
                 .param("arrivalDateTime", "2026-07-01T14:00"))
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/booked-flights");
+    }
+
+    // Render checks: one per place a refusal is shown. Which refusal lands where is
+    // BookFlightControllerTest's to say; these prove the form can show it.
+
+    @Test
+    void aDepartureErrorRendersUnderTheDepartureTime() {
+        willThrow(new DepartureNotInFuture("Departure must be in the future"))
+                .given(flightBooking).bookFlight(any(), any());
+
+        assertThat(submitFlight())
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"error\">Departure must be in the future</span>");
+    }
+
+    @Test
+    void anArrivalErrorRendersUnderTheArrivalTime() {
+        willThrow(new InvalidDateRange("Arrival must be after departure"))
+                .given(flightBooking).bookFlight(any(), any());
+
+        assertThat(submitFlight())
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"error\">Arrival must be after departure</span>");
+    }
+
+    @Test
+    void aFormWideErrorRendersInTheGlobalErrorList() {
+        willThrow(new InvalidAirportCode("Airport code must be exactly 3 characters: BADCODE"))
+                .given(flightBooking).bookFlight(any(), any());
+
+        assertThat(submitFlight())
+                .hasStatusOk()
+                .bodyText()
+                .contains("<li>Airport code must be exactly 3 characters: BADCODE</li>");
+    }
+
+    private MvcTestResult submitFlight() {
+        return mockMvc.post().uri("/book-flight")
+                .with(csrf())
+                .param("flightId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("airline", "United")
+                .param("flightNumber", "UA100")
+                .param("departureAirport", "SFO")
+                .param("departureDateTime", "2026-07-01T09:00")
+                .param("arrivalAirport", "JFK")
+                .param("arrivalDateTime", "2026-07-01T14:00")
+                .exchange();
     }
 
     /**

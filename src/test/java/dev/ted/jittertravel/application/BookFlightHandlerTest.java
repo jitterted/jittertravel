@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.BookFlightCommand;
+import dev.ted.jittertravel.domain.InvalidAirportCode;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
 import dev.ted.jittertravel.web.BookFlightRequest;
 import org.junit.jupiter.api.Test;
@@ -65,6 +66,13 @@ class BookFlightHandlerTest {
 
         assertThat(command.arrivalDateTime().zone())
                 .isEqualTo(ZoneId.of("Asia/Tokyo"));
+    }
+
+    /** A malformed code is refused as a code, before any zone question can be asked of it. */
+    @Test
+    void aMalformedAirportCodeIsRejectedAsACode() {
+        assertThatThrownBy(() -> handler.handle(flight("BADCODE", null, "FRA", null)))
+                .isInstanceOf(InvalidAirportCode.class);
     }
 
     @Test

@@ -95,7 +95,9 @@ class BookTrainWebIntegrationTest {
                 .param("arrivalCityName", "Manchester")
                 .param("arrivalCountry", "UK")
                 .param("arrivalDateTime", "2025-01-01T13:00"))
-                .hasStatusOk();
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"error\">Departure must be in the future</span>");
     }
 
     @Test
@@ -114,7 +116,9 @@ class BookTrainWebIntegrationTest {
                 .param("arrivalCityName", "Manchester")
                 .param("arrivalCountry", "UK")
                 .param("arrivalDateTime", "2026-07-01T09:00"))
-                .hasStatusOk();
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"error\">Arrival must be after departure</span>");
     }
 
     @Test

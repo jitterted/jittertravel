@@ -851,10 +851,15 @@ Use Meszaros's names (<http://gerardmeszaros.com/Test%20Double.html>), and use t
 - **Mock** — verifies that the calls it expected were made.
 
 Name a double by what it *does* in the test, not by the library that built it: a Mockito
-`@MockitoBean` given `willThrow(...)` and never verified is a stub. Examples in the tree: the
+`@MockitoBean` given `willThrow(...)` and never verified is a stub.
+
+**Spy or fake is decided by purpose, not mechanism.** If the test asserts against what the double
+records, it is a spy. If the double only fulfils the code's obligations — an in-memory repository
+the code reads back from — it is a fake, however much it happens to keep. Examples in the tree: the
 `refusing(...)` services in the `*ControllerTest` classes are stubs; `ConferencePlanningTest`'s
-`RecordingCommandExecutor` runs each command for real and keeps the events in memory — a fake
-that also records what it emitted.
+`RecordingCommandExecutor` is a **spy** — every test there asserts on `emitted` — even though it
+also replays those events through `eventsForDecision()`, which is only there so `OpenCfp` can see
+the plan the previous command produced.
 
 ### A test never contains a copy of production code
 

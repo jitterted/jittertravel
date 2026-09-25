@@ -340,10 +340,12 @@ row verbatim, envelope included, and restores it verbatim. Reading the envelope
 there is the whole point and stays.
 
 **Enforcement (to build with the fix, see
-`docs/EventOccurrenceTimestampsPlan.md`).** A plain source scan in the style of
-`NoAmbientClockReadsTest` and `DomainIsPureTest`: no `StoredEvent.timestamp()`
-read anywhere in `application` or `web`, with `BackupService` exempt. Cheap,
-mechanical, and it fails on arrival rather than after someone remembers to look.
+`docs/EventOccurrenceTimestampsPlan.md`).** An ArchUnit rule in the style of
+`NoAmbientClockReadsTest` and `DomainIsPureTest`: no access to
+`StoredEvent.timestamp()` anywhere in `application` or `web`, with `BackupService`
+exempt. "Access" covers a method reference (`StoredEvent::timestamp`) as well as a
+call. Cheap, mechanical, and it fails on arrival rather than after someone
+remembers to look.
 
 ---
 
@@ -380,8 +382,9 @@ declares and no test would catch, because at replay both projectors are handed
 the same list in whatever order the wiring happens to pick (H5). It also undoes
 H2: two projectors sharing a shape can no longer evolve independently.
 
-**Enforcement.** `ProjectorsDependOnEventsAloneTest` — a plain source scan in the
-style of `DomainIsPureTest`, over every `*Projector` in `application` with
+**Enforcement.** `ProjectorsDependOnEventsAloneTest` — a plain source scan (kept
+as one deliberately when the other guards moved to ArchUnit on 2026-09-25: a local
+variable's declared type leaves no trace in bytecode), over every `*Projector` in `application` with
 comments and string literals blanked out, failing on any mention of another
 `*Projector` or `*Aggregator`. Comments may name one (`BookedHotelsProjector`
 does, deliberately); code may not.

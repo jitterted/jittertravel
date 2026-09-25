@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.infrastructure.AddressParseService;
 import dev.ted.jittertravel.infrastructure.AddressParseService.ParsedAddress;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -15,6 +16,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
+@Tag("spring")
 @WebMvcTest(AddressParseController.class)
 @WithMockUser(roles = "OWNER")
 class AddressParseControllerTest {

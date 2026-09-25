@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -30,6 +31,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  *   <li>a wrong token leaks nothing: 404, and the private hotel name is absent from the body.</li>
  * </ul>
  */
+@Tag("spring")
 @WebMvcTest(CalendarFeedController.class)
 @Import({SecurityConfig.class, ICalWriter.class})
 @TestPropertySource(properties = {

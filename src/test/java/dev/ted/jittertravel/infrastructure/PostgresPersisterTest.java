@@ -7,6 +7,7 @@ import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.web.PlanConferenceRequest;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
@@ -27,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag("spring")
 @JdbcTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(PostgresPersister.class)

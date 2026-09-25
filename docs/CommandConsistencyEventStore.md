@@ -53,9 +53,11 @@ appends already route through `CommandExecutor` — the architecture rule in `CL
 **This prerequisite is satisfied.** `ChangeFlight`, `ConferencePlanning`, and `FlightBooking`
 — the three services this doc originally listed as violations — have all been migrated onto
 `commandExecutor.execute(...)` / `appendEvents(...)`, and the rule is now enforced by
-`ApplicationServicesUseCommandExecutorTest`. That test is **plain reflection over `application`
-constructors**, not ArchUnit (the doc previously proposed an ArchUnit test; adding the dependency
-for one rule was judged not worth it), and it exempts exactly one class: `CommandExecutor` itself.
+`ApplicationServicesUseCommandExecutorTest`. It exempts exactly one class: `CommandExecutor`
+itself. It was written as plain reflection over `application` constructors, because adding ArchUnit
+for one rule was judged not worth it. ArchUnit arrived on 2026-09-25 for other reasons (the
+Spring-test tagging guard behind PIT), and the test is now an ArchUnit rule, as this doc
+originally proposed.
 
 Consequence for this design: there is no migration to do first. The conditional append has a
 single chokepoint to land in.

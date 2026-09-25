@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.OneOffTaskView;
 import dev.ted.jittertravel.application.OneOffTasks;
 import dev.ted.jittertravel.application.ReadOnlyModeException;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -27,6 +28,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  * The task page is Thymeleaf, so it only renders at request time — a slice test is the only place a
  * template error surfaces.
  */
+@Tag("spring")
 @WebMvcTest(OneOffTasksController.class)
 @Import(WebTodayTestConfig.class)
 @WithMockUser(roles = "OWNER")

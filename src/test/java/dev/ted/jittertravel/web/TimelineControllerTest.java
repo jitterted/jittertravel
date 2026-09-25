@@ -4,6 +4,7 @@ import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.infrastructure.TimelineCommand;
 import dev.ted.jittertravel.infrastructure.TimelineEntry;
 import dev.ted.jittertravel.infrastructure.TimelineEvent;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -23,6 +24,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
+@Tag("spring")
 @WebMvcTest(TimelineController.class)
 @WithMockUser(roles = "OWNER")
 class TimelineControllerTest {

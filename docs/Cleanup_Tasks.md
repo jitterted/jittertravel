@@ -333,10 +333,11 @@ down when it is created does not get written down later.
       should an ArchUnit rule assert that only tests call `reload()`? **No, and not in this shape** —
       the rule points away from the fix, since the open work above is to *add* a production caller,
       so the test would have to be deleted the day that lands (CLAUDE.md's own "a test that has to
-      be edited on every change stops guarding"). It would also be the tree's first ArchUnit
-      dependency for one rule, which `ApplicationServicesUseCommandExecutorTest` and
-      `DomainIsPureTest` both deliberately declined — if such a rule is ever wanted it is a plain
-      source scan beside them. And the surface hardly needs it: application services cannot take an
+      be edited on every change stops guarding"). *(A second reason given here on 2026-09-12 — that
+      it would be the tree's first ArchUnit dependency — no longer holds: ArchUnit arrived
+      2026-09-25 and the architecture guards are ArchUnit rules now. The reasons that remain are
+      the ones above and below, and they were always the decisive ones.)* And the surface hardly
+      needs it: application services cannot take an
       `EventStore` at all (that same test), so the only production holders are `CommandExecutor`
       (append), `ProjectorBootstrapper` (`subscribe` + `findAll` at boot) and `GeneralController`
       (one `isReadOnly()` read).
@@ -347,7 +348,7 @@ down when it is created does not get written down later.
       is **behavioural**: truncate through `/admin/database`, then assert the store reports empty
       *and* whatever is decided about the projectors. The one arch-flavoured rule worth having is
       narrower and only becomes writable once that caller exists — *"`/admin/database` is the only
-      production caller of `reload()`"*, as a source scan.
+      production caller of `reload()`"*, as an ArchUnit rule beside the other architecture guards.
 
       **The deadlock: what it actually was.** Diagnosed 2026-09-11 and it is **not** a production
       issue and **not** the boot replay. `PostgresPersisterTest` is a `@JdbcTest` slice, so it is
@@ -1794,6 +1795,7 @@ count is deliberately not stated here so it cannot go stale again.)
       uses `CommandExecutor` like the rest. The enforcement test landed in the same change as
       `ApplicationServicesUseCommandExecutorTest` — plain reflection over `application`-package
       constructors, **no ArchUnit dependency**, with `CommandExecutor` itself excluded as the
-      authorized holder. This unblocks the conditional-append work in
+      authorized holder. *(Converted to an ArchUnit rule 2026-09-25, when ArchUnit arrived for the
+      PIT work; same rule, same exemption.)* This unblocks the conditional-append work in
       `CommandConsistencyEventStore.md`: no service can now bypass the guard that lives in
       `CommandExecutor`.

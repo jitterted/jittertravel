@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.GatheringPlanning;
 import dev.ted.jittertravel.application.HotelBooking;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -37,6 +38,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  * Two controllers, because the two claims are different: a gathering shows the required entry
  * working, and a hotel's free-cancellation deadline shows {@link OptionalEntry} opting out of it.
  */
+@Tag("spring")
 @WebMvcTest({PlanGatheringController.class, BookHotelController.class})
 @WithMockUser(roles = "OWNER")
 class RequiredEntryConventionTest {

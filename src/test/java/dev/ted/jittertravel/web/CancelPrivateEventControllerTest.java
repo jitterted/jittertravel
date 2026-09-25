@@ -5,6 +5,7 @@ import dev.ted.jittertravel.application.PrivateEventDetailsView;
 import dev.ted.jittertravel.application.PrivateEventDetailsViewProjector;
 import dev.ted.jittertravel.domain.PrivateEventId;
 import dev.ted.jittertravel.domain.PrivateEventNotFound;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -24,6 +25,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
+@Tag("spring")
 @WebMvcTest(CancelPrivateEventController.class)
 @WithMockUser(roles = "OWNER")
 class CancelPrivateEventControllerTest {

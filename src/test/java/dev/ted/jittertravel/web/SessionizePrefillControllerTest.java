@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.infrastructure.SessionizePrefillService;
 import dev.ted.jittertravel.infrastructure.SessionizePrefillService.SessionizePrefill;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -19,6 +20,7 @@ import static org.mockito.Mockito.when;
  * Mapping, status and JSON shape only — the reading of Sessionize itself is unit-tested in
  * {@code SessionizePrefillServiceTest}.
  */
+@Tag("spring")
 @WebMvcTest(SessionizePrefillController.class)
 @WithMockUser(roles = "OWNER")
 class SessionizePrefillControllerTest {

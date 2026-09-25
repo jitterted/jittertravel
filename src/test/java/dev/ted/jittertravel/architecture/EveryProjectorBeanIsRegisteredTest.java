@@ -1,22 +1,19 @@
 package dev.ted.jittertravel.architecture;
 
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.lang.ArchCondition;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
 import dev.ted.jittertravel.infrastructure.EventSourcingConfig;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
+import dev.ted.jittertravel.infrastructure.ProjectorBootstrapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Bean;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -34,97 +31,65 @@ import static org.assertj.core.api.Assertions.assertThat;
  * source of the anonymous {@code /calendar}: unregistered, every visitor gets a permanently empty
  * calendar and the whole suite stays green.
  * <p>
- * The set of beans checked is derived by <strong>reflection</strong> over
- * {@link EventSourcingConfig}, not listed here, so a new projector bean is covered the day it is
- * written — there is no fixture to forget. Only the "does it call register" question is answered by
- * reading the source, because that call is the whole of what there is to check.
+ * The set of beans checked is derived from the compiled {@link EventSourcingConfig}, not listed
+ * here, so a new projector bean is covered the day it is written — there is no fixture to forget.
+ * Whether each one calls {@code register} is read from its compiled calls, so renaming the
+ * {@code bootstrapper} parameter changes nothing.
  */
 class EveryProjectorBeanIsRegisteredTest {
 
-    private static final Path CONFIG_SOURCE = Path.of(
-            "src/main/java/dev/ted/jittertravel/infrastructure/EventSourcingConfig.java");
-
-    private static final Pattern REGISTER_CALL = Pattern.compile("\\bbootstrapper\\.register\\s*\\(");
-
     @Test
     void everyBeanThatConsumesTheEventStreamIsRegisteredWithTheBootstrapper() {
-        List<Method> projectorBeans = projectorBeans();
-
-        List<String> unregistered = new ArrayList<>();
-        for (Method bean : projectorBeans) {
-            if (!REGISTER_CALL.matcher(bodyOf(bean.getName())).find()) {
-                unregistered.add(bean.getName() + " -> " + bean.getReturnType().getSimpleName());
-            }
-        }
-
-        assertThat(unregistered)
-                .as("""
-                    These @Bean methods return an EventStreamConsumer but never call \
-                    bootstrapper.register(...). An unregistered projector is neither subscribed to \
-                    future events nor replayed over past ones, so it answers every query with an \
-                    empty read model and never fails — for PublicCalendarProjector that is a blank \
-                    /calendar for every anonymous visitor.""")
-                .isEmpty();
+        methods()
+                .that(areProjectorBeans())
+                .should(callProjectorBootstrapperRegister())
+                .because("an unregistered projector is neither subscribed to future events nor "
+                         + "replayed over past ones, so it answers every query with an empty read "
+                         + "model and never fails — for PublicCalendarProjector that is a blank "
+                         + "/calendar for every anonymous visitor")
+                .check(ProjectClasses.PRODUCTION);
     }
 
     /**
-     * The guard is only worth having while it is actually looking at something, and both halves can
-     * rot independently: a renamed {@code bootstrapper} parameter would make every body stop
-     * matching, and a moved config class would make the reflection find nothing. Pin both.
+     * The guard is only worth having while it is actually looking at something: a moved config
+     * class, or a bean whose declared return type stops being an {@code EventStreamConsumer}, would
+     * leave it passing over fewer beans than exist. Pin the count and the one that matters most.
      */
     @Test
     void theGuardIsLookingAtRealProjectorBeans() {
-        assertThat(projectorBeans())
+        List<String> returnTypes = ProjectClasses.PRODUCTION.get(EventSourcingConfig.class)
+                                                            .getMethods()
+                                                            .stream()
+                                                            .filter(areProjectorBeans())
+                                                            .map(method -> method.getRawReturnType().getSimpleName())
+                                                            .toList();
+
+        assertThat(returnTypes)
                 .as("EventSourcingConfig must still declare the projector beans this guard checks")
                 .hasSizeGreaterThanOrEqualTo(20)
-                .anySatisfy(bean -> assertThat(bean.getReturnType().getSimpleName())
-                        .isEqualTo("PublicCalendarProjector"));
-        assertThat(REGISTER_CALL.matcher(source()).results().count())
-                .as("the register(...) calls this guard greps for must still be spelled that way")
-                .isGreaterThanOrEqualTo(20L);
+                .contains("PublicCalendarProjector");
     }
 
-    /** Every {@code @Bean} method whose return type consumes the event stream. */
-    private static List<Method> projectorBeans() {
-        return Arrays.stream(EventSourcingConfig.class.getDeclaredMethods())
-                .filter(method -> method.isAnnotationPresent(Bean.class))
-                .filter(method -> EventStreamConsumer.class.isAssignableFrom(method.getReturnType()))
-                .sorted(Comparator.comparing(Method::getName))
-                .toList();
+    private static DescribedPredicate<JavaMethod> areProjectorBeans() {
+        return DescribedPredicate.describe(
+                "are @Bean methods in EventSourcingConfig returning an EventStreamConsumer",
+                method -> method.getOwner().isEquivalentTo(EventSourcingConfig.class)
+                          && method.isAnnotatedWith(Bean.class)
+                          && method.getRawReturnType().isAssignableTo(EventStreamConsumer.class));
     }
 
-    /**
-     * The source text of one {@code @Bean} method: from its signature to the first line that closes
-     * a method at class-body indentation. Bean methods here are short and never nest a class, so the
-     * closing brace is unambiguous.
-     */
-    private static String bodyOf(String methodName) {
-        List<String> lines = sourceLines();
-        for (int i = 0; i < lines.size(); i++) {
-            if (lines.get(i).contains(" " + methodName + "(")) {
-                StringBuilder body = new StringBuilder();
-                for (int j = i; j < lines.size(); j++) {
-                    body.append(lines.get(j)).append('\n');
-                    if (lines.get(j).equals("    }")) {
-                        return body.toString();
-                    }
-                }
+    private static ArchCondition<JavaMethod> callProjectorBootstrapperRegister() {
+        return new ArchCondition<>("call ProjectorBootstrapper.register(...)") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                boolean registers = method.getMethodCallsFromSelf()
+                                          .stream()
+                                          .anyMatch(call -> call.getTargetOwner().isEquivalentTo(ProjectorBootstrapper.class)
+                                                            && call.getTarget().getName().equals("register"));
+                events.add(new SimpleConditionEvent(
+                        method, registers,
+                        method.getFullName() + " never calls ProjectorBootstrapper.register(...)"));
             }
-        }
-        throw new AssertionError(
-                "cannot find the source of @Bean method " + methodName + " in " + CONFIG_SOURCE
-                + " — the reflection and the source scan have drifted apart");
-    }
-
-    private static String source() {
-        return String.join("\n", sourceLines());
-    }
-
-    private static List<String> sourceLines() {
-        try {
-            return Files.readAllLines(CONFIG_SOURCE);
-        } catch (IOException e) {
-            throw new UncheckedIOException("cannot read " + CONFIG_SOURCE, e);
-        }
+        };
     }
 }

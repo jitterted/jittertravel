@@ -6,6 +6,7 @@ import dev.ted.jittertravel.infrastructure.EventStore;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -41,6 +42,7 @@ import static org.mockito.Mockito.lenient;
  * depending on which controllers are loaded — only the absence of a security redirect matters.
  * Controller-specific behavior is covered by each controller's own test.
  */
+@Tag("spring")
 @WebMvcTest(GeneralController.class)
 @Import(SecurityConfig.class)
 @TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass",

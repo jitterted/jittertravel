@@ -11,6 +11,7 @@ import dev.ted.jittertravel.domain.ConferenceNotFound;
 import dev.ted.jittertravel.domain.InvalidDateRange;
 import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  * Thymeleaf endpoint, so it needs a {@code @WebMvcTest}: a template error only surfaces at render
  * time and a renderer unit test would never see it.
  */
+@Tag("spring")
 @WebMvcTest(ChangeConferenceDatesController.class)
 @WithMockUser(roles = "OWNER")
 class ChangeConferenceDatesControllerTest {

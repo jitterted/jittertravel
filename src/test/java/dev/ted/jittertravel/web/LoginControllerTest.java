@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -18,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * hidden browserZone field plus the script that fills it — that field is the whole reason we
  * replaced Spring's generated login page.
  */
+@Tag("spring")
 @WebMvcTest(LoginController.class)
 @Import(SecurityConfig.class)
 @TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass",

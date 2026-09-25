@@ -11,6 +11,7 @@ import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ConferenceNotFound;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
+@Tag("spring")
 @WebMvcTest(OpenCfpController.class)
 @Import(WebTodayTestConfig.class)
 @WithMockUser(roles = "OWNER")

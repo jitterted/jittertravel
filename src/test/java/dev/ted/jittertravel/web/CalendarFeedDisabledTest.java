@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -22,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * carrying a plausible-looking token. This is the safe, opt-in default — the feed does not exist
  * until {@code CALENDAR_FEED_TOKEN} is set.
  */
+@Tag("spring")
 @WebMvcTest(CalendarFeedController.class)
 @Import(ICalWriter.class)
 @AutoConfigureMockMvc(addFilters = false)

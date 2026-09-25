@@ -14,6 +14,7 @@ import dev.ted.jittertravel.domain.InvalidLocationEntry;
 import dev.ted.jittertravel.domain.LocationField;
 import dev.ted.jittertravel.domain.LocationRole;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -38,6 +39,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
+@Tag("spring")
 @WebMvcTest(ChangeHotelController.class)
 @WithMockUser(roles = "OWNER")
 class ChangeHotelControllerTest {

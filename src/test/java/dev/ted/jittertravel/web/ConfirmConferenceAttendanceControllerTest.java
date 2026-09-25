@@ -11,6 +11,7 @@ import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ConferenceNotFound;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -39,6 +40,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  * errors do not surface anywhere else). The {@code basis} radio values are asserted against
  * {@link AttendanceBasis} itself, since the template writes them out as literals.
  */
+@Tag("spring")
 @WebMvcTest(ConfirmConferenceAttendanceController.class)
 @Import(WebTodayTestConfig.class)
 @WithMockUser(roles = "OWNER")

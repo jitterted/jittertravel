@@ -5,6 +5,7 @@ import dev.ted.jittertravel.infrastructure.AddressParseService.ParsedAddress;
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
 import dev.ted.jittertravel.infrastructure.SessionizePrefillService;
 import dev.ted.jittertravel.infrastructure.SessionizePrefillService.SessionizePrefill;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -27,6 +28,7 @@ import static org.mockito.Mockito.when;
  * than the 302-redirect-to-home that other pages get. A redirect reads as a 200 to a fetch()
  * caller and masks the failure.
  */
+@Tag("spring")
 @WebMvcTest({AddressParseController.class, SessionizePrefillController.class})
 @Import(SecurityConfig.class)
 @TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass",

@@ -5,6 +5,7 @@ import dev.ted.jittertravel.application.OngoingStay;
 import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.ScheduleProblem;
 import dev.ted.jittertravel.application.ViewerZonePolicy;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -21,6 +22,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
+@Tag("spring")
 @WebMvcTest(ItineraryController.class)
 @Import({ViewerZonePolicy.class, WebTodayTestConfig.class})
 @WithMockUser(roles = "FAMILY")

@@ -30,8 +30,8 @@ and partial writes (some events land, others don't). `CommandExecutor` also thro
 `ReadOnlyModeException` before writing anything, so read-only mode holds even if a controller
 forgets to check — including on the import path.
 
-Enforced by `ApplicationServicesUseCommandExecutorTest` (plain reflection over `application`
-constructors, no ArchUnit dependency).
+Enforced by `ApplicationServicesUseCommandExecutorTest`, an ArchUnit rule over the constructors of
+every `application` class, with `CommandExecutor` itself exempt.
 
 ### EventStore ordering invariant: persist before notify
 
@@ -280,8 +280,9 @@ The **only** legal source of real time is the `Clock` `@Bean` in `EventSourcingC
 (`Clock.systemDefaultZone()`). Everything else — controllers, `EventStore`,
 `PostgresPersister` — takes `Clock` as a constructor dependency.
 
-Enforced by `NoAmbientClockReadsTest` (plain source scan over `src/main/java`, with
-`EventSourcingConfig` exempt). Tests may read the wall clock freely; the rule is about
+Enforced by `NoAmbientClockReadsTest`, an ArchUnit rule over the compiled production calls, with
+`EventSourcingConfig` exempt. It reads compiled accesses rather than text, so a statically imported
+`now()` is caught, and so is a method reference like `Instant::now`, which the old regex missed. Tests may read the wall clock freely; the rule is about
 production code. Note that a `@WebMvcTest` slice has no `Clock` bean of its own — import
 `WebTodayTestConfig` (which pins one) when slicing a controller that needs time. Prefer a
 `Clock.fixed(...)`; use an advancing clock only when the behaviour under test genuinely
@@ -567,16 +568,25 @@ depends on **none** of the following:
    adapter in `infrastructure`. Keeping the interface out of `domain` in anticipation is the
    mistake, not the caution.
 
-**Why the line is here and not somewhere more permissive:** a package whose every import is `java.*`
-or its own can reach a file, a socket, Spring or Jackson only through a class it cannot name. That
-is one assertion covering the framework, I/O, serialization and presentation clauses at once, and it
-means a dependency nobody has thought of fails on arrival rather than after someone remembers to
-add it to a list.
+**Why the line is here and not somewhere more permissive:** a package that depends on nothing but
+`java.*` and itself can reach Spring or Jackson only through a class it cannot name. That is one
+assertion covering the framework, serialization and presentation clauses at once, and it means a
+library nobody has thought of fails on arrival rather than after someone remembers to add it to a
+list.
 
-Enforced by `DomainIsPureTest` (plain source scan, no ArchUnit): the import check is a **whitelist**
-of `java.*` and `dev.ted.jittertravel.domain.*` — never rewrite it as a blacklist of the libraries
-we happen to use today. It also bans randomness in `domain`, and asserts no `*Id.random()` call site
-anywhere in `src/main`. Full reasoning and the audit that produced it:
+**The I/O clause needs a rule of its own, because `java.*` is where the I/O lives.** The whitelist
+admits `java.io`, `java.nio`, `java.net` and `java.sql`, and until 2026-09-25 this section claimed
+the whitelist covered I/O too. It never did. The domain happened to use none of them, so nothing
+was caught and nothing was missed. Those four packages and `java.rmi` are now banned from `domain`
+by name. That list is a short blacklist inside a whitelist, and it is fine that way: the JDK's I/O
+packages are a fixed set, unlike the libraries we might add.
+
+Enforced by `DomainIsPureTest`, ArchUnit rules over the compiled `domain` classes. The dependency
+check is a **whitelist** of `java..` and `dev.ted.jittertravel.domain..`, and must never be
+rewritten as a blacklist of the libraries we happen to use today. Because it reads bytecode, a
+fully-qualified name with no import line is caught too. It also bans the I/O packages above and
+randomness (`Math.random()` and any `RandomGenerator`) in `domain`, and asserts that no production
+class calls an `*Id.random()` factory. Full reasoning and the audit that produced it:
 `docs/archived/CuratedResolversToDomainPlan.md`.
 
 ### Presentation formatting stays out of the domain
@@ -887,8 +897,9 @@ The two shapes this has taken, both in `*ControllerValidationTest` classes:
 The replacement is the next section.
 
 Enforced — narrowly — by `TestsNeverWriteToABindingResultTest`: production code writes a
-`BindingResult` and tests only read one, so a `rejectValue(`/`bindingResult.reject(` in
-`src/test/java` is the catch-block copy. It has **no exemption list**: the five classes that carried
+`BindingResult` and tests only read one, so a test class calling `rejectValue(...)` or
+`reject(...)` on any `Errors` is the catch-block copy, whatever its variable is called (an ArchUnit
+rule over the compiled test classes). It has **no exemption list**: the five classes that carried
 the copy when it arrived were all replaced the same day. **It cannot see the second shape**, or a
 copy of anything else — apply the English rule in review and treat the test as the floor.
 
@@ -1080,3 +1091,33 @@ load it with `page.setContent(...)` — **no server, Spring context, DB, or auth
 the JS is under test. Extend `JsBehaviorTest` (`@Tag("js")` is inherited) and run with
 `./mvnw test -Pjs-tests`; the default build excludes the `js` group. Full do/don't
 guidance: `docs/JS-Behavior-Tests.md`.
+
+### Mutation testing: PIT runs the plain unit tests, so every Spring test is tagged `spring`
+
+PIT is configured in `pom.xml` and bound to no phase, so neither `./mvnw test` nor the pre-push
+hook runs it. Run it by hand:
+
+```
+./mvnw test-compile org.pitest:pitest-maven:mutationCoverage
+```
+
+The report is `target/pit-reports/index.html`, and a full run takes about two minutes.
+
+**It skips the `spring`, `js`, `replay-preflight` and `performance` groups.** Re-running a Spring
+test once per mutant is slow and buys nothing, and a full context also boots a Testcontainers
+database each time. So **a new `@WebMvcTest`, `@SpringBootTest`, `@JdbcTest` or any other Spring
+slice gets `@Tag("spring")` on the class itself**, even where a superclass would supply it by
+inheritance. Nothing else marks a Spring test as one. The annotation carries no JUnit tag, and the
+name settles nothing: `PlanConferenceControllerTest` is a plain unit test, while
+`CancelHotelControllerTest` is a slice. An untagged Spring test breaks no build. It only makes every
+PIT run slower.
+
+Enforced by `SpringTestsAreTaggedTest`, an ArchUnit rule over the test classes. It treats a class
+as a Spring test when it is meta-annotated with `@ExtendWith(SpringExtension.class)`, which every
+Spring test annotation is built on. So a future slice, or a composed annotation of our own, is
+caught without editing the test.
+
+**Read the report knowing what it cannot see.** Controllers, and anything reached only through a
+Spring test, show as NO_COVERAGE, and that is by design rather than a gap to close. Judge the
+domain and application code, where the plain tests live. The report's advert for the Arcmutate
+Spring plugin can be ignored.

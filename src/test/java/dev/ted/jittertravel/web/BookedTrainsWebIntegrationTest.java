@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedTrainsProjector;
 import dev.ted.jittertravel.application.TimeView;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -19,6 +20,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
+@Tag("spring")
 @WebMvcTest(BookedTrainsController.class)
 @Import(WebTodayTestConfig.class)
 @WithMockUser(roles = "OWNER")

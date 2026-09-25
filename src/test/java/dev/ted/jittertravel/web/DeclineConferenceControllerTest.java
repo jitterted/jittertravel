@@ -10,6 +10,7 @@ import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ConferenceNotFound;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -31,6 +32,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
+@Tag("spring")
 @WebMvcTest(DeclineConferenceController.class)
 @Import(WebTodayTestConfig.class)
 @WithMockUser(roles = "OWNER")

@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.infrastructure.AbstractTestcontainerIntegrationTest;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.web.BookHotelRequest;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * foreign-key error mid-write. Re-running a partly-applied file resumes by skipping rows already
  * present. Together those make "wipe and restore" safe and re-runnable.
  */
+@Tag("spring")
 @SpringBootTest
 class RestoreSafetyTest extends AbstractTestcontainerIntegrationTest {
 

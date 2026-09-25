@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * surfaces as a restore error naming the row, exactly as it would abort boot.
  */
 @Tag("replay-preflight")
+@Tag("spring")
 @SpringBootTest
 class BootReplayPreflightTest extends AbstractTestcontainerIntegrationTest {
 

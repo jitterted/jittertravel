@@ -25,6 +25,7 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.fail;
 
+@Tag("spring")
 @SpringBootTest
 @Tag("performance")
 class EventStorePerfTest extends AbstractTestcontainerIntegrationTest {

@@ -107,10 +107,15 @@ steps.
 - `BookedFlightsProjector` reads `event.recordedAt()`; `storedEvent.timestamp()` disappears from it.
 - `ChangeEntry` text becomes `"Recorded on …"` and `"<reason> (recorded on …)"`.
 - `BookedFlightsRendererTest` assertions updated — whole elements, not bare words.
-- **New `NoEnvelopeTimestampReadsTest`** — a plain source scan over `src/main/java/.../application`
-  and `.../web` banning `StoredEvent.timestamp()`, with `BackupService` exempt. Same shape as
-  `NoAmbientClockReadsTest` and `DomainIsPureTest`: no ArchUnit, no reflection, fails on arrival.
-  This is R11's enforcement and the reason the defect cannot come back.
+- **New `NoEnvelopeTimestampReadsTest`**: an ArchUnit rule over `ProjectClasses.PRODUCTION`.
+  No class in `application` or `web` may access `StoredEvent.timestamp()`, with `BackupService`
+  exempt. It has the same shape as `NoAmbientClockReadsTest` and fails on arrival. This is R11's
+  enforcement and the reason the defect cannot come back.
+  - **Use `accessTargetWhere`, not `callMethod`.** `callMethod` sees calls only, so
+    `.map(StoredEvent::timestamp)`, the likeliest shape in a projector, would slip past it. That
+    gap was found in the clock and domain rules on 2026-09-25 and closed there.
+  - **Mutation-verify both shapes.** Plant a `storedEvent.timestamp()` call *and* a
+    `StoredEvent::timestamp` reference in an `application` class, and confirm each fails by name.
 
 ### 5. Backup / restore check
 
@@ -136,8 +141,9 @@ Both landed in `EventSourcingRulesHeuristics.md` on 2026-08-27, ahead of the cod
   field **no event provides**. R10 is what found this defect.
 - **R11 — a time a user reads is an event field, never the store's envelope.** The specific case,
   with the Verraes vocabulary and the "the label lies" argument. Its **enforcement is part of slice
-  4 of this plan**: a plain source scan banning `StoredEvent.timestamp()` in `application` and `web`,
-  `BackupService` exempt, in the style of `NoAmbientClockReadsTest` and `DomainIsPureTest`.
+  4 of this plan**: an ArchUnit rule banning any access to `StoredEvent.timestamp()` in
+  `application` and `web`, `BackupService` exempt, in the style of `NoAmbientClockReadsTest` and
+  `DomainIsPureTest`.
 
 Hotels, trains, conferences and gatherings have no change history today, so nothing else is
 currently exposed — but the next projector that grows one walks into the same trap, which is why the

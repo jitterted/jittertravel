@@ -10,6 +10,7 @@ import dev.ted.jittertravel.application.ScheduleProblem;
 import dev.ted.jittertravel.application.TransferEndpointOption;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -39,6 +40,7 @@ import static org.mockito.BDDMockito.given;
  * Two controllers, because the fragment has to work on more than the page it was written against —
  * the rest are held by {@link ProblemContextFragmentConventionTest}, which cannot render anything.
  */
+@Tag("spring")
 @WebMvcTest({BookHotelController.class, PlanGroundTransferController.class})
 @WithMockUser(roles = "OWNER")
 class ProblemContextBannerWebIntegrationTest {

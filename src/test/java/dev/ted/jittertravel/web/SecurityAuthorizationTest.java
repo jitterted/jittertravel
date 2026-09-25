@@ -7,6 +7,7 @@ import dev.ted.jittertravel.infrastructure.EventStore;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.info.BuildProperties;
@@ -39,6 +40,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  * secured chain. Pure route authorization (role × route → outcome) lives in
  * {@link AuthorizationMatrixTest}.
  */
+@Tag("spring")
 @WebMvcTest(GeneralController.class)
 @Import(SecurityConfig.class)
 @TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass",

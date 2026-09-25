@@ -12,6 +12,7 @@ import dev.ted.jittertravel.domain.ConferenceNotFound;
 import dev.ted.jittertravel.domain.NoTalkToDecide;
 import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -40,6 +41,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  * The page that records a talk's progress. A Thymeleaf endpoint, so it needs a slice test at all —
  * template errors only surface at render time.
  */
+@Tag("spring")
 @WebMvcTest(RecordTalkController.class)
 @Import(WebTodayTestConfig.class)
 @WithMockUser(roles = "OWNER")

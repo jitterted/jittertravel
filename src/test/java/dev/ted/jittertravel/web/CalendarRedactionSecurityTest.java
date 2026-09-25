@@ -40,6 +40,7 @@ import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.SecurityConfig;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -83,6 +84,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  */
 // The secured chain is the only chain, active by default — exactly the production security
 // path this test exercises.
+@Tag("spring")
 @WebMvcTest(CalendarController.class)
 @Import({SecurityConfig.class, ViewerZonePolicy.class, WebTodayTestConfig.class})
 @TestPropertySource(properties = {"TED_PASSWORD=testpass", "FAMILY_PASSWORD=testpass",

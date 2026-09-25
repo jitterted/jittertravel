@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.BackupService;
 import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.LegacyEventMigration;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * and, with no configured base URL, derives the host from the request. The token reaching a
  * non-owner is covered by {@link AuthorizationMatrixTest}.
  */
+@Tag("spring")
 @WebMvcTest(AdminController.class)
 @WithMockUser(roles = "OWNER")
 @TestPropertySource(properties = "jittertravel.calendar-feed.token=feedsecret")

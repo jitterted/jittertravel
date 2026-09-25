@@ -8,6 +8,7 @@ import dev.ted.jittertravel.infrastructure.PostgresPersister.BackupCommandRow;
 import dev.ted.jittertravel.infrastructure.PostgresPersister.BackupEventRow;
 import dev.ted.jittertravel.web.BookFlightRequest;
 import dev.ted.jittertravel.web.BookHotelRequest;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * path, manufactures a command of every non-SUCCEEDED status, backs up, wipes, restores, and
  * compares the whole command and event logs.
  */
+@Tag("spring")
 @SpringBootTest
 class BackupRestoreRoundTripTest extends AbstractTestcontainerIntegrationTest {
 

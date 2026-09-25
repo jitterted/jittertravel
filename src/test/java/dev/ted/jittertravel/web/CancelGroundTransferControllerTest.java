@@ -5,6 +5,7 @@ import dev.ted.jittertravel.application.GroundTransferDetailsView;
 import dev.ted.jittertravel.application.GroundTransferDetailsViewProjector;
 import dev.ted.jittertravel.domain.GroundTransferId;
 import dev.ted.jittertravel.domain.GroundTransferNotFound;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -24,6 +25,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
+@Tag("spring")
 @WebMvcTest(CancelGroundTransferController.class)
 @WithMockUser(roles = "OWNER")
 class CancelGroundTransferControllerTest {

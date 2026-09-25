@@ -4,6 +4,7 @@ import dev.ted.jittertravel.infrastructure.AbstractTestcontainerIntegrationTest;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.infrastructure.PostgresPersister.BackupCommandRow;
 import dev.ted.jittertravel.infrastructure.PostgresPersister.BackupEventRow;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * verbatim through the restore path — the only way to write a bare-scalar payload with a null stamp,
  * since the append path always stamps and stores the current shape.
  */
+@Tag("spring")
 @SpringBootTest
 class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
 

@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.CalendarAggregator;
 import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.ViewerZonePolicy;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -17,6 +18,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
+@Tag("spring")
 @WebMvcTest(CalendarController.class)
 @Import({ViewerZonePolicy.class, WebTodayTestConfig.class})
 @WithMockUser(roles = "FAMILY")

@@ -5,6 +5,7 @@ import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.GatheringPlanning;
 import dev.ted.jittertravel.application.LegacyEventMigration;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  * deleted. The claim here is about the free text nothing compares — a title, a venue name — which
  * has no other net.
  */
+@Tag("spring")
 @WebMvcTest({PlanGatheringController.class, AdminController.class})
 @WithMockUser(roles = "OWNER")
 class TrimmedTypedTextConventionTest {

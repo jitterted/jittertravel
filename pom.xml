@@ -112,11 +112,16 @@
       <artifactId>testcontainers-postgresql</artifactId>
       <scope>test</scope>
     </dependency>
-
     <dependency>
       <groupId>digital.pragmatech.testing</groupId>
       <artifactId>spring-test-profiler</artifactId>
       <version>0.1.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
+      <version>1.5.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -160,6 +165,49 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.pitest</groupId>
+        <artifactId>pitest-maven</artifactId>
+        <version>1.30.0</version>
+        <!-- Mutation testing over the plain unit tests only. Not bound to a phase, so the
+             default build never runs it; run it by hand:
+               ./mvnw test-compile org.pitest:pitest-maven:mutationCoverage
+             Report lands in target/pit-reports/index.html.
+
+             excludedGroups is the whole point of this block. A Spring test re-run once per
+             mutant is slow for no gain (a full context boots a Testcontainers database), so
+             every one carries @Tag("spring") and SpringTestsAreTaggedTest fails on one that
+             does not. js and replay-preflight are left out for the reasons surefire leaves
+             them out; performance is a timing probe, not an assertion about behaviour. -->
+        <configuration>
+          <targetClasses>
+            <param>dev.ted.jittertravel.*</param>
+          </targetClasses>
+          <targetTests>
+            <param>dev.ted.jittertravel.*</param>
+          </targetTests>
+          <excludedGroups>
+            <param>spring</param>
+            <param>js</param>
+            <param>replay-preflight</param>
+            <param>performance</param>
+          </excludedGroups>
+          <!-- Same JVM zone as surefire's argLine, or zone-dependent tests fail under PIT
+               for reasons that have nothing to do with the mutant. -->
+          <jvmArgs>
+            <value>-Duser.timezone=UTC</value>
+          </jvmArgs>
+          <threads>4</threads>
+          <timestampedReports>false</timestampedReports>
+        </configuration>
+        <dependencies>
+          <dependency>
+            <groupId>org.pitest</groupId>
+            <artifactId>pitest-junit5-plugin</artifactId>
+            <version>1.2.3</version>
+          </dependency>
+        </dependencies>
+      </plugin>
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>

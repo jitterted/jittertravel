@@ -314,7 +314,8 @@ pre-push gate requires it. A green default build is not proof.
 `NoAmbientClockReadsTest`, `ApplicationServicesUseCommandExecutorTest`,
 `ProjectorsDependOnEventsAloneTest`, `HoverIsNeverTheAffordanceTest`, `TrimmedTypedTextConventionTest`,
 `ProblemContextFragmentConventionTest`, `TimeFilterToggleConventionTest`, `CalendarDayMenuTest`. These
-are source scans, so a framework bump cannot legitimately break them — which is exactly why a red one
+are source scans, or (since 2026-09-25) ArchUnit rules over our own compiled classes, so a framework
+bump cannot legitimately break them — which is exactly why a red one
 means someone reached for the wrong fix upstream.
 
 **S7 — replay preflight against a real production backup.** This is the step that matters for an

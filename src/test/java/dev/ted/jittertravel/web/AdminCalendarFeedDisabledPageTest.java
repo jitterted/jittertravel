@@ -4,6 +4,7 @@ import dev.ted.jittertravel.application.BackupService;
 import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.LegacyEventMigration;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -24,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * With no token configured the admin card shows the disabled state and no feed URLs — there is no
  * token to leak into the page.
  */
+@Tag("spring")
 @WebMvcTest(AdminController.class)
 @WithMockUser(roles = "OWNER")
 @TestPropertySource(properties = "jittertravel.calendar-feed.token=")

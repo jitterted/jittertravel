@@ -7,6 +7,7 @@ import dev.ted.jittertravel.application.ScheduleProblem;
 import dev.ted.jittertravel.infrastructure.EventStore;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.info.BuildProperties;
@@ -27,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 
+@Tag("spring")
 @WebMvcTest(GeneralController.class)
 @WithMockUser(roles = "OWNER")
 class GeneralControllerTest {

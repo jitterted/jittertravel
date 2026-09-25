@@ -18,6 +18,7 @@ import dev.ted.jittertravel.domain.ZoneResolutionException;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -47,6 +48,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  * <strong>every</strong> rejection comes back on the page hosting the form rather than as a 500 or
  * a redirect to somewhere that cannot show it.
  */
+@Tag("spring")
 @WebMvcTest(PlanGroundTransferController.class)
 @WithMockUser(roles = "OWNER")
 class PlanGroundTransferWebIntegrationTest {

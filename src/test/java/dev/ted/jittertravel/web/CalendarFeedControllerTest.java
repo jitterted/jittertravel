@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -25,6 +26,7 @@ import static org.mockito.BDDMockito.given;
  * content type. The security chain itself (that anonymous requests reach this controller and that a
  * wrong token leaks nothing through the real chain) is covered by {@link CalendarFeedSecurityTest}.
  */
+@Tag("spring")
 @WebMvcTest(CalendarFeedController.class)
 @Import(ICalWriter.class)
 @AutoConfigureMockMvc(addFilters = false)

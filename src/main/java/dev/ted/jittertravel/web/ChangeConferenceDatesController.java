@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.ChangeConferenceDates;
 import dev.ted.jittertravel.application.ConferenceDetailView;
 import dev.ted.jittertravel.application.ConferenceProjector;
@@ -51,6 +52,9 @@ public class ChangeConferenceDatesController {
             return "redirect:/conferences";
         }
         ConferenceDetailView conference = maybe.get();
+        if (dropped(conference)) {
+            return "redirect:/conferences/" + conference.conferenceId().id();
+        }
         // Prefilled with the dates in force — a later move starts from the last one, not the plan.
         model.addAttribute("conference", conference);
         model.addAttribute("changeDates", new ChangeConferenceDatesRequest(
@@ -68,6 +72,9 @@ public class ChangeConferenceDatesController {
             return "redirect:/conferences";
         }
         ConferenceDetailView conference = maybe.get();
+        if (dropped(conference)) {
+            return "redirect:/conferences/" + conference.conferenceId().id();
+        }
         model.addAttribute("conference", conference);
 
         // A date left blank, or one that would not parse, is null on the request.
@@ -83,14 +90,26 @@ public class ChangeConferenceDatesController {
             bindingResult.rejectValue("endDate", "afterStartDate", e.getMessage());
             return "change-conference-dates";
         } catch (ConferenceNotFound e) {
-            // Cancelled or declined in another tab between the lookup above and the write.
-            return "redirect:/conferences";
+            // Cancelled or declined in another tab between the lookup above and the write. Said on
+            // the form, with the typed dates still in it: a redirect here reads as a save.
+            bindingResult.reject("conferenceGone", "Not saved: this conference was cancelled or declined");
+            return "change-conference-dates";
         } catch (ReadOnlyModeException e) {
             log.warn("Attempted to change a conference's dates while in read-only mode", e);
             return "redirect:/read-only";
         }
 
         return "redirect:/conferences/" + conference.conferenceId().id();
+    }
+
+    /**
+     * The same test the detail page uses to leave its pencil off: a conference Ted declined, or one
+     * a rejection dropped, is not offered this form. Stricter than the write path, which refuses
+     * only a declined one — a stale tab or a bookmark must not reach an action the page withholds.
+     * The detail page is where it goes instead, because that page says why.
+     */
+    private static boolean dropped(ConferenceDetailView conference) {
+        return conference.commitment() == AttendanceCommitment.NOT_GOING;
     }
 
     private Optional<ConferenceDetailView> lookup(String conferenceIdString) {

@@ -54,6 +54,10 @@ class ChangeConferenceDatesControllerTest {
     ConferenceProjector projector;
 
     private static ConferenceDetailView devNexus(UUID conferenceId) {
+        return devNexus(conferenceId, AttendanceCommitment.WATCHING);
+    }
+
+    private static ConferenceDetailView devNexus(UUID conferenceId, AttendanceCommitment commitment) {
         return new ConferenceDetailView(
                 ConferenceId.of(conferenceId),
                 "DevNexus",
@@ -61,7 +65,7 @@ class ChangeConferenceDatesControllerTest {
                 new Address("285 Andrew Young International Blvd NW", "Atlanta", "GA", "30313", "US", "Atlanta"),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2027, 4, 5, 9, 0), NEW_YORK),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2027, 4, 7, 17, 0), NEW_YORK),
-                AttendanceCommitment.WATCHING,
+                commitment,
                 null,
                 false,
                 SpeakingStatus.NOT_SPEAKING,
@@ -162,7 +166,7 @@ class ChangeConferenceDatesControllerTest {
     }
 
     @Test
-    void aConferenceGoneInAnotherTabRedirectsToTheList() {
+    void aConferenceGoneInAnotherTabIsSaidOnTheFormWithTheTypedDatesKept() {
         UUID conferenceId = UUID.randomUUID();
         given(projector.detailById(any())).willReturn(Optional.of(devNexus(conferenceId)));
         willThrow(new ConferenceNotFound("gone"))
@@ -172,8 +176,39 @@ class ChangeConferenceDatesControllerTest {
                 .param("startDate", "2027-03-29T09:00")
                 .param("endDate", "2027-03-31T17:00")
                 .with(csrf()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<p class=\"error\">Not saved: this conference was cancelled or declined</p>")
+                .as("the typed dates come back, so nothing reads as saved")
+                .contains("value=\"2027-03-29T09:00\"")
+                .contains("value=\"2027-03-31T17:00\"");
+    }
+
+    @Test
+    void getForADroppedConferenceRedirectsToItsDetailPage() {
+        UUID conferenceId = UUID.randomUUID();
+        given(projector.detailById(any()))
+                .willReturn(Optional.of(devNexus(conferenceId, AttendanceCommitment.NOT_GOING)));
+
+        assertThat(mockMvc.get().uri("/conferences/" + conferenceId + "/dates"))
                 .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/conferences");
+                .hasRedirectedUrl("/conferences/" + conferenceId);
+    }
+
+    @Test
+    void postForADroppedConferenceRedirectsWithoutCallingTheService() {
+        UUID conferenceId = UUID.randomUUID();
+        given(projector.detailById(any()))
+                .willReturn(Optional.of(devNexus(conferenceId, AttendanceCommitment.NOT_GOING)));
+
+        assertThat(mockMvc.post().uri("/conferences/" + conferenceId + "/dates")
+                .param("startDate", "2027-03-29T09:00")
+                .param("endDate", "2027-03-31T17:00")
+                .with(csrf()))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/conferences/" + conferenceId);
+
+        then(changeConferenceDates).should(never()).changeDates(any(), any(), any());
     }
 
     @Test

@@ -62,8 +62,10 @@ import static j2html.TagCreator.*;
  * <strong>One pencil, on the When block, and nowhere else.</strong> A pencil means edit and nothing
  * else (Ted, 2026-09-04), and the dates are the one thing on this page that can be edited — so the
  * pencil sits on them rather than on the page title, where it would promise the name and venue too.
- * It is absent on a conference Ted has dropped: the write path refuses a declined one, and where
- * a state machine decides what a row offers, an action that cannot apply is absent, not greyed.
+ * It is absent on a conference Ted has dropped, declined or dropped by a rejection alike: where a
+ * state machine decides what a row offers, an action that cannot apply is absent, not greyed. The
+ * form's controller applies the same test, so a stale link cannot reach it either; the write path
+ * on its own refuses only a declined one.
  */
 public class ConferenceDetailRenderer {
 

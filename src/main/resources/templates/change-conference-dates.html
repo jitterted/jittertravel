@@ -94,6 +94,11 @@
 
     <form th:action="@{|/conferences/${conference.conferenceId().id()}/dates|}"
           th:object="${changeDates}" method="post">
+        <!--/* Whole-form failure: the conference went away in another tab. Not a field's fault. */-->
+        <p class="error"
+           th:if="${#fields.hasGlobalErrors()}"
+           th:each="err : ${#fields.globalErrors()}"
+           th:text="${err}">Not saved</p>
         <div class="field">
             <label>
                 Starts

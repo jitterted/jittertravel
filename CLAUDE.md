@@ -265,7 +265,8 @@ value exists in the tree; whoever first needs one has to teach `withoutComments`
 ### Time comes from the injected Clock — never the ambient system clock
 
 Production code must **never** call `Instant.now()`, `LocalDate.now()`, `LocalDateTime.now()`,
-`System.currentTimeMillis()`, or any other no-arg "what time is it" call. They are unmockable:
+`System.currentTimeMillis()`, or any other "what time is it" call that does not take a `Clock` —
+`LocalDate.now(zone)` included, since a zone says where, not when. They are unmockable:
 a class that reads the ambient clock cannot be tested at a chosen instant, so anything that
 depends on *when* it runs — a FUTURE/ALL filter at a day boundary, a cancellation deadline, an
 expiry, a "today" column — has no way to be pinned down in a test.
@@ -282,8 +283,11 @@ The **only** legal source of real time is the `Clock` `@Bean` in `EventSourcingC
 
 Enforced by `NoAmbientClockReadsTest`, an ArchUnit rule over the compiled production calls, with
 `EventSourcingConfig` exempt. It reads compiled accesses rather than text, so a statically imported
-`now()` is caught, and so is a method reference like `Instant::now`, which the old regex missed. Tests may read the wall clock freely; the rule is about
-production code. Note that a `@WebMvcTest` slice has no `Clock` bean of its own — import
+`now()` is caught, and so is a method reference like `Instant::now`, which the old regex missed.
+A `now(...)` passes only when its one parameter is a `Clock` — until 2026-09-25 it passed with *any*
+argument, so `now(zone)` slipped through — and the rule is itself tested against a class breaking
+it in each form, because a guard only ever run over clean code passes just as well when it sees
+nothing. Tests may read the wall clock freely; the rule is about production code. Note that a `@WebMvcTest` slice has no `Clock` bean of its own — import
 `WebTodayTestConfig` (which pins one) when slicing a controller that needs time. Prefer a
 `Clock.fixed(...)`; use an advancing clock only when the behaviour under test genuinely
 depends on time passing (see `PostgresPersisterTest`, where command ordering does).

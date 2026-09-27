@@ -185,6 +185,31 @@ class ChangeConferenceDatesControllerTest {
     }
 
     @Test
+    void getWhileReadOnlyRedirectsBeforeTheFormIsShown() {
+        given(changeConferenceDates.isReadOnly()).willReturn(true);
+        given(projector.detailById(any())).willReturn(Optional.of(devNexus(UUID.randomUUID())));
+
+        assertThat(mockMvc.get().uri("/conferences/" + UUID.randomUUID() + "/dates"))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/read-only");
+    }
+
+    @Test
+    void postWhileReadOnlyRedirectsWithoutCallingTheService() {
+        given(changeConferenceDates.isReadOnly()).willReturn(true);
+        given(projector.detailById(any())).willReturn(Optional.of(devNexus(UUID.randomUUID())));
+
+        assertThat(mockMvc.post().uri("/conferences/" + UUID.randomUUID() + "/dates")
+                .param("startDate", "2027-03-29T09:00")
+                .param("endDate", "2027-03-31T17:00")
+                .with(csrf()))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/read-only");
+
+        then(changeConferenceDates).should(never()).changeDates(any(), any(), any());
+    }
+
+    @Test
     void getForADroppedConferenceRedirectsToItsDetailPage() {
         UUID conferenceId = UUID.randomUUID();
         given(projector.detailById(any()))

@@ -47,6 +47,10 @@ public class ChangeConferenceDatesController {
 
     @GetMapping("/conferences/{conferenceId}/dates")
     public String changeDatesForm(@PathVariable("conferenceId") String conferenceIdString, Model model) {
+        // Before the form, not only on submit: a form that can never be saved is typed in for nothing.
+        if (changeConferenceDates.isReadOnly()) {
+            return "redirect:/read-only";
+        }
         Optional<ConferenceDetailView> maybe = lookup(conferenceIdString);
         if (maybe.isEmpty()) {
             return "redirect:/conferences";
@@ -67,6 +71,9 @@ public class ChangeConferenceDatesController {
                               @ModelAttribute("changeDates") ChangeConferenceDatesRequest request,
                               BindingResult bindingResult,
                               Model model) {
+        if (changeConferenceDates.isReadOnly()) {
+            return "redirect:/read-only";
+        }
         Optional<ConferenceDetailView> maybe = lookup(conferenceIdString);
         if (maybe.isEmpty()) {
             return "redirect:/conferences";

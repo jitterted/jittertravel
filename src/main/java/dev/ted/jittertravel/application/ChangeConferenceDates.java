@@ -47,4 +47,8 @@ public class ChangeConferenceDates {
         return new ChangeConferenceDatesContext(planned.isPresent(),
                                                 planned.map(plan -> plan.startDate().zone()).orElse(null));
     }
+
+    public boolean isReadOnly() {
+        return commandExecutor.isReadOnly();
+    }
 }

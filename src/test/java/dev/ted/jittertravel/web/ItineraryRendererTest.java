@@ -35,6 +35,17 @@ class ItineraryRendererTest {
     private static final ZoneId LONDON = ZoneId.of("Europe/London");
     private static final ZoneId FRANKFURT = ZoneId.of("Europe/Berlin");
 
+    /**
+     * The page as most of these tests want it: nothing booked after the days shown, and each entry
+     * in its own zone. Kept here rather than as a production overload, where it would render "Nothing
+     * booked after these days" for any caller whether or not something was.
+     */
+    private static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate,
+                                 LocalDate today, boolean isOwner) {
+        return ItineraryRenderer.render(days, prevDate, nextDate, today,
+                                        Optional.empty(), isOwner, ZoneDisplay.entryOnly());
+    }
+
     // --- Date navigation ---
 
     @Test
@@ -53,7 +64,7 @@ class ItineraryRendererTest {
 
     @Test
     void todayLinkShownWhenTodayBeforeDisplayedRange() {
-        String html = ItineraryRenderer.render(
+        String html = render(
                 threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, MAY_31, false);
 
         assertThat(html)
@@ -63,7 +74,7 @@ class ItineraryRendererTest {
 
     @Test
     void todayLinkShownWhenTodayAfterDisplayedRange() {
-        String html = ItineraryRenderer.render(
+        String html = render(
                 threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_10, false);
 
         assertThat(html)
@@ -73,7 +84,7 @@ class ItineraryRendererTest {
 
     @Test
     void todayShownAsNonLinkWhenTodayWithinDisplayedRange() {
-        String html = ItineraryRenderer.render(
+        String html = render(
                 threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1, false);
 
         assertThat(html).contains("today-link--current");
@@ -182,7 +193,7 @@ class ItineraryRendererTest {
 
     @Test
     void aMissingBedOutranksTheHomeRow() {
-        String html = ItineraryRenderer.render(
+        String html = render(
                 List.of(new ItineraryDay(JUN_1, List.of(), Optional.empty(),
                                 Optional.of(missingHotel()), true),
                         new ItineraryDay(JUN_2, List.of(gathering("Some Meetup", false, ""))),
@@ -196,7 +207,7 @@ class ItineraryRendererTest {
 
     @Test
     void aBookedStayOutranksAMissingBed() {
-        String html = ItineraryRenderer.render(
+        String html = render(
                 List.of(new ItineraryDay(JUN_1, List.of(), Optional.of(ongoingStay()),
                                 Optional.of(missingHotel()), false),
                         new ItineraryDay(JUN_2, List.of(gathering("Some Meetup", false, ""))),
@@ -228,7 +239,7 @@ class ItineraryRendererTest {
 
     @Test
     void aStayWinsOverHomeSoAHotelBookedInAHomeCityStillNamesTheHotel() {
-        String html = ItineraryRenderer.render(
+        String html = render(
                 List.of(new ItineraryDay(JUN_1, List.of(), Optional.of(ongoingStay()), Optional.empty(), true),
                         new ItineraryDay(JUN_2, List.of(gathering("Some Meetup", false, ""))),
                         new ItineraryDay(JUN_3, List.of(gathering("Some Meetup", false, "")))),
@@ -242,7 +253,7 @@ class ItineraryRendererTest {
     @Test
     void neitherWhereaboutsRowShowsOnADayThatHasItsOwnEntries() {
         ItineraryEntry entry = gathering("Some Meetup", true, "");
-        String html = ItineraryRenderer.render(
+        String html = render(
                 List.of(new ItineraryDay(JUN_1, List.of(entry), Optional.of(ongoingStay()), Optional.empty(), true),
                         new ItineraryDay(JUN_2, List.of()),
                         new ItineraryDay(JUN_3, List.of())),
@@ -257,7 +268,7 @@ class ItineraryRendererTest {
     @Test
     void daysWithEntriesDoNotShowNothingScheduled() {
         ItineraryEntry entry = gathering("Some Meetup", true, "");
-        String html = ItineraryRenderer.render(
+        String html = render(
                 threeDays(List.of(entry), List.of(entry), List.of(entry)), MAY_31, JUN_2, JUN_1, false);
 
         assertThat(html).doesNotContain("Nothing scheduled");
@@ -390,7 +401,7 @@ class ItineraryRendererTest {
                 "London Euston", "London", "", zoned(JUN_1.atTime(9, 0), LONDON),
                 "Manchester Piccadilly", "Manchester", "", zoned(JUN_1.atTime(11, 15), LONDON));
 
-        String html = ItineraryRenderer.render(
+        String html = render(
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
 
         assertThat(html)
@@ -404,7 +415,7 @@ class ItineraryRendererTest {
      */
     @Test
     void theCardsLinkRuleLeavesThePencilAndBinTheirControlColour() {
-        String html = ItineraryRenderer.render(
+        String html = render(
                 threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
 
         assertThat(html)
@@ -421,7 +432,7 @@ class ItineraryRendererTest {
                 "London Euston", "London", "", zoned(JUN_1.atTime(9, 0), LONDON),
                 "Manchester Piccadilly", "Manchester", "", zoned(JUN_1.atTime(11, 15), LONDON));
 
-        String html = ItineraryRenderer.render(
+        String html = render(
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
 
         assertThat(html)
@@ -459,7 +470,7 @@ class ItineraryRendererTest {
                 "British Airways", "BA100", "SFO", zoned(JUN_1.atTime(9, 0), SAN_FRANCISCO),
                 "LHR", zoned(JUN_1.atTime(17, 15), LONDON));
 
-        String html = ItineraryRenderer.render(
+        String html = render(
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
 
         assertThat(html)
@@ -529,7 +540,7 @@ class ItineraryRendererTest {
                 BookingIntent.FINAL, HotelDayRole.CHECK_IN, zoned(JUN_1.atTime(15, 0), FRANKFURT),
                 "https://maps.example.com/hotel");
 
-        String html = ItineraryRenderer.render(
+        String html = render(
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
 
         assertThat(html)
@@ -636,7 +647,7 @@ class ItineraryRendererTest {
      */
     @Test
     void ownerConferenceTitleLinksToTheDetailPage() {
-        String html = ItineraryRenderer.render(
+        String html = render(
                 threeDays(List.of(conference(1, 1, "https://jitterconf.example/")), List.of(), List.of()),
                 MAY_31, JUN_2, JUN_1, true);
 
@@ -710,7 +721,7 @@ class ItineraryRendererTest {
                 zoned(JUN_1.atTime(LocalTime.of(18, 0)), LONDON),
                 zoned(JUN_1.atTime(LocalTime.of(21, 0)), LONDON));
 
-        String html = ItineraryRenderer.render(
+        String html = render(
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
 
         assertThat(html)
@@ -813,7 +824,7 @@ class ItineraryRendererTest {
      */
     @Test
     void privateEventCarriesTheOwnersCancelBinInThePencilsSlot() {
-        String html = ItineraryRenderer.render(
+        String html = render(
                 threeDays(List.of(privateEvent("Dinner with the Smiths", "Chez Moi")), List.of(), List.of()),
                 MAY_31, JUN_2, JUN_1, true);
 
@@ -875,7 +886,7 @@ class ItineraryRendererTest {
      */
     @Test
     void groundTransferCarriesTheOwnersCancelBinInThePencilsSlot() {
-        String html = ItineraryRenderer.render(
+        String html = render(
                 threeDays(List.of(groundTransfer()), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
 
         assertThat(html)
@@ -925,11 +936,11 @@ class ItineraryRendererTest {
     // --- Helpers ---
 
     private static String renderEmpty() {
-        return ItineraryRenderer.render(threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1, false);
+        return render(threeDays(List.of(), List.of(), List.of()), MAY_31, JUN_2, JUN_1, false);
     }
 
     private static String renderStayingDay() {
-        return ItineraryRenderer.render(
+        return render(
                 List.of(new ItineraryDay(JUN_1, List.of(), Optional.of(ongoingStay()), Optional.empty(), false),
                         new ItineraryDay(JUN_2, List.of(gathering("Some Meetup", false, ""))),
                         new ItineraryDay(JUN_3, List.of(gathering("Some Meetup", false, "")))),
@@ -937,7 +948,7 @@ class ItineraryRendererTest {
     }
 
     private static String renderHomeDay() {
-        return ItineraryRenderer.render(
+        return render(
                 List.of(new ItineraryDay(JUN_1, List.of(), Optional.empty(), Optional.empty(), true),
                         new ItineraryDay(JUN_2, List.of(gathering("Some Meetup", false, ""))),
                         new ItineraryDay(JUN_3, List.of(gathering("Some Meetup", false, "")))),
@@ -945,7 +956,7 @@ class ItineraryRendererTest {
     }
 
     private static String renderNightWithoutABed(boolean isOwner) {
-        return ItineraryRenderer.render(
+        return render(
                 List.of(new ItineraryDay(JUN_1, List.of(), Optional.empty(),
                                 Optional.of(missingHotel()), false),
                         new ItineraryDay(JUN_2, List.of(gathering("Some Meetup", false, ""))),
@@ -962,7 +973,7 @@ class ItineraryRendererTest {
     }
 
     private static String renderWithEntry(ItineraryEntry entry) {
-        return ItineraryRenderer.render(threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, false);
+        return render(threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, false);
     }
 
     private static List<ItineraryDay> threeDays(List<ItineraryEntry> day1,

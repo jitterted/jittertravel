@@ -96,10 +96,6 @@ public class ItineraryRenderer {
                 .maybe-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: var(--chip-maybe-bg); color: var(--chip-maybe-fg); box-shadow: inset 0 0 0 1px var(--chip-maybe-edge); border-radius: 4px; padding: 0.1rem 0.4rem; margin-top: 0.25rem; }
             """;
 
-    public static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate, LocalDate today, boolean isOwner) {
-        return render(days, prevDate, nextDate, today, Optional.empty(), isOwner, ZoneDisplay.entryOnly());
-    }
-
     public static String render(List<ItineraryDay> days, LocalDate prevDate, LocalDate nextDate,
                                 LocalDate today, Optional<LocalDate> nextEntryDate,
                                 boolean isOwner, ZoneDisplay zoneDisplay) {

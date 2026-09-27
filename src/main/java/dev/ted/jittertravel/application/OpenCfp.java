@@ -1,16 +1,13 @@
 package dev.ted.jittertravel.application;
 
-import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
-import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.OpenCfpCommand;
 import dev.ted.jittertravel.domain.OpenCfpContext;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
-import dev.ted.jittertravel.infrastructure.StoredEvent;
 import dev.ted.jittertravel.web.OpenCfpRequest;
 
-import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -40,27 +37,14 @@ public class OpenCfp {
     }
 
     /**
-     * Folds to the conference's own {@link ConferencePlanned} — or null once it is cancelled or
-     * declined — because the two facts this command needs both come off it: that it is live, and
-     * how it forms its program.
+     * Folds to the conference's live {@link ConferencePlanned}, because the two facts this command
+     * needs both come off it: that it is live, and how it forms its program.
      */
     private OpenCfpContext contextFor(ConferenceId conferenceId) {
-        ConferencePlanned planned = commandExecutor.eventsForDecision()
-                .map(StoredEvent::payload)
-                .reduce((ConferencePlanned) null,
-                        (current, event) -> stillPlanned(current, conferenceId, event),
-                        (first, second) -> second);
-        return new OpenCfpContext(planned != null,
-                                  planned == null ? null : planned.format());
-    }
-
-    private ConferencePlanned stillPlanned(ConferencePlanned current, ConferenceId wanted, Object event) {
-        return switch (event) {
-            case ConferencePlanned e when e.conferenceId().equals(wanted) -> e;
-            case ConferenceCancelled e when e.conferenceId().equals(wanted) -> null;
-            case ConferenceAttendanceDeclined e when e.conferenceId().equals(wanted) -> null;
-            default -> current;
-        };
+        Optional<ConferencePlanned> planned =
+                new LiveConferencePlan(conferenceId).in(commandExecutor.eventsForDecision());
+        return new OpenCfpContext(planned.isPresent(),
+                                  planned.map(ConferencePlanned::format).orElse(null));
     }
 
     public boolean isReadOnly() {

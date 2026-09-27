@@ -2,13 +2,11 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.ChangeConferenceDatesCommand;
 import dev.ted.jittertravel.domain.ChangeConferenceDatesContext;
-import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
-import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
-import dev.ted.jittertravel.infrastructure.StoredEvent;
 import dev.ted.jittertravel.web.ChangeConferenceDatesRequest;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -16,7 +14,7 @@ import java.util.UUID;
  * <p>
  * Mirrors {@link OpenCfp}: both decision facts — is this conference still live, and which zone was
  * it planned in — come off the conference's own {@link ConferencePlanned}, folded from the
- * authoritative event stream rather than read off a projector (R1 in
+ * authoritative event stream by {@link LiveConferencePlan} rather than read off a projector (R1 in
  * {@code EventSourcingRulesHeuristics.md}). commandId is captured at the boundary; this service
  * does no clock or UUID I/O of its own, and there is no {@code now} because the change is not
  * time-gated.
@@ -44,21 +42,9 @@ public class ChangeConferenceDates {
      * never the zone and never whether the conference exists, so it cannot change either answer.
      */
     private ChangeConferenceDatesContext contextFor(ConferenceId conferenceId) {
-        ConferencePlanned planned = commandExecutor.eventsForDecision()
-                .map(StoredEvent::payload)
-                .reduce((ConferencePlanned) null,
-                        (current, event) -> stillPlanned(current, conferenceId, event),
-                        (first, second) -> second);
-        return new ChangeConferenceDatesContext(planned != null,
-                                                planned == null ? null : planned.startDate().zone());
-    }
-
-    private ConferencePlanned stillPlanned(ConferencePlanned current, ConferenceId wanted, Object event) {
-        return switch (event) {
-            case ConferencePlanned e when e.conferenceId().equals(wanted) -> e;
-            case ConferenceCancelled e when e.conferenceId().equals(wanted) -> null;
-            case ConferenceAttendanceDeclined e when e.conferenceId().equals(wanted) -> null;
-            default -> current;
-        };
+        Optional<ConferencePlanned> planned =
+                new LiveConferencePlan(conferenceId).in(commandExecutor.eventsForDecision());
+        return new ChangeConferenceDatesContext(planned.isPresent(),
+                                                planned.map(plan -> plan.startDate().zone()).orElse(null));
     }
 }

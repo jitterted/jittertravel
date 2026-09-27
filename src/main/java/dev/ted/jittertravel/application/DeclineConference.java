@@ -1,12 +1,8 @@
 package dev.ted.jittertravel.application;
 
-import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
-import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
-import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.DeclineConferenceCommand;
 import dev.ted.jittertravel.domain.DeclineConferenceContext;
-import dev.ted.jittertravel.infrastructure.StoredEvent;
 import dev.ted.jittertravel.web.DeclineConferenceRequest;
 
 import java.time.Instant;
@@ -39,20 +35,7 @@ public class DeclineConference {
     }
 
     private DeclineConferenceContext contextFor(ConferenceId conferenceId) {
-        boolean exists = commandExecutor.eventsForDecision()
-                .map(StoredEvent::payload)
-                .reduce(false,
-                        (current, event) -> stillPlanned(current, conferenceId, event),
-                        (first, second) -> second);
-        return new DeclineConferenceContext(exists);
-    }
-
-    private boolean stillPlanned(boolean current, ConferenceId wanted, Object event) {
-        return switch (event) {
-            case ConferencePlanned e when e.conferenceId().equals(wanted) -> true;
-            case ConferenceCancelled e when e.conferenceId().equals(wanted) -> false;
-            case ConferenceAttendanceDeclined e when e.conferenceId().equals(wanted) -> false;
-            default -> current;
-        };
+        return new DeclineConferenceContext(
+                new LiveConferencePlan(conferenceId).in(commandExecutor.eventsForDecision()).isPresent());
     }
 }

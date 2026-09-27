@@ -1,8 +1,6 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.AcceptTalkCommand;
-import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
-import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.DomainCommand;
@@ -77,14 +75,15 @@ public class TalkTracking {
 
     /**
      * One pass over the stream for all three facts. The conference's own {@link ConferencePlanned}
-     * carries two of them — that it is live, and its format — so the fold keeps the event itself
-     * and drops it when the conference is cancelled or declined.
+     * carries two of them — that it is live, and its format — so the fold keeps the event itself,
+     * stepped by {@link LiveConferencePlan} like every other conference command's.
      */
     private TalkPipelineContext contextFor(ConferenceId conferenceId) {
+        LiveConferencePlan live = new LiveConferencePlan(conferenceId);
         Facts facts = commandExecutor.eventsForDecision()
                 .map(StoredEvent::payload)
                 .reduce(new Facts(null, SpeakingStatus.NOT_SPEAKING),
-                        (current, event) -> current.apply(conferenceId, event),
+                        (current, event) -> current.apply(live, conferenceId, event),
                         (first, second) -> second);
         return new TalkPipelineContext(
                 facts.planned() != null,
@@ -102,30 +101,16 @@ public class TalkTracking {
      */
     private record Facts(ConferencePlanned planned, SpeakingStatus speakingStatus) {
 
-        private Facts apply(ConferenceId wanted, Object event) {
-            return switch (event) {
-                case ConferencePlanned e when e.conferenceId().equals(wanted) ->
-                        new Facts(e, speakingStatus);
-                case ConferenceCancelled e when e.conferenceId().equals(wanted) ->
-                        new Facts(null, speakingStatus);
-                case ConferenceAttendanceDeclined e when e.conferenceId().equals(wanted) ->
-                        new Facts(null, speakingStatus);
-                case TalkSubmitted e when e.conferenceId().equals(wanted) ->
-                        moveTo(SpeakingStatus.SUBMITTED);
-                case TalkAccepted e when e.conferenceId().equals(wanted) ->
-                        moveTo(SpeakingStatus.ACCEPTED);
-                case TalkRejected e when e.conferenceId().equals(wanted) ->
-                        moveTo(SpeakingStatus.REJECTED);
-                case TalkWithdrawn e when e.conferenceId().equals(wanted) ->
-                        moveTo(SpeakingStatus.WITHDRAWN);
-                case InvitedToSpeak e when e.conferenceId().equals(wanted) ->
-                        moveTo(SpeakingStatus.INVITED);
-                default -> this;
+        private Facts apply(LiveConferencePlan live, ConferenceId wanted, Object event) {
+            SpeakingStatus status = switch (event) {
+                case TalkSubmitted e when e.conferenceId().equals(wanted) -> SpeakingStatus.SUBMITTED;
+                case TalkAccepted e when e.conferenceId().equals(wanted) -> SpeakingStatus.ACCEPTED;
+                case TalkRejected e when e.conferenceId().equals(wanted) -> SpeakingStatus.REJECTED;
+                case TalkWithdrawn e when e.conferenceId().equals(wanted) -> SpeakingStatus.WITHDRAWN;
+                case InvitedToSpeak e when e.conferenceId().equals(wanted) -> SpeakingStatus.INVITED;
+                default -> speakingStatus;
             };
-        }
-
-        private Facts moveTo(SpeakingStatus status) {
-            return new Facts(planned, status);
+            return new Facts(live.after(planned, event), status);
         }
     }
 

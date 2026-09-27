@@ -11,6 +11,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
+import static dev.ted.jittertravel.web.ActionIcons.cancelBin;
+import static dev.ted.jittertravel.web.ActionIcons.editPencil;
 import static j2html.TagCreator.*;
 
 public class ItineraryRenderer {
@@ -29,9 +31,6 @@ public class ItineraryRenderer {
     // The same hotel, drawn in amber: the row still means lodging, it just means the missing kind.
     private static final String HOTEL_MISSING_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#b45309\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20\"/><path d=\"M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2\"/></svg>";
     private static final String HOME_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#166534\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 10.5 12 3l9 7.5\"/><path d=\"M5.5 9.5V20h13V9.5\"/><path d=\"M10 20v-5h4v5\"/></svg>";
-    private static final String PENCIL_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z\"/></svg>";
-    // Shared with the calendar: a bin always means "cancel this entry", as the pencil means edit.
-    private static final String TRASH_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 6h18\"/><path d=\"M8 6V4h8v2\"/><path d=\"M19 6l-1 14H6L5 6\"/><path d=\"M10 11v6\"/><path d=\"M14 11v6\"/></svg>";
 
     private static final String CSS = """
                 .page { max-width: 1200px; }
@@ -295,14 +294,6 @@ public class ItineraryRenderer {
                 )
         );
         return card;
-    }
-
-    private static DomContent editPencil(String href, String label) {
-        return a(rawHtml(PENCIL_SVG)).withClass("edit-pencil").withHref(href).withTitle(label);
-    }
-
-    private static DomContent cancelBin(String href, String label) {
-        return a(rawHtml(TRASH_SVG)).withClass("cancel-bin").withHref(href).withTitle(label);
     }
 
     private static DomContent stationContent(String name, String mapsUrl) {

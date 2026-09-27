@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
+import static dev.ted.jittertravel.web.ActionIcons.editPencil;
 import static j2html.TagCreator.*;
 
 /**
@@ -79,8 +80,6 @@ public class ConferenceDetailRenderer {
 
     /** The far end of a range, where the year is already established by the near end. */
     private static final String DAY_AND_TIME_SHORT = "EEE, MMM d 'at' h:mm a";
-
-    private static final String PENCIL_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z\"/></svg>";
 
     /**
      * A CFP deadline names its zone, and it is the only time on this page that does (Ted,
@@ -569,9 +568,7 @@ public class ConferenceDetailRenderer {
             return h2("When");
         }
         return h2(text("When"),
-                  a(rawHtml(PENCIL_SVG)).withClass("edit-pencil")
-                                        .withHref("/conferences/" + conference.conferenceId().id() + "/dates")
-                                        .withTitle("Change dates"));
+                  editPencil("/conferences/" + conference.conferenceId().id() + "/dates", "Change dates"));
     }
 
     private static String dayCount(long days) {

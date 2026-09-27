@@ -15,6 +15,8 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
+import static dev.ted.jittertravel.web.ActionIcons.cancelBin;
+import static dev.ted.jittertravel.web.ActionIcons.editPencil;
 import static j2html.TagCreator.*;
 
 /**
@@ -31,14 +33,6 @@ public class CalendarViewBuilder {
     private static final DateTimeFormatter MONTH_DAY_YEAR = DateTimeFormatter.ofPattern("MMM d, yyyy");
     private static final DateTimeFormatter MONTH_YEAR = DateTimeFormatter.ofPattern("MMMM yyyy");
     private static final String TIME_OF_DAY_FORMAT = "h:mm a";
-
-    // Shared with the itinerary view: a pencil always means "edit this booking". stroke uses
-    // currentColor so the icon picks up each entry kind's foreground tint.
-    private static final String PENCIL_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z\"/></svg>";
-
-    // A bin always means "cancel this entry", as the pencil means edit. Same stroke weight and
-    // currentColor, so the two read as one family and sit at the same size in the same slot.
-    private static final String TRASH_SVG = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 6h18\"/><path d=\"M8 6V4h8v2\"/><path d=\"M19 6l-1 14H6L5 6\"/><path d=\"M10 11v6\"/><path d=\"M14 11v6\"/></svg>";
 
     // The same fork-and-knife that fronts the "Private event" nav card on the home page, so the
     // lane on the calendar and the way in to creating one wear one glyph. The nav card's copy
@@ -644,14 +638,6 @@ public class CalendarViewBuilder {
         }
         parts.add(text(title.substring(segmentStart)));
         return parts;
-    }
-
-    private static DomContent editPencil(String href, String label) {
-        return a(rawHtml(PENCIL_SVG)).withClass("edit-pencil").withHref(href).withTitle(label);
-    }
-
-    private static DomContent cancelBin(String href, String label) {
-        return a(rawHtml(TRASH_SVG)).withClass("cancel-bin").withHref(href).withTitle(label);
     }
 
     /** Past days are hatched; today gets the accent-column treatment. */

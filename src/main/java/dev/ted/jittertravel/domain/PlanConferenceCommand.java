@@ -30,8 +30,10 @@ public record PlanConferenceCommand(
     public Stream<ConferencePlanned> execute(PlanConferenceContext context) {
         // A backwards range is checked first: it is a typo, and the more useful thing to report.
         // Both endpoints share the venue's zone, so comparing instants is the same as comparing
-        // wall-clock — and stays right if that ever stops being true.
-        if (startDate == null || endDate == null || endDate.utc().isBefore(startDate.utc())) {
+        // wall-clock — and stays right if that ever stops being true. Both are present by now: a
+        // blank date is refused at the form by RequiredEntryAdvice, under its own input, and
+        // reporting it here as a range would put it under End whichever one was missing.
+        if (endDate.utc().isBefore(startDate.utc())) {
             throw new InvalidDateRange("End date must be on or after start date");
         }
         // Only a conference that is over is refused: Ted may go to one he only just heard about,

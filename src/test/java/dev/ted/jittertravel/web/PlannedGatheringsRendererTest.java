@@ -34,6 +34,14 @@ class PlannedGatheringsRendererTest {
     }
 
     @Test
+    void createLinkGoesToThePlanGatheringForm() {
+        String html = PlannedGatheringsRenderer.render(List.of(), TimeView.ALL);
+
+        assertThat(html)
+                .contains("<a class=\"create-link\" href=\"/plan-gathering\">Plan another gathering</a>");
+    }
+
+    @Test
     void activeFilterMarkedOnToggleLink() {
         String html = PlannedGatheringsRenderer.render(List.of(), TimeView.ALL);
 

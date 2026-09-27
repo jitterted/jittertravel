@@ -10,13 +10,15 @@ import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Convention guard: every list-view page renderer must surface the shared
- * FUTURE/ALL toggle, wired to the active filter.
+ * FUTURE/ALL toggle, wired to the active filter, in a {@link ListToolbar} that
+ * ends with the page's create link.
  * <p>
  * "List-view page renderer" is recognised structurally — any {@code public
  * static render(...)} method in the {@code web} package that accepts both a
@@ -43,6 +45,34 @@ class TimeFilterToggleConventionTest {
         return renderers.stream().map(renderer -> DynamicTest.dynamicTest(
                 renderer.getDeclaringClass().getSimpleName(),
                 () -> assertRendersToggle(renderer)));
+    }
+
+    /**
+     * The create action ("Book another hotel") sits at the right edge of the toolbar, at the same
+     * place on every list page — never under the list, where its distance grew with the data. Its
+     * look is {@code ListToolbarTest}'s; this is only that every list page has it, up there, once.
+     */
+    @TestFactory
+    Stream<DynamicTest> everyListViewRendererEndsItsToolbarWithTheCreateLink() throws Exception {
+        return listViewRenderMethods().stream().map(renderer -> DynamicTest.dynamicTest(
+                renderer.getDeclaringClass().getSimpleName(),
+                () -> assertRendersCreateLinkInToolbar(renderer)));
+    }
+
+    private static void assertRendersCreateLinkInToolbar(Method renderer) throws Exception {
+        String name = renderer.getDeclaringClass().getSimpleName();
+        String html = render(renderer, TimeView.FUTURE);
+
+        assertThat(html)
+                .as("%s must open its toolbar with the shared toggle", name)
+                .contains("<div class=\"list-toolbar\"><div class=\"time-toggle\">")
+                .as("%s must end its toolbar with the create link", name)
+                .containsPattern("<a class=\"create-link\" href=\"/[a-z-]+\">(Book|Plan) another [a-z ]+</a></div>")
+                .as("%s must include the toolbar's stylesheet", name)
+                .contains(".create-link {");
+        assertThat(Pattern.compile(">(Book|Plan) another ").matcher(html).results().count())
+                .as("%s must offer its create link once, not also under the list", name)
+                .isEqualTo(1);
     }
 
     private static void assertRendersToggle(Method renderer) throws Exception {

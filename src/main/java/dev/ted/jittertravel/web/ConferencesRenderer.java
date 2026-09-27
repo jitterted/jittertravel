@@ -190,40 +190,6 @@ public class ConferencesRenderer {
                 letter-spacing: 0.06em; color: var(--muted-text); margin: 0;
             }
             .dashboard-guidance { font-size: 0.875rem; color: var(--muted-text); margin: 0.125rem 0 0; }
-            /* The two filters sit on one line and wrap together on a narrow viewport. The row owns
-               the gap under the heading; .time-toggle's own top margin is cancelled here, because
-               a flex item's margin does not collapse and the two would add up. */
-            .conference-filters {
-                display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-top: 1rem;
-            }
-            .conference-filters .time-toggle { margin-top: 0; }
-            /* margin-left: auto is what holds it at the right edge, with no spacer element and no
-               change to the two controls before it. When the row wraps on a narrow viewport it
-               keeps the right edge of whatever line it lands on, which is where the eye looks for
-               it either way. Padding matches .time-toggle's so the three line up at one height.
-               Filled green, alone in this row (Ted, 2026-08-22): everything else on the toolbar
-               answers "which of these am I looking at?", and this one leaves the page entirely.
-               Outlined in the accent colour it read as a third filter, because the active time
-               segment is accent-filled and the jump links are accent text. A different hue, and
-               solid rather than outlined, is what separates a create action from a filter — and
-               green is not a colour this app's palette uses for anything else, so it carries no
-               meaning it would have to fight. The border matches the fill so the box stays exactly
-               .time-toggle's size.
-               #1e7a1e rather than CSS `forestgreen` (#228B22), which this started as: white on
-               forestgreen is 4.4:1, just under WCAG AA's 4.5:1 for text this size. Two shades
-               darker is visually the same green and clears it at 5.4:1. Bold for the same reason —
-               weight is the other half of legibility on a filled control. */
-            .conf-plan-link {
-                margin-left: auto;
-                display: inline-flex; align-items: center;
-                padding: 6px 16px; font-size: 0.875rem; font-weight: 700;
-                border: 1px solid #1e7a1e; border-radius: 6px;
-                color: #fff; background: #1e7a1e;
-                text-decoration: none; white-space: nowrap;
-            }
-            /* Darker on hover rather than lighter: a lighter fill would walk the white text back
-               under the contrast floor the colour was chosen to clear. */
-            .conf-plan-link:hover { background: #1b6f1b; border-color: #1b6f1b; }
             /* One bordered group carrying both of the page's remaining jobs: jumping to a state
                section, and saying whether the dropped conferences are in. They belong in one bar
                because they answer the same question — "which of these lists am I looking at?" */
@@ -299,16 +265,15 @@ public class ConferencesRenderer {
     public static String render(List<DashboardSection> sections, TimeView activeFilter,
                                 DroppedView activeDropped, int droppedCount) {
         return "<!DOCTYPE html>\n" + html(
-                Page.head("Conferences", CSS + ConferenceActions.CSS),
+                Page.head("Conferences", CSS + ConferenceActions.CSS + ListToolbar.CSS),
                 body(
                         Page.viewNav(Page.NavAudience.OWNER, "/conferences"),
                         h1("Conferences"),
                         div().withClass("conference-container").with(
-                                div().withClass("conference-filters").with(
+                                ListToolbar.render("Plan another conference", "/plan-conference",
                                         TimeFilterToggle.render("/conferences", activeFilter,
                                                 activeDropped == DroppedView.SHOW ? "&dropped=show" : ""),
-                                        jumpBar(sections, activeFilter, activeDropped, droppedCount),
-                                        planLink()),
+                                        jumpBar(sections, activeFilter, activeDropped, droppedCount)),
                                 sections.isEmpty()
                                         ? renderEmptyState(activeFilter)
                                         : div().with(sections.stream()
@@ -317,11 +282,6 @@ public class ConferencesRenderer {
                         )
                 )
         ).withLang("en").render();
-    }
-
-    private static DomContent planLink() {
-        return a("Plan another conference").withClass("conf-plan-link")
-                                           .withHref("/plan-conference");
     }
 
     /**

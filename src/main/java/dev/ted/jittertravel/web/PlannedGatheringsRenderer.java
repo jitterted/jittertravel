@@ -77,12 +77,13 @@ public class PlannedGatheringsRenderer {
 
     public static String render(List<PlannedGatheringView> gatherings, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
-                Page.head("Planned Gatherings", CSS),
+                Page.head("Planned Gatherings", CSS + ListToolbar.CSS),
                 body(
                         div().withClass("page").with(
                                 Page.viewNav(Page.NavAudience.OWNER, "/planned-gatherings"),
                                 h1("Planned Gatherings"),
-                                TimeFilterToggle.render("/planned-gatherings", activeFilter),
+                                ListToolbar.render("Plan another gathering", "/plan-gathering",
+                                        TimeFilterToggle.render("/planned-gatherings", activeFilter)),
                                 gatherings.isEmpty()
                                         ? div(emptyStateMessage(activeFilter)).withClass("empty-state")
                                         : renderList(gatherings)

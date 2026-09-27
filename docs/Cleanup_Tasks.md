@@ -676,8 +676,18 @@ down when it is created does not get written down later.
       - **Only future days, OWNER-only**, as on the calendar (`CalendarViewBuilderTest` pins
         *where* the menu appears; the contents are pinned by calling `dayMenu` directly).
 
-- [ ] **"Plan/Book another …" belongs upper-right on every list page, and two pages have none**
-      (Ted, 2026-09-19). Two separate jobs, worth doing in one pass:
+- [x] **"Plan/Book another …" belongs upper-right on every list page, and two pages have none**
+      (Ted, 2026-09-19). **SHIPPED 2026-09-27.** The conferences toolbar became the shared
+      `ListToolbar` — filters on the left, a filled-green `.create-link` at the right edge — and
+      all six list renderers use it, so gatherings and private events gained their link and hotels,
+      flights and trains lost the one under the list. Its CSS is inlined per page via
+      `ListToolbar.CSS`, not put in `site.css`, which the anonymous calendar also loads.
+      `TimeFilterToggleConventionTest` now also asserts every list page ends its toolbar with the
+      create link, exactly once; mutation-verified. **Left open:** the pages' outer containers
+      still differ (flights and trains indent under their heading, hotels and gatherings do not),
+      so the button's right edge lands at a slightly different x per page at 820px — same place in
+      the toolbar, not yet the same place on screen.
+      The original write-up, kept for its reasoning:
       1. **Add it where missing.** `PlannedGatheringsRenderer` and `PlannedPrivateEventsRenderer`
          have no "another" affordance at all — zero occurrences in either file. So the only way to
          plan a second gathering or a second evening is the index nav card or the calendar day
@@ -685,8 +695,8 @@ down when it is created does not get written down later.
       2. **Move the ones that exist.** `BookedHotelsRenderer:84`, `BookedFlightsRenderer:120` and
          `BookedTrainsRenderer:92` each render theirs in a `div().withClass("action-row")` **after
          the table** — bottom-left, which Ted wants to move away from.
-      **`ConferencesRenderer.planLink()` is the shape to copy**, styled by `.conf-plan-link` in the
-      same file — read the CSS for its colour and layout. The case for moving it: at the bottom the
+      **`ConferencesRenderer.planLink()` was the shape to copy** (now `ListToolbar`). The case for
+      moving it: at the bottom the
       link was reachable only by scrolling past every row, and it grew further away the more rows
       there were — the one control on the page whose distance depended on the data (Ted,
       2026-08-22).

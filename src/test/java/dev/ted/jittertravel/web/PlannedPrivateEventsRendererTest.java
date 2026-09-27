@@ -43,6 +43,14 @@ class PlannedPrivateEventsRendererTest {
     }
 
     @Test
+    void createLinkGoesToThePlanPrivateEventForm() {
+        String html = PlannedPrivateEventsRenderer.render(List.of(), TimeView.ALL);
+
+        assertThat(html)
+                .contains("<a class=\"create-link\" href=\"/plan-private-event\">Plan another private event</a>");
+    }
+
+    @Test
     void activeFilterMarkedOnToggleLink() {
         String html = PlannedPrivateEventsRenderer.render(List.of(), TimeView.ALL);
 

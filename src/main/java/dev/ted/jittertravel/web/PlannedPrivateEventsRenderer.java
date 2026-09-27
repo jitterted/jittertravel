@@ -82,12 +82,13 @@ public class PlannedPrivateEventsRenderer {
 
     public static String render(List<PlannedPrivateEventView> privateEvents, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
-                Page.head("Planned Private Events", CSS),
+                Page.head("Planned Private Events", CSS + ListToolbar.CSS),
                 body(
                         div().withClass("page").with(
                                 Page.viewNav(Page.NavAudience.OWNER, "/planned-private-events"),
                                 h1("Planned Private Events"),
-                                TimeFilterToggle.render("/planned-private-events", activeFilter),
+                                ListToolbar.render("Plan another private event", "/plan-private-event",
+                                        TimeFilterToggle.render("/planned-private-events", activeFilter)),
                                 privateEvents.isEmpty()
                                         ? div(emptyStateMessage(activeFilter)).withClass("empty-state")
                                         : renderList(privateEvents)

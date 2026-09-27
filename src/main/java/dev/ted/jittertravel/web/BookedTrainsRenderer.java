@@ -79,17 +79,16 @@ public class BookedTrainsRenderer {
 
     public static String render(List<BookedTrainView> trains, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
-                Page.head("Booked Trains", CSS),
+                Page.head("Booked Trains", CSS + ListToolbar.CSS),
                 body(
                         Page.viewNav(Page.NavAudience.OWNER, "/booked-trains"),
                         div().withClass("trains-container").with(
                                 h1("Booked Trains"),
-                                TimeFilterToggle.render("/booked-trains", activeFilter),
+                                ListToolbar.render("Book another train", "/book-train",
+                                        TimeFilterToggle.render("/booked-trains", activeFilter)),
                                 trains.isEmpty()
                                         ? renderEmptyState(activeFilter)
-                                        : renderTrainList(trains),
-                                br(),
-                                a("Book another train").withHref("/book-train")
+                                        : renderTrainList(trains)
                         )
                 )
         ).withLang("en").render();

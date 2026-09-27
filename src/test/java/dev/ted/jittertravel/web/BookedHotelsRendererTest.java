@@ -39,6 +39,14 @@ class BookedHotelsRendererTest {
     }
 
     @Test
+    void createLinkGoesToTheBookHotelForm() {
+        String html = BookedHotelsRenderer.render(List.of(), TimeView.ALL);
+
+        assertThat(html)
+                .contains("<a class=\"create-link\" href=\"/book-hotel\">Book another hotel</a>");
+    }
+
+    @Test
     void activeFilterMarkedOnToggleLink() {
         String html = BookedHotelsRenderer.render(List.of(), TimeView.ALL);
 

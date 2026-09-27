@@ -30,6 +30,14 @@ class BookedFlightsRendererTest {
     }
 
     @Test
+    void createLinkGoesToTheBookFlightForm() {
+        String html = BookedFlightsRenderer.render(List.of(), TimeView.ALL);
+
+        assertThat(html)
+                .contains("<a class=\"create-link\" href=\"/book-flight\">Book another flight</a>");
+    }
+
+    @Test
     void activeFilterMarkedOnToggleLink() {
         String html = BookedFlightsRenderer.render(List.of(), TimeView.ALL);
 

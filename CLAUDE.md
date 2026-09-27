@@ -1082,12 +1082,19 @@ FUTURE/ALL filter, defaulting to FUTURE. A new list view opts in by following th
 the view record implements `TemporalView.relevantUntil()` (the instant after which the item
 is past — the *end* for multi-day items); the projector filters with
 `timeView.includes(view, now)` in `views(TimeView, now)`; the controller reads `?filter=` via
-`TimeView.fromParam` and passes `now()`; the renderer calls
-`TimeFilterToggle.render("/its-path", activeFilter)` (toggle CSS lives in `site.css`).
+`TimeView.fromParam` and passes `now()`; the renderer puts
+`TimeFilterToggle.render("/its-path", activeFilter)` inside
+`ListToolbar.render("Book another …", "/its-create-form", toggle)` and adds `ListToolbar.CSS`
+to its page CSS (toggle CSS lives in `site.css`).
+
+**The create link lives in that toolbar, at its right edge, never under the list** (Ted,
+2026-09-27): at the bottom its distance grew with the data. `ListToolbar.CSS` is inlined per
+page rather than put in `site.css`, which the anonymous calendar loads too.
 
 `TimeFilterToggleConventionTest` enforces the last step: it discovers every static
 `render(List, TimeView)` in the `web` package and asserts each emits the shared toggle wired
-to the active filter. Forget the toggle on a new list renderer and that test fails.
+to the active filter, and ends its toolbar with the create link exactly once. Forget either on a
+new list renderer and that test fails.
 
 ### JS-behavior tests: tag `js`, browser-only, no server
 

@@ -107,17 +107,16 @@ public class BookedFlightsRenderer {
 
     public static String render(List<BookedFlightView> flights, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
-                Page.head("Booked Flights", CSS),
+                Page.head("Booked Flights", CSS + ListToolbar.CSS),
                 body(
                         Page.viewNav(Page.NavAudience.OWNER, "/booked-flights"),
                         h1("Booked Flights"),
                         div().withClass("conference-container").with(
-                                TimeFilterToggle.render("/booked-flights", activeFilter),
+                                ListToolbar.render("Book another flight", "/book-flight",
+                                        TimeFilterToggle.render("/booked-flights", activeFilter)),
                                 flights.isEmpty()
                                         ? renderEmptyState(activeFilter)
-                                        : renderFlightList(flights),
-                                br(),
-                                a("Book another flight").withHref("/book-flight")
+                                        : renderFlightList(flights)
                         )
                 )
         ).withLang("en").render();

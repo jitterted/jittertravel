@@ -852,7 +852,7 @@ class ConferencesRendererTest {
 
         assertThat(html)
                 .contains(".conference-container { margin: 0 0 2rem; padding: 0; }")
-                .contains(".conference-filters .time-toggle { margin-top: 0; }")
+                .contains(".list-toolbar .time-toggle { margin-top: 0; }")
                 .doesNotContain(".conference-container { margin: 2rem 0;");
     }
 
@@ -1038,9 +1038,9 @@ class ConferencesRendererTest {
      * 2026-08-22): at the bottom it was reachable only by scrolling past every section, and it grew
      * further away the more conferences there were.
      * <p>
-     * Both halves are the claim — that it is inside the filter row, and that nothing is left behind
-     * it at the foot of the page. The trailing {@code <br>} went with it: it existed only to space
-     * the link off the last table.
+     * Both halves are the claim — that it closes the filter row, and that nothing is left behind it
+     * at the foot of the page. The trailing {@code <br>} went with it: it existed only to space the
+     * link off the last table. How the link looks is {@code ListToolbarTest}'s.
      */
     @Test
     void thePlanLinkSitsAtTheRightEdgeOfTheToolbar() {
@@ -1049,45 +1049,9 @@ class ConferencesRendererTest {
         ), TimeView.ALL);
 
         assertThat(html)
-                .contains("<a class=\"conf-plan-link\" href=\"/plan-conference\">"
+                .contains("<a class=\"create-link\" href=\"/plan-conference\">"
                           + "Plan another conference</a></div>")
-                // The mechanism, not just the class: margin-left on the last flex item is what
-                // holds the right edge without a spacer element.
-                .contains(".conf-plan-link {\n    margin-left: auto;")
                 .doesNotContain("<br>");
-    }
-
-    /**
-     * The one create action in a row of filters, so it is filled and a different hue (Ted,
-     * 2026-08-22). Outlined in the accent colour it read as a third filter — the active time
-     * segment is accent-filled and the jump links are accent text, so accent on this toolbar
-     * already means "filter".
-     * <p>
-     * The border matching the fill is load-bearing, not decoration: it keeps the box exactly
-     * {@code .time-toggle}'s size, so the three controls stay one height.
-     * <p>
-     * <strong>The exact green is the claim, not just "green".</strong> CSS {@code forestgreen}
-     * (#228B22) is 4.4:1 against white — under WCAG AA's 4.5:1 for text this size — and #1e7a1e is
-     * the visually-identical shade that clears it at 5.4:1. A test asserting only that the fill is
-     * some green would let that regress silently, which is the whole reason the value changed.
-     */
-    @Test
-    void thePlanLinkIsFilledGreenRatherThanOutlinedInTheAccentColour() {
-        String html = ConferencesRenderer.render(List.<DashboardSection>of(), TimeView.ALL);
-
-        assertThat(html)
-                .contains("padding: 6px 16px; font-size: 0.875rem; font-weight: 700;")
-                .contains("border: 1px solid #1e7a1e; border-radius: 6px;")
-                .contains("color: #fff; background: #1e7a1e;")
-                .contains(".conf-plan-link:hover { background: #1b6f1b; border-color: #1b6f1b; }")
-                // The shade that does not clear AA, in both places it could appear. Pinned as
-                // whole declarations: the stylesheet's own comment explains why it went, so a
-                // bare doesNotContain("forestgreen") would fail for the wrong reason.
-                .doesNotContain("background: forestgreen;")
-                .doesNotContain("solid forestgreen;")
-                // The outlined-accent styling it replaced, which made it read as a filter.
-                .doesNotContain("border: 1px solid var(--accent-color); border-radius: 6px;\n"
-                                + "                color: var(--accent-color);");
     }
 
     /**

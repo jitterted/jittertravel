@@ -54,9 +54,6 @@ public class BookedHotelsRenderer {
                hotel link, no row actions, nothing left to click. */
             .hotel-table tr.cancelled td { color: var(--muted-text); }
             .hotel-table tr.cancelled:hover td { background: transparent; }
-            .action-row { margin-top: 1rem; }
-            .action-row a { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
-            .action-row a:hover { text-decoration: underline; }
             /* Edit and Cancel are each a no-break word with a space between, so a narrow Actions
                column drops Cancel onto its own line. */
             .row-actions a { display: inline-block; font-size: 0.85rem; text-decoration: none; }
@@ -71,18 +68,16 @@ public class BookedHotelsRenderer {
 
     public static String render(List<BookedHotelView> hotels, TimeView activeFilter) {
         return "<!DOCTYPE html>\n" + html(
-                Page.head("Booked Hotels", CSS),
+                Page.head("Booked Hotels", CSS + ListToolbar.CSS),
                 body(
                         div().withClass("page").with(
                                 Page.viewNav(Page.NavAudience.OWNER, "/booked-hotels"),
                                 h1("Booked Hotels"),
-                                TimeFilterToggle.render("/booked-hotels", activeFilter),
+                                ListToolbar.render("Book another hotel", "/book-hotel",
+                                        TimeFilterToggle.render("/booked-hotels", activeFilter)),
                                 hotels.isEmpty()
                                         ? renderEmptyState(activeFilter)
-                                        : renderTable(hotels),
-                                div().withClass("action-row").with(
-                                        a("Book another hotel").withHref("/book-hotel")
-                                )
+                                        : renderTable(hotels)
                         )
                 )
         ).withLang("en").render();

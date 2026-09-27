@@ -683,7 +683,10 @@ down when it is created does not get written down later.
       flights and trains lost the one under the list. Its CSS is inlined per page via
       `ListToolbar.CSS`, not put in `site.css`, which the anonymous calendar also loads.
       `TimeFilterToggleConventionTest` now also asserts every list page ends its toolbar with the
-      create link, exactly once; mutation-verified. **Left open:** the pages' outer containers
+      create link, exactly once; mutation-verified. **Same day, `/conferences` (Ted):** its jump bar
+      moved out of the toolbar onto its own row beneath, so the create link shares a row with the
+      time toggle alone — in one row, a bar with several sections pushed the link onto a line of
+      its own at iPad width. **Left open:** the pages' outer containers
       still differ (flights and trains indent under their heading, hotels and gatherings do not),
       so the button's right edge lands at a slightly different x per page at 820px — same place in
       the toolbar, not yet the same place on screen.

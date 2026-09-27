@@ -1055,6 +1055,24 @@ class ConferencesRendererTest {
     }
 
     /**
+     * The create link shares its row with the time toggle alone, as on every other list page, and
+     * the jump bar gets a row of its own beneath (Ted, 2026-09-27). In one row, a bar with several
+     * sections pushed the link onto a line of its own at iPad width.
+     */
+    @Test
+    void theJumpBarSitsOnItsOwnRowUnderTheToolbar() {
+        String html = ConferencesRenderer.render(oneSection(
+                view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "Netherlands")
+        ), TimeView.ALL);
+
+        assertThat(html)
+                .contains("Upcoming</a><a href=\"/conferences?filter=all\" class=\"active\">All</a></div>"
+                          + "<a class=\"create-link\" href=\"/plan-conference\">")
+                .contains("Plan another conference</a></div><div class=\"conf-jump-bar\">")
+                .contains("width: fit-content; margin-top: 0.75rem;");
+    }
+
+    /**
      * The dropped chip is the only one whose fill is nearly the row's own colour, so with no edge
      * it had no visible left boundary and read as misaligned beside the solid chips (Ted,
      * 2026-08-22).

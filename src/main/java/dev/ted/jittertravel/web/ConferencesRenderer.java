@@ -192,8 +192,12 @@ public class ConferencesRenderer {
             .dashboard-guidance { font-size: 0.875rem; color: var(--muted-text); margin: 0.125rem 0 0; }
             /* One bordered group carrying both of the page's remaining jobs: jumping to a state
                section, and saying whether the dropped conferences are in. They belong in one bar
-               because they answer the same question — "which of these lists am I looking at?" */
+               because they answer the same question — "which of these lists am I looking at?"
+               Its own row under the toolbar (Ted, 2026-09-27), so the create link shares a row
+               with the time toggle as on every other list page, whatever the bar's width.
+               fit-content keeps its box around its contents rather than stretching the row. */
             .conf-jump-bar {
+                width: fit-content; margin-top: 0.75rem;
                 display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
                 padding: 4px 10px; border: 1px solid var(--border-color);
                 border-radius: 6px; background: var(--header-bg);
@@ -272,8 +276,8 @@ public class ConferencesRenderer {
                         div().withClass("conference-container").with(
                                 ListToolbar.render("Plan another conference", "/plan-conference",
                                         TimeFilterToggle.render("/conferences", activeFilter,
-                                                activeDropped == DroppedView.SHOW ? "&dropped=show" : ""),
-                                        jumpBar(sections, activeFilter, activeDropped, droppedCount)),
+                                                activeDropped == DroppedView.SHOW ? "&dropped=show" : "")),
+                                jumpBar(sections, activeFilter, activeDropped, droppedCount),
                                 sections.isEmpty()
                                         ? renderEmptyState(activeFilter)
                                         : div().with(sections.stream()

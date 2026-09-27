@@ -319,17 +319,6 @@ public class ConferencesRenderer {
         ).withLang("en").render();
     }
 
-    /**
-     * The page's one create action, at the right edge of the toolbar rather than under the last
-     * table (Ted, 2026-08-22). At the bottom it was reachable only by scrolling past every section,
-     * and it grew further away the more conferences there were — the one control on the page whose
-     * distance depended on the data.
-     * <p>
-     * Bordered and accent-coloured, at the toolbar's own height: it stands beside two filters, and
-     * a bare link there would read as a sentence trailing them — the mistake the old "Show dropped"
-     * link made. Outlined rather than filled, because the page is a list of things needing
-     * decisions and planning a new one is not the urgent move on it.
-     */
     private static DomContent planLink() {
         return a("Plan another conference").withClass("conf-plan-link")
                                            .withHref("/plan-conference");

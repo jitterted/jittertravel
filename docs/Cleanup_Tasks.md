@@ -685,12 +685,11 @@ down when it is created does not get written down later.
       2. **Move the ones that exist.** `BookedHotelsRenderer:84`, `BookedFlightsRenderer:120` and
          `BookedTrainsRenderer:92` each render theirs in a `div().withClass("action-row")` **after
          the table** — bottom-left, which Ted wants to move away from.
-      **`ConferencesRenderer.planLink()` is the shape to copy**, and its javadoc already argues the
-      case: the link used to sit at the bottom, *"and it grew further away the more conferences
-      there were — the one control on the page whose distance depended on the data."* It is now
-      bordered and accent-coloured at the toolbar's own height (`.conf-plan-link`), outlined rather
-      than filled because planning a new one is not the urgent move on a list of things needing
-      decisions.
+      **`ConferencesRenderer.planLink()` is the shape to copy**, styled by `.conf-plan-link` in the
+      same file — read the CSS for its colour and layout. The case for moving it: at the bottom the
+      link was reachable only by scrolling past every row, and it grew further away the more rows
+      there were — the one control on the page whose distance depended on the data (Ted,
+      2026-08-22).
       Note this interacts with the standing **"action affordances never move"** rule: the point
       here is that the control sits at a *fixed* place on every list page, which is the rule
       pointing at consistency across pages rather than across rows. Also check `TimeFilterToggle`

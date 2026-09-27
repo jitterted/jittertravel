@@ -278,11 +278,14 @@ public class CalendarViewBuilder {
                             + dayStateClass(date, today) + (isAway ? " is-away" : "");
         String dayNumberClass = "day-number" + (isMonthStart ? " is-month-start" : "");
         String label = formatDayLabel(date, isMonthStart, isFirstCellOfGrid);
-        // OWNER on a strictly-future day gets a tap-to-open disclosure menu (Open day + Add …);
+        // OWNER on today or a future day gets a tap-to-open disclosure menu (Open day + Add …);
         // everyone else keeps the plain behavior — an itinerary link for signed-in viewers
-        // (OWNER on past/today, FAMILY on any day), a plain number for anonymous visitors.
+        // (OWNER on a past day, FAMILY on any day), a plain number for anonymous visitors.
+        // Today offers every Add item, although flights, trains and hotels refuse a departure or
+        // check-in that has passed: one menu everywhere beats a menu that changes by the hour, and
+        // the form says why when it refuses (Ted, 2026-09-25).
         DomContent dayNumber;
-        if (isOwner && date.isAfter(today)) {
+        if (isOwner && !date.isBefore(today)) {
             dayNumber = dayMenu(date, label, dayNumberClass);
         } else if (isPublicUser) {
             dayNumber = span(label).withClass(dayNumberClass);

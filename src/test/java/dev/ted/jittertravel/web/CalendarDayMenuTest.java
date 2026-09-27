@@ -11,10 +11,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Direct tests of {@code CalendarViewBuilder.dayMenu} — the owner's tap-to-open menu on a
- * strictly-future day number.
+ * day number, today or later.
  * <p>
- * {@code CalendarViewBuilderTest} covers <em>where</em> the menu appears (owner only, future days
- * only) by driving {@code render(...)}; this covers <em>what is in it</em>. The split is the point:
+ * {@code CalendarViewBuilderTest} covers <em>where</em> the menu appears (owner only, today and
+ * later) by driving {@code render(...)}; this covers <em>what is in it</em>. The split is the point:
  * those tests assert a handful of hrefs, so adding an eighth item and renaming "Open day" to
  * "Open itinerary" both shipped green (`6360aa1`). The list assertion below is written so that any
  * item added, removed, renamed, reordered or repointed fails it.

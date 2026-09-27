@@ -1049,8 +1049,10 @@ string and watch the test go red. If it stays green, the assertion is too loose.
 
 ### A new `EntryKind` must reach the calendar's day menu
 
-Tapping a future day number on `/calendar` opens the owner's disclosure menu — "Open itinerary"
-plus one **Add …** link per kind, each dated with that day. It is where Ted actually starts, and
+Tapping today's or a future day's number on `/calendar` opens the owner's disclosure menu — "Open
+itinerary" plus one **Add …** link per kind, each dated with that day. **Today offers every kind**,
+though flights, trains and hotels then refuse a time already passed: one menu on every day, with the
+form saying why, beats a menu that changes by the hour (Ted, 2026-09-25). It is where Ted actually starts, and
 it is the surface a new kind gets forgotten on: `PRIVATE_EVENT` shipped 2026-08-13 with a lane, a
 plan form and a nav card, and for **eleven days** could not be created from a day, because nothing
 connected "a new bookable kind exists" to "the menu offers it" (Ted added it himself in `6360aa1`).
@@ -1068,7 +1070,7 @@ adding one), so do not weaken it into a defaulted switch or a hard-coded list of
 
 The same file also pins the menu's *contents* — the words, the paths, the order, and that there is
 nothing extra — by calling the package-private `CalendarViewBuilder.dayMenu` directly.
-`CalendarViewBuilderTest` covers only **where** the menu appears (owner-only, future days only) and
+`CalendarViewBuilderTest` covers only **where** the menu appears (owner-only, today and later) and
 asserts a few hrefs, which is why a renamed item and an added one both shipped green. **A
 self-contained static renderer gets its own direct test**; reaching it only through the page that
 embeds it leaves exactly this kind of gap.

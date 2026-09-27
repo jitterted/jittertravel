@@ -93,12 +93,12 @@ class CalendarViewBuilderTest {
     }
 
     @Test
-    void ownerFutureDayRendersDisclosureMenuWithDatedCreateLinks() {
+    void ownerTodayAndFutureDaysRenderDisclosureMenuWithDatedCreateLinks() {
         // today = Fri 2026-06-19, range = the single day Sat 2026-06-20. The grid still
-        // expands to the whole week (Sun 14 .. Sat 20), but June 20 is the *only* strictly-
-        // future day in it, so exactly one menu renders. That makes each dated assertion
-        // strict: the date can only come from June 20's cell, so a one-day arithmetic slip
-        // in the link date has nowhere else to surface the expected value from.
+        // expands to the whole week (Sun 14 .. Sat 20), so exactly two cells get a menu:
+        // today and the one future day. Each is asserted by its own date, and the days either
+        // side are asserted absent, so a one-day arithmetic slip in the link date fails rather
+        // than finding its expected value in the neighbouring cell.
         String html = CalendarViewBuilder.render(
                 List.of(),
                 LocalDate.of(2026, 6, 20),
@@ -108,8 +108,17 @@ class CalendarViewBuilderTest {
                 true
         );
 
+        assertThat(html.split("<details class=\"disclosure-menu\"", -1))
+                .as("one menu for today and one for the future day, none for the past")
+                .hasSize(3);
         assertThat(html)
-                .containsOnlyOnce("<details class=\"disclosure-menu\"")
+                .as("today offers every Add item, even the kinds that refuse a time already passed")
+                .contains("href=\"/book-flight?date=2026-06-19\"")
+                .contains("href=\"/book-hotel?date=2026-06-19\"")
+                .contains("href=\"/plan-gathering?date=2026-06-19\"")
+                .doesNotContain("book-flight?date=2026-06-18")
+                .doesNotContain("book-flight?date=2026-06-21");
+        assertThat(html)
                 .contains("href=\"/itinerary?date=2026-06-20\"")
                 .contains("href=\"/book-flight?date=2026-06-20\"")
                 .contains("href=\"/book-train?date=2026-06-20\"")
@@ -120,7 +129,7 @@ class CalendarViewBuilderTest {
     }
 
     @Test
-    void ownerTodayAndPastDaysKeepPlainItineraryLinkWithoutMenu() {
+    void ownerPastDaysKeepPlainItineraryLinkWithoutMenu() {
         String html = CalendarViewBuilder.render(
                 List.of(),
                 LocalDate.of(2026, 6, 14),
@@ -130,13 +139,12 @@ class CalendarViewBuilderTest {
                 true
         );
 
-        // Today (June 15) is a plain itinerary link, and carries no create links.
+        // Yesterday (June 14) is a plain itinerary link, and carries no create links.
         assertThat(html)
-                .contains("href=\"/itinerary?date=2026-06-15\"")
-                .doesNotContain("book-flight?date=2026-06-15")
-                .doesNotContain("plan-gathering?date=2026-06-15");
-        // Yesterday (June 14) likewise: a plain link, not a menu.
-        assertThat(html).doesNotContain("book-flight?date=2026-06-14");
+                // The grid's first cell is labelled with its month, hence is-month-start.
+                .contains("<a href=\"/itinerary?date=2026-06-14\" class=\"day-number is-month-start\">")
+                .doesNotContain("book-flight?date=2026-06-14")
+                .doesNotContain("plan-gathering?date=2026-06-14");
     }
 
     @Test

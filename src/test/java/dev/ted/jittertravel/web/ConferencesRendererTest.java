@@ -3,10 +3,11 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.ConferenceView;
 import dev.ted.jittertravel.application.DashboardGroup;
+import dev.ted.jittertravel.application.DashboardRow;
 import dev.ted.jittertravel.application.DashboardSection;
 import dev.ted.jittertravel.application.DroppedView;
-import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.application.TimeView;
+import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.SpeakingStatus;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -653,7 +655,8 @@ class ConferencesRendererTest {
 
         String html = ConferencesRenderer.render(
                 List.of(new DashboardSection(DashboardGroup.DECIDE,
-                                             List.of(turnedDown, neverSubmitted))),
+                                             List.of(new DashboardRow(turnedDown, false),
+                                                     new DashboardRow(neverSubmitted, false)))),
                 TimeView.FUTURE);
 
         assertThat(html)
@@ -759,6 +762,31 @@ class ConferencesRendererTest {
     }
 
     /**
+     * It goes when the deadline passes, too: the row is under "Decide" by then, which says there is
+     * no talk this time. The date stays, and stays a link, because a deadline recorded wrong still
+     * needs correcting — only the way out to the submission page goes.
+     */
+    @Test
+    void theSubmitLinkGoesOnceTheCfpHasClosedButTheDeadlineStays() {
+        ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
+                "Ede", "Netherlands", AttendanceCommitment.WATCHING, false,
+                SpeakingStatus.NOT_SPEAKING,
+                ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-12T23:59"), ZONE),
+                "https://sessionize.com/jfall-2027/", ConferenceFormat.CALL_FOR_PAPERS, "");
+
+        String html = ConferencesRenderer.render(
+                List.of(new DashboardSection(DashboardGroup.DECIDE,
+                                             List.of(new DashboardRow(conf, false)))),
+                TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("title=\"Change the recorded CFP deadline\"")
+                .contains("<span class=\"nowrap\">Sat 9/12</span>")
+                .doesNotContain("https://sessionize.com/jfall-2027/")
+                .doesNotContain("<a class=\"conf-cfp-submit\"");
+    }
+
+    /**
      * The line for one submission state, isolated. Rendered through the real renderer rather than
      * asserted against a helper, so the wrapping element is part of the claim.
      */
@@ -775,9 +803,9 @@ class ConferencesRendererTest {
     @Test
     void eachGroupIsHeadedAndSaysWhatToDoAboutIt() {
         String html = ConferencesRenderer.render(List.of(
-                new DashboardSection(DashboardGroup.CFP_CLOSES_SOON, List.of(
+                new DashboardSection(DashboardGroup.CFP_CLOSES_SOON, openRows(
                         view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "Netherlands"))),
-                new DashboardSection(DashboardGroup.GOING, List.of(
+                new DashboardSection(DashboardGroup.GOING, openRows(
                         view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA")))
         ), TimeView.FUTURE);
 
@@ -795,9 +823,9 @@ class ConferencesRendererTest {
     @Test
     void groupsRenderInTheOrderTheyAreGiven() {
         String html = ConferencesRenderer.render(List.of(
-                new DashboardSection(DashboardGroup.CFP_CLOSES_SOON, List.of(
+                new DashboardSection(DashboardGroup.CFP_CLOSES_SOON, openRows(
                         view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "Netherlands"))),
-                new DashboardSection(DashboardGroup.GOING, List.of(
+                new DashboardSection(DashboardGroup.GOING, openRows(
                         view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA")))
         ), TimeView.FUTURE);
 
@@ -940,9 +968,9 @@ class ConferencesRendererTest {
     @Test
     void theJumpBarCountsEachSectionAndLinksToIt() {
         String html = ConferencesRenderer.render(List.of(
-                new DashboardSection(DashboardGroup.CFP_CLOSES_SOON, List.of(
+                new DashboardSection(DashboardGroup.CFP_CLOSES_SOON, openRows(
                         view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "Netherlands"))),
-                new DashboardSection(DashboardGroup.GOING, List.of(
+                new DashboardSection(DashboardGroup.GOING, openRows(
                         view("dev2next", "2026-09-28T09:00", "2026-10-01T17:00", "Denver", "USA"),
                         view("ExploreDDD", "2026-09-23T09:00", "2026-09-25T17:00", "Denver", "USA")))
         ), TimeView.FUTURE, DroppedView.HIDE, 0);
@@ -980,7 +1008,7 @@ class ConferencesRendererTest {
                 view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "Netherlands")
         ), TimeView.ALL, DroppedView.HIDE, 1);
         String shown = ConferencesRenderer.render(List.of(
-                new DashboardSection(DashboardGroup.DROPPED, List.of(
+                new DashboardSection(DashboardGroup.DROPPED, openRows(
                         view("Oops", "2026-09-02T09:00", "2026-09-03T17:00", "Hamburg", "Germany",
                                 AttendanceCommitment.NOT_GOING)))
         ), TimeView.ALL, DroppedView.SHOW, 1);
@@ -998,7 +1026,7 @@ class ConferencesRendererTest {
     @Test
     void aDroppedConferenceWearsANotGoingChip() {
         String html = ConferencesRenderer.render(List.of(
-                new DashboardSection(DashboardGroup.DROPPED, List.of(
+                new DashboardSection(DashboardGroup.DROPPED, openRows(
                         view("PLoP", "2026-10-12T09:00", "2026-10-15T17:00", "Allerton", "USA",
                                 AttendanceCommitment.NOT_GOING)))
         ), TimeView.ALL, DroppedView.SHOW, 1);
@@ -1019,7 +1047,7 @@ class ConferencesRendererTest {
     @Test
     void aDroppedConferenceOffersNoActions() {
         String html = ConferencesRenderer.render(List.of(
-                new DashboardSection(DashboardGroup.DROPPED, List.of(
+                new DashboardSection(DashboardGroup.DROPPED, openRows(
                         view("PLoP", "2026-10-12T09:00", "2026-10-15T17:00", "Allerton", "USA",
                                 AttendanceCommitment.NOT_GOING)))
         ), TimeView.ALL, DroppedView.SHOW, 1);
@@ -1085,7 +1113,7 @@ class ConferencesRendererTest {
     @Test
     void theNotGoingChipCarriesABorderWithoutOutgrowingTheFilledChips() {
         String html = ConferencesRenderer.render(List.of(
-                new DashboardSection(DashboardGroup.DROPPED, List.of(
+                new DashboardSection(DashboardGroup.DROPPED, openRows(
                         view("Oops", "2026-09-02T09:00", "2026-09-03T17:00", "Hamburg", "Germany",
                                 AttendanceCommitment.NOT_GOING)))
         ), TimeView.ALL, DroppedView.SHOW, 1);
@@ -1111,7 +1139,17 @@ class ConferencesRendererTest {
      * {@code ConferenceDashboardTest}'s subject; how a group is headed is asserted below.
      */
     private static List<DashboardSection> oneSection(ConferenceView... conferences) {
-        return List.of(new DashboardSection(DashboardGroup.CFP_CLOSES_SOON, List.of(conferences)));
+        return List.of(new DashboardSection(DashboardGroup.CFP_CLOSES_SOON, openRows(conferences)));
+    }
+
+    /**
+     * Rows whose CFP the dashboard judged still open — the state every row-rendering case assumes
+     * unless it is about the deadline having passed, which says so with its own {@link DashboardRow}.
+     */
+    private static List<DashboardRow> openRows(ConferenceView... conferences) {
+        return Arrays.stream(conferences)
+                     .map(conference -> new DashboardRow(conference, true))
+                     .toList();
     }
 
     /**

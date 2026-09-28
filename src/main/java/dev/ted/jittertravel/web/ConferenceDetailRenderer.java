@@ -444,7 +444,7 @@ public class ConferenceDetailRenderer {
                     .with(a("Record when this CFP closes")
                                   .withClass("conf-panel-link").withHref(cfpPath));
         }
-        boolean open = conference.cfpClosesOn().utc().isAfter(now);
+        boolean open = conference.cfpOpenAt(now);
         if (dropped) {
             // A dropped conference's deadline is a record, not a countdown: he is not going, so
             // how long is left is not a fact about anything he could do with the time. It leads

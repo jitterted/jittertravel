@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.ConferenceView;
 import dev.ted.jittertravel.application.DashboardGroup;
+import dev.ted.jittertravel.application.DashboardRow;
 import dev.ted.jittertravel.application.DashboardSection;
 import dev.ted.jittertravel.application.DroppedView;
 import dev.ted.jittertravel.application.TimeView;
@@ -307,7 +308,7 @@ public class ConferencesRenderer {
                 // Dropped is not a count here: it is the switch's own number, at the end of the bar.
                 .filter(section -> section.group() != DashboardGroup.DROPPED)
                 .forEach(section -> bar.with(
-                        jumpLink(section.group(), section.conferences().size()),
+                        jumpLink(section.group(), section.rows().size()),
                         span("/").withClass("conf-jump-sep")));
         bar.with(droppedSwitch(activeFilter, activeDropped, droppedCount));
         if (sections.stream().anyMatch(section -> section.group() == DashboardGroup.DROPPED)) {
@@ -371,7 +372,7 @@ public class ConferencesRenderer {
                     .with(
                             h2(heading(section.group())).withClass("dashboard-heading"),
                             p(guidance(section.group())).withClass("dashboard-guidance"),
-                            renderTable(section.conferences())
+                            renderTable(section.rows())
                     );
     }
 
@@ -438,7 +439,7 @@ public class ConferencesRenderer {
      * Five columns, each section carrying its own {@code thead} — the header row is what
      * {@code table-layout: fixed} sizes the columns from, so every section has to have one.
      */
-    private static DomContent renderTable(List<ConferenceView> conferences) {
+    private static DomContent renderTable(List<DashboardRow> rows) {
         return table().withClass("conference-table").with(
                 thead(tr(
                         th("Name").withClass("conf-col-name"),
@@ -450,16 +451,17 @@ public class ConferencesRenderer {
                         th("Actions").withClass("conf-col-actions")
                 )),
                 tbody().with(
-                        conferences.stream()
-                                   .map(ConferencesRenderer::renderRow)
-                                   .toList()
+                        rows.stream()
+                            .map(ConferencesRenderer::renderRow)
+                            .toList()
                 )
         );
     }
 
-    private static TrTag renderRow(ConferenceView conf) {
+    private static TrTag renderRow(DashboardRow row) {
+        ConferenceView conf = row.conference();
         return tr(
-                td(nameCell(conf)).withClass("conf-name"),
+                td(nameCell(conf, row.cfpOpen())).withClass("conf-name"),
                 td(goingCell(conf)),
                 td(datesCell(conf)),
                 td(cityCell(conf)).withClass("conf-city"),
@@ -483,10 +485,10 @@ public class ConferencesRenderer {
      * side by side had different vocabularies. It stays a link on a dropped row too — that page is
      * where "why did this drop out?" is answerable.
      */
-    private static DomContent nameCell(ConferenceView conf) {
+    private static DomContent nameCell(ConferenceView conf, boolean cfpOpen) {
         return div().with(
                 div().with(nameContent(conf)),
-                subLine(conf)
+                subLine(conf, cfpOpen)
         );
     }
 
@@ -600,12 +602,12 @@ public class ConferencesRenderer {
      * under, which is what makes {@code Going} distinguish an accepted talk from an invitation taken
      * up from a ticket bought.
      */
-    private static DomContent subLine(ConferenceView conf) {
+    private static DomContent subLine(ConferenceView conf, boolean cfpOpen) {
         String talkState = talkState(conf.speakingStatus());
         if (talkState != null) {
             return div(talkState).withClass("conf-cfp-deadline");
         }
-        return cfpLine(conf);
+        return cfpLine(conf, cfpOpen);
     }
 
     /**
@@ -645,7 +647,7 @@ public class ConferencesRenderer {
      * than showing it, because {@code CfpDeadlineSource} does not filter by format and that row is
      * still putting alarms on Ted's phone.
      */
-    private static DomContent cfpLine(ConferenceView conf) {
+    private static DomContent cfpLine(ConferenceView conf, boolean cfpOpen) {
         if (conf.format() == ConferenceFormat.OPEN_SPACE
             || conf.commitment() == AttendanceCommitment.NOT_GOING) {
             return conf.cfpClosesOn() == null ? span() : recordedDeadline(conf);
@@ -664,7 +666,7 @@ public class ConferencesRenderer {
                    .with(span("CFP "),
                          ZonedTimeTag.renderDateTimeStacking(
                                  conf.cfpClosesOn(), DATE_PATTERN, TIME_PATTERN)));
-        return line.with(submitLink(conf));
+        return cfpOpen ? line.with(submitLink(conf)) : line;
     }
 
     /** The deadline as a record and nothing more — no link, because the domain would refuse one. */
@@ -679,10 +681,13 @@ public class ConferencesRenderer {
      * The way out to wherever the talk is submitted — Sessionize, usually. It hangs off the deadline
      * line because it is the same fact: this CFP is open, it closes then, you submit there.
      * <p>
-     * It shows only while the deadline line does, which is exactly while submitting is still on the
-     * table. Once the stream has spoken the line above is a talk state and this goes with it —
-     * a link inviting Ted to submit to a conference that already turned him down would be the
-     * dashboard arguing with itself.
+     * It shows only while submitting is still on the table: the deadline line is showing, <em>and</em>
+     * the deadline has not passed. Once the stream has spoken the line above is a talk state and
+     * this goes with it — a link inviting Ted to submit to a conference that already turned him down
+     * would be the dashboard arguing with itself. A passed deadline is the same argument from the
+     * clock: the row now sits under "Decide", which says there is no talk this time. The date stays
+     * (and stays a link, since a deadline recorded wrong still needs correcting); only this goes.
+     * Whether it has passed is {@link DashboardRow#cfpOpen()}, decided with the grouping.
      * <p>
      * External, so it opens in a new tab: every other outbound link in the app does (a hotel's map,
      * a gathering's page), and the row it leaves is a working surface to come back to.

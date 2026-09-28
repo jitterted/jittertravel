@@ -60,7 +60,7 @@ public record ConferenceView(
         String cfpSubmissionUrl,
         ConferenceFormat format,
         String infoUrl
-) implements TemporalView {
+) implements TemporalView, CfpDeadlineView {
     public String city() { return venueAddress.city(); }
     public String country() { return venueAddress.country(); }
 

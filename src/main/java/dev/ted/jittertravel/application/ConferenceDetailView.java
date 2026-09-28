@@ -48,7 +48,7 @@ public record ConferenceDetailView(
         String cfpSubmissionUrl,
         ConferenceFormat format,
         String infoUrl
-) {
+) implements CfpDeadlineView {
     public String city() { return venueAddress.city(); }
 
     public String country() { return venueAddress.country(); }

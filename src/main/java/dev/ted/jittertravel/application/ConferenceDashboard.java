@@ -36,15 +36,15 @@ public class ConferenceDashboard {
      * @param now         captured at the boundary; decides only whether a CFP deadline has passed.
      */
     public List<DashboardSection> sections(List<ConferenceView> conferences, Instant now) {
-        Map<DashboardGroup, List<ConferenceView>> byGroup = new EnumMap<>(DashboardGroup.class);
+        Map<DashboardGroup, List<DashboardRow>> byGroup = new EnumMap<>(DashboardGroup.class);
         for (ConferenceView conference : conferences) {
             byGroup.computeIfAbsent(groupFor(conference, now), group -> new ArrayList<>())
-                   .add(conference);
+                   .add(new DashboardRow(conference, conference.cfpOpenAt(now)));
         }
 
         List<DashboardSection> sections = new ArrayList<>();
         for (DashboardGroup group : DashboardGroup.values()) {
-            List<ConferenceView> members = byGroup.get(group);
+            List<DashboardRow> members = byGroup.get(group);
             if (members != null && !members.isEmpty()) {
                 sections.add(new DashboardSection(group, sorted(group, members)));
             }
@@ -85,7 +85,9 @@ public class ConferenceDashboard {
         if (conference.cfpClosesOn() == null) {
             return DashboardGroup.CFP_DATE_UNKNOWN;
         }
-        return conference.cfpClosesOn().utc().isAfter(now)
+        // The same question the row's Submit link reads, which is what makes that link go at the
+        // instant the row leaves CFP_CLOSES_SOON.
+        return conference.cfpOpenAt(now)
                 ? DashboardGroup.CFP_CLOSES_SOON
                 : DashboardGroup.DECIDE;
     }
@@ -95,10 +97,10 @@ public class ConferenceDashboard {
      * of the group. Every other group keeps the list's start-date order, which is how a calendar
      * reads.
      */
-    private List<ConferenceView> sorted(DashboardGroup group, List<ConferenceView> members) {
-        Comparator<ConferenceView> order = group == DashboardGroup.CFP_CLOSES_SOON
-                ? Comparator.comparing(view -> view.cfpClosesOn().utc())
-                : Comparator.comparing(view -> view.startDate().utc());
+    private List<DashboardRow> sorted(DashboardGroup group, List<DashboardRow> members) {
+        Comparator<DashboardRow> order = group == DashboardGroup.CFP_CLOSES_SOON
+                ? Comparator.comparing(row -> row.conference().cfpClosesOn().utc())
+                : Comparator.comparing(row -> row.conference().startDate().utc());
         return members.stream().sorted(order).toList();
     }
 }

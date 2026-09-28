@@ -41,7 +41,7 @@ class ConferenceDashboardTest {
                 .containsExactly(DashboardGroup.CFP_CLOSES_SOON, DashboardGroup.CFP_DATE_UNKNOWN,
                                  DashboardGroup.DECIDE, DashboardGroup.NOTHING_TO_SUBMIT, DashboardGroup.GOING);
         assertThat(sections).allSatisfy(section ->
-                assertThat(section.conferences()).hasSize(1));
+                assertThat(section.rows()).hasSize(1));
         assertThat(namesIn(sections, DashboardGroup.CFP_CLOSES_SOON)).containsExactly("J-Fall");
         assertThat(namesIn(sections, DashboardGroup.CFP_DATE_UNKNOWN)).containsExactly("PLoP");
         assertThat(namesIn(sections, DashboardGroup.DECIDE)).containsExactly("ExploreDDD");
@@ -99,6 +99,54 @@ class ConferenceDashboardTest {
                 .singleElement()
                 .extracting(DashboardSection::group)
                 .isEqualTo(DashboardGroup.DECIDE);
+    }
+
+    /**
+     * The row carries the same clock answer the grouping used, so the Submit link on it goes at the
+     * instant the row leaves "CFP closes soon" — asked at both sides of the deadline, and at the
+     * deadline itself, which is already closed.
+     */
+    @Test
+    void aRowsCfpIsOpenExactlyUntilItsDeadline() {
+        Instant deadline = NOW.plus(Duration.ofDays(1));
+        List<ConferenceView> conferences =
+                List.of(watching("J-Fall", ConferenceFormat.CALL_FOR_PAPERS, deadline));
+
+        assertThat(onlyRow(dashboard.sections(conferences, NOW)).cfpOpen())
+                .as("a day before the deadline")
+                .isTrue();
+        assertThat(onlyRow(dashboard.sections(conferences, deadline)).cfpOpen())
+                .as("at the deadline")
+                .isFalse();
+        assertThat(onlyRow(dashboard.sections(conferences, deadline.plus(Duration.ofSeconds(1)))).cfpOpen())
+                .as("after the deadline")
+                .isFalse();
+    }
+
+    /**
+     * Open is a question about the clock, not about the group: a conference Ted is already going to
+     * can still have a talk submitted (ConferenceActions), so its row says the CFP is open too.
+     */
+    @Test
+    void aGoingConferenceWithAFutureDeadlineStillHasAnOpenCfp() {
+        List<DashboardSection> sections = dashboard.sections(List.of(
+                going("dev2next", ConferenceFormat.CALL_FOR_PAPERS, NOW.plus(Duration.ofDays(30)))
+        ), NOW);
+
+        assertThat(onlyRow(sections).cfpOpen())
+                .as("GOING row with a deadline still ahead")
+                .isTrue();
+    }
+
+    @Test
+    void anUnrecordedDeadlineIsNotAnOpenCfp() {
+        List<DashboardSection> sections = dashboard.sections(List.of(
+                watching("PLoP", ConferenceFormat.CALL_FOR_PAPERS, null)
+        ), NOW);
+
+        assertThat(onlyRow(sections).cfpOpen())
+                .as("no deadline recorded")
+                .isFalse();
     }
 
     @Test
@@ -231,9 +279,20 @@ class ConferenceDashboardTest {
     private static List<String> namesIn(List<DashboardSection> sections, DashboardGroup group) {
         return sections.stream()
                 .filter(section -> section.group() == group)
-                .flatMap(section -> section.conferences().stream())
+                .flatMap(section -> section.rows().stream())
+                .map(DashboardRow::conference)
                 .map(ConferenceView::name)
                 .toList();
+    }
+
+    private static DashboardRow onlyRow(List<DashboardSection> sections) {
+        assertThat(sections)
+                .as("exactly one section")
+                .hasSize(1);
+        assertThat(sections.getFirst().rows())
+                .as("exactly one row")
+                .hasSize(1);
+        return sections.getFirst().rows().getFirst();
     }
 
     private static ConferenceView watching(String name, ConferenceFormat format, Instant cfpClosesOn) {

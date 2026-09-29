@@ -29,6 +29,8 @@ public class CalendarRenderer {
                 --calendar-away-border-width: 4px;
                 --calendar-past-hatch: rgba(0, 0, 0, 0.1);
                 --calendar-today-tint: #eef2ff;
+                /* Deeper than the conference band's own #e0e7ff, or a flash beside one is lost. */
+                --calendar-arrival-tint: #a5b4fc;
                 --calendar-empty-band-min-height: 120px;
                 /* Scripting-off fallback only: StickyLayerHeights overwrites this with the header's
                    measured height. Consumed by the jump anchors' scroll-margin-top below, where
@@ -100,6 +102,9 @@ public class CalendarRenderer {
             .calendar-week {
                 display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
                 background-color: var(--calendar-surface);
+                /* Every week is a scroll target (CalendarViewBuilder.weekAnchorId), and a jump
+                   landing under the sticky bars would hide the very week it was for. */
+                scroll-margin-top: calc(var(--nav-height, 0px) + var(--calendar-weekday-header-height));
             }
             .day-label-cell {
                 grid-row: 1;
@@ -257,6 +262,19 @@ public class CalendarRenderer {
                 from { background-color: var(--calendar-today-tint); }
                 to   { background-color: var(--calendar-surface); }
             }
+            /* The day a link from another page came to see (?day=): two pulses, then a fade back
+               to the cell's own background. The eye goes to change, and a page load lands among
+               weeks that all look alike. No `to`/100% keyframe on purpose — the animation then
+               ends on each cell's own colour (month tint, today, past hatch) rather than snapping
+               from a guessed one. Indigo, the accent, and never amber: amber means a problem. */
+            .day-label-cell.is-arrival, .lane-cell.is-arrival {
+                animation: arrival-flash 3.5s ease-out;
+            }
+            @keyframes arrival-flash {
+                0%, 12%  { background-color: var(--calendar-arrival-tint); }
+                24%      { background-color: transparent; }
+                36%, 55% { background-color: var(--calendar-arrival-tint); }
+            }
             .toggle-all-weeks {
                 display: block; margin: 0 0 6px auto;
                 background: none; border: none; padding: 2px 4px;
@@ -333,6 +351,19 @@ public class CalendarRenderer {
      */
     public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser, boolean isOwner,
                                 LocalDate from, LocalDate to, ZoneDisplay zoneDisplay, Set<LocalDate> awayDays) {
+        return render(rawEntries, today, isPublicUser, isOwner, from, to, zoneDisplay, awayDays, null);
+    }
+
+    /**
+     * @param day the day a link from another page came to see (the conferences page's dates), or
+     *            {@code null}. The page is still the ordinary calendar around today; this only
+     *            widens it to take in the same week of lead-in before {@code day} that today gets,
+     *            so the {@code #w-…} the link scrolls to exists even for a past day — and flashes
+     *            that day's column, because every week looks alike (Ted, 2026-09-29).
+     */
+    public static String render(List<CalendarEntry> rawEntries, LocalDate today, boolean isPublicUser, boolean isOwner,
+                                LocalDate from, LocalDate to, ZoneDisplay zoneDisplay, Set<LocalDate> awayDays,
+                                LocalDate day) {
         List<CalendarEntry> entries = rawEntries.stream()
                 .sorted(Comparator.comparing(CalendarEntry::start))
                 .toList();
@@ -366,8 +397,14 @@ public class CalendarRenderer {
         if (to != null) {
             rangeEnd = to;
         }
+        if (day != null && day.minusWeeks(1).isBefore(rangeStart)) {
+            rangeStart = day.minusWeeks(1);
+        }
+        if (day != null && day.isAfter(rangeEnd)) {
+            rangeEnd = day;
+        }
 
-        String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser, isOwner, awayDays);
+        String calendarMarkup = CalendarViewBuilder.render(entries, rangeStart, rangeEnd, today, isPublicUser, isOwner, awayDays, day);
 
         // The overlay spans exactly the days the grid drew, so every month in it is a scroll rather
         // than a page load. Both sides take the rounding from CalendarViewBuilder rather than

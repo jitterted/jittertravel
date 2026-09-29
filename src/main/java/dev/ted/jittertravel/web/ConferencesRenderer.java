@@ -15,6 +15,7 @@ import j2html.tags.specialized.ATag;
 import j2html.tags.specialized.DivTag;
 import j2html.tags.specialized.TrTag;
 
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -96,6 +97,12 @@ public class ConferencesRenderer {
                the fixed Actions column. Each date is its own nowrap unit in a wrapping row, so a
                squeezed column breaks between the two dates and never inside one. */
             .conf-dates { display: flex; flex-wrap: wrap; gap: 0 4px; color: var(--muted-text); }
+            /* The range is also the way to the calendar around it, so it is a link — muted like
+               the text it was, and underlined always, since the iPad has no hover to discover it
+               by. inline-flex rather than flex so the link is the dates and not the blank width
+               of the cell beside them. */
+            a.conf-dates { display: inline-flex; text-decoration: underline; }
+            a.conf-dates:hover { color: var(--accent-color); }
             /* "Add to Google" hangs under the dates rather than joining their flex row — it is a
                second line, and the Dates column is the one with vertical room to spare. The look
                is site.css's .gcal-add; this only places it. */
@@ -511,12 +518,27 @@ public class ConferencesRenderer {
      */
     private static DomContent datesCell(ConferenceView conf) {
         return div().with(
-                div().withClass("conf-dates").with(
-                        span(day(conf.startDate()) + " -").withClass("nowrap"),
-                        span(day(conf.endDate())).withClass("nowrap")
-                ),
+                a().withClass("conf-dates")
+                   .withHref(calendarHref(conf))
+                   .withTitle("Show on the calendar, from the week before")
+                   .with(
+                           span(day(conf.startDate()) + " -").withClass("nowrap"),
+                           span(day(conf.endDate())).withClass("nowrap")
+                   ),
                 div().withClass("conf-gcal").with(googleCalendarLink(conf))
         );
+    }
+
+    /**
+     * The ordinary calendar, scrolled to the week before the conference — the same week of lead-in
+     * the calendar gives today — so the travel into it is on screen, and both earlier and later
+     * weeks are a scroll away (Ted, 2026-09-29). {@code day=} names the first day, which the
+     * calendar draws even when past and flashes on arrival; the fragment does the scrolling. The
+     * day is the entry zone's, the same day the range shows.
+     */
+    private static String calendarHref(ConferenceView conf) {
+        LocalDate firstDay = conf.startDate().atEntryZone().toLocalDate();
+        return "/calendar?day=" + firstDay + "#" + CalendarViewBuilder.weekAnchorId(firstDay.minusWeeks(1));
     }
 
     /**

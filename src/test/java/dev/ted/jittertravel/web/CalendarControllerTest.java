@@ -59,7 +59,7 @@ class CalendarControllerTest {
                 Set.of(LocalDate.of(2026, 7, 7), LocalDate.of(2026, 7, 8)),
                 conference("InsideRange", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8)));
 
-        ResponseEntity<String> response = controller.getCalendar(publicRequest(), "2026-07-01", "2026-07-31", null);
+        ResponseEntity<String> response = controller.getCalendar(publicRequest(), "2026-07-01", "2026-07-31", null, null);
 
         assertThat(response.getBody())
                 .contains("<div class=\"day-label-cell month-tint-odd is-away\"><span class=\"day-number\">7</span>")
@@ -77,7 +77,7 @@ class CalendarControllerTest {
                 conference("JustAfterRange", LocalDate.of(2026, 8, 10), LocalDate.of(2026, 8, 12)),
                 conference("WayAfterRange", LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 7)));
 
-        ResponseEntity<String> response = controller.getCalendar(publicRequest(), "2026-07-01", "2026-07-31", null);
+        ResponseEntity<String> response = controller.getCalendar(publicRequest(), "2026-07-01", "2026-07-31", null, null);
 
         assertThat(response.getBody())
                 .contains("InsideRangeEarly")
@@ -95,7 +95,7 @@ class CalendarControllerTest {
                 conference("InsideRange", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8)),
                 conference("AfterRange", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 16)));
 
-        ResponseEntity<String> response = controller.getCalendar(publicRequest(), "20260701", "20260731", null);
+        ResponseEntity<String> response = controller.getCalendar(publicRequest(), "20260701", "20260731", null, null);
 
         assertThat(response.getBody())
                 .contains("InsideRange")
@@ -110,7 +110,7 @@ class CalendarControllerTest {
                 conference("InsideRange", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8)),
                 conference("AfterRange", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 16)));
 
-        ResponseEntity<String> response = controller.getCalendar(publicRequest(), "2026-07-31", "2026-07-01", null);
+        ResponseEntity<String> response = controller.getCalendar(publicRequest(), "2026-07-31", "2026-07-01", null, null);
 
         assertThat(response.getBody())
                 .contains("InsideRange")
@@ -127,7 +127,7 @@ class CalendarControllerTest {
                 conference("MiddleEntry", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8)),
                 conference("LatestEntry", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 16)));
 
-        ResponseEntity<String> response = controller.getCalendar(publicRequest(), null, null, null);
+        ResponseEntity<String> response = controller.getCalendar(publicRequest(), null, null, null, null);
 
         assertThat(response.getBody())
                 .doesNotContain("BeforeWindow")
@@ -143,7 +143,7 @@ class CalendarControllerTest {
                 conference("BeforeWindow", LocalDate.of(2026, 5, 4), LocalDate.of(2026, 5, 6)),
                 conference("LatestEntry", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 16)));
 
-        ResponseEntity<String> response = controller.getCalendar(publicRequest(), "not-a-date", "07/31/2026", null);
+        ResponseEntity<String> response = controller.getCalendar(publicRequest(), "not-a-date", "07/31/2026", null, null);
 
         assertThat(response.getBody())
                 .doesNotContain("BeforeWindow")
@@ -156,7 +156,7 @@ class CalendarControllerTest {
                 conference("BeforeFrom", LocalDate.of(2026, 5, 4), LocalDate.of(2026, 5, 6)),
                 conference("AfterFrom", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8)));
 
-        ResponseEntity<String> response = controller.getCalendar(publicRequest(), "2026-07-01", null, null);
+        ResponseEntity<String> response = controller.getCalendar(publicRequest(), "2026-07-01", null, null, null);
 
         assertThat(response.getBody())
                 .contains("AfterFrom")
@@ -169,7 +169,7 @@ class CalendarControllerTest {
                 conference("BeforeTo", LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 8)),
                 conference("AfterTo", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 16)));
 
-        ResponseEntity<String> response = controller.getCalendar(publicRequest(), null, "2026-07-31", null);
+        ResponseEntity<String> response = controller.getCalendar(publicRequest(), null, "2026-07-31", null, null);
 
         assertThat(response.getBody())
                 .contains("BeforeTo")
@@ -186,8 +186,8 @@ class CalendarControllerTest {
         // projection — and it needs no entries either way: the claim is about day labels.
         CalendarController controller = controller(nearMidnightUtc);
 
-        String pacific = controller.getCalendar(familyRequest(null), null, null, null).getBody();
-        String utc = controller.getCalendar(familyRequest("UTC"), null, null, null).getBody();
+        String pacific = controller.getCalendar(familyRequest(null), null, null, null, null).getBody();
+        String utc = controller.getCalendar(familyRequest("UTC"), null, null, null, null).getBody();
 
         assertThat(pacific)
                 .as("No cookie: the America/Los_Angeles fallback keeps today on Sunday 2026-08-16")
@@ -247,8 +247,8 @@ class CalendarControllerTest {
         given(groundTransferProjector.entries()).willReturn(List.of());
         CalendarController controller = controller(FIXED_CLOCK);
 
-        String anonymous = controller.getCalendar(publicRequest(), null, null, null).getBody();
-        String owner = controller.getCalendar(ownerRequest(), null, null, null).getBody();
+        String anonymous = controller.getCalendar(publicRequest(), null, null, null, null).getBody();
+        String owner = controller.getCalendar(ownerRequest(), null, null, null, null).getBody();
 
         assertThat(anonymous)
                 .contains(">PublicProjection<")

@@ -185,6 +185,60 @@ class CalendarViewBuilderTest {
                 .doesNotContain("plan-gathering");
     }
 
+    /** Every week row is a scroll target, named by its Sunday — what the conferences page links to. */
+    @Test
+    void everyWeekRowCarriesAnIdNamedByItsSunday() {
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 5, 28),
+                LocalDate.of(2026, 6, 5),
+                TODAY,
+                false
+        );
+
+        assertThat(html)
+                .contains("<div id=\"w-2026-05-24\" class=\"calendar-week")
+                .contains("<div id=\"w-2026-05-31\" class=\"calendar-week");
+    }
+
+    /**
+     * The arrival day flashes as a whole column — its label and every lane cell under it — and no
+     * other day does. Counted, because "contains is-arrival" would pass with the whole grid marked.
+     */
+    @Test
+    void theArrivalDayIsMarkedDownItsWholeColumnAndNowhereElse() {
+        LocalDate arrival = LocalDate.of(2026, 6, 3);
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 5, 28),
+                LocalDate.of(2026, 6, 5),
+                TODAY,
+                false, false, Set.of(),
+                arrival
+        );
+
+        assertThat(html)
+                .contains("<div class=\"day-label-cell month-tint-even is-arrival\">")
+                .contains("<div class=\"lane-cell month-tint-even is-arrival lane-cell--empty\" style=\"grid-column: 4; grid-row: 2;\">");
+        assertThat(html.split("is-arrival", -1).length - 1)
+                .as("one label cell and one lane cell — the arrival day's column only")
+                .isEqualTo(2);
+    }
+
+    @Test
+    void anOrdinaryVisitMarksNoDay() {
+        String html = CalendarViewBuilder.render(
+                List.of(),
+                LocalDate.of(2026, 5, 28),
+                LocalDate.of(2026, 6, 5),
+                TODAY,
+                false
+        );
+
+        assertThat(html)
+                .doesNotContain("is-arrival");
+    }
+
     @Test
     void monthStartCellsGetIsMonthStartClassOnDayLabelCell() {
         String html = CalendarViewBuilder.render(

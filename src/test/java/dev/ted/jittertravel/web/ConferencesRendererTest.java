@@ -75,9 +75,35 @@ class ConferencesRendererTest {
         ), TimeView.FUTURE);
 
         assertThat(html)
-                .contains("<div class=\"conf-dates\">"
-                          + "<span class=\"nowrap\">Sun 6/7 -</span>"
-                          + "<span class=\"nowrap\">Wed 6/10</span></div>");
+                .contains("<span class=\"nowrap\">Sun 6/7 -</span>"
+                          + "<span class=\"nowrap\">Wed 6/10</span></a>");
+    }
+
+    /**
+     * The range links to the ordinary calendar scrolled to the week before the conference, so the
+     * travel into it is on screen too. The day is the entry zone's: a conference starting at 1 AM
+     * on the 7th in Amsterdam is still the 6th in UTC, and the link must not say so — the 6th
+     * being a Saturday, that would even be the wrong week.
+     */
+    @Test
+    void theDateRangeLinksToTheCalendarScrolledToTheWeekBefore() {
+        String html = ConferencesRenderer.render(oneSection(
+                view("Conf", "2026-06-07T01:00", "2026-06-10T17:00", "City", "Country")
+        ), TimeView.FUTURE);
+
+        assertThat(datesCellOf(html))
+                .contains("<a class=\"conf-dates\" href=\"/calendar?day=2026-06-07#w-2026-05-31\" ");
+    }
+
+    /** Mid-week: the fragment names the week's Sunday, the id the calendar actually emits. */
+    @Test
+    void aMidWeekConferenceLinksToTheSundayOfTheWeekBefore() {
+        String html = ConferencesRenderer.render(oneSection(
+                view("Conf", "2026-06-10T09:00", "2026-06-12T17:00", "City", "Country")
+        ), TimeView.FUTURE);
+
+        assertThat(datesCellOf(html))
+                .contains("<a class=\"conf-dates\" href=\"/calendar?day=2026-06-10#w-2026-05-31\" ");
     }
 
     /**
@@ -183,7 +209,7 @@ class ConferencesRendererTest {
     }
 
     private static String datesCellOf(String html) {
-        int start = html.indexOf("<div class=\"conf-dates\">");
+        int start = html.indexOf("<a class=\"conf-dates\"");
         return html.substring(start, html.indexOf("</td>", start));
     }
 

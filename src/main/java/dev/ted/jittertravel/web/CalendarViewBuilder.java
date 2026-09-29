@@ -54,6 +54,17 @@ public class CalendarViewBuilder {
      */
     public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd, LocalDate today,
                                 boolean isPublicUser, boolean isOwner, Set<LocalDate> awayDays) {
+        return render(entries, rangeStart, rangeEnd, today, isPublicUser, isOwner, awayDays, null);
+    }
+
+    /**
+     * @param arrival the day a link from another page came to see, whose column flashes on load so
+     *                the eye finds it on a page where every week looks alike (Ted, 2026-09-29) —
+     *                or {@code null} for an ordinary visit.
+     */
+    public static String render(List<CalendarEntry> entries, LocalDate rangeStart, LocalDate rangeEnd, LocalDate today,
+                                boolean isPublicUser, boolean isOwner, Set<LocalDate> awayDays,
+                                LocalDate arrival) {
         LocalDate gridStart = gridStart(rangeStart);
         LocalDate gridEnd = gridEnd(rangeEnd);
 
@@ -72,7 +83,7 @@ public class CalendarViewBuilder {
             if (collapsed && entries.stream().anyMatch(e -> intersectsWeek(e, weekStart, saturday))) {
                 anyCollapsedWithEntries = true;
             }
-            weekRows.add(renderWeek(sunday, saturday, gridStart, today, entries, isPublicUser, isOwner, collapsed, awayDays));
+            weekRows.add(renderWeek(sunday, saturday, gridStart, today, entries, isPublicUser, isOwner, collapsed, awayDays, arrival));
             sunday = sunday.plusDays(7);
         }
 
@@ -136,6 +147,15 @@ public class CalendarViewBuilder {
         return "m-" + month;
     }
 
+    /**
+     * The id of the week row holding {@code day}, spelled by its Sunday — what a link from another
+     * page (the conferences page's dates) scrolls to. Shared for the same reason as
+     * {@link #monthAnchorId}: a link to an id nobody emitted fails silently.
+     */
+    static String weekAnchorId(LocalDate day) {
+        return "w-" + day.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+    }
+
     private static DivTag renderWeek(LocalDate sunday,
                                      LocalDate saturday,
                                      LocalDate gridStart,
@@ -144,7 +164,8 @@ public class CalendarViewBuilder {
                                      boolean isPublicUser,
                                      boolean isOwner,
                                      boolean collapsed,
-                                     Set<LocalDate> awayDays) {
+                                     Set<LocalDate> awayDays,
+                                     LocalDate arrival) {
         List<CalendarEntry> intersecting = allEntries.stream()
                 .filter(e -> intersectsWeek(e, sunday, saturday))
                 .sorted(Comparator.comparing(CalendarEntry::start))
@@ -218,7 +239,7 @@ public class CalendarViewBuilder {
         for (int i = 0; i < 7; i++) {
             int badgeCount = collapsed ? dayCounts[i] : 0;
             LocalDate day = sunday.plusDays(i);
-            cells.add(renderDayLabelCell(day, gridStart, today, isPublicUser, isOwner, badgeCount, awayDays.contains(day)));
+            cells.add(renderDayLabelCell(day, gridStart, today, isPublicUser, isOwner, badgeCount, awayDays.contains(day), arrival));
         }
 
         // A non-collapsed week with no entries still gets one lane band so the day
@@ -238,7 +259,7 @@ public class CalendarViewBuilder {
                 LocalDate d = sunday.plusDays(col - 1);
                 String tint = (d.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
                 String emptyClass = emptyBand ? " lane-cell--empty" : "";
-                cells.add(div().withClass("lane-cell " + tint + dayStateClass(d, today) + emptyClass)
+                cells.add(div().withClass("lane-cell " + tint + dayStateClass(d, today) + arrivalClass(d, arrival) + emptyClass)
                         .withStyle("grid-column: " + col + "; grid-row: " + gridRow + ";"));
             }
         }
@@ -259,17 +280,17 @@ public class CalendarViewBuilder {
                 : "grid-template-rows: auto repeat(" + bandRows + ", auto);";
 
         String weekClass = "calendar-week" + (collapsed ? " calendar-week--collapsed" : "");
-        return div().withClass(weekClass).withStyle(rowsStyle).with(cells);
+        return div().withId(weekAnchorId(sunday)).withClass(weekClass).withStyle(rowsStyle).with(cells);
     }
 
-    private static DomContent renderDayLabelCell(LocalDate date, LocalDate gridStart, LocalDate today, boolean isPublicUser, boolean isOwner, int entryCount, boolean isAway) {
+    private static DomContent renderDayLabelCell(LocalDate date, LocalDate gridStart, LocalDate today, boolean isPublicUser, boolean isOwner, int entryCount, boolean isAway, LocalDate arrival) {
         boolean isFirstCellOfGrid = date.equals(gridStart);
         boolean isMonthStart = date.getDayOfMonth() == 1 || isFirstCellOfGrid;
         String monthTint = (date.getMonthValue() % 2 == 0) ? "month-tint-even" : "month-tint-odd";
         // The away band: a turquoise bottom border, and nothing else — the label row is the one
         // row that survives week-collapse, so past trips keep their stripe. Every viewer gets it.
         String labelClass = "day-label-cell " + monthTint + (isMonthStart ? " is-month-start" : "")
-                            + dayStateClass(date, today) + (isAway ? " is-away" : "");
+                            + dayStateClass(date, today) + arrivalClass(date, arrival) + (isAway ? " is-away" : "");
         String dayNumberClass = "day-number" + (isMonthStart ? " is-month-start" : "");
         String label = formatDayLabel(date, isMonthStart, isFirstCellOfGrid);
         // OWNER on today or a future day gets a tap-to-open disclosure menu (Open day + Add …);
@@ -649,6 +670,11 @@ public class CalendarViewBuilder {
             return " is-today";
         }
         return "";
+    }
+
+    /** The whole column of the day a link came to see — label and lane cells, like today's. */
+    private static String arrivalClass(LocalDate date, LocalDate arrival) {
+        return date.equals(arrival) ? " is-arrival" : "";
     }
 
     private static int[] segmentColumns(CalendarEntry entry, LocalDate sunday) {

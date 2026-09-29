@@ -57,7 +57,8 @@ public class CalendarController {
             HttpServletRequest request,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
-            @RequestParam(required = false) String tz) {
+            @RequestParam(required = false) String tz,
+            @RequestParam(required = false) String day) {
         boolean isPublicUser = request.getRemoteUser() == null;
         boolean isOwner = request.isUserInRole("OWNER");
         ZoneDisplay zoneDisplay = viewerZonePolicy.forViewer(isOwner, request.isUserInRole("FAMILY"), tz);
@@ -74,7 +75,7 @@ public class CalendarController {
                 .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
                 .body(CalendarRenderer.render(entries, today,
                         isPublicUser, isOwner, parseDate(from), parseDate(to), zoneDisplay,
-                        scheduleGapProjector.awayDays()));
+                        scheduleGapProjector.awayDays(), parseDate(day)));
     }
 
     private ZoneId todayZone(HttpServletRequest request) {

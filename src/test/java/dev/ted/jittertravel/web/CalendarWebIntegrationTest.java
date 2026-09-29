@@ -44,6 +44,35 @@ class CalendarWebIntegrationTest {
                 .hasStatusOk();
     }
 
+    /**
+     * {@code day=} widens the default range to take in the week before a past day, so the
+     * {@code #w-} jump the conferences page sends has a row to land on — and marks that day's
+     * column to flash. Today is pinned at 2026-06-25, so the default range starts in the week of
+     * 2026-06-14.
+     */
+    @Test
+    void aPastDayIsDrawnWithItsWeekOfLeadInAndMarked() {
+        given(calendarAggregator.allEntries()).willReturn(List.of());
+
+        assertThat(mockMvc.get().uri("/calendar?day=2026-06-07"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<div id=\"w-2026-05-31\" class=\"calendar-week")
+                .contains("month-tint-even is-past is-arrival\"");
+    }
+
+    /** It only widens: a day whose lead-in is already in the default range leaves it where it was. */
+    @Test
+    void aDayInsideTheDefaultRangeDoesNotMoveItsStart() {
+        given(calendarAggregator.allEntries()).willReturn(List.of());
+
+        assertThat(mockMvc.get().uri("/calendar?day=2026-07-01"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<div id=\"w-2026-06-14\" class=\"calendar-week")
+                .doesNotContain("<div id=\"w-2026-06-07\" class=\"calendar-week");
+    }
+
     @Test
     void calendarPageWithDashedDateRangeParamsRendersOk() {
         given(calendarAggregator.allEntries()).willReturn(List.of());

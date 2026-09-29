@@ -667,6 +667,13 @@ down when it is created does not get written down later.
         to/open that date" (which is `?date=`, and `/calendar` would need to honour it — today
         `/itinerary?date=` is the only one of the pair that does) or "remember I came from the
         itinerary". Ask rather than guess: the two do different jobs and only one is implemented.
+        **Update 2026-09-29: `/calendar` now honours a date** — `?day=<iso>` (commit `f487c56`,
+        built for the conferences page's dates). It widens the range to take in the week before
+        that day, even a past one, and flashes the day's column on arrival; the scrolling is a
+        `#w-<Sunday>` fragment spelled by `CalendarViewBuilder.weekAnchorId`, which the link must
+        carry too. So if the answer is "open at that date", "Open calendar" is
+        `/calendar?day=<iso>#` + `weekAnchorId(day.minusWeeks(1))`, exactly as
+        `ConferencesRenderer.calendarHref` builds it — the question itself is still Ted's.
       - **`CalendarDayMenuTest` must cover the second menu too.** It is the *only* thing in the
         tree that fails when an `EntryKind` constant is added — driven from `EntryKind.values()`
         with an exhaustive switch in `expectedAddItem`, deliberately written so adding a kind does

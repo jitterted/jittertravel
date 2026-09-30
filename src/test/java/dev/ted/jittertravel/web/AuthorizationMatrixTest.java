@@ -110,6 +110,9 @@ class AuthorizationMatrixTest {
                 // Two segments past the id, so neither "/booked-flights/*" nor
                 // "/booked-flights/*/lookup" covers it — it needs its own matcher.
                 arguments("/booked-flights/abc/lookup/select", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
+                // The flight's per-item cancel: without its own matcher it falls through to
+                // permitAll, and the page prints the flight number and both times.
+                arguments("/booked-flights/abc/cancel", Outcome.OK,  Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/booked-trains/abc",    Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 // The train's per-item cancel, needing its own matcher for the same reason:
                 // "/booked-trains/*" matches one segment, so without this entry the cancel

@@ -1,12 +1,14 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedFlightView;
+import dev.ted.jittertravel.application.CancelledView;
 import dev.ted.jittertravel.application.ChangeEntry;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -77,6 +79,118 @@ class BookedFlightsRendererTest {
     }
 
     @Test
+    void flightRowOffersCancelAfterEdit() {
+        FlightId flightId = FlightId.random();
+        String html = BookedFlightsRenderer.render(List.of(
+                viewWithoutChanges(flightId, "Sat, Jun 6, 1:55 PM", "SFO→FRA", "United", "UA59")
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("<a class=\"flight-cancel-link\" href=\"/booked-flights/"
+                        + flightId.id() + "/cancel\">Cancel</a>");
+        assertThat(html.indexOf("<a class=\"flight-edit-link\""))
+                .as("Edit keeps its position; Cancel is appended after it")
+                .isLessThan(html.indexOf("<a class=\"flight-cancel-link\""));
+        assertThat(html)
+                .as("red, because there is no undo")
+                .contains(".flight-cancel-link { font-size: 0.85rem; color: #b00;");
+    }
+
+    @Test
+    void theCancelledSwitchWhileHiddenCountsWhatItLeavesOutAndLinksToShowingThem() {
+        String html = BookedFlightsRenderer.render(List.of(), TimeView.FUTURE, CancelledView.HIDE, 2);
+
+        assertThat(html)
+                .contains("<a class=\"flight-cancelled-toggle\" role=\"button\" aria-pressed=\"false\"")
+                .contains("href=\"/booked-flights?filter=future&amp;cancelled=show\"")
+                .contains("Show cancelled<b>2</b>");
+    }
+
+    @Test
+    void theCancelledSwitchWhileShownLinksBackToHidingAndTheTimeToggleKeepsIt() {
+        String html = BookedFlightsRenderer.render(List.of(), TimeView.ALL, CancelledView.SHOW, 2);
+
+        assertThat(html)
+                .contains("aria-pressed=\"true\"")
+                .contains("href=\"/booked-flights?filter=all\"")
+                .as("changing the time filter must not silently drop the cancelled switch")
+                .contains("href=\"/booked-flights?filter=future&amp;cancelled=show\"");
+    }
+
+    @Test
+    void aCancelledFlightIsMarkedWithItsDateAndReasonAndItsActionsAreGreyed() {
+        FlightId flightId = FlightId.random();
+        BookedFlightView cancelled = cancelledView(flightId,
+                Instant.parse("2026-05-20T18:00:00Z"), "Credit on file");
+
+        String html = BookedFlightsRenderer.render(List.of(cancelled), TimeView.ALL, CancelledView.SHOW, 1);
+
+        assertThat(html)
+                .contains("class=\"flight-card flight-card-row flight-card--cancelled\"")
+                .as("when and why, in one box")
+                .contains("<span class=\"flight-cancelled-badge\"><span class=\"flight-cancelled-headline\">"
+                        + "Cancelled <span class=\"nowrap\">May 20, 2026</span></span>"
+                        + "<span class=\"flight-cancelled-reason\">Credit on file</span></span>")
+                .contains("<span class=\"flight-action-disabled\" title=\"This flight was cancelled\">Edit</span>")
+                .contains("<span class=\"flight-action-disabled\" title=\"This flight was cancelled\">Cancel</span>")
+                .as("nothing left to follow on a cancelled flight")
+                .doesNotContain("href=\"/booked-flights/" + flightId.id());
+    }
+
+    @Test
+    void theCancellationDateIsReadInTheDepartureAirportsZone() {
+        // 03:00 UTC on the 21st is still the evening of the 20th in Los Angeles.
+        BookedFlightView cancelled = new BookedFlightView(FlightId.random(), "United", "UA59", "SFO→FRA",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 6, 13, 55), ZoneId.of("America/Los_Angeles")),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 7, 9, 45), ZoneId.of("Europe/Berlin")),
+                List.of(new ChangeEntry(LocalDateTime.of(2026, 5, 1, 12, 0), "Booked on 2026-05-01 12:00PM")),
+                true, "", Instant.parse("2026-05-21T03:00:00Z"));
+
+        String html = BookedFlightsRenderer.render(List.of(cancelled), TimeView.ALL, CancelledView.SHOW, 1);
+
+        assertThat(html)
+                .contains("<span class=\"flight-cancelled-badge\"><span class=\"flight-cancelled-headline\">"
+                        + "Cancelled <span class=\"nowrap\">May 20, 2026</span></span></span>")
+                .as("no reason given, so no empty reason line")
+                .doesNotContain("<span class=\"flight-cancelled-reason\">");
+    }
+
+    /**
+     * The layout rules the 2026-09-29 measurements settled, pinned as CSS because the renderer is
+     * the only place they exist. What they buy — no column wraps while another has room, no
+     * overflow at any width — was measured in headless Chrome, which this tier cannot do; these
+     * assertions stop the declarations that produce it being "tidied" away.
+     */
+    @Test
+    void theGridLetsRouteAbsorbSpaceOnlyAfterEveryOtherColumnIsOnOneLine() {
+        // A row, not an empty list: the empty state renders no header, and the header is asserted.
+        String html = BookedFlightsRenderer.render(List.of(
+                viewWithoutChanges("Sat, Jun 6, 1:55 PM", "SFO→FRA", "United", "UA59")
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .as("auto tracks reach max-content before the one fr track gets anything")
+                .contains("grid-template-columns: auto auto 1fr auto auto 28px auto;")
+                .doesNotContain("grid-template-columns: 2fr 2fr")
+                .doesNotContain("min-content min-content")
+                .as("the cancelled box claims Route's width by content, and only on a table with room")
+                .contains("container-type: inline-size;")
+                .contains("@container (width >= 41rem) {\n    .flight-cancelled-headline { white-space: nowrap; }")
+                .as("the actions never wrap, so toggling the cancelled view cannot move them")
+                .contains(".flight-actions { display: flex; gap: 0.75rem; align-items: baseline; }")
+                .doesNotContain(".flight-actions { display: flex; flex-wrap: wrap;")
+                .as("stack where the floors stop fitting, measured")
+                .contains("@media (max-width: 640px) {")
+                .as("no side insets: they were width taken from the table, and pushed its floors past the breakpoint")
+                .contains(".conference-container { margin: 1rem 0 0; }")
+                .as("the time always on its own line under the date, not only when the column is narrow")
+                .contains(".flight-card-row time > .nowrap { display: block; }")
+                .as("a short header, so it is not the Flight # column's widest line")
+                .contains("<div>Flight #</div>")
+                .doesNotContain("<div>Flight Number</div>");
+    }
+
+    @Test
     void narrowViewportCollapsesTheGridWithoutHorizontalScroll() {
         String html = BookedFlightsRenderer.render(List.of(
                 viewWithoutChanges("Sat, Jun 6, 1:55 PM", "SFO→FRA", "United", "UA59")
@@ -132,6 +246,15 @@ class BookedFlightsRendererTest {
     }
 
     private static final ZoneId UTC = ZoneId.of("UTC");
+
+    private static BookedFlightView cancelledView(FlightId flightId, Instant cancelledOn, String reason) {
+        return new BookedFlightView(
+                flightId, "United", "UA59", "SFO→FRA",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 6, 13, 55), UTC),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 7, 9, 45), UTC),
+                List.of(new ChangeEntry(LocalDateTime.of(2026, 5, 1, 12, 0), "Booked on 2026-05-01 12:00PM")),
+                true, reason, cancelledOn);
+    }
 
     private static BookedFlightView viewWithoutChanges(FlightId flightId, String display,
                                                        String route, String airline,

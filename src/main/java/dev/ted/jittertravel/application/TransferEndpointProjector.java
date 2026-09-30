@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.AirportCityResolver;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.HotelBooked;
@@ -79,6 +80,11 @@ public class TransferEndpointProjector implements EventStreamConsumer {
                 case FlightChanged e -> putFlight(e.flightId(), e.airline(), e.flightNumber(),
                         e.departureAirport(), e.departureDateTime(),
                         e.arrivalAirport(), e.arrivalDateTime());
+                // A cancelled flight lands at neither airport, so both ends go (as for trains).
+                case FlightCancelled e -> {
+                    rows.remove(new RowKey(e.flightId().id().toString(), TransferEnd.FLIGHT_DEPARTURE));
+                    rows.remove(new RowKey(e.flightId().id().toString(), TransferEnd.FLIGHT_ARRIVAL));
+                }
                 case TrainBooked e -> putTrain(e.tripId(), e.serviceId(),
                         e.departureStation(), e.departureDateTime(),
                         e.arrivalStation(), e.arrivalDateTime());

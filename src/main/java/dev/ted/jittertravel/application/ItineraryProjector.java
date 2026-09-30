@@ -31,6 +31,7 @@ public class ItineraryProjector implements EventStreamConsumer {
             switch (stored.payload()) {
                 case FlightBooked e -> flightEntries.put(e.flightId(), toFlightEntries(e));
                 case FlightChanged e -> flightEntries.put(e.flightId(), toFlightEntries(e));
+                case FlightCancelled e -> flightEntries.remove(e.flightId());
                 case TrainBooked e -> trainEntries.put(e.tripId(), toTrainEntries(e));
                 case TrainChanged e -> trainEntries.put(e.tripId(), toTrainEntries(e));
                 case TrainCancelled e -> trainEntries.remove(e.tripId());

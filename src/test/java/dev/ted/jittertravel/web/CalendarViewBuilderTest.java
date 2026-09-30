@@ -26,7 +26,7 @@ class CalendarViewBuilderTest {
     // is about a link or a chip builds its own details inline, so the interesting value is
     // visible at the point it matters.
     private static final EntryDetails CONFERENCE_DETAILS = new EntryDetails.Conference(null, false, null, null);
-    private static final EntryDetails FLIGHT_DETAILS = new EntryDetails.Flight(null);
+    private static final EntryDetails FLIGHT_DETAILS = new EntryDetails.Flight(null, null);
     private static final EntryDetails TRAIN_DETAILS = new EntryDetails.Train(null, null);
 
     @Test
@@ -1118,6 +1118,30 @@ class CalendarViewBuilderTest {
                 .contains("class=\"edit-pencil\" href=\"/booked-trains/trip-9\"")
                 .contains("class=\"cancel-bin\" href=\"/booked-trains/trip-9/cancel\"");
         assertThat(html.indexOf("edit-pencil\" href=\"/booked-trains/trip-9\""))
+                .as("edit keeps its position; cancel is appended after it")
+                .isLessThan(html.indexOf("cancel-bin\" href="));
+    }
+
+    @Test
+    void ownerFlightEntryCarriesTheEditPencilThenTheCancelBin() {
+        LocalDate day = LocalDate.of(2026, 6, 1);
+        CalendarEntry entry = new CalendarEntry(
+                day.atTime(9, 0), day.atTime(11, 0), "SFO→ORD", List.of(),
+                new EntryDetails.Flight("/booked-flights/flight-9", "/booked-flights/flight-9/cancel"));
+
+        String html = CalendarViewBuilder.render(
+                List.of(entry),
+                day,
+                day.plusDays(7),
+                TODAY,
+                false,   // isPublicUser
+                true     // isOwner
+        );
+
+        assertThat(html)
+                .contains("class=\"edit-pencil\" href=\"/booked-flights/flight-9\"")
+                .contains("class=\"cancel-bin\" href=\"/booked-flights/flight-9/cancel\" title=\"Cancel flight\"");
+        assertThat(html.indexOf("edit-pencil\" href=\"/booked-flights/flight-9\""))
                 .as("edit keeps its position; cancel is appended after it")
                 .isLessThan(html.indexOf("cancel-bin\" href="));
     }

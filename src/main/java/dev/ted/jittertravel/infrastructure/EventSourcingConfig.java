@@ -505,6 +505,12 @@ public class EventSourcingConfig {
         return new CancelTrain(commandExecutor);
     }
 
+    /** Same shape as {@link #cancelTrainApplicationService}: stream-folded, no projector, no clock. */
+    @Bean
+    public CancelFlight cancelFlightApplicationService(CommandExecutor commandExecutor) {
+        return new CancelFlight(commandExecutor);
+    }
+
     /**
      * The endpoint resolver holds every lookup a transfer endpoint token can need: the hotel's
      * address (a snapshot source), and the airport city/zone tables. Ted cleared the dependency

@@ -477,6 +477,33 @@ class ItineraryRendererTest {
                 .contains("class=\"edit-pencil\" href=\"/booked-flights/" + flightId.id() + "\"");
     }
 
+    @Test
+    void flightShowsCancelBinAfterTheEditPencilForOwner() {
+        FlightId flightId = FlightId.random();
+        FlightItineraryEntry entry = new FlightItineraryEntry(flightId, FlightDayRole.DEPARTURE,
+                "British Airways", "BA100", "SFO", zoned(JUN_1.atTime(9, 0), SAN_FRANCISCO),
+                "LHR", zoned(JUN_1.atTime(17, 15), LONDON));
+
+        String html = render(
+                threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains("class=\"cancel-bin\" href=\"/booked-flights/" + flightId.id() + "/cancel\"");
+        assertThat(html.indexOf("edit-pencil\" href="))
+                .as("the pencil keeps the position it had before the bin existed")
+                .isLessThan(html.indexOf("cancel-bin\" href="));
+    }
+
+    @Test
+    void flightHasNoCancelBinForNonOwner() {
+        // Authorization, not state: render nothing rather than a greyed control. Whole attribute,
+        // because `.cancel-bin` is in the always-rendered CSS.
+        String html = renderWithEntry(flight(FlightDayRole.DEPARTURE));
+
+        assertThat(html)
+                .doesNotContain("class=\"cancel-bin\" href=\"/booked-flights/");
+    }
+
     // --- Hotel ---
 
     @Test

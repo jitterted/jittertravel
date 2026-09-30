@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.AttendanceBasis;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
@@ -10,6 +11,9 @@ import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.Event;
+import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancelled;
+import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.GroundTransferCancelled;
 import dev.ted.jittertravel.domain.GroundTransferId;
 import dev.ted.jittertravel.domain.GroundTransferPlanned;
@@ -71,6 +75,7 @@ class CalendarRemovalPropagationTest {
         GroundTransferId transferId = GroundTransferId.random();
         PrivateEventId privateEventId = PrivateEventId.random();
         TrainTripId tripId = TrainTripId.random();
+        FlightId flightId = FlightId.random();
         ConferenceId cancelledConference = ConferenceId.random();
         ConferenceId declinedConference = ConferenceId.random();
         ConferenceId confirmedThenCancelled = ConferenceId.random();
@@ -91,6 +96,9 @@ class CalendarRemovalPropagationTest {
                 arguments("a cancelled train trip",
                         List.of(trainBooked(tripId)),
                         new TrainCancelled(tripId, "rebooked for the 17th")),
+                arguments("a cancelled flight",
+                        List.of(flightBooked(flightId)),
+                        new FlightCancelled(flightId, "rebooked on UA58", Instant.parse("2026-06-01T00:00:00Z"))),
                 arguments("an organizer-cancelled conference",
                         List.of(conferencePlanned(cancelledConference, "PLoP")),
                         new ConferenceCancelled(cancelledConference, "organizers pulled it")),
@@ -169,6 +177,12 @@ class CalendarRemovalPropagationTest {
                 new TrainStationAddress("Brussel-Zuid", "Brussels", "Belgium", ""),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 1, 11, 0), AMSTERDAM),
                 "Thalys 9318");
+    }
+
+    private static FlightBooked flightBooked(FlightId flightId) {
+        return new FlightBooked(flightId, "United Airlines", "UA2091",
+                AirportCode.of("DEN"), zoned(LocalDateTime.of(2026, 7, 5, 9, 0), DENVER),
+                AirportCode.of("SFO"), zoned(LocalDateTime.of(2026, 7, 5, 11, 0), DENVER));
     }
 
     private static HotelBooked hotelBooked(HotelBookingId bookingId) {

@@ -152,9 +152,11 @@ public record ProblemFix(String label, String href) {
      * identical labels. That is honest: the entries are interchangeable and it does not matter
      * which one goes. Numbering them would imply an order the report does not have.
      * <p>
-     * <strong>A flight contributes no link</strong>, because there is no Cancel Flight. The switch
-     * is exhaustive over {@link TravelLeg}, so the day one ships the compiler asks for its URL here
-     * rather than letting a default arm go on offering nothing.
+     * <strong>A flight contributes no link yet.</strong> Cancel Flight exists
+     * ({@code /booked-flights/{id}/cancel}, 2026-09-29) but was shipped without this link on
+     * purpose, as the minimum slice; wiring it also means giving that page the problem-context
+     * banner and the {@code from} origin (see {@code docs/FlightItineraryPlan.md}). Note the
+     * compiler does not force it: the {@code Flight} arm below already exists.
      */
     private static List<ProblemFix> cancelEachLeg(ScheduleProblem.OverlappingTravel overlap) {
         return Stream.of(overlap.first(), overlap.second())
@@ -176,7 +178,8 @@ public record ProblemFix(String label, String href) {
             case TravelLeg.Train train -> Optional.of("/booked-trains/" + train.id().id() + "/cancel");
             case TravelLeg.Transfer transfer ->
                     Optional.of("/ground-transfers/" + transfer.id().id() + "/cancel");
-            // No Cancel Flight yet. Deliberately not an "Edit this flight" link instead: editing
+            // Cancel Flight is not wired here yet (see the method above). Deliberately not an
+            // "Edit this flight" link instead: editing
             // does not remove a duplicate, and a link that cannot fix the problem it hangs off is
             // worse than the greyed "no fix yet" control the renderers already show.
             case TravelLeg.Flight ignored -> Optional.empty();

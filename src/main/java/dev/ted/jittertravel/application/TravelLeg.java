@@ -8,8 +8,8 @@ import dev.ted.jittertravel.domain.TrainTripId;
  * Which booked thing a leg on the schedule came from: its typed id, and what to call it on screen.
  * <p>
  * Sealed with typed ids rather than an {@code (enum kind, String id)} pair, so a switch over it is
- * exhaustive: the day Cancel Flight ships, {@code ProblemFix} stops compiling until someone writes
- * down a flight's fix link.
+ * exhaustive: a new kind of leg stops {@code ProblemFix} compiling until someone writes down its fix
+ * link. (It did not force the flight's: that arm already existed, returning nothing.)
  * <p>
  * It lives in {@code application} and not {@code domain} because {@link #label()} is a display
  * string, and display strings are presentation (CLAUDE.md).

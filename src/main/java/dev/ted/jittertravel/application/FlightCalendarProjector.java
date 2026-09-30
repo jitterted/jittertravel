@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -42,6 +43,7 @@ public class FlightCalendarProjector implements EventStreamConsumer {
                 case FlightChanged event -> entriesByFlight.put(event.flightId(), buildEntries(
                         event.flightId(), event.departureAirport(), event.arrivalAirport(),
                         event.departureDateTime(), event.arrivalDateTime()));
+                case FlightCancelled event -> entriesByFlight.remove(event.flightId());
                 default -> { /* not a flight event */ }
             }
         });
@@ -60,7 +62,7 @@ public class FlightCalendarProjector implements EventStreamConsumer {
         // Each endpoint keeps its own airport zone; the renderer formats and can re-localize it.
         boolean sameDay = depLocal.toLocalDate().equals(arrLocal.toLocalDate());
 
-        EntryDetails details = new EntryDetails.Flight(editPath);
+        EntryDetails details = new EntryDetails.Flight(editPath, editPath + "/cancel");
 
         if (sameDay) {
             return List.of(new CalendarEntry(

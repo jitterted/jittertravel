@@ -9,6 +9,7 @@ import dev.ted.jittertravel.domain.ConferenceDatesChanged;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.GatheringChanged;
@@ -151,6 +152,8 @@ public class PublicCalendarProjector implements EventStreamConsumer {
                         e.departureAirport(), e.departureDateTime(), e.arrivalAirport(), e.arrivalDateTime()));
                 case FlightChanged e -> putAll(e.flightId(), flight(
                         e.departureAirport(), e.departureDateTime(), e.arrivalAirport(), e.arrivalDateTime()));
+                // A stale disclosure otherwise, as with TrainCancelled below.
+                case FlightCancelled e -> entriesBySubject.remove(e.flightId());
 
                 // Same for trains — city names are public, the service id and the times are not.
                 case TrainBooked e -> putAll(e.tripId(), train(

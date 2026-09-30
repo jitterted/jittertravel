@@ -234,6 +234,7 @@ public class ItineraryRenderer {
         DivTag title = div().withClass("entry-title").with(span(e.airline() + " " + e.flightNumber()));
         if (isOwner) {
             title.with(editPencil("/booked-flights/" + e.flightId().id(), "Edit flight"));
+            title.with(cancelBin("/booked-flights/" + e.flightId().id() + "/cancel", "Cancel flight"));
         }
         return div().withClass("entry-card entry-card--flight").with(
                 div().withClass("entry-header").with(

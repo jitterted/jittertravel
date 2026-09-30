@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Cancel Flight</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .summary {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.9rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }
+        .summary .name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .summary .line { font-size: 0.9rem; color: var(--muted-text); margin-top: 0.15rem; }
+        .summary .leg-label {
+            display: inline-block;
+            min-width: 4.5em;
+            color: var(--muted-text);
+        }
+
+        p.warning { font-size: 0.9rem; color: var(--text-color); margin: 0 0 1rem; }
+
+        .field { margin-bottom: 1rem; }
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+        .field input[type=text] {
+            padding: 0.35rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+
+        .actions { display: flex; align-items: center; gap: 1.25rem; }
+
+        /* Red, as Cancel Train: there is no undo, and re-booking is not one — it mints a new flight
+           id, and a past flight cannot be re-booked at all. No typed word: appending a cancellation
+           destroys nothing. */
+        button.danger {
+            background: #b00;
+            color: #fff;
+            border: 1px solid #b00;
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        button.danger:hover { opacity: 0.88; }
+
+        .keep-link { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
+        .keep-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/booked-flights">Flights</a>
+    </nav>
+
+    <h1>Cancel Flight</h1>
+
+    <div class="summary">
+        <div class="name">
+            <span th:text="${flight.departureAirport().code()}">SFO</span>
+            &rarr;
+            <span th:text="${flight.arrivalAirport().code()}">ORD</span>
+        </div>
+        <div class="line">
+            <span th:text="${flight.airline()}">United Airlines</span>
+            <span th:text="${flight.flightNumber()}">UA2091</span>
+        </div>
+        <div class="line">
+            <span class="leg-label">Departs</span>
+            <span th:text="${#temporals.format(flight.departureDateTime().localDateTime(), 'EEE, MMM d, yyyy, h:mm a')}">date</span>
+        </div>
+        <div class="line">
+            <span class="leg-label">Arrives</span>
+            <span th:text="${#temporals.format(flight.arrivalDateTime().localDateTime(), 'EEE, MMM d, yyyy, h:mm a')}">date</span>
+        </div>
+    </div>
+
+    <p class="warning">
+        Cancelling removes the flight from the calendar, the itinerary and the flights list, and
+        drops it from the schedule-problems report — so a journey it appeared to make may show up
+        as a travel gap again, and it will no longer be offered as an end for a ground transfer. The
+        event log keeps the record, including the reason. There is no undo: a future flight can be
+        entered again as a new booking, and a past one cannot be entered at all.
+    </p>
+
+    <form th:action="@{|/booked-flights/${flight.flightId().id()}/cancel|}" method="post">
+        <div class="field">
+            <label>
+                Reason (optional)
+                <input type="text" name="reason" th:value="${reason}"
+                       placeholder="Rebooked, entered by mistake…"/>
+            </label>
+        </div>
+
+        <div class="actions">
+            <button type="submit" class="danger">Cancel this flight</button>
+            <a class="keep-link" th:href="@{/booked-flights}">Keep it — back to the list</a>
+        </div>
+    </form>
+
+</div>
+</body>
+</html>

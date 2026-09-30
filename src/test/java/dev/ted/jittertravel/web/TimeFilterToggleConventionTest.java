@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.CancelledView;
 import dev.ted.jittertravel.application.DroppedView;
 import dev.ted.jittertravel.application.TimeView;
 import org.junit.jupiter.api.DynamicTest;
@@ -109,6 +110,9 @@ class TimeFilterToggleConventionTest {
         }
         if (type == DroppedView.class) {
             return DroppedView.HIDE;
+        }
+        if (type == CancelledView.class) {
+            return CancelledView.HIDE;
         }
         // A count a view carries about its own second filter — zero is the empty-list equivalent,
         // and reflective invoke rejects a List where an int is declared.

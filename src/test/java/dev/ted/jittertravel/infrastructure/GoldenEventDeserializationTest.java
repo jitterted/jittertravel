@@ -9,6 +9,7 @@ import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringPlanned;
@@ -1279,6 +1280,42 @@ class GoldenEventDeserializationTest {
                 """;
 
         TrainCancelled event = deserialize(json, TrainCancelled.class);
+
+        assertThat(event.reason())
+                .isEqualTo("");
+    }
+
+    @Test
+    void flightCancelledSampleDeserializes() {
+        // Additive, like TrainCancelled: a new event type at schema_version 1.
+        String json = """
+                {
+                  "flightId": {"id": "88888888-8888-8888-8888-888888888888"},
+                  "reason": "Rebooked on UA58",
+                  "cancelledOn": "2026-09-29T17:00:00Z"
+                }
+                """;
+
+        FlightCancelled event = deserialize(json, FlightCancelled.class);
+
+        assertThat(event.flightId().id())
+                .isEqualTo(UUID.fromString("88888888-8888-8888-8888-888888888888"));
+        assertThat(event.reason())
+                .isEqualTo("Rebooked on UA58");
+        assertThat(event.cancelledOn())
+                .isEqualTo(Instant.parse("2026-09-29T17:00:00Z"));
+    }
+
+    @Test
+    void flightCancelledWithNoReasonDeserializesToTheEmptyString() {
+        String json = """
+                {
+                  "flightId": {"id": "88888888-8888-8888-8888-888888888888"},
+                  "cancelledOn": "2026-09-29T17:00:00Z"
+                }
+                """;
+
+        FlightCancelled event = deserialize(json, FlightCancelled.class);
 
         assertThat(event.reason())
                 .isEqualTo("");

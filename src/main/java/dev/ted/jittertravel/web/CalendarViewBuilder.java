@@ -480,7 +480,8 @@ public class CalendarViewBuilder {
      * <p>
      * Most kinds offer an edit pencil. A ground transfer has nothing to edit — the way to correct
      * one is to remove it and enter it again — so its action is a cancel bin in that same slot,
-     * with a different verb. No kind offers both, so the icon never moves between rows. Anonymous
+     * with a different verb. Trains and flights offer both, pencil then bin, so the pencil stays
+     * in the same slot as on every other kind and the icon never moves between rows. Anonymous
      * and family viewers get nothing at all here rather than a greyed control: the link itself
      * would disclose that the surface exists (CLAUDE.md, affordances vs authorization).
      */
@@ -488,10 +489,10 @@ public class CalendarViewBuilder {
         return switch (details) {
             case EntryDetails.Lodging d -> pencil(d.editPath());
             case EntryDetails.Gathering d -> pencil(d.editPath());
-            case EntryDetails.Flight d -> pencil(d.editPath());
-            // The only kind carrying both icons, in a fixed order: edit then cancel, so the
-            // pencil stays exactly where it is on every other row.
-            case EntryDetails.Train d -> pencilAndBin(d.editPath(), d.cancelPath());
+            // Both icons, in a fixed order: edit then cancel, so the pencil stays exactly where
+            // it is on every other row.
+            case EntryDetails.Flight d -> pencilAndBin(d.editPath(), d.cancelPath(), "Cancel flight");
+            case EntryDetails.Train d -> pencilAndBin(d.editPath(), d.cancelPath(), "Cancel train");
             case EntryDetails.GroundTransfer d -> d.cancelPath() == null
                     ? List.of()
                     : List.of(cancelBin(d.cancelPath(), "Cancel"));
@@ -510,10 +511,10 @@ public class CalendarViewBuilder {
      * Edit then cancel, each independently optional so a missing path drops its icon without
      * shifting the other — the pencil's position is the same whether or not a bin follows it.
      */
-    private static List<DomContent> pencilAndBin(String editPath, String cancelPath) {
+    private static List<DomContent> pencilAndBin(String editPath, String cancelPath, String cancelLabel) {
         List<DomContent> actions = new ArrayList<>(pencil(editPath));
         if (cancelPath != null) {
-            actions.add(cancelBin(cancelPath, "Cancel train"));
+            actions.add(cancelBin(cancelPath, cancelLabel));
         }
         return List.copyOf(actions);
     }

@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
@@ -44,6 +45,8 @@ public class FlightDetailsViewProjector implements EventStreamConsumer {
                         event.arrivalAirport(),
                         event.arrivalDateTime()
                 ));
+                // Also what makes a cancelled flight unchangeable: ChangeFlight reads existence here.
+                case FlightCancelled event -> viewsByFlight.remove(event.flightId());
                 default -> { /* ignore non-flight events */ }
             }
         });

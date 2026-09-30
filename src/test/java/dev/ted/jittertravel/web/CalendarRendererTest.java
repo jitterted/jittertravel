@@ -225,7 +225,7 @@ class CalendarRendererTest {
                 LocalDateTime.of(2026, 7, 1, 9, 0),
                 LocalDateTime.of(2026, 7, 1, 13, 0),
                 "✈️ SFO→JFK", lines("9:00 AM → 1:00 PM"),
-                new EntryDetails.Flight("/booked-flights/flight-123")
+                new EntryDetails.Flight("/booked-flights/flight-123", null)
         );
 
         String html = CalendarRenderer.render(List.of(flight), LocalDate.of(2026, 6, 11), false, true);

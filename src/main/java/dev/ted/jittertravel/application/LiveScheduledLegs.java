@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.ScheduledLeg;
 import dev.ted.jittertravel.domain.ScheduledLegId;
@@ -28,8 +29,7 @@ import java.util.Map;
  * second ago would let exactly the duplicate this refuses through.
  * <p>
  * Live means cancellations applied: a cancelled trip must not block a booking, since that is how
- * Ted resolves a collision. Flights have no cancellation event yet; when Cancel Flight ships it
- * belongs here, and {@code LiveScheduledLegsTest} is where that shows up.
+ * Ted resolves a collision.
  */
 public class LiveScheduledLegs {
 
@@ -56,6 +56,7 @@ public class LiveScheduledLegs {
                     e.departureDateTime(), e.arrivalDateTime());
             case FlightChanged e -> put(live, new ScheduledLegId.Flight(e.flightId()),
                     e.departureDateTime(), e.arrivalDateTime());
+            case FlightCancelled e -> live.remove(new ScheduledLegId.Flight(e.flightId()));
             case TrainBooked e -> put(live, new ScheduledLegId.Train(e.tripId()),
                     e.departureDateTime(), e.arrivalDateTime());
             case TrainChanged e -> put(live, new ScheduledLegId.Train(e.tripId()),

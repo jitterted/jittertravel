@@ -77,8 +77,11 @@ public sealed interface EntryDetails {
         }
     }
 
-    /** A booked flight leg. {@code editPath} is the OWNER-only link to its edit page. */
-    record Flight(String editPath) implements EntryDetails {
+    /**
+     * A booked flight leg. Both paths are OWNER-only, as for {@link Train}: {@code editPath} to its
+     * edit page and {@code cancelPath} to its confirmation page.
+     */
+    record Flight(String editPath, String cancelPath) implements EntryDetails {
         @Override
         public EntryKind kind() {
             return EntryKind.FLIGHT;

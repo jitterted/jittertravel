@@ -98,6 +98,8 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                         e.flightId(), e.airline(), e.flightNumber(),
                         e.departureAirport(), e.departureDateTime(),
                         e.arrivalAirport(), e.arrivalDateTime()));
+                // Same reason as TrainCancelled below: a leftover leg relocates the walk.
+                case FlightCancelled e -> flightLegs.remove(e.flightId());
                 case TrainBooked e -> trainLegs.put(e.tripId(), trainLeg(
                         e.tripId(), e.serviceId(), e.departureStation(), e.departureDateTime(),
                         e.arrivalStation(), e.arrivalDateTime()));

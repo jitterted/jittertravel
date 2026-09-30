@@ -5,6 +5,7 @@ import dev.ted.jittertravel.domain.DecisionContext;
 import dev.ted.jittertravel.domain.DomainCommand;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.ScheduledLeg;
@@ -82,6 +83,25 @@ class LiveScheduledLegsTest {
                 .singleElement()
                 .extracting(ScheduledLeg::id)
                 .isEqualTo(new ScheduledLegId.Train(kept));
+    }
+
+    @Test
+    void aCancelledFlightNoLongerBlocksAnything() {
+        FlightId flightId = FlightId.random();
+
+        assertThat(fold(flightBooked(flightId, 9, 11), new FlightCancelled(flightId, "wrong entry", Instant.EPOCH)).legs())
+                .isEmpty();
+    }
+
+    @Test
+    void aCancellationOfAnotherFlightLeavesThisOneBooked() {
+        FlightId kept = FlightId.random();
+
+        assertThat(fold(flightBooked(kept, 9, 11),
+                new FlightCancelled(FlightId.random(), "someone else's", Instant.EPOCH)).legs())
+                .singleElement()
+                .extracting(ScheduledLeg::id)
+                .isEqualTo(new ScheduledLegId.Flight(kept));
     }
 
     @Test

@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -45,6 +46,10 @@ public class BookedFlightsProjector implements EventStreamConsumer {
                         event.departureAirport(), event.arrivalAirport(),
                         event.departureDateTime(), event.arrivalDateTime(),
                         changeEntry(storedEvent.timestamp(), event.reason()));
+                // Kept as a record, not removed: the one flight read model that does, so a
+                // cancelled flight can be looked up behind ?cancelled=show (see FlightCancelled).
+                case FlightCancelled event -> viewsByFlight.computeIfPresent(event.flightId(),
+                        (id, view) -> view.cancelledWith(event.reason(), event.cancelledOn()));
                 default -> { /* not a flight event */ }
             }
         });
@@ -100,10 +105,27 @@ public class BookedFlightsProjector implements EventStreamConsumer {
         return timestamp.atOffset(ZoneOffset.UTC).toLocalDateTime();
     }
 
+    /** The default list: live flights only. */
     public List<BookedFlightView> views(TimeView timeView, Instant now) {
+        return views(timeView, CancelledView.HIDE, now);
+    }
+
+    public List<BookedFlightView> views(TimeView timeView, CancelledView cancelledView, Instant now) {
         return viewsByFlight.values().stream()
                 .filter(view -> timeView.includes(view, now))
+                .filter(cancelledView::includes)
                 .sorted(Comparator.comparing(v -> v.departureDateTime().utc()))
                 .toList();
+    }
+
+    /**
+     * How many cancelled flights the time filter admits — what the list's switch counts, needed
+     * even while they are hidden, since the switch reports what the page is leaving out.
+     */
+    public int cancelledCount(TimeView timeView, Instant now) {
+        return (int) viewsByFlight.values().stream()
+                .filter(view -> timeView.includes(view, now))
+                .filter(BookedFlightView::cancelled)
+                .count();
     }
 }

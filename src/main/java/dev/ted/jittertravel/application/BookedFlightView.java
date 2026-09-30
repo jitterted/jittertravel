@@ -15,6 +15,11 @@ import java.util.List;
  * history always contains at least the initial booking entry; if no
  * {@code FlightChanged} events have occurred, {@link #hasChanges()}
  * returns {@code false}.
+ * <p>
+ * {@code cancelled} marks a flight kept as a record behind {@code ?cancelled=show}; it carries the
+ * cancellation's {@code cancellationReason} ({@code ""} when none) and {@code cancelledOn}
+ * ({@code null} while the flight is live). Unlike every other flight read model, this one keeps a
+ * cancelled flight — see {@code FlightCancelled}.
  */
 public record BookedFlightView(
         FlightId flightId,
@@ -23,8 +28,25 @@ public record BookedFlightView(
         String route,
         ZonedTimestamp departureDateTime,
         ZonedTimestamp arrivalDateTime,
-        List<ChangeEntry> history
+        List<ChangeEntry> history,
+        boolean cancelled,
+        String cancellationReason,
+        Instant cancelledOn
 ) implements TemporalView {
+
+    public BookedFlightView {
+        if (cancellationReason == null) {
+            cancellationReason = "";
+        }
+    }
+
+    /** A live flight: not cancelled. */
+    public BookedFlightView(FlightId flightId, String airline, String flightNumber, String route,
+                            ZonedTimestamp departureDateTime, ZonedTimestamp arrivalDateTime,
+                            List<ChangeEntry> history) {
+        this(flightId, airline, flightNumber, route, departureDateTime, arrivalDateTime, history,
+             false, "", null);
+    }
 
     @Override
     public Instant relevantUntil() {
@@ -39,5 +61,11 @@ public record BookedFlightView(
     /** Most recent change's display text; only meaningful when {@link #hasChanges()}. */
     public String latestChangeDisplay() {
         return history.getLast().displayText();
+    }
+
+    /** A copy marked cancelled, carrying what the cancellation recorded. */
+    BookedFlightView cancelledWith(String reason, Instant on) {
+        return new BookedFlightView(flightId, airline, flightNumber, route, departureDateTime,
+                arrivalDateTime, history, true, reason, on);
     }
 }

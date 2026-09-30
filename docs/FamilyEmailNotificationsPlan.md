@@ -1003,7 +1003,8 @@ Named here rather than discovered later, per the standing "name the losses out l
    only trace of either, which is why a human resolving one needs to know what it means. Note it
    inverts the meaning of a PENDING row — see the caveat in §4.3.
 3. **Family is told about commitments and never about changes.** `FlightChanged` sends nothing (no
-   `FlightCancelled` event exists in the codebase at all), and neither does a `TalkWithdrawn` that
+   `FlightCancelled` event existed until 2026-09-29, and it is not in the trigger set either — see
+   `FlightItineraryPlan.md`), and neither does a `TalkWithdrawn` that
    leaves Ted attending but no longer speaking. **This was the biggest gap in the feature as
    specified on 2026-09-09 and it is now half-closed**: the conference exits are in the trigger set
    (§4.5) and the fact-comparison (§4.4) makes them reachable, so "Ted is going to SoCraTes" with no
@@ -1257,7 +1258,8 @@ reader would act on. **Answered: fix CLAUDE.md now**, in the same commit as this
   family are being told. There is no later slice and no design work owed.
 
   The mechanics that made it look like unfinished business are still true and are worth keeping, in
-  case the scope rule is ever revisited: there is no `FlightCancelled` event in the codebase at all,
+  case the scope rule is ever revisited: `FlightCancelled` exists since 2026-09-29 (Cancel Flight),
+  but is outside the trigger set,
   `FlightChanged` is a full snapshot, and §4.4's fact-comparison does not help — a changed flight is
   the same fact (`FLIGHT_BOOKED`) with different content, so it would need either a content
   comparison or a second fact. That is what it *would* cost, not what it owes.

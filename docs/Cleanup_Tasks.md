@@ -42,6 +42,25 @@ down when it is created does not get written down later.
 
 ## Open
 
+- [ ] **Put the time on its own line under the date on every list page, not just flights.** Ted,
+      2026-09-30: a time run into its date on one line is hard to pick out, and the vertical space
+      is worth it. `/booked-flights` does it (shipped 2026-09-30) with one CSS rule,
+      `.flight-card-row time > .nowrap { display: block; }`: `ZonedTimeTag.renderDateTimeStacking`
+      already emits the date and the time as two `.nowrap` spans inside the `<time>`, so making each
+      a block is the whole change and the markup is untouched.
+      **Left to do** — the other callers of `renderDateTimeStacking`, where the time still wraps
+      only when the column is narrow: `BookedTrainsRenderer` (departure/arrival),
+      `BookedHotelsRenderer` (check-in/check-out, and the cancel-by deadline in the same cell
+      style), and `ConferencesRenderer` (two call sites, ~L689 and ~L698).
+      `PlannedGatheringsRenderer` and `PlannedPrivateEventsRenderer` use `ZonedTimeTag.render`
+      with a single pattern, so their date and time are one string. There, the change is a
+      markup change first: a second pattern, or a switch to `renderDateTimeStacking`.
+      Whether to do it per page (a rule in each renderer's CSS, as flights does) or once (the rule
+      in `site.css`, or a `renderDateTimeOnTwoLines` variant on `ZonedTimeTag`) is the open
+      question. Per page is what flights did so the scope stayed one page; once is less to forget
+      on the next list. Measure each page for overflow after the change, as flights was: freeing
+      width is the likely effect, not the only one.
+
 - [ ] **BUG: a ground transfer can be planned between two endpoints days apart.** Reported by Ted
       2026-09-19: *"allows me to select from/to that are on different days more than 24 hours
       apart."* Pick an origin whose own moment is a hotel check-out on Sep 13 and a destination

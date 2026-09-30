@@ -1,7 +1,8 @@
 # Flight itineraries: Cancel Flight, then paste, cancel and schedule-change a whole trip
 
-Planned 2026-09-29 (Ted). **Part 0 (Cancel Flight) is being built first, on its own; Parts 1 and 2
-are not started.**
+Planned 2026-09-29 (Ted). **Part 0 (Cancel Flight) shipped 2026-09-29; Parts 1 and 2 are not
+started.** Still open from Part 0: the `ProblemFix` link for a flight in an overlap (deferred on
+purpose, below).
 
 Prompted by Ted, 2026-09-29: *"how hard would it be to retrieve flight bookings from United
 airlines using my booking confirmation code?"* The answer was that no API exists for that, so the
@@ -60,6 +61,27 @@ now exists and the link is simply not wired yet.
   word**. Cancelling destroys nothing, but there is no undo: re-booking mints a new id.
 - `SecurityConfig`: add `"/booked-flights/*/cancel"` to the OWNER per-item list, plus an
   `AuthorizationMatrixTest` row.
+
+**Viewing cancelled flights (added 2026-09-29, Ted).** `/booked-flights?cancelled=show` lists
+them. `BookedFlightsProjector` is the one flight read model that keeps a cancelled flight, marking
+the row instead of removing it; every other read model still drops it. The switch copies the
+conferences' "Show dropped", including the count while hidden. A cancelled row is muted and shows
+one grey box, "Cancelled <date>" with the reason written out inside it (when and why together; not
+a tooltip, because the iPad has no hover, and Ted is fine with the extra height on a list he opted
+into). Column widths use the grid's own track-sizing order: every column is `auto` except Route
+(`1fr`), so all other columns reach one line before Route gets extra width, and nothing wraps while
+another column has room. The box claims Route's width by content, not by a fixed width: its
+"Cancelled <date>" line stays unbroken only when a container query (on the table's own width,
+≥ 41rem) says it fits. Measured in headless Chrome from 500 to 1280px: no overflow at any width, no
+wrapping from 1024px up. That measuring also found an overflow from 641 to ~715px, clipped by
+`overflow: hidden`; it was partly there before, and made worse by the Cancel link. The fix was
+removing the list's 48px side insets (Ted: wasted space), which gave the table back the width. The
+stacking breakpoint stays at 640px, with the grid now fitting from 618px. The header reads
+"Flight #" (Ted, 2026-09-30), and its Edit/Cancel are greyed spans in the same
+slots (state, not permission). `FlightCancelled` gained `cancelledOn` (an `Instant` captured at the
+boundary) before it ever shipped, because a displayed time is a payload field (R11). The date is
+shown in the departure airport's zone. Why: a cancelled flight often leaves a travel credit or
+refund to look up.
 
 **Links** (Cancel after Edit, never moving Edit):
 - `/booked-flights`: Edit and Cancel go in a `div.flight-actions`.

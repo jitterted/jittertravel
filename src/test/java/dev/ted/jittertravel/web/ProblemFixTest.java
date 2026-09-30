@@ -277,7 +277,7 @@ class ProblemFixTest {
     }
 
     @Test
-    void aFlightContributesNoLinkBecauseThereIsNoCancelFlight() {
+    void aFlightContributesNoLinkUntilCancelFlightIsWiredIn() {
         List<ProblemFix> fixes = ProblemFix.forProblem(
                 overlap(new TravelLeg.Flight(FlightId.random(), "LH 402"), 9,
                         new TravelLeg.Train(TrainTripId.random(), "ICE 599"), 10),

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Paste Itinerary</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .paste-box {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 14rem;
+            padding: 0.5rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.85rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+        .error { display: block; margin-top: 2px; font-size: 0.8rem; color: #b00; }
+        .error-summary {
+            background: #fdecec;
+            border-left: 3px solid #b00;
+            padding: 0.45rem 0.6rem;
+            margin-bottom: 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .zone-pick { margin: 0.75rem 0; }
+        .legs { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+        .legs th {
+            text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--muted-text); border-bottom: 1px solid var(--border-color); padding: 6px 8px;
+        }
+        .legs td { padding: 8px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+        .legs .when { white-space: nowrap; }
+        .legs tr.refused td { background: #fdecec; }
+        .actions { display: flex; gap: 1rem; align-items: center; margin-top: 1rem; }
+        .confirmation { font-size: 0.9rem; color: var(--muted-text); }
+    </style>
+</head>
+<body>
+<div class="page booking-form">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/booked-flights">Flights</a>
+        <span class="sep">·</span>
+        <a href="/book-flight">Book one flight</a>
+    </nav>
+
+    <h1>Paste an Itinerary</h1>
+
+    <p>Paste the text of a United confirmation email. Every flight in it is booked at once, or none
+        are. Only the flights, their times and airports, and the confirmation number are read.</p>
+
+    <form th:action="@{/book-flight/itinerary}" th:object="${itinerary}" method="post">
+        <input type="hidden" th:field="*{itineraryId}"/>
+
+        <div class="error error-summary"
+             th:if="${preview != null and preview.problemCount() > 0}"
+             th:text="${preview.problemSummary()}">2 problems to fix below.</div>
+
+        <div class="field">
+            <label>
+                Confirmation email
+                <textarea class="paste-box" th:field="*{pasted}"></textarea>
+            </label>
+            <span class="error" th:if="${preview != null and !preview.parseProblem().isEmpty()}"
+                  th:text="${preview.parseProblem()}">No confirmation number found</span>
+        </div>
+
+        <!--/* One picker per airport the curated table does not know — keyed by the code, so one
+               pick covers the flight in and the flight out. The guard is its own block because
+               th:each runs before th:if on one element, and there is no preview on the first GET. */-->
+        <th:block th:if="${preview != null}">
+        <div class="zone-pick" th:each="code : ${preview.unresolvedAirports()}">
+            <label>
+                Time zone for <span th:text="${code}">YOW</span>
+                <select th:name="|airportZones[${code}]|">
+                    <option value="">Pick a zone</option>
+                    <option th:each="zone : ${commonZones}" th:value="${zone.name()}"
+                            th:text="${zone.label()}">US Eastern</option>
+                </select>
+            </label>
+            <span class="error">Unknown airport — pick its zone</span>
+        </div>
+
+        <!--/* A pick whose picker is gone (the airport resolved) must still be posted: Book re-reads
+               the form and re-evaluates, and without the pick it would find the airport unknown
+               again and send Ted back to the picker he had just used. */-->
+        <th:block th:each="pick : ${itinerary.airportZones}">
+            <input type="hidden" th:if="${!pick.value.isBlank() and !preview.unresolvedAirports().contains(pick.key)}"
+                   th:name="|airportZones[${pick.key}]|" th:value="${pick.value}"/>
+        </th:block>
+        </th:block>
+
+        <th:block th:if="${preview != null and preview.legCount() > 0}">
+            <p class="confirmation" th:if="${!preview.confirmationCode().isEmpty()}">
+                Confirmation <strong th:text="${preview.confirmationCode()}">MD7LKB</strong>
+            </p>
+            <table class="legs">
+                <thead>
+                <tr><th>#</th><th>Flight</th><th>Route</th><th>Departs</th><th>Arrives</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="row : ${preview.rows()}" th:classappend="${row.hasProblem()} ? 'refused'">
+                    <td th:text="${row.number()}">1</td>
+                    <td th:text="${row.flightNumber()}">UA2091</td>
+                    <td th:text="${row.route()}">SFO→ORD</td>
+                    <td class="when" th:text="${row.departs()}">Sun, Oct 18, 6:10 AM</td>
+                    <td class="when">
+                        <span th:text="${row.arrives()}">Sun, Oct 18, 12:45 PM</span>
+                        <span class="error" th:if="${row.hasProblem()}" th:text="${row.problem()}">Already departed</span>
+                        <a class="overlap-link" th:if="${row.hasLink()}" th:href="${row.linkPath()}"
+                           th:text="${row.linkLabel()}">Open that flight</a>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </th:block>
+
+        <div class="actions">
+            <button type="submit" name="action" value="preview">Preview</button>
+            <!--/* Only once a preview is clean: booking before anything is checked would be booking
+                   unread. The server re-evaluates on book either way. */-->
+            <button type="submit" name="action" value="book"
+                    th:if="${preview != null and preview.bookable()}"
+                    th:text="|Book ${preview.legCount()} flights|">Book 4 flights</button>
+        </div>
+    </form>
+
+</div>
+</body>
+</html>

@@ -19,6 +19,8 @@ import dev.ted.jittertravel.domain.TalkWithdrawn;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.FlightItineraryBooked;
+import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.GroundTransferCancelled;
@@ -141,6 +143,29 @@ class PublicCalendarProjectorTest {
         projector.handle(Stream.of(stored(new HotelBookingCancelled(bookingId, "plans changed"))));
 
         assertThat(projector.entries()).isEmpty();
+    }
+
+    /**
+     * A confirmation code is a booking reference, and booking references are private. The
+     * projector never reads {@code FlightItineraryBooked}, so the code cannot reach an entry; this
+     * pins that for the flights the itinerary groups.
+     */
+    @Test
+    void anItinerarysConfirmationCodeIsNeverPublished() {
+        FlightId flightId = FlightId.random();
+        projector.handle(Stream.of(
+                stored(new FlightBooked(flightId, "United", "UA2091",
+                        new AirportCode("SFO"), zoned(LocalDateTime.of(2026, 10, 18, 6, 10), DENVER),
+                        new AirportCode("ORD"), zoned(LocalDateTime.of(2026, 10, 18, 11, 45), DENVER))),
+                stored(new FlightItineraryBooked(FlightItineraryId.of(UUID.randomUUID()), "United Airlines",
+                        "MD7LKB", List.of(flightId)))));
+
+        assertThat(projector.entries())
+                .as("the flight is still public, as a route")
+                .extracting(CalendarEntry::mainTitle)
+                .containsExactly("✈️ SFO→ORD");
+        assertThat(projector.entries().toString())
+                .doesNotContain("MD7LKB");
     }
 
     @Test

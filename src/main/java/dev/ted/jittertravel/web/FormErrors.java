@@ -36,7 +36,15 @@ abstract class FormErrors {
         if (count == 0) {
             return;
         }
-        bindingResult.reject("problemCount",
-                count == 1 ? "1 problem to fix below." : count + " problems to fix below.");
+        bindingResult.reject("problemCount", countSentence(count));
+    }
+
+    /**
+     * The sentence itself, for the one form whose problems are not all field errors (the pasted
+     * itinerary, where a refused leg is a row, not an input) — so it says the same words rather than
+     * a second copy of them.
+     */
+    static String countSentence(int count) {
+        return count == 1 ? "1 problem to fix below." : count + " problems to fix below.";
     }
 }

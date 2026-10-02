@@ -14,6 +14,14 @@ class StaticAirportCityResolverTest {
     }
 
     @Test
+    void ottawaIsKnownBothWays() {
+        assertThat(resolver.cityFor("YOW"))
+                .isEqualTo("Ottawa");
+        assertThat(resolver.soleAirportFor("Ottawa"))
+                .contains("YOW");
+    }
+
+    @Test
     void anUnknownCodeIsReturnedAsIsRatherThanGuessed() {
         assertThat(resolver.cityFor("ZZZ")).isEqualTo("ZZZ");
     }

@@ -25,6 +25,8 @@ import dev.ted.jittertravel.domain.TalkWithdrawn;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.FlightItineraryBooked;
+import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.GroundTransferId;
@@ -242,6 +244,24 @@ class CalendarRedactionSecurityTest {
                 .hasStatusOk()
                 .bodyText()
                 .contains("href=\"/schedule-problems");
+    }
+
+    @Test
+    void anonymousUserNeverSeesAnItinerarysConfirmationCode() {
+        FlightId flightId = FlightId.random();
+        anonymousSees(
+                new FlightBooked(flightId, "United", "UA2091",
+                        new AirportCode("SFO"), ZonedTimestamp.fromLocal(DEPARTURE, DENVER),
+                        new AirportCode("ORD"), ZonedTimestamp.fromLocal(ARRIVAL, DENVER)),
+                new FlightItineraryBooked(FlightItineraryId.of(UUID.randomUUID()), "United Airlines",
+                        "MD7LKB", List.of(flightId)));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("SFO")
+                // A booking reference: the one thing that lets a stranger change or cancel the trip.
+                .doesNotContain("MD7LKB");
     }
 
     @Test

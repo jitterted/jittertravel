@@ -10,6 +10,8 @@ import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightCancelled;
+import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringPlanned;
@@ -1319,6 +1321,35 @@ class GoldenEventDeserializationTest {
 
         assertThat(event.reason())
                 .isEqualTo("");
+    }
+
+    @Test
+    void flightItineraryBookedSampleDeserializes() {
+        // Additive, schema_version 1. The flight ids are the FlightBooked events of the same append.
+        String json = """
+                {
+                  "itineraryId": {"id": "99999999-9999-9999-9999-999999999999"},
+                  "airline": "United Airlines",
+                  "confirmationCode": "MD7LKB",
+                  "flightIds": [
+                    {"id": "11111111-1111-1111-1111-111111111111"},
+                    {"id": "22222222-2222-2222-2222-222222222222"}
+                  ]
+                }
+                """;
+
+        FlightItineraryBooked event = deserialize(json, FlightItineraryBooked.class);
+
+        assertThat(event.itineraryId().id())
+                .isEqualTo(UUID.fromString("99999999-9999-9999-9999-999999999999"));
+        assertThat(event.airline())
+                .isEqualTo("United Airlines");
+        assertThat(event.confirmationCode())
+                .isEqualTo("MD7LKB");
+        assertThat(event.flightIds())
+                .extracting(FlightId::id)
+                .containsExactly(UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                        UUID.fromString("22222222-2222-2222-2222-222222222222"));
     }
 
     private static <T> T deserialize(String json, Class<T> type) {

@@ -1,8 +1,9 @@
 # Flight itineraries: Cancel Flight, then paste, cancel and schedule-change a whole trip
 
-Planned 2026-09-29 (Ted). **Part 0 (Cancel Flight) shipped 2026-09-29; Parts 1 and 2 are not
-started.** Still open from Part 0: the `ProblemFix` link for a flight in an overlap (deferred on
-purpose, below).
+Planned 2026-09-29 (Ted). **Part 0 (Cancel Flight) shipped 2026-09-29. Part 1 (YOW) and Part 2
+slices (a), (b) and (e) — paste, preview, book, unknown-airport zone picker — shipped 2026-09-30.**
+Still open: Part 2 (c) cancel itinerary and (d) schedule change, and from Part 0 the `ProblemFix`
+link for a flight in an overlap (deferred on purpose, below).
 
 Prompted by Ted, 2026-09-29: *"how hard would it be to retrieve flight bookings from United
 airlines using my booking confirmation code?"* The answer was that no API exists for that, so the
@@ -13,10 +14,9 @@ now, has to be done for each leg"*. Designing that showed there is no Cancel Fli
 asked for it now: *"i need the cancel flight feature now, can you do that as the first independent
 slice"*, kept *"to the minimum required for flight cancellation"*.
 
-**One naming question left for Ted:** he said `FlightItineraryCreated`. His own event-naming rule
-is "past-tense facts, never CRUD" (`CfpOpened`, not `CfpWindowRecorded`), and "Created" is CRUD. What
-happened is that the itinerary was **booked**, so this doc uses `FlightItineraryBooked` until he
-decides.
+**Naming, settled 2026-09-30 (Ted): `FlightItineraryBooked`.** He first said
+`FlightItineraryCreated`; his own rule is "past-tense facts, never CRUD", and what happened is that
+the trip was booked.
 
 ---
 
@@ -100,7 +100,7 @@ refund to look up.
 
 ---
 
-## Part 1: add YOW to the curated airport tables (not started)
+## Part 1: add YOW to the curated airport tables (shipped 2026-09-30)
 
 The sample email's Ottawa legs cannot resolve a zone. Ted: *"mostly a one-off, add YOW"*. The 09-18
 production backup has no `YOW`, so no stored flight's replay can change.
@@ -110,7 +110,49 @@ production backup has no `YOW`, so no stored flight's replay can change.
 
 ---
 
-## Part 2: itineraries (design, not started)
+## Part 2: itineraries (slices a, b, e shipped 2026-09-30; c and d not started)
+
+**What shipped, and where it differs from the design below.**
+- **Pages.** `/book-flight/itinerary`, reached from a link on `/book-flight` (Ted's pick). One page and
+  one POST: `action=preview` evaluates and writes nothing, `action=book` runs the same evaluation and
+  writes only when it is clean. "Book N flights" appears only after a clean preview, and booking always
+  re-reads the text box. OWNER-only via the existing `/book-flight/**` matcher, pinned by a matrix row.
+- **Code.**
+  - `UnitedItineraryParser` (allow-list, all problems at once, tolerant of the two column layouts a
+    copy can produce, and of the narrow no-break space Apple puts before AM/PM).
+  - `FlightItineraryBooking` (parse, then zones, then a **dry run of the real command** against the
+    live schedule, so the preview shows exactly what booking would refuse).
+  - `BookFlightItineraryCommand` emits N `FlightBooked` plus `FlightItineraryBooked` in one append.
+  - `ItineraryPreview` puts every problem where it is fixed: under the box, under an airport's zone
+    picker, or on the leg's row, with a link to the flight or train it collides with.
+- **The itinerary id is the command id**, minted when the form is first shown, so one form cannot
+  book the same trip twice. This matches how `/book-flight` uses the flight id.
+  **Booking an id twice is answered, not errored (2026-10-01).** The id doubles as the write-ahead
+  log's primary key, so a resubmit used to be a "Failed to save command to WAL" error page, and
+  only by luck was it refused earlier as a pile of overlaps with itself. `FlightItineraryBooking.book`
+  now folds the stream first (R1): a `FlightItineraryBooked` with this id gives
+  `ItineraryEvaluation.alreadyBooked()`, nothing is evaluated or written, and the controller
+  redirects to `/booked-flights` as the first submit did. It holds after the flights are cancelled,
+  which is the stale-tab case the overlap check cannot see. Only `book` checks; a stale Preview
+  still shows overlaps, and the Book button cannot appear from one.
+- **Picked zones ride along.** A pick whose picker has gone (the airport resolved) is posted back as
+  a hidden `airportZones[CODE]`; without it Book re-evaluated, found the airport unknown again, and
+  sent Ted back to the picker he had just used.
+- **Tests.** Plain unit tests for parser, command, booking and preview; a real-executor
+  integration test (`FlightItineraryBookingIntegrationTest`: one command, three events, the
+  refused paste writes nothing, the projector shows the legs); PIT clean over the plain-test
+  classes, and the controller and template mutated by hand because PIT skips `spring`-tagged tests.
+- **Zone picker (slice e) came along**: it is the only way an unknown airport can be booked at all.
+- **Not yet:** the confirmation code is stored and shown only on the paste page's preview (OWNER-only).
+  `/booked-flights` showing it,
+  and grouping the legs, belongs with slice (c), which needs the grouping anyway.
+- **Privacy, as designed.** The command log holds parsed legs only (a test serializes the command
+  with the log's own mapper). The form bean's `toString` omits the paste. Both redaction tiers pin
+  that the code never reaches the anonymous calendar.
+
+**Cancel-itinerary decision (Ted, 2026-09-30): refuse once any leg has departed.** Before the first
+departure the whole trip cancels at once; afterwards legs are cancelled one by one with Cancel
+Flight. This supersedes the "flown legs stay" recommendation in section 6.
 
 1. **What it's for.** Paste the text of an airline confirmation email onto an OWNER-only page, see
    a preview of every leg, and book them all with one submit. United's layout first. Parse the
@@ -221,13 +263,15 @@ production backup has no `YOW`, so no stored flight's replay can change.
     - `@WebMvcTest` for the preview.
     - The stored command JSON contains no eTicket or frequent-flyer strings.
 12. **Slices, in order.**
-    - (a) Parser + preview, read-only.
-    - (b) Book itinerary.
-    - (c) Cancel itinerary.
+    - (a) Parser + preview, read-only. **Shipped 2026-09-30.**
+    - (b) Book itinerary. **Shipped 2026-09-30.**
+    - (c) Cancel itinerary (refused once any leg has departed), plus showing and grouping the
+      confirmation code on `/booked-flights`.
     - (d) Schedule change by paste.
-    - (e) Unknown-airport zone picker.
+    - (e) Unknown-airport zone picker. **Shipped 2026-09-30, with (a).**
 13. **Open questions for Ted.**
-    - `FlightItineraryCreated` vs `FlightItineraryBooked`.
-    - Cancelling with flown legs: leave them as history (recommended), or refuse?
-    - Other airlines' formats, or United only?
-    - Where does the paste page live, and where does "Cancel itinerary" go?
+    - Other airlines' formats, or United only? (United only so far; another carrier's legs on a
+      United ticket keep their code as the airline, e.g. "LH".)
+    - Where does "Cancel itinerary" go?
+    - Settled 2026-09-30: `FlightItineraryBooked`; refuse cancelling once a leg has departed; the
+      paste page is linked from `/book-flight`.

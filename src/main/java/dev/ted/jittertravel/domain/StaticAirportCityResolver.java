@@ -33,6 +33,7 @@ public class StaticAirportCityResolver implements AirportCityResolver {
             Map.entry("DCA", "Washington DC"),
             Map.entry("MSP", "Minneapolis"),
             Map.entry("YYZ", "Toronto"),
+            Map.entry("YOW", "Ottawa"),
             Map.entry("YVR", "Vancouver"),
             // Europe
             Map.entry("LHR", "London"),

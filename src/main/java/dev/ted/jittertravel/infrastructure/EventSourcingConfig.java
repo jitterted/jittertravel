@@ -229,6 +229,14 @@ public class EventSourcingConfig {
         return new FlightBooking(commandExecutor, airportZoneResolver, liveScheduledLegs);
     }
 
+    /** Same collaborators as {@link #flightBookingApplicationService}: one itinerary is many legs. */
+    @Bean
+    public FlightItineraryBooking flightItineraryBookingApplicationService(CommandExecutor commandExecutor,
+                                                                           AirportZoneResolver airportZoneResolver,
+                                                                           LiveScheduledLegs liveScheduledLegs) {
+        return new FlightItineraryBooking(commandExecutor, airportZoneResolver, liveScheduledLegs);
+    }
+
     @Bean
     public RestClient.Builder restClientBuilder() {
         return RestClient.builder();

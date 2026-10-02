@@ -38,7 +38,9 @@ class NoBrowserRequiredOnServerValidatedFormsTest {
             "book-train.html", "change-train.html",
             "book-hotel.html", "change-hotel.html",
             // Born without it (2026-09-22): a blank date is RequiredEntryAdvice's field error.
-            "change-conference-dates.html");
+            "change-conference-dates.html",
+            // Born without it (2026-09-30): an empty paste is the parser's error under the box.
+            "book-flight-itinerary.html");
 
     @Test
     void noServerValidatedFormLetsTheBrowserBlockTheSubmit() throws IOException {

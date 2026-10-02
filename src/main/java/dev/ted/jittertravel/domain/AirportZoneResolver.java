@@ -37,7 +37,7 @@ public class AirportZoneResolver {
         put(table, "America/Denver", "DEN");
         put(table, "America/New_York", "JFK", "EWR", "LGA", "BOS", "ATL", "MIA", "IAD", "DCA");
         put(table, "America/Chicago", "ORD", "MDW", "DFW", "IAH", "MSP");
-        put(table, "America/Toronto", "YYZ");
+        put(table, "America/Toronto", "YYZ", "YOW");
         put(table, "America/Vancouver", "YVR");
         // Europe
         put(table, "Europe/London", "LHR", "LGW", "STN", "LCY");

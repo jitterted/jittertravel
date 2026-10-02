@@ -22,6 +22,14 @@ class AirportZoneResolverTest {
     }
 
     @Test
+    void ottawaResolvesToTorontoTime() {
+        // Added for the United SFO-ORD-YOW itinerary (2026-09-29). The email's "ON, CA" could not
+        // settle it: Canada has six zones.
+        assertThat(resolver.resolve(AirportCode.of("YOW")))
+                .isEqualTo(ZoneId.of("America/Toronto"));
+    }
+
+    @Test
     void throwsForAirportNotInTheCuratedTable() {
         assertThatThrownBy(() -> resolver.resolve(AirportCode.of("XXX")))
                 .isInstanceOf(ZoneResolutionException.class);

@@ -103,6 +103,9 @@ class AuthorizationMatrixTest {
                 arguments("/admin/calendar-feed",  Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/book-flight",          Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/book-flight/lookup/select", Outcome.OK,  Outcome.DENIED_HOME,  Outcome.LOGIN),
+                // Covered by "/book-flight/**", and pinned here: the preview prints a confirmation
+                // code, a private booking reference.
+                arguments("/book-flight/itinerary", Outcome.OK,      Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/plan-private-event",   Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/plan-ground-transfer", Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/booked-flights",       Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),

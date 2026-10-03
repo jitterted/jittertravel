@@ -11,6 +11,7 @@ import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -118,6 +119,10 @@ class TimeFilterToggleConventionTest {
         // and reflective invoke rejects a List where an int is declared.
         if (type == int.class) {
             return 0;
+        }
+        // Rows' extra facts, keyed by row (the flights list's trips): none for an empty list.
+        if (type == Map.class) {
+            return Map.of();
         }
         return List.of();
     }

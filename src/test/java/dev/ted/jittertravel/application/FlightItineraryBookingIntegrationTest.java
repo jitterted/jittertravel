@@ -3,8 +3,11 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
+import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.FlightItineraryNotFound;
 import dev.ted.jittertravel.domain.OverlappingLegRefused;
+import dev.ted.jittertravel.web.CancelFlightItineraryRequest;
 import dev.ted.jittertravel.infrastructure.AbstractTestcontainerIntegrationTest;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -20,6 +23,7 @@ import java.util.UUID;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
  * The real parser, command, {@code CommandExecutor}, {@code EventStore}, Postgres and the real
@@ -53,6 +57,8 @@ class FlightItineraryBookingIntegrationTest extends AbstractTestcontainerIntegra
     @Autowired CommandExecutor commandExecutor;
     @Autowired BookedFlightsProjector bookedFlights;
     @Autowired PostgresPersister persister;
+    @Autowired CancelFlightItinerary cancelItinerary;
+    @Autowired BookedItinerariesProjector itineraries;
 
     @Test
     void aCleanPasteLandsAsBothLegsAndTheItineraryUnderOneCommand() {
@@ -153,6 +159,52 @@ class FlightItineraryBookingIntegrationTest extends AbstractTestcontainerIntegra
                 .isEqualTo(eventsBefore);
         assertThat(persister.countCommands(""))
                 .isEqualTo(commandsBefore);
+    }
+
+    /**
+     * Cancel Itinerary's claim, like booking's: the legs and the itinerary go together under one
+     * command. Only the real executor and store can show that the three events are one append.
+     */
+    @Test
+    void cancellingTheItineraryWritesEveryLegsCancellationAndItsOwnUnderOneCommand() {
+        FlightItineraryId itinerary = newItinerary();
+        book(itinerary, SAMPLE);
+        int eventsBefore = persister.countEvents();
+        int commandsBefore = persister.countCommands("");
+
+        cancelItinerary.cancelItinerary(UUID.randomUUID(),
+                new CancelFlightItineraryRequest(itinerary.id(), "Trip called off"), NOW);
+
+        assertThat(persister.countEvents())
+                .as("two leg cancellations and the itinerary's")
+                .isEqualTo(eventsBefore + 3);
+        assertThat(persister.countCommands(""))
+                .as("one command, however many events")
+                .isEqualTo(commandsBefore + 1);
+        assertThat(commandExecutor.eventsForDecision().map(StoredEvent::payload).toList().getLast())
+                .isEqualTo(new FlightItineraryCancelled(itinerary, "Trip called off", NOW));
+        assertThat(bookedFlights.views(TimeView.ALL, CancelledView.HIDE, NOW))
+                .filteredOn(view -> flightsOf(itinerary).contains(view.flightId()))
+                .as("both legs are gone from the live list")
+                .isEmpty();
+        assertThat(itineraries.findLive(itinerary))
+                .as("the itinerary itself is no longer live")
+                .isEmpty();
+    }
+
+    @Test
+    void cancellingAnItineraryTwiceIsRefusedTheSecondTimeAndWritesNothing() {
+        FlightItineraryId itinerary = newItinerary();
+        book(itinerary, SAMPLE);
+        var request = new CancelFlightItineraryRequest(itinerary.id(), "");
+        cancelItinerary.cancelItinerary(UUID.randomUUID(), request, NOW);
+        int eventsBefore = persister.countEvents();
+
+        assertThatExceptionOfType(FlightItineraryNotFound.class)
+                .isThrownBy(() -> cancelItinerary.cancelItinerary(UUID.randomUUID(), request, NOW));
+
+        assertThat(persister.countEvents())
+                .isEqualTo(eventsBefore);
     }
 
     private ItineraryEvaluation book(FlightItineraryId itinerary, String pasted) {

@@ -1,9 +1,10 @@
 # Flight itineraries: Cancel Flight, then paste, cancel and schedule-change a whole trip
 
 Planned 2026-09-29 (Ted). **Part 0 (Cancel Flight) shipped 2026-09-29. Part 1 (YOW) and Part 2
-slices (a), (b) and (e) — paste, preview, book, unknown-airport zone picker — shipped 2026-09-30.**
-Still open: Part 2 (c) cancel itinerary and (d) schedule change, and from Part 0 the `ProblemFix`
-link for a flight in an overlap (deferred on purpose, below).
+slices (a), (b) and (e) — paste, preview, book, unknown-airport zone picker — shipped 2026-09-30.
+Slice (c), cancel itinerary, shipped 2026-10-02 (see "Slice (c) as built" under Part 2).**
+Still open: Part 2 (d) schedule change, and from Part 0 the `ProblemFix` link for a flight in an
+overlap (deferred on purpose, below).
 
 Prompted by Ted, 2026-09-29: *"how hard would it be to retrieve flight bookings from United
 airlines using my booking confirmation code?"* The answer was that no API exists for that, so the
@@ -110,7 +111,45 @@ production backup has no `YOW`, so no stored flight's replay can change.
 
 ---
 
-## Part 2: itineraries (slices a, b, e shipped 2026-09-30; c and d not started)
+## Part 2: itineraries (slices a, b, e shipped 2026-09-30; c shipped 2026-10-02; d not started)
+
+**Slice (c) as built (2026-10-02), and where it differs from the design below.**
+- **Domain.** `FlightItineraryCancelled(itineraryId, reason, cancelledOn)`, registered at schema_version
+  1 with golden samples. It carries no new private value, so it needed no redaction case:
+  `PublicCalendarProjector` still never reads an itinerary event. `CancelFlightItineraryCommand` emits
+  one `FlightCancelled` per live leg and then the itinerary event, in one append. Refusals are
+  `FlightItineraryNotFound` (unknown or already cancelled) and `FlightItineraryHasDeparted`.
+  "Departed" is `ZonedTimestamp.hasPassed(now)`: a leg departing at this very instant has left. The
+  list's greyed link uses the same method, so link and command cannot disagree.
+- **Decision facts** come from the stream (R1): liveness from the itinerary events, the live legs from
+  `LiveScheduledLegs.fold()`, the one fold of "live" the write paths share. A leg cancelled on its own
+  is not cancelled twice, and a departed leg that was cancelled on its own no longer blocks the rest.
+- **Read models.** `BookedItinerariesProjector` (events alone, R12) and `FlightTrips`, a composer a
+  layer above both it and `BookedFlightsProjector`. Membership is by flight id, never by dates, so an
+  itinerary booked into the gap of another is two itineraries whose legs interleave and neither's
+  cancel can touch the other's flights.
+- **Cancel page** `/booked-itineraries/{id}/cancel`, OWNER-only (matcher plus matrix row), red button,
+  no typed word. A departed leg is answered on the page, with a cancel link per remaining flight, not
+  by navigating away. **"Stays booked"** (Ted, 2026-10-02): the page lists live flights falling between
+  the itinerary's first and last live leg that it will *not* cancel, each with its own itinerary's code
+  when it has one, so "will this take Toronto with it?" is answered at the click.
+- **`/booked-flights`** (Ted picked option A, tinted: mockup at
+  https://claude.ai/artifact/S1eWy3iixRNAJNDzTyXNX8 and the nested one at
+  https://claude.ai/artifact/UwRe9zbq4mL5BPLYd47wW4). Each leg of an itinerary carries its code as a
+  chip under the flight number with its place beneath ("leg 3 of 4", or "one-way"), and the row has a
+  left edge in one of two hues, indigo or teal, handed out by order of first appearance so two trips
+  side by side never share one. Never amber: that is for problems. "Cancel trip" is a second line in
+  the actions cell, red. Where it cannot be used it is greyed with its reason written out ("2 legs
+  already left", "Flight cancelled"), because the iPad has no hover and the filter may hide the legs
+  that left. The leg count is the whole booking's, so a leg hidden by the date filter still counts.
+  - **Named losses.** The chip's label sits *under* the code, not beside it, so it adds no width to
+    the Flight # column (the table's floors are measured). The second line is reserved on every row
+    only when some row on the page has a trip, so a list with no itineraries is unchanged.
+  - **Not measured:** the 820px table was screenshotted in headless Chrome at 820, 700 and 660px
+    without `site.css`; no overflow. It has not been looked at on the iPad, nor between 618 and 641px.
+- **Still open from (c):** the flights list shows a cancelled itinerary's legs (behind
+  `?cancelled=show`) with no itinerary-level cancel marker; `FlightItineraryCancelled` is only
+  consumed by `BookedItinerariesProjector`.
 
 **What shipped, and where it differs from the design below.**
 - **Pages.** `/book-flight/itinerary`, reached from a link on `/book-flight` (Ted's pick). One page and

@@ -1,8 +1,14 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedFlightsProjector;
+import dev.ted.jittertravel.application.BookedFlightView;
 import dev.ted.jittertravel.application.CancelledView;
+import dev.ted.jittertravel.application.FlightTrip;
+import dev.ted.jittertravel.application.FlightTrips;
 import dev.ted.jittertravel.application.TimeView;
+import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,7 +18,11 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,6 +40,9 @@ class BookedFlightsWebIntegrationTest {
 
     @MockitoBean
     BookedFlightsProjector projector;
+
+    @MockitoBean
+    FlightTrips flightTrips;
 
     @Test
     void bookedFlightsPageRendersOk() {
@@ -60,5 +73,29 @@ class BookedFlightsWebIntegrationTest {
 
         then(projector).should()
                 .views(TimeView.ALL, CancelledView.SHOW, WebTodayTestConfig.FIXED_INSTANT);
+    }
+
+    /**
+     * The controller composes the listed flights with their trips at the boundary's own "now", and
+     * hands both to the renderer; the chip on the page is the proof the trips arrived.
+     */
+    @Test
+    void theListedFlightsAreHandedToTheTripComposerAtNowAndTheirTripsAreRendered() {
+        FlightId flightId = FlightId.random();
+        List<BookedFlightView> listed = List.of(new BookedFlightView(flightId, "United Airlines", "UA3510",
+                "YOW→ORD",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 6, 6, 0), ZoneId.of("America/Toronto")),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 6, 7, 30), ZoneId.of("America/Chicago")),
+                List.of()));
+        given(projector.views(any(), any(), any())).willReturn(listed);
+        given(flightTrips.forList(listed, WebTodayTestConfig.FIXED_INSTANT))
+                .willReturn(Map.of(flightId, new FlightTrip(FlightItineraryId.of(UUID.randomUUID()),
+                        "K3PQ9R", 3, 4, 0, 1)));
+
+        assertThat(mockMvc.get().uri("/booked-flights"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"flight-trip-code\">K3PQ9R</span>")
+                .contains("<span class=\"flight-trip-leg\">leg 3 of 4</span>");
     }
 }

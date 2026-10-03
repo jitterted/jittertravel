@@ -66,6 +66,22 @@ class ZonedTimestampTest {
     }
 
     @Test
+    void aMomentHasPassedOnceItIsNowOrEarlier() {
+        Instant moment = Instant.parse("2026-10-02T12:00:00Z");
+        ZonedTimestamp timestamp = new ZonedTimestamp(moment, BERLIN);
+
+        assertThat(timestamp.hasPassed(moment.minusSeconds(1)))
+                .as("a second before: still ahead")
+                .isFalse();
+        assertThat(timestamp.hasPassed(moment))
+                .as("this very instant: already gone, the boundary a booking refuses from the other side")
+                .isTrue();
+        assertThat(timestamp.hasPassed(moment.plusSeconds(1)))
+                .as("a second after")
+                .isTrue();
+    }
+
+    @Test
     void utcZoneIsPreservedDistinctFromOffset() {
         ZonedTimestamp timestamp = new ZonedTimestamp(Instant.EPOCH, ZoneOffset.UTC);
 

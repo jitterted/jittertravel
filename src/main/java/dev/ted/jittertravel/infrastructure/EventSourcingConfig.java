@@ -520,6 +520,28 @@ public class EventSourcingConfig {
     }
 
     /**
+     * Unlike {@link #cancelFlightApplicationService} it takes {@link LiveScheduledLegs}: which of the
+     * itinerary's legs are still live, and whether one has departed, are decision facts.
+     */
+    @Bean
+    public CancelFlightItinerary cancelFlightItineraryApplicationService(CommandExecutor commandExecutor,
+                                                                         LiveScheduledLegs liveScheduledLegs) {
+        return new CancelFlightItinerary(commandExecutor, liveScheduledLegs);
+    }
+
+    @Bean
+    public BookedItinerariesProjector bookedItinerariesProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new BookedItinerariesProjector());
+    }
+
+    /** Composes two read models, so it lives a layer above both rather than inside either (R12). */
+    @Bean
+    public FlightTrips flightTrips(BookedFlightsProjector bookedFlightsProjector,
+                                   BookedItinerariesProjector bookedItinerariesProjector) {
+        return new FlightTrips(bookedFlightsProjector, bookedItinerariesProjector);
+    }
+
+    /**
      * The endpoint resolver holds every lookup a transfer endpoint token can need: the hotel's
      * address (a snapshot source), and the airport city/zone tables. Ted cleared the dependency
      * gate for it (D8).

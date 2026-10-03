@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Cancel Flight Itinerary</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .page {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        nav { margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: var(--accent-color); text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        nav .sep { color: var(--muted-text); margin: 0 0.4em; }
+
+        h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+
+        .summary {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.9rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }
+        .summary .name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .summary .line { font-size: 0.9rem; color: var(--muted-text); margin-top: 0.15rem; }
+        .summary ul.legs { list-style: none; margin: 0.6rem 0 0; padding: 0; }
+        .summary ul.legs li { font-size: 0.9rem; margin-top: 0.4rem; }
+        .summary ul.legs .when { display: block; color: var(--muted-text); }
+
+        .stays {
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 0.7rem 1.1rem;
+            margin-bottom: 1.25rem;
+            font-size: 0.9rem;
+            color: var(--muted-text);
+        }
+        .stays strong { color: var(--text-color); }
+        .stays ul { list-style: none; margin: 0.4rem 0 0; padding: 0; }
+        .stays li { margin-top: 0.3rem; }
+        .stay-code {
+            display: inline-block;
+            margin-left: 0.4em;
+            padding: 0 6px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+        }
+
+        p.warning { font-size: 0.9rem; color: var(--text-color); margin: 0 0 1rem; }
+
+        /* Red, like every refusal that cannot be undone from inside the app. */
+        .refused {
+            border-left: 4px solid #b00;
+            background: #fdecec;
+            padding: 0.7rem 1rem;
+            margin-bottom: 1.25rem;
+            font-size: 0.9rem;
+        }
+        .refused a { color: #b00; }
+
+        .field { margin-bottom: 1rem; }
+        .field label {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+        .field input[type=text] {
+            padding: 0.35rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .field input:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
+
+        .actions { display: flex; align-items: center; gap: 1.25rem; }
+
+        /* Red, as Cancel Flight: there is no undo. Re-booking mints new flight ids, and a past
+           flight cannot be re-booked at all. No typed word: appending a cancellation destroys
+           nothing. */
+        button.danger {
+            background: #b00;
+            color: #fff;
+            border: 1px solid #b00;
+            border-radius: 6px;
+            padding: 0.45rem 1.4rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        button.danger:hover { opacity: 0.88; }
+
+        .keep-link { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; }
+        .keep-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/booked-flights">Flights</a>
+    </nav>
+
+    <h1>Cancel Flight Itinerary</h1>
+
+    <div class="summary">
+        <div class="name">
+            <span th:text="${itinerary.airline()}">United Airlines</span>
+            <span th:text="${itinerary.confirmationCode()}">MD7LKB</span>
+        </div>
+        <div class="line" th:text="${#lists.size(legs)} + (${#lists.size(legs)} == 1 ? ' flight' : ' flights') + ' will be cancelled'">4 flights will be cancelled</div>
+        <ul class="legs">
+            <li th:each="leg : ${legs}">
+                <span>
+                    <span th:text="${leg.departureAirport().code()}">SFO</span>
+                    &rarr;
+                    <span th:text="${leg.arrivalAirport().code()}">ORD</span>
+                </span>
+                <span th:text="${leg.flightNumber()}">UA2091</span>
+                <span class="when" th:text="${#temporals.format(leg.departureDateTime().localDateTime(), 'EEE, MMM d, yyyy, h:mm a')}">date</span>
+            </li>
+        </ul>
+    </div>
+
+    <!--/* What the cancel leaves alone: a separate itinerary booked into a gap of this one, or a flight
+           entered by hand. Not a problem, so a dashed grey box rather than a warning. */-->
+    <div class="stays" th:if="${!departed and !#lists.isEmpty(stays)}">
+        <strong>Stays booked.</strong>
+        <span th:text="${#lists.size(stays)} + (${#lists.size(stays)} == 1 ? ' other flight falls' : ' other flights fall') + ' between these and ' + (${#lists.size(stays)} == 1 ? 'is' : 'are') + ' not part of this itinerary:'">2 other flights fall between these and are not part of this itinerary:</span>
+        <ul>
+            <li th:each="stay : ${stays}">
+                <span th:text="${stay.flight().route()}">YOW→YYZ</span>
+                &middot;
+                <span th:text="${#temporals.format(stay.flight().departureDateTime().localDateTime(), 'EEE, MMM d, yyyy, h:mm a')}">date</span>
+                <span class="stay-code" th:if="${!stay.confirmationCode().isEmpty()}" th:text="${stay.confirmationCode()}">QX4TZN</span>
+            </li>
+        </ul>
+    </div>
+
+    <div class="refused" th:if="${departed}">
+        <strong>This itinerary cannot be cancelled as a whole: a flight on it has already departed.</strong>
+        Cancel the flights that are left one at a time instead:
+        <ul>
+            <li th:each="leg : ${legs}">
+                <a th:href="@{|/booked-flights/${leg.flightId().id()}/cancel|}">
+                    Cancel <span th:text="${leg.flightNumber()}">UA2091</span>
+                    (<span th:text="${leg.departureAirport().code()}">SFO</span>&rarr;<span th:text="${leg.arrivalAirport().code()}">ORD</span>)
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <p class="warning" th:unless="${departed}">
+        Cancelling removes every flight above from the calendar, the itinerary and the flights list,
+        and drops them from the schedule-problems report — so a journey they appeared to make may
+        show up as a travel gap again. The event log keeps the record, including the reason. There
+        is no undo: a future flight can be entered again as a new booking, and a past one cannot be
+        entered at all.
+    </p>
+
+    <form th:unless="${departed}" th:action="@{|/booked-itineraries/${itinerary.itineraryId().id()}/cancel|}" method="post">
+        <div class="field">
+            <label>
+                Reason (optional)
+                <input type="text" name="reason" th:value="${reason}"
+                       placeholder="Trip cancelled, rebooked…"/>
+            </label>
+        </div>
+
+        <div class="actions">
+            <button type="submit" class="danger">Cancel this itinerary</button>
+            <a class="keep-link" th:href="@{/booked-flights}">Keep it — back to the list</a>
+        </div>
+    </form>
+
+    <div class="actions" th:if="${departed}">
+        <a class="keep-link" th:href="@{/booked-flights}">Back to the list</a>
+    </div>
+
+</div>
+</body>
+</html>

@@ -105,6 +105,11 @@ public class BookedFlightsProjector implements EventStreamConsumer {
         return timestamp.atOffset(ZoneOffset.UTC).toLocalDateTime();
     }
 
+    /** One flight as the list would show it, cancelled or not; empty if it was never booked. */
+    public Optional<BookedFlightView> find(FlightId flightId) {
+        return Optional.ofNullable(viewsByFlight.get(flightId));
+    }
+
     /** The default list: live flights only. */
     public List<BookedFlightView> views(TimeView timeView, Instant now) {
         return views(timeView, CancelledView.HIDE, now);

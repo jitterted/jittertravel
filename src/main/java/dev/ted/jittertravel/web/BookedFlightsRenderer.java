@@ -2,13 +2,16 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedFlightView;
 import dev.ted.jittertravel.application.CancelledView;
+import dev.ted.jittertravel.application.FlightTrip;
 import dev.ted.jittertravel.application.TimeView;
+import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import static j2html.TagCreator.*;
 
@@ -82,6 +85,32 @@ public class BookedFlightsRenderer {
             .flight-cancel-link { font-size: 0.85rem; color: #b00; text-decoration: none; }
             .flight-cancel-link:hover { text-decoration: underline; }
             .flight-action-disabled { font-size: 0.85rem; color: var(--muted-text); opacity: 0.6; cursor: default; }
+            /* The actions cell stacks Edit/Cancel over the trip line. When the page has any trip,
+               every row keeps that second line (an empty one for a hand-entered flight), so
+               nothing is ever at a different height from the row above. */
+            .flight-actions-cell { display: grid; gap: 3px; justify-items: start; }
+            /* Red like Cancel Flight, and for the same reason: nothing puts the trip back. */
+            .flight-trip-cancel-link { font-size: 0.85rem; color: #b00; text-decoration: none; }
+            .flight-trip-cancel-link:hover { text-decoration: underline; }
+            .flight-trip-disabled { display: grid; gap: 1px; justify-items: start; }
+            /* The reason is text on the page, never a title: the iPad has no hover. */
+            .flight-trip-why { font-size: 0.7rem; line-height: 1.3; color: var(--muted-text); max-width: 15ch; }
+            /* Each trip wears one of two hues: a left edge on its rows and a tint on its chip. They
+               are indigo and teal on purpose, never amber, which belongs to problems. The inset
+               shadow keeps a tinted row the same width as an untinted one. Colour is a hint; the
+               code beside it is what names the trip. */
+            .flight-card--trip-0 { --trip-edge: #4f46e5; --trip-soft: #e0e7ff; }
+            .flight-card--trip-1 { --trip-edge: #0f8b8d; --trip-soft: #d5f1f1; }
+            [class*="flight-card--trip-"].flight-card-row,
+            [class*="flight-card--trip-"] > summary { box-shadow: inset 4px 0 0 var(--trip-edge); }
+            .flight-trip { margin-top: 4px; }
+            .flight-trip-code {
+                display: inline-block; padding: 0 6px; border-radius: 4px;
+                border: 1px solid var(--trip-edge); background: var(--trip-soft);
+                font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+                font-size: 0.7rem; letter-spacing: 0.04em; color: #212529;
+            }
+            .flight-trip-leg { display: block; margin-top: 1px; font-size: 0.7rem; color: var(--muted-text); }
             /* A cancelled flight is a record, muted so it reads as inactive. */
             .flight-card--cancelled .flight-card-cell { color: var(--muted-text); }
             /* The headline line is what claims Route's width for the box (see .flight-cards): kept
@@ -186,7 +215,7 @@ public class BookedFlightsRenderer {
                 }
                 .leg-label { display: block; margin-top: 0.5rem; }
                 div.flight-card-row > .flight-card-chevron { display: none; }
-                .flight-card-row > .flight-actions { justify-self: start; margin-top: 0.6rem; }
+                .flight-card-row > .flight-actions-cell { justify-self: start; margin-top: 0.6rem; }
             }
             """;
 
@@ -204,6 +233,17 @@ public class BookedFlightsRenderer {
      */
     public static String render(List<BookedFlightView> flights, TimeView activeFilter,
                                 CancelledView activeCancelled, int cancelledCount) {
+        return render(flights, activeFilter, activeCancelled, cancelledCount, Map.of());
+    }
+
+    /**
+     * @param trips the itinerary each listed flight belongs to; a flight entered by hand has no
+     *              entry. When any row has one, every row reserves the trip line of its actions
+     *              cell, so an action never sits in a different place from one row to the next.
+     */
+    public static String render(List<BookedFlightView> flights, TimeView activeFilter,
+                                CancelledView activeCancelled, int cancelledCount,
+                                Map<FlightId, FlightTrip> trips) {
         return "<!DOCTYPE html>\n" + html(
                 Page.head("Booked Flights", CSS + ListToolbar.CSS),
                 body(
@@ -216,7 +256,7 @@ public class BookedFlightsRenderer {
                                 cancelledSwitch(activeFilter, activeCancelled, cancelledCount),
                                 flights.isEmpty()
                                         ? renderEmptyState(activeFilter)
-                                        : renderFlightList(flights)
+                                        : renderFlightList(flights, trips)
                         )
                 )
         ).withLang("en").render();
@@ -258,7 +298,8 @@ public class BookedFlightsRenderer {
         );
     }
 
-    private static DomContent renderFlightList(List<BookedFlightView> flights) {
+    private static DomContent renderFlightList(List<BookedFlightView> flights, Map<FlightId, FlightTrip> trips) {
+        boolean reserveTripLine = !trips.isEmpty();
         return div().withClass("flight-cards").with(
                 header().withClass("flight-card-header").with(
                         div("Departure"),
@@ -271,13 +312,14 @@ public class BookedFlightsRenderer {
                         div().withClass("flight-card-chevron").attr("aria-hidden", "true"),
                         div()
                 ),
-                each(flights, BookedFlightsRenderer::renderFlightCard)
+                each(flights, flight -> renderFlightCard(flight, trips.get(flight.flightId()), reserveTripLine))
         );
     }
 
-    private static DomContent renderFlightCard(BookedFlightView flight) {
+    private static DomContent renderFlightCard(BookedFlightView flight, FlightTrip trip, boolean reserveTripLine) {
         String changeUrl = "/booked-flights/" + flight.flightId().id();
-        String cancelledClass = flight.cancelled() ? " flight-card--cancelled" : "";
+        String cancelledClass = (flight.cancelled() ? " flight-card--cancelled" : "")
+                                + (trip == null ? "" : " flight-card--trip-" + trip.hue());
         if (flight.hasChanges()) {
             // The change list lives inside the <summary> — the grid row that already spans and
             // aligns the seven columns — so the list (grid-column: 1 / -1 within that same subgrid
@@ -285,19 +327,20 @@ public class BookedFlightsRenderer {
             // column.
             return details().withClass("flight-card flight-card-has-history" + cancelledClass).with(
                     summary().withClass("flight-card-row")
-                            .with(rowCells(flight, changeUrl))
+                            .with(rowCells(flight, changeUrl, trip, reserveTripLine))
                             .with(ul().withClass("flight-history-list").with(
                                     each(flight.history(), entry -> li(entry.displayText()))
                             ))
             );
         }
         return div().withClass("flight-card flight-card-row" + cancelledClass)
-                    .with(rowCells(flight, changeUrl));
+                    .with(rowCells(flight, changeUrl, trip, reserveTripLine));
     }
 
     // The plain row and the history summary row share the same seven grid cells, so both pick up the
     // stacking times, the leg labels, and the collapse behaviour from one place.
-    private static DomContent[] rowCells(BookedFlightView flight, String changeUrl) {
+    private static DomContent[] rowCells(BookedFlightView flight, String changeUrl,
+                                         FlightTrip trip, boolean reserveTripLine) {
         return new DomContent[]{
                 div().withClass("flight-card-cell flight-departure").with(
                         legLabel("Departure"), dateTime(flight.departureDateTime())),
@@ -311,9 +354,12 @@ public class BookedFlightsRenderer {
                 div().withClass("flight-card-cell").with(
                         legLabel("Airline"), text(flight.airline())),
                 div().withClass("flight-card-cell").with(
-                        legLabel("Flight Number"), text(flight.flightNumber())),
+                        legLabel("Flight Number"), text(flight.flightNumber()),
+                        trip == null ? text("") : tripChip(trip)),
                 div().withClass("flight-card-cell flight-card-chevron").attr("aria-hidden", "true"),
-                flight.cancelled() ? disabledActions() : actions(changeUrl)
+                div().withClass("flight-actions-cell").with(
+                        flight.cancelled() ? disabledActions() : actions(changeUrl),
+                        tripAction(flight, trip, reserveTripLine))
         };
     }
 
@@ -322,6 +368,50 @@ public class BookedFlightsRenderer {
         return div().withClass("flight-actions").with(
                 a("Edit").withClass("flight-edit-link").withHref(changeUrl),
                 a("Cancel").withClass("flight-cancel-link").withHref(changeUrl + "/cancel"));
+    }
+
+    /**
+     * The itinerary's confirmation code, tinted to match the row's left edge, with this leg's place
+     * in it underneath. The label sits below the code rather than beside it so the chip adds no
+     * width to the Flight # column, whose floor is part of the measured table (see the media query).
+     * The tint is a hint only; the code is what identifies the trip.
+     */
+    private static DomContent tripChip(FlightTrip trip) {
+        String place = trip.legCount() == 1 ? "one-way" : "leg " + trip.legNumber() + " of " + trip.legCount();
+        return div().withClass("flight-trip").with(
+                span(trip.confirmationCode()).withClass("flight-trip-code"),
+                span(place).withClass("flight-trip-leg"));
+    }
+
+    /**
+     * The second line of the actions cell. A hand-entered flight keeps an empty line whenever any
+     * other row on the page has a trip action, so Edit and Cancel sit at the same height on every
+     * row. Where a trip cannot be cancelled whole, the link is shown disabled with its reason
+     * written out: the iPad has no hover, so a tooltip would explain nothing. The reason also has to
+     * be there when the date filter hides the legs that already left.
+     */
+    private static DomContent tripAction(BookedFlightView flight, FlightTrip trip, boolean reserveTripLine) {
+        if (!reserveTripLine) {
+            return text("");
+        }
+        if (trip == null) {
+            return span(rawHtml("&nbsp;")).withClass("flight-trip-slot").attr("aria-hidden", "true");
+        }
+        if (flight.cancelled()) {
+            return disabledTripAction("Flight cancelled");
+        }
+        if (!trip.canBeCancelledWhole()) {
+            return disabledTripAction(trip.departedLegs() + (trip.departedLegs() == 1 ? " leg" : " legs")
+                                      + " already left");
+        }
+        return a("Cancel trip").withClass("flight-trip-cancel-link")
+                .withHref("/booked-itineraries/" + trip.itineraryId().id() + "/cancel");
+    }
+
+    private static DomContent disabledTripAction(String why) {
+        return div().withClass("flight-trip-disabled").with(
+                span("Cancel trip").withClass("flight-action-disabled"),
+                span(why).withClass("flight-trip-why"));
     }
 
     /**

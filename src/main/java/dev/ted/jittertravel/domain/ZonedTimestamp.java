@@ -44,6 +44,15 @@ public record ZonedTimestamp(Instant utc, ZoneId zone) {
         return wallClock == null ? null : fromLocal(wallClock, zone);
     }
 
+    /**
+     * Whether this moment is now or already behind us. The one definition of "has departed" that
+     * Cancel Itinerary refuses on and that the flights list greys its trip action by, so the link
+     * and the command cannot disagree about a leg leaving at this very instant.
+     */
+    public boolean hasPassed(Instant now) {
+        return !utc.isAfter(now);
+    }
+
     /** The moment in the entry's own zone (the wall-clock originally entered). */
     public ZonedDateTime atEntryZone() {
         return utc.atZone(zone);

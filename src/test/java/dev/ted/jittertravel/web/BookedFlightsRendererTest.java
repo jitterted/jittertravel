@@ -3,8 +3,10 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.BookedFlightView;
 import dev.ted.jittertravel.application.CancelledView;
 import dev.ted.jittertravel.application.ChangeEntry;
+import dev.ted.jittertravel.application.FlightTrip;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
@@ -12,6 +14,8 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -234,10 +238,144 @@ class BookedFlightsRendererTest {
     }
 
     @Test
+    void aTripLegShowsItsCodeAndItsPlaceInTheBookingUnderTheFlightNumber() {
+        FlightId flightId = FlightId.random();
+        String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "YOW→ORD", "United", "UA3510")),
+                Map.of(flightId, trip("K3PQ9R", 3, 4, 0, 1)));
+
+        assertThat(html)
+                .contains("<span class=\"flight-trip-code\">K3PQ9R</span>")
+                .contains("<span class=\"flight-trip-leg\">leg 3 of 4</span>");
+    }
+
+    @Test
+    void aSingleFlightBookingSaysOneWayRatherThanLegOneOfOne() {
+        FlightId flightId = FlightId.random();
+        String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "HAM→MUC", "Lufthansa", "LH2093")),
+                Map.of(flightId, trip("P5C9DV", 1, 1, 0, 1)));
+
+        assertThat(html)
+                .contains("<span class=\"flight-trip-leg\">one-way</span>")
+                .doesNotContain("leg 1 of 1");
+    }
+
+    @Test
+    void eachTripRowWearsItsTripsHueAndAnUntrippedRowWearsNone() {
+        FlightId outer = FlightId.random();
+        FlightId inner = FlightId.random();
+        FlightId byHand = FlightId.random();
+        String html = renderWithTrips(List.of(
+                        viewWithoutChanges(outer, "", "SFO→ORD", "United", "UA1"),
+                        viewWithoutChanges(inner, "", "YOW→YYZ", "Air Canada", "AC8201"),
+                        viewWithoutChanges(byHand, "", "SFO→LAX", "United", "UA608")),
+                Map.of(outer, trip("MD7LKB", 1, 4, 0, 0), inner, trip("QX4TZN", 1, 2, 0, 1)));
+
+        assertThat(html)
+                .contains("<div class=\"flight-card flight-card-row flight-card--trip-0\">")
+                .contains("<div class=\"flight-card flight-card-row flight-card--trip-1\">")
+                .contains("<div class=\"flight-card flight-card-row\">");
+    }
+
+    @Test
+    void aTripThatCanBeCancelledWholeLinksToItsCancelPageInRed() {
+        FlightItineraryId itinerary = FlightItineraryId.of(UUID.randomUUID());
+        FlightId flightId = FlightId.random();
+        String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "SFO→ORD", "United", "UA1")),
+                Map.of(flightId, new FlightTrip(itinerary, "MD7LKB", 1, 2, 0, 0)));
+
+        assertThat(html)
+                .contains("<a class=\"flight-trip-cancel-link\" href=\"/booked-itineraries/"
+                          + itinerary.id() + "/cancel\">Cancel trip</a>")
+                .contains(".flight-trip-cancel-link { font-size: 0.85rem; color: #b00;");
+    }
+
+    @Test
+    void aTripWithADepartedLegShowsCancelTripDisabledWithTheReasonWrittenOut() {
+        FlightId flightId = FlightId.random();
+        String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "YOW→ORD", "United", "UA3510")),
+                Map.of(flightId, trip("K3PQ9R", 3, 4, 2, 0)));
+
+        assertThat(html)
+                .contains("<span class=\"flight-action-disabled\">Cancel trip</span>")
+                .as("the reason is text, because the iPad has no hover for a tooltip")
+                .contains("<span class=\"flight-trip-why\">2 legs already left</span>")
+                .doesNotContain("href=\"/booked-itineraries/");
+    }
+
+    @Test
+    void oneDepartedLegIsSaidInTheSingular() {
+        FlightId flightId = FlightId.random();
+        String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "YOW→ORD", "United", "UA3510")),
+                Map.of(flightId, trip("K3PQ9R", 2, 2, 1, 0)));
+
+        assertThat(html)
+                .contains("<span class=\"flight-trip-why\">1 leg already left</span>");
+    }
+
+    @Test
+    void aCancelledFlightsTripActionIsDisabledAndSaysWhy() {
+        FlightId flightId = FlightId.random();
+        String html = renderWithTrips(List.of(cancelledView(flightId)),
+                Map.of(flightId, trip("MD7LKB", 1, 2, 0, 0)));
+
+        assertThat(html)
+                .contains("<span class=\"flight-trip-why\">Flight cancelled</span>")
+                .doesNotContain("href=\"/booked-itineraries/");
+    }
+
+    @Test
+    void aHandEnteredFlightKeepsAnEmptyTripLineWhenAnotherRowHasATripSoActionsNeverMove() {
+        FlightId inTrip = FlightId.random();
+        FlightId byHand = FlightId.random();
+        String html = renderWithTrips(List.of(
+                        viewWithoutChanges(inTrip, "", "SFO→ORD", "United", "UA1"),
+                        viewWithoutChanges(byHand, "", "SFO→LAX", "United", "UA608")),
+                Map.of(inTrip, trip("MD7LKB", 1, 2, 0, 0)));
+
+        assertThat(html)
+                .contains("<span class=\"flight-trip-slot\" aria-hidden=\"true\">&nbsp;</span>");
+    }
+
+    @Test
+    void aPageWithNoTripsReservesNoTripLineAtAll() {
+        String html = BookedFlightsRenderer.render(List.of(
+                viewWithoutChanges("", "SFO→LAX", "United", "UA608")), TimeView.FUTURE);
+
+        assertThat(html)
+                .doesNotContain("class=\"flight-trip-slot\"")
+                .doesNotContain("Cancel trip");
+    }
+
+    @Test
+    void theTripHuesAreIndigoAndTealNeverAmber() {
+        String html = renderWithTrips(List.of(), Map.of());
+
+        assertThat(html)
+                .contains(".flight-card--trip-0 { --trip-edge: #4f46e5; --trip-soft: #e0e7ff; }")
+                .contains(".flight-card--trip-1 { --trip-edge: #0f8b8d; --trip-soft: #d5f1f1; }");
+    }
+
+    @Test
     void bookAnotherFlightLinkIsPresent() {
         String html = BookedFlightsRenderer.render(List.of(), TimeView.ALL);
 
         assertThat(html).contains("/book-flight");
+    }
+
+    private static String renderWithTrips(List<BookedFlightView> flights, Map<FlightId, FlightTrip> trips) {
+        return BookedFlightsRenderer.render(flights, TimeView.ALL, CancelledView.SHOW, 0, trips);
+    }
+
+    private static FlightTrip trip(String code, int leg, int of, int departed, int hue) {
+        return new FlightTrip(FlightItineraryId.of(UUID.randomUUID()), code, leg, of, departed, hue);
+    }
+
+    private static BookedFlightView cancelledView(FlightId flightId) {
+        return new BookedFlightView(flightId, "United", "UA1", "SFO→ORD",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 6, 13, 55), UTC),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 7, 9, 45), UTC),
+                List.of(new ChangeEntry(LocalDateTime.of(2026, 5, 1, 12, 0), "Booked on 2026-05-01 12:00PM")),
+                true, "", Instant.parse("2026-06-01T00:00:00Z"));
     }
 
     private static BookedFlightView viewWithoutChanges(String display, String route,

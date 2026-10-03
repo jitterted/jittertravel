@@ -116,6 +116,9 @@ class AuthorizationMatrixTest {
                 // The flight's per-item cancel: without its own matcher it falls through to
                 // permitAll, and the page prints the flight number and both times.
                 arguments("/booked-flights/abc/cancel", Outcome.OK,  Outcome.DENIED_HOME,  Outcome.LOGIN),
+                // A whole itinerary's cancel page prints its booking reference, so it too needs its
+                // own matcher: nothing else covers a path nobody had a list entry for.
+                arguments("/booked-itineraries/abc/cancel", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/booked-trains/abc",    Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 // The train's per-item cancel, needing its own matcher for the same reason:
                 // "/booked-trains/*" matches one segment, so without this entry the cancel

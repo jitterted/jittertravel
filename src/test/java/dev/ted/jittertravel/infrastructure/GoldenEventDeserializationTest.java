@@ -12,6 +12,7 @@ import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
+import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringPlanned;
@@ -1350,6 +1351,42 @@ class GoldenEventDeserializationTest {
                 .extracting(FlightId::id)
                 .containsExactly(UUID.fromString("11111111-1111-1111-1111-111111111111"),
                         UUID.fromString("22222222-2222-2222-2222-222222222222"));
+    }
+
+    @Test
+    void flightItineraryCancelledSampleDeserializes() {
+        // Additive, schema_version 1. The per-leg FlightCancelled events ride in the same append.
+        String json = """
+                {
+                  "itineraryId": {"id": "99999999-9999-9999-9999-999999999999"},
+                  "reason": "Trip called off",
+                  "cancelledOn": "2026-10-02T12:00:00Z"
+                }
+                """;
+
+        FlightItineraryCancelled event = deserialize(json, FlightItineraryCancelled.class);
+
+        assertThat(event.itineraryId().id())
+                .isEqualTo(UUID.fromString("99999999-9999-9999-9999-999999999999"));
+        assertThat(event.reason())
+                .isEqualTo("Trip called off");
+        assertThat(event.cancelledOn())
+                .isEqualTo(Instant.parse("2026-10-02T12:00:00Z"));
+    }
+
+    @Test
+    void flightItineraryCancelledWithNoReasonDeserializesToTheEmptyString() {
+        String json = """
+                {
+                  "itineraryId": {"id": "99999999-9999-9999-9999-999999999999"},
+                  "cancelledOn": "2026-10-02T12:00:00Z"
+                }
+                """;
+
+        FlightItineraryCancelled event = deserialize(json, FlightItineraryCancelled.class);
+
+        assertThat(event.reason())
+                .isEqualTo("");
     }
 
     private static <T> T deserialize(String json, Class<T> type) {

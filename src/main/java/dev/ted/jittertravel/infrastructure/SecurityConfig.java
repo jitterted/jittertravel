@@ -76,6 +76,8 @@ public class SecurityConfig {
                         // their own entry alongside the page (as /booked-flights/*/lookup does).
                         .requestMatchers("/booked-flights/*", "/booked-flights/*/lookup",
                                 "/booked-flights/*/lookup/select", "/booked-flights/*/cancel",
+                                // A whole itinerary's cancel page prints its booking reference.
+                                "/booked-itineraries/*/cancel",
                                 "/booked-trains/*", "/booked-trains/*/cancel",
                                 "/booked-hotels/*",
                                 "/booked-hotels/*/cancel",

@@ -104,6 +104,8 @@ class AuthorizationMatrixTest {
                 // A POST-only route, and it sends real mail: the matcher is by path, so this row
                 // is what stops it going public the day someone narrows /admin/**.
                 arguments("/admin/family-notify/probe", Outcome.OK,  Outcome.DENIED_HOME,  Outcome.LOGIN),
+                // Prints which keys are loaded (their last four characters) and where mail goes.
+                arguments("/admin/settings",       Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/book-flight",          Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/book-flight/lookup/select", Outcome.OK,  Outcome.DENIED_HOME,  Outcome.LOGIN),
                 // Covered by "/book-flight/**", and pinned here: the preview prints a confirmation

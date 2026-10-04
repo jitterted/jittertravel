@@ -9,6 +9,7 @@ import dev.ted.jittertravel.infrastructure.FamilyMessage;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -51,17 +52,22 @@ public class AdminController {
     private final boolean familyNotifyEnabled;
     private final ViewerTodayZone viewerZone;
     private final FamilyEmailSetup familySetup = new FamilyEmailSetup();
+    private final SettingsReporter settingsReporter = new SettingsReporter();
     private final FamilyTestMemory testMemory;
+    private final Environment environment;
+    private final String fallbackZone;
 
     public AdminController(BackupService backupService, PostgresPersister persister,
                            LegacyEventMigration legacyEventMigration,
                            BackupSource backupSource, Clock clock,
-                           BrevoEmailClient brevo, FamilyTestMemory testMemory,
+                           BrevoEmailClient brevo, FamilyTestMemory testMemory, Environment environment,
                            @Value("${jittertravel.calendar-feed.token:}") String feedToken,
                            @Value("${jittertravel.base-url:}") String baseUrl,
                            @Value("${jittertravel.family-notify.enabled:false}") boolean familyNotifyEnabled,
                            @Value("${jittertravel.today.fallback-zone:America/Los_Angeles}") String fallbackZone) {
         this.viewerZone = new ViewerTodayZone(ZoneId.of(fallbackZone));
+        this.fallbackZone = fallbackZone;
+        this.environment = environment;
         this.testMemory = testMemory;
         this.backupService = backupService;
         this.persister = persister;
@@ -110,11 +116,54 @@ public class AdminController {
     }
 
     private String renderHome(HttpServletRequest request, Model model, String zoneCookie, boolean justTested) {
-        model.addAttribute("secureCookieProbe", new SecureCookieProbe(
-                request.isSecure(), request.getScheme(), request.getHeader("X-Forwarded-Proto")));
         model.addAttribute("setup", familySetup.checklist(brevo.configured(), brevo.recipient(),
                 familyNotifyEnabled, testMemory.last(), viewerZone.resolve(zoneCookie), justTested));
+        model.addAttribute("settingsProblems", settingsReport(request, zoneCookie).problems());
         return "admin-home";
+    }
+
+    /**
+     * What the running app is using, on a page of its own so {@code /admin} stays a set of cards. The
+     * cookie readout lives here now. OWNER-only like everything under {@code /admin}.
+     */
+    @GetMapping("/settings")
+    public String settings(HttpServletRequest request, Model model,
+                           @CookieValue(name = ViewerTodayZone.COOKIE_NAME, required = false) String zoneCookie) {
+        model.addAttribute("settings", settingsReport(request, zoneCookie));
+        return "admin-settings";
+    }
+
+    /**
+     * Gathers what the app can read about its own configuration and hands it to
+     * {@link SettingsReporter}, reducing every secret to "set" and how it ends on the way. Property
+     * names, not constructor values, so a new setting does not widen this class's constructor.
+     */
+    private SettingsReport settingsReport(HttpServletRequest request, String zoneCookie) {
+        return settingsReporter.report(SettingsReporter.Inputs.builder()
+                .familyEnabled(familyNotifyEnabled)
+                .familyConfigured(brevo.configured())
+                .recipient(orEmpty(brevo.recipient()))
+                .replyTo(orEmpty(brevo.replyTo()))
+                .brevoKey(settingsReporter.secret(brevo.apiKey(), true))
+                .lastTest(testMemory.last())
+                .zone(viewerZone.resolve(zoneCookie))
+                .cookies(new SecureCookieProbe(
+                        request.isSecure(), request.getScheme(), request.getHeader("X-Forwarded-Proto")))
+                .tedPassword(settingsReporter.secret(environment.getProperty("TED_PASSWORD"), false))
+                .familyPassword(settingsReporter.secret(environment.getProperty("FAMILY_PASSWORD"), false))
+                .rememberMeKey(settingsReporter.secret(environment.getProperty("REMEMBER_ME_KEY"), false))
+                .calendarToken(settingsReporter.secret(feedToken, true))
+                .baseUrl(orEmpty(baseUrl))
+                .aeroDataBoxKey(settingsReporter.secret(
+                        environment.getProperty("jittertravel.aerodatabox.api-key"), true))
+                .homeCities(orEmpty(environment.getProperty("jittertravel.home-cities")))
+                .fallbackZone(fallbackZone)
+                .environment(backupSource.label())
+                .build());
+    }
+
+    private String orEmpty(String value) {
+        return value == null ? "" : value;
     }
 
     /** A Brevo or network message can run long, and it lands in a narrow column. */

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Settings — JitterTravel</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* This page does not load site.css, so every colour it uses is defined here and nowhere else. */
+        :root {
+            --bg: #faf9f7;
+            --surface: #ffffff;
+            --text-primary: #1a1916;
+            --text-secondary: #6b6860;
+            --border: rgba(0, 0, 0, 0.12);
+            --accent: #4f46e5;
+            --ok-bg: #dcfce7; --ok-fg: #14532d; --ok-edge: #16a34a;
+            --warn-bg: #fef3c7; --warn-fg: #78350f; --warn-edge: #d97706;
+            --idle-bg: #eceef5; --idle-fg: #4a5164;
+            --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+            --font: 'League Spartan', ui-sans-serif, system-ui, sans-serif;
+        }
+
+        body { font-family: var(--font), serif; background: var(--bg); color: var(--text-primary); line-height: 1.45; }
+        nav { padding: 1rem 1.5rem; }
+        nav a { color: var(--accent); }
+
+        /* Left-aligned throughout: a settings list is read down a column. */
+        .settings { max-width: 980px; margin: 0 auto; padding: 0 1.5rem 3rem; text-align: left; }
+        h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 0.25rem; }
+        .intro { color: var(--text-secondary); margin-bottom: 1.25rem; max-width: 74ch; }
+
+        .group { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
+        .group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; padding: 0.6rem 0.9rem; background: var(--idle-bg); color: var(--idle-fg); }
+        .group-title { font-weight: 700; }
+        .group.ok .group-head { background: var(--ok-bg); color: var(--ok-fg); }
+        .group.warn .group-head { background: var(--warn-bg); color: var(--warn-fg); }
+        .group-sub { padding: 0.55rem 0.9rem 0; font-size: 0.88rem; color: var(--text-secondary); }
+
+        .setting { display: grid; grid-template-columns: minmax(180px, 260px) minmax(0, 1fr); gap: 0.25rem 1rem; padding: 0.65rem 0.9rem; border-top: 1px solid var(--border); }
+        .group-head + .setting, .group-sub + .setting { border-top: 0; }
+        .setting.warn { background: var(--warn-bg); color: var(--warn-fg); }
+        .setting-name { font-family: var(--mono); font-size: 0.82rem; font-weight: 600; overflow-wrap: anywhere; }
+        .setting-label { display: block; font-family: var(--font), serif; font-weight: 400; color: var(--text-secondary); font-size: 0.8rem; }
+        .setting.warn .setting-label { color: var(--warn-fg); }
+        .setting-value { min-width: 0; overflow-wrap: anywhere; }
+        .mono { font-family: var(--mono); font-size: 0.88rem; }
+        .what { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.1rem; }
+        .setting.warn .what { color: var(--warn-fg); }
+        .hint { font-family: var(--mono); font-size: 0.8rem; color: var(--text-secondary); }
+        .pill { display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 0.1rem 0.55rem; border-radius: 999px; margin-right: 0.35rem; background: var(--idle-bg); color: var(--idle-fg); }
+        .pill.ok { background: var(--ok-bg); color: var(--ok-fg); }
+        .pill.warn { background: var(--warn-bg); color: var(--warn-fg); border: 1px solid var(--warn-edge); }
+        @media (max-width: 640px) { .setting { grid-template-columns: minmax(0, 1fr); } }
+    </style>
+</head>
+<body>
+<nav><h3><a href="/admin">Admin</a> &middot; <a href="/">JitterTravel</a></h3></nav>
+
+<main class="settings">
+    <h1>Settings</h1>
+    <p class="intro">What the running app is using. Change a setting as a variable on the Railway app
+        service; each change restarts the app. A key or token shows only whether it is set and how it
+        ends, never in full.</p>
+
+    <section class="group" th:each="group : ${settings.groups()}" th:classappend="${group.cssClass()}"
+             th:attr="aria-label=${group.title()}">
+        <div class="group-head">
+            <span class="group-title" th:text="${group.title()}">Family email</span>
+            <span class="pill" th:classappend="${group.cssClass()}" th:text="${group.pill()}">On</span>
+        </div>
+        <p class="group-sub" th:if="${group.sub() != null}" th:text="${group.sub()}">Summary.</p>
+        <div class="setting" th:each="row : ${group.rows()}" th:classappend="${row.cssClass()}">
+            <div class="setting-name">
+                <span th:text="${row.name()}">FAMILY_NOTIFY_EMAIL</span>
+                <span class="setting-label" th:if="${row.label() != null}" th:text="${row.label()}">Where it goes</span>
+            </div>
+            <div class="setting-value">
+                <span class="pill" th:if="${row.hasPill()}" th:classappend="${row.cssClass()}" th:text="${row.pill()}">Set</span>
+                <span class="mono" th:if="${row.hasValue()}" th:text="${row.value()}">value</span>
+                <span class="hint" th:if="${row.hasHint()}" th:text="${row.hint()}">ends …f3a9</span>
+                <span class="what" th:text="${row.what()}">What it does.</span>
+            </div>
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -100,23 +100,23 @@ class AdminControllerTest {
     }
 
     @Test
-    void adminHomeReportsAPlainRequestAsNotSecure() {
-        // The probe's whole job is to answer, from the deployed app, whether the remember-me and
-        // viewerZone cookies actually carry Secure — the one thing a local run cannot tell Ted.
-        // A MockMvc request is plain http with no forwarded header, which is the local shape.
-        assertThat(mockMvc.get().uri("/admin"))
+    void settingsReportsAPlainRequestAsNotSecure() {
+        // The cookie readout's whole job is to answer, from the deployed app, whether the
+        // remember-me and viewerZone cookies actually carry Secure — the one thing a local run
+        // cannot tell Ted. It moved from /admin to the settings page on 2026-10-05. A MockMvc request
+        // is plain http with no forwarded header, which is the local shape.
+        assertThat(mockMvc.get().uri("/admin/settings"))
                 .hasStatusOk()
                 .bodyText()
                 .contains("Cookies on this request are NOT marked Secure.")
                 .contains("No usable X-Forwarded-Proto reached the app")
-                .contains("<span class=\"probe-reading\">(none)</span>")
-                .contains("<span class=\"probe-verdict\">expected over plain http locally; "
-                          + "wrong in production</span>");
+                .contains("<span class=\"mono\">(none)</span>")
+                .contains("<span class=\"what\">expected over plain http locally; wrong in production</span>");
     }
 
     @Test
-    void adminHomeReportsASecureRequestAsProtected() {
-        assertThat(mockMvc.get().uri("/admin").secure(true))
+    void settingsReportsASecureRequestAsProtected() {
+        assertThat(mockMvc.get().uri("/admin/settings").secure(true))
                 .hasStatusOk()
                 .bodyText()
                 .contains("Cookies on this request are marked Secure, as desired.")
@@ -125,18 +125,27 @@ class AdminControllerTest {
     }
 
     @Test
-    void adminHomeCallsTheConsumedForwardedHeaderCorrectRatherThanLeavingItLookingLikeAGap() {
+    void settingsCallsTheConsumedForwardedHeaderCorrectRatherThanLeavingItLookingLikeAGap() {
         // The reading Ted is most likely to misread on a healthy deploy: "(none)" beside two
         // green values looks like a gap, and is in fact the evidence that ForwardedHeaderFilter
         // applied the header and then consumed it. The page has to say which.
-        assertThat(mockMvc.get().uri("/admin").secure(true))
+        assertThat(mockMvc.get().uri("/admin/settings").secure(true))
                 .hasStatusOk()
                 .bodyText()
-                .contains("<span class=\"probe-reading\">(none)</span>")
-                .contains("<span class=\"probe-verdict\">this is correct — the header was consumed "
-                          + "after being applied, which is what the strategy does</span>")
-                .contains("<span class=\"probe-verdict\">working as desired — this is the value "
-                          + "that marks both cookies</span>");
+                .contains("<span class=\"mono\">(none)</span>")
+                .contains("<span class=\"what\">this is correct — the header was consumed after being "
+                          + "applied, which is what the strategy does</span>")
+                .contains("<span class=\"what\">working as desired — this is the value that marks "
+                          + "both cookies</span>");
+    }
+
+    @Test
+    void theCookieReadoutIsNoLongerOnTheAdminHomePage() {
+        assertThat(mockMvc.get().uri("/admin"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("Cookies on this request")
+                .doesNotContain("X-Forwarded-Proto");
     }
 
     @Test

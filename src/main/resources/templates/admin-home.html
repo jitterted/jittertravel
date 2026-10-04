@@ -43,13 +43,17 @@
         }
 
         .hero {
+            /* Left-aligned and anchored to the top (Ted, 2026-10-05): centred cards in a wrapping
+               row have no column to scan down, and which row a card lands in changed with the
+               window. A grid has a fixed place for each card. */
             flex: 1;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 5rem 1.5rem 4rem;
+            align-items: stretch;
+            justify-content: flex-start;
+            text-align: left;
+            padding: 0 0 4rem;
+            min-width: 0;
         }
 
         h1 {
@@ -62,27 +66,30 @@
         .tagline {
             font-size: 1rem;
             color: var(--text-secondary);
-            margin: 0 auto 3rem;
+            margin: 0 0 2rem;
             font-weight: 400;
         }
 
+        /* Three columns, so nine cards read as three rows of three; two, then one, as it narrows. */
         .nav-cards {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 18px;
-            justify-content: center;
-            flex-wrap: wrap;
         }
+        @media (max-width: 1000px) { .nav-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 620px) { .nav-cards { grid-template-columns: minmax(0, 1fr); } }
 
         .nav-card {
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 1.1rem 1.7rem;
+            padding: 1.1rem 1.4rem;
             text-decoration: none;
             display: flex;
             align-items: center;
             gap: 12px;
-            min-width: 230px;
+            min-width: 0;
+            text-align: left;
             transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
 
@@ -102,25 +109,10 @@
             display: block;
             font-size: 1.25rem;
             font-weight: 700;
+            overflow-wrap: anywhere;
             color: var(--text-primary);
         }
 
-        .probe {
-            margin-top: 1.75rem;
-            padding: 0.85rem 1rem;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-        }
-        .probe-summary {
-            margin: 0;
-            font-size: 0.95rem;
-            font-weight: 600;
-        }
-        .probe-detail {
-            margin: 0.25rem 0 0;
-            font-size: 0.8rem;
-            color: var(--muted-text);
-        }
         /* The setup checklist: the approved mockup, placement X
            (https://claude.ai/artifact/Xu3i63jGMKTdCbWKVqedxA). A left column beside the page that
            holds temporary setup tasks until they are finished and deleted. This page does not load
@@ -195,32 +187,6 @@
         @keyframes flash-ok { 0% { box-shadow: 0 0 0 6px var(--ok-edge); transform: scale(1.02); } 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); } }
         @keyframes flash-warn { 0% { box-shadow: 0 0 0 6px var(--warn-edge); transform: scale(1.02); } 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); } }
         @media (prefers-reduced-motion: reduce) { .flash, .setup-row.warn.flash { animation: none; } }
-        .probe-values {
-            display: grid;
-            grid-template-columns: max-content 1fr;
-            gap: 0.15rem 0.75rem;
-            margin: 0.6rem 0 0;
-            font-size: 0.78rem;
-            color: var(--muted-text);
-            /* The page centres its nav cards, and that inherits in here: without this the three
-               readings each centre inside their own row, so "true", "http" and "(none)" never form
-               a column and a wrapped verdict centres its last line. Both make the values harder to
-               scan than the single line of prose above them. */
-            text-align: left;
-        }
-        .probe-values dt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-        .probe-values dd { margin: 0; }
-        /* The reading is the fact, so it gets the full-strength colour; the verdict beside it is
-           what makes the fact usable, so it stays readable rather than dropping to a whisper. The
-           arrow is decoration and lives in CSS, so it is never read aloud and never lands in the
-           text a test asserts on. */
-        .probe-reading {
-            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            color: var(--text-primary);
-        }
-        .probe-verdict::before {
-            content: "\2192\A0";
-        }
         .nav-card-sub {
             display: block;
             font-size: 0.9rem;
@@ -385,33 +351,32 @@
             </div>
         </a>
 
+        <!--/* Last, so the cards that were here keep their order. Amber when something is wrong now,
+               green when nothing is, as the "Schedule problems" card on the home page does. What
+               counts as wrong is decided in SettingsReporter, not here. */-->
+        <a class="nav-card" href="/admin/settings"
+           th:style="${settingsProblems > 0}
+                     ? 'background: #fef3c7; border-color: #d97706;'
+                     : 'background: #dcfce7; border-color: #16a34a;'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="4" y1="6" x2="20" y2="6"/>
+                <line x1="4" y1="12" x2="20" y2="12"/>
+                <line x1="4" y1="18" x2="20" y2="18"/>
+                <circle cx="9" cy="6" r="2" fill="currentColor"/>
+                <circle cx="15" cy="12" r="2" fill="currentColor"/>
+                <circle cx="8" cy="18" r="2" fill="currentColor"/>
+            </svg>
+            <div>
+                <span class="nav-card-title">Settings</span>
+                <span class="nav-card-sub"
+                      th:text="${settingsProblems > 0}
+                              ? ${settingsProblems} + (${settingsProblems} == 1 ? ' problem' : ' problems')
+                              : 'What the running app is using'">What the running app is using</span>
+            </div>
+        </a>
+
     </nav>
 
-    <!--/* Not a nav card and not an action: the one fact about the deployment that cannot be
-           checked from a local run. Leads with the derived answer; the raw values it came from sit
-           underneath, per the standing rule — and each one carries its own verdict, because a
-           reading you cannot tell is good or bad is no better than not showing it. "(none)" for
-           X-Forwarded-Proto is the case that earns this: it looks like a gap and is in fact the
-           evidence the strategy worked.
-
-           Still deliberately uncoloured. The verdicts now say which state we are in, but the probe
-           still cannot tell the plain-http local prod-preview from a production instance that lost
-           its header — both read the same — so amber would cry wolf every day locally and stop
-           being read in the one place it matters. Colouring only the unambiguous HTTPS_HEADER_IGNORED
-           state was considered and is Ted's call, not a tidy-up. */-->
-    <section class="probe" aria-label="Cookie transport">
-        <p class="probe-summary" th:text="${secureCookieProbe.summary()}">Cookies are marked Secure.</p>
-        <p class="probe-detail" th:text="${secureCookieProbe.explanation()}">Explanation.</p>
-        <dl class="probe-values">
-            <th:block th:each="reading : ${secureCookieProbe.values()}">
-                <dt th:text="${reading.label()}">request.isSecure()</dt>
-                <dd>
-                    <span class="probe-reading" th:text="${reading.value()}">true</span>
-                    <span class="probe-verdict" th:text="${reading.verdict()}">working as desired</span>
-                </dd>
-            </th:block>
-        </dl>
-    </section>
 </main>
 
 </div>

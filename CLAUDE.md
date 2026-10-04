@@ -840,7 +840,7 @@ This is not a substitute for `DEPLOYMENT.md`: **a new variable goes in both**, a
 different things. `DEPLOYMENT.md`'s table is the standing description of a configured instance —
 what the variable is for, whether it is required, what it does when absent — and it stays true
 forever. A `Pre-Push-Tasks.md` box is a one-shot instruction that stops being true the moment it is
-ticked. Recording only the second means the reference goes stale (which is exactly how
+done, and is then **deleted** (no "Done" section; the history is in git, Ted 2026-10-05). Recording only the second means the reference goes stale (which is exactly how
 `REMEMBER_ME_KEY`, `CALENDAR_FEED_TOKEN` and `JITTERTRAVEL_BASE_URL` were all missing from that
 table on 2026-09-09); recording only the first means nobody notices they have to *do* anything.
 

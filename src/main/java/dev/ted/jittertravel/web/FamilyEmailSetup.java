@@ -5,10 +5,7 @@ import dev.ted.jittertravel.web.SetupChecklist.Step;
 
 import java.time.Instant;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -32,8 +29,8 @@ final class FamilyEmailSetup {
     static final String PROBE_PATH = "/admin/family-notify/probe";
 
     private static final String TEST_SUBJECT = "JitterTravel test email";
-    private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("h:mm", Locale.US);
-    private static final DateTimeFormatter ZONE = DateTimeFormatter.ofPattern("zzz", Locale.US);
+
+    private final LocalTimeText time = new LocalTimeText();
 
     SetupChecklist checklist(boolean configured, String recipient, boolean enabled,
                              Optional<FamilyTestMemory.Test> last, ZoneId zone, boolean justTested) {
@@ -144,9 +141,7 @@ final class FamilyEmailSetup {
         return last.map(test -> "Test email sent " + when(test.at(), zone) + ". " + tail).orElse(tail);
     }
 
-    /** The meridiem is written by hand: current JDKs put a narrow no-break space before it. */
     private String when(Instant instant, ZoneId zone) {
-        ZonedDateTime local = instant.atZone(zone);
-        return CLOCK.format(local) + (local.getHour() < 12 ? " AM " : " PM ") + ZONE.format(local);
+        return time.when(instant, zone);
     }
 }

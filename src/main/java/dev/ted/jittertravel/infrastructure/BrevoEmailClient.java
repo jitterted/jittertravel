@@ -30,7 +30,7 @@ import java.util.Map;
 public class BrevoEmailClient {
 
     private static final String SEND_URL = "https://api.brevo.com/v3/smtp/email";
-    static final String SENDER_EMAIL = "notifications@jittertravel.com";
+    public static final String SENDER_EMAIL = "notifications@jittertravel.com";
     static final String SENDER_NAME = "JitterTravel";
 
     private final RestClient restClient;
@@ -55,6 +55,19 @@ public class BrevoEmailClient {
     /** Where {@link #send} will deliver, so a probe can say so before and after the click. */
     public String recipient() {
         return recipient;
+    }
+
+    /** The reply-to address, or {@code ""} when none is configured. */
+    public String replyTo() {
+        return replyTo;
+    }
+
+    /**
+     * The key itself, for the settings page to say whether one is set and how it ends. It is handed
+     * out only so that page can reduce it to those two facts; nothing may print or store it.
+     */
+    public String apiKey() {
+        return apiKey;
     }
 
     public void send(FamilyMessage message) {

@@ -68,8 +68,9 @@ drops the app into read-only mode with empty projections — the 2026-08-16 Moro
 The fourth gate is also **not** automatic, and nothing in the repo can check it, because it happens
 outside the repo: **[`Pre-Push-Tasks.md`](Pre-Push-Tasks.md)**, the checklist of Railway-side setup
 that unpushed commits are waiting on. A commit that needs a new environment variable, a dashboard
-setting or a one-off admin run leaves an unticked box there; pushing with one still unticked deploys
-a build whose environment does not exist yet. Read it before every push, and empty it as you go.
+setting or a one-off admin run leaves an open box there; pushing with one still open deploys
+a build whose environment does not exist yet. Read it before every push, and empty it as you go:
+**a box is deleted once it is done**, with no "Done" section, because the history is in git.
 
 ## What this app is
 
@@ -183,6 +184,14 @@ you do not set it.
 > one. That is deliberate (a notifier that cannot send is not a reason to refuse a deploy), and it
 > is the shape that hides a misconfiguration, which is why `/admin` states the verdict in words.
 > The rollout order is in `Pre-Push-Tasks.md`.
+
+> **To see what the deployed app is actually using without opening Railway, use `/admin/settings`**
+> (OWNER-only; the "Settings" card on `/admin`, which turns amber when something is wrong now). It
+> lists every variable in this table with its state in words: a value where it is not a secret, and
+> for a key or token only "Set" and how it ends (the last four characters, so two keys can be told
+> apart), never the whole thing; passwords show only "Set". It also holds the cookie-transport
+> readout that used to sit at the bottom of `/admin`. A new variable belongs on that page too:
+> add a row in `SettingsReporter` in the same change.
 
 > **Secrets:** `PGPASSWORD`, `TED_PASSWORD`, `FAMILY_PASSWORD`, `CALENDAR_FEED_TOKEN`,
 > `AERODATABOX_API_KEY` and `JITTERTRAVEL_BREVO_API_KEY` are private. Set them as Railway service variables; never commit them.
@@ -348,7 +357,7 @@ database.
    (all three required — the app will not start without them), and optionally
    `CALENDAR_FEED_TOKEN`, `JITTERTRAVEL_BASE_URL` and `AERODATABOX_API_KEY`.
    **Leave `SPRING_PROFILES_ACTIVE` unset.**
-4. Check [`Pre-Push-Tasks.md`](Pre-Push-Tasks.md) is empty of unticked boxes.
+4. Check [`Pre-Push-Tasks.md`](Pre-Push-Tasks.md) has no open boxes, and delete any that are done.
 5. Deploy; the health check (`/actuator/health`, from `railway.json`) gates the rollout.
 6. Watch logs for `Replayed N events from persistent store` (DB connect + replay succeeded) and
    confirm `/` redirects to the login form.

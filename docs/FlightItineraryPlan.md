@@ -3,9 +3,11 @@
 Planned 2026-09-29 (Ted). **Part 0 (Cancel Flight) shipped 2026-09-29. Part 1 (YOW) and Part 2
 slices (a), (b) and (e) — paste, preview, book, unknown-airport zone picker — shipped 2026-09-30.
 Slice (c), cancel itinerary, shipped 2026-10-02 (see "Slice (c) as built" under Part 2).**
-**Slice (d), schedule change by paste, built 2026-10-03 (see "Slice (d) as built"); not yet seen on
-the iPad.** Still open: from Part 0 the `ProblemFix` link for a flight in an overlap (deferred on
-purpose, below).
+**Slice (d), schedule change by paste, shipped 2026-10-04 (see "Slice (d) as built"); Ted checked the
+diff colours on the iPad the same day. Every slice of this plan is now done.** Still open, in the order
+worth taking them: (1) reinstating a leg the airline dropped and later restored, which slice (d) refuses
+(see "Still open after slice (d)"); (2) from Part 0 the `ProblemFix` link for a flight in an overlap
+(deferred on purpose, below).
 
 Prompted by Ted, 2026-09-29: *"how hard would it be to retrieve flight bookings from United
 airlines using my booking confirmation code?"* The answer was that no API exists for that, so the
@@ -112,9 +114,9 @@ production backup has no `YOW`, so no stored flight's replay can change.
 
 ---
 
-## Part 2: itineraries (slices a, b, e shipped 2026-09-30; c shipped 2026-10-02; d built 2026-10-03)
+## Part 2: itineraries (slices a, b, e shipped 2026-09-30; c shipped 2026-10-02; d shipped 2026-10-04)
 
-**Slice (d) as built (2026-10-03), and where it differs from section 7.**
+**Slice (d) as built (2026-10-03, pushed 2026-10-04), and where it differs from section 7.**
 - **Same page, no new route.** `/book-flight/itinerary` decides after parsing: the paste's code names a
   live itinerary (folded from the stream, `TripOnTheBooks`) ⇒ the preview is a diff and the button is
   "Apply schedule change". The form's minted id is the command id, as for a booking.
@@ -141,9 +143,31 @@ production backup has no `YOW`, so no stored flight's replay can change.
 - **Named limits.** (a) A leg the airline dropped in one change and **reinstates** in a later email is
   refused by decision 1, because the fold cannot tell "cancelled by a change" from "cancelled by hand". (b)
   A paste for a **cancelled** itinerary's code is now refused ("cancelled; it cannot be changed") where it
-  used to book a new trip, per section 7. (c) Not seen on the iPad. The diff's look is Ted's pick of mockup B
-  (2026-10-04): a tinted row with a 4px left edge, light yellow Moved, green Added, peach struck-through
-  Removed (not pink, which the red refusal wash already is), muted Unchanged, and a moved leg's old value struck through above the new one in its own cell.
+  used to book a new trip, per section 7. (c) The diff's look is Ted's pick of mockup B (2026-10-04), checked on the
+  iPad: a tinted row with a 4px left edge, light yellow Moved, green Added, peach struck-through Removed
+  (not pink, which the red refusal wash already is), muted Unchanged, and a moved leg's old value struck
+  through above the new one in its own cell. A refused row keeps the red wash and takes a red edge.
+- **Where it lives, for whoever picks this up.** Domain: `ChangeFlightItineraryCommand`,
+  `ItineraryChangePlan`, `FlightItineraryChanged`. Application: `FlightItineraryBooking` (decides
+  booking vs change), `TripOnTheBooks` (the fold). Web: `ItineraryPreview` (rows, `Before` for the struck
+  old values), `book-flight-itinerary.html`. Tests: `ChangeFlightItineraryCommandTest`,
+  `FlightItineraryChangeTest`, `ItineraryPreviewTest`, `CancelFlightItineraryTest`, plus the controller
+  test. Mutation-checked 2026-10-04: the plain tier kills every mutant in the slice's classes, and
+  `-Ppit-spring` (new, see CLAUDE.md) leaves only older survivors (`EventTypes.isRegistered`, the
+  `newFlightId` lambda in `BookFlightItineraryController.submit`).
+
+**Still open after slice (d).**
+- **Reinstating a dropped leg (named limit (a)).** United drops UA512 in one email and puts it back in a
+  later one: the later paste is refused as `LegCancelledEarlier`. To allow it the fold must tell a leg
+  cancelled **by a schedule change** from one cancelled **by hand**. The likely shape is a marker on the
+  cancellation (the change already writes `FlightCancelled` with reason "Airline schedule change", so
+  matching on that reason is the cheap route but couples behaviour to a display string; a typed field on
+  `FlightCancelled` is the honest one and needs a golden sample and an upcaster decision). Then a pasted
+  leg matching a change-cancelled leg is re-booked (a new `FlightBooked`, since cancelling cannot be
+  undone) and the diff shows it as Added. Decide the shape with Ted, with an example, before building.
+- **The overlap fix link (Part 0).** Unchanged: deferred on purpose.
+- **Not covered by any automated check:** the template's colours and layout (PIT mutates bytecode only);
+  they were verified by eye on the iPad.
 
 **Slice (c) as built (2026-10-02), and where it differs from the design below.**
 - **Domain.** `FlightItineraryCancelled(itineraryId, reason, cancelledOn)`, registered at schema_version

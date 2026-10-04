@@ -57,7 +57,7 @@ press *Deploy* on the staged change). Nothing below blocks the push, and setting
 **before** pushing means the very first deploy already has them, so the first test needs no extra
 restart. Every later change restarts the app for a few seconds and touches no data.
 
-- [ ] **`JITTERTRAVEL_BREVO_API_KEY`** (secret). **Before the push.** Inert until the new code is
+- [x] **`JITTERTRAVEL_BREVO_API_KEY`** (secret). **Before the push.** Inert until the new code is
       deployed. The key's variable was renamed from `BREVO_API_KEY` on 2026-10-05, because a Brevo key
       is tied to one account and sending domain and another app's plain `BREVO_API_KEY` was being
       picked up locally. **If you already set `BREVO_API_KEY` on the Railway app service, set the new

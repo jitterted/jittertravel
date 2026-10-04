@@ -39,24 +39,35 @@ health check at best and comes up misconfigured at worst.
 
 **Family email notifications, slice 1** (`docs/FamilyEmailNotificationsPlan.md` §3 and §10). The
 code ships **dark**: with none of these set the app boots, sends nothing, and the admin page says
-"Family email is not configured." Nothing below blocks the push, so none of it is a *before* step;
-set them on the **app** Railway service, in this order. The Brevo account, the sending identity
+"Family email is not configured." The Brevo account, the sending identity
 `notifications@jittertravel.com` and its SPF/DKIM records were done 2026-09-18.
 
-- [ ] **`BREVO_API_KEY`** (secret). **After the rollout, or before: it is inert alone.**
+**Where:** the Railway dashboard → this project → the **app** service (not Postgres) → **Variables**.
+Not `application.properties`: that file only holds a line per variable that reads it, and is never
+edited for this.
+
+**When: the app reads its variables only when it starts**, so a variable has no effect until the
+service restarts. Railway restarts the service itself when you change a variable (you may have to
+press *Deploy* on the staged change). Nothing below blocks the push, and setting the first three
+**before** pushing means the very first deploy already has them, so the first test needs no extra
+restart. Every later change restarts the app for a few seconds and touches no data.
+
+- [x] **`BREVO_API_KEY`** (secret). **Before the push.** Inert until the new code is deployed.
       *If skipped:* no mail, ever, and the admin page says so.
-- [ ] **`TED_REPLY_EMAIL`** — where a family reply lands. **Before the family test below.**
-      *If skipped:* replies go to the unattended `notifications@` mailbox and are never seen.
-- [ ] **`FAMILY_NOTIFY_EMAIL` = Ted's own address first.** Then open `/admin`, press **Send a test
-      email to …**, read it, and check it is not in spam. **After the rollout.**
+- [x] **`TED_REPLY_EMAIL`** — where a family reply lands. **Before the push**, so it is there
+      for the family test below. *If skipped:* replies go to the unattended `notifications@`
+      mailbox and are never seen.
+- [x] **`FAMILY_NOTIFY_EMAIL` = Ted's own address first. Before the push.** After the deploy, open
+      `/admin`, press **Send a test email to …**, read it, and check it is not in spam.
       *If skipped:* the first email family ever get is also the first anyone has seen, and a typo
       sends travel detail to a stranger. Not landing in the inbox usually means SPF/DKIM.
-- [ ] **Repoint `FAMILY_NOTIFY_EMAIL` at the family address**, press the test button again, and
-      confirm with them that it arrived. **After the step above.**
-- [ ] **`FAMILY_NOTIFY_ENABLED=true`**, only after both tests were received. Leave it `false` (or
-      unset) until then. *If flipped early:* the next booked flight emails family from an
-      unverified path. Named exactly `FAMILY_NOTIFY_ENABLED`, not `JITTERTRAVEL_…`: only the first
-      binds (the property line in `application.properties` is what connects them).
+- [ ] **Change `FAMILY_NOTIFY_EMAIL` to the family address.** After the first test arrived. This
+      restarts the app; then press the test button again and confirm with them that it arrived.
+- [ ] **`FAMILY_NOTIFY_ENABLED=true`**, only after both tests were received. Leave it unset (or
+      `false`) until then; it restarts the app too. *If flipped early:* the next booked flight
+      emails family from an unverified path. Named exactly `FAMILY_NOTIFY_ENABLED`, not
+      `JITTERTRAVEL_…`: only the first binds (the property line in `application.properties` is what
+      connects them).
 
 Introduced by the family-email slice 1 commit; `DEPLOYMENT.md` carries the standing description.
 

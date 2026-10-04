@@ -1131,6 +1131,20 @@ Spring test annotation is built on. So a future slice, or a composed annotation 
 caught without editing the test.
 
 **Read the report knowing what it cannot see.** Controllers, and anything reached only through a
-Spring test, show as NO_COVERAGE, and that is by design rather than a gap to close. Judge the
-domain and application code, where the plain tests live. The report's advert for the Arcmutate
-Spring plugin can be ignored.
+Spring test, show as NO_COVERAGE in *this* run, and that is by design rather than a gap to close.
+Judge the domain and application code, where the plain tests live. The report's advert for the
+Arcmutate Spring plugin can be ignored.
+
+**The Spring tier has its own run, `-Ppit-spring`, before a push and never in the hook** (Ted,
+2026-10-04). It is the complement of the default block: it runs only the `spring` group, writes to
+`target/pit-reports-spring/`, and uses fewer threads and a longer timeout because every mutant boots
+a context (the integration tests also need Docker).
+
+```
+./mvnw test-compile org.pitest:pitest-maven:mutationCoverage -Ppit-spring \
+    -DtargetClasses=dev.ted.jittertravel.web.BookFlightItineraryController \
+    -DtargetTests=dev.ted.jittertravel.web.BookFlightItineraryControllerTest
+```
+
+Narrow it to the classes and tests the change touched; unnarrowed it is the slowest thing in the
+build. It mutates bytecode, so it says nothing about a template or a stylesheet.

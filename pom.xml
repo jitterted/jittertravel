@@ -325,6 +325,44 @@
       </build>
     </profile>
     <profile>
+      <!-- Mutation testing over the Spring tests ONLY: the complement of the default PIT block
+           above, which excludes the "spring" group. Slow by design (every mutant re-runs a
+           Spring slice, and the integration tests need Docker for Testcontainers), so it is run by
+           hand when a change is ready to push and is NOT wired into the pre-push hook:
+             ./mvnw test-compile org.pitest:pitest-maven:mutationCoverage -Ppit-spring
+           Narrow it to what changed, which is the only way it stays tolerable:
+             ... -Ppit-spring -DtargetClasses=dev.ted.jittertravel.web.BookFlightItineraryController
+                              -DtargetTests=dev.ted.jittertravel.web.BookFlightItineraryControllerTest
+           Its report goes to target/pit-reports-spring, so it does not overwrite the fast run's.
+           Pointless for templates and CSS: PIT mutates bytecode, so what it checks here is the
+           controller, the advice and the wiring behind the page. -->
+      <id>pit-spring</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.pitest</groupId>
+            <artifactId>pitest-maven</artifactId>
+            <configuration>
+              <excludedGroups combine.self="override">
+                <param>js</param>
+                <param>replay-preflight</param>
+                <param>performance</param>
+              </excludedGroups>
+              <includedGroups combine.self="override">
+                <param>spring</param>
+              </includedGroups>
+              <reportsDirectory>${project.build.directory}/pit-reports-spring</reportsDirectory>
+              <!-- A mutant that breaks context start-up must not be mistaken for a hang, and a
+                   cold context takes seconds the unit tier never spends. -->
+              <timeoutConstant>60000</timeoutConstant>
+              <!-- One Spring context per minion JVM; fewer threads, fewer contexts and databases. -->
+              <threads>2</threads>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
       <!-- Runs ONLY the boot-replay preflight. Point it at a backup dump:
            `mvn test -Preplay-preflight -Dpreflight.dump=/path/to/backup.json`.
            With no dump the single test skips. -->

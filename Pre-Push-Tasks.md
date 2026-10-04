@@ -37,7 +37,28 @@ health check at best and comes up misconfigured at worst.
 
 ## Open
 
-_nothing open yet_
+**Family email notifications, slice 1** (`docs/FamilyEmailNotificationsPlan.md` §3 and §10). The
+code ships **dark**: with none of these set the app boots, sends nothing, and the admin page says
+"Family email is not configured." Nothing below blocks the push, so none of it is a *before* step;
+set them on the **app** Railway service, in this order. The Brevo account, the sending identity
+`notifications@jittertravel.com` and its SPF/DKIM records were done 2026-09-18.
+
+- [ ] **`BREVO_API_KEY`** (secret). **After the rollout, or before: it is inert alone.**
+      *If skipped:* no mail, ever, and the admin page says so.
+- [ ] **`TED_REPLY_EMAIL`** — where a family reply lands. **Before the family test below.**
+      *If skipped:* replies go to the unattended `notifications@` mailbox and are never seen.
+- [ ] **`FAMILY_NOTIFY_EMAIL` = Ted's own address first.** Then open `/admin`, press **Send a test
+      email to …**, read it, and check it is not in spam. **After the rollout.**
+      *If skipped:* the first email family ever get is also the first anyone has seen, and a typo
+      sends travel detail to a stranger. Not landing in the inbox usually means SPF/DKIM.
+- [ ] **Repoint `FAMILY_NOTIFY_EMAIL` at the family address**, press the test button again, and
+      confirm with them that it arrived. **After the step above.**
+- [ ] **`FAMILY_NOTIFY_ENABLED=true`**, only after both tests were received. Leave it `false` (or
+      unset) until then. *If flipped early:* the next booked flight emails family from an
+      unverified path. Named exactly `FAMILY_NOTIFY_ENABLED`, not `JITTERTRAVEL_…`: only the first
+      binds (the property line in `application.properties` is what connects them).
+
+Introduced by the family-email slice 1 commit; `DEPLOYMENT.md` carries the standing description.
 
 ## Done
 

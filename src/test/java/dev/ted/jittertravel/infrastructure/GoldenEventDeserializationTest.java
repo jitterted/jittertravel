@@ -9,7 +9,10 @@ import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FamilyNotified;
 import dev.ted.jittertravel.domain.FlightCancellationCause;
+import dev.ted.jittertravel.domain.NotifiedFact;
+import dev.ted.jittertravel.domain.NotifiedSubject;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
@@ -1309,6 +1312,47 @@ class GoldenEventDeserializationTest {
                 .isEqualTo("Rebooked on UA58");
         assertThat(event.cancelledOn())
                 .isEqualTo(Instant.parse("2026-09-29T17:00:00Z"));
+    }
+
+    @Test
+    void familyNotifiedSampleDeserializes() {
+        // Additive, schema_version 1. No recipient and no prose: the address is configuration, and
+        // the words family read are rebuilt, never stored.
+        String json = """
+                {
+                  "subject": {"kind": "FLIGHT", "id": "88888888-8888-8888-8888-888888888888"},
+                  "fact": "FLIGHT_BOOKED",
+                  "notifiedAt": "2026-10-05T17:00:00Z"
+                }
+                """;
+
+        FamilyNotified event = deserialize(json, FamilyNotified.class);
+
+        assertThat(event.subject())
+                .isEqualTo(new NotifiedSubject(NotifiedSubject.Kind.FLIGHT,
+                        UUID.fromString("88888888-8888-8888-8888-888888888888")));
+        assertThat(event.fact())
+                .isEqualTo(NotifiedFact.FLIGHT_BOOKED);
+        assertThat(event.notifiedAt())
+                .isEqualTo(Instant.parse("2026-10-05T17:00:00Z"));
+    }
+
+    @Test
+    void familyNotifiedForAnItineraryDeserializes() {
+        String json = """
+                {
+                  "subject": {"kind": "FLIGHT_ITINERARY", "id": "99999999-9999-9999-9999-999999999999"},
+                  "fact": "ITINERARY_BOOKED",
+                  "notifiedAt": "2026-10-05T17:00:00Z"
+                }
+                """;
+
+        FamilyNotified event = deserialize(json, FamilyNotified.class);
+
+        assertThat(event.subject().kind())
+                .isEqualTo(NotifiedSubject.Kind.FLIGHT_ITINERARY);
+        assertThat(event.fact())
+                .isEqualTo(NotifiedFact.ITINERARY_BOOKED);
     }
 
     @Test

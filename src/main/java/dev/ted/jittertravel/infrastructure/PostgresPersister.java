@@ -203,8 +203,15 @@ public class PostgresPersister {
     }
 
     /**
-     * Loads all PENDING commands (oldest first) with their payloads pretty-printed,
-     * for the admin pending-commands review page.
+     * Loads every PENDING command and every FAILED one (oldest first) with their payloads
+     * pretty-printed, for the admin pending-commands review page. A failed row is listed so a lost
+     * external send (FAILED_SEND) is findable somewhere a person looks; it is for the record, and
+     * unlike a pending one it cannot be abandoned.
+     * <p>
+     * <strong>{@link #countPendingCommands()} is deliberately narrower and stays on PENDING.</strong>
+     * It feeds the admin home badge and the boot warning, and counting failed rows would raise a
+     * warning on every boot for each long-past bad form submission until someone abandoned it by
+     * hand. Listing them is findable; counting them is noise.
      */
     public List<TimelineCommand> findPendingCommands() {
         return jdbcClient.sql("""
@@ -214,7 +221,7 @@ public class PostgresPersister {
                                payload::text AS payloadJson,
                                status
                         FROM command_log
-                        WHERE status = 'PENDING'
+                        WHERE status = 'PENDING' OR status LIKE 'FAILED%'
                         ORDER BY timestamp ASC, command_id ASC
                         """)
                 .query(TimelineCommand.class)

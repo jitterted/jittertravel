@@ -3,6 +3,8 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.BackupService;
 import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.LegacyEventMigration;
+import dev.ted.jittertravel.infrastructure.BrevoEmailClient;
+import dev.ted.jittertravel.infrastructure.FamilyMessage;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +28,12 @@ import java.util.UUID;
 @Controller
 @RequestMapping("/admin")
 public class AdminController {
+
+    private static final FamilyMessage FAMILY_PROBE_MESSAGE = new FamilyMessage(
+            "JitterTravel test email",
+            "This is a test from JitterTravel, sent from its admin page to check that email reaches "
+            + "this inbox. Nothing was booked and nothing needs doing; you can ignore it.");
+
     private final BackupService backupService;
     private final PostgresPersister persister;
     private final LegacyEventMigration legacyEventMigration;
@@ -33,26 +41,67 @@ public class AdminController {
     private final Clock clock;
     private final String feedToken;
     private final String baseUrl;
+    private final BrevoEmailClient brevo;
+    private final boolean familyNotifyEnabled;
 
     public AdminController(BackupService backupService, PostgresPersister persister,
                            LegacyEventMigration legacyEventMigration,
                            BackupSource backupSource, Clock clock,
+                           BrevoEmailClient brevo,
                            @Value("${jittertravel.calendar-feed.token:}") String feedToken,
-                           @Value("${jittertravel.base-url:}") String baseUrl) {
+                           @Value("${jittertravel.base-url:}") String baseUrl,
+                           @Value("${jittertravel.family-notify.enabled:false}") boolean familyNotifyEnabled) {
         this.backupService = backupService;
         this.persister = persister;
         this.legacyEventMigration = legacyEventMigration;
         this.backupSource = backupSource;
         this.clock = clock;
+        this.brevo = brevo;
         this.feedToken = feedToken;
         this.baseUrl = baseUrl;
+        this.familyNotifyEnabled = familyNotifyEnabled;
     }
 
     @GetMapping("")
     public String adminHome(HttpServletRequest request, Model model) {
         model.addAttribute("secureCookieProbe", new SecureCookieProbe(
                 request.isSecure(), request.getScheme(), request.getHeader("X-Forwarded-Proto")));
+        model.addAttribute("familyNotify",
+                new FamilyNotifyStatus(familyNotifyEnabled, brevo.configured(), brevo.recipient()));
         return "admin-home";
+    }
+
+    /**
+     * Sends one fixed test email through the real client to whatever the recipient is configured as,
+     * and says where it went. A wire check, nothing more: it goes through no command and writes no
+     * event (a probe subject in the log, and in every backup, forever, for a message that was never
+     * about travel), and it ignores the kill switch — the switch governs whether bookings notify,
+     * and the probe exists to verify the path <em>before</em> the switch is flipped.
+     * <p>
+     * A failure re-renders the admin page it was submitted from rather than redirecting, so the
+     * error is on the page that can show it.
+     */
+    @PostMapping("/family-notify/probe")
+    public String probeFamilyNotify(HttpServletRequest request, Model model,
+                                    RedirectAttributes redirectAttributes) {
+        if (!brevo.configured()) {
+            adminHome(request, model);
+            model.addAttribute("familyProbeError",
+                    "Not sent: there is no API key or no recipient configured.");
+            return "admin-home";
+        }
+        String recipient = brevo.recipient();
+        try {
+            brevo.send(FAMILY_PROBE_MESSAGE);
+        } catch (RuntimeException failed) {
+            adminHome(request, model);
+            model.addAttribute("familyProbeError",
+                    "Could not send the test email to " + recipient + ": " + failed.getMessage());
+            return "admin-home";
+        }
+        redirectAttributes.addFlashAttribute("familyProbeMessage",
+                "Test email accepted by Brevo for " + recipient + ". Check that inbox, and spam.");
+        return "redirect:/admin";
     }
 
     /**

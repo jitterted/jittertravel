@@ -84,6 +84,35 @@ public class CommandExecutor {
     }
 
     /**
+     * Runs work that reaches an outside system, with the same write-ahead order as
+     * {@link #execute}: the command is persisted PENDING, then the action runs (the I/O), then its
+     * events are appended and the row flips to SUCCEEDED. A throwing action leaves a
+     * {@code FAILED_SEND} row and appends nothing.
+     * <p>
+     * <strong>What is written before the action is a command row and no event</strong>, so this is
+     * not an outbox: nothing a projector or a backup could see exists until the work succeeded.
+     * <p>
+     * <strong>A PENDING row after this method means the work may have happened.</strong> Unlike a
+     * pure command, whose PENDING row proves no events were written, a crash between the action and
+     * the append leaves an external effect behind with nothing recorded. Whoever resolves such a
+     * row has to know that.
+     */
+    public void executeExternalAction(UUID commandId, Object commandRecord, ExternalAction action) {
+        refuseWhenReadOnly(commandRecord);
+        persister.saveCommand(commandId, commandRecord); // write-ahead: command persisted as PENDING
+
+        List<? extends Event> events;
+        try {
+            events = action.perform().toList();
+        } catch (RuntimeException actionFailed) {
+            persister.markCommandFailed(commandId, "FAILED_SEND", actionFailed.getMessage());
+            throw actionFailed;
+        }
+
+        appendOrMarkFailed(commandId, events);
+    }
+
+    /**
      * Read-only mode can engage while the database is still writable — startup replay can fail for
      * a data reason — so nothing downstream stops a write on its own. Refusing here, before the
      * write-ahead {@code saveCommand}, is what makes the guarantee "no command row is written in

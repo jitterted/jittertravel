@@ -62,6 +62,16 @@
             color: var(--muted-text);
         }
 
+        /* Amber, not red: a failed send is something to look at and nothing was destroyed. */
+        .command-status {
+            padding: 0.1rem 0.5rem;
+            border-radius: 4px;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
         pre.payload {
             margin: 0;
             padding: 0.75rem 1rem;
@@ -111,8 +121,11 @@
 <div class="pending-container">
     <h1>Pending Commands</h1>
     <p class="intro">
-        These commands were persisted but never completed (no events were written). Review each
-        payload, then <strong>Abandon</strong> it (mark resolved) or <strong>Keep as Pending</strong>.
+        These commands were persisted but never completed. For most, no events were written. A
+        <strong>family notification</strong> is the exception: the work is sending an email, so a
+        pending one may <em>already have been sent</em> before the crash. Review each payload, then
+        <strong>Abandon</strong> it (mark resolved) or <strong>Keep as Pending</strong>.
+        Failed commands are listed for the record and have nothing to resolve.
     </p>
 
     <p th:if="${message}" class="flash" th:text="${message}">Done.</p>
@@ -127,9 +140,14 @@
             <span class="command-timestamp"
                   th:text="${#temporals.format(command.timestamp(), 'yyyy-MM-dd HH:mm:ss.SSS z')}">ts</span>
             <span class="command-id" th:text="${command.commandId()}">command-uuid</span>
+            <span th:if="${command.failed()}" class="command-status"
+                  th:text="${command.statusLabel()}">Failed: send</span>
         </header>
         <pre class="payload" th:text="${command.payloadJson()}">{}</pre>
-        <div class="actions">
+        <!--/* Only a PENDING row can be resolved: the abandon UPDATE is guarded on PENDING, so a
+               button on a failed row would do nothing. Absent, not greyed — the action is
+               meaningless for this state, not merely unavailable. */-->
+        <div class="actions" th:if="${command.pending()}">
             <form th:action="@{/admin/pending-commands/{id}/abandon(id=${command.commandId()})}" method="post">
                 <button type="submit" class="btn-abandon">Abandon Command</button>
             </form>

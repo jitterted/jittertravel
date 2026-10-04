@@ -111,6 +111,26 @@
             font-size: 0.8rem;
             color: var(--muted-text);
         }
+        .probe-error {
+            margin: 0.6rem 0 0;
+            padding: 0.4rem 0.6rem;
+            border-radius: 6px;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 0.85rem;
+        }
+        /* A border and a fill, so it reads as a button at rest rather than on hover. */
+        .probe-button {
+            margin-top: 0.6rem;
+            padding: 0.4rem 0.8rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--header-bg);
+            color: var(--text-primary);
+            font: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
         .probe-values {
             display: grid;
             grid-template-columns: max-content 1fr;
@@ -281,6 +301,19 @@
            its header — both read the same — so amber would cry wolf every day locally and stop
            being read in the one place it matters. Colouring only the unambiguous HTTPS_HEADER_IGNORED
            state was considered and is Ted's call, not a tidy-up. */-->
+    <!--/* The family-email probe: leads with the verdict, the address a test would go to is on the
+           button itself so it is visible before the click, and a failure is amber because it is
+           something to look at, not something destroyed. */-->
+    <section class="probe" aria-label="Family email">
+        <p class="probe-summary" th:text="${familyNotify.summary()}">Family email is off.</p>
+        <p class="probe-detail" th:text="${familyNotify.explanation()}">Explanation.</p>
+        <p class="probe-detail" th:if="${familyProbeMessage}" th:text="${familyProbeMessage}">Sent.</p>
+        <p class="probe-error" th:if="${familyProbeError}" th:text="${familyProbeError}">Failed.</p>
+        <form th:if="${familyNotify.configured()}" th:action="@{/admin/family-notify/probe}" method="post">
+            <button type="submit" class="probe-button">Send a test email to <span th:text="${familyNotify.recipient()}">family@example.com</span></button>
+        </form>
+    </section>
+
     <section class="probe" aria-label="Cookie transport">
         <p class="probe-summary" th:text="${secureCookieProbe.summary()}">Cookies are marked Secure.</p>
         <p class="probe-detail" th:text="${secureCookieProbe.explanation()}">Explanation.</p>

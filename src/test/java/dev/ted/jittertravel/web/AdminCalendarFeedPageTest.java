@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.BackupService;
 import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.LegacyEventMigration;
+import dev.ted.jittertravel.infrastructure.BrevoEmailClient;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,8 @@ class AdminCalendarFeedPageTest {
     PostgresPersister persister;
     @MockitoBean
     LegacyEventMigration legacyEventMigration;
+    @MockitoBean
+    BrevoEmailClient brevoEmailClient;
 
     @Test
     void rendersSubscribeAndBothProbeLinksCarryingTheToken() {

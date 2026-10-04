@@ -50,6 +50,23 @@ and no notion of a person.
 | Multi-leg trips | **One email per leg, route in the subject** — `Ted booked a flight: SFO → FRA`. No digest (§5) |
 | Verifying the rollout | **An OWNER-only admin probe** sends a fixed message through the real client, writing no row and no event (§4.6) |
 
+### Decisions settled 2026-10-04 (Ted), after the itinerary feature shipped
+
+`archived/FlightItineraryPlan.md` changed two premises this plan was written on: one command can now
+append several `FlightBooked` events (a pasted itinerary), and a schedule change can append more.
+
+| Decision | Choice |
+|---|---|
+| A pasted itinerary | **One email per paste**, not one per leg. The door §5 names ("`EventReactor.react` takes the whole batch of one append, so a multi-leg append makes the digest fall out for free") is now open: the translator sees `FlightItineraryBooked` and its `FlightBooked` legs in one batch, and sends one message for the lot |
+| Subject | **The airport chain**: `Ted booked a trip: SFO → ORD → YOW → ORD → SFO`. Codes, not city names, as for a single flight. The body lists each leg |
+| Confirmation code | **Not in the email.** Family cannot use it, and it is the one value here that could be misused from a shared mailbox |
+| A schedule change | **Never emails.** A `FlightBooked` in the same batch as a `FlightItineraryChanged` (an added leg, or one the airline dropped and restored) is not a new trip, so it is suppressed; a changed or cancelled leg is already silent (§1, scope rule) |
+| A hand-entered flight | **Unchanged**: still one email per `FlightBooked`, route in the subject |
+
+**Consequence for suppression:** a `FlightBooked` that is part of an itinerary batch never gets its
+own email, in either direction — it is folded into the itinerary's one message (booking) or silenced
+(change). Only a `FlightBooked` with no itinerary event in its batch notifies on its own.
+
 ### The scope rule, stated 2026-09-15 (Ted)
 
 **Family want to know two things and no others: that there is a *new trip*, and that a trip they
@@ -1079,7 +1096,58 @@ subject, §5); **the probe** (§4.6 — route, matcher, matrix row, `/admin` for
 the four properties **and** the four env vars; the `DEPLOYMENT.md` rows. Deploy dark, probe to Ted,
 repoint, probe to family, flip (§3).
 
-**Slice 1a — §4.3a, the failure surface.** Widening `findPendingCommands` only (the count and the
+#### Slice 1 as built (2026-10-05), and where it differs from the design above
+
+Built with slice 1a, shipping dark. Everything in the list above exists except where noted.
+- **Code.** `ExternalAction` and `CommandExecutor.executeExternalAction`; `FamilyNotified`,
+  `NotifiedSubject`, `NotifiedFact`, `NotifyFamilyCommand` (registered, golden-sampled);
+  `BrevoEmailClient`; `NotifyFamily`; `FamilyNotificationTranslator`; `FamilyNotificationMessages`;
+  the probe on `/admin`; four properties in `application.properties`; wiring in `EventSourcingConfig`;
+  `Pre-Push-Tasks.md` boxes and `DEPLOYMENT.md` rows.
+- **`NotifiedSubject` is a record `(Kind kind, UUID id)`, not the sealed interface §4.4 draws.** A
+  sealed type stored in an event needs Jackson type annotations to be read back, and `domain` may not
+  depend on Jackson (`DomainIsPureTest`). The `Kind` enum keeps what the sealing was for: a `switch`
+  over it is exhaustive, so a new kind is still a decision the compiler asks for. The subject is the
+  kind **and** the id together, which a test pins (a flight and an itinerary may not share an id, but
+  nothing should rely on that).
+- **A second subject kind and fact, from the 2026-10-04 decisions:** `FLIGHT_ITINERARY` and
+  `ITINERARY_BOOKED`. The translator reads the **batch**: a `FlightItineraryBooked` is one
+  notification carrying its legs (in departure order); a `FlightBooked` in the same batch as an
+  itinerary event is never told on its own, in either direction (folded into the trip's one message,
+  or silenced for a schedule change); any other `FlightBooked` is a single flight. Because the
+  suppression is by batch, a flight booked separately is unaffected.
+- **`NotifyFamily.notifyFamily(commandId, subject, fact, legs, now)`** takes the id and time from
+  the translator (captured at the boundary) and the booked legs the batch already holds, so slice 1
+  needs **no fold of the booking**, only the fold of the last `FamilyNotified` for the subject. It
+  returns an `Outcome` (`SENT`, `NOT_ENABLED`, `NOT_CONFIGURED`, `ALREADY_TOLD`) instead of counting,
+  because `application` imports no metrics; the translator catches, counts
+  `family.notification.failed`, and logs, so one failed notification never stops the next.
+  `ReadOnlyModeException` simply propagates to that catch.
+- **`FamilyNotificationMessages.messageFor(fact, legs)`** — an exhaustive `switch` over the fact. The
+  trip subject chains the airports (`SFO → ORD → YOW → ORD → SFO`) and breaks the chain with a comma
+  where a leg does not start where the last ended. No airline, confirmation code or passenger in
+  either message (a test pins their absence). The meridiem is written by hand because current JDKs
+  put a narrow no-break space before `PM` in the US pattern.
+- **`FamilyNotificationTriggerCompletenessTest` is a written-down decision list**, not a computed
+  one: every `Event` class in `domain` must be in `TELLS_FAMILY` or in `SILENT` with a reason. Adding
+  an event class fails it until someone decides. It pins the decision, not the behaviour; the
+  translator test owns the behaviour.
+- **A fourth place says "no events were written":** `timeline-commands.html` titles an abandoned
+  command that way. It stays true (an abandoned notification wrote no event), so it was left alone;
+  the three the plan named were amended.
+- **Decided 2026-10-05 (Ted): only a whole itinerary's cancellation emails.** Cancel Flight and
+  Cancel Itinerary shipped after this plan was written, and by the scope rule a trip family were told
+  about that is now off is news. A single `FlightCancelled` stays **silent** — one dropped leg is
+  often a rebooking, not a trip that is off. A `FlightItineraryCancelled` **will** tell family, under
+  the same positive-first rule as the conference exits (§4.4): only where an `ITINERARY_BOOKED` was
+  sent for that itinerary, so a trip family never heard about stays silent. **Not built:** it needs a
+  `NotifiedFact` (say `ITINERARY_CANCELLED`), a message arm, and moving the class from `SILENT` to
+  `TELLS_FAMILY` in the completeness test; it is the natural next slice, before conferences.
+- **Not built:** slice 2 (conferences); an end-to-end test through a real store and a real client
+  (the kill switch defaults off, so no integration test sends or pollutes — `NotifyFamilyTest` and the
+  translator test cover the two halves).
+
+**Slice 1a — §4.3a, the failure surface.** *(Built with slice 1, 2026-10-05.)* Widening `findPendingCommands` only (the count and the
 boot warning stay on `PENDING` — Q3, answered), the `FAILED_SEND` arm on
 `TimelineCommand.statusLabel()`, no Abandon/Keep buttons on a failed row, the page wording. Separate
 because it changes an existing admin surface for *every* command, not just this feature. Ship it

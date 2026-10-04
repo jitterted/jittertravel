@@ -173,9 +173,19 @@ you do not set it.
 | `CALENDAR_FEED_TOKEN` | optional | **yes** | The **only** credential on the private iCal feed — treat it like a password. Unset ⇒ the feed is disabled and `/calendar/feed/**` 404s (safe, opt-in default). Rotating it means re-subscribing on every device. |
 | `JITTERTRAVEL_BASE_URL` | optional | no | Base URL (e.g. `https://jittertravel.com`) used to build the subscribe/probe links on the OWNER-only admin page. Pin it in production: deriving it from the request is unreliable behind Railway's proxy. Blank ⇒ falls back to the request's own scheme + host. |
 | `AERODATABOX_API_KEY` | optional | **yes** | RapidAPI key for AeroDataBox flight lookups. If unset the app still starts but flight lookup is non-functional. |
+| `BREVO_API_KEY` | optional | **yes** | Brevo transactional-email key for family notifications. Unset ⇒ no mail is ever sent, and `/admin` says "Family email is not configured." |
+| `FAMILY_NOTIFY_EMAIL` | optional | no | The single address a notification goes to (a family address or group alias). Unset ⇒ no mail. Point it at your own address first and use the test button on `/admin`. |
+| `TED_REPLY_EMAIL` | optional | no | The reply-to on every notification. Unset ⇒ replies reach the unattended `notifications@jittertravel.com` mailbox and nobody. |
+| `FAMILY_NOTIFY_ENABLED` | optional | no | The kill switch, default `false`. Unset or `false` ⇒ a booking sends nothing; the `/admin` test button works either way. Flip to `true` only after a test has reached the right inbox. |
 
-> **Secrets:** `PGPASSWORD`, `TED_PASSWORD`, `FAMILY_PASSWORD`, `CALENDAR_FEED_TOKEN` and
-> `AERODATABOX_API_KEY` are private. Set them as Railway service variables; never commit them.
+> **All four family-email variables have empty or off defaults, so the app boots happily with the
+> feature silently disabled** — the `CALENDAR_FEED_TOKEN` failure shape, not the `TED_PASSWORD`
+> one. That is deliberate (a notifier that cannot send is not a reason to refuse a deploy), and it
+> is the shape that hides a misconfiguration, which is why `/admin` states the verdict in words.
+> The rollout order is in `Pre-Push-Tasks.md`.
+
+> **Secrets:** `PGPASSWORD`, `TED_PASSWORD`, `FAMILY_PASSWORD`, `CALENDAR_FEED_TOKEN`,
+> `AERODATABOX_API_KEY` and `BREVO_API_KEY` are private. Set them as Railway service variables; never commit them.
 > There is no `.env` file in the repo and none should be added. (The two login passwords and
 > `REMEMBER_ME_KEY` double as a fail-fast guard — a production boot without them errors immediately
 > rather than coming up misconfigured.)

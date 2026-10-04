@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -107,6 +108,72 @@ class CommandExecutorTest {
 
         verify(persister, never()).saveCommand(any(), any());
         verify(eventStore, never()).append(any(), any());
+    }
+
+    @Test
+    void externalActionRunsOnlyAfterTheCommandIsPersistedPending() {
+        CommandExecutor executor = new CommandExecutor(persister, eventStore);
+        ExternalAction action = () -> {
+            // Ordering is the whole reason the method exists: if the row is not already written
+            // when the I/O runs, this verification fails inside the action.
+            verify(persister).saveCommand(COMMAND_ID, "record");
+            verify(eventStore, never()).append(any(), any());
+            return Stream.of(new TestEvent());
+        };
+
+        executor.executeExternalAction(COMMAND_ID, "record", action);
+
+        InOrder inOrder = inOrder(persister, eventStore);
+        inOrder.verify(persister).saveCommand(COMMAND_ID, "record");
+        inOrder.verify(eventStore).append(any(), eq(COMMAND_ID));
+        verify(persister, never()).markCommandFailed(any(), any(), any());
+    }
+
+    @Test
+    void aThrowingExternalActionLeavesAFailedSendRowAndAppendsNothing() {
+        CommandExecutor executor = new CommandExecutor(persister, eventStore);
+        ExternalAction failing = () -> {
+            throw new IllegalStateException("Brevo returned 502");
+        };
+
+        assertThatThrownBy(() -> executor.executeExternalAction(COMMAND_ID, "record", failing))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Brevo returned 502");
+
+        verify(persister).saveCommand(COMMAND_ID, "record");
+        verify(persister).markCommandFailed(COMMAND_ID, "FAILED_SEND", "Brevo returned 502");
+        verify(eventStore, never()).append(any(), any());
+    }
+
+    @Test
+    void anAppendFailureAfterASuccessfulExternalActionIsMarkedFailedPersist() {
+        CommandExecutor executor = new CommandExecutor(persister, eventStore);
+        willThrow(new RuntimeException("db down"))
+                .given(eventStore).append(any(), eq(COMMAND_ID));
+
+        assertThatThrownBy(() -> executor.executeExternalAction(COMMAND_ID, "record",
+                () -> Stream.of(new TestEvent())))
+                .hasMessage("db down");
+
+        verify(persister).markCommandFailed(COMMAND_ID, "FAILED_PERSIST", "db down");
+    }
+
+    @Test
+    void externalActionWritesNothingAndRunsNothingInReadOnlyMode() {
+        given(eventStore.isReadOnly()).willReturn(true);
+        CommandExecutor executor = new CommandExecutor(persister, eventStore);
+        boolean[] ran = {false};
+
+        assertThatThrownBy(() -> executor.executeExternalAction(COMMAND_ID, "record", () -> {
+            ran[0] = true;
+            return Stream.of(new TestEvent());
+        })).isInstanceOf(ReadOnlyModeException.class);
+
+        verify(persister, never()).saveCommand(any(), any());
+        verify(eventStore, never()).append(any(), any());
+        assertThat(ran[0])
+                .as("the action must not run — it would send the mail")
+                .isFalse();
     }
 
     @Test

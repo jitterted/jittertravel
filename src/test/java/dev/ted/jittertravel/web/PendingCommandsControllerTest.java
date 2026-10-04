@@ -60,6 +60,41 @@ class PendingCommandsControllerTest {
     }
 
     @Test
+    void aFailedSendIsListedWithItsStatusAndNoButtonsBecauseThereIsNothingToResolve() {
+        UUID commandId = UUID.randomUUID();
+        org.mockito.BDDMockito.given(persister.findPendingCommands()).willReturn(List.of(
+                new TimelineCommand(
+                        commandId,
+                        OffsetDateTime.now(),
+                        "dev.ted.jittertravel.application.NotifyFamilyCommand",
+                        "{\n  \"fact\" : \"FLIGHT_BOOKED\"\n}",
+                        "FAILED_SEND")
+        ));
+
+        assertThat(mockMvc.get().uri("/admin/pending-commands"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("FLIGHT_BOOKED")
+                .contains("<span class=\"command-status\">Failed: send</span>")
+                .doesNotContain("<button type=\"submit\" class=\"btn-abandon\">Abandon Command</button>")
+                .doesNotContain("<button type=\"submit\" class=\"btn-keep\">Keep as Pending</button>");
+    }
+
+    @Test
+    void aPendingRowStillOffersBothButtons() {
+        org.mockito.BDDMockito.given(persister.findPendingCommands()).willReturn(List.of(
+                new TimelineCommand(UUID.randomUUID(), OffsetDateTime.now(),
+                        "dev.ted.jittertravel.application.NotifyFamilyCommand", "{}", "PENDING")));
+
+        assertThat(mockMvc.get().uri("/admin/pending-commands"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<button type=\"submit\" class=\"btn-abandon\">Abandon Command</button>")
+                .contains("<button type=\"submit\" class=\"btn-keep\">Keep as Pending</button>")
+                .doesNotContain("<span class=\"command-status\"");
+    }
+
+    @Test
     void abandonMarksCommandAndRedirects() {
         UUID commandId = UUID.randomUUID();
 

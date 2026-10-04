@@ -519,6 +519,39 @@ public class EventSourcingConfig {
         return new CancelFlight(commandExecutor);
     }
 
+    @Bean
+    public FamilyNotificationMessages familyNotificationMessages(AirportCityResolver airportCityResolver) {
+        return new FamilyNotificationMessages(airportCityResolver);
+    }
+
+    /**
+     * The kill switch is read here and passed in as a plain {@code boolean}: {@code application}
+     * imports no Spring, and a {@code @Value} on this class would be the first break in that.
+     * Defaults to off, so a deploy with nothing configured sends nothing.
+     */
+    @Bean
+    public NotifyFamily notifyFamily(CommandExecutor commandExecutor,
+                                     BrevoEmailClient brevoEmailClient,
+                                     FamilyNotificationMessages familyNotificationMessages,
+                                     @Value("${jittertravel.family-notify.enabled:false}") boolean enabled) {
+        return new NotifyFamily(commandExecutor, brevoEmailClient, familyNotificationMessages, enabled);
+    }
+
+    /**
+     * The one reactor. Registered with {@code subscribeAsync}, which hands a reactor only events
+     * appended <em>after</em> it was registered, never the replayed history: a boot cannot mail the
+     * past, by type and not by a rule to remember.
+     */
+    @Bean
+    public FamilyNotificationTranslator familyNotificationTranslator(EventStore eventStore,
+                                                                     NotifyFamily notifyFamily,
+                                                                     Clock clock,
+                                                                     MeterRegistry meterRegistry) {
+        FamilyNotificationTranslator translator = new FamilyNotificationTranslator(notifyFamily, clock, meterRegistry);
+        eventStore.subscribeAsync(translator);
+        return translator;
+    }
+
     /**
      * Unlike {@link #cancelFlightApplicationService} it takes {@link LiveScheduledLegs}: which of the
      * itinerary's legs are still live, and whether one has departed, are decision facts.

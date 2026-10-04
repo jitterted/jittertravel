@@ -136,6 +136,9 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
         assertThat(page.get(1).events()).isEmpty();
         assertThat(page.get(1).failed()).isTrue();
         assertThat(page.get(1).command().statusLabel()).isEqualTo("Failed: domain");
+        assertThat(new TimelineCommand(UUID.randomUUID(), null, "t", "{}", "FAILED_SEND").statusLabel())
+                .as("an unmapped status would render as the raw enum string")
+                .isEqualTo("Failed: send");
 
         // #3 pending (saved, no events, not marked failed) — not flagged failed
         assertThat(page.get(2).command().commandId()).isEqualTo(cmd3);
@@ -225,6 +228,28 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
                 .satisfies(c -> assertThat(c.status())
                         .as("a guarded abandon leaves a SUCCEEDED command's status untouched")
                         .isEqualTo("SUCCEEDED"));
+    }
+
+    @Test
+    void failedCommandsAreListedForReviewButNeverCountedAsPending() {
+        UUID failedSend = UUID.randomUUID();
+        persister.saveCommand(failedSend, newRequest(failedSend, "Failed Send"));
+        persister.markCommandFailed(failedSend, "FAILED_SEND", "Brevo returned 502");
+        UUID failedDomain = UUID.randomUUID();
+        persister.saveCommand(failedDomain, newRequest(failedDomain, "Failed Domain"));
+        persister.markCommandFailed(failedDomain, "FAILED_DOMAIN", "rejected");
+        UUID succeeded = UUID.randomUUID();
+        PlanConferenceRequest succeededReq = newRequest(succeeded, "Done Conf");
+        persister.saveCommand(succeeded, succeededReq);
+        persister.appendEvents(List.of(storedEvent(1L, succeeded, "Done Conf", succeededReq)), succeeded);
+
+        assertThat(persister.findPendingCommands())
+                .extracting(TimelineCommand::commandId)
+                .as("failed rows are listed; a succeeded one is not")
+                .containsExactlyInAnyOrder(failedSend, failedDomain);
+        assertThat(persister.countPendingCommands())
+                .as("the badge and the boot warning stay on PENDING, or every old failure would warn on every boot")
+                .isZero();
     }
 
     @Test

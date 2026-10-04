@@ -37,6 +37,7 @@ public record TimelineCommand(
             case "PENDING" -> "Pending";
             case "FAILED_DOMAIN" -> "Failed: domain";
             case "FAILED_PERSIST" -> "Failed: persist";
+            case "FAILED_SEND" -> "Failed: send";
             case "ABANDONED" -> "Abandoned";
             case null -> "Unknown";
             default -> status;

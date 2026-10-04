@@ -25,8 +25,9 @@ import java.util.stream.Stream;
  * <strong>Matching</strong> happens within the itinerary only. Each pasted leg is paired with a live
  * booked leg first by flight number and departure day, then by route; the earliest unpaired booked
  * leg wins a tie. A pasted leg with no partner is added, a booked leg with no partner is cancelled.
- * A pasted leg that only matches a leg <em>cancelled</em> earlier is refused ({@link
- * LegCancelledEarlier}).
+ * A pasted leg that only matches a leg Ted <em>cancelled</em> earlier is refused ({@link
+ * LegCancelledEarlier}); one that matches a leg an earlier schedule change <em>dropped</em> is the
+ * airline putting it back, and is added as a new booking.
  * <p>
  * <strong>History is not revised</strong> (Ted, 2026-10-03): a booked leg that has already departed
  * must be in the paste with the same times, or the change is refused. Any other leg that moves or is
@@ -109,7 +110,8 @@ public record ChangeFlightItineraryCommand(
             case CHANGED -> Stream.<Event>of(changed(diff.after()));
             case ADDED -> Stream.<Event>of(diff.after().booked());
             case REMOVED -> Stream.<Event>of(
-                    new FlightCancelled(diff.before().flightId(), REASON, context.now()));
+                    new FlightCancelled(diff.before().flightId(), REASON, context.now(),
+                            FlightCancellationCause.AIRLINE_SCHEDULE_CHANGE));
         });
         return Stream.concat(legEvents,
                 Stream.of(new FlightItineraryChanged(itineraryId, membership(plan, context), REASON, context.now())));
@@ -125,6 +127,7 @@ public record ChangeFlightItineraryCommand(
     private static List<FlightId> membership(ItineraryChangePlan plan, ChangeFlightItineraryContext context) {
         List<ItineraryLeg> all = new ArrayList<>(plan.diffs().stream().map(LegDiff::effective).toList());
         all.addAll(context.cancelledMembers());
+        all.addAll(context.droppedMembers());
         return all.stream()
                 .sorted(Comparator.comparing(leg -> leg.departureDateTime().utc()))
                 .map(ItineraryLeg::flightId)

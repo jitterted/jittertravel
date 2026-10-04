@@ -89,6 +89,8 @@
 
     <h1>Cancel Flight</h1>
 
+    <div th:replace="~{fragments/problem-context :: problemContext}"></div>
+
     <div class="summary">
         <div class="name">
             <span th:text="${flight.departureAirport().code()}">SFO</span>
@@ -118,6 +120,11 @@
     </p>
 
     <form th:action="@{|/booked-flights/${flight.flightId().id()}/cancel|}" method="post">
+
+        <!--/* Carries the fix link's origin through the POST (and through a validation
+               re-render) so the action returns to the report it was launched from.
+               Absent for an ordinary visit, which keeps this controller's own default. */-->
+        <input type="hidden" name="from" th:if="${fixOrigin != null}" th:value="${fixOrigin}"/>
         <div class="field">
             <label>
                 Reason (optional)

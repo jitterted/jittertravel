@@ -325,10 +325,12 @@
       </build>
     </profile>
     <profile>
-      <!-- Mutation testing over the Spring tests ONLY: the complement of the default PIT block
-           above, which excludes the "spring" group. Slow by design (every mutant re-runs a
-           Spring slice, and the integration tests need Docker for Testcontainers), so it is run by
-           hand when a change is ready to push and is NOT wired into the pre-push hook:
+      <!-- Mutation testing over the plain AND the Spring tests: the default PIT block above
+           with the "spring" group let back in, so a controller that only a Spring slice covers
+           is no longer reported as having no coverage (it was, when this profile ran the Spring
+           tests alone). Slow by design (every mutant that only a Spring slice reaches re-runs
+           it, and the integration tests need Docker for Testcontainers), so it is run by hand
+           when a change is ready to push and is NOT wired into the pre-push hook:
              ./mvnw test-compile org.pitest:pitest-maven:mutationCoverage -Ppit-spring
            Narrow it to what changed, which is the only way it stays tolerable:
              ... -Ppit-spring -DtargetClasses=dev.ted.jittertravel.web.BookFlightItineraryController
@@ -348,9 +350,6 @@
                 <param>replay-preflight</param>
                 <param>performance</param>
               </excludedGroups>
-              <includedGroups combine.self="override">
-                <param>spring</param>
-              </includedGroups>
               <reportsDirectory>${project.build.directory}/pit-reports-spring</reportsDirectory>
               <!-- A mutant that breaks context start-up must not be mistaken for a hang, and a
                    cold context takes seconds the unit tier never spends. -->

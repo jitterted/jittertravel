@@ -6,6 +6,7 @@ import dev.ted.jittertravel.domain.DecisionContext;
 import dev.ted.jittertravel.domain.DomainCommand;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancellationCause;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
@@ -140,6 +141,49 @@ class FlightItineraryChangeTest {
                 .containsExactly(2);
         assertThat(executor.emitted)
                 .isEmpty();
+    }
+
+    @Test
+    void aLegEditedByHandIsComparedAtItsCurrentTimesNotTheOnesItWasBookedWith() {
+        FlightChanged movedByHand = new FlightChanged(first, "United Airlines", "UA2091",
+                AirportCode.of("SFO"), at(PACIFIC, 7, 10), AirportCode.of("ORD"), at(CHICAGO, 12, 45),
+                "Edited");
+        SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip, movedByHand);
+
+        ItineraryEvaluation evaluation = booking(executor).evaluate(
+                UNCHANGED_PASTE.replace("06:10 AM", "07:10 AM"), Map.of(), FORM, NEW_FLIGHT_ID, NOW);
+
+        assertThat(evaluation.scheduleChange().plan().diffs())
+                .as("the paste agrees with the edited leg, so nothing differs")
+                .extracting(LegDiff::kind)
+                .containsExactly(Kind.UNCHANGED, Kind.UNCHANGED);
+    }
+
+    @Test
+    void aLegAnEarlierScheduleChangeDroppedIsBookedAgainWhenTheAirlinePutsItBack() {
+        SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip,
+                new FlightCancelled(second, "Airline schedule change", NOW,
+                        FlightCancellationCause.AIRLINE_SCHEDULE_CHANGE));
+
+        ItineraryEvaluation evaluation = booking(executor)
+                .book("request", UNCHANGED_PASTE, Map.of(), FORM, NEW_FLIGHT_ID, NOW);
+
+        assertThat(evaluation.scheduleChange().plan().diffs())
+                .extracting(LegDiff::kind)
+                .containsExactly(Kind.UNCHANGED, Kind.ADDED);
+        assertThat(executor.emitted)
+                .hasSize(2);
+        assertThat(executor.emitted.get(0))
+                .isInstanceOf(FlightBooked.class);
+        FlightBooked reinstated = (FlightBooked) executor.emitted.get(0);
+        assertThat(reinstated.flightId())
+                .as("cancelling cannot be undone, so the leg comes back as a new flight")
+                .isNotEqualTo(second);
+        assertThat(reinstated.flightNumber())
+                .isEqualTo("UA3000");
+        assertThat(((FlightItineraryChanged) executor.emitted.get(1)).flightIds())
+                .as("the dropped leg stays in the trip, cancelled, beside the one that replaced it")
+                .containsExactlyInAnyOrder(first, second, reinstated.flightId());
     }
 
     @Test

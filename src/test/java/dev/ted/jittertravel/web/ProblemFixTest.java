@@ -277,28 +277,38 @@ class ProblemFixTest {
     }
 
     @Test
-    void aFlightContributesNoLinkUntilCancelFlightIsWiredIn() {
+    void aFlightLinksToItsCancelPageLikeAnyOtherLeg() {
+        FlightId flightId = FlightId.random();
+
         List<ProblemFix> fixes = ProblemFix.forProblem(
-                overlap(new TravelLeg.Flight(FlightId.random(), "LH 402"), 9,
+                overlap(new TravelLeg.Flight(flightId, "LH 402"), 9,
                         new TravelLeg.Train(TrainTripId.random(), "ICE 599"), 10),
                 FixOrigin.PROBLEM_LIST);
 
         assertThat(fixes)
                 .extracting(ProblemFix::label)
-                .containsExactly("Cancel 10:00 AM \u00b7 ICE 599");
+                .containsExactly("Cancel 9:00 AM \u00b7 LH 402", "Cancel 10:00 AM \u00b7 ICE 599");
+        assertThat(fixes.get(0).href())
+                .startsWith("/booked-flights/" + flightId.id() + "/cancel?problem=")
+                .contains("&from=list");
     }
 
     @Test
-    void twoOverlappingFlightsOfferNoFixAtAll() {
-        // Reported anyway, and the renderers show the greyed "no fix yet" control — the same
-        // vocabulary a SchedulingConflict already uses.
+    void twoOverlappingFlightsOfferOneCancelLinkEach() {
+        FlightId early = FlightId.random();
+        FlightId late = FlightId.random();
+
         List<ProblemFix> fixes = ProblemFix.forProblem(
-                overlap(new TravelLeg.Flight(FlightId.random(), "LH 402"), 9,
-                        new TravelLeg.Flight(FlightId.random(), "LH 404"), 10),
+                overlap(new TravelLeg.Flight(early, "LH 402"), 9,
+                        new TravelLeg.Flight(late, "LH 404"), 10),
                 FixOrigin.PROBLEM_LIST);
 
         assertThat(fixes)
-                .isEmpty();
+                .hasSize(2);
+        assertThat(fixes.get(0).href())
+                .startsWith("/booked-flights/" + early.id() + "/cancel?problem=");
+        assertThat(fixes.get(1).href())
+                .startsWith("/booked-flights/" + late.id() + "/cancel?problem=");
     }
 
     private static ScheduleProblem.OverlappingTravel overlap(TravelLeg first, int firstHour,

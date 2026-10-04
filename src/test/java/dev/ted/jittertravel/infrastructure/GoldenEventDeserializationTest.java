@@ -9,6 +9,7 @@ import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceFormat;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancellationCause;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
@@ -1308,6 +1309,40 @@ class GoldenEventDeserializationTest {
                 .isEqualTo("Rebooked on UA58");
         assertThat(event.cancelledOn())
                 .isEqualTo(Instant.parse("2026-09-29T17:00:00Z"));
+    }
+
+    @Test
+    void flightCancelledWithNoCauseReadsAsManual() {
+        // Every FlightCancelled stored before `cause` existed: none of them is reinstatable.
+        String json = """
+                {
+                  "flightId": {"id": "88888888-8888-8888-8888-888888888888"},
+                  "reason": "Airline schedule change",
+                  "cancelledOn": "2026-09-29T17:00:00Z"
+                }
+                """;
+
+        FlightCancelled event = deserialize(json, FlightCancelled.class);
+
+        assertThat(event.cause())
+                .isEqualTo(FlightCancellationCause.MANUAL);
+    }
+
+    @Test
+    void flightCancelledSampleWithACauseDeserializes() {
+        String json = """
+                {
+                  "flightId": {"id": "88888888-8888-8888-8888-888888888888"},
+                  "reason": "Airline schedule change",
+                  "cancelledOn": "2026-10-04T17:00:00Z",
+                  "cause": "AIRLINE_SCHEDULE_CHANGE"
+                }
+                """;
+
+        FlightCancelled event = deserialize(json, FlightCancelled.class);
+
+        assertThat(event.cause())
+                .isEqualTo(FlightCancellationCause.AIRLINE_SCHEDULE_CHANGE);
     }
 
     @Test

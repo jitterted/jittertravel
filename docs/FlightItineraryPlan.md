@@ -4,10 +4,10 @@ Planned 2026-09-29 (Ted). **Part 0 (Cancel Flight) shipped 2026-09-29. Part 1 (Y
 slices (a), (b) and (e) — paste, preview, book, unknown-airport zone picker — shipped 2026-09-30.
 Slice (c), cancel itinerary, shipped 2026-10-02 (see "Slice (c) as built" under Part 2).**
 **Slice (d), schedule change by paste, shipped 2026-10-04 (see "Slice (d) as built"); Ted checked the
-diff colours on the iPad the same day. Every slice of this plan is now done.** Still open, in the order
-worth taking them: (1) reinstating a leg the airline dropped and later restored, which slice (d) refuses
-(see "Still open after slice (d)"); (2) from Part 0 the `ProblemFix` link for a flight in an overlap
-(deferred on purpose, below).
+diff colours on the iPad the same day. Every slice of this plan is now done.** The two follow-ups
+shipped 2026-10-04: reinstating a leg the airline dropped and later restored (see "Reinstating a
+dropped leg, as built") and the `ProblemFix` link for a flight in an overlap (see "The overlap fix
+link, as built"). Nothing in this plan is open.
 
 Prompted by Ted, 2026-09-29: *"how hard would it be to retrieve flight bookings from United
 airlines using my booking confirmation code?"* The answer was that no API exists for that, so the
@@ -156,18 +156,35 @@ production backup has no `YOW`, so no stored flight's replay can change.
   `-Ppit-spring` (new, see CLAUDE.md) leaves only older survivors (`EventTypes.isRegistered`, the
   `newFlightId` lambda in `BookFlightItineraryController.submit`).
 
-**Still open after slice (d).**
-- **Reinstating a dropped leg (named limit (a)).** United drops UA512 in one email and puts it back in a
-  later one: the later paste is refused as `LegCancelledEarlier`. To allow it the fold must tell a leg
-  cancelled **by a schedule change** from one cancelled **by hand**. The likely shape is a marker on the
-  cancellation (the change already writes `FlightCancelled` with reason "Airline schedule change", so
-  matching on that reason is the cheap route but couples behaviour to a display string; a typed field on
-  `FlightCancelled` is the honest one and needs a golden sample and an upcaster decision). Then a pasted
-  leg matching a change-cancelled leg is re-booked (a new `FlightBooked`, since cancelling cannot be
-  undone) and the diff shows it as Added. Decide the shape with Ted, with an example, before building.
-- **The overlap fix link (Part 0).** Unchanged: deferred on purpose.
-- **Not covered by any automated check:** the template's colours and layout (PIT mutates bytecode only);
-  they were verified by eye on the iPad.
+**Reinstating a dropped leg, as built (2026-10-04; named limit (a) is gone).** Ted picked the typed
+field over matching the reason string, with the example of UA512 ORD→YOW dropped on Oct 1 and
+restored by a second email on Oct 5.
+- `FlightCancelled` gained `cause` (`FlightCancellationCause`: `MANUAL` or `AIRLINE_SCHEDULE_CHANGE`).
+  No upcaster: a payload without it deserializes to `MANUAL` (golden sample), so **no leg already
+  cancelled becomes reinstatable**, including ones an earlier change dropped before this shipped. A
+  3-argument constructor defaults to `MANUAL`, so only the change command names the other cause.
+- `ChangeFlightItineraryCommand` writes `AIRLINE_SCHEDULE_CHANGE` on the legs it removes.
+  `TripOnTheBooks` splits the trip's cancelled legs in two: `cancelledMembers` (by hand; a pasted match is
+  still refused) and the new `droppedMembers`, which are never matched at all. A pasted leg that matches
+  nothing live and nothing hand-cancelled is simply Added, so a restored leg is a new `FlightBooked`
+  with a new id (cancelling cannot be undone) and the diff shows it as Added. The old, dropped leg
+  stays in the trip's membership beside it, cancelled.
+- A leg that matches both a hand-cancelled and a dropped one is refused: when in doubt, refuse.
+- Tests: `ChangeFlightItineraryCommandTest`, `FlightItineraryChangeTest` (through the real fold),
+  `GoldenEventDeserializationTest`. Mutation-checked: making the fold test `MANUAL` instead fails two
+  tests.
+
+**The overlap fix link, as built (2026-10-04).** `ProblemFix` now links a flight in an overlapping-travel
+problem to `/booked-flights/{id}/cancel`, like a train or a transfer. The cancel page gained the
+problem-context fragment and the `from` hidden input, and its POST returns to the report on success
+only (a miss goes to the list). **A correction to the Part 0 text above:** it said the page already
+included the fragment; it did not (the controller's own javadoc said so), which is why this took a
+template change as well. `ProblemContextFragmentConventionTest` also never exercised an
+`OverlappingTravel` problem, so the train and transfer cancel paths in its table were not reached by
+its scan; it now builds overlaps with a flight, a train and a transfer, so all three are.
+
+**Not covered by any automated check:** the template's colours and layout (PIT mutates bytecode only);
+they were verified by eye on the iPad.
 
 **Slice (c) as built (2026-10-02), and where it differs from the design below.**
 - **Domain.** `FlightItineraryCancelled(itineraryId, reason, cancelledOn)`, registered at schema_version

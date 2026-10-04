@@ -64,7 +64,8 @@ class ChangeFlightItineraryCommandTest {
 
         assertThat(events)
                 .containsExactly(
-                        new FlightCancelled(ordYow.flightId(), "Airline schedule change", NOW),
+                        new FlightCancelled(ordYow.flightId(), "Airline schedule change", NOW,
+                                FlightCancellationCause.AIRLINE_SCHEDULE_CHANGE),
                         new FlightItineraryChanged(ITINERARY,
                                 List.of(sfoOrd.flightId(), ordYow.flightId(), yowSfo.flightId()),
                                 "Airline schedule change", NOW));
@@ -178,6 +179,35 @@ class ChangeFlightItineraryCommandTest {
                 .extracting(FlightItineraryRefused::refusals, list(LegRefusal.class))
                 .extracting(LegRefusal::legNumber, refusal -> refusal.reason().getClass())
                 .containsExactly(tuple(2, LegCancelledEarlier.class));
+    }
+
+    @Test
+    void aLegAnEarlierScheduleChangeDroppedIsAddedBackNotRefused() {
+        ChangeFlightItineraryContext context = new ChangeFlightItineraryContext(true,
+                List.of(sfoOrd, yowSfo), List.of(), List.of(ordYow), scheduled(sfoOrd, yowSfo), NOW);
+        ItineraryLeg relisted = pasted("UA3509", "ORD", "YOW", 18, 15, 18, 18);
+
+        List<Event> events = command(copyOf(sfoOrd), relisted, copyOf(yowSfo)).execute(context).toList();
+
+        assertThat(events)
+                .hasSize(2);
+        assertThat(events.get(0))
+                .isInstanceOf(FlightBooked.class);
+        assertThat(events.get(1))
+                .isInstanceOf(FlightItineraryChanged.class);
+        assertThat(((FlightItineraryChanged) events.get(1)).flightIds())
+                .containsExactlyInAnyOrder(sfoOrd.flightId(), ordYow.flightId(), yowSfo.flightId(),
+                        ((FlightBooked) events.get(0)).flightId());
+    }
+
+    @Test
+    void aLegTheChangeRemovesIsCancelledAsDroppedByTheAirline() {
+        List<Event> events = command(copyOf(sfoOrd), copyOf(ordYow)).execute(context()).toList();
+
+        assertThat(events.get(0))
+                .isInstanceOf(FlightCancelled.class);
+        assertThat(((FlightCancelled) events.get(0)).cause())
+                .isEqualTo(FlightCancellationCause.AIRLINE_SCHEDULE_CHANGE);
     }
 
     @Test

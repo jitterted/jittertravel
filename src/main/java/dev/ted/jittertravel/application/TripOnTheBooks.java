@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.BookFlightContext;
 import dev.ted.jittertravel.domain.ChangeFlightItineraryContext;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancellationCause;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
@@ -36,14 +37,17 @@ final class TripOnTheBooks {
     private final boolean cancelledOnly;
     private final List<ItineraryLeg> liveMembers;
     private final List<ItineraryLeg> cancelledMembers;
+    private final List<ItineraryLeg> droppedMembers;
 
     private TripOnTheBooks(FlightItineraryId itineraryId, boolean live, boolean cancelledOnly,
-                           List<ItineraryLeg> liveMembers, List<ItineraryLeg> cancelledMembers) {
+                           List<ItineraryLeg> liveMembers, List<ItineraryLeg> cancelledMembers,
+                           List<ItineraryLeg> droppedMembers) {
         this.itineraryId = itineraryId;
         this.live = live;
         this.cancelledOnly = cancelledOnly;
         this.liveMembers = liveMembers;
         this.cancelledMembers = cancelledMembers;
+        this.droppedMembers = droppedMembers;
     }
 
     /** An explicit loop over the stream: what a leg looks like depends on the order of its events. */
@@ -53,6 +57,7 @@ final class TripOnTheBooks {
         Set<FlightItineraryId> cancelled = new HashSet<>();
         Map<FlightId, ItineraryLeg> legs = new HashMap<>();
         Set<FlightId> cancelledFlights = new HashSet<>();
+        Set<FlightId> droppedFlights = new HashSet<>();
         for (StoredEvent stored : events) {
             switch (stored.payload()) {
                 case FlightItineraryBooked e -> {
@@ -69,13 +74,18 @@ final class TripOnTheBooks {
                 case FlightChanged e -> legs.put(e.flightId(), new ItineraryLeg(e.flightId(), e.airline(),
                         e.flightNumber(), e.departureAirport(), e.departureDateTime(),
                         e.arrivalAirport(), e.arrivalDateTime()));
-                case FlightCancelled e -> cancelledFlights.add(e.flightId());
+                case FlightCancelled e -> {
+                    cancelledFlights.add(e.flightId());
+                    if (e.cause() == FlightCancellationCause.AIRLINE_SCHEDULE_CHANGE) {
+                        droppedFlights.add(e.flightId());
+                    }
+                }
                 default -> { /* not part of a trip */ }
             }
         }
         FlightItineraryId liveOne = named.stream().filter(id -> !cancelled.contains(id)).findFirst().orElse(null);
         if (liveOne == null) {
-            return new TripOnTheBooks(null, false, !named.isEmpty(), List.of(), List.of());
+            return new TripOnTheBooks(null, false, !named.isEmpty(), List.of(), List.of(), List.of());
         }
         List<ItineraryLeg> members = membersByItinerary.get(liveOne).stream()
                 .map(legs::get)
@@ -83,7 +93,9 @@ final class TripOnTheBooks {
                 .toList();
         return new TripOnTheBooks(liveOne, true, false,
                 members.stream().filter(leg -> !cancelledFlights.contains(leg.flightId())).toList(),
-                members.stream().filter(leg -> cancelledFlights.contains(leg.flightId())).toList());
+                members.stream().filter(leg -> cancelledFlights.contains(leg.flightId())
+                                               && !droppedFlights.contains(leg.flightId())).toList(),
+                members.stream().filter(leg -> droppedFlights.contains(leg.flightId())).toList());
     }
 
     boolean live() {
@@ -101,6 +113,6 @@ final class TripOnTheBooks {
 
     ChangeFlightItineraryContext contextFor(BookFlightContext context) {
         return new ChangeFlightItineraryContext(live, liveMembers, cancelledMembers,
-                context.scheduledLegs(), context.now());
+                droppedMembers, context.scheduledLegs(), context.now());
     }
 }

@@ -176,6 +176,72 @@ class CancelFlightControllerTest {
                 .doesNotContain("placeholder=\"CANCEL\"");
     }
 
+    // -------------------------------------------------------------------------
+    // Returning to the report a fix was launched from, as Cancel Train does
+    // -------------------------------------------------------------------------
+
+    @Test
+    void cancellingFromTheProblemListReturnsToTheProblemList() {
+        UUID flightId = UUID.randomUUID();
+        given(detailsProjector.findById(FlightId.of(flightId)))
+                .willReturn(Optional.of(viewFor(flightId)));
+
+        assertThat(mockMvc.post().uri("/booked-flights/{id}/cancel", flightId)
+                           .param("from", "list")
+                           .with(csrf()))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/schedule-problems?view=list");
+    }
+
+    @Test
+    void aHandEditedOriginCannotRedirectOffTheApp() {
+        UUID flightId = UUID.randomUUID();
+        given(detailsProjector.findById(FlightId.of(flightId)))
+                .willReturn(Optional.of(viewFor(flightId)));
+
+        assertThat(mockMvc.post().uri("/booked-flights/{id}/cancel", flightId)
+                           .param("from", "https://evil.example.com")
+                           .with(csrf()))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/schedule-problems?view=calendar");
+    }
+
+    @Test
+    void aStaleLinkIgnoresTheOriginBecauseNothingWasFixed() {
+        UUID flightId = UUID.randomUUID();
+        given(detailsProjector.findById(FlightId.of(flightId))).willReturn(Optional.empty());
+
+        assertThat(mockMvc.post().uri("/booked-flights/{id}/cancel", flightId)
+                           .param("from", "list")
+                           .with(csrf()))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/booked-flights");
+    }
+
+    @Test
+    void theConfirmationFormCarriesTheOriginThroughThePost() {
+        UUID flightId = UUID.randomUUID();
+        given(detailsProjector.findById(FlightId.of(flightId)))
+                .willReturn(Optional.of(viewFor(flightId)));
+
+        assertThat(mockMvc.get().uri("/booked-flights/{id}/cancel?from=list", flightId))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<input type=\"hidden\" name=\"from\" value=\"list\"");
+    }
+
+    @Test
+    void anOrdinaryVisitRendersNoOriginInput() {
+        UUID flightId = UUID.randomUUID();
+        given(detailsProjector.findById(FlightId.of(flightId)))
+                .willReturn(Optional.of(viewFor(flightId)));
+
+        assertThat(mockMvc.get().uri("/booked-flights/{id}/cancel", flightId))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("name=\"from\"");
+    }
+
     private static FlightDetailsView viewFor(UUID flightId) {
         return new FlightDetailsView(
                 FlightId.of(flightId),

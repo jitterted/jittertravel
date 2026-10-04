@@ -1136,9 +1136,13 @@ Judge the domain and application code, where the plain tests live. The report's 
 Arcmutate Spring plugin can be ignored.
 
 **The Spring tier has its own run, `-Ppit-spring`, before a push and never in the hook** (Ted,
-2026-10-04). It is the complement of the default block: it runs only the `spring` group, writes to
-`target/pit-reports-spring/`, and uses fewer threads and a longer timeout because every mutant boots
-a context (the integration tests also need Docker).
+2026-10-04). It runs the plain tests **and** the `spring` group together (changed the same day: it
+first ran the Spring group alone, which reported every class a plain test covers as having no
+coverage, so its numbers said little). It writes to `target/pit-reports-spring/`, and uses fewer
+threads and a longer timeout because a mutant only a Spring slice reaches boots a context (the
+integration tests also need Docker).
+
+So the two runs are two gates: the default run **before a commit**, this one **before a push**.
 
 ```
 ./mvnw test-compile org.pitest:pitest-maven:mutationCoverage -Ppit-spring \

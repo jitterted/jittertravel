@@ -25,8 +25,9 @@ import java.util.UUID;
  * {@link CancelTrainController} — red button, no typed word, and every miss navigates to
  * {@code /booked-flights} in silence (the list is j2html and cannot render a flash).
  * <p>
- * No problem-context banner and no {@code from} origin yet: {@code ProblemFix} does not link here,
- * so nothing arrives with one. Wiring the overlapping-flights fix link is when both are added.
+ * Reached from an overlapping-travel fix link too, so it carries the problem-context banner and
+ * the {@code from} origin as {@link CancelTrainController} does: only a successful cancel returns
+ * to the report, and a miss goes to the list because nothing was fixed.
  */
 @Controller
 public class CancelFlightController {
@@ -58,7 +59,8 @@ public class CancelFlightController {
 
     @PostMapping("/booked-flights/{flightId}/cancel")
     public String cancelFlight(@PathVariable("flightId") String flightIdString,
-                               @RequestParam(value = "reason", required = false) String reason) {
+                               @RequestParam(value = "reason", required = false) String reason,
+                               @RequestParam(value = "from", required = false) String from) {
         Optional<FlightDetailsView> maybe = lookup(flightIdString);
         if (maybe.isEmpty()) {
             return "redirect:/booked-flights";
@@ -78,7 +80,7 @@ public class CancelFlightController {
             return "redirect:/read-only";
         }
 
-        return "redirect:/booked-flights";
+        return "redirect:" + FixOrigin.returnTo(from).orElse("/booked-flights");
     }
 
     private Optional<FlightDetailsView> lookup(String flightIdString) {

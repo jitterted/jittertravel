@@ -1,10 +1,14 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ScheduleProblem;
+import dev.ted.jittertravel.application.TravelLeg;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.GroundTransferId;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 
@@ -49,6 +53,7 @@ class ProblemContextFragmentConventionTest {
             // A cancel page IS a legitimate fix target — cancel-hotel has been one since the
             // duplicate-hotel fixes shipped — and the banner is what says why Ted is there.
             "/booked-trains/{id}/cancel", "cancel-train.html",
+            "/booked-flights/{id}/cancel", "cancel-flight.html",
             "/ground-transfers/{id}/cancel", "cancel-ground-transfer.html",
             "/clear-conflict", "clear-conflict.html");
 
@@ -178,6 +183,7 @@ class ProblemContextFragmentConventionTest {
                 paths.add(path
                         .replaceFirst("^/booked-hotels/[^/]+/cancel$", "/booked-hotels/{id}/cancel")
                         .replaceFirst("^/booked-trains/[^/]+/cancel$", "/booked-trains/{id}/cancel")
+                        .replaceFirst("^/booked-flights/[^/]+/cancel$", "/booked-flights/{id}/cancel")
                         .replaceFirst("^/ground-transfers/[^/]+/cancel$", "/ground-transfers/{id}/cancel"));
             }
         }
@@ -205,7 +211,22 @@ class ProblemContextFragmentConventionTest {
                                 zoned(LocalDateTime.of(2026, 9, 8, 22, 0), denver)),
                         new ScheduleProblem.ConflictingGathering("Cologne JUG", "Cologne",
                                 zoned(LocalDateTime.of(2026, 9, 8, 20, 0), denver),
-                                zoned(LocalDateTime.of(2026, 9, 8, 23, 0), denver))));
+                                zoned(LocalDateTime.of(2026, 9, 8, 23, 0), denver))),
+                overlap(new TravelLeg.Flight(FlightId.random(), "UA 512"),
+                        new TravelLeg.Train(TrainTripId.random(), "ICE 597")),
+                overlap(new TravelLeg.Transfer(GroundTransferId.random(), "Berlin → hotel"),
+                        new TravelLeg.Flight(FlightId.random(), "UA 514")));
+    }
+
+    private static ScheduleProblem.OverlappingTravel overlap(TravelLeg first, TravelLeg second) {
+        ZoneId berlin = ZoneId.of("Europe/Berlin");
+        return new ScheduleProblem.OverlappingTravel(
+                new ScheduleProblem.OverlappingLeg(first, "Hamburg", "Berlin",
+                        zoned(LocalDateTime.of(2026, 6, 1, 9, 0), berlin),
+                        zoned(LocalDateTime.of(2026, 6, 1, 11, 0), berlin)),
+                new ScheduleProblem.OverlappingLeg(second, "Hamburg", "Berlin",
+                        zoned(LocalDateTime.of(2026, 6, 1, 10, 0), berlin),
+                        zoned(LocalDateTime.of(2026, 6, 1, 12, 0), berlin)));
     }
 
     private static ZonedTimestamp zoned(LocalDateTime local, ZoneId zone) {

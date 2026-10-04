@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
+import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
@@ -83,6 +84,25 @@ class BookedItinerariesProjectorTest {
         assertThat(projector.findContaining(FlightId.random()))
                 .as("Flight that no itinerary names")
                 .isEmpty();
+    }
+
+    @Test
+    void aScheduleChangeReplacesTheMembershipAndEveryFlightStillBelongsToTheTrip() {
+        FlightId added = FlightId.random();
+
+        projector.handle(Stream.of(
+                stored(1, new FlightItineraryBooked(itinerary, "United Airlines", "MD7LKB", List.of(out, back))),
+                stored(2, new FlightItineraryChanged(itinerary, List.of(out, back, added),
+                        "Airline schedule change", Instant.parse("2026-10-03T12:00:00Z")))));
+
+        assertThat(projector.findLive(itinerary))
+                .as("Itinerary after the schedule change")
+                .map(BookedItineraryView::flightIds)
+                .hasValue(List.of(out, back, added));
+        assertThat(projector.findContaining(added))
+                .as("Flight the change added")
+                .map(BookedItineraryView::confirmationCode)
+                .hasValue("MD7LKB");
     }
 
     private static StoredEvent stored(long sequence, Event payload) {

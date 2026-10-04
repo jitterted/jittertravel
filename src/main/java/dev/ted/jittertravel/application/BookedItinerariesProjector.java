@@ -3,6 +3,7 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
+import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -30,6 +31,11 @@ public class BookedItinerariesProjector implements EventStreamConsumer {
                     viewsByItinerary.put(event.itineraryId(),
                             new BookedItineraryView(event.itineraryId(), event.airline(),
                                     event.confirmationCode(), event.flightIds(), false));
+                    event.flightIds().forEach(flightId -> itineraryByFlight.put(flightId, event.itineraryId()));
+                }
+                case FlightItineraryChanged event -> {
+                    viewsByItinerary.computeIfPresent(event.itineraryId(),
+                            (id, view) -> view.withFlights(event.flightIds()));
                     event.flightIds().forEach(flightId -> itineraryByFlight.put(flightId, event.itineraryId()));
                 }
                 case FlightItineraryCancelled event -> viewsByItinerary.computeIfPresent(event.itineraryId(),

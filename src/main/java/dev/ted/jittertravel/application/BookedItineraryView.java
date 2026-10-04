@@ -24,6 +24,10 @@ public record BookedItineraryView(
         flightIds = List.copyOf(flightIds);
     }
 
+    BookedItineraryView withFlights(List<FlightId> changedFlightIds) {
+        return new BookedItineraryView(itineraryId, airline, confirmationCode, changedFlightIds, cancelled);
+    }
+
     BookedItineraryView cancelledNow() {
         return new BookedItineraryView(itineraryId, airline, confirmationCode, flightIds, true);
     }

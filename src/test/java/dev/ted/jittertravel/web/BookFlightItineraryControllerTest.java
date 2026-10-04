@@ -6,7 +6,10 @@ import dev.ted.jittertravel.application.PastedItinerary;
 import dev.ted.jittertravel.application.ReadOnlyModeException;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.BookFlightItineraryCommand;
+import dev.ted.jittertravel.domain.ChangeFlightItineraryCommand;
+import dev.ted.jittertravel.domain.ChangeFlightItineraryContext;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
+import dev.ted.jittertravel.domain.ScheduledLegs;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.ItineraryLeg;
@@ -296,6 +299,67 @@ class BookFlightItineraryControllerTest {
                 .param("action", "preview")
                 .with(csrf())
                 .exchange();
+    }
+
+    @Test
+    void aScheduleChangeIsPreviewedAsADiffAndOffersToApplyIt() {
+        given(itineraryBooking.evaluate(anyString(), any(), any(), any(), any()))
+                .willReturn(scheduleChange(LocalDateTime.of(2026, 10, 18, 7, 10)));
+
+        assertThat(preview())
+                .hasStatusOk()
+                .bodyText()
+                .contains("<tr class=\"leg-moved\">")
+                .contains("<span class=\"leg-status\">Moved</span>")
+                .contains("<span class=\"leg-was\">Sun, Oct 18, 6:10 AM</span>")
+                .doesNotContain("Was departs")
+                .contains("<button type=\"submit\" name=\"action\" value=\"book\">Apply schedule change</button>")
+                .doesNotContain("Book 1 flights");
+    }
+
+    @Test
+    void aScheduleChangeWithNothingDifferentSaysSoAndOffersNoButton() {
+        given(itineraryBooking.evaluate(anyString(), any(), any(), any(), any()))
+                .willReturn(scheduleChange(LEG.departureLocal()));
+
+        assertThat(preview())
+                .hasStatusOk()
+                .bodyText()
+                .contains("<strong>Nothing to change:</strong>")
+                .doesNotContain("value=\"book\"");
+    }
+
+    @Test
+    void applyingAScheduleChangeGoesBackToTheFlightsList() {
+        given(itineraryBooking.book(any(), anyString(), any(), any(), any(), any()))
+                .willReturn(scheduleChange(LocalDateTime.of(2026, 10, 18, 7, 10)));
+
+        assertThat(mockMvc.post().uri("/book-flight/itinerary")
+                           .param("itineraryId", ITINERARY_ID)
+                           .param("pasted", "Confirmation Number: MD7LKB")
+                           .param("action", "book")
+                           .with(csrf()))
+                .hasStatus3xxRedirection()
+                .headers()
+                .hasValue("Location", "/booked-flights");
+    }
+
+    private static ItineraryEvaluation scheduleChange(LocalDateTime newDeparture) {
+        ZoneId pacific = ZoneId.of("America/Los_Angeles");
+        ZoneId chicago = ZoneId.of("America/Chicago");
+        FlightId flightId = FlightId.of(UUID.randomUUID());
+        ItineraryLeg booked = new ItineraryLeg(flightId, "United Airlines", "UA2091",
+                AirportCode.of("SFO"), ZonedTimestamp.fromLocal(LEG.departureLocal(), pacific),
+                AirportCode.of("ORD"), ZonedTimestamp.fromLocal(LEG.arrivalLocal(), chicago));
+        ItineraryLeg pasted = new ItineraryLeg(FlightId.of(UUID.randomUUID()), "United Airlines", "UA2091",
+                AirportCode.of("SFO"), ZonedTimestamp.fromLocal(newDeparture, pacific),
+                AirportCode.of("ORD"), ZonedTimestamp.fromLocal(LEG.arrivalLocal(), chicago));
+        ChangeFlightItineraryCommand command = new ChangeFlightItineraryCommand(
+                FlightItineraryId.of(UUID.randomUUID()), List.of(pasted));
+        ChangeFlightItineraryContext context = new ChangeFlightItineraryContext(true, List.of(booked), List.of(),
+                ScheduledLegs.none(), Instant.parse("2026-10-03T12:00:00Z"));
+        return new ItineraryEvaluation(List.of(), "MD7LKB", List.of(), List.of(), null, false,
+                new ItineraryEvaluation.ScheduleChange(command, context, command.plan(context)));
     }
 
     private MvcTestResult previewWithPick(String airport, String zone) {

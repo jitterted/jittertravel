@@ -4,6 +4,8 @@ import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.BookFlightContext;
 import dev.ted.jittertravel.domain.BookFlightItineraryCommand;
+import dev.ted.jittertravel.domain.ChangeFlightItineraryCommand;
+import dev.ted.jittertravel.domain.ChangeFlightItineraryContext;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryId;
@@ -78,6 +80,9 @@ public class FlightItineraryBooking {
         ItineraryEvaluation evaluation = evaluate(pasted, airportZones, itineraryId, newFlightId, context);
         if (evaluation.bookable()) {
             commandExecutor.execute(itineraryId.id(), request, context, evaluation.command());
+        } else if (evaluation.changeable()) {
+            ItineraryEvaluation.ScheduleChange change = evaluation.scheduleChange();
+            commandExecutor.execute(itineraryId.id(), request, change.context(), change.command());
         }
         return evaluation;
     }
@@ -136,10 +141,26 @@ public class FlightItineraryBooking {
                     List.copyOf(unresolved), null);
         }
 
+        List<ItineraryLeg> pastedLegs = itinerary.legs().stream()
+                .map(leg -> resolved(leg, zones, newFlightId))
+                .toList();
+        TripOnTheBooks booked = TripOnTheBooks.fold(commandExecutor.eventsForDecision().toList(),
+                itinerary.confirmationCode());
+        if (booked.cancelledOnly()) {
+            return ItineraryEvaluation.unparseable(List.of("Itinerary " + itinerary.confirmationCode()
+                                                           + " was cancelled; it cannot be changed"));
+        }
+        if (booked.live()) {
+            ChangeFlightItineraryCommand change = new ChangeFlightItineraryCommand(booked.itineraryId(), pastedLegs);
+            ChangeFlightItineraryContext changeContext = booked.contextFor(context);
+            return ItineraryEvaluation.scheduleChange(itinerary.confirmationCode(),
+                    new ItineraryEvaluation.ScheduleChange(change, changeContext, change.plan(changeContext)));
+        }
+
         String airline = itinerary.legs().getFirst().airline();
         BookFlightItineraryCommand command = new BookFlightItineraryCommand(itineraryId, airline,
                 itinerary.confirmationCode(),
-                itinerary.legs().stream().map(leg -> resolved(leg, zones, newFlightId)).toList());
+                pastedLegs);
         try {
             // A dry run of the real rules: execute() is pure, and writes nothing until the executor.
             command.execute(context).toList();

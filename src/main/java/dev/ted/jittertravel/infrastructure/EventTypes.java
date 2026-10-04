@@ -12,6 +12,7 @@ import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
+import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringPlanned;
@@ -102,6 +103,7 @@ public final class EventTypes {
         register("FlightCancelled", FlightCancelled.class);
         register("FlightItineraryBooked", FlightItineraryBooked.class);
         register("FlightItineraryCancelled", FlightItineraryCancelled.class);
+        register("FlightItineraryChanged", FlightItineraryChanged.class);
         register("TrainBooked", TrainBooked.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("TrainChanged", TrainChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
         register("TrainCancelled", TrainCancelled.class);

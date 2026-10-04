@@ -33,6 +33,30 @@
         .legs td { padding: 8px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
         .legs .when { white-space: nowrap; }
         .legs tr.refused td { background: #fdecec; }
+        .schedule-change { font-size: 0.9rem; }
+        /*
+           A diff row is tinted and wears a 4px left edge: yellow moved, green added, peach removed.
+           A refused row keeps the red wash and takes a red edge, so a refusal always wins.
+           The old value of a moved leg is struck through above the new one in its own cell.
+        */
+        .legs td:first-child { border-left: 4px solid transparent; }
+        .leg-status {
+            display: block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .leg-was { display: block; font-size: 0.8rem; color: var(--muted-text); text-decoration: line-through; }
+        .legs tr.leg-unchanged td { color: var(--muted-text); }
+        .legs tr.leg-unchanged .leg-status { display: none; }
+        .legs tr.leg-moved td { background: #fff8d6; }
+        .legs tr.leg-moved td:first-child { border-left-color: #e0b100; }
+        .legs tr.leg-moved .leg-status { color: #8a6d00; }
+        .legs tr.leg-added td { background: #eaf5ea; }
+        .legs tr.leg-added td:first-child { border-left-color: #2e7d32; }
+        .legs tr.leg-added .leg-status { color: #2e7d32; }
+        .legs tr.leg-removed td { background: #ffe9dc; color: #7a3b1d; }
+        .legs tr.leg-removed td:first-child { border-left-color: #e8895a; }
+        .legs tr.leg-removed .route, .legs tr.leg-removed .when { text-decoration: line-through; }
+        .legs tr.refused td:first-child { border-left-color: #b00; }
         .actions { display: flex; gap: 1rem; align-items: center; margin-top: 1rem; }
         .confirmation { font-size: 0.9rem; color: var(--muted-text); }
     </style>
@@ -98,17 +122,42 @@
             <p class="confirmation" th:if="${!preview.confirmationCode().isEmpty()}">
                 Confirmation <strong th:text="${preview.confirmationCode()}">MD7LKB</strong>
             </p>
+            <p class="schedule-change" th:if="${preview.scheduleChange()}">
+                This confirmation is already booked, so this is a <strong>schedule change</strong>.
+                Nothing is written until you apply it.
+            </p>
+            <p class="schedule-change" th:if="${preview.nothingToChange()}">
+                <strong>Nothing to change:</strong> every flight in this email matches what is booked.
+            </p>
             <table class="legs">
                 <thead>
                 <tr><th>#</th><th>Flight</th><th>Route</th><th>Departs</th><th>Arrives</th></tr>
                 </thead>
                 <tbody>
-                <tr th:each="row : ${preview.rows()}" th:classappend="${row.hasProblem()} ? 'refused'">
-                    <td th:text="${row.number()}">1</td>
-                    <td th:text="${row.flightNumber()}">UA2091</td>
-                    <td th:text="${row.route()}">SFO→ORD</td>
-                    <td class="when" th:text="${row.departs()}">Sun, Oct 18, 6:10 AM</td>
+                <tr th:each="row : ${preview.rows()}"
+                    th:classappend="${row.hasProblem()} ? 'refused' : (${row.hasStatus()} ? ('leg-' + ${row.statusClass()}))">
+                    <td th:text="${row.number() > 0 ? row.number() : '–'}">1</td>
+                    <td th:if="${!row.hasStatus()}" th:text="${row.flightNumber()}">UA2091</td>
+                    <td th:if="${row.hasStatus()}">
+                        <span class="leg-was" th:if="${row.before().hasFlightNumber()}"
+                              th:text="${row.before().flightNumber()}">UA2090</span>
+                        <span th:text="${row.flightNumber()}">UA2091</span>
+                        <span class="leg-status" th:text="${row.status()}">Moved</span>
+                    </td>
+                    <td th:if="${!row.hasStatus()}" th:text="${row.route()}">SFO→ORD</td>
+                    <td class="route" th:if="${row.hasStatus()}">
+                        <span class="leg-was" th:if="${row.before().hasRoute()}"
+                              th:text="${row.before().route()}">SFO→ORD</span>
+                        <span th:text="${row.route()}">SFO→ORD</span>
+                    </td>
                     <td class="when">
+                        <span class="leg-was" th:if="${row.before().hasDeparts()}"
+                              th:text="${row.before().departs()}">Sun, Oct 18, 5:10 AM</span>
+                        <span th:text="${row.departs()}">Sun, Oct 18, 6:10 AM</span>
+                    </td>
+                    <td class="when">
+                        <span class="leg-was" th:if="${row.before().hasArrives()}"
+                              th:text="${row.before().arrives()}">Sun, Oct 18, 11:45 AM</span>
                         <span th:text="${row.arrives()}">Sun, Oct 18, 12:45 PM</span>
                         <span class="error" th:if="${row.hasProblem()}" th:text="${row.problem()}">Already departed</span>
                         <a class="overlap-link" th:if="${row.hasLink()}" th:href="${row.linkPath()}"
@@ -126,6 +175,8 @@
             <button type="submit" name="action" value="book"
                     th:if="${preview != null and preview.bookable()}"
                     th:text="|Book ${preview.legCount()} flights|">Book 4 flights</button>
+            <button type="submit" name="action" value="book"
+                    th:if="${preview != null and preview.changeable()}">Apply schedule change</button>
         </div>
     </form>
 

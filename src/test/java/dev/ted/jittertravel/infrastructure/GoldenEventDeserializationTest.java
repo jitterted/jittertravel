@@ -13,6 +13,7 @@ import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
+import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringPlanned;
@@ -1387,6 +1388,34 @@ class GoldenEventDeserializationTest {
 
         assertThat(event.reason())
                 .isEqualTo("");
+    }
+
+    @Test
+    void flightItineraryChangedDeserializesWithItsMembership() {
+        String json = """
+                {
+                  "itineraryId": {"id": "99999999-9999-9999-9999-999999999999"},
+                  "flightIds": [
+                    {"id": "11111111-1111-1111-1111-111111111111"},
+                    {"id": "22222222-2222-2222-2222-222222222222"}
+                  ],
+                  "reason": "Airline schedule change",
+                  "changedOn": "2026-10-03T12:00:00Z"
+                }
+                """;
+
+        FlightItineraryChanged event = deserialize(json, FlightItineraryChanged.class);
+
+        assertThat(event.itineraryId().id())
+                .isEqualTo(UUID.fromString("99999999-9999-9999-9999-999999999999"));
+        assertThat(event.flightIds())
+                .extracting(FlightId::id)
+                .containsExactly(UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                        UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        assertThat(event.reason())
+                .isEqualTo("Airline schedule change");
+        assertThat(event.changedOn())
+                .isEqualTo(Instant.parse("2026-10-03T12:00:00Z"));
     }
 
     private static <T> T deserialize(String json, Class<T> type) {

@@ -84,7 +84,7 @@ public class BookFlightItineraryController {
                 log.warn("Attempted to book a flight itinerary while in read-only mode", e);
                 return "redirect:/read-only";
             }
-            if (evaluation.bookable() || evaluation.alreadyBooked()) {
+            if (evaluation.bookable() || evaluation.changeable() || evaluation.alreadyBooked()) {
                 return "redirect:/booked-flights";
             }
         } else {

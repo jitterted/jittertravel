@@ -3,8 +3,9 @@
 Planned 2026-09-29 (Ted). **Part 0 (Cancel Flight) shipped 2026-09-29. Part 1 (YOW) and Part 2
 slices (a), (b) and (e) — paste, preview, book, unknown-airport zone picker — shipped 2026-09-30.
 Slice (c), cancel itinerary, shipped 2026-10-02 (see "Slice (c) as built" under Part 2).**
-Still open: Part 2 (d) schedule change, and from Part 0 the `ProblemFix` link for a flight in an
-overlap (deferred on purpose, below).
+**Slice (d), schedule change by paste, built 2026-10-03 (see "Slice (d) as built"); not yet seen on
+the iPad.** Still open: from Part 0 the `ProblemFix` link for a flight in an overlap (deferred on
+purpose, below).
 
 Prompted by Ted, 2026-09-29: *"how hard would it be to retrieve flight bookings from United
 airlines using my booking confirmation code?"* The answer was that no API exists for that, so the
@@ -111,7 +112,38 @@ production backup has no `YOW`, so no stored flight's replay can change.
 
 ---
 
-## Part 2: itineraries (slices a, b, e shipped 2026-09-30; c shipped 2026-10-02; d not started)
+## Part 2: itineraries (slices a, b, e shipped 2026-09-30; c shipped 2026-10-02; d built 2026-10-03)
+
+**Slice (d) as built (2026-10-03), and where it differs from section 7.**
+- **Same page, no new route.** `/book-flight/itinerary` decides after parsing: the paste's code names a
+  live itinerary (folded from the stream, `TripOnTheBooks`) ⇒ the preview is a diff and the button is
+  "Apply schedule change". The form's minted id is the command id, as for a booking.
+- **Decisions (Ted, 2026-10-03), each asked with an example:**
+  1. A pasted leg that matches a leg **cancelled on its own earlier** is **refused** (`LegCancelledEarlier`),
+     not re-added: cancelling cannot be undone, so Ted sorts it out by hand.
+  2. A **flown** leg must be in the paste with the same times, else the whole change is refused
+     (`FlownLegContradicted`: "times differ" or "left out"). History is not revised.
+  3. A paste identical to what is booked says **"Nothing to change"** and shows no button; the command
+     throws `FlightItineraryUnchanged` rather than record an empty change.
+- **Domain.** `ChangeFlightItineraryCommand(itineraryId, pastedLegs)` computes an `ItineraryChangePlan`
+  (per leg: UNCHANGED / CHANGED / ADDED / REMOVED, each with its own refusal) that the preview shows and
+  `execute` writes, so the page cannot promise what the command refuses. Matching: flight number + local
+  departure day, then route, earliest booked leg wins a tie. Rules for a changed or added leg are the
+  booking rules, except the itinerary's own old legs are not collisions, and the pasted legs must not
+  overlap each other. All refusals are reported together.
+- **Event.** `FlightItineraryChanged(itineraryId, flightIds, reason, changedOn)` (golden sample). The
+  snapshot lists **every** flight in the trip in departure order, **including legs the change cancelled**,
+  so `/booked-flights` keeps showing a cancelled leg as part of its trip ("leg 2 of 3") exactly as a leg
+  cancelled on its own already is. `changedOn` was added to the plan's shape because a displayed time is a
+  payload field (R11). No new private value, so no redaction case.
+- **Consumers.** `BookedItinerariesProjector` (membership), `CancelFlightItinerary` (reads the latest
+  membership). `FlightTrips` needed nothing.
+- **Named limits.** (a) A leg the airline dropped in one change and **reinstates** in a later email is
+  refused by decision 1, because the fold cannot tell "cancelled by a change" from "cancelled by hand". (b)
+  A paste for a **cancelled** itinerary's code is now refused ("cancelled; it cannot be changed") where it
+  used to book a new trip, per section 7. (c) Not seen on the iPad. The diff's look is Ted's pick of mockup B
+  (2026-10-04): a tinted row with a 4px left edge, light yellow Moved, green Added, peach struck-through
+  Removed (not pink, which the red refusal wash already is), muted Unchanged, and a moved leg's old value struck through above the new one in its own cell.
 
 **Slice (c) as built (2026-10-02), and where it differs from the design below.**
 - **Domain.** `FlightItineraryCancelled(itineraryId, reason, cancelledOn)`, registered at schema_version

@@ -58,6 +58,8 @@ class AdminCalendarFeedPageTest {
     LegacyEventMigration legacyEventMigration;
     @MockitoBean
     BrevoEmailClient brevoEmailClient;
+    @MockitoBean
+    FamilyTestMemory familyTestMemory;
 
     @Test
     void rendersSubscribeAndBothProbeLinksCarryingTheToken() {

@@ -418,7 +418,7 @@ Brevo rejects as a malformed address and would turn a missing optional into a `F
 
 ```
 POST https://api.brevo.com/v3/smtp/email
-api-key: <BREVO_API_KEY>
+api-key: <JITTERTRAVEL_BREVO_API_KEY>
 content-type: application/json
 
 {"sender":  {"name":"JitterTravel","email":"notifications@jittertravel.com"},
@@ -787,7 +787,7 @@ Runtime configuration is only:
 
 | Property (`application.properties`) | Env var | Default | Purpose |
 |---|---|---|---|
-| `jittertravel.family-notify.api-key` | `BREVO_API_KEY` | *(blank)* | secret; blank ⇒ no-op with a warning |
+| `jittertravel.family-notify.api-key` | `JITTERTRAVEL_BREVO_API_KEY` *(was `BREVO_API_KEY` until 2026-10-05; renamed because another app's plain `BREVO_API_KEY` was picked up locally)* | *(blank)* | secret; blank ⇒ no-op with a warning |
 | `jittertravel.family-notify.recipient` | `FAMILY_NOTIFY_EMAIL` | *(blank)* | the single recipient; blank ⇒ no-op |
 | `jittertravel.family-notify.reply-to` | `TED_REPLY_EMAIL` | *(blank)* | `replyTo`; blank ⇒ replies land in the unattended sender mailbox |
 | `jittertravel.family-notify.enabled` | `FAMILY_NOTIFY_ENABLED` | `false` | kill switch, no deploy needed |
@@ -1047,7 +1047,7 @@ Named here rather than discovered later, per the standing "name the losses out l
   2026-09-12 its *event state* is not, which changes nothing here), so every test that books a
   flight will reach the translator. Two
   independent gates stop it there, both at their defaults: `jittertravel.family-notify.enabled` is
-  `false`, and `BREVO_API_KEY` is blank — the `AeroDataBoxClient` idiom. Either alone means no
+  `false`, and `JITTERTRAVEL_BREVO_API_KEY` is blank — the `AeroDataBoxClient` idiom. Either alone means no
   request **and** no `FamilyNotified` appended, since the event records a successful send. Nothing
   to opt out of and no test fixture to remember.
   *One thing to expect rather than debug (2026-09-10): the integration tests get the **real**
@@ -1132,6 +1132,29 @@ Built with slice 1a, shipping dark. Everything in the list above exists except w
   one: every `Event` class in `domain` must be in `TELLS_FAMILY` or in `SILENT` with a reason. Adding
   an event class fails it until someone decides. It pins the decision, not the behaviour; the
   translator test owns the behaviour.
+- **The test control is a setup checklist in a left column of `/admin`, built from an approved
+  mockup (2026-10-05), not the one-line button §4.6 first described.** Ted's feedback on the first
+  version: it did not look like a button (it borrowed `--accent-color` from `site.css`, which
+  `admin-home.html` does not load, so it was white text on nothing), its text was centred, and the
+  result was too quiet to notice. Now: a three-step checklist (key and recipient set, test email
+  sent, switch on) whose steps tick themselves, the test inside the second row, which turns green
+  or amber and flashes once after the click; the last result is remembered **in memory until
+  restart** (`FamilyTestMemory`, a bean so tests get a fresh one), shown in the viewer's zone from
+  the `viewerZone` cookie. **Once the switch is on the test step counts as done**, because a restart
+  forgets the test and a finished checklist must not slip backwards. When all three are done the
+  column says "Tell Claude this is set up and tested, and this checklist can be deleted"; deleting
+  is removing the `SetupChecklist` from the model. It is the "derivable checks" step of
+  `PostDeployTaskBannerPlan.md` in miniature: that registry's tasks are ticked by hand, this one's
+  tick themselves. Mockups: https://claude.ai/artifact/4gm4UKvfJKDDfFBaKnFifY (the three result
+  treatments; B was chosen) and https://claude.ai/artifact/Xu3i63jGMKTdCbWKVqedxA (placement X).
+  Verified by screenshots of the rendered page in headless Chrome. **Its first click sent a
+  logged-in user to `/login?expired`, and the cause was not the probe at all:** a successful login
+  clears the CSRF cookie, Spring writes it again only when a page reads the token (its first form),
+  and a page larger than the response buffer starts sending before that, so the form carried a token
+  whose cookie never existed. `/admin` and the home page were the first large pages after login; every
+  other form worked because a small page had already minted the cookie. Fixed at the root with
+  `CsrfCookieFilter` (reads the token at the start of every request), not with a Thymeleaf flag; see
+  its javadoc, `CsrfCookieFilterTest` and `FamilyNotifyProbeCsrfTest`.
 - **A fourth place says "no events were written":** `timeline-commands.html` titles an abandoned
   command that way. It stays true (an abandoned notification wrote no event), so it was left alone;
   the three the plan named were amended.
@@ -1357,7 +1380,7 @@ reader would act on. **Answered: fix CLAUDE.md now**, in the same commit as this
 - [x] **SPF and DKIM DNS records** published for `jittertravel.com` and verified in Brevo.
       *Skipped ⇒ mail is accepted by the API and lands in spam, which looks exactly like the feature
       not working.* **Done 2026-09-18.**
-- [ ] `BREVO_API_KEY` set on the **app** Railway service (secret; variables are scoped per service).
+- [ ] `JITTERTRAVEL_BREVO_API_KEY` (renamed from `BREVO_API_KEY`) set on the **app** Railway service (secret; variables are scoped per service).
 - [ ] `FAMILY_NOTIFY_EMAIL` set on the app service — **Ted's own address for the first rollout**.
       Run the probe (§4.6) from `/admin`, read the mail, check it is not in spam. *Skipped ⇒ the
       first email family ever get is also the first anyone has seen, and a typo sends travel detail
@@ -1382,11 +1405,11 @@ the second is exactly how `REMEMBER_ME_KEY`, `CALENDAR_FEED_TOKEN` and `JITTERTR
 all missing from that table on 2026-09-09.
 
 - [ ] Four rows in the variables table (currently at `DEPLOYMENT.md:168`), each saying what happens
-      when it is **absent**: `BREVO_API_KEY` (optional, secret — unset ⇒ no mail, warning logged);
+      when it is **absent**: `JITTERTRAVEL_BREVO_API_KEY` (optional, secret — unset ⇒ no mail, warning logged);
       `FAMILY_NOTIFY_EMAIL` (optional — unset ⇒ no mail); `TED_REPLY_EMAIL` (optional — unset ⇒
       replies reach nobody); `FAMILY_NOTIFY_ENABLED` (optional, default `false` — unset ⇒ feature
       off).
-- [ ] `BREVO_API_KEY` added to the **secrets** note below that table (`DEPLOYMENT.md:177`), beside
+- [ ] `JITTERTRAVEL_BREVO_API_KEY` added to the **secrets** note below that table (`DEPLOYMENT.md:177`), beside
       `AERODATABOX_API_KEY`.
 - [ ] Note that all four have **empty defaults**, so the app boots happily with the feature silently
       off — the `CALENDAR_FEED_TOKEN` failure shape, not the `TED_PASSWORD` one. That is the right

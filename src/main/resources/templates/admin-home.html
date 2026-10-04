@@ -20,6 +20,16 @@
             --border: rgba(0, 0, 0, 0.10);
             --border-hover: rgba(0, 0, 0, 0.22);
             --radius: 14px;
+            --accent: #4f46e5;
+            --accent-fg: #ffffff;
+            --ok-bg: #dcfce7;
+            --ok-fg: #14532d;
+            --ok-edge: #16a34a;
+            --warn-bg: #fef3c7;
+            --warn-fg: #78350f;
+            --warn-edge: #d97706;
+            --idle-bg: #eceef5;
+            --idle-fg: #4a5164;
             --font: 'League Spartan', ui-sans-serif, system-ui, sans-serif;
         }
 
@@ -111,26 +121,80 @@
             font-size: 0.8rem;
             color: var(--muted-text);
         }
-        .probe-error {
-            margin: 0.6rem 0 0;
-            padding: 0.4rem 0.6rem;
-            border-radius: 6px;
-            background: #fef3c7;
-            color: #92400e;
-            font-size: 0.85rem;
+        /* The setup checklist: the approved mockup, placement X
+           (https://claude.ai/artifact/Xu3i63jGMKTdCbWKVqedxA). A left column beside the page that
+           holds temporary setup tasks until they are finished and deleted. This page does not load
+           site.css, so every colour it uses is defined in :root above and nowhere else — the first
+           version of the test button borrowed --accent-color from site.css, which is not here, and
+           rendered as white text on nothing. Everything inside is left-aligned: the page's hero
+           centres, and a checklist read down a column must not. */
+        .layout {
+            flex: 1;
+            display: grid;
+            grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+            gap: 1.5rem;
+            align-items: start;
+            padding: 1.5rem 1.5rem 0;
         }
-        /* A border and a fill, so it reads as a button at rest rather than on hover. */
-        .probe-button {
-            margin-top: 0.6rem;
-            padding: 0.4rem 0.8rem;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            background: var(--header-bg);
-            color: var(--text-primary);
+        .layout.no-setup { grid-template-columns: minmax(0, 1fr); }
+        @media (max-width: 760px) {
+            .layout { grid-template-columns: minmax(0, 1fr); }
+        }
+        .setup {
+            text-align: left;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 6px solid var(--accent);
+            border-radius: 8px;
+            padding: 0.8rem 0.9rem;
+            min-width: 0;
+        }
+        .setup.done { border-left-color: var(--ok-edge); }
+        .setup-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+        .setup-title { font-weight: 700; font-size: 1.05rem; }
+        .setup-count { font-size: 0.8rem; font-weight: 650; padding: 0.1rem 0.6rem; border-radius: 999px; background: var(--idle-bg); color: var(--idle-fg); }
+        .setup-count.ok { background: var(--ok-bg); color: var(--ok-fg); }
+        .setup-sub { color: var(--text-secondary); font-size: 0.88rem; margin: 0.1rem 0 0.7rem; }
+        .setup-rows { display: grid; gap: 0.5rem; }
+        .setup-row { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 0.55rem; align-items: start; padding: 0.55rem 0.7rem; border: 1px solid var(--border); border-radius: 8px; }
+        .setup-mark { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 0.78rem; background: var(--idle-bg); color: var(--idle-fg); }
+        .setup-row.ok { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-edge); }
+        .setup-row.ok .setup-mark { background: var(--ok-edge); color: #fff; }
+        .setup-row.warn { background: var(--warn-bg); color: var(--warn-fg); border-color: var(--warn-edge); }
+        .setup-row.warn .setup-mark { background: var(--warn-edge); color: #fff; }
+        .setup-what { font-weight: 650; font-size: 0.95rem; }
+        .setup-why { font-size: 0.85rem; margin-bottom: 0.4rem; overflow-wrap: anywhere; }
+        .setup-row.idle .setup-why { color: var(--text-secondary); }
+        /* What to do about it, on its own line so the state and the action are not run together. */
+        .setup-next { font-size: 0.85rem; margin-bottom: 0.45rem; overflow-wrap: anywhere; }
+        .setup-next b { font-weight: 700; }
+        .setup-row form { margin-top: 0.1rem; }
+        /* A solid accent fill with white text, so it reads as a button at rest; the secondary one
+           is the same shape with a thick border, for "do it again" beside a result. */
+        .setup-button {
+            border: 2px solid var(--accent);
+            border-radius: 7px;
+            background: var(--accent);
+            color: var(--accent-fg);
             font: inherit;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
+            font-weight: 650;
+            padding: 0.5rem 0.85rem;
+            text-align: left;
+            max-width: 100%;
             cursor: pointer;
         }
+        .setup-button.secondary { background: transparent; color: var(--accent); }
+        .setup-button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+        .setup-finish { margin-top: 0.7rem; padding: 0.7rem 0.8rem; border-radius: 8px; background: var(--ok-bg); color: var(--ok-fg); border: 1px solid var(--ok-edge); font-size: 0.9rem; }
+        .setup-finish b { display: block; font-size: 1rem; margin-bottom: 0.15rem; }
+        .setup-handoff { display: block; margin-top: 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.55rem; }
+        /* One-shot highlight on the result, so the eye lands on what just changed. */
+        .flash { animation: flash-ok 1.8s ease-out 1; }
+        .setup-row.warn.flash { animation-name: flash-warn; }
+        @keyframes flash-ok { 0% { box-shadow: 0 0 0 6px var(--ok-edge); transform: scale(1.02); } 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); } }
+        @keyframes flash-warn { 0% { box-shadow: 0 0 0 6px var(--warn-edge); transform: scale(1.02); } 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); } }
+        @media (prefers-reduced-motion: reduce) { .flash, .setup-row.warn.flash { animation: none; } }
         .probe-values {
             display: grid;
             grid-template-columns: max-content 1fr;
@@ -184,6 +248,40 @@
     </style>
 </head>
 <body>
+
+<div class="layout" th:classappend="${setup == null} ? 'no-setup'">
+
+<!--/* The setup column. Present only while a setup task is declared (a SetupChecklist in the model);
+       when the task is finished and deleted it simply is not there, and the page is as it was. */-->
+<aside class="setup" th:if="${setup != null}" th:classappend="${setup.finished()} ? 'done'"
+       aria-label="Setup checklist">
+    <div class="setup-head">
+        <span class="setup-title" th:text="${setup.title()}">Setting up: family email</span>
+        <span class="setup-count" th:classappend="${setup.finished()} ? 'ok'" th:text="${setup.count()}">1 of 3 done</span>
+    </div>
+    <p class="setup-sub" th:text="${setup.subtitle()}">Temporary. Goes away once it is finished.</p>
+    <div class="setup-rows">
+        <div class="setup-row" th:each="step : ${setup.steps()}" th:classappend="${step.cssClass()}">
+            <span class="setup-mark" aria-hidden="true" th:text="${step.mark()}">1</span>
+            <div>
+                <div class="setup-what" th:text="${step.what()}">Key and recipient set</div>
+                <div class="setup-why" th:if="${step.hasWhy()}" th:text="${step.why()}">Why.</div>
+                <div class="setup-next" th:if="${step.hasNext()}">
+                    <b>Next:</b> <span th:text="${step.next()}">What to do.</span>
+                </div>
+                <form th:if="${step.hasButton()}" th:action="@{${step.buttonAction()}}" method="post">
+                    <button type="submit" class="setup-button" th:classappend="${step.buttonSecondary()} ? 'secondary'"
+                            th:text="${step.buttonLabel()}">Send a test email</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="setup-finish" th:if="${setup.finished()}" th:classappend="${setup.highlightFinished()} ? 'flash'">
+        <b th:text="${setup.finishedHeadline()}">All done.</b>
+        <span th:text="${setup.finishedAdvice()}">Tell Claude this is set up and tested, and this checklist can be deleted.</span>
+        <span class="setup-handoff" th:text="${setup.finishedHandoff()}">Family email is set up and tested. Delete the setup checklist.</span>
+    </div>
+</aside>
 
 <main class="hero">
     <h1>Admin</h1>
@@ -301,19 +399,6 @@
            its header — both read the same — so amber would cry wolf every day locally and stop
            being read in the one place it matters. Colouring only the unambiguous HTTPS_HEADER_IGNORED
            state was considered and is Ted's call, not a tidy-up. */-->
-    <!--/* The family-email probe: leads with the verdict, the address a test would go to is on the
-           button itself so it is visible before the click, and a failure is amber because it is
-           something to look at, not something destroyed. */-->
-    <section class="probe" aria-label="Family email">
-        <p class="probe-summary" th:text="${familyNotify.summary()}">Family email is off.</p>
-        <p class="probe-detail" th:text="${familyNotify.explanation()}">Explanation.</p>
-        <p class="probe-detail" th:if="${familyProbeMessage}" th:text="${familyProbeMessage}">Sent.</p>
-        <p class="probe-error" th:if="${familyProbeError}" th:text="${familyProbeError}">Failed.</p>
-        <form th:if="${familyNotify.configured()}" th:action="@{/admin/family-notify/probe}" method="post">
-            <button type="submit" class="probe-button">Send a test email to <span th:text="${familyNotify.recipient()}">family@example.com</span></button>
-        </form>
-    </section>
-
     <section class="probe" aria-label="Cookie transport">
         <p class="probe-summary" th:text="${secureCookieProbe.summary()}">Cookies are marked Secure.</p>
         <p class="probe-detail" th:text="${secureCookieProbe.explanation()}">Explanation.</p>
@@ -328,6 +413,8 @@
         </dl>
     </section>
 </main>
+
+</div>
 
 <footer>
     <a href="/">← JitterTravel</a>

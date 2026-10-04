@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.BackupService;
 import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.LegacyEventMigration;
+import dev.ted.jittertravel.application.ViewerTodayZone;
 import dev.ted.jittertravel.infrastructure.BrevoEmailClient;
 import dev.ted.jittertravel.infrastructure.FamilyMessage;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
@@ -14,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,12 +24,16 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
 @Controller
 @RequestMapping("/admin")
 public class AdminController {
+
+    /** The flash attribute that says this page is the one right after a test, so its result flashes. */
+    private static final String JUST_TESTED = "justTested";
 
     private static final FamilyMessage FAMILY_PROBE_MESSAGE = new FamilyMessage(
             "JitterTravel test email",
@@ -43,14 +49,20 @@ public class AdminController {
     private final String baseUrl;
     private final BrevoEmailClient brevo;
     private final boolean familyNotifyEnabled;
+    private final ViewerTodayZone viewerZone;
+    private final FamilyEmailSetup familySetup = new FamilyEmailSetup();
+    private final FamilyTestMemory testMemory;
 
     public AdminController(BackupService backupService, PostgresPersister persister,
                            LegacyEventMigration legacyEventMigration,
                            BackupSource backupSource, Clock clock,
-                           BrevoEmailClient brevo,
+                           BrevoEmailClient brevo, FamilyTestMemory testMemory,
                            @Value("${jittertravel.calendar-feed.token:}") String feedToken,
                            @Value("${jittertravel.base-url:}") String baseUrl,
-                           @Value("${jittertravel.family-notify.enabled:false}") boolean familyNotifyEnabled) {
+                           @Value("${jittertravel.family-notify.enabled:false}") boolean familyNotifyEnabled,
+                           @Value("${jittertravel.today.fallback-zone:America/Los_Angeles}") String fallbackZone) {
+        this.viewerZone = new ViewerTodayZone(ZoneId.of(fallbackZone));
+        this.testMemory = testMemory;
         this.backupService = backupService;
         this.persister = persister;
         this.legacyEventMigration = legacyEventMigration;
@@ -63,45 +75,52 @@ public class AdminController {
     }
 
     @GetMapping("")
-    public String adminHome(HttpServletRequest request, Model model) {
-        model.addAttribute("secureCookieProbe", new SecureCookieProbe(
-                request.isSecure(), request.getScheme(), request.getHeader("X-Forwarded-Proto")));
-        model.addAttribute("familyNotify",
-                new FamilyNotifyStatus(familyNotifyEnabled, brevo.configured(), brevo.recipient()));
-        return "admin-home";
+    public String adminHome(HttpServletRequest request, Model model,
+                            @CookieValue(name = ViewerTodayZone.COOKIE_NAME, required = false) String zoneCookie) {
+        return renderHome(request, model, zoneCookie, Boolean.TRUE.equals(model.asMap().get(JUST_TESTED)));
     }
 
     /**
-     * Sends one fixed test email through the real client to whatever the recipient is configured as,
-     * and says where it went. A wire check, nothing more: it goes through no command and writes no
-     * event (a probe subject in the log, and in every backup, forever, for a message that was never
-     * about travel), and it ignores the kill switch — the switch governs whether bookings notify,
-     * and the probe exists to verify the path <em>before</em> the switch is flipped.
+     * Sends one fixed test email through the real client to whatever the recipient is configured as.
+     * A wire check, nothing more: it goes through no command and writes no event (a probe subject in
+     * the log, and in every backup, forever, for a message that was never about travel), and it
+     * ignores the kill switch — the switch governs whether bookings notify, and the probe exists to
+     * verify the path <em>before</em> the switch is flipped.
      * <p>
-     * A failure re-renders the admin page it was submitted from rather than redirecting, so the
-     * error is on the page that can show it.
+     * The result is remembered in memory until restart and shown in the setup checklist's test row,
+     * which changes state and flashes once, so it cannot be missed. A success redirects (a reload
+     * must not resend); a failure re-renders the page it was submitted from, so the reason is on a
+     * page that can show it.
      */
     @PostMapping("/family-notify/probe")
-    public String probeFamilyNotify(HttpServletRequest request, Model model,
-                                    RedirectAttributes redirectAttributes) {
+    public String probeFamilyNotify(HttpServletRequest request, Model model, RedirectAttributes redirectAttributes,
+                                    @CookieValue(name = ViewerTodayZone.COOKIE_NAME, required = false) String zoneCookie) {
         if (!brevo.configured()) {
-            adminHome(request, model);
-            model.addAttribute("familyProbeError",
-                    "Not sent: there is no API key or no recipient configured.");
-            return "admin-home";
+            return renderHome(request, model, zoneCookie, false);
         }
-        String recipient = brevo.recipient();
         try {
             brevo.send(FAMILY_PROBE_MESSAGE);
         } catch (RuntimeException failed) {
-            adminHome(request, model);
-            model.addAttribute("familyProbeError",
-                    "Could not send the test email to " + recipient + ": " + failed.getMessage());
-            return "admin-home";
+            testMemory.failed(clock.instant(), "The send failed: " + abbreviated(failed.getMessage()));
+            return renderHome(request, model, zoneCookie, true);
         }
-        redirectAttributes.addFlashAttribute("familyProbeMessage",
-                "Test email accepted by Brevo for " + recipient + ". Check that inbox, and spam.");
+        testMemory.succeeded(clock.instant());
+        redirectAttributes.addFlashAttribute(JUST_TESTED, true);
         return "redirect:/admin";
+    }
+
+    private String renderHome(HttpServletRequest request, Model model, String zoneCookie, boolean justTested) {
+        model.addAttribute("secureCookieProbe", new SecureCookieProbe(
+                request.isSecure(), request.getScheme(), request.getHeader("X-Forwarded-Proto")));
+        model.addAttribute("setup", familySetup.checklist(brevo.configured(), brevo.recipient(),
+                familyNotifyEnabled, testMemory.last(), viewerZone.resolve(zoneCookie), justTested));
+        return "admin-home";
+    }
+
+    /** A Brevo or network message can run long, and it lands in a narrow column. */
+    private String abbreviated(String message) {
+        String text = message == null || message.isBlank() ? "no reason given" : message.strip();
+        return text.length() <= 140 ? text : text.substring(0, 140) + "…";
     }
 
     /**

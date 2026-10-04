@@ -58,6 +58,8 @@ class AdminControllerTest {
     LegacyEventMigration legacyEventMigration;
     @MockitoBean
     BrevoEmailClient brevoEmailClient;
+    @MockitoBean
+    FamilyTestMemory familyTestMemory;
 
     @Test
     void databasePageRendersTableStats() {

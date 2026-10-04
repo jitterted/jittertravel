@@ -1020,6 +1020,25 @@ What is in place today, and what is not:
 If the answer is "restart the process", it will be wrong in a test and wrong for an admin action
 too — and the test that catches it may be years away.
 
+### The CSRF cookie is written on every request, and `csrf()` leaks between tests
+
+**`CsrfCookieFilter` reads the CSRF token at the start of every request, and that is load-bearing**
+(2026-10-05). A successful login deliberately clears the CSRF cookie, and Spring writes it again only
+when something *reads* the token, normally the first form a page renders. A page larger than the
+response buffer starts sending before its form renders, and a cookie cannot be added to a response
+that has started: the form then carries a token whose cookie never existed, and its POST lands on
+`/login?expired` for someone who is logged in. It surfaced on the `/admin` family-email test button
+because that was the first large page after a fresh login; every older form worked only because a
+smaller page had already minted the cookie. The fix is the filter, not a Thymeleaf setting: it makes
+the outcome independent of page size and of which page was opened first. MockMvc cannot show this
+failure (it never commits a response early), so after adding a form, check the **first page after a
+fresh login** against the running app for `Set-Cookie: XSRF-TOKEN`.
+
+**`.with(csrf())` replaces the shared `CsrfFilter`'s token repository with one that writes no cookie,
+and never puts it back.** In a cached context that is shared with a `csrf()` user, a cookie assertion
+passes or fails by test order. Test cookie behaviour with a plain unit test (`CsrfCookieFilterTest`)
+or in a class whose context nothing else shares (`FamilyNotifyProbeCsrfTest`).
+
 ### Assertions against rendered HTML must name whole elements, not bare words
 
 A renderer test asserts on one long string, so `contains("Calendar")` is satisfied by *any*

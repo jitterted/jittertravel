@@ -46,13 +46,22 @@ code ships **dark**: with none of these set the app boots, sends nothing, and th
 Not `application.properties`: that file only holds a line per variable that reads it, and is never
 edited for this.
 
+**Progress is shown on `/admin`, in the left column** ("Setting up: family email"): three steps that
+tick themselves (key and recipient set, test email sent, switch on), with the test button inside the
+second. When all three are done it says so and asks you to tell Claude it is set up and tested, so the
+checklist can be deleted.
+
 **When: the app reads its variables only when it starts**, so a variable has no effect until the
 service restarts. Railway restarts the service itself when you change a variable (you may have to
 press *Deploy* on the staged change). Nothing below blocks the push, and setting the first three
 **before** pushing means the very first deploy already has them, so the first test needs no extra
 restart. Every later change restarts the app for a few seconds and touches no data.
 
-- [x] **`BREVO_API_KEY`** (secret). **Before the push.** Inert until the new code is deployed.
+- [ ] **`JITTERTRAVEL_BREVO_API_KEY`** (secret). **Before the push.** Inert until the new code is
+      deployed. The key's variable was renamed from `BREVO_API_KEY` on 2026-10-05, because a Brevo key
+      is tied to one account and sending domain and another app's plain `BREVO_API_KEY` was being
+      picked up locally. **If you already set `BREVO_API_KEY` on the Railway app service, set the new
+      name to the same value and delete the old one**: the app no longer reads it.
       *If skipped:* no mail, ever, and the admin page says so.
 - [x] **`TED_REPLY_EMAIL`** — where a family reply lands. **Before the push**, so it is there
       for the family test below. *If skipped:* replies go to the unattended `notifications@`
@@ -61,9 +70,9 @@ restart. Every later change restarts the app for a few seconds and touches no da
       `/admin`, press **Send a test email to …**, read it, and check it is not in spam.
       *If skipped:* the first email family ever get is also the first anyone has seen, and a typo
       sends travel detail to a stranger. Not landing in the inbox usually means SPF/DKIM.
-- [ ] **Change `FAMILY_NOTIFY_EMAIL` to the family address.** After the first test arrived. This
+- [x] **Change `FAMILY_NOTIFY_EMAIL` to the family address.** After the first test arrived. This
       restarts the app; then press the test button again and confirm with them that it arrived.
-- [ ] **`FAMILY_NOTIFY_ENABLED=true`**, only after both tests were received. Leave it unset (or
+- [x] **`FAMILY_NOTIFY_ENABLED=true`**, only after both tests were received. Leave it unset (or
       `false`) until then; it restarts the app too. *If flipped early:* the next booked flight
       emails family from an unverified path. Named exactly `FAMILY_NOTIFY_ENABLED`, not
       `JITTERTRAVEL_…`: only the first binds (the property line in `application.properties` is what

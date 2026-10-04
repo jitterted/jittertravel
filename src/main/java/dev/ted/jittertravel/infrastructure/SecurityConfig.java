@@ -18,6 +18,7 @@ import org.springframework.security.web.authentication.rememberme.PersistentToke
 import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 
 import java.time.Duration;
@@ -127,8 +128,13 @@ public class SecurityConfig {
                 // A cookie outlives the session, so the very first login after a restart still
                 // validates. Kept HttpOnly: the server renders the token into the form from the
                 // request attribute, so JS never needs to read it — no weaker than a session token
-                // against XSS. Covered by SecurityAuthorizationTest.staleCsrfTokenReturnsToLogin.
+                // against XSS. Covered by
+                // SecurityAuthorizationTest.staleCsrfTokenReturnsToLoginWithExpiredNotice.
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository()))
+                // The cookie is written lazily (when a page first reads the token), a login clears
+                // it, and a page whose form sits past the response buffer cannot set it by then —
+                // so write it at the start of every request. See CsrfCookieFilter.
+                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 // Custom form login at /login (LoginController + templates/login.html). We replace
                 // Spring's generated page so the form can carry a hidden browserZone field, letting
                 // ZoneCapturingAuthenticationSuccessHandler set the viewerZone cookie on the very

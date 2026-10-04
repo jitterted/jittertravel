@@ -18,7 +18,7 @@ import java.util.List;
  *   <li><strong>A reactor can never be replayed into.</strong> {@link ProjectorBootstrapper#register}
  *       is {@code <P extends EventStreamConsumer>}, so a reactor does not fit it, and
  *       {@link EventStore} has no other path that hands history to one. That is a compile error
- *       rather than a rule to remember — which matters because the first real reactor sends email,
+ *       rather than a rule to remember — which matters because the one reactor there is ({@code FamilyNotificationTranslator}) sends email,
  *       and replaying history into it at boot would mail years of bookings at once.</li>
  * </ul>
  *

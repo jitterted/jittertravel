@@ -6,7 +6,7 @@ import java.util.List;
 /**
  * An airline's schedule change was applied to an itinerary: some legs moved, some were added, some
  * dropped. Written in the same append as the {@link FlightChanged}, {@link FlightBooked} and
- * {@link FlightCancelled} that carry the legs' own changes (see {@code docs/FlightItineraryPlan.md}).
+ * {@link FlightCancelled} that carry the legs' own changes (see {@code docs/archived/FlightItineraryPlan.md}).
  * <p>
  * <strong>A full snapshot of membership</strong>, like {@link FlightChanged}: every flight that
  * belongs to the trip after the change, in departure order, <em>including</em> legs the change

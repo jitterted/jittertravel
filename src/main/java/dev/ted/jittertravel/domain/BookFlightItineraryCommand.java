@@ -14,7 +14,7 @@ import java.util.stream.Stream;
  * appends everything a command emits in one transaction, so the legs land together or not at all.
  * An {@code ItineraryToLegProcessor} issuing one command per leg was considered and rejected: a leg
  * refused after the page said "done" is the same partial booking, only later, and needs a whole
- * failure path to surface it (see {@code docs/FlightItineraryPlan.md}, section 8).
+ * failure path to surface it (see {@code docs/archived/FlightItineraryPlan.md}, section 8).
  * <p>
  * Each leg meets the rules a single booking meets ({@link BookFlightCommand}), in the same order:
  * departure in the future, arrival after departure, no collision with a leg already booked. Plus one

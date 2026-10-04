@@ -6,7 +6,7 @@ import java.util.List;
  * The legs of one airline confirmation were booked together, as one trip.
  * <p>
  * It exists to <em>group</em> legs, so that a later change or cancellation can act on the trip as a
- * unit (see {@code docs/FlightItineraryPlan.md}). Each leg is still its own {@link FlightBooked},
+ * unit (see {@code docs/archived/FlightItineraryPlan.md}). Each leg is still its own {@link FlightBooked},
  * written in the same append; this event only names which flights belong together, so no read model
  * that shows or places a flight has to know it exists.
  * <p>

@@ -458,8 +458,9 @@ holds no overlapping flight pair, so building it now would be building for a cas
 exist. Ship the detector fix-less for flights — the greyed "no fix yet" chip is an existing,
 understood vocabulary — and let the first real overlapping flight pair pull Cancel Flight in.
 **Update 2026-09-29:** Cancel Flight shipped for a different reason (Ted needed it directly), as
-Part 0 of `FlightItineraryPlan.md`. The `ProblemFix` link for an overlapping flight was left out of
-that minimum slice, so flights in an overlap still show the "no fix yet" chip.
+Part 0 of `archived/FlightItineraryPlan.md`. The `ProblemFix` link for an overlapping flight was left
+out of that minimum slice, so flights in an overlap still showed the "no fix yet" chip.
+**Update 2026-10-04:** the link shipped; a flight in an overlap now offers "Cancel …" like a train.
 
 A third option was rejected in advance: **detect flights, offer "Edit this flight"**. Editing does
 not remove a duplicate, and a link that cannot fix the problem it is attached to is worse than a

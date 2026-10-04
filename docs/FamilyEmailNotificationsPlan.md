@@ -1004,7 +1004,7 @@ Named here rather than discovered later, per the standing "name the losses out l
    inverts the meaning of a PENDING row — see the caveat in §4.3.
 3. **Family is told about commitments and never about changes.** `FlightChanged` sends nothing (no
    `FlightCancelled` event existed until 2026-09-29, and it is not in the trigger set either — see
-   `FlightItineraryPlan.md`), and neither does a `TalkWithdrawn` that
+   `archived/FlightItineraryPlan.md`), and neither does a `TalkWithdrawn` that
    leaves Ted attending but no longer speaking. **This was the biggest gap in the feature as
    specified on 2026-09-09 and it is now half-closed**: the conference exits are in the trigger set
    (§4.5) and the fact-comparison (§4.4) makes them reachable, so "Ted is going to SoCraTes" with no

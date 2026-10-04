@@ -97,6 +97,31 @@ class ChangeFlightItineraryCommandTest {
     }
 
     @Test
+    void aLegSharingOnlyTheDayWithABookedLegIsAnAdditionAndTheBookedLegIsRemoved() {
+        ItineraryLeg unrelated = pasted("UA9", "ORD", "YYZ", 18, 15, 18, 16);
+
+        ItineraryChangePlan plan = command(copyOf(sfoOrd), unrelated, copyOf(yowSfo)).plan(context());
+
+        assertThat(plan.diffs())
+                .extracting(ItineraryChangePlan.LegDiff::kind)
+                .as("no flight number and no route in common, so ORD-YOW is dropped and UA9 is new")
+                .containsExactly(Kind.UNCHANGED, Kind.REMOVED, Kind.ADDED, Kind.UNCHANGED);
+    }
+
+    @Test
+    void aBookedLegMatchedOnceCannotBeMatchedAgainByARouteItShares() {
+        ItineraryLeg sameRouteLater = pasted("UA55", "SFO", "ORD", 20, 6, 20, 12);
+
+        ItineraryChangePlan plan = command(copyOf(sfoOrd), sameRouteLater, copyOf(ordYow), copyOf(yowSfo))
+                .plan(context());
+
+        assertThat(plan.diffs())
+                .extracting(ItineraryChangePlan.LegDiff::kind)
+                .as("UA2091 already claimed SFO-ORD, so UA55 is a new leg rather than a second move of it")
+                .containsExactly(Kind.UNCHANGED, Kind.UNCHANGED, Kind.ADDED, Kind.UNCHANGED);
+    }
+
+    @Test
     void aPasteIdenticalToWhatIsBookedHasNothingToApplyAndIsNotRecorded() {
         ChangeFlightItineraryCommand same = command(copyOf(sfoOrd), copyOf(ordYow), copyOf(yowSfo));
 

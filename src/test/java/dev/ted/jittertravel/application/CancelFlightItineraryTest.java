@@ -10,6 +10,7 @@ import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
+import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightItineraryHasDeparted;
 import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.FlightItineraryNotFound;
@@ -101,6 +102,41 @@ class CancelFlightItineraryTest {
                 stored(2, itineraryBooked(out)),
                 stored(3, new FlightChanged(out, "United Airlines", "UA1", AirportCode.of("SFO"), at(10, 8),
                         AirportCode.of("ORD"), at(10, 11), "Airline schedule change"))));
+
+        service(executor).cancelItinerary(UUID.randomUUID(),
+                new CancelFlightItineraryRequest(itinerary.id(), ""), NOW);
+
+        assertThat(executor.emittedEvents)
+                .containsExactly(new FlightCancelled(out, "", NOW),
+                        new FlightItineraryCancelled(itinerary, "", NOW));
+    }
+
+    @Test
+    void aLegAddedByAScheduleChangeIsCancelledWithTheRest() {
+        RecordingCommandExecutor executor = new RecordingCommandExecutor(Stream.of(
+                stored(1, booked(out, 10)),
+                stored(2, itineraryBooked(out)),
+                stored(3, booked(back, 20)),
+                stored(4, new FlightItineraryChanged(itinerary, List.of(out, back), "Airline schedule change", NOW))));
+
+        service(executor).cancelItinerary(UUID.randomUUID(),
+                new CancelFlightItineraryRequest(itinerary.id(), ""), NOW);
+
+        assertThat(executor.emittedEvents)
+                .containsExactly(new FlightCancelled(out, "", NOW),
+                        new FlightCancelled(back, "", NOW),
+                        new FlightItineraryCancelled(itinerary, "", NOW));
+    }
+
+    @Test
+    void anotherItinerarysScheduleChangeDoesNotChangeThisOnesLegs() {
+        FlightId elsewhere = FlightId.random();
+        RecordingCommandExecutor executor = new RecordingCommandExecutor(Stream.of(
+                stored(1, booked(out, 10)),
+                stored(2, booked(elsewhere, 12)),
+                stored(3, itineraryBooked(out)),
+                stored(4, new FlightItineraryChanged(FlightItineraryId.of(UUID.randomUUID()),
+                        List.of(elsewhere), "Airline schedule change", NOW))));
 
         service(executor).cancelItinerary(UUID.randomUUID(),
                 new CancelFlightItineraryRequest(itinerary.id(), ""), NOW);

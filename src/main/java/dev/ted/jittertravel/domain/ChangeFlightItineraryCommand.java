@@ -55,12 +55,11 @@ public record ChangeFlightItineraryCommand(
     public ItineraryChangePlan plan(ChangeFlightItineraryContext context) {
         Map<Integer, ItineraryLeg> liveMatch = new LinkedHashMap<>();
         Set<FlightId> claimed = new HashSet<>();
-        List<Integer> unmatched = indexes();
-        match(unmatched, context.liveMembers(), claimed, liveMatch);
+        List<Integer> pasteIndexes = indexes();
+        match(pasteIndexes, context.liveMembers(), claimed, liveMatch);
 
-        List<Integer> leftover = unmatched.stream().filter(i -> !liveMatch.containsKey(i)).toList();
         Map<Integer, ItineraryLeg> cancelledMatch = new LinkedHashMap<>();
-        match(leftover, context.cancelledMembers(), new HashSet<>(), cancelledMatch);
+        match(pasteIndexes, context.cancelledMembers(), new HashSet<>(), cancelledMatch);
 
         ScheduledLegs others = new ScheduledLegs(context.scheduledLegs().legs().stream()
                 .filter(leg -> context.liveMembers().stream().noneMatch(member ->

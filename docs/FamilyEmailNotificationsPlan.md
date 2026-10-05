@@ -1139,7 +1139,13 @@ Built with slice 1a, shipping dark. Everything in the list above exists except w
   one: every `Event` class in `domain` must be in `TELLS_FAMILY` or in `SILENT` with a reason. Adding
   an event class fails it until someone decides. It pins the decision, not the behaviour; the
   translator test owns the behaviour.
-- **The test control is a setup checklist in a left column of `/admin`, built from an approved
+- **Superseded 2026-10-06 (Ted): the checklist and its left column are deleted** once family email was
+  live. The test email is now a button in the "Last test email" row of `/admin/settings`, in the four
+  states of https://claude.ai/artifact/KZDEqfXHxftbMiWwEnofYF (not tested, sent, failed, not
+  configured); a success redirects back to Settings and a failure re-renders it, so the reason is on a
+  page that shows it. `SetupChecklist` and `FamilyEmailSetup` are gone; `FamilyTestMemory` and the
+  `/admin/family-notify/probe` endpoint stay. What follows is the record of the first design.
+- **The test control was a setup checklist in a left column of `/admin`, built from an approved
   mockup (2026-10-05), not the one-line button §4.6 first described.** Ted's feedback on the first
   version: it did not look like a button (it borrowed `--accent-color` from `site.css`, which
   `admin-home.html` does not load, so it was white text on nothing), its text was centred, and the

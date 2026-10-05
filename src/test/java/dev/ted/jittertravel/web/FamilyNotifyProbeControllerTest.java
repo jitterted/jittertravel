@@ -33,12 +33,12 @@ import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 /**
- * The family-email test on {@code /admin}, in the setup checklist's left column: the approved
- * mockup (https://claude.ai/artifact/Xu3i63jGMKTdCbWKVqedxA, placement X) as a rendered page. The
- * wording of every state is asserted in {@code FamilyEmailSetupTest}; what is asserted here is that
- * the controller feeds it the right facts and the template draws them. The kill switch is off in this
- * slice (its default), which is the case that matters: the test has to work before the switch is
- * flipped.
+ * The family-email test email, a button in the "Last test email" row of {@code /admin/settings}
+ * (mockup https://claude.ai/artifact/KZDEqfXHxftbMiWwEnofYF; it replaced a checklist in the left
+ * column of {@code /admin}). What each state says is {@code SettingsReporterTest}'s claim; asserted
+ * here is that the controller feeds the reporter the right facts, the template draws the button, and
+ * a click goes where the mockup says. The kill switch is off in this class (its default), which is
+ * the case that matters: the test has to work before the switch is flipped.
  */
 @Tag("spring")
 @WebMvcTest(AdminController.class)
@@ -80,34 +80,34 @@ class FamilyNotifyProbeControllerTest {
     }
 
     @Test
-    void theChecklistSitsInALeftColumnBesideThePage() {
+    void theAdminHomeHasNoSetupColumnAndNoTestButton() {
         configured();
 
         assertThat(mockMvc.get().uri("/admin"))
                 .hasStatusOk()
                 .bodyText()
                 .contains("<div class=\"layout\">")
-                .contains("aria-label=\"Setup checklist\"")
-                .contains("<span class=\"setup-title\">Setting up: family email</span>")
-                .contains("<span class=\"setup-count\">1 of 3 done</span>");
+                .doesNotContain("Setup checklist")
+                .doesNotContain("setup-button")
+                .doesNotContain("/admin/family-notify/probe");
     }
 
     @Test
     void theButtonNamesTheRecipientBeforeAnythingIsClickedAndPostsToTheProbe() {
         configured();
 
-        assertThat(mockMvc.get().uri("/admin"))
+        assertThat(mockMvc.get().uri("/admin/settings"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("<button type=\"submit\" class=\"setup-button\">Send a test email to ted@example.com</button>")
-                .containsPattern("<form action=\"/admin/family-notify/probe\" method=\"post\">\\s*<input type=\"hidden\" name=\"_csrf\"");
+                .contains("<button type=\"submit\" class=\"row-button\">Send a test email to ted@example.com</button>")
+                .containsPattern("<form class=\"row-form\" action=\"/admin/family-notify/probe\" method=\"post\">\\s*<input type=\"hidden\" name=\"_csrf\"");
     }
 
     @Test
     void theButtonIsFilledWithAnAccentThisPageActuallyDefines() {
         configured();
 
-        assertThat(mockMvc.get().uri("/admin"))
+        assertThat(mockMvc.get().uri("/admin/settings"))
                 .hasStatusOk()
                 .bodyText()
                 .as("this page does not load site.css, so a colour it borrows from there is not defined")
@@ -120,27 +120,24 @@ class FamilyNotifyProbeControllerTest {
     void anUnconfiguredNotifierOffersNoButtonAndSaysWhatToSet() {
         given(brevo.configured()).willReturn(false);
 
-        assertThat(mockMvc.get().uri("/admin"))
+        assertThat(mockMvc.get().uri("/admin/settings"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("<div class=\"setup-what\">Key and recipient are not set</div>")
-                .contains("<b>Next:</b> <span>Set the variables JITTERTRAVEL_BREVO_API_KEY and FAMILY_NOTIFY_EMAIL "
-                          + "on the app service, then redeploy.</span>")
-                .doesNotContain("class=\"setup-button\"");
+                .contains("Cannot send until the Brevo key and the family address are set.")
+                .doesNotContain("class=\"row-button\"");
     }
 
     @Test
-    void aRememberedSuccessShowsInTheViewersZoneFromTheirCookie() {
+    void aRememberedSuccessShowsInTheViewersZoneFromTheirCookieWithAQuieterButton() {
         configured();
         given(memory.last()).willReturn(Optional.of(new FamilyTestMemory.Test(NOW, true, "")));
 
-        assertThat(mockMvc.get().uri("/admin").cookie(new Cookie("viewerZone", "America/Los_Angeles")))
+        assertThat(mockMvc.get().uri("/admin/settings").cookie(new Cookie("viewerZone", "America/Los_Angeles")))
                 .hasStatusOk()
                 .bodyText()
-                .contains("<div class=\"setup-what\">Test email sent at 3:42 PM PDT</div>")
-                .contains("<button type=\"submit\" class=\"setup-button secondary\">Send another</button>")
-                .contains("<span class=\"setup-count\">2 of 3 done</span>")
-                .doesNotContain("setup-row ok flash");
+                .contains("<span class=\"mono\">3:42 PM PDT, to ted@example.com</span>")
+                .contains("<button type=\"submit\" class=\"row-button secondary\">Send another</button>")
+                .doesNotContain("setting ok with-button flash");
     }
 
     @Test
@@ -149,7 +146,7 @@ class FamilyNotifyProbeControllerTest {
 
         assertThat(mockMvc.post().uri("/admin/family-notify/probe").with(csrf()))
                 .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/admin");
+                .hasRedirectedUrl("/admin/settings");
 
         verify(brevo).send(argThat((FamilyMessage message) ->
                 message.subject().equals("JitterTravel test email")
@@ -173,14 +170,14 @@ class FamilyNotifyProbeControllerTest {
         configured();
         given(memory.last()).willReturn(Optional.of(new FamilyTestMemory.Test(NOW, true, "")));
 
-        assertThat(mockMvc.get().uri("/admin").flashAttr("justTested", true))
+        assertThat(mockMvc.get().uri("/admin/settings").flashAttr("justTested", true))
                 .hasStatusOk()
                 .bodyText()
-                .contains("class=\"setup-row ok flash\"");
+                .contains("class=\"setting ok with-button flash\"");
     }
 
     @Test
-    void aFailedSendIsRememberedAndRendersAmberOnTheAdminPageRatherThanA500() {
+    void aFailedSendIsRememberedAndRendersAmberOnTheSettingsPageRatherThanA500() {
         configured();
         willThrow(new RestClientResponseException("502 Bad Gateway", 502, "Bad Gateway", null, null, null))
                 .given(brevo).send(any());
@@ -190,10 +187,9 @@ class FamilyNotifyProbeControllerTest {
         assertThat(mockMvc.post().uri("/admin/family-notify/probe").with(csrf()))
                 .hasStatusOk()
                 .bodyText()
-                .contains("class=\"setup-row warn flash\"")
-                .contains("<div class=\"setup-what\">Test email failed</div>")
-                .contains("The send failed: 502 Bad Gateway Nothing was delivered.")
-                .contains("<button type=\"submit\" class=\"setup-button\">Try again</button>");
+                .contains("class=\"setting warn with-button flash\"")
+                .contains("<span class=\"what\">The send failed: 502 Bad Gateway Nothing was delivered.</span>")
+                .contains("<button type=\"submit\" class=\"row-button\">Try again</button>");
 
         verify(memory).failed(NOW, "The send failed: 502 Bad Gateway");
         verify(memory, never()).succeeded(any());

@@ -55,15 +55,30 @@ public record SettingsReport(List<Group> groups) {
      * {@code hint} may be null.
      */
     public record Row(String name, String label, Level level, String pill, String value, String hint,
-                      String what, String linkHref, String linkText) {
+                      String what, String linkHref, String linkText, Button button, boolean flash) {
 
         /** A row with no link, which is nearly all of them. */
         public Row(String name, String label, Level level, String pill, String value, String hint, String what) {
-            this(name, label, level, pill, value, hint, what, null, null);
+            this(name, label, level, pill, value, hint, what, null, null, null, false);
+        }
+
+        /** A row with a link and no button. */
+        public Row(String name, String label, Level level, String pill, String value, String hint, String what,
+                   String linkHref, String linkText) {
+            this(name, label, level, pill, value, hint, what, linkHref, linkText, null, false);
+        }
+
+        /** This row with a POST button under it; {@code flash} says this is the page right after the click. */
+        public Row withButton(Button button, boolean flash) {
+            return new Row(name, label, level, pill, value, hint, what, linkHref, linkText, button, flash);
         }
 
         public boolean hasLink() {
             return linkHref != null;
+        }
+
+        public boolean hasButton() {
+            return button != null;
         }
 
         public String cssClass() {
@@ -81,6 +96,10 @@ public record SettingsReport(List<Group> groups) {
         public boolean hasHint() {
             return hint != null;
         }
+    }
+
+    /** A form button under a row: where it posts, what it says, and whether it is the quieter outline. */
+    public record Button(String action, String label, boolean secondary) {
     }
 
     /** How many rows are wrong now. */

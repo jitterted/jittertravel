@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.infrastructure.BrevoEmailClient;
+import dev.ted.jittertravel.web.SettingsReport.Button;
 import dev.ted.jittertravel.web.SettingsReport.Group;
 import dev.ted.jittertravel.web.SettingsReport.Level;
 import dev.ted.jittertravel.web.SettingsReport.Row;
@@ -31,6 +32,9 @@ final class SettingsReporter {
     /** How long a secret must be before its last four characters are safe to show. */
     private static final int HINT_MIN_LENGTH = 16;
 
+    /** Where the test email button posts. */
+    static final String TEST_PATH = "/admin/family-notify/probe";
+
     private final LocalTimeText time = new LocalTimeText();
 
     /**
@@ -57,7 +61,7 @@ final class SettingsReporter {
     /** Everything the page reads, with no secret in full. Built fluently: there are many fields. */
     record Inputs(
             boolean familyEnabled, boolean familyConfigured, String recipient, String replyTo,
-            SecretSetting brevoKey, Optional<FamilyTestMemory.Test> lastTest, ZoneId zone,
+            SecretSetting brevoKey, Optional<FamilyTestMemory.Test> lastTest, boolean justTested, ZoneId zone,
             SecureCookieProbe cookies,
             SecretSetting tedPassword, SecretSetting familyPassword, SecretSetting rememberMeKey,
             SecretSetting calendarToken, String baseUrl, SecretSetting aeroDataBoxKey,
@@ -74,6 +78,7 @@ final class SettingsReporter {
             private String replyTo = "";
             private SecretSetting brevoKey = new SecretSetting(false, null);
             private Optional<FamilyTestMemory.Test> lastTest = Optional.empty();
+            private boolean justTested;
             private ZoneId zone = ZoneId.of("UTC");
             private SecureCookieProbe cookies = new SecureCookieProbe(false, "", "");
             private SecretSetting tedPassword = new SecretSetting(false, null);
@@ -92,6 +97,7 @@ final class SettingsReporter {
             Builder replyTo(String value) { this.replyTo = value; return this; }
             Builder brevoKey(SecretSetting value) { this.brevoKey = value; return this; }
             Builder lastTest(Optional<FamilyTestMemory.Test> value) { this.lastTest = value; return this; }
+            Builder justTested(boolean value) { this.justTested = value; return this; }
             Builder zone(ZoneId value) { this.zone = value; return this; }
             Builder cookies(SecureCookieProbe value) { this.cookies = value; return this; }
             Builder tedPassword(SecretSetting value) { this.tedPassword = value; return this; }
@@ -105,7 +111,7 @@ final class SettingsReporter {
             Builder environment(String value) { this.environment = value; return this; }
 
             Inputs build() {
-                return new Inputs(familyEnabled, familyConfigured, recipient, replyTo, brevoKey, lastTest, zone,
+                return new Inputs(familyEnabled, familyConfigured, recipient, replyTo, brevoKey, lastTest, justTested, zone,
                         cookies, tedPassword, familyPassword, rememberMeKey, calendarToken, baseUrl,
                         aeroDataBoxKey, homeCities, fallbackZone, environment);
             }
@@ -136,7 +142,7 @@ final class SettingsReporter {
                     : new Row("FAMILY_NOTIFY_ENABLED", "The switch", Level.OK, "On", null, null,
                             "Booking a flight or trip emails family."))
                 : new Row("FAMILY_NOTIFY_ENABLED", "The switch", Level.NEUTRAL, "Off", null, null,
-                        "Nothing is sent when a flight is booked. The test button on /admin works either way.");
+                        "Nothing is sent when a flight is booked. The test email button below works either way.");
 
         Row to = recipientSet
                 ? new Row("FAMILY_NOTIFY_EMAIL", "Where it goes", Level.OK, null, in.recipient(), null,
@@ -175,16 +181,23 @@ final class SettingsReporter {
 
     private Row lastTest(Inputs in) {
         if (in.lastTest().isEmpty()) {
+            if (!in.familyConfigured()) {
+                return new Row("Last test email", "Since the app started", Level.NEUTRAL, "Not tested", null, null,
+                        "Cannot send until the Brevo key and the family address are set.");
+            }
             return new Row("Last test email", "Since the app started", Level.NEUTRAL, "Not tested", null, null,
-                    "No test email has been sent since the app started.");
+                    "No test email has been sent since the app started.")
+                    .withButton(new Button(TEST_PATH, "Send a test email to " + in.recipient(), false), false);
         }
         FamilyTestMemory.Test test = in.lastTest().get();
         String when = time.when(test.at(), in.zone());
         return test.succeeded()
                 ? new Row("Last test email", "Since the app started", Level.OK, "Sent", when + ", to " + in.recipient(),
                         null, "Forgotten when the app restarts.")
+                        .withButton(new Button(TEST_PATH, "Send another", true), in.justTested())
                 : new Row("Last test email", "Since the app started", Level.PROBLEM, "Failed", when, null,
-                        test.failure());
+                        test.failure() + " Nothing was delivered.")
+                        .withButton(new Button(TEST_PATH, "Try again", false), in.justTested());
     }
 
     // ---- cookies -------------------------------------------------------------------------------

@@ -117,7 +117,7 @@ class SettingsReporterTest {
         assertThat(group(report, "Family email").level()).isEqualTo(Level.NEUTRAL);
         assertThat(row(report, "FAMILY_NOTIFY_ENABLED").level()).isEqualTo(Level.NEUTRAL);
         assertThat(row(report, "FAMILY_NOTIFY_ENABLED").what())
-                .isEqualTo("Nothing is sent when a flight is booked. The test button on /admin works either way.");
+                .isEqualTo("Nothing is sent when a flight is booked. The test email button below works either way.");
         assertThat(report.problems()).isZero();
     }
 
@@ -168,8 +168,48 @@ class SettingsReporterTest {
         assertThat(last.level()).isEqualTo(Level.PROBLEM);
         assertThat(last.pill()).isEqualTo("Failed");
         assertThat(last.value()).isEqualTo("3:42 PM PDT");
-        assertThat(last.what()).isEqualTo("The send failed: 401 Unauthorized.");
+        assertThat(last.what()).isEqualTo("The send failed: 401 Unauthorized. Nothing was delivered.");
         assertThat(group(report, "Family email").level()).isEqualTo(Level.PROBLEM);
+    }
+
+    @Test
+    void aFailedLastTestOffersTryAgainAndFlashesOnlyRightAfterTheClick() {
+        Optional<FamilyTestMemory.Test> failed = Optional.of(new FamilyTestMemory.Test(SENT, false, "Failed."));
+
+        Row later = row(report(healthy().lastTest(failed)), "Last test email");
+        Row justNow = row(report(healthy().lastTest(failed).justTested(true)), "Last test email");
+
+        assertThat(later.button())
+                .isEqualTo(new SettingsReport.Button("/admin/family-notify/probe", "Try again", false));
+        assertThat(later.flash()).as("a later visit to the page does not flash").isFalse();
+        assertThat(justNow.flash()).as("the page right after the click does").isTrue();
+    }
+
+    @Test
+    void aSentLastTestOffersAQuieterSendAnother() {
+        Row last = row(report(healthy().justTested(true)), "Last test email");
+
+        assertThat(last.button())
+                .isEqualTo(new SettingsReport.Button("/admin/family-notify/probe", "Send another", true));
+        assertThat(last.flash()).isTrue();
+    }
+
+    @Test
+    void anUntestedConfiguredNotifierOffersTheButtonNamingTheRecipient() {
+        Row last = row(report(healthy().lastTest(Optional.empty())), "Last test email");
+
+        assertThat(last.button())
+                .isEqualTo(new SettingsReport.Button("/admin/family-notify/probe",
+                        "Send a test email to family@example.com", false));
+        assertThat(last.flash()).isFalse();
+    }
+
+    @Test
+    void anUnconfiguredNotifierOffersNoButtonAndSaysWhatItNeeds() {
+        Row last = row(report(healthy().familyConfigured(false).lastTest(Optional.empty())), "Last test email");
+
+        assertThat(last.hasButton()).isFalse();
+        assertThat(last.what()).isEqualTo("Cannot send until the Brevo key and the family address are set.");
     }
 
     @Test

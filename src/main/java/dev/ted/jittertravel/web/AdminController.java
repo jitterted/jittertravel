@@ -51,7 +51,6 @@ public class AdminController {
     private final BrevoEmailClient brevo;
     private final boolean familyNotifyEnabled;
     private final ViewerTodayZone viewerZone;
-    private final FamilyEmailSetup familySetup = new FamilyEmailSetup();
     private final SettingsReporter settingsReporter = new SettingsReporter();
     private final SendFailureText failureText = new SendFailureText();
     private final FamilyTestMemory testMemory;
@@ -84,7 +83,7 @@ public class AdminController {
     @GetMapping("")
     public String adminHome(HttpServletRequest request, Model model,
                             @CookieValue(name = ViewerTodayZone.COOKIE_NAME, required = false) String zoneCookie) {
-        return renderHome(request, model, zoneCookie, Boolean.TRUE.equals(model.asMap().get(JUST_TESTED)));
+        return renderHome(request, model, zoneCookie);
     }
 
     /**
@@ -94,33 +93,36 @@ public class AdminController {
      * ignores the kill switch — the switch governs whether bookings notify, and the probe exists to
      * verify the path <em>before</em> the switch is flipped.
      * <p>
-     * The result is remembered in memory until restart and shown in the setup checklist's test row,
-     * which changes state and flashes once, so it cannot be missed. A success redirects (a reload
-     * must not resend); a failure re-renders the page it was submitted from, so the reason is on a
-     * page that can show it.
+     * The result is remembered in memory until restart and shown in the "Last test email" row of the
+     * settings page, which changes state and flashes once, so it cannot be missed. A success redirects
+     * (a reload must not resend); a failure re-renders the settings page it was submitted from, so
+     * the reason is on a page that can show it.
      */
     @PostMapping("/family-notify/probe")
     public String probeFamilyNotify(HttpServletRequest request, Model model, RedirectAttributes redirectAttributes,
                                     @CookieValue(name = ViewerTodayZone.COOKIE_NAME, required = false) String zoneCookie) {
         if (!brevo.configured()) {
-            return renderHome(request, model, zoneCookie, false);
+            return renderSettings(request, model, zoneCookie, false);
         }
         try {
             brevo.send(FAMILY_PROBE_MESSAGE);
         } catch (RuntimeException failed) {
             testMemory.failed(clock.instant(), failureText.of(failed));
-            return renderHome(request, model, zoneCookie, true);
+            return renderSettings(request, model, zoneCookie, true);
         }
         testMemory.succeeded(clock.instant());
         redirectAttributes.addFlashAttribute(JUST_TESTED, true);
-        return "redirect:/admin";
+        return "redirect:/admin/settings";
     }
 
-    private String renderHome(HttpServletRequest request, Model model, String zoneCookie, boolean justTested) {
-        model.addAttribute("setup", familySetup.checklist(brevo.configured(), brevo.recipient(),
-                familyNotifyEnabled, testMemory.last(), viewerZone.resolve(zoneCookie), justTested));
-        model.addAttribute("settingsProblems", settingsReport(request, zoneCookie).problems());
+    private String renderHome(HttpServletRequest request, Model model, String zoneCookie) {
+        model.addAttribute("settingsProblems", settingsReport(request, zoneCookie, false).problems());
         return "admin-home";
+    }
+
+    private String renderSettings(HttpServletRequest request, Model model, String zoneCookie, boolean justTested) {
+        model.addAttribute("settings", settingsReport(request, zoneCookie, justTested));
+        return "admin-settings";
     }
 
     /**
@@ -130,8 +132,7 @@ public class AdminController {
     @GetMapping("/settings")
     public String settings(HttpServletRequest request, Model model,
                            @CookieValue(name = ViewerTodayZone.COOKIE_NAME, required = false) String zoneCookie) {
-        model.addAttribute("settings", settingsReport(request, zoneCookie));
-        return "admin-settings";
+        return renderSettings(request, model, zoneCookie, Boolean.TRUE.equals(model.asMap().get(JUST_TESTED)));
     }
 
     /**
@@ -139,7 +140,7 @@ public class AdminController {
      * {@link SettingsReporter}, reducing every secret to "set" and how it ends on the way. Property
      * names, not constructor values, so a new setting does not widen this class's constructor.
      */
-    private SettingsReport settingsReport(HttpServletRequest request, String zoneCookie) {
+    private SettingsReport settingsReport(HttpServletRequest request, String zoneCookie, boolean justTested) {
         return settingsReporter.report(SettingsReporter.Inputs.builder()
                 .familyEnabled(familyNotifyEnabled)
                 .familyConfigured(brevo.configured())
@@ -147,6 +148,7 @@ public class AdminController {
                 .replyTo(orEmpty(brevo.replyTo()))
                 .brevoKey(settingsReporter.secret(brevo.apiKey(), true))
                 .lastTest(testMemory.last())
+                .justTested(justTested)
                 .zone(viewerZone.resolve(zoneCookie))
                 .cookies(new SecureCookieProbe(
                         request.isSecure(), request.getScheme(), request.getHeader("X-Forwarded-Proto")))

@@ -109,7 +109,7 @@ class FamilyNotifyProbeCsrfTest {
         given(brevo.configured()).willReturn(true);
         given(brevo.recipient()).willReturn("ted@example.com");
 
-        MvcTestResult page = mockMvc.get().uri("/admin").exchange();
+        MvcTestResult page = mockMvc.get().uri("/admin/settings").exchange();
         String html = page.getResponse().getContentAsString();
         Matcher token = Pattern.compile("name=\"_csrf\" value=\"([^\"]+)\"").matcher(html);
         assertThat(token.find())
@@ -124,7 +124,7 @@ class FamilyNotifyProbeCsrfTest {
                            .cookie(cookie)
                            .param("_csrf", token.group(1)))
                 .hasStatus3xxRedirection()
-                .hasRedirectedUrl("/admin");
+                .hasRedirectedUrl("/admin/settings");
         verify(brevo).send(any());
     }
 }

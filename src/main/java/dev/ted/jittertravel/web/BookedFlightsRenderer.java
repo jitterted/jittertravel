@@ -74,6 +74,14 @@ public class BookedFlightsRenderer {
                 grid-template-columns: subgrid;
                 align-items: center; padding: 10px 16px;
             }
+            /* The Add-to-Google icon beside the route. Larger than site.css's 1.15rem, with a visible
+               gap of 0.5rem (the 0.15rem margin plus the 0.35rem of hit-area padding that
+               .gcal-add cancels with a negative margin). The icon is an inline-flex box whose
+               baseline is its SVG's bottom edge, so left alone it sits on the text baseline and
+               reads a few pixels high; lifting that edge by half a cap height minus half the glyph
+               centres it on the capitals, the same arithmetic as .edit-pencil. */
+            .flight-route .gcal-add { margin-left: 0.15rem; vertical-align: calc(0.35em - 0.7rem); }
+            .flight-route .gcal-add svg { width: 1.4rem; height: 1.4rem; }
             .flight-edit-link { font-size: 0.85rem; color: var(--accent-color); text-decoration: none; }
             .flight-edit-link:hover { text-decoration: underline; }
             /* Never wraps: letting Cancel drop under Edit made the pair change shape at 820px only
@@ -346,11 +354,11 @@ public class BookedFlightsRenderer {
                         legLabel("Departure"), dateTime(flight.departureDateTime())),
                 div().withClass("flight-card-cell").with(
                         legLabel("Arrival"), dateTime(flight.arrivalDateTime())),
-                div().withClass("flight-card-cell").with(
+                div().withClass("flight-card-cell flight-route").with(
                         legLabel("Route"), text(flight.route()),
                         // A ternary, not iff(): iff evaluates its argument eagerly, and a live
                         // flight has no cancelledOn to format.
-                        flight.cancelled() ? cancelledBadge(flight) : text("")),
+                        flight.cancelled() ? cancelledBadge(flight) : googleCalendarIcon(flight)),
                 div().withClass("flight-card-cell").with(
                         legLabel("Airline"), text(flight.airline())),
                 div().withClass("flight-card-cell").with(
@@ -368,6 +376,19 @@ public class BookedFlightsRenderer {
         return div().withClass("flight-actions").with(
                 a("Edit").withClass("flight-edit-link").withHref(changeUrl),
                 a("Cancel").withClass("flight-cancel-link").withHref(changeUrl + "/cancel"));
+    }
+
+    /**
+     * Per leg, title only, no location: a flight has no venue, and the flight number and route are
+     * what Ted looks for in his calendar. It sits after the route in the Route cell, not with Edit
+     * and Cancel: it adds this route to Google, and the cell has the room (Ted, 2026-10-04). A
+     * cancelled flight does not offer it, since pushing one to Google is only noise.
+     */
+    private static DomContent googleCalendarIcon(BookedFlightView flight) {
+        String title = flight.flightNumber() + " \u00b7 " + flight.route();
+        String href = GoogleCalendarLink.href(
+                title, flight.departureDateTime(), flight.arrivalDateTime(), "", "");
+        return GoogleCalendarLink.icon(href, "Add " + title + " to Google Calendar");
     }
 
     /**

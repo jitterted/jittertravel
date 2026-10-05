@@ -14,8 +14,8 @@ import static j2html.TagCreator.rawHtml;
 import static j2html.TagCreator.span;
 
 /**
- * The "push this entry into Google Calendar" control, shared by the conference, gathering and
- * private-event list views.
+ * The "push this entry into Google Calendar" control, shared by the conference, gathering,
+ * private-event and booked-flight list views.
  * <p>
  * <strong>It is a plain link, and that is the whole design</strong> (Ted, 2026-09-08). Google's
  * {@code render?action=TEMPLATE} URL opens its event editor pre-filled; Ted presses Save. No OAuth,
@@ -44,7 +44,7 @@ import static j2html.TagCreator.span;
  * the exact start and end are in the event's detail.
  * <p>
  * <strong>OWNER surfaces only.</strong> The URL carries the title and venue in the page's markup, so
- * this control belongs on pages the redaction rules already gate — the three list views it is used
+ * this control belongs on pages the redaction rules already gate — the list views it is used
  * from are all OWNER-only. It has no place on any calendar entry: {@code EntryDetails.Publishable}
  * has no slot for it, which is the allow-list doing its job.
  */

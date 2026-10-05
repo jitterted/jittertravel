@@ -141,6 +141,40 @@ class BookedFlightsRendererTest {
                 .doesNotContain("href=\"/booked-flights/" + flightId.id());
     }
 
+    /**
+     * Title only, no location or details, and each end formatted in the departure's zone. Whole
+     * attribute asserted: a bare "calendar.google.com" would pass on any URL.
+     */
+    @Test
+    void liveFlightOffersAnAddToGoogleIconWithFlightNumberAndRoute() {
+        BookedFlightView flight = new BookedFlightView(FlightId.random(), "United", "UA59", "SFO→FRA",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 6, 13, 55), ZoneId.of("America/Los_Angeles")),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 7, 9, 45), ZoneId.of("Europe/Berlin")),
+                List.of());
+
+        String html = BookedFlightsRenderer.render(List.of(flight), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("href=\"https://calendar.google.com/calendar/render?action=TEMPLATE"
+                          + "&amp;text=UA59+%C2%B7+SFO%E2%86%92FRA"
+                          + "&amp;dates=20260606T135500/20260607T004500"
+                          + "&amp;ctz=America%2FLos_Angeles\"")
+                .as("the icon follows the route in the Route cell, not the Edit/Cancel actions")
+                .contains("SFO→FRA<a class=\"gcal-add\"")
+                .contains(".flight-route .gcal-add { margin-left: 0.15rem; vertical-align: calc(0.35em - 0.7rem); }")
+                .contains(".flight-route .gcal-add svg { width: 1.4rem; height: 1.4rem; }")
+                .contains("<div class=\"flight-card-cell flight-route\">")
+                .doesNotContain("&amp;location=")
+                .doesNotContain("&amp;details=");
+    }
+
+    @Test
+    void cancelledFlightOffersNoAddToGoogleIcon() {
+        String html = BookedFlightsRenderer.render(List.of(cancelledView(FlightId.random())), TimeView.ALL);
+
+        assertThat(html).doesNotContain("class=\"gcal-add\"");
+    }
+
     @Test
     void theCancellationDateIsReadInTheDepartureAirportsZone() {
         // 03:00 UTC on the 21st is still the evening of the 20th in Los Angeles.

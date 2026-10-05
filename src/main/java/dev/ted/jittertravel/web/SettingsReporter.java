@@ -159,7 +159,11 @@ final class SettingsReporter {
         Row sender = new Row("Sender", "Fixed in the app", Level.NEUTRAL, null, BrevoEmailClient.SENDER_EMAIL, null,
                 "Brevo only sends from a domain verified for the key's account.");
 
-        List<Row> rows = List.of(flip, to, reply, key, sender, lastTest(in));
+        Row wording = new Row("Email wording", "What family receive", Level.NEUTRAL, null, null, null,
+                "Shows what family receive, and sends a copy to you.",
+                "/admin/email-preview", "Preview the emails →");
+
+        List<Row> rows = List.of(flip, to, reply, key, sender, lastTest(in), wording);
         boolean problem = rows.stream().anyMatch(row -> row.level() == Level.PROBLEM);
         if (problem) {
             return new Group("Family email", null, Level.PROBLEM, "Needs attention", rows);
@@ -222,9 +226,11 @@ final class SettingsReporter {
                         "The calendar subscription feed is disabled.");
         Row base = in.baseUrl().isBlank()
                 ? new Row("JITTERTRAVEL_BASE_URL", "Address used in links", Level.NEUTRAL, "Not set", null, null,
-                        "Links use the address of the request itself, which can be wrong behind Railway's proxy.")
+                        "Links use the address of the request itself, which can be wrong behind Railway's "
+                        + "proxy, and family emails have no calendar link.")
                 : new Row("JITTERTRAVEL_BASE_URL", "Address used in links", Level.OK, null, in.baseUrl(), null,
-                        "Subscribe and test links are built from this address.");
+                        "Subscribe and test links, and the calendar link in family emails, are built from "
+                        + "this address.");
         return in.calendarToken().set()
                 ? new Group("Calendar feed", null, Level.OK, "Enabled", List.of(token, base))
                 : new Group("Calendar feed", null, Level.NEUTRAL, "Disabled", List.of(token, base));

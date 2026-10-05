@@ -7,6 +7,7 @@ import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
+import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.NotifiedFact;
@@ -25,6 +26,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -35,6 +37,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 /**
  * A batch is one append. One command can append several events, so the batch — not the single
@@ -122,6 +125,41 @@ class FamilyNotificationTranslatorTest {
         translatorFor().react(batch(new FlightCancelled(first.flightId(), "", NOW)));
 
         verifyNoInteractions(notifyFamily);
+    }
+
+    /** One dropped leg is often a rebooking, not a trip that is off (Ted, 2026-10-05). */
+    @Test
+    void cancellingOneFlightOnItsOwnTellsNobody() {
+        translatorFor().react(batch(new FlightCancelled(first.flightId(), "Rebooked", NOW)));
+
+        verifyNoInteractions(notifyFamily);
+    }
+
+    @Test
+    void cancellingAWholeItineraryTellsFamilyOnceWithTheLegsThatWereCancelledWithIt() {
+        FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
+
+        translatorFor().react(batch(
+                new FlightCancelled(first.flightId(), "Rebooked", NOW),
+                new FlightCancelled(second.flightId(), "Rebooked", NOW),
+                new FlightItineraryCancelled(trip, "Rebooked", NOW)));
+
+        verify(notifyFamily, times(1)).notifyOfCancelledItinerary(any(UUID.class), eq(trip),
+                eq(Set.of(first.flightId(), second.flightId())), eq(NOW));
+        verifyNoMoreInteractions(notifyFamily);
+    }
+
+    @Test
+    void aFailureNotifyingACancellationIsCountedAndDoesNotEscape() {
+        FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
+        given(notifyFamily.notifyOfCancelledItinerary(any(), any(), any(), any()))
+                .willThrow(new IllegalStateException("Brevo returned 502"));
+
+        translatorFor().react(batch(
+                new FlightCancelled(first.flightId(), "", NOW), new FlightItineraryCancelled(trip, "", NOW)));
+
+        assertThat(meters.counter("family.notification.failed").count())
+                .isEqualTo(1.0);
     }
 
     @Test

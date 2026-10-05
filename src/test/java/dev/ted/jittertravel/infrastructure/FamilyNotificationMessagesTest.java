@@ -21,7 +21,7 @@ class FamilyNotificationMessagesTest {
     private static final ZoneId OTTAWA = ZoneId.of("America/Toronto");
 
     private final FamilyNotificationMessages messages =
-            new FamilyNotificationMessages(new StaticAirportCityResolver());
+            new FamilyNotificationMessages(new StaticAirportCityResolver(), "https://jittertravel.com");
 
     private final FlightBooked sfoOrd = leg("UA2091", "SFO", at(PACIFIC, 18, 6, 10), "ORD", at(CHICAGO, 18, 12, 45));
     private final FlightBooked ordYow = leg("UA3509", "ORD", at(CHICAGO, 18, 14, 0), "YOW", at(OTTAWA, 18, 17, 5));
@@ -33,7 +33,7 @@ class FamilyNotificationMessagesTest {
         FamilyMessage message = messages.messageFor(NotifiedFact.FLIGHT_BOOKED, List.of(sfoOrd));
 
         assertThat(message.subject())
-                .isEqualTo("Ted booked a flight: SFO → ORD");
+                .isEqualTo("(JitterTravel) Ted booked a new flight: SFO → ORD");
     }
 
     @Test
@@ -42,6 +42,10 @@ class FamilyNotificationMessagesTest {
 
         assertThat(message.textContent().lines().toList())
                 .containsExactly(
+                        "Hi, JitterTravel here. Ted booked a single new flight as follows, and he wanted you to know.",
+                        "",
+                        "You can see the flight in his calendar here: https://jittertravel.com/calendar?day=2026-10-18",
+                        "",
                         "UA2091",
                         "San Francisco (SFO) → Chicago (ORD)",
                         "Departs  Sun 18 Oct 2026, 6:10 AM (SFO)",
@@ -54,7 +58,7 @@ class FamilyNotificationMessagesTest {
                 List.of(sfoOrd, ordYow, yowOrd, ordSfo));
 
         assertThat(message.subject())
-                .isEqualTo("Ted booked a trip: SFO → ORD → YOW → ORD → SFO");
+                .isEqualTo("(JitterTravel) Ted booked a new trip: SFO → ORD → YOW → ORD → SFO");
     }
 
     @Test
@@ -67,7 +71,7 @@ class FamilyNotificationMessagesTest {
 
         assertThat(message.subject())
                 .as("a leg that does not continue the last one starts a new run, not a false connection")
-                .isEqualTo("Ted booked a trip: SFO → ORD, FRA → HAM");
+                .isEqualTo("(JitterTravel) Ted booked a new trip: SFO → ORD, FRA → HAM");
     }
 
     @Test
@@ -76,7 +80,9 @@ class FamilyNotificationMessagesTest {
 
         assertThat(message.textContent().lines().toList())
                 .containsExactly(
-                        "Ted booked a trip with 2 flights.",
+                        "Hi, JitterTravel here. Ted booked a new trip with 2 flights listed below, and he wanted you to know.",
+                        "",
+                        "You can see the trip in his calendar here: https://jittertravel.com/calendar?day=2026-10-18",
                         "",
                         "1. UA2091",
                         "   San Francisco (SFO) → Chicago (ORD)",
@@ -87,6 +93,88 @@ class FamilyNotificationMessagesTest {
                         "   Chicago (ORD) → Ottawa (YOW)",
                         "   Departs  Sun 18 Oct 2026, 2:00 PM (ORD)",
                         "   Arrives  Sun 18 Oct 2026, 5:05 PM (YOW)");
+    }
+
+    @Test
+    void aCancelledTripSaysSoInTheSubjectWithTheSameAirportChain() {
+        FamilyMessage message = messages.messageFor(NotifiedFact.ITINERARY_CANCELLED,
+                List.of(sfoOrd, ordYow, yowOrd, ordSfo));
+
+        assertThat(message.subject())
+                .isEqualTo("(JitterTravel) Ted cancelled a trip: SFO → ORD → YOW → ORD → SFO");
+    }
+
+    @Test
+    void aCancelledTripBodySaysWhatHappenedAndListsEachLegAsNoLongerHappening() {
+        FamilyMessage message = messages.messageFor(NotifiedFact.ITINERARY_CANCELLED, List.of(sfoOrd, ordYow));
+
+        assertThat(message.textContent().lines().toList())
+                .containsExactly(
+                        "Hi, JitterTravel here. Ted canceled the trip below, and he wanted to let you know.",
+                        "",
+                        "1. UA2091",
+                        "   San Francisco (SFO) → Chicago (ORD)",
+                        "   Was due to depart  Sun 18 Oct 2026, 6:10 AM (SFO)",
+                        "   Was due to arrive  Sun 18 Oct 2026, 12:45 PM (ORD)",
+                        "",
+                        "2. UA3509",
+                        "   Chicago (ORD) → Ottawa (YOW)",
+                        "   Was due to depart  Sun 18 Oct 2026, 2:00 PM (ORD)",
+                        "   Was due to arrive  Sun 18 Oct 2026, 5:05 PM (YOW)");
+    }
+
+    @Test
+    void aCancelledTripSaysWhatHappenedAndNotWhyAndNamesNoCodeOrAirline() {
+        FamilyMessage message = messages.messageFor(NotifiedFact.ITINERARY_CANCELLED, List.of(sfoOrd, ordYow));
+
+        assertThat(message.subject() + "\n" + message.textContent())
+                .doesNotContain("MD7LKB")
+                .doesNotContain("United")
+                .doesNotContain("Confirmation")
+                .doesNotContain("reason")
+                .doesNotContain("schedule change");
+    }
+
+    // ---- the calendar link a template can include ----------------------------------------------
+
+    @Test
+    void theCalendarLinkJumpsToTheDayOfASingleFlight() {
+        assertThat(messages.calendarUrl(List.of(sfoOrd)))
+                .contains("https://jittertravel.com/calendar?day=2026-10-18");
+    }
+
+    @Test
+    void forATripTheCalendarLinkJumpsToTheDayOfTheFirstFlightWhateverOrderTheyAreGivenIn() {
+        assertThat(messages.calendarUrl(List.of(ordSfo, yowOrd, sfoOrd, ordYow)))
+                .contains("https://jittertravel.com/calendar?day=2026-10-18");
+    }
+
+    @Test
+    void theDayIsTheDeparturesOwnLocalDateNotTheUtcOne() {
+        // 11:30 PM on the 18th in San Francisco is already the 19th in UTC; the calendar puts the
+        // flight in the column of the day it leaves on, which is the 18th.
+        FlightBooked lateFlight = leg("UA1", "SFO", at(PACIFIC, 18, 23, 30), "ORD", at(CHICAGO, 19, 5, 0));
+
+        assertThat(messages.calendarUrl(List.of(lateFlight)))
+                .contains("https://jittertravel.com/calendar?day=2026-10-18");
+    }
+
+    @Test
+    void aTrailingSlashOnTheBaseUrlDoesNotDoubleUp() {
+        FamilyNotificationMessages withSlash =
+                new FamilyNotificationMessages(new StaticAirportCityResolver(), "https://jittertravel.com/");
+
+        assertThat(withSlash.calendarUrl(List.of(sfoOrd)))
+                .contains("https://jittertravel.com/calendar?day=2026-10-18");
+    }
+
+    @Test
+    void withNoBaseUrlThereIsNoLinkRatherThanAGuessedOne() {
+        FamilyNotificationMessages unconfigured =
+                new FamilyNotificationMessages(new StaticAirportCityResolver(), "");
+
+        assertThat(unconfigured.calendarUrl(List.of(sfoOrd)))
+                .isEmpty();
     }
 
     @Test

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Email preview — JitterTravel</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* This page does not load site.css, so every colour it uses is defined here and nowhere else.
+           The layout is the approved mockup: https://claude.ai/artifact/C7mjK5bUm6yY5nDVX1JgWu */
+        :root {
+            --bg: #faf9f7;
+            --surface: #ffffff;
+            --text-primary: #1a1916;
+            --text-secondary: #6b6860;
+            --border: rgba(0, 0, 0, 0.12);
+            --accent: #4f46e5;
+            --accent-fg: #ffffff;
+            --ok-bg: #dcfce7; --ok-fg: #14532d; --ok-edge: #16a34a;
+            --warn-bg: #fef3c7; --warn-fg: #78350f; --warn-edge: #d97706;
+            --idle-bg: #eceef5; --idle-fg: #4a5164;
+            --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+            --font: 'League Spartan', ui-sans-serif, system-ui, sans-serif;
+        }
+
+        body { font-family: var(--font), serif; background: var(--bg); color: var(--text-primary); line-height: 1.45; }
+        nav { padding: 1rem 1.5rem; }
+        nav a { color: var(--accent); }
+
+        /* Left-aligned throughout: an email is read down a column. */
+        .preview { max-width: 980px; margin: 0 auto; padding: 0 1.5rem 3rem; text-align: left; }
+        h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 0.25rem; }
+        .intro { color: var(--text-secondary); margin-bottom: 1rem; max-width: 74ch; }
+
+        .send { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 0.65rem; padding: 0.8rem 0.9rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; background: var(--surface); }
+        .send-mark { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 0.8rem; background: var(--idle-bg); color: var(--idle-fg); }
+        .send.ok { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-edge); }
+        .send.ok .send-mark { background: var(--ok-edge); color: #fff; }
+        .send.warn { background: var(--warn-bg); color: var(--warn-fg); border-color: var(--warn-edge); }
+        .send.warn .send-mark { background: var(--warn-edge); color: #fff; }
+        .send-what { font-weight: 700; }
+        .send-why { font-size: 0.9rem; margin: 0.1rem 0 0.5rem; overflow-wrap: anywhere; }
+        .send.idle .send-why { color: var(--text-secondary); }
+        .send-next { font-size: 0.9rem; margin-bottom: 0.4rem; overflow-wrap: anywhere; }
+        .send-button { border: 2px solid var(--accent); border-radius: 7px; background: var(--accent); color: var(--accent-fg); font: inherit; font-size: 0.92rem; font-weight: 650; padding: 0.55rem 1rem; text-align: left; max-width: 100%; cursor: pointer; }
+        .send-button.secondary { background: transparent; color: var(--accent); }
+        .send-button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+        .flash { animation: flash-ok 1.8s ease-out 1; }
+        .send.warn.flash { animation-name: flash-warn; }
+        @keyframes flash-ok { 0% { box-shadow: 0 0 0 6px var(--ok-edge); transform: scale(1.01); } 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); } }
+        @keyframes flash-warn { 0% { box-shadow: 0 0 0 6px var(--warn-edge); transform: scale(1.01); } 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); } }
+        @media (prefers-reduced-motion: reduce) { .flash, .send.warn.flash { animation: none; } }
+
+        .email { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
+        .email-head { display: flex; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; padding: 0.5rem 0.9rem; background: var(--idle-bg); color: var(--idle-fg); font-weight: 700; font-size: 0.9rem; }
+        .email-head span { font-weight: 400; font-size: 0.8rem; font-family: var(--mono); }
+        .subject { padding: 0.55rem 0.9rem; border-bottom: 1px solid var(--border); font-size: 0.92rem; overflow-wrap: anywhere; }
+        .subject b { display: inline-block; min-width: 4.5rem; color: var(--text-secondary); font-weight: 600; }
+        pre.body { margin: 0; padding: 0.75rem 0.9rem; font-family: var(--mono); font-size: 0.84rem; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+        pre.body a { color: var(--accent); text-decoration: underline; }
+    </style>
+</head>
+<body>
+<nav><h3><a href="/admin">Admin</a> &middot; <a href="/admin/settings">Settings</a> &middot; <a href="/">JitterTravel</a></h3></nav>
+
+<main class="preview">
+    <h1>Email preview</h1>
+    <p class="intro">Built from the files in src/main/resources/email/ with sample flights, so nothing here is a
+        real booking. <span th:text="${linkNote}">The calendar link uses the sample's date.</span></p>
+
+    <div class="send" th:classappend="${panel.cssClass()}" th:attr="role=${panel.role()}">
+        <span class="send-mark" aria-hidden="true" th:text="${panel.mark()}">&#9993;</span>
+        <div>
+            <div class="send-what" th:text="${panel.what()}">Send these three emails to yourself</div>
+            <div class="send-why" th:text="${panel.why()}">Why.</div>
+            <div class="send-next" th:if="${panel.hasNext()}"><b>Next:</b> <span th:text="${panel.next()}">What to do.</span></div>
+            <form th:if="${panel.hasButton()}" th:action="@{/admin/email-preview/send}" method="post">
+                <button type="submit" class="send-button" th:classappend="${panel.buttonSecondary()} ? 'secondary'"
+                        th:text="${panel.buttonLabel()}">Send all three</button>
+            </form>
+        </div>
+    </div>
+
+    <section class="email" th:each="email : ${emails}" th:attr="aria-label=${email.label()}">
+        <div class="email-head"><b th:text="${email.label()}">Flight booked</b><span th:text="${email.file()}">email/flight-booked.txt</span></div>
+        <div class="subject"><b>Subject</b><span th:text="${email.subject()}">Subject.</span></div>
+        <pre class="body"><th:block th:each="part : ${email.segments()}"><a th:if="${part.link()}" th:href="${part.text()}" th:text="${part.text()}">link</a><span th:unless="${part.link()}" th:text="${part.text()}">text</span></th:block></pre>
+    </section>
+</main>
+</body>
+</html>

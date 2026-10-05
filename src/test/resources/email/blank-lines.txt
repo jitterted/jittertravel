@@ -1,0 +1,12 @@
+Subject: Blank line test
+
+First paragraph.
+
+
+
+Second paragraph, after three blank lines.
+[# th:each="item : ${items}"]
+
+- [[${item}]]
+
+[/]

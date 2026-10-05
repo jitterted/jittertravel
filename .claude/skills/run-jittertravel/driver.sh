@@ -49,7 +49,14 @@ case "${1:-}" in
       echo "already running at $BASE"; exit 0
     fi
     echo "starting (log: $LOG)"
+    # A fake user.home, on purpose. Spring Boot DevTools reads ~/.config/spring-boot/
+    # spring-boot-devtools.properties into every dev run, and a developer's copy can hold REAL
+    # credentials (a Brevo key, the family address) that override anything set in the environment —
+    # so a test run meant to be harmless would send real email. With no such file under the fake
+    # home, an app started here only sees what this script and the profile give it.
+    ISOLATED_HOME="$(dirname "$LOG")/home"; mkdir -p "$ISOLATED_HOME"
     ( cd "$UNIT_DIR" && ./mvnw spring-boot:run -Dspring-boot.run.profiles=prod-preview \
+        -Dspring-boot.run.jvmArguments="-Duser.home=$ISOLATED_HOME" \
         > "$LOG" 2>&1 & echo $! > "$PIDFILE" )
     for _ in $(seq 1 120); do
       if curl -sf "$BASE/actuator/health" >/dev/null 2>&1; then

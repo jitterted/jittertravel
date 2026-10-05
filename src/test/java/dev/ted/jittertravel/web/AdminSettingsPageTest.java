@@ -100,6 +100,17 @@ class AdminSettingsPageTest {
     }
 
     @Test
+    void theFamilyEmailGroupLinksToThePreviewOfWhatFamilyReceive() {
+        healthyFamilyEmail();
+
+        assertThat(mockMvc.get().uri("/admin/settings"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"row-link\" href=\"/admin/email-preview\">Preview the emails →</a>")
+                .contains("<span class=\"what\">Shows what family receive, and sends a copy to you.</span>");
+    }
+
+    @Test
     void noSecretReachesThePageInFull() {
         healthyFamilyEmail();
 

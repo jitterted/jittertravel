@@ -1356,6 +1356,25 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
+    void familyNotifiedThatAnItineraryWasCancelledDeserializes() {
+        // Additive: a new value of the existing NotifiedFact enum, so no schema version or upcaster.
+        String json = """
+                {
+                  "subject": {"kind": "FLIGHT_ITINERARY", "id": "99999999-9999-9999-9999-999999999999"},
+                  "fact": "ITINERARY_CANCELLED",
+                  "notifiedAt": "2026-10-06T17:00:00Z"
+                }
+                """;
+
+        FamilyNotified event = deserialize(json, FamilyNotified.class);
+
+        assertThat(event.fact())
+                .isEqualTo(NotifiedFact.ITINERARY_CANCELLED);
+        assertThat(event.subject().kind())
+                .isEqualTo(NotifiedSubject.Kind.FLIGHT_ITINERARY);
+    }
+
+    @Test
     void flightCancelledWithNoCauseReadsAsManual() {
         // Every FlightCancelled stored before `cause` existed: none of them is reinstatable.
         String json = """

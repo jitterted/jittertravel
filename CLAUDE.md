@@ -968,6 +968,17 @@ What is in place today, and what is not:
   list already holds, so the next `append` collides on the primary key. The `MAX` query was deleted
   outright (2026-09-12) rather than left unused, and `loadAllEvents`'s ordering now has a test of
   its own, because the sequence rule depends on it.
+- **The shared test database is emptied after every integration test class as well as before every
+  test** (2026-10-05). A new
+  Spring context replays `event_log` while it boots, before its first test's `@Sql` has run, and the
+  container is shared by every integration context. A test that leaves a row behind
+  (`LegacyEventMigrationTest` writes an unresolvable one on purpose) therefore poisoned whichever
+  context booted next: its replay failed, the store latched read-only for good, and every test in it
+  failed with `ReadOnlyModeException`, by class order alone (1 run in 3 failed ten tests). The
+  `@AfterAll` truncate in `AbstractTestcontainerIntegrationTest` is the fix; not `@DirtiesContext`,
+  which would have hidden the poison instead of removing it. **After the class, not after each
+  test:** an `AFTER_TEST_METHOD @Sql` hangs for ever, because a transactional `@JdbcTest` slice still
+  holds its transaction when that script runs.
 - **`EventStoreTest` covers `reload()` directly, and this is not optional.** The `@BeforeEach`
   guard asserts the store is *empty* right after the `@Sql` truncate, so it cannot tell a real
   reload from a bare `events.clear()` — verified by deleting the re-read, which left the whole
@@ -1019,6 +1030,43 @@ What is in place today, and what is not:
 **When adding shared, long-lived state to production code, ask how it is returned to a known state.**
 If the answer is "restart the process", it will be wrong in a test and wrong for an admin action
 too — and the test that catches it may be years away.
+
+### Email text lives in `src/main/resources/email/`, and changing it needs Ted's approval first
+
+Every email the app sends is a plain text file there (`flight-booked.txt`, `trip-booked.txt`,
+`trip-cancelled.txt`, `test-email.txt`), written as the email itself: a `Subject:` line, a blank line,
+then the body, with values as `[[${name}]]` and a repeated part as `[# th:each ...] ... [/]`.
+`EmailTemplates` renders them with Thymeleaf's plain-text mode (no extra dependency), and a run of
+blank lines is sent as one. **A template can link to the calendar**: when `JITTERTRAVEL_BASE_URL` is
+set, `[[${calendarUrl}]]` is `<base>/calendar?day=<date>`, the day of the first flight (a booking) or of
+the first flight that was due (a cancellation), in that flight's own local date. With no base URL it is
+absent, not a guess, so wrap the line:
+`[# th:if="${calendarUrl != null}"] ...wording... [[${calendarUrl}]] [/]`.
+`FamilyNotificationMessages` only chooses the file and prepares the values (city names, times, the
+airport chain); a field it does not pass cannot appear in a message.
+
+**`/admin/email-preview`** (linked from Settings) shows every email exactly as sent, from fixed sample
+flights, and sends the three flight emails to `TED_REPLY_EMAIL` and nowhere else
+(`BrevoEmailClient.sendTo`; nothing on that page can name the family address). It is how Ted checks
+how a link and the line breaks look in his own mail client.
+
+**Ted approves the exact wording of any text that leaves the app (email, SMS, anything added later)
+before it is committed** (2026-10-05). Show him the literal subject and body, not a description, and
+wait. `FamilyNotificationMessagesTest` pins the words, which proves the code matches what he saw and
+is not itself approval. A new outbound channel gets the same arrangement: its text in one reviewable
+place, and the same gate.
+
+### A local dev run loads real credentials from `~/.config/spring-boot/`, whatever the environment says
+
+Spring Boot DevTools reads `~/.config/spring-boot/spring-boot-devtools.properties` into every run of
+the app from `spring-boot:run` or the IDE, and **it overrides environment variables.** On Ted's
+machine that file holds real keys (a Brevo key, the family address), so a test run started with
+`JITTERTRAVEL_BREVO_API_KEY=dummy` still used the real key, and clicking the email preview's send
+button sent three real emails through Brevo (2026-10-05; to the reserved `example.com`, so nothing
+was delivered, but only by luck of the address). **Any run that could send, spend or write outside
+the machine must be started with a fake home:** `-Dspring-boot.run.jvmArguments=-Duser.home=<empty
+dir>`, which `.claude/skills/run-jittertravel/driver.sh` now does. Check the Settings page for what
+key actually loaded (it shows the last four characters) before trusting that a run is isolated.
 
 ### The CSRF cookie is written on every request, and `csrf()` leaks between tests
 

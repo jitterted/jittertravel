@@ -2,6 +2,9 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.FamilyNotified;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightChanged;
+import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.NotifiedFact;
 import dev.ted.jittertravel.domain.NotifiedSubject;
 import dev.ted.jittertravel.infrastructure.BrevoEmailClient;
@@ -10,8 +13,12 @@ import dev.ted.jittertravel.infrastructure.FamilyNotificationMessages;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -38,7 +45,13 @@ import java.util.stream.Stream;
 public class NotifyFamily {
 
     /** What happened to a request, so the caller can count it without this class knowing about metrics. */
-    public enum Outcome { SENT, NOT_ENABLED, NOT_CONFIGURED, ALREADY_TOLD }
+    public enum Outcome {
+        SENT, NOT_ENABLED, NOT_CONFIGURED, ALREADY_TOLD,
+        /** A trip was cancelled that family were never told was booked: there is nothing to retract. */
+        NEVER_TOLD,
+        /** A cancellation named flights the stream does not know, so there is nothing to describe. */
+        NO_LEGS
+    }
 
     private final CommandExecutor commandExecutor;
     private final BrevoEmailClient brevo;
@@ -55,31 +68,107 @@ public class NotifyFamily {
 
     public Outcome notifyFamily(UUID commandId, NotifiedSubject subject, NotifiedFact fact,
                                 List<FlightBooked> legs, Instant now) {
-        if (!enabled) {
-            return Outcome.NOT_ENABLED;
+        Optional<Outcome> blocked = blocked();
+        if (blocked.isPresent()) {
+            return blocked.get();
         }
-        if (!brevo.configured()) {
-            return Outcome.NOT_CONFIGURED;
-        }
-        if (lastToldAbout(subject).filter(fact::equals).isPresent()) {
+        if (lastToldAbout(history(), subject).filter(fact::equals).isPresent()) {
             return Outcome.ALREADY_TOLD;
         }
-        FamilyMessage message = messages.messageFor(fact, legs);
+        send(commandId, subject, fact, messages.messageFor(fact, legs), now);
+        return Outcome.SENT;
+    }
+
+    /**
+     * A whole itinerary was cancelled, and {@code cancelledFlights} are the legs it cancelled with it.
+     * <p>
+     * <strong>Told only if family were told it was booked</strong> (Ted, 2026-10-05): "a trip you
+     * were told about is off" is news, and "a trip you never heard of is off" is not. That is the same
+     * positive-first rule a conference exit follows, and it is its own named condition rather than
+     * part of the comparison, because it is a different rule with a different reason. A trip booked
+     * before the notifier existed, or while it was switched off, is therefore cancelled in silence.
+     * <p>
+     * The legs are described as they stood when cancelled (a later hand edit applies), and only the
+     * ones this cancellation cancelled: one cancelled earlier on its own is not part of what family
+     * are being told is off.
+     */
+    public Outcome notifyOfCancelledItinerary(UUID commandId, FlightItineraryId itinerary,
+                                              Set<FlightId> cancelledFlights, Instant now) {
+        Optional<Outcome> blocked = blocked();
+        if (blocked.isPresent()) {
+            return blocked.get();
+        }
+        NotifiedSubject subject = NotifiedSubject.itinerary(itinerary);
+        List<StoredEvent> history = history();
+        Optional<NotifiedFact> last = lastToldAbout(history, subject);
+        if (last.isEmpty()) {
+            return Outcome.NEVER_TOLD;
+        }
+        if (last.get() == NotifiedFact.ITINERARY_CANCELLED) {
+            return Outcome.ALREADY_TOLD;
+        }
+        List<FlightBooked> legs = legsAsTheyStood(history, cancelledFlights);
+        if (legs.isEmpty()) {
+            return Outcome.NO_LEGS;
+        }
+        send(commandId, subject, NotifiedFact.ITINERARY_CANCELLED,
+                messages.messageFor(NotifiedFact.ITINERARY_CANCELLED, legs), now);
+        return Outcome.SENT;
+    }
+
+    /** The switch and the means to send, checked before any command row exists. */
+    private Optional<Outcome> blocked() {
+        if (!enabled) {
+            return Optional.of(Outcome.NOT_ENABLED);
+        }
+        if (!brevo.configured()) {
+            return Optional.of(Outcome.NOT_CONFIGURED);
+        }
+        return Optional.empty();
+    }
+
+    private void send(UUID commandId, NotifiedSubject subject, NotifiedFact fact, FamilyMessage message,
+                      Instant now) {
         commandExecutor.executeExternalAction(commandId, new NotifyFamilyCommand(subject, fact, now), () -> {
             brevo.send(message);
             return Stream.of(new FamilyNotified(subject, fact, now));
         });
-        return Outcome.SENT;
+    }
+
+    private List<StoredEvent> history() {
+        return commandExecutor.eventsForDecision().toList();
     }
 
     /** An explicit loop: what family believe now is the <em>last</em> thing they were told. */
-    private Optional<NotifiedFact> lastToldAbout(NotifiedSubject subject) {
+    private Optional<NotifiedFact> lastToldAbout(List<StoredEvent> history, NotifiedSubject subject) {
         NotifiedFact last = null;
-        for (StoredEvent stored : commandExecutor.eventsForDecision().toList()) {
+        for (StoredEvent stored : history) {
             if (stored.payload() instanceof FamilyNotified told && told.subject().equals(subject)) {
                 last = told.fact();
             }
         }
         return Optional.ofNullable(last);
+    }
+
+    /**
+     * Each requested flight as the stream last wrote it, in departure order. An explicit loop: a
+     * later {@code FlightChanged} must replace an earlier booking, so the order of events decides.
+     */
+    private List<FlightBooked> legsAsTheyStood(List<StoredEvent> history, Set<FlightId> wanted) {
+        Map<FlightId, FlightBooked> legs = new LinkedHashMap<>();
+        for (StoredEvent stored : history) {
+            switch (stored.payload()) {
+                case FlightBooked booked when wanted.contains(booked.flightId()) ->
+                        legs.put(booked.flightId(), booked);
+                case FlightChanged changed when wanted.contains(changed.flightId()) ->
+                        legs.put(changed.flightId(), new FlightBooked(changed.flightId(), changed.airline(),
+                                changed.flightNumber(), changed.departureAirport(), changed.departureDateTime(),
+                                changed.arrivalAirport(), changed.arrivalDateTime()));
+                default -> { /* not one of the cancelled legs */ }
+            }
+        }
+        return legs.values().stream()
+                .sorted(Comparator.comparing(leg -> leg.departureDateTime().utc()))
+                .toList();
     }
 }

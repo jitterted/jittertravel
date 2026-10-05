@@ -2,9 +2,12 @@ package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.NotifyFamily;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
+import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryChanged;
+import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.NotifiedFact;
 import dev.ted.jittertravel.domain.NotifiedSubject;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -21,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -59,15 +63,51 @@ public class FamilyNotificationTranslator implements EventReactor {
 
     @Override
     public void react(List<StoredEvent> events) {
+        Instant now = Instant.now(clock);
         for (Notification notification : notificationsIn(events)) {
             try {
                 notifyFamily.notifyFamily(UUID.randomUUID(), notification.subject(), notification.fact(),
-                        notification.legs(), Instant.now(clock));
+                        notification.legs(), now);
             } catch (RuntimeException failed) {
-                meterRegistry.counter("family.notification.failed").increment();
-                log.warn("Family notification about {} was not sent", notification.subject(), failed);
+                countFailure(notification.subject(), failed);
             }
         }
+        for (Cancellation cancellation : cancellationsIn(events)) {
+            try {
+                notifyFamily.notifyOfCancelledItinerary(UUID.randomUUID(), cancellation.itinerary(),
+                        cancellation.flights(), now);
+            } catch (RuntimeException failed) {
+                countFailure(NotifiedSubject.itinerary(cancellation.itinerary()), failed);
+            }
+        }
+    }
+
+    private void countFailure(NotifiedSubject subject, RuntimeException failed) {
+        meterRegistry.counter("family.notification.failed").increment();
+        log.warn("Family notification about {} was not sent", subject, failed);
+    }
+
+    /**
+     * A whole itinerary cancelled: the itinerary event, and the flights cancelled in the same append.
+     * A {@code FlightCancelled} on its own is not here, because one dropped leg is often a rebooking
+     * and not a trip that is off (Ted, 2026-10-05).
+     */
+    private List<Cancellation> cancellationsIn(List<StoredEvent> events) {
+        Set<FlightId> cancelledFlights = events.stream()
+                .map(StoredEvent::payload)
+                .filter(FlightCancelled.class::isInstance)
+                .map(FlightCancelled.class::cast)
+                .map(FlightCancelled::flightId)
+                .collect(Collectors.toSet());
+        return events.stream()
+                .map(StoredEvent::payload)
+                .filter(FlightItineraryCancelled.class::isInstance)
+                .map(FlightItineraryCancelled.class::cast)
+                .map(cancelled -> new Cancellation(cancelled.itineraryId(), cancelledFlights))
+                .toList();
+    }
+
+    private record Cancellation(FlightItineraryId itinerary, Set<FlightId> flights) {
     }
 
     private List<Notification> notificationsIn(List<StoredEvent> events) {

@@ -519,9 +519,16 @@ public class EventSourcingConfig {
         return new CancelFlight(commandExecutor);
     }
 
+    /**
+     * The base URL ({@code JITTERTRAVEL_BASE_URL}) is what an email's links are built from. Unset, an
+     * email simply has no link: a hostname is not guessed, because a link to the wrong site in mail to
+     * family is worse than none.
+     */
     @Bean
-    public FamilyNotificationMessages familyNotificationMessages(AirportCityResolver airportCityResolver) {
-        return new FamilyNotificationMessages(airportCityResolver);
+    public FamilyNotificationMessages familyNotificationMessages(
+            AirportCityResolver airportCityResolver,
+            @Value("${jittertravel.base-url:}") String baseUrl) {
+        return new FamilyNotificationMessages(airportCityResolver, baseUrl);
     }
 
     /**

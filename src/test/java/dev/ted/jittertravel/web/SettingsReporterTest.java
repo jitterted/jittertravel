@@ -240,7 +240,8 @@ class SettingsReporterTest {
                 .isEqualTo("The calendar subscription feed is disabled.");
         assertThat(row(report, "JITTERTRAVEL_BASE_URL").pill()).isEqualTo("Not set");
         assertThat(row(report, "JITTERTRAVEL_BASE_URL").what())
-                .isEqualTo("Links use the address of the request itself, which can be wrong behind Railway's proxy.");
+                .isEqualTo("Links use the address of the request itself, which can be wrong behind Railway's "
+                           + "proxy, and family emails have no calendar link.");
         assertThat(report.problems()).isZero();
     }
 

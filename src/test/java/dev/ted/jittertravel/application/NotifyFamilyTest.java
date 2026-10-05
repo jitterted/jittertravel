@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FamilyNotified;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.NotifiedFact;
@@ -27,6 +28,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -64,7 +66,7 @@ class NotifyFamilyTest {
 
     private NotifyFamily service(boolean enabled) {
         return new NotifyFamily(new CommandExecutor(persister, eventStore), brevo,
-                new FamilyNotificationMessages(new StaticAirportCityResolver()), enabled);
+                new FamilyNotificationMessages(new StaticAirportCityResolver(), ""), enabled);
     }
 
     private void configured() {
@@ -122,7 +124,7 @@ class NotifyFamilyTest {
         inOrder.verify(eventStore).append(appended.capture(), eq(COMMAND_ID));
 
         assertThat(sent.getValue().subject())
-                .isEqualTo("Ted booked a flight: SFO → ORD");
+                .isEqualTo("(JitterTravel) Ted booked a new flight: SFO → ORD");
         assertThat(appended.getValue().map(Event.class::cast).toList())
                 .containsExactly(new FamilyNotified(subject, NotifiedFact.FLIGHT_BOOKED, NOW));
     }
@@ -181,6 +183,112 @@ class NotifyFamilyTest {
         assertThat(outcome)
                 .as("the subject is the kind and the id together")
                 .isEqualTo(NotifyFamily.Outcome.SENT);
+    }
+
+    // ---- a whole itinerary cancelled -----------------------------------------------------------
+
+    private final FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
+    private final FlightBooked ordSfo = new FlightBooked(FlightId.random(), "United Airlines", "UA2092",
+            AirportCode.of("ORD"), ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 25, 13, 0), CHICAGO),
+            AirportCode.of("SFO"), ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 25, 15, 55), PACIFIC));
+
+    private FamilyNotified toldBooked() {
+        return new FamilyNotified(NotifiedSubject.itinerary(trip), NotifiedFact.ITINERARY_BOOKED, NOW.minusSeconds(60));
+    }
+
+    private NotifyFamily.Outcome cancelled(Set<FlightId> flights) {
+        return service(true).notifyOfCancelledItinerary(COMMAND_ID, trip, flights, NOW);
+    }
+
+    @Test
+    void cancellingATripFamilyWereToldAboutTellsThemItIsOffAndRecordsIt() {
+        configured();
+        history(sfoOrd, ordSfo, toldBooked());
+
+        NotifyFamily.Outcome outcome = cancelled(Set.of(sfoOrd.flightId(), ordSfo.flightId()));
+
+        assertThat(outcome).isEqualTo(NotifyFamily.Outcome.SENT);
+        ArgumentCaptor<FamilyMessage> sent = ArgumentCaptor.forClass(FamilyMessage.class);
+        InOrder inOrder = inOrder(persister, brevo, eventStore);
+        inOrder.verify(persister).saveCommand(COMMAND_ID,
+                new NotifyFamilyCommand(NotifiedSubject.itinerary(trip), NotifiedFact.ITINERARY_CANCELLED, NOW));
+        inOrder.verify(brevo).send(sent.capture());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Stream<? extends Event>> appended = ArgumentCaptor.forClass(Stream.class);
+        inOrder.verify(eventStore).append(appended.capture(), eq(COMMAND_ID));
+
+        assertThat(sent.getValue().subject()).isEqualTo("(JitterTravel) Ted cancelled a trip: SFO → ORD → SFO");
+        assertThat(appended.getValue().map(Event.class::cast).toList())
+                .containsExactly(new FamilyNotified(NotifiedSubject.itinerary(trip),
+                        NotifiedFact.ITINERARY_CANCELLED, NOW));
+    }
+
+    @Test
+    void aTripFamilyWereNeverToldAboutIsCancelledInSilence() {
+        configured();
+        history(sfoOrd, ordSfo);
+
+        NotifyFamily.Outcome outcome = cancelled(Set.of(sfoOrd.flightId(), ordSfo.flightId()));
+
+        assertThat(outcome)
+                .as("telling family a trip is off when they never heard it was on would be news from nowhere")
+                .isEqualTo(NotifyFamily.Outcome.NEVER_TOLD);
+        verify(persister, never()).saveCommand(any(), any());
+        verify(brevo, never()).send(any());
+    }
+
+    @Test
+    void aTripFamilyWereAlreadyToldIsCancelledIsNotToldAgain() {
+        configured();
+        history(sfoOrd, ordSfo, toldBooked(),
+                new FamilyNotified(NotifiedSubject.itinerary(trip), NotifiedFact.ITINERARY_CANCELLED,
+                        NOW.minusSeconds(30)));
+
+        assertThat(cancelled(Set.of(sfoOrd.flightId(), ordSfo.flightId())))
+                .isEqualTo(NotifyFamily.Outcome.ALREADY_TOLD);
+        verify(brevo, never()).send(any());
+    }
+
+    @Test
+    void theMessageDescribesOnlyTheLegsThisCancellationCancelledAtTheirCurrentTimes() {
+        configured();
+        FlightChanged movedByHand = new FlightChanged(sfoOrd.flightId(), "United Airlines", "UA2091",
+                AirportCode.of("SFO"), ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 18, 7, 10), PACIFIC),
+                AirportCode.of("ORD"), ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 18, 12, 45), CHICAGO),
+                "Edited");
+        history(sfoOrd, ordSfo, movedByHand, toldBooked());
+
+        cancelled(Set.of(sfoOrd.flightId()));
+
+        ArgumentCaptor<FamilyMessage> sent = ArgumentCaptor.forClass(FamilyMessage.class);
+        verify(brevo).send(sent.capture());
+        assertThat(sent.getValue().subject()).isEqualTo("(JitterTravel) Ted cancelled a trip: SFO → ORD");
+        assertThat(sent.getValue().textContent())
+                .contains("Sun 18 Oct 2026, 7:10 AM (SFO)")
+                .doesNotContain("6:10 AM")
+                .doesNotContain("UA2092");
+    }
+
+    @Test
+    void cancellingFlightsTheStreamDoesNotKnowHasNothingToDescribe() {
+        configured();
+        history(toldBooked());
+
+        assertThat(cancelled(Set.of(FlightId.random())))
+                .isEqualTo(NotifyFamily.Outcome.NO_LEGS);
+        verify(brevo, never()).send(any());
+    }
+
+    @Test
+    void aDisabledOrUnconfiguredNotifierSaysNothingAboutACancellationEither() {
+        assertThat(new NotifyFamily(new CommandExecutor(persister, eventStore), brevo,
+                new FamilyNotificationMessages(new StaticAirportCityResolver(), ""), false)
+                .notifyOfCancelledItinerary(COMMAND_ID, trip, Set.of(sfoOrd.flightId()), NOW))
+                .isEqualTo(NotifyFamily.Outcome.NOT_ENABLED);
+        given(brevo.configured()).willReturn(false);
+        assertThat(cancelled(Set.of(sfoOrd.flightId())))
+                .isEqualTo(NotifyFamily.Outcome.NOT_CONFIGURED);
+        verify(persister, never()).saveCommand(any(), any());
     }
 
     @Test

@@ -96,6 +96,37 @@ class BrevoEmailClientTest {
     }
 
     @Test
+    void sendToAddressesTheMailToTheGivenAddressAndNeverTheConfiguredRecipient() {
+        server.expect(requestTo("https://api.brevo.com/v3/smtp/email"))
+                .andExpect(content().json("""
+                        {
+                          "sender": {"name": "JitterTravel", "email": "notifications@jittertravel.com"},
+                          "replyTo": {"email": "ted@example.com"},
+                          "to": [{"email": "ted@example.com"}],
+                          "subject": "Ted booked a flight: SFO → LHR",
+                          "textContent": "UA 195\\nSFO → LHR"
+                        }
+                        """, true))
+                .andRespond(withSuccess());
+
+        client("secret-key", "family@example.com", "ted@example.com").sendTo("ted@example.com", MESSAGE);
+
+        server.verify();
+    }
+
+    @Test
+    void sendToNeedsAKeyAndAnAddressButNotAConfiguredRecipient() {
+        assertThat(client("secret-key", "", "").hasKey()).isTrue();
+        assertThat(client("", "family@example.com", "").hasKey()).isFalse();
+
+        assertThatThrownBy(() -> client("", "family@example.com", "").sendTo("ted@example.com", MESSAGE))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> client("secret-key", "family@example.com", "").sendTo("  ", MESSAGE))
+                .isInstanceOf(IllegalStateException.class);
+        server.verify();
+    }
+
+    @Test
     void reportsTheRecipientItWillSendTo() {
         assertThat(client("secret-key", " family@example.com ", "").recipient())
                 .isEqualTo("family@example.com");

@@ -1,0 +1,7 @@
+Subject: JitterTravel test email
+
+This is a test from JitterTravel, sent from its admin page to check that email reaches this inbox. Nothing was booked, and nothing needs doing.
+
+You're free to delete this email safely.
+
+- JitterTravel

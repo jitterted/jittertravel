@@ -106,6 +106,9 @@ class AuthorizationMatrixTest {
                 arguments("/admin/family-notify/probe", Outcome.OK,  Outcome.DENIED_HOME,  Outcome.LOGIN),
                 // Prints which keys are loaded (their last four characters) and where mail goes.
                 arguments("/admin/settings",       Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
+                // Shows the family emails and can send three of them, so it is OWNER-only like the rest of /admin.
+                arguments("/admin/email-preview",  Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
+                arguments("/admin/email-preview/send", Outcome.OK,   Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/book-flight",          Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/book-flight/lookup/select", Outcome.OK,  Outcome.DENIED_HOME,  Outcome.LOGIN),
                 // Covered by "/book-flight/**", and pinned here: the preview prints a confirmation

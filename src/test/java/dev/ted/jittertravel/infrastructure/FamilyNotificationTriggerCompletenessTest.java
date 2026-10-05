@@ -64,7 +64,8 @@ class FamilyNotificationTriggerCompletenessTest {
 
     private static final Set<Class<? extends Event>> TELLS_FAMILY = Set.of(
             FlightBooked.class,
-            FlightItineraryBooked.class);
+            FlightItineraryBooked.class,
+            FlightItineraryCancelled.class);
 
     private static final Map<Class<? extends Event>, String> SILENT = silent();
 
@@ -108,12 +109,9 @@ class FamilyNotificationTriggerCompletenessTest {
         because("a changed flight is not a new trip and not a cancelled one (decided 2026-09-15)",
                 silent, FlightChanged.class);
         because("decided 2026-10-05 (Ted): a single dropped leg is often a rebooking and not a trip "
-                + "that is off, so cancelling one flight on its own tells family nothing",
+                + "that is off, so cancelling one flight on its own tells family nothing. (Cancelling "
+                + "a whole itinerary does, via FlightItineraryCancelled, which is in TELLS_FAMILY.)",
                 silent, FlightCancelled.class);
-        because("decided 2026-10-05 (Ted): cancelling a whole itinerary WILL tell family, but only "
-                + "where a booking email was sent first. Not built yet, so silent until that slice "
-                + "lands; move it to TELLS_FAMILY with it",
-                silent, FlightItineraryCancelled.class);
         because("a schedule change is not a new trip; the FlightBooked it writes for an added or "
                 + "reinstated leg is suppressed by FlightItineraryChanged being in the same batch",
                 silent, FlightItineraryChanged.class);

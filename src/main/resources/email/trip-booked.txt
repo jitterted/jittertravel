@@ -1,0 +1,15 @@
+Subject: (JitterTravel) Ted booked a new trip: [[${chain}]]
+
+Hi, JitterTravel here. Ted booked a new trip with [[${count}]] flights listed below, and he wanted you to know.
+
+[# th:if="${calendarUrl != null}"]
+You can see the trip in his calendar here: [[${calendarUrl}]]
+[/]
+
+[# th:each="leg : ${legs}"]
+[[${leg.number()}]]. [[${leg.flightNumber()}]]
+   [[${leg.route()}]]
+   Departs  [[${leg.departs()}]]
+   Arrives  [[${leg.arrives()}]]
+
+[/]

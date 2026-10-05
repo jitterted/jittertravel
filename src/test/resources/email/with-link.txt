@@ -1,0 +1,7 @@
+Subject: Link test
+
+Before the link.
+[# th:if="${calendarUrl != null}"]
+See it here: [[${calendarUrl}]]
+[/]
+After the link.

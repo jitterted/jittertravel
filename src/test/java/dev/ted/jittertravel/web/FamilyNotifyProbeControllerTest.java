@@ -153,7 +153,7 @@ class FamilyNotifyProbeControllerTest {
 
         verify(brevo).send(argThat((FamilyMessage message) ->
                 message.subject().equals("JitterTravel test email")
-                && message.textContent().contains("Nothing was booked and nothing needs doing")));
+                && message.textContent().contains("Nothing was booked, and nothing needs doing")));
     }
 
     @Test

@@ -10,5 +10,11 @@ public enum NotifiedFact {
     /** A flight booked on its own: a new trip. */
     FLIGHT_BOOKED,
     /** An itinerary booked as one paste: a new trip with several legs, told once. */
-    ITINERARY_BOOKED
+    ITINERARY_BOOKED,
+    /**
+     * A whole itinerary was cancelled, after family were told it was booked: a trip they believe is
+     * on is off. Only ever sent after an {@link #ITINERARY_BOOKED} for the same itinerary, so a trip
+     * family never heard about stays silent (Ted, 2026-10-05).
+     */
+    ITINERARY_CANCELLED
 }

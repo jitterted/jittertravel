@@ -55,7 +55,16 @@ public record SettingsReport(List<Group> groups) {
      * {@code hint} may be null.
      */
     public record Row(String name, String label, Level level, String pill, String value, String hint,
-                      String what) {
+                      String what, String linkHref, String linkText) {
+
+        /** A row with no link, which is nearly all of them. */
+        public Row(String name, String label, Level level, String pill, String value, String hint, String what) {
+            this(name, label, level, pill, value, hint, what, null, null);
+        }
+
+        public boolean hasLink() {
+            return linkHref != null;
+        }
 
         public String cssClass() {
             return level.css();

@@ -1,0 +1,11 @@
+Subject: (JitterTravel) Ted cancelled a trip: [[${chain}]]
+
+Hi, JitterTravel here. Ted canceled the trip below, and he wanted to let you know.
+
+[# th:each="leg : ${legs}"]
+[[${leg.number()}]]. [[${leg.flightNumber()}]]
+   [[${leg.route()}]]
+   Was due to depart  [[${leg.departs()}]]
+   Was due to arrive  [[${leg.arrives()}]]
+
+[/]

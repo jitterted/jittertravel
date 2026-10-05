@@ -70,16 +70,34 @@ public class BrevoEmailClient {
         return apiKey;
     }
 
+    /** Whether there is a key to send with, whoever the mail is addressed to. */
+    public boolean hasKey() {
+        return !apiKey.isBlank();
+    }
+
+    /** Sends to the configured family recipient. */
     public void send(FamilyMessage message) {
         if (!configured()) {
             throw new IllegalStateException("Family notification is not configured: no API key or recipient");
+        }
+        sendTo(recipient, message);
+    }
+
+    /**
+     * Sends to an explicit address. Exists for the email preview, which sends a copy to Ted himself
+     * and must never be able to reach the family address; a caller picks the address, so a preview
+     * cannot be sent to family by accident of configuration.
+     */
+    public void sendTo(String address, FamilyMessage message) {
+        if (!hasKey() || address == null || address.isBlank()) {
+            throw new IllegalStateException("Cannot send: no API key or no address to send to");
         }
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("sender", Map.of("name", SENDER_NAME, "email", SENDER_EMAIL));
         if (!replyTo.isBlank()) {
             body.put("replyTo", Map.of("email", replyTo));
         }
-        body.put("to", List.of(Map.of("email", recipient)));
+        body.put("to", List.of(Map.of("email", address.strip())));
         body.put("subject", message.subject());
         body.put("textContent", message.textContent());
 

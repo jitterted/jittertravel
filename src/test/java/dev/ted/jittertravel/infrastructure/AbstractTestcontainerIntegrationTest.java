@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,11 @@ import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,6 +38,33 @@ import static org.assertj.core.api.Assertions.assertThat;
         config = @SqlConfig(transactionMode = SqlConfig.TransactionMode.ISOLATED)
 )
 public abstract class AbstractTestcontainerIntegrationTest {
+
+    /**
+     * Leaves the shared database empty when a class finishes, so what one class wrote can never be
+     * what the next context boots from. The container is shared by every integration context, and a
+     * new context replays {@code event_log} while it boots, before its first test's {@code @Sql} has
+     * run. A test that leaves a row behind ({@code LegacyEventMigrationTest} writes an unresolvable
+     * one on purpose) poisoned whichever context booted next: its replay failed, the event store
+     * latched read-only for good, and every test in it failed with {@code ReadOnlyModeException},
+     * depending only on class order. Found 2026-10-05: about one full-suite run in three failed ten
+     * tests.
+     * <p>
+     * <strong>After the class, not after each test.</strong> An {@code AFTER_TEST_METHOD @Sql} was
+     * tried first and hangs for ever: a transactional slice such as {@code @JdbcTest} keeps its
+     * transaction open until after that script runs, so the {@code TRUNCATE} waits for a lock the
+     * test itself holds. Once the class is over every transaction has ended. The lock timeout turns
+     * any future clash into a failure instead of a hang.
+     */
+    @AfterAll
+    static void leaveTheSharedDatabaseEmpty() throws SQLException {
+        try (Connection connection = DriverManager.getConnection(
+                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+             Statement statement = connection.createStatement()) {
+            statement.execute("SET lock_timeout = '10s'");
+            statement.execute("TRUNCATE TABLE event_log, command_log RESTART IDENTITY CASCADE");
+        }
+    }
+
 
     // ObjectProvider, not EventStore: PostgresPersisterTest's @JdbcTest slice has no such bean.
     @Autowired

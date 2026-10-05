@@ -1123,6 +1123,13 @@ Built with slice 1a, shipping dark. Everything in the list above exists except w
   because `application` imports no metrics; the translator catches, counts
   `family.notification.failed`, and logs, so one failed notification never stops the next.
   `ReadOnlyModeException` simply propagates to that catch.
+- **Email wording moved out of code on 2026-10-05, at Ted's request ("awkward to read and modify"):**
+  every message is now a plain text file in `src/main/resources/email/` (a `Subject:` line, a blank
+  line, the body, `[[${value}]]` placeholders), rendered by `EmailTemplates` with Thymeleaf's
+  plain-text mode, so what family read is a file to open and edit. `FamilyNotificationMessages`
+  below only picks the file and prepares the values. The output was verified identical to the
+  string-building it replaced by the existing exact-wording tests. **Ted approves any wording change
+  before it is committed.**
 - **`FamilyNotificationMessages.messageFor(fact, legs)`** — an exhaustive `switch` over the fact. The
   trip subject chains the airports (`SFO → ORD → YOW → ORD → SFO`) and breaks the chain with a comma
   where a leg does not start where the last ended. No airline, confirmation code or passenger in
@@ -1163,9 +1170,18 @@ Built with slice 1a, shipping dark. Everything in the list above exists except w
   about that is now off is news. A single `FlightCancelled` stays **silent** — one dropped leg is
   often a rebooking, not a trip that is off. A `FlightItineraryCancelled` **will** tell family, under
   the same positive-first rule as the conference exits (§4.4): only where an `ITINERARY_BOOKED` was
-  sent for that itinerary, so a trip family never heard about stays silent. **Not built:** it needs a
-  `NotifiedFact` (say `ITINERARY_CANCELLED`), a message arm, and moving the class from `SILENT` to
-  `TELLS_FAMILY` in the completeness test; it is the natural next slice, before conferences.
+  sent for that itinerary, so a trip family never heard about stays silent. **Built 2026-10-06 as
+  its own slice, before conferences:** `NotifiedFact.ITINERARY_CANCELLED`, a message arm, and
+  `FlightItineraryCancelled` moved from `SILENT` to `TELLS_FAMILY`. The translator reads the
+  `FlightItineraryCancelled` in the batch together with the `FlightCancelled` events appended with
+  it, and `NotifyFamily.notifyOfCancelledItinerary` folds the stream for the rest: the last
+  `FamilyNotified` for the itinerary must be `ITINERARY_BOOKED` (never told ⇒ `NEVER_TOLD`, silent;
+  already told it is cancelled ⇒ `ALREADY_TOLD`), and the legs are described as they last stood
+  (a hand edit applies), only the ones this cancellation cancelled. The email says what happened and
+  not why (no reason, no code, no airline):
+  `Ted cancelled a trip: SFO → ORD → YOW → ORD → SFO`, then "Ted cancelled this trip, so he is no
+  longer making these flights." and each leg as "Was due to depart / arrive". A single
+  `FlightCancelled` stays silent.
 - **Not built:** slice 2 (conferences); an end-to-end test through a real store and a real client
   (the kill switch defaults off, so no integration test sends or pollutes — `NotifyFamilyTest` and the
   translator test cover the two halves).

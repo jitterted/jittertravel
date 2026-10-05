@@ -5,6 +5,7 @@ import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.LegacyEventMigration;
 import dev.ted.jittertravel.application.ViewerTodayZone;
 import dev.ted.jittertravel.infrastructure.BrevoEmailClient;
+import dev.ted.jittertravel.infrastructure.EmailTemplates;
 import dev.ted.jittertravel.infrastructure.FamilyMessage;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,6 +28,7 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Controller
@@ -36,10 +38,8 @@ public class AdminController {
     /** The flash attribute that says this page is the one right after a test, so its result flashes. */
     private static final String JUST_TESTED = "justTested";
 
-    private static final FamilyMessage FAMILY_PROBE_MESSAGE = new FamilyMessage(
-            "JitterTravel test email",
-            "This is a test from JitterTravel, sent from its admin page to check that email reaches "
-            + "this inbox. Nothing was booked and nothing needs doing; you can ignore it.");
+    /** The test email's words live in {@code src/main/resources/email/test-email.txt}, with the rest. */
+    private static final FamilyMessage FAMILY_PROBE_MESSAGE = new EmailTemplates().render("test-email", Map.of());
 
     private final BackupService backupService;
     private final PostgresPersister persister;
@@ -53,6 +53,7 @@ public class AdminController {
     private final ViewerTodayZone viewerZone;
     private final FamilyEmailSetup familySetup = new FamilyEmailSetup();
     private final SettingsReporter settingsReporter = new SettingsReporter();
+    private final SendFailureText failureText = new SendFailureText();
     private final FamilyTestMemory testMemory;
     private final Environment environment;
     private final String fallbackZone;
@@ -107,7 +108,7 @@ public class AdminController {
         try {
             brevo.send(FAMILY_PROBE_MESSAGE);
         } catch (RuntimeException failed) {
-            testMemory.failed(clock.instant(), "The send failed: " + abbreviated(failed.getMessage()));
+            testMemory.failed(clock.instant(), failureText.of(failed));
             return renderHome(request, model, zoneCookie, true);
         }
         testMemory.succeeded(clock.instant());
@@ -164,12 +165,6 @@ public class AdminController {
 
     private String orEmpty(String value) {
         return value == null ? "" : value;
-    }
-
-    /** A Brevo or network message can run long, and it lands in a narrow column. */
-    private String abbreviated(String message) {
-        String text = message == null || message.isBlank() ? "no reason given" : message.strip();
-        return text.length() <= 140 ? text : text.substring(0, 140) + "…";
     }
 
     /**

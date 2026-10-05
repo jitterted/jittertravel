@@ -7,26 +7,30 @@ import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 /**
- * The words family read, built from what the log says and never stored: an email is presentation,
- * so it lives here and not in {@code domain}.
+ * Chooses the email for a fact and hands it the values it needs. <strong>The words themselves are
+ * not here</strong>: they are plain text files in {@code src/main/resources/email/}, one per
+ * message, which is where to read or change what family are sent (see {@link EmailTemplates}).
+ * This class only prepares the values those files refer to: the city names, the times, the airport
+ * chain.
  * <p>
- * <strong>Every field in a message is named in this class.</strong> Nothing is rendered from a
- * general view of a booking, so a field this class never mentions cannot appear by accident — the
- * allow-list shape, even though the bound on what family may be told is wide (anything an owner
- * surface shows). Do not refactor these to render from a shared view record.
+ * <strong>A template names only the values it is given</strong>, so a field this class never passes
+ * cannot appear in an email by accident (the allow-list shape, even though the bound on what family
+ * may be told is wide: anything an owner surface shows). Deliberately never passed: the airline,
+ * the confirmation code, a passenger, or any cancellation reason. Do not widen {@link LegView} to
+ * hold a whole booking.
  * <p>
- * Deliberately left out of a flight or a trip: the airline, the confirmation code, a passenger —
- * family cannot use them, and a booking reference is the one value here that could be misused from a
- * mailbox several people read.
- * <p>
- * Times are the entry zone's, labelled with the airport they are local to. An unlabelled local time
- * in an email has no page around it to say which zone it means.
+ * <strong>Any change to an email's wording needs Ted's approval before it is committed.</strong>
+ * Times are the entry zone's, labelled with the airport they are local to, because an unlabelled local
+ * time in an email has no page around it to say which zone it means.
  */
 public class FamilyNotificationMessages {
 
@@ -34,39 +38,86 @@ public class FamilyNotificationMessages {
             DateTimeFormatter.ofPattern("EEE d MMM yyyy, h:mm", Locale.US);
 
     private final AirportCityResolver cities;
+    private final String baseUrl;
+    private final EmailTemplates templates = new EmailTemplates();
 
-    public FamilyNotificationMessages(AirportCityResolver cities) {
+    /**
+     * @param baseUrl the address the app is served from ({@code JITTERTRAVEL_BASE_URL}), used to build
+     *                links; blank when none is configured, in which case there is no link rather than a
+     *                guessed one
+     */
+    public FamilyNotificationMessages(AirportCityResolver cities, String baseUrl) {
         this.cities = cities;
+        this.baseUrl = baseUrl == null ? "" : baseUrl.strip();
     }
 
     /**
      * The message for {@code fact}, built from the booked legs it is about (one for a single flight,
      * all of them in departure order for a trip). The {@code switch} is exhaustive over the enum, so
-     * a new fact cannot be added without deciding what it says.
+     * a new fact cannot be added without deciding which template it uses.
      */
     public FamilyMessage messageFor(NotifiedFact fact, List<FlightBooked> legs) {
         return switch (fact) {
-            case FLIGHT_BOOKED -> flight(legs.getFirst());
-            case ITINERARY_BOOKED -> trip(legs);
+            case FLIGHT_BOOKED -> templates.render("flight-booked", flightValues(legs));
+            case ITINERARY_BOOKED -> templates.render("trip-booked", tripValues(legs));
+            case ITINERARY_CANCELLED -> templates.render("trip-cancelled", tripValues(legs));
         };
     }
 
-    private FamilyMessage flight(FlightBooked leg) {
-        return new FamilyMessage(
-                "Ted booked a flight: " + leg.departureAirport().code() + " → " + leg.arrivalAirport().code(),
-                leg.flightNumber() + "\n" + String.join("\n", details(leg, "")));
+    /**
+     * A link to the calendar opened at the day of the first flight in {@code legs}, or empty when no
+     * base URL is configured. The day is the departure's own local date (the entry zone), which is the
+     * column the calendar puts the flight in, and {@code day} is the parameter {@code /calendar}
+     * already uses to jump to and mark a date. For a booking that is the first flight booked; for a
+     * cancellation it is the first flight that was due, since that is where the trip was on the
+     * calendar.
+     */
+    Optional<String> calendarUrl(List<FlightBooked> legs) {
+        if (baseUrl.isEmpty() || legs.isEmpty()) {
+            return Optional.empty();
+        }
+        FlightBooked first = legs.stream()
+                .min(Comparator.comparing(leg -> leg.departureDateTime().utc()))
+                .orElseThrow();
+        String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        return Optional.of(base + "/calendar?day=" + first.departureDateTime().localDateTime().toLocalDate());
     }
 
-    private FamilyMessage trip(List<FlightBooked> legs) {
-        List<String> lines = new ArrayList<>();
-        lines.add("Ted booked a trip with " + legs.size() + " flights.");
-        IntStream.range(0, legs.size()).forEach(index -> {
-            lines.add("");
-            FlightBooked leg = legs.get(index);
-            lines.add((index + 1) + ". " + leg.flightNumber());
-            lines.addAll(details(leg, "   "));
-        });
-        return new FamilyMessage("Ted booked a trip: " + chain(legs), String.join("\n", lines));
+    private Map<String, Object> flightValues(List<FlightBooked> legs) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("leg", view(1, legs.getFirst()));
+        calendarUrl(legs).ifPresent(url -> values.put("calendarUrl", url));
+        return values;
+    }
+
+    /**
+     * One leg as the templates see it: every string already formatted, and nothing else. This is the
+     * whole list of what an email can say about a flight.
+     */
+    public record LegView(int number, String flightNumber, String route, String departs, String arrives,
+                          String departureCode, String arrivalCode) {
+    }
+
+    private Map<String, Object> tripValues(List<FlightBooked> legs) {
+        List<LegView> views = IntStream.range(0, legs.size())
+                .mapToObj(index -> view(index + 1, legs.get(index)))
+                .toList();
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("legs", views);
+        values.put("count", legs.size());
+        values.put("chain", chain(legs));
+        calendarUrl(legs).ifPresent(url -> values.put("calendarUrl", url));
+        return values;
+    }
+
+    private LegView view(int number, FlightBooked leg) {
+        String from = leg.departureAirport().code();
+        String to = leg.arrivalAirport().code();
+        return new LegView(number, leg.flightNumber(),
+                city(from) + " → " + city(to),
+                when(leg.departureDateTime()) + " (" + from + ")",
+                when(leg.arrivalDateTime()) + " (" + to + ")",
+                from, to);
     }
 
     /**
@@ -84,14 +135,6 @@ public class FamilyNotificationMessages {
             chain.append(" → ").append(leg.arrivalAirport().code());
         }
         return chain.toString();
-    }
-
-    /** Route, departure, arrival — each line prefixed by {@code indent}. */
-    private List<String> details(FlightBooked leg, String indent) {
-        return List.of(
-                indent + city(leg.departureAirport().code()) + " → " + city(leg.arrivalAirport().code()),
-                indent + "Departs  " + when(leg.departureDateTime()) + " (" + leg.departureAirport().code() + ")",
-                indent + "Arrives  " + when(leg.arrivalDateTime()) + " (" + leg.arrivalAirport().code() + ")");
     }
 
     private String city(String airportCode) {

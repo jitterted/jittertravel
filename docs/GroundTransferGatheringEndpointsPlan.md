@@ -141,6 +141,15 @@ only candidate for hotels as well, so it is a decision for Ted rather than a par
 auto-select that works *given the endpoint already chosen* — pick the "From", and the "To" (and the
 date) follow from it — rather than a wider candidate rule. Not now; not scheduled.
 
+**Added the same day, after seeing the form (Ted):** the form looks fine, but the selects are getting
+long — eight groups on each now. So the smarter form has to do more than preselect: it must
+**adjust the "To" list to the chosen "From"**, offering only the endpoints that could follow it
+(by time and place) instead of every endpoint of every kind. That is the fix for the length as well
+as for the mid-event limit above, which is why they belong to one piece of work. Not now; not
+scheduled. Note when designing it: the "To" would then depend on a choice made in the page, so it
+is script behaviour that wants the `js` test tier, and the server-side date rule and endpoint
+resolution stay as the backstop for a hand-made POST.
+
 ## 7. Tests required
 
 - `TransferEndpointProjectorTest`: planned, changed, cancelled where cancellation exists, for each

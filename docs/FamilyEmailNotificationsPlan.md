@@ -7,7 +7,15 @@
 > below, written before the rename, still says "Translator" and "the translator" for it — read those
 > as the actuator.
 
-**Status:** `partial` — designed 2026-09-09 (Ted), **revised 2026-09-10 after a review against the
+**Status, refreshed 2026-10-06:** slices 0, 1, 1a and 2 are **built**, and the code is on
+`origin/main` (checked against git, not recalled); slice 2 and the conference send button on
+`/admin/email-preview` have their JS tier and `-Ppit-spring` runs clean. `Pre-Push-Tasks.md` is
+**empty** as of this date, so no rollout step is recorded as waiting; whether the kill switch is on
+is Ted's to read off `/admin/settings`, and this plan does not say. The paragraph below is the status as
+it stood on 2026-09-18 and is kept as the record — its "buildable as written" is no longer the
+state of things; "Slice 1 as built" and "Slice 2 as built" are.
+
+**Status (as of 2026-09-18):** `partial` — designed 2026-09-09 (Ted), **revised 2026-09-10 after a review against the
 code**, **every open question answered by Ted the same day** in a second review pass, and the last
 one — `FlightChanged` — **closed as decided rather than deferred on 2026-09-15** (§1, §9). **Slice 0
 ships 2026-09-18**; slices 1, 1a and 2 are buildable as written and **no longer blocked** — the Brevo

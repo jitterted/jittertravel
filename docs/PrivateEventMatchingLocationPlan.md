@@ -38,6 +38,11 @@ builds options from `FlightBooked`, `TrainBooked` and `HotelBooked` only), and a
 inside a trip is the kind of detail the year overview already drops on purpose — *"they happen
 'inside' the overall trip"* (CLAUDE.md, "Zooming out is lossy on purpose").
 
+> **Update 2026-10-06:** the first of those two reasons no longer holds. A ground transfer *can* now
+> name a private event as either endpoint (`archived/GroundTransferGatheringEndpointsPlan.md`), under
+> its city, region and country alone. It does not change the decision: the second reason stands, and
+> the override is still the right fix for a four-mile hop.
+
 ## Decisions
 
 ### D1 — A field-specific event, not a full snapshot

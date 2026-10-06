@@ -1,9 +1,11 @@
 # Plan: gatherings, private events and conference venues as ground-transfer endpoints
 
-> **Status: `built, not pushed`** — requested by Ted 2026-10-06. All four slices built and the first
-> three committed the same day (gatherings plus the window rule, conference venues, private events);
-> slice 4 (fix links) turned out to need no new code — see "Slice 4 as built". Pre-push gates
-> (`-Pjs-tests`, `-Ppit-spring`) not yet run.
+> **Status: `done 2026-10-06`** — requested and shipped the same day (Ted). All four slices built
+> and pushed (`cd8bf40`..`85269af`): gatherings plus the window rule, conference venues, private
+> events with both redaction tiers, and the fix-link proof, which needed no production code (see
+> "Slice 4 as built"). Pre-push gates ran clean: suite 3181, `-Pjs-tests` 78, narrowed
+> `-Ppit-spring` 196/196. The follow-ups it leaves — a smarter form whose "To" follows the chosen
+> "From", and the reshape of `GroundTransferEndpointChoices` — are in `../Cleanup_Tasks.md`.
 
 ## 1. Context
 
@@ -16,11 +18,11 @@ It was noticed on 2026-10-06 while fixing the date rule (`PlanGroundTransferComm
 `InvalidGroundTransferDate`). Ted had asked for a rule that refuses endpoints days apart; the
 example that argued against it — a mid-stay ride from a hotel to a gathering — could not happen
 because the gathering cannot be chosen. Two earlier notes record the same gap from the other side:
-`PrivateEventMatchingLocationPlan.md` rejected "a taxi there and a taxi back" because "a ground
+`../PrivateEventMatchingLocationPlan.md` rejected "a taxi there and a taxi back" because "a ground
 transfer cannot name a private event as either endpoint", and `ScheduleGapProjector` makes
 gatherings, private events and conferences an `Occupancy`, so `/schedule-problems` raises a
 `MissingTravel` row to each whose fix link lands on a form that cannot express it. That is the same
-defect `archived/GroundTransferEndpointReadModelPlan.md` fixed for stations.
+defect `GroundTransferEndpointReadModelPlan.md` fixed for stations.
 
 ## 2. Design
 
@@ -75,7 +77,8 @@ to every endpoint kind, with a flight or train as the degenerate range (start = 
 
 Cost, as asked: `PlanGroundTransferCommand` swaps its two `ZonedTimestamp` moments for two
 windows and `requireDateToFitTheEndpoints` is rewritten around them (≈20 lines); `TransferEndpointRow`
-gains the window; `GroundTransferEndpointResolver.originMoment/destinationMoment` return windows;
+gains the window; `GroundTransferEndpointResolver.originMoment/destinationMoment` return windows
+(built as `originWindow`/`destinationWindow`, over `TransferEndpointProjector.windowOf`);
 `PlanGroundTransferCommandTest` gains the mid-stay case and the boundary cases. Not large, and
 it removes a rule that would otherwise refuse the headline use case.
 
@@ -142,7 +145,7 @@ auto-select that works *given the endpoint already chosen* — pick the "From", 
 date) follow from it — rather than a wider candidate rule. Not now; not scheduled.
 
 **Added the same day, after seeing the form (Ted):** the form looks fine, but the selects are getting
-long — eight groups on each now. So the smarter form has to do more than preselect: it must
+long — six groups on each now. So the smarter form has to do more than preselect: it must
 **adjust the "To" list to the chosen "From"**, offering only the endpoints that could follow it
 (by time and place) instead of every endpoint of every kind. That is the fix for the length as well
 as for the mid-event limit above, which is why they belong to one piece of work. Not now; not

@@ -76,16 +76,19 @@ down when it is created does not get written down later.
       width is the likely effect, not the only one.
 
 - [ ] **Ground-transfer date rule (shipped 2026-10-06): two things it does not cover.** The rule —
-      endpoints within 24 hours of each other, and the typed date the day of one of them — lives in
-      `PlanGroundTransferCommand` and reports `InvalidGroundTransferDate` under the date input
-      (Ted's choices; reported 2026-09-19). **(1)** It is only as strong as the moments it is given:
-      `TransferEndpointProjector.momentOf` matches a token exactly as the form offered it, so a bare
-      `airport:DEN` or a hand-made POST carries none and is unchecked (the form never offers one).
-      **(2)** The moments are read from a projector in `GroundTransferEndpointResolver`, a decision
-      from a read model in the sense of R1. It follows the resolver's existing reads of the hotel and
-      train projectors, but those fill a snapshot and this one *refuses*; moving the moments into a
-      decision context folded from the stream is the clean version. **(3)** It refuses a mid-stay
-      hotel ride, accepted knowingly; `GroundTransferGatheringEndpointsPlan.md` D-H revisits it.
+      endpoints' windows no more than 24 hours apart, and the typed date one of the days a window
+      covers — lives in `PlanGroundTransferCommand` and `TransferEndpointWindow`, and reports
+      `InvalidGroundTransferDate` under the date input (Ted's choices; reported 2026-09-19). A stay is
+      its check-in through check-out and a gathering, conference or private event its start through
+      end, so a mid-stay ride is accepted (it was refused until the same evening; see
+      `archived/GroundTransferGatheringEndpointsPlan.md` §3). **(1)** It is only as strong as the
+      windows it is given: `TransferEndpointProjector.windowOf` matches a token exactly as the form
+      offered it, so a bare `airport:DEN` or a hand-made POST carries none and is unchecked (the form
+      never offers one). **(2)** The windows are read from a projector in
+      `GroundTransferEndpointResolver`, a decision from a read model in the sense of R1. It follows
+      the resolver's existing reads of the hotel and train projectors, but those fill a snapshot and
+      this one *refuses*; moving the windows into a decision context folded from the stream is the
+      clean version.
 
 - [ ] **DISCUSS: the conference fold is now written out in three read models.** Raised by Ted
       2026-09-09 while approving the `/itinerary` conference sync: *"this looks like computing the
@@ -1000,22 +1003,28 @@ count is deliberately not stated here so it cannot go stale again.)
       in a zone that disagrees with the stay beside it, or the next time that `catch` has to be
       reasoned about. Related: `HotelDetailsView` drops the zone the same way `TrainDetailsView` used
       to, which is the actual mechanism.
-- [ ] **Conference and gathering venues as ground-transfer endpoints.** Lifted from
-      `archived/GroundTransferEndpointReadModelPlan.md` 2026-08-23. `GroundTransferEndpointChoices`
-      documented the hole as two things — "a train station, a conference venue" — and slice 3 closed
-      the first half only. Same shape as the train work: a `TransferEnd` pair, arms in
-      `TransferEndpointProjector`, a `venue:` branch in the resolver, optgroups. **Do the record
-      reshape first** (below) if this one is taken up. **Trigger:** a missing-travel gap that starts
-      or ends at a venue Ted has to be driven to. A venue name is *public* where a hotel's and a
-      station's are private, so the redaction question is the opposite one and worth asking before
-      building.
-- [ ] **Reshape `GroundTransferEndpointChoices` around `TransferEnd`.** Noticed 2026-08-23 while
-      shipping slice 3: the record is six positional `List`s, and adding trains meant editing its
-      construction in five test files. A `nothing()` factory and a test-local helper absorbed that
-      round, but a third kind would do it again. The only thing holding the current shape is that
-      `plan-ground-transfer.html` reads the lists by name (`endpointChoices.trainArrivals`), so the
-      reshape is a template change too. **Trigger:** the venue item above, or any third endpoint
-      kind — not worth doing for its own sake at two kinds.
+- [ ] **Reshape `GroundTransferEndpointChoices` around `TransferEnd` — its trigger has fired.**
+      Noticed 2026-08-23 while shipping trains: the record was six positional `List`s, and adding
+      trains meant editing its construction in five test files. It is now **twelve**
+      (gatherings, conference venues and private events, 2026-10-06), held up by three convenience
+      constructors that default the newer lists to empty, which is what kept the existing tests
+      compiling and is also the sign the shape is wrong: a fourth kind is a fourth constructor.
+      `plan-ground-transfer.html` reads the lists by name (`endpointChoices.gatheringEnds`), and
+      repeats an `optgroup` block twelve times (six per select), so the reshape is a template change too. **Do it
+      with the smarter form below, not before it** — that work rewrites both ends of this.
+- [ ] **A smarter ground-transfer form: the "To" follows the chosen "From".** Ted, 2026-10-06, after
+      seeing the form with every endpoint kind on it. The selects are getting long (six groups on
+      each), so this is more than a nicety: once a "From" is chosen, the "To" should offer only the
+      endpoints that could follow it by time and place, and the date should follow from the pair. The
+      same work closes a known limit of the preselection: **a ride made mid-event does not preselect
+      its origin**, because an origin is a candidate only when its end falls inside the gap's days
+      (leaving a Lone Tree conference on its second day for a Centennial dinner preselects the dinner
+      and leaves "From" on "Choose a place…"). Ted chose to leave that as it is rather than widen the
+      candidate rule, because widening it also changes the exactly-one rule for hotels. It is script
+      behaviour that wants the `js` test tier, and the server-side date rule and endpoint resolution
+      stay as the backstop for a hand-made POST. See
+      `archived/GroundTransferGatheringEndpointsPlan.md` ("Slice 4 as built"). **Trigger:** Ted's
+      call; nothing is scheduled.
 - [ ] **Carry `Place` through `ScheduleProblem` and the renderers.** Lifted from
       `archived/GroundTransferEndpointReadModelPlan.md` 2026-08-23 (its D2). `MissingTravel.fromCity()`
       / `toCity()` and `ScheduleTimeline.Movement`/`Stay`/`Occupancy` still hold plain strings, so

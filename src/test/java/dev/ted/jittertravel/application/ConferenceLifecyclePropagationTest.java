@@ -47,9 +47,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Lifecycle guard: every conference event reaches every read model that folds the conference state
- * machine — the dashboard, the owner calendar, the public calendar, the itinerary and the schedule.
+ * machine — the dashboard, the owner calendar, the public calendar, the itinerary, the schedule and
+ * (since 2026-10-06) the ground-transfer endpoint form.
  * <p>
- * <strong>Why this exists.</strong> Each of the five writes its own nine-arm switch over the same
+ * <strong>Why this exists.</strong> Each of the first five writes its own nine-arm switch over the same
  * events and hands them to {@link ConferenceProgress}. Until 2026-09-09 the itinerary read three of
  * the nine, so family saw less than a stranger and kept a conference Ted had been rejected from, and
  * nothing failed. The sibling {@code *CancellationPropagationTest}s guard hotels, trains, ground
@@ -65,7 +66,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <strong>The schedule sees less, honestly.</strong> {@link ScheduleGapProjector} holds progress
  * only to answer {@link ConferenceProgress#dropped()}, so it can observe only the three events that
  * change whether a conference is there at all. A forgotten arm for the other six changes nothing it
- * reports, and this test does not pretend otherwise.
+ * reports, and this test does not pretend otherwise. {@link TransferEndpointProjector} is on the same
+ * footing and goes one step further: it does not fold those six at all (see {@link #transferEndpoints}).
  * <p>
  * <strong>A new conference event fails {@link #everyConferenceEventHasAScenarioOrADeclaredReason}</strong>
  * until someone writes its scenario here or says why it is not part of the lifecycle — the same
@@ -288,6 +290,33 @@ class ConferenceLifecyclePropagationTest {
                     .isNotEmpty();
             case Dropped(), Gone() -> assertThat(projector.problems())
                     .as("a conference that left the schedule needs nothing")
+                    .isEmpty();
+        }
+    }
+
+    /**
+     * Presence only, as for the schedule: the transfer form offers a conference's venue while the
+     * conference is on the schedule and stops the moment it leaves. It folds only the two events that
+     * can drop a conference (a decline, and a rejection where acceptance was the way in), by design —
+     * the other six have no bearing on whether a venue is somewhere to ride to, and folding them
+     * would be arms no test could tell apart from their absence (Ted, 2026-10-06). So this is the
+     * guard for the day that rule changes: a scenario whose outcome depends on an event the
+     * projector does not fold will fail here, by name, and the fix is an arm.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("scenarios")
+    void transferEndpoints(Scenario scenario) {
+        TransferEndpointProjector projector =
+                new TransferEndpointProjector(new StaticAirportCityResolver());
+
+        projector.handle(play(ConferenceId.random(), scenario));
+
+        switch (scenario.expected()) {
+            case Showing _ -> assertThat(projector.rowsFor(TransferEnd.CONFERENCE_START))
+                    .as("a conference still on the schedule is somewhere to ride to")
+                    .hasSize(1);
+            case Dropped(), Gone() -> assertThat(projector.rowsFor(TransferEnd.CONFERENCE_START))
+                    .as("a conference that left the schedule is not offered")
                     .isEmpty();
         }
     }

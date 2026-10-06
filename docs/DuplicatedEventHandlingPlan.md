@@ -11,7 +11,21 @@ whether to go further than a guard, and how.
 
 ## 1. The problem, measured
 
-### 1.1 Read side: five copies of one dispatch
+### 1.1 Read side: five copies of one dispatch (six since 2026-10-06)
+
+> **Update 2026-10-06.** `TransferEndpointProjector` became the sixth reader when conference venues
+> became ground-transfer endpoints (`archived/GroundTransferGatheringEndpointsPlan.md`). It is a
+> **drop-only** observer like the schedule, and unlike the schedule it folds **only the two events
+> that can drop a conference** (`ConferenceAttendanceDeclined`, `TalkRejected`): the other seven arms
+> were written first and PIT reported every one as a surviving mutant, because no test can tell an
+> arm that cannot change `dropped()` from its absence. Ted's rule, stated the same day: *do not fold
+> events that have no bearing on the decision or the view*; a rule change in `ConferenceProgress` is
+> caught by `ConferenceLifecyclePropagationTest`, which now walks six read models, not by a
+> speculative fold. **That reopens the schedule's own nine-arm fold**, whose comment argues the
+> opposite ("a partial fold would answer a later question wrongly") and whose six unobservable arms
+> §1.3 already flags. Option B dissolves the question for both; under option A the schedule should
+> probably drop to the same two arms. Either way, a sixth consumer that wants only "did it drop?" is
+> the clearest case yet for `ConferenceChange`.
 
 Each of these writes its own switch over the same nine events and hands each one to
 `ConferenceProgress`:

@@ -1254,8 +1254,12 @@ written on 2026-10-05; it is in `conference-going.txt` and `conference-not-going
   alone. The four conference cards are going, declined, cancelled and talk rejected, in the order the
   button sends them. The new path has a row in `AuthorizationMatrixTest`. **Known and accepted:** the three
   exit previews share one subject, so they look alike in an inbox until opened.
-- **Not yet run:** the JS tier and `-Ppit-spring`. Default PIT over the slice-2 classes killed every
-  mutant; the full `./mvnw test` was green.
+- **Both remaining gates run (2026-10-06):** the JS tier is green (78 tests), and `-Ppit-spring` over
+  `NotifyFamily`, `ConferenceStanding`, `ConferenceNews` and `EmailPreview*` killed 127 of 128
+  mutants. The survivor is `EmailPreviewController`'s `baseUrl == null ? "" : ...` null guard: the
+  `@Value` default is `""`, so Spring never injects null and the branch is unreachable from a
+  slice. Left as is. Default PIT over the slice-2 classes had killed every mutant, and the full
+  `./mvnw test` was green.
 
 ---
 

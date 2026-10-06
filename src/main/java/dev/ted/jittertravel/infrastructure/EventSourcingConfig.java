@@ -590,12 +590,14 @@ public class EventSourcingConfig {
     public GroundTransferEndpointResolver groundTransferEndpointResolver(
             HotelDetailsViewProjector hotelDetailsViewProjector,
             TrainDetailsViewProjector trainDetailsViewProjector,
+            GatheringDetailsViewProjector gatheringDetailsViewProjector,
             AirportCityResolver airportCityResolver,
             AirportZoneResolver airportZoneResolver,
             LocationZoneResolver locationZoneResolver,
             TransferEndpointProjector transferEndpointProjector) {
         return new GroundTransferEndpointResolver(hotelDetailsViewProjector,
-                trainDetailsViewProjector, airportCityResolver, airportZoneResolver,
+                trainDetailsViewProjector, gatheringDetailsViewProjector,
+                airportCityResolver, airportZoneResolver,
                 locationZoneResolver, transferEndpointProjector);
     }
 

@@ -88,7 +88,9 @@ public class GroundTransferEndpointOptions {
                 optionsFor(TransferEnd.TRAIN_ARRIVAL, now),
                 optionsFor(TransferEnd.TRAIN_DEPARTURE, now),
                 optionsFor(TransferEnd.HOTEL_CHECK_OUT, now),
-                optionsFor(TransferEnd.HOTEL_CHECK_IN, now));
+                optionsFor(TransferEnd.HOTEL_CHECK_IN, now),
+                optionsFor(TransferEnd.GATHERING_END, now),
+                optionsFor(TransferEnd.GATHERING_START, now));
     }
 
     /**

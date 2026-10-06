@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.Place;
+import dev.ted.jittertravel.domain.TransferEndpointWindow;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 /**
@@ -34,6 +35,9 @@ import dev.ted.jittertravel.domain.ZonedTimestamp;
  * @param city         the label's second part — display only
  * @param place        what the schedule reasons about this endpoint in, for matching a gap
  * @param moment       this end's own moment: the prefill, and what the label names
+ * @param window       when this endpoint is "there" — a leg is one moment, a stay is check-in
+ *                     through check-out, a gathering is start through end. What the date rule holds
+ *                     the typed date to, so a mid-stay ride is not refused
  * @param offeredUntil the moment whose local day decides whether this is still offered
  * @param detail       the label's trailing parenthesis, or blank
  */
@@ -44,6 +48,7 @@ public record TransferEndpointRow(
         String city,
         Place place,
         ZonedTimestamp moment,
+        TransferEndpointWindow window,
         ZonedTimestamp offeredUntil,
         String detail
 ) {

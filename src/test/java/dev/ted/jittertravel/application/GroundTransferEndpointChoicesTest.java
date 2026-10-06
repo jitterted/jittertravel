@@ -197,6 +197,70 @@ class GroundTransferEndpointChoicesTest {
                 .isEmpty();
     }
 
+    /** A gathering is a place to leave from and a place to reach, like a stay. */
+    @Test
+    void aGapLeavingAGatheringOrReachingOneSettlesOnIt() {
+        TransferEndpointOption gatheringEnd = leg("gathering:" + TRIP, "Hamburg", "2026-09-13", "17:00");
+        TransferEndpointOption gatheringStart = leg("gathering:" + OTHER_TRIP, "Frankfurt",
+                "2026-09-13", "19:00");
+        GroundTransferEndpointChoices choices = new GroundTransferEndpointChoices(
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(gatheringEnd), List.of(gatheringStart));
+
+        assertThat(choices.originFor(hamburgToFrankfurt()))
+                .as("leaving Hamburg, from the gathering that ends there")
+                .contains(gatheringEnd);
+        assertThat(choices.destinationFor(hamburgToFrankfurt()))
+                .as("reaching Frankfurt, at the gathering that starts there")
+                .contains(gatheringStart);
+    }
+
+    /** The gap's range runs from the day it opened, so an endpoint on that first day is inside it. */
+    @Test
+    void anEndpointOnTheDayTheGapOpenedIsInsideIt() {
+        TransferEndpointOption onOpeningDay = leg("hotel:" + TRIP, "Johannesberg", "2026-09-09", "11:00");
+        GroundTransferEndpointChoices choices = flightsAndStays(
+                List.of(), List.of(), List.of(onOpeningDay), List.of());
+
+        assertThat(choices.originFor(johannesbergToFrankfurt())).contains(onOpeningDay);
+    }
+
+    @Test
+    void aGatheringAndAStayInOneCitySettleNothing() {
+        GroundTransferEndpointChoices choices = new GroundTransferEndpointChoices(
+                List.of(), List.of(), List.of(), List.of(),
+                List.of(leg("hotel:" + TRIP, "Hamburg", "2026-09-13", "11:00")), List.of(),
+                List.of(leg("gathering:" + OTHER_TRIP, "Hamburg", "2026-09-13", "17:00")),
+                List.of());
+
+        assertThat(choices.originFor(hamburgToFrankfurt()))
+                .as("the pools are joined before the count, gatherings included")
+                .isEmpty();
+    }
+
+    @Test
+    void choicesHoldingOnlyGatheringsAreNotEmpty() {
+        TransferEndpointOption gathering = leg("gathering:" + TRIP, "Hamburg", "2026-09-13", "17:00");
+
+        assertThat(new GroundTransferEndpointChoices(List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(gathering), List.of()).isEmpty())
+                .as("a gathering to leave from is something to pick")
+                .isFalse();
+        assertThat(new GroundTransferEndpointChoices(List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(), List.of(gathering)).isEmpty())
+                .as("and so is one to reach")
+                .isFalse();
+    }
+
+    @Test
+    void anOptionWithNoDateIsNeverTheOnlyCandidate() {
+        GroundTransferEndpointChoices choices = flightsAndStays(
+                List.of(new TransferEndpointOption("airport:HAM", "HAM — Hamburg", "Hamburg", "", "")),
+                List.of(), List.of(), List.of());
+
+        assertThat(choices.originFor(hamburgToFrankfurt())).isEmpty();
+    }
+
     private static ScheduleProblem.MissingTravel hamburgToFrankfurt() {
         return new ScheduleProblem.MissingTravel(
                 "Hamburg", at("2026-09-13T09:00"),

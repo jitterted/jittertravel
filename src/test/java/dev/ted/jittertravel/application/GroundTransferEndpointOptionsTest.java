@@ -6,6 +6,8 @@ import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
@@ -344,6 +346,49 @@ class GroundTransferEndpointOptionsTest {
         assertThat(options.choicesAt(NOW).isEmpty())
                 .as("an empty form has to say so rather than silently offering two blank selects")
                 .isTrue();
+    }
+
+    /**
+     * The label is the gathering's title and its city, with the moment its end carries: a gathering
+     * is reached at its start and left at its end (Ted, 2026-10-06).
+     */
+    @Test
+    void aGatheringIsOfferedToReachAtItsStartAndToLeaveFromAtItsEnd() {
+        GatheringId dinner = GatheringId.random();
+        given(gathering(dinner, "Dinner with the CTO", "Mission Ballroom",
+                "2026-09-15 19:00", "2026-09-15 22:00"));
+
+        GroundTransferEndpointChoices choices = options.choicesAt(NOW);
+
+        assertThat(choices.gatheringStarts()).containsExactly(new TransferEndpointOption(
+                "gathering:" + dinner.id(),
+                "Dinner with the CTO — Denver · starts Tue Sep 15, 7:00 PM",
+                "Denver", "2026-09-15", "19:00"));
+        assertThat(choices.gatheringEnds()).containsExactly(new TransferEndpointOption(
+                "gathering:" + dinner.id(),
+                "Dinner with the CTO — Denver · ends Tue Sep 15, 10:00 PM",
+                "Denver", "2026-09-15", "22:00"));
+    }
+
+    /** Both ends go on the gathering's end, as for a hotel: the ride is written down after arriving. */
+    @Test
+    void aGatheringStaysOfferedAtItsStartUntilTheDayItEnds() {
+        given(gathering(GatheringId.random(), "Workshop", "Mission Ballroom",
+                "2026-08-30 09:00", "2026-09-01 17:00"));
+
+        assertThat(options.choicesAt(NOW).gatheringStarts())
+                .as("it started two days ago but ends today")
+                .hasSize(1);
+        assertThat(options.choicesAt(Instant.parse("2026-09-02T20:00:00Z")).gatheringStarts())
+                .as("the day after it ended")
+                .isEmpty();
+    }
+
+    private static GatheringPlanned gathering(GatheringId id, String title, String venue,
+                                              String starts, String ends) {
+        return new GatheringPlanned(id, title, venue,
+                new Address("4242 Wynkoop St", "Denver", "CO", "80216", "US", "Denver"),
+                at(starts), at(ends), false, "");
     }
 
     private void given(Event... events) {

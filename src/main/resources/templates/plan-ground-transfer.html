@@ -161,6 +161,12 @@
                                 th:text="${opt.label()}"
                                 th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>
                     </optgroup>
+                    <optgroup label="Gatherings" th:if="${!endpointChoices.gatheringEnds.empty}">
+                        <option th:each="opt : ${endpointChoices.gatheringEnds}"
+                                th:value="${opt.token()}"
+                                th:text="${opt.label()}"
+                                th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>
+                    </optgroup>
                 </select>
             </label>
             <span class="hint">Only flights and trains you <em>arrive</em> on are offered here &mdash; picking one fills in when it gets in, and a hotel fills in its check-out</span>
@@ -188,6 +194,12 @@
                     </optgroup>
                     <optgroup label="Hotels" th:if="${!endpointChoices.checkIns.empty}">
                         <option th:each="opt : ${endpointChoices.checkIns}"
+                                th:value="${opt.token()}"
+                                th:text="${opt.label()}"
+                                th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>
+                    </optgroup>
+                    <optgroup label="Gatherings" th:if="${!endpointChoices.gatheringStarts.empty}">
+                        <option th:each="opt : ${endpointChoices.gatheringStarts}"
                                 th:value="${opt.token()}"
                                 th:text="${opt.label()}"
                                 th:attr="data-date=${opt.prefillDate()},data-time=${opt.prefillTime()}"></option>

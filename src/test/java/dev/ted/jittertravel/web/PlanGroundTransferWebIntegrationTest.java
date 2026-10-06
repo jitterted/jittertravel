@@ -110,6 +110,26 @@ class PlanGroundTransferWebIntegrationTest {
                         "Lone Tree", "2026-09-14", "15:00"))));
     }
 
+    /** A gathering ends on the From select and starts on the To select, each under its own optgroup. */
+    @Test
+    void aGatheringIsOfferedOnBothSelectsUnderItsOwnGroup() {
+        given(endpointOptions.choicesAt(any())).willReturn(new GroundTransferEndpointChoices(
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(new TransferEndpointOption("gathering:g1",
+                        "Dinner with the CTO — Denver · ends Tue Sep 15, 10:00 PM",
+                        "Denver", "2026-09-15", "22:00")),
+                List.of(new TransferEndpointOption("gathering:g1",
+                        "Dinner with the CTO — Denver · starts Tue Sep 15, 7:00 PM",
+                        "Denver", "2026-09-15", "19:00"))));
+
+        assertThat(mockMvc.get().uri("/plan-ground-transfer"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<optgroup label=\"Gatherings\">")
+                .contains("Dinner with the CTO — Denver · ends Tue Sep 15, 10:00 PM")
+                .contains("Dinner with the CTO — Denver · starts Tue Sep 15, 7:00 PM");
+    }
+
     @Test
     void planGroundTransferFormRendersSuccessfully() {
         assertThat(mockMvc.get().uri("/plan-ground-transfer"))

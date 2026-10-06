@@ -7,6 +7,10 @@ import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.GatheringChanged;
+import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.GatheringPlanned;
+import dev.ted.jittertravel.domain.TransferEndpointWindow;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
@@ -370,6 +374,75 @@ class TransferEndpointProjectorTest {
 
         assertThat(endpoints.rowsFor(TransferEnd.HOTEL_CHECK_OUT)).isEmpty();
         assertThat(endpoints.rowsFor(TransferEnd.FLIGHT_ARRIVAL)).isEmpty();
+    }
+
+    /** You reach a gathering at its start and leave it at its end; the name is its title (Ted, 2026-10-06). */
+    @Test
+    void aGatheringYieldsAStartRowToReachAndAnEndRowToLeaveFrom() {
+        GatheringId dinner = GatheringId.random();
+        given(gathering(dinner, "Dinner with the CTO", "Mission Ballroom",
+                "2026-09-15 19:00", "2026-09-15 22:00"));
+
+        assertThat(endpoints.rowsFor(TransferEnd.GATHERING_START))
+                .singleElement()
+                .extracting(TransferEndpointRow::token, TransferEndpointRow::name,
+                        TransferEndpointRow::city, TransferEndpointRow::moment)
+                .containsExactly("gathering:" + dinner.id(), "Dinner with the CTO", "Denver",
+                        at("2026-09-15 19:00"));
+        assertThat(endpoints.rowsFor(TransferEnd.GATHERING_END))
+                .singleElement()
+                .extracting(TransferEndpointRow::moment)
+                .isEqualTo(at("2026-09-15 22:00"));
+    }
+
+    @Test
+    void aGatheringWithNoTitleIsNamedByItsVenue() {
+        given(gathering(GatheringId.random(), "", "Mission Ballroom",
+                "2026-09-15 19:00", "2026-09-15 22:00"));
+
+        assertThat(endpoints.rowsFor(TransferEnd.GATHERING_START))
+                .singleElement()
+                .extracting(TransferEndpointRow::name)
+                .isEqualTo("Mission Ballroom");
+    }
+
+    /** Both ends are the whole gathering, so a ride mid-way through it is not refused. */
+    @Test
+    void bothEndsOfAGatheringCarryItsWholeWindow() {
+        given(gathering(GatheringId.random(), "Workshop", "Mission Ballroom",
+                "2026-09-15 09:00", "2026-09-17 17:00"));
+
+        var window = new TransferEndpointWindow(at("2026-09-15 09:00"), at("2026-09-17 17:00"));
+        assertThat(endpoints.rowsFor(TransferEnd.GATHERING_START))
+                .extracting(TransferEndpointRow::window)
+                .containsExactly(window);
+        assertThat(endpoints.rowsFor(TransferEnd.GATHERING_END))
+                .extracting(TransferEndpointRow::window)
+                .containsExactly(window);
+    }
+
+    @Test
+    void aChangedGatheringReplacesItsOwnRows() {
+        GatheringId moved = GatheringId.random();
+        given(gathering(moved, "Dinner", "Mission Ballroom", "2026-09-15 19:00", "2026-09-15 22:00"),
+              new GatheringChanged(moved, "Dinner", "Mission Ballroom", DENVER_ADDRESS,
+                      at("2026-09-16 18:00"), at("2026-09-16 21:00"), false, ""));
+
+        assertThat(endpoints.rowsFor(TransferEnd.GATHERING_START))
+                .singleElement()
+                .extracting(TransferEndpointRow::moment)
+                .isEqualTo(at("2026-09-16 18:00"));
+        assertThat(endpoints.rowsFor(TransferEnd.GATHERING_END))
+                .hasSize(1);
+    }
+
+    private static final Address DENVER_ADDRESS = new Address(
+            "4242 Wynkoop St", "Denver", "CO", "80216", "US", "Denver");
+
+    private static GatheringPlanned gathering(GatheringId id, String title, String venue,
+                                              String starts, String ends) {
+        return new GatheringPlanned(id, title, venue, DENVER_ADDRESS,
+                at(starts), at(ends), false, "");
     }
 
     private void given(Event... events) {

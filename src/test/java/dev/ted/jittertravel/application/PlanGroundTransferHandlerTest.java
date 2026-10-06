@@ -5,6 +5,9 @@ import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.GatheringPlanned;
+import dev.ted.jittertravel.domain.TransferEndpointWindow;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
@@ -37,15 +40,19 @@ class PlanGroundTransferHandlerTest {
     private static final ZoneId HAMBURG = ZoneId.of("Europe/Berlin");
     private static final HotelBookingId BOOKING = HotelBookingId.random();
     private static final TrainTripId TRIP = TrainTripId.random();
+    private static final GatheringId GATHERING = GatheringId.random();
+    private static final Address GATHERING_ADDRESS = new Address(
+            "4242 Wynkoop St", "Denver", "CO", "80216", "US", "Denver");
     private static final Address HOTEL_ADDRESS = new Address(
             "10345 Park Meadows Dr", "Lone Tree", "CO", "80124", "US", "Lone Tree");
 
     private final HotelDetailsViewProjector hotelDetails = new HotelDetailsViewProjector();
     private final TrainDetailsViewProjector trainDetails = new TrainDetailsViewProjector();
+    private final GatheringDetailsViewProjector gatheringDetails = new GatheringDetailsViewProjector();
     private final TransferEndpointProjector transferEndpoints =
             new TransferEndpointProjector(new StaticAirportCityResolver());
     private final PlanGroundTransferHandler handler = new PlanGroundTransferHandler(
-            new GroundTransferEndpointResolver(hotelDetails, trainDetails,
+            new GroundTransferEndpointResolver(hotelDetails, trainDetails, gatheringDetails,
                     new StaticAirportCityResolver(), new AirportZoneResolver(),
                     new LocationZoneResolver(), transferEndpoints));
 
@@ -284,10 +291,10 @@ class PlanGroundTransferHandlerTest {
         assertThat(fromArrival.departsAt().zone())
                 .as("an origin that is the arrival station is stamped in the arrival's zone")
                 .isEqualTo(london);
-        assertThat(toDeparture.originMoment())
-                .as("a bare airport origin has no moment, so only the station end is under test")
+        assertThat(toDeparture.originWindow())
+                .as("a bare airport origin has no window, so only the station end is under test")
                 .isNull();
-        assertThat(toDeparture.destinationMoment().zone())
+        assertThat(toDeparture.destinationWindow().start().zone())
                 .as("a destination that is the departure station carries the departure's zone")
                 .isEqualTo(HAMBURG);
     }
@@ -349,37 +356,87 @@ class PlanGroundTransferHandlerTest {
                 request("train:" + TRIP.id() + ":arrival", "hotel:" + BOOKING.id(),
                         bookedTrain(), bookedHotel()));
 
-        assertThat(command.originMoment())
-                .as("origin is the train's arrival")
-                .isEqualTo(ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 11, 0), HAMBURG));
-        assertThat(command.destinationMoment())
-                .as("destination is the hotel's check-in, not its check-out")
-                .isEqualTo(ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 15, 0), DENVER));
+        assertThat(command.originWindow())
+                .as("origin is the train's arrival, a window of one moment")
+                .isEqualTo(TransferEndpointWindow.at(
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 11, 0), HAMBURG)));
+        assertThat(command.destinationWindow())
+                .as("destination is the whole stay, check-in through check-out")
+                .isEqualTo(new TransferEndpointWindow(
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 15, 0), DENVER),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 18, 11, 0), DENVER)));
     }
 
-    /** A bare airport was never offered as a leg, so it has no moment for the date rule to hold. */
+    /** A bare airport was never offered as a leg, so it has no window for the date rule to hold. */
     @Test
     void anEndWithNoOfferedMomentCarriesNone() {
         PlanGroundTransferCommand command = handler.handle(
                 request("airport:DEN", "hotel:" + BOOKING.id(), bookedHotel()));
 
-        assertThat(command.originMoment())
+        assertThat(command.originWindow())
                 .isNull();
     }
 
-    /** A token offered for the other side has no moment on this one: a check-out is not an arrival. */
+    /** A token offered for the other side has no window on this one: a check-out is not an arrival. */
     @Test
-    void aTokenOnTheWrongSideCarriesNoMoment() {
+    void aTokenOnTheWrongSideCarriesNoWindow() {
         PlanGroundTransferCommand command = handler.handle(
                 request("airport:DEN", "train:" + TRIP.id() + ":arrival", bookedTrain()));
 
-        assertThat(command.destinationMoment())
+        assertThat(command.destinationWindow())
                 .isNull();
+    }
+
+    @Test
+    void aGatheringTokenResolvesToItsVenueAndAddressAndCarriesItsWindow() {
+        PlanGroundTransferCommand command = handler.handle(
+                request("hotel:" + BOOKING.id(), "gathering:" + GATHERING.id(),
+                        bookedHotel(), plannedGathering()));
+
+        assertThat(command.destinationName())
+                .as("the transfer records the venue, not the title")
+                .isEqualTo("Mission Ballroom");
+        assertThat(command.destination())
+                .as("the gathering's address, verbatim")
+                .isEqualTo(GATHERING_ADDRESS);
+        assertThat(command.arrivesAt().zone())
+                .isEqualTo(DENVER);
+        assertThat(command.destinationWindow())
+                .as("a gathering is there from its start to its end")
+                .isEqualTo(new TransferEndpointWindow(
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 19, 0), DENVER),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 22, 0), DENVER)));
+    }
+
+    @Test
+    void aGatheringIdThatNoLongerResolvesIsRejected() {
+        assertThatThrownBy(() -> handler.handle(
+                request("hotel:" + BOOKING.id(), "gathering:" + GatheringId.random().id(),
+                        bookedHotel())))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessage("That gathering is no longer available");
+    }
+
+    @Test
+    void aMalformedGatheringIdIsRejected() {
+        assertThatThrownBy(() -> handler.handle(
+                request("hotel:" + BOOKING.id(), "gathering:not-a-uuid", bookedHotel())))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessage("Not a gathering: gathering:not-a-uuid");
+    }
+
+    private static StoredEvent plannedGathering() {
+        return stored(new GatheringPlanned(GATHERING, "Dinner with the CTO", "Mission Ballroom",
+                GATHERING_ADDRESS,
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 19, 0), DENVER),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 22, 0), DENVER),
+                false, ""));
     }
 
     private PlanGroundTransferRequest request(String origin, String destination, StoredEvent... history) {
         hotelDetails.handle(Stream.of(history));
         trainDetails.handle(Stream.of(history));
+        gatheringDetails.handle(Stream.of(history));
         transferEndpoints.handle(Stream.of(history));
         return new PlanGroundTransferRequest(UUID.randomUUID().toString(), origin, destination,
                                              null, LocalDate.of(2026, 9, 14),

@@ -23,27 +23,33 @@ package dev.ted.jittertravel.application;
 public enum TransferEnd {
 
     /** The airport a flight landed at — an origin, on the "From" select. */
-    FLIGHT_ARRIVAL("arrive"),
+    FLIGHT_ARRIVAL("arrive", true),
     /** The airport a flight takes off from — a destination, on the "To" select. */
-    FLIGHT_DEPARTURE("depart"),
+    FLIGHT_DEPARTURE("depart", false),
     /** The station a train pulled into — an origin, on the same rule as a flight arrival. */
-    TRAIN_ARRIVAL("arrive"),
+    TRAIN_ARRIVAL("arrive", true),
     /** The station a train leaves from — a destination, on the same rule as a flight departure. */
-    TRAIN_DEPARTURE("depart"),
+    TRAIN_DEPARTURE("depart", false),
     /** A stay being left — an origin, on the "From" select. */
-    HOTEL_CHECK_OUT("check out"),
+    HOTEL_CHECK_OUT("check out", true),
     /** A stay being reached — a destination, on the "To" select. */
-    HOTEL_CHECK_IN("check in");
+    HOTEL_CHECK_IN("check in", false),
+    /** A gathering being reached — a destination, at its start (Ted, 2026-10-06). */
+    GATHERING_START("starts", false),
+    /** A gathering being left — an origin, at its end. */
+    GATHERING_END("ends", true);
 
     private final String verb;
+    private final boolean origin;
 
-    TransferEnd(String verb) {
+    TransferEnd(String verb, boolean origin) {
         this.verb = verb;
+        this.origin = origin;
     }
 
-    /** Whether this end sits on the "From" select: a landing, an arrival or a check-out. */
+    /** Whether this end sits on the "From" select: a landing, an arrival, a check-out or an end. */
     public boolean isOrigin() {
-        return this == FLIGHT_ARRIVAL || this == TRAIN_ARRIVAL || this == HOTEL_CHECK_OUT;
+        return origin;
     }
 
     /** What the label calls this end's moment: {@code … · check out Fri Sep 18, 11:00 AM}. */

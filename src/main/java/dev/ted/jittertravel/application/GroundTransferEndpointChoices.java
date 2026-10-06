@@ -36,13 +36,28 @@ import java.util.stream.Stream;
  * @param trainDepartures train legs for the "To" select — the station you leave from
  * @param checkOuts hotels for the "From" select, each carrying its check-out
  * @param checkIns  hotels for the "To" select, each carrying its check-in
+ * @param gatheringEnds gatherings for the "From" select, each carrying its end
+ * @param gatheringStarts gatherings for the "To" select, each carrying its start
  */
 public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrivals,
                                             List<TransferEndpointOption> departures,
                                             List<TransferEndpointOption> trainArrivals,
                                             List<TransferEndpointOption> trainDepartures,
                                             List<TransferEndpointOption> checkOuts,
-                                            List<TransferEndpointOption> checkIns) {
+                                            List<TransferEndpointOption> checkIns,
+                                            List<TransferEndpointOption> gatheringEnds,
+                                            List<TransferEndpointOption> gatheringStarts) {
+
+    /** Choices with no gatherings on offer — what the form had before gatherings could be picked. */
+    public GroundTransferEndpointChoices(List<TransferEndpointOption> arrivals,
+                                         List<TransferEndpointOption> departures,
+                                         List<TransferEndpointOption> trainArrivals,
+                                         List<TransferEndpointOption> trainDepartures,
+                                         List<TransferEndpointOption> checkOuts,
+                                         List<TransferEndpointOption> checkIns) {
+        this(arrivals, departures, trainArrivals, trainDepartures, checkOuts, checkIns,
+                List.of(), List.of());
+    }
 
     /**
      * Nothing recorded to travel between — the state the form says out loud rather than showing two
@@ -51,7 +66,7 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
      */
     public static GroundTransferEndpointChoices nothing() {
         return new GroundTransferEndpointChoices(List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of());
+                List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     public boolean isEmpty() {
@@ -77,11 +92,11 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
      * day are two candidates, and the form must ask rather than guess between them.
      */
     private List<TransferEndpointOption> origins() {
-        return concat(arrivals, trainArrivals, checkOuts);
+        return concat(arrivals, trainArrivals, checkOuts, gatheringEnds);
     }
 
     private List<TransferEndpointOption> destinations() {
-        return concat(departures, trainDepartures, checkIns);
+        return concat(departures, trainDepartures, checkIns, gatheringStarts);
     }
 
     /**

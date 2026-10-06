@@ -5,7 +5,9 @@ import dev.ted.jittertravel.domain.AirportCityResolver;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.HotelBookingId;
+import dev.ted.jittertravel.domain.TransferEndpointWindow;
 import dev.ted.jittertravel.domain.InvalidAirportCode;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.Place;
@@ -33,6 +35,9 @@ import java.util.UUID;
  *   <tr><td>{@code train:<tripId>:arrival}<br>{@code train:<tripId>:departure}</td>
  *       <td>that end's station name and city, and the zone carried on the trip's own
  *           {@code ZonedTimestamp} — resolved once at booking, never looked up again (D5)</td></tr>
+ *   <tr><td>{@code gathering:<gatheringId>}</td>
+ *       <td>the gathering's venue name and its {@link Address} verbatim, and the zone it was
+ *           entered in</td></tr>
  * </table>
  *
  * A trip has two stations, so the end is part of the token; a hotel names one place, so its is not
@@ -52,12 +57,14 @@ public class GroundTransferEndpointResolver {
     private static final String AIRPORT_PREFIX = "airport:";
     static final String HOTEL_PREFIX = "hotel:";
     private static final String TRAIN_PREFIX = "train:";
+    static final String GATHERING_PREFIX = "gathering:";
 
     private static final String ARRIVAL_SUFFIX = ":arrival";
     private static final String DEPARTURE_SUFFIX = ":departure";
 
     private final HotelDetailsViewProjector hotelDetails;
     private final TrainDetailsViewProjector trainDetails;
+    private final GatheringDetailsViewProjector gatheringDetails;
     private final AirportCityResolver airportCities;
     private final AirportZoneResolver airportZones;
     private final LocationZoneResolver locationZones;
@@ -65,12 +72,14 @@ public class GroundTransferEndpointResolver {
 
     public GroundTransferEndpointResolver(HotelDetailsViewProjector hotelDetails,
                                           TrainDetailsViewProjector trainDetails,
+                                          GatheringDetailsViewProjector gatheringDetails,
                                           AirportCityResolver airportCities,
                                           AirportZoneResolver airportZones,
                                           LocationZoneResolver locationZones,
                                           TransferEndpointProjector transferEndpoints) {
         this.hotelDetails = hotelDetails;
         this.trainDetails = trainDetails;
+        this.gatheringDetails = gatheringDetails;
         this.airportCities = airportCities;
         this.airportZones = airportZones;
         this.locationZones = locationZones;
@@ -78,16 +87,16 @@ public class GroundTransferEndpointResolver {
     }
 
     /**
-     * The moment the form offered for this token as the origin, if it offered one. A bare
+     * The window the form offered for this token as the origin, if it offered one. A bare
      * {@code airport:DEN} offered none, so it has none, and the date rule then has nothing to say.
      */
-    public Optional<ZonedTimestamp> originMoment(String token) {
-        return transferEndpoints.momentOf(token, true);
+    public Optional<TransferEndpointWindow> originWindow(String token) {
+        return transferEndpoints.windowOf(token, true);
     }
 
-    /** As {@link #originMoment}, for the destination side. */
-    public Optional<ZonedTimestamp> destinationMoment(String token) {
-        return transferEndpoints.momentOf(token, false);
+    /** As {@link #originWindow}, for the destination side. */
+    public Optional<TransferEndpointWindow> destinationWindow(String token) {
+        return transferEndpoints.windowOf(token, false);
     }
 
     /**
@@ -162,8 +171,33 @@ public class GroundTransferEndpointResolver {
         if (token.startsWith(TRAIN_PREFIX)) {
             return stationEndpoint(token.substring(TRAIN_PREFIX.length()), token);
         }
+        if (token.startsWith(GATHERING_PREFIX)) {
+            return gatheringEndpoint(token.substring(GATHERING_PREFIX.length()));
+        }
         throw new UnknownTransferEndpoint(
-                "Not an airport, a booked hotel or a train station: " + token);
+                "Not an airport, a booked hotel, a train station or a gathering: " + token);
+    }
+
+    /**
+     * A gathering's venue and {@link Address}, copied verbatim for the same reason a hotel's is —
+     * {@code locationForMatching} is what the schedule matches the transfer against. The zone is
+     * the one the gathering was entered in, so it cannot fail to resolve. The name is the venue,
+     * which is what the transfer's own record says about a place; the title is the form's label.
+     */
+    private TransferEndpoint gatheringEndpoint(String rawGatheringId) {
+        GatheringDetailsView gathering = gatheringDetails.findById(parseGatheringId(rawGatheringId))
+                .orElseThrow(() -> new UnknownTransferEndpoint(
+                        "That gathering is no longer available"));
+        return new TransferEndpoint("", gathering.venueName(), gathering.location(),
+                gathering.startsAt().zone());
+    }
+
+    private GatheringId parseGatheringId(String rawGatheringId) {
+        try {
+            return GatheringId.of(UUID.fromString(rawGatheringId));
+        } catch (IllegalArgumentException e) {
+            throw new UnknownTransferEndpoint("Not a gathering: " + GATHERING_PREFIX + rawGatheringId);
+        }
     }
 
     private TransferEndpoint airportEndpoint(String rawEndpoint) {

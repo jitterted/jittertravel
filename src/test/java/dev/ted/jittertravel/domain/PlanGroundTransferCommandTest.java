@@ -202,14 +202,96 @@ class PlanGroundTransferCommandTest {
                 .hasSize(1);
     }
 
-    private static PlanGroundTransferCommand commandBetween(
+    /**
+     * The motivating case (Ted, 2026-10-06): a stay of Sep 13-18 and a gathering on Sep 15. The ride
+     * happens on neither check-in nor check-out day, and is refused by a rule that sees only moments.
+     */
+    @Test
+    void aMidStayRideFromAHotelToAGatheringIsAccepted() {
+        LocalDate checkIn = LocalDate.of(2026, 9, 13);
+        LocalDate gatheringDay = LocalDate.of(2026, 9, 15);
+        var stay = new TransferEndpointWindow(
+                denverTime(checkIn, LocalTime.of(15, 0)),
+                denverTime(checkIn.plusDays(5), LocalTime.of(11, 0)));
+        var gathering = new TransferEndpointWindow(
+                denverTime(gatheringDay, LocalTime.of(19, 0)),
+                denverTime(gatheringDay, LocalTime.of(22, 0)));
+        PlanGroundTransferCommand command = commandBetweenWindows(
+                denverTime(gatheringDay, LocalTime.of(18, 0)),
+                denverTime(gatheringDay, LocalTime.of(18, 30)), stay, gathering);
+
+        assertThat(command.execute(new PlanGroundTransferContext()).toList())
+                .hasSize(1);
+    }
+
+    /** The date is covered by the stay alone — neither its check-in day nor its check-out day. */
+    @Test
+    void aDateInsideOnlyTheStaysMiddleDaysIsAccepted() {
+        LocalDate checkIn = LocalDate.of(2026, 9, 13);
+        var stay = new TransferEndpointWindow(
+                denverTime(checkIn, LocalTime.of(15, 0)),
+                denverTime(checkIn.plusDays(5), LocalTime.of(11, 0)));
+        var gathering = new TransferEndpointWindow(
+                denverTime(checkIn.plusDays(3), LocalTime.of(19, 0)),
+                denverTime(checkIn.plusDays(3), LocalTime.of(22, 0)));
+        LocalDate midStay = checkIn.plusDays(2);
+        PlanGroundTransferCommand command = commandBetweenWindows(
+                denverTime(midStay, DEPARTS), denverTime(midStay, ARRIVES), stay, gathering);
+
+        assertThat(command.execute(new PlanGroundTransferContext()).toList())
+                .hasSize(1);
+    }
+
+    @Test
+    void aDateOutsideEveryWindowIsRefusedEvenWhenTheWindowsOverlap() {
+        LocalDate checkIn = LocalDate.of(2026, 9, 13);
+        LocalDate gatheringDay = LocalDate.of(2026, 9, 15);
+        var stay = new TransferEndpointWindow(
+                denverTime(checkIn, LocalTime.of(15, 0)),
+                denverTime(checkIn.plusDays(5), LocalTime.of(11, 0)));
+        var gathering = new TransferEndpointWindow(
+                denverTime(gatheringDay, LocalTime.of(19, 0)),
+                denverTime(gatheringDay, LocalTime.of(22, 0)));
+        LocalDate afterTheStay = LocalDate.of(2026, 9, 19);
+        PlanGroundTransferCommand command = commandBetweenWindows(
+                denverTime(afterTheStay, DEPARTS), denverTime(afterTheStay, ARRIVES),
+                stay, gathering);
+
+        assertThatThrownBy(() -> command.execute(new PlanGroundTransferContext()))
+                .isInstanceOf(InvalidGroundTransferDate.class);
+    }
+
+    @Test
+    void windowsMoreThanADayApartAreRefused() {
+        LocalDate day = LocalDate.of(2026, 9, 14);
+        var stay = new TransferEndpointWindow(
+                denverTime(day, LocalTime.of(15, 0)), denverTime(day.plusDays(1), LocalTime.of(11, 0)));
+        var gathering = new TransferEndpointWindow(
+                denverTime(day.plusDays(3), LocalTime.of(19, 0)),
+                denverTime(day.plusDays(3), LocalTime.of(22, 0)));
+        PlanGroundTransferCommand command = commandBetweenWindows(
+                denverTime(day, DEPARTS), denverTime(day, ARRIVES), stay, gathering);
+
+        assertThatThrownBy(() -> command.execute(new PlanGroundTransferContext()))
+                .isInstanceOf(InvalidGroundTransferDate.class);
+    }
+
+    private static PlanGroundTransferCommand commandBetweenWindows(
             ZonedTimestamp departsAt, ZonedTimestamp arrivesAt,
-            ZonedTimestamp originMoment, ZonedTimestamp destinationMoment) {
+            TransferEndpointWindow origin, TransferEndpointWindow destination) {
         return new PlanGroundTransferCommand(
                 GroundTransferId.random(),
                 "DEN", "", AIRPORT,
                 "", "Marriott Lone Tree", HOTEL,
-                departsAt, arrivesAt, "", originMoment, destinationMoment);
+                departsAt, arrivesAt, "", origin, destination);
+    }
+
+    private static PlanGroundTransferCommand commandBetween(
+            ZonedTimestamp departsAt, ZonedTimestamp arrivesAt,
+            ZonedTimestamp originMoment, ZonedTimestamp destinationMoment) {
+        return commandBetweenWindows(departsAt, arrivesAt,
+                originMoment == null ? null : TransferEndpointWindow.at(originMoment),
+                destinationMoment == null ? null : TransferEndpointWindow.at(destinationMoment));
     }
 
     private static ZonedTimestamp denverTime(LocalDate date, LocalTime time) {

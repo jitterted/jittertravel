@@ -6,6 +6,11 @@ import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.GatheringChanged;
+import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.GatheringPlanned;
+import dev.ted.jittertravel.domain.TransferEndpointWindow;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
@@ -109,6 +114,11 @@ public class TransferEndpointProjector implements EventStreamConsumer {
                     rows.remove(new RowKey(e.hotelBookingId().id().toString(),
                             TransferEnd.HOTEL_CHECK_IN));
                 }
+                // Gatherings can be edited but never cancelled, so there is no removal case.
+                case GatheringPlanned e -> putGathering(e.gatheringId(), e.title(), e.venueName(),
+                        e.location(), e.startsAt(), e.endsAt());
+                case GatheringChanged e -> putGathering(e.gatheringId(), e.title(), e.venueName(),
+                        e.location(), e.startsAt(), e.endsAt());
                 default -> { /* not an endpoint event */ }
             }
         });
@@ -122,14 +132,14 @@ public class TransferEndpointProjector implements EventStreamConsumer {
     }
 
     /**
-     * The moment the form would have filled in for this token on the given side — empty when no row
+     * The window the form's row for this token covers on the given side — empty when no row
      * carries that token on that side, which is what a bare {@code airport:DEN} or a hand-made POST
      * looks like. The token is matched exactly as the form submitted it.
      */
-    public Optional<ZonedTimestamp> momentOf(String token, boolean asOrigin) {
+    public Optional<TransferEndpointWindow> windowOf(String token, boolean asOrigin) {
         return rows.values().stream()
                 .filter(row -> row.token().equals(token) && row.end().isOrigin() == asOrigin)
-                .map(TransferEndpointRow::moment)
+                .map(TransferEndpointRow::window)
                 .findFirst();
     }
 
@@ -156,6 +166,7 @@ public class TransferEndpointProjector implements EventStreamConsumer {
                 place.value(),
                 place,
                 moment,
+                TransferEndpointWindow.at(moment),
                 moment,
                 detail));
     }
@@ -184,6 +195,7 @@ public class TransferEndpointProjector implements EventStreamConsumer {
                 station.city(),
                 Place.of(station),
                 moment,
+                TransferEndpointWindow.at(moment),
                 moment,
                 serviceId));
     }
@@ -194,12 +206,34 @@ public class TransferEndpointProjector implements EventStreamConsumer {
         // Both ends are offered while the *check-out* day is today or later, whichever end this is:
         // filtering the "To" list on check-in would drop the hotel you are riding to at the moment
         // you had arrived, which is when the ride gets written down.
+        // The window is the whole stay at both ends: a mid-stay ride to a gathering happens on
+        // neither the check-in nor the check-out day.
+        var stay = new TransferEndpointWindow(checkIn, checkOut);
         put(new RowKey(bookingId.id().toString(), TransferEnd.HOTEL_CHECK_OUT),
                 new TransferEndpointRow(TransferEnd.HOTEL_CHECK_OUT, token, hotelName, city, place,
-                        checkOut, checkOut, ""));
+                        checkOut, stay, checkOut, ""));
         put(new RowKey(bookingId.id().toString(), TransferEnd.HOTEL_CHECK_IN),
                 new TransferEndpointRow(TransferEnd.HOTEL_CHECK_IN, token, hotelName, city, place,
-                        checkIn, checkOut, ""));
+                        checkIn, stay, checkOut, ""));
+    }
+
+    /**
+     * Both ends are offered until the gathering's end, for the hotel's reason. The label's name is
+     * the gathering's title when it has one, else its venue: a title is what Ted recognises, and a
+     * gathering's is public anyway (Ted, 2026-10-06).
+     */
+    private void putGathering(GatheringId gatheringId, String title, String venueName,
+                              Address location, ZonedTimestamp startsAt, ZonedTimestamp endsAt) {
+        String token = GroundTransferEndpointResolver.GATHERING_PREFIX + gatheringId.id();
+        String name = title.isBlank() ? venueName : title;
+        Place place = Place.of(location);
+        var window = new TransferEndpointWindow(startsAt, endsAt);
+        put(new RowKey(gatheringId.id().toString(), TransferEnd.GATHERING_END),
+                new TransferEndpointRow(TransferEnd.GATHERING_END, token, name, location.city(),
+                        place, endsAt, window, endsAt, ""));
+        put(new RowKey(gatheringId.id().toString(), TransferEnd.GATHERING_START),
+                new TransferEndpointRow(TransferEnd.GATHERING_START, token, name, location.city(),
+                        place, startsAt, window, endsAt, ""));
     }
 
     private void put(RowKey key, TransferEndpointRow row) {

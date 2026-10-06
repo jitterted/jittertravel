@@ -45,8 +45,8 @@ public class PlanGroundTransferHandler {
                 ZonedTimestamp.fromLocal(request.date().atTime(request.departureTime()), zone),
                 ZonedTimestamp.fromLocal(request.date().atTime(request.arrivalTime()), zone),
                 mode(request),
-                endpoints.originMoment(request.origin()).orElse(null),
-                endpoints.destinationMoment(request.destination()).orElse(null)
+                endpoints.originWindow(request.origin()).orElse(null),
+                endpoints.destinationWindow(request.destination()).orElse(null)
         );
     }
 

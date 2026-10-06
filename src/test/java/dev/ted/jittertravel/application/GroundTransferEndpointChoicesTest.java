@@ -82,7 +82,7 @@ class GroundTransferEndpointChoicesTest {
         assertThat(choices.destinationFor(johannesbergToFrankfurt())).isEmpty();
     }
 
-    /** A gap the app holds no endpoint for at all — a train station, a conference venue. */
+    /** A gap the app holds no endpoint for at all — nothing recorded to travel between. */
     @Test
     void nothingOfferedSettlesNothing() {
         GroundTransferEndpointChoices choices = GroundTransferEndpointChoices.nothing();
@@ -152,9 +152,9 @@ class GroundTransferEndpointChoicesTest {
 
     /**
      * The reported bug, at the point where it showed: a gap ending at a station used to settle on
-     * nothing at all, because the station was in no list to be a candidate in. The comment in
-     * {@code GroundTransferEndpointChoices} that documented this as expected ("a train station, a
-     * conference venue") is now only half true — the venue half is still open.
+     * nothing at all, because the station was in no list to be a candidate in. (Gatherings,
+     * conference venues and private events followed on 2026-10-06; see
+     * {@code EndpointsCloseScheduleGapsTest} for them against the real schedule.)
      */
     @Test
     void aGapEndingAtATrainStationNowSettlesOnIt() {

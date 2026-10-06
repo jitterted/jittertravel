@@ -150,8 +150,8 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
      * nothing afterwards says the schedule is still broken. That asymmetry — a silent wrong answer
      * against one more click — is why this never falls back to a best guess.
      * <p>
-     * No match is the ordinary case for a gap the app holds no endpoint for at all (a train
-     * station, a conference venue), and it simply leaves "Choose a place…" showing.
+     * No match is the ordinary case for a gap the app holds no endpoint for at all (a place that
+     * is none of the kinds the form offers), and it simply leaves "Choose a place…" showing.
      */
     private Optional<TransferEndpointOption> theOnlyCandidate(List<TransferEndpointOption> offered,
                                                               String city,

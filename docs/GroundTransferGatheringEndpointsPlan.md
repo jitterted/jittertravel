@@ -1,7 +1,9 @@
 # Plan: gatherings, private events and conference venues as ground-transfer endpoints
 
-> **Status: `open`** — requested by Ted 2026-10-06, nothing built. Reviewed and amended with Ted's
-> answers the same day (§5); all decisions are closed and slice 1 can start.
+> **Status: `built, not pushed`** — requested by Ted 2026-10-06. All four slices built and the first
+> three committed the same day (gatherings plus the window rule, conference venues, private events);
+> slice 4 (fix links) turned out to need no new code — see "Slice 4 as built". Pre-push gates
+> (`-Pjs-tests`, `-Ppit-spring`) not yet run.
 
 ## 1. Context
 
@@ -117,6 +119,27 @@ A transfer is published to anonymous viewers as its route (two city names) and n
    one of these kinds, and `GroundTransferPreselection` preselects the matching endpoint token.
    Add the new paths to `ProblemContextFragmentConventionTest` only if a new fix target is
    introduced; none is expected.
+
+### Slice 4 as built
+
+**No production code.** The fix link was already offered for every `MissingTravel` gap, and
+`GroundTransferPreselection` is kind-agnostic: it asks `GroundTransferEndpointChoices` for the only
+candidate in the gap's city on the gap's days, and slices 1-3 had already put the three new kinds in
+those pools (origins on the end, destinations on the start). What was missing was proof, so slice 4
+is `EndpointsCloseScheduleGapsTest`: the real `ScheduleGapProjector` and the real endpoint read model
+fed the same events, asserting that a gap out to, and a gap out of, a gathering, a conference and a
+private event each settle on it — a private event under its *matching* city, and two events in the
+gap's city settling nothing (the form asks rather than guesses).
+
+**Known limit, unchanged by this work:** a ride *mid-event* (leaving a conference on its second day
+for a dinner) preselects the destination but not the origin, because an origin is a candidate only
+when its end falls inside the gap's days. The origin is still on the "From" select and the date rule
+now accepts the ride. Widening the preselection to a window would change which endpoint counts as the
+only candidate for hotels as well, so it is a decision for Ted rather than a part of this plan.
+
+**Decided (Ted, 2026-10-06): leave it as it is.** What he wants eventually is a much smarter
+auto-select that works *given the endpoint already chosen* — pick the "From", and the "To" (and the
+date) follow from it — rather than a wider candidate rule. Not now; not scheduled.
 
 ## 7. Tests required
 

@@ -74,16 +74,9 @@ public class FamilyNotificationMessages {
         };
     }
 
-    /** Ted is going: the conference as planned, with the talk line only where there is one. */
+    /** Ted is going: the conference as planned. */
     public FamilyMessage conferenceGoing(ConferenceNews news) {
-        Map<String, Object> values = conferenceValues(news);
-        where(news).ifPresent(where -> values.put("where", where));
-        speakingLine(news.speaking()).ifPresent(line -> values.put("speaking", line));
-        if (!news.infoUrl().isBlank()) {
-            values.put("infoUrl", news.infoUrl());
-        }
-        calendarUrl(news).ifPresent(url -> values.put("calendarUrl", url));
-        return templates.render("conference-going", values);
+        return templates.render("conference-going", conferenceValues(news));
     }
 
     /**
@@ -97,10 +90,23 @@ public class FamilyNotificationMessages {
         return templates.render("conference-not-going", values);
     }
 
+    /**
+     * <strong>Every conference template gets every value</strong> (Ted, 2026-10-05), so the file decides
+     * what to show and a wording change never needs Java. That is safe here because the allow-list is
+     * {@link ConferenceNews}, which has no field for a reason or a basis: what is passed is all there
+     * is. A value is present only when there is something to say ({@code where}, {@code speaking},
+     * {@code infoUrl}, {@code calendarUrl}), so a template guards it with {@code != null}.
+     */
     private Map<String, Object> conferenceValues(ConferenceNews news) {
         Map<String, Object> values = new LinkedHashMap<>();
         values.put("name", news.name());
         values.put("dates", dates(news));
+        where(news).ifPresent(where -> values.put("where", where));
+        speakingLine(news.speaking()).ifPresent(line -> values.put("speaking", line));
+        if (!news.infoUrl().isBlank()) {
+            values.put("infoUrl", news.infoUrl());
+        }
+        calendarUrl(news).ifPresent(url -> values.put("calendarUrl", url));
         return values;
     }
 

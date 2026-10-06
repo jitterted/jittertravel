@@ -42,6 +42,20 @@ down when it is created does not get written down later.
 
 ## Open
 
+- [ ] **Revisit how much an email template can change without Java** (Ted, 2026-10-05: "I can see
+      this being a source of pain"). The email text lives in `src/main/resources/email/` so Ted can
+      edit it, but the *values* a template may use are chosen in `FamilyNotificationMessages`, so a
+      wording change that wants a new value (the venue line on the conference exit, 2026-10-05) is
+      silently dropped until someone edits Java. Found when Ted added `where` to
+      `conference-not-going.txt` and nothing showed. **Stopgap, shipped the same day:** every
+      conference template now gets every value in `ConferenceNews`, which is safe because that record
+      is the allow-list (no reason, no basis). **Still true for flights:** `flightValues` and
+      `tripValues` pass only what those templates used at the time, and a template that names an
+      unset value renders nothing, with no error. Questions to settle: give flights the same
+      everything-in-the-allow-list treatment; make a template that names a value nobody supplies fail
+      loudly (a test over every template, or the preview page flagging it) instead of rendering a gap;
+      and whether the plain-text templating earns its keep against a few formatted strings.
+
 - [ ] **Put the time on its own line under the date on every list page, not just flights.** Ted,
       2026-09-30: a time run into its date on one line is hard to pick out, and the vertical space
       is worth it. `/booked-flights` does it (shipped 2026-09-30) with one CSS rule,

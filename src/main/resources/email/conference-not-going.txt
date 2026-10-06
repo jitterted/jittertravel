@@ -9,6 +9,7 @@ Hi, JitterTravel here. The organizers cancelled the conference below, so Ted is 
 
 
 [[${name}]]
-[[${dates}]]
+[# th:if="${where != null}"][[${where}]]
+[/][[${dates}]]
 [# th:if="${exit == 'REJECTED'}"]His talk was rejected, so he is not going.
 [/]

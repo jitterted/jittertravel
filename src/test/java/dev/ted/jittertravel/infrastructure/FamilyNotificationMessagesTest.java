@@ -292,12 +292,14 @@ class FamilyNotificationMessagesTest {
                         "Hi, JitterTravel here. Ted is no longer going to the conference below, and he wanted to let you know.",
                         "",
                         "SoCraTes 2026",
+                        "Seminarzentrum Rückersbach, Johannesberg, DE",
                         "Mon 24 Aug – Thu 27 Aug 2026");
         assertThat(rejected.textContent().lines().toList())
                 .containsExactly(
                         "Hi, JitterTravel here. Ted is no longer going to the conference below, and he wanted to let you know.",
                         "",
                         "SoCraTes 2026",
+                        "Seminarzentrum Rückersbach, Johannesberg, DE",
                         "Mon 24 Aug – Thu 27 Aug 2026",
                         "His talk was rejected, so he is not going.");
     }
@@ -314,14 +316,14 @@ class FamilyNotificationMessagesTest {
                         "Hi, JitterTravel here. The organizers cancelled the conference below, so Ted is no longer going, and he wanted to let you know.",
                         "",
                         "SoCraTes 2026",
+                        "Seminarzentrum Rückersbach, Johannesberg, DE",
                         "Mon 24 Aug – Thu 27 Aug 2026");
     }
 
     @Test
-    void anExitNamesNoVenueAndNoLink() {
+    void anExitCarriesNoTalkLineAndNoLinkBecauseItsTemplateAsksForNeither() {
         assertThat(messages.conferenceNotGoing(socrates(ConferenceNews.SpeakingLine.TALK_ACCEPTED),
                 ConferenceNews.Exit.DECLINED).textContent())
-                .doesNotContain("Seminarzentrum")
                 .doesNotContain("socrates-conference.de")
                 .doesNotContain("jittertravel.com")
                 .doesNotContain("accepted");

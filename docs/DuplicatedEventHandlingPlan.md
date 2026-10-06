@@ -321,6 +321,10 @@ Proposed as **H9** in `EventSourcingRulesHeuristics.md`:
 2. **B now, or A until a tenth conference event forces it?** The guard makes A safe against
    omission. B removes the transcription. My recommendation is B, because the one bug it would have
    prevented already happened.
-3. **Adopt H9** (§4.5) as a written heuristic?
+3. **Adopt H9** (§4.5) as a written heuristic? — **Still pending (Ted, 2026-10-06):** asked again
+   when R8b went into `EventSourcingRulesHeuristics.md` (fold only what bears; propagation tests,
+   never sealing), and Ted chose to write R8b alone and decide H9 together with questions 1, 2 and 4.
+   R8b and H9 answer different questions — which events *one* projector folds, versus what to extract
+   when *several* handle the same events — so neither substitutes for the other.
 4. **G1**: worth making the hotel/train/ground-transfer/private-event propagation tests
    self-enumerating now, or file it?

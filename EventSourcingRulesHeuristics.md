@@ -5,6 +5,29 @@ we follow in this codebase. New ones are appended as we discover them.
 
 ---
 
+## Terminology
+
+**Processor** is the general word for an automation component that consumes
+events and is not a projection. There are two kinds, and the names are not
+interchangeable (Ted, 2026-10-05):
+
+- **Translator** — stateless. Takes an incoming event and emits a *different*,
+  usually externally published, event (a Collaboration or Integration event).
+  Requires no state.
+- **Actuator** — may hold or derive state, and **acts by issuing a Command** when
+  an event moves it into a particular state of its state machine. Crossing a
+  threshold counts as a simple state machine.
+
+The point of the distinction is that the class name tells a reader whether the
+thing holds state and whether it emits events or issues commands. The one in the
+tree is `FamilyNotificationActuator`: it folds the last `FamilyNotified` and the
+conference's standing, and issues `NotifyFamily` — an Actuator, renamed from
+`…Translator` on 2026-10-05 when the distinction was drawn. Prose in
+`docs/FamilyEmailNotificationsPlan.md` written before that still says
+"Translator" and carries a note to read it as the actuator.
+
+---
+
 ## Rules (do not violate)
 
 ### R1. Never use a projection (read model) to make an automated decision.
@@ -26,12 +49,33 @@ Note that these are not *Domain Events* in the sense of Domain-Driven Design,
 but are private to this Bounded Context and are not to be accessed from,
 nor published to, any external module or process.
 
+### Corollary of R2
+
+**R2a. An event is named for the fact that happened, in the past tense — never
+for the storage operation.** `CfpOpened`, not `CfpWindowRecorded`; `InvitedToSpeak`,
+not `SpeakingInvitationReceived`; `TalkSubmitted` / `TalkAccepted` / `TalkRejected` /
+`TalkWithdrawn`. Reject names built on *Recorded*, *Created*, *Updated*, *Set*,
+*Window* and their kin: they describe a table mutation, which leaks storage
+mechanics into the domain and reads wrong when replayed as history (Ted,
+2026-08-18). The existing full-snapshot `*Changed` events are the CRUD-shaped
+exception H1 explains and does not endorse.
+
 ### R3. Commands are pure domain functions.
 
 Command classes live in `dev.ted.jittertravel.domain` and expose an
 `execute(...)` method that returns `Stream<? extends Event>` (or throws a
 domain exception). They take only value inputs (DTO, current time, any folded
 state needed for decisions). They have no infrastructure dependencies.
+
+**A rich decision context is the direction of travel, not a cost** (Ted,
+2026-09-06, when `BookTrainContext` grew to carry every live leg so an overlap
+could be judged: *"that's a GOOD thing: it's a pattern that will become more
+common as UI tasks become more complex"*). A decision that depends on what else
+is on the schedule can only be made honestly by a context that carries what else
+is on the schedule; the only alternative is a command reaching for a read model,
+which R1 forbids. So: fold it from the stream, never a projector; fold *live*
+state (apply the cancellations); where two commands want the same facts build
+one shared value rather than two near-identical folds; keep it in `domain`.
 
 ### R4. Application services orchestrate the write path in a fixed order.
 
@@ -88,7 +132,9 @@ heavier options recorded for later.
 
 **Adopted: golden-payload deserialization tests.** For every persisted
 event type we keep one canonical JSON sample as an inline text block in
-`GoldenEventDeserializationTest` (samples are well under the 30-line
+`GoldenEventDeserializationTest` — **added in the same change that introduces
+the event** (standing practice, Ted 2026-08-13; `EventTypesTest` enforces
+registration but nothing enforces the sample, so this is a discipline rule) (samples are well under the 30-line
 threshold for a separate file; there is no `event-samples/` resource
 directory). Legacy-shape samples live in the same test and are routed
 through `EventPayloadUpcaster` before binding, since the removed keys
@@ -232,6 +278,47 @@ writes back the address the event was *planned* with, and a `MissingTravel` row
 reappears on `/schedule-problems` weeks later, pointing nowhere near the edit that
 caused it.
 
+**R8b. A projector folds only the events that bear on its view, and omission is
+guarded by a propagation test — never by sealing `Event`.** (Ted, 2026-10-06.) R8
+and R8a say a projector must not *miss* what matters; this says it must not *fold
+what does not*. An arm for an event that cannot change what the projector reports
+is dead code: PIT reports it as a surviving mutant, because no test can tell the
+arm from its absence — and that is the whole of what the mutant means, not a
+reason to annotate the arm and keep it. Worse, a speculative arm written "in case
+the rule changes" *hides* the rule change: the projector keeps compiling and keeps
+passing while its behaviour quietly shifts.
+
+The guard against a rule change is the entity's **propagation test**, which runs
+one scenario per lifecycle event through every read model that folds the entity
+and asserts each one's outcome. When a shared fold (`ConferenceProgress`) changes
+its rules, that test fails *by name* for the projector that now needs an arm, and
+the fix is the arm. That is why each entity has one
+(`*CancellationPropagationTest`, `ConferenceLifecyclePropagationTest`,
+`ConferenceDatesPropagationTest`), and why **a new reader of an entity's events
+is added to that entity's propagation test in the same change.** The projector
+list in those tests is hand-kept; G1 in `docs/DuplicatedEventHandlingPlan.md` is
+the open item to make it self-enumerating.
+
+Concretely: `TransferEndpointProjector` (2026-10-06) offers a conference's venue
+while the conference is on the schedule and stops when it drops. Only
+`ConferenceAttendanceDeclined` and `TalkRejected` can drop one, so it folds those
+two and nothing else; the first draft folded all nine and PIT flagged the other
+seven. `ScheduleGapProjector`, the same kind of drop-only observer, still folds
+all nine on the argument that "a partial fold would answer a later question
+wrongly" — which is the speculative argument this rule rejects; that
+contradiction is recorded in the duplicated-handling plan and left for option B
+to settle.
+
+**Sealing `Event` was rejected (2026-06-08) and stays rejected.** Compiler
+exhaustiveness forces a branch to be *written*, not *decided*: the reflexive
+`-> {}` satisfies the compiler without a thought, so the forcing function decays
+into ritual. It also makes every projector list every event (N×M arms, worse with
+each event), removes the forward tolerance replay wants, and couples every
+projector's compilation to the whole event set. Sealed sub-families
+(`sealed interface ConferenceEvent`) are not the escape hatch they look like and
+are not to be proposed as one. The compiler can verify a branch exists; only a
+scenario through the real read models can verify that a projector *should care*.
+
 ---
 
 ### R9. A projector computes its read model while handling events; reads return that maintained state.
@@ -369,11 +456,13 @@ derivation lives in the domain (`Place.of`), so both projectors reach the same
 answer without either knowing the other exists. That is the fix whenever this
 rule seems to be in the way.
 
-**Not this rule: a Translator/Processor consuming a read model.** R10's modelling
-twin lists "a consumed read model" as a legitimate source for an event's fields.
-That is Read Model → Processor → Command/Event, a different edge from Read Model →
-Read Model: the consumer is an automation component, not a projection. R1 governs
-it — fold from the authoritative stream to *decide* — and R12 does not reach it.
+**Not this rule: a Processor — Translator or Actuator (see Terminology) —
+consuming a read model.** R10's modelling twin lists "a consumed read model" as a
+legitimate source for an event's fields. That is Read Model → Processor → Command
+(an Actuator) or → published Event (a Translator), a different edge from Read
+Model → Read Model: the consumer is an automation component, not a projection. R1
+governs it — fold from the authoritative stream to *decide* — and R12 does not
+reach it.
 
 **Why:** a projector that reads another inherits its staleness and, worse, its
 half-folded state mid-batch — and it silently makes the subscriber order in

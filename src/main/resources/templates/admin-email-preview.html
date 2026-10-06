@@ -33,6 +33,7 @@
         h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 0.25rem; }
         .intro { color: var(--text-secondary); margin-bottom: 1rem; max-width: 74ch; }
 
+        .group-title { font-size: 1.1rem; font-weight: 700; margin: 1.4rem 0 0.6rem; }
         .send { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 0.65rem; padding: 0.8rem 0.9rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; background: var(--surface); }
         .send-mark { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 0.8rem; background: var(--idle-bg); color: var(--idle-fg); }
         .send.ok { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-edge); }
@@ -69,24 +70,27 @@
     <p class="intro">Built from the files in src/main/resources/email/ with sample flights, so nothing here is a
         real booking. <span th:text="${linkNote}">The calendar link uses the sample's date.</span></p>
 
-    <div class="send" th:classappend="${panel.cssClass()}" th:attr="role=${panel.role()}">
-        <span class="send-mark" aria-hidden="true" th:text="${panel.mark()}">&#9993;</span>
-        <div>
-            <div class="send-what" th:text="${panel.what()}">Send these three emails to yourself</div>
-            <div class="send-why" th:text="${panel.why()}">Why.</div>
-            <div class="send-next" th:if="${panel.hasNext()}"><b>Next:</b> <span th:text="${panel.next()}">What to do.</span></div>
-            <form th:if="${panel.hasButton()}" th:action="@{/admin/email-preview/send}" method="post">
-                <button type="submit" class="send-button" th:classappend="${panel.buttonSecondary()} ? 'secondary'"
-                        th:text="${panel.buttonLabel()}">Send all three</button>
-            </form>
-        </div>
-    </div>
+    <th:block th:each="group : ${groups}">
+        <h2 class="group-title" th:text="${group.title()}">Flight emails</h2>
 
-    <section class="email" th:each="email : ${emails}" th:attr="aria-label=${email.label()}">
-        <div class="email-head"><b th:text="${email.label()}">Flight booked</b><span th:text="${email.file()}">email/flight-booked.txt</span></div>
-        <div class="subject"><b>Subject</b><span th:text="${email.subject()}">Subject.</span></div>
-        <pre class="body"><th:block th:each="part : ${email.segments()}"><a th:if="${part.link()}" th:href="${part.text()}" th:text="${part.text()}">link</a><span th:unless="${part.link()}" th:text="${part.text()}">text</span></th:block></pre>
-    </section>
+        <div class="send" th:classappend="${group.panel().cssClass()}" th:attr="role=${group.panel().role()}">
+            <span class="send-mark" aria-hidden="true" th:text="${group.panel().mark()}">&#9993;</span>
+            <div>
+                <div class="send-what" th:text="${group.panel().what()}">Send these three emails to yourself</div>
+                <div class="send-why" th:text="${group.panel().why()}">Why.</div>
+                <div class="send-next" th:if="${group.panel().hasNext()}"><b>Next:</b> <span th:text="${group.panel().next()}">What to do.</span></div>
+                <form th:if="${group.panel().hasButton()}" th:action="@{${group.sendPath()}}" method="post">
+                    <button type="submit" class="send-button" th:classappend="${group.panel().buttonSecondary()} ? 'secondary'"
+                            th:text="${group.panel().buttonLabel()}">Send all three</button>
+                </form>
+            </div>
+        </div>
+
+        <th:block th:each="email : ${group.emails()}"><th:block th:replace="~{fragments/email-card :: card(${email})}"></th:block></th:block>
+    </th:block>
+
+    <h2 class="group-title">Test email</h2>
+    <th:block th:replace="~{fragments/email-card :: card(${testEmail})}"></th:block>
 </main>
 </body>
 </html>

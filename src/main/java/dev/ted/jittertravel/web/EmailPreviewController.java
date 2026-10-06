@@ -23,9 +23,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The email preview (Ted, 2026-10-05; mockup https://claude.ai/artifact/C7mjK5bUm6yY5nDVX1JgWu):
- * every family email exactly as it would be sent, from the text files and fixed sample flights, and a
- * button that sends all three to Ted himself.
+ * The email preview (Ted, 2026-10-05; mockups https://claude.ai/artifact/C7mjK5bUm6yY5nDVX1JgWu and,
+ * for the two groups, https://claude.ai/artifact/HSWE6X49TxLtN26B7hKspZ): every family email exactly
+ * as it would be sent, from the text files and fixed samples, in two groups. Each group has its own
+ * button that sends that group's emails to Ted himself, and its own remembered result.
  * <p>
  * <strong>It can only ever send to {@code TED_REPLY_EMAIL}.</strong> The address is read here and
  * handed to {@link BrevoEmailClient#sendTo}; nothing on this page can name the family address, so a
@@ -38,9 +39,6 @@ import java.util.Map;
 @Controller
 @RequestMapping("/admin/email-preview")
 public class EmailPreviewController {
-
-    private static final String JUST_SENT = "justSent";
-    private static final int EMAILS_SENT = 3;
 
     private final FamilyNotificationMessages messages;
     private final BrevoEmailClient brevo;
@@ -66,77 +64,104 @@ public class EmailPreviewController {
     }
 
     @GetMapping("")
-    public String page(Model model,
-                       @CookieValue(name = ViewerTodayZone.COOKIE_NAME, required = false) String zoneCookie) {
-        return render(model, zoneCookie, Boolean.TRUE.equals(model.asMap().get(JUST_SENT)));
+    public String page(Model model, @CookieValue(name = ViewerTodayZone.COOKIE_NAME, required = false) String zoneCookie) {
+        return render(model, zoneCookie, Map.of());
+    }
+
+    /** Sends the flight emails to Ted. */
+    @PostMapping("/send")
+    public String sendFlights(Model model, RedirectAttributes redirectAttributes,
+                              @CookieValue(name = ViewerTodayZone.COOKIE_NAME, required = false) String zoneCookie) {
+        return send(EmailGroup.FLIGHTS, model, redirectAttributes, zoneCookie);
+    }
+
+    /** Sends the conference emails to Ted. */
+    @PostMapping("/send-conferences")
+    public String sendConferences(Model model, RedirectAttributes redirectAttributes,
+                                  @CookieValue(name = ViewerTodayZone.COOKIE_NAME, required = false) String zoneCookie) {
+        return send(EmailGroup.CONFERENCES, model, redirectAttributes, zoneCookie);
     }
 
     /**
-     * Sends the three sample emails to Ted, one after another, remembering how far it got. A success
+     * Sends one group's emails to Ted, one after another, remembering how far it got. A success
      * redirects, so a reload cannot send again; a failure re-renders this page, so the reason is on a
      * page that can show it.
      */
-    @PostMapping("/send")
-    public String send(Model model, RedirectAttributes redirectAttributes,
-                       @CookieValue(name = ViewerTodayZone.COOKIE_NAME, required = false) String zoneCookie) {
+    private String send(EmailGroup group, Model model, RedirectAttributes redirectAttributes, String zoneCookie) {
         String address = brevo.replyTo();
         if (!brevo.hasKey() || address == null || address.isBlank()) {
-            return render(model, zoneCookie, false);
+            return render(model, zoneCookie, Map.of());
         }
+        List<FamilyMessage> emails = emailsToSend(group);
         int sent = 0;
         try {
-            for (FamilyMessage message : emailsToSend()) {
+            for (FamilyMessage message : emails) {
                 brevo.sendTo(address, message);
                 sent++;
             }
         } catch (RuntimeException failed) {
-            memory.remember(new EmailPreviewMemory.Result(Instant.now(clock), sent, EMAILS_SENT, address,
+            memory.remember(group, new EmailPreviewMemory.Result(Instant.now(clock), sent, emails.size(), address,
                     failureText.of(failed)));
-            return render(model, zoneCookie, true);
+            return render(model, zoneCookie, Map.of(group, true));
         }
-        memory.remember(new EmailPreviewMemory.Result(Instant.now(clock), sent, EMAILS_SENT, address, ""));
-        redirectAttributes.addFlashAttribute(JUST_SENT, true);
+        memory.remember(group, new EmailPreviewMemory.Result(Instant.now(clock), sent, emails.size(), address, ""));
+        redirectAttributes.addFlashAttribute(group.justSentKey(), true);
         return "redirect:/admin/email-preview";
     }
 
-    private String render(Model model, String zoneCookie, boolean justSent) {
-        model.addAttribute("panel", panels.panel(brevo.hasKey(), brevo.replyTo(), memory.last(),
-                viewerZone.resolve(zoneCookie), justSent));
-        model.addAttribute("emails", previewEmails());
+    /** @param justSent the groups whose result is highlighted: the one just sent, or just failed */
+    private String render(Model model, String zoneCookie, Map<EmailGroup, Boolean> justSent) {
+        ZoneId zone = viewerZone.resolve(zoneCookie);
+        model.addAttribute("groups", List.of(group(EmailGroup.FLIGHTS, model, zone, justSent),
+                group(EmailGroup.CONFERENCES, model, zone, justSent)));
+        model.addAttribute("testEmail", preview("Test email", "test-email.txt",
+                templates.render("test-email", Map.of())));
         model.addAttribute("linkNote", baseUrl.isEmpty()
                 ? "No JITTERTRAVEL_BASE_URL is set, so these emails have no calendar link."
                 : "The calendar link uses the sample's date and your JITTERTRAVEL_BASE_URL (" + baseUrl + ").");
         return "admin-email-preview";
     }
 
-    /** The three that are sent: a single flight, a booked trip, a cancelled trip. */
-    private List<FamilyMessage> emailsToSend() {
-        return List.of(
-                messages.messageFor(NotifiedFact.FLIGHT_BOOKED, samples.singleFlight()),
-                messages.messageFor(NotifiedFact.ITINERARY_BOOKED, samples.trip()),
-                messages.messageFor(NotifiedFact.ITINERARY_CANCELLED, samples.trip()));
+    private PreviewGroup group(EmailGroup group, Model model, ZoneId zone, Map<EmailGroup, Boolean> failedNow) {
+        boolean highlight = failedNow.getOrDefault(group, false)
+                || Boolean.TRUE.equals(model.asMap().get(group.justSentKey()));
+        PreviewPanel panel = panels.panel(group, emailsToSend(group).size(), brevo.hasKey(), brevo.replyTo(),
+                memory.last(group), zone, highlight);
+        return new PreviewGroup(group.title(), group.sendPath(), panel, previewEmails(group));
     }
 
-    /**
-     * What the page shows: the three that are sent, the conference emails (shown only, until their
-     * own send button is agreed), then the test email, so every text is in one place.
-     */
-    private List<PreviewEmail> previewEmails() {
-        List<FamilyMessage> three = emailsToSend();
-        FamilyMessage test = templates.render("test-email", Map.of());
-        ConferenceNews conference = samples.conference();
-        return List.of(
-                preview("Flight booked", "flight-booked.txt", three.get(0)),
-                preview("Trip booked", "trip-booked.txt", three.get(1)),
-                preview("Trip cancelled", "trip-cancelled.txt", three.get(2)),
-                preview("Conference going", "conference-going.txt", messages.conferenceGoing(conference)),
-                preview("Conference declined", "conference-not-going.txt",
-                        messages.conferenceNotGoing(conference, ConferenceNews.Exit.DECLINED)),
-                preview("Conference cancelled", "conference-not-going.txt",
-                        messages.conferenceNotGoing(conference, ConferenceNews.Exit.CANCELLED)),
-                preview("Conference talk rejected", "conference-not-going.txt",
-                        messages.conferenceNotGoing(conference, ConferenceNews.Exit.REJECTED)),
-                preview("Test email", "test-email.txt", test));
+    /** What a group's button sends: the same messages the page shows. */
+    private List<FamilyMessage> emailsToSend(EmailGroup group) {
+        return switch (group) {
+            case FLIGHTS -> List.of(
+                    messages.messageFor(NotifiedFact.FLIGHT_BOOKED, samples.singleFlight()),
+                    messages.messageFor(NotifiedFact.ITINERARY_BOOKED, samples.trip()),
+                    messages.messageFor(NotifiedFact.ITINERARY_CANCELLED, samples.trip()));
+            case CONFERENCES -> {
+                ConferenceNews conference = samples.conference();
+                yield List.of(
+                        messages.conferenceGoing(conference),
+                        messages.conferenceNotGoing(conference, ConferenceNews.Exit.DECLINED),
+                        messages.conferenceNotGoing(conference, ConferenceNews.Exit.CANCELLED),
+                        messages.conferenceNotGoing(conference, ConferenceNews.Exit.REJECTED));
+            }
+        };
+    }
+
+    /** The cards under a group's panel, in the order the button sends them. */
+    private List<PreviewEmail> previewEmails(EmailGroup group) {
+        List<FamilyMessage> sent = emailsToSend(group);
+        return switch (group) {
+            case FLIGHTS -> List.of(
+                    preview("Flight booked", "flight-booked.txt", sent.get(0)),
+                    preview("Trip booked", "trip-booked.txt", sent.get(1)),
+                    preview("Trip cancelled", "trip-cancelled.txt", sent.get(2)));
+            case CONFERENCES -> List.of(
+                    preview("Conference going", "conference-going.txt", sent.get(0)),
+                    preview("Conference declined", "conference-not-going.txt", sent.get(1)),
+                    preview("Conference cancelled", "conference-not-going.txt", sent.get(2)),
+                    preview("Conference talk rejected", "conference-not-going.txt", sent.get(3)));
+        };
     }
 
     private PreviewEmail preview(String label, String file, FamilyMessage message) {

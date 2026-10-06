@@ -109,6 +109,7 @@ class AuthorizationMatrixTest {
                 // Shows the family emails and can send three of them, so it is OWNER-only like the rest of /admin.
                 arguments("/admin/email-preview",  Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/admin/email-preview/send", Outcome.OK,   Outcome.DENIED_HOME,  Outcome.LOGIN),
+                arguments("/admin/email-preview/send-conferences", Outcome.OK, Outcome.DENIED_HOME, Outcome.LOGIN),
                 arguments("/book-flight",          Outcome.OK,       Outcome.DENIED_HOME,  Outcome.LOGIN),
                 arguments("/book-flight/lookup/select", Outcome.OK,  Outcome.DENIED_HOME,  Outcome.LOGIN),
                 // Covered by "/book-flight/**", and pinned here: the preview prints a confirmation

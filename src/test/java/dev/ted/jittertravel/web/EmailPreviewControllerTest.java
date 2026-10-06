@@ -89,12 +89,14 @@ class EmailPreviewControllerTest {
     }
 
     @Test
-    void thePageShowsTheFourConferenceEmailsAsSentButTheSendButtonStaysFlightOnly() {
+    void thePageShowsTheFourConferenceEmailsAsSent() {
         canSend();
 
         assertThat(mockMvc.get().uri("/admin/email-preview"))
                 .hasStatusOk()
                 .bodyText()
+                .contains("<h2 class=\"group-title\">Flight emails</h2>")
+                .contains("<h2 class=\"group-title\">Conference emails</h2>")
                 .contains("<b>Conference going</b><span>email/conference-going.txt</span>")
                 .contains("<b>Conference declined</b><span>email/conference-not-going.txt</span>")
                 .contains("<b>Conference cancelled</b><span>email/conference-not-going.txt</span>")
@@ -154,7 +156,7 @@ class EmailPreviewControllerTest {
     @Test
     void aRememberedSuccessShowsInTheViewersZoneFromTheirCookie() {
         canSend();
-        given(memory.last()).willReturn(Optional.of(
+        given(memory.last(EmailGroup.FLIGHTS)).willReturn(Optional.of(
                 new EmailPreviewMemory.Result(NOW, 3, 3, "ted@example.com", "")));
 
         assertThat(mockMvc.get().uri("/admin/email-preview").cookie(new Cookie("viewerZone", "America/Los_Angeles")))
@@ -190,9 +192,9 @@ class EmailPreviewControllerTest {
         assertThat(mockMvc.post().uri("/admin/email-preview/send").with(csrf()))
                 .hasStatus3xxRedirection()
                 .flash()
-                .containsEntry("justSent", true);
+                .containsEntry("justSentFLIGHTS", true);
 
-        verify(memory).remember(new EmailPreviewMemory.Result(NOW, 3, 3, "ted@example.com", ""));
+        verify(memory).remember(EmailGroup.FLIGHTS, new EmailPreviewMemory.Result(NOW, 3, 3, "ted@example.com", ""));
     }
 
     @Test
@@ -200,7 +202,7 @@ class EmailPreviewControllerTest {
         canSend();
         willDoNothing().willThrow(new IllegalStateException("401 Unauthorized"))
                 .given(brevo).sendTo(any(), any());
-        given(memory.last()).willReturn(Optional.of(new EmailPreviewMemory.Result(
+        given(memory.last(EmailGroup.FLIGHTS)).willReturn(Optional.of(new EmailPreviewMemory.Result(
                 NOW, 1, 3, "ted@example.com", "The send failed: 401 Unauthorized")));
 
         assertThat(mockMvc.post().uri("/admin/email-preview/send").with(csrf()))
@@ -210,9 +212,94 @@ class EmailPreviewControllerTest {
                 .contains("<div class=\"send-what\">Sending failed after 1 of 3</div>")
                 .contains("<button type=\"submit\" class=\"send-button\">Try again</button>");
 
-        verify(memory).remember(new EmailPreviewMemory.Result(
+        verify(memory).remember(EmailGroup.FLIGHTS, new EmailPreviewMemory.Result(
                 NOW, 1, 3, "ted@example.com", "The send failed: 401 Unauthorized"));
         verify(brevo, never()).send(any());
+    }
+
+    // ---- the conference group: its own panel, button, path and memory ----------------------------
+
+    @Test
+    void theConferencePanelHasItsOwnButtonThatPostsToItsOwnPath() {
+        canSend();
+
+        assertThat(mockMvc.get().uri("/admin/email-preview"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<div class=\"send-what\">Send these four conference emails to yourself</div>")
+                .contains("<button type=\"submit\" class=\"send-button\">Send all four to ted@example.com</button>")
+                .containsPattern("<form action=\"/admin/email-preview/send-conferences\" method=\"post\">\\s*<input type=\"hidden\" name=\"_csrf\"");
+    }
+
+    @Test
+    void theFlightResultStaysOnThePageWhileTheConferencePanelIsStillReady() {
+        canSend();
+        given(memory.last(EmailGroup.FLIGHTS)).willReturn(Optional.of(
+                new EmailPreviewMemory.Result(NOW, 3, 3, "ted@example.com", "")));
+
+        assertThat(mockMvc.get().uri("/admin/email-preview").cookie(new Cookie("viewerZone", "America/Los_Angeles")))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<div class=\"send-what\">3 emails sent to ted@example.com at 3:42 PM PDT</div>")
+                .contains("<div class=\"send-what\">Send these four conference emails to yourself</div>");
+    }
+
+    @Test
+    void sendingTheConferenceEmailsGoesToTedOnlyInTheOrderTheCardsShowThem() {
+        canSend();
+
+        assertThat(mockMvc.post().uri("/admin/email-preview/send-conferences").with(csrf()))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/admin/email-preview")
+                .flash()
+                .containsEntry("justSentCONFERENCES", true);
+
+        ArgumentCaptor<FamilyMessage> sent = ArgumentCaptor.forClass(FamilyMessage.class);
+        verify(brevo, times(4)).sendTo(eq("ted@example.com"), sent.capture());
+        verify(brevo, never()).send(any());
+        assertThat(sent.getAllValues())
+                .extracting(FamilyMessage::subject)
+                .containsExactly(
+                        "(JitterTravel) Ted is going to a conference: SoCraTes 2026",
+                        "(JitterTravel) Ted is no longer going to SoCraTes 2026",
+                        "(JitterTravel) Ted is no longer going to SoCraTes 2026",
+                        "(JitterTravel) Ted is no longer going to SoCraTes 2026");
+        assertThat(sent.getAllValues().get(3).textContent())
+                .contains("His talk was rejected, so he is not going.");
+        verify(memory).remember(EmailGroup.CONFERENCES,
+                new EmailPreviewMemory.Result(NOW, 4, 4, "ted@example.com", ""));
+        verify(memory, never()).remember(eq(EmailGroup.FLIGHTS), any());
+    }
+
+    @Test
+    void aConferenceFailureAfterTwoIsRememberedAsTwoOfFourAndTheConferencePanelGoesAmber() {
+        canSend();
+        willDoNothing().willDoNothing().willThrow(new IllegalStateException("Brevo returned 502"))
+                .given(brevo).sendTo(any(), any());
+        given(memory.last(EmailGroup.CONFERENCES)).willReturn(Optional.of(new EmailPreviewMemory.Result(
+                NOW, 2, 4, "ted@example.com", "The send failed: Brevo returned 502")));
+
+        assertThat(mockMvc.post().uri("/admin/email-preview/send-conferences").with(csrf()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("class=\"send warn flash\"")
+                .contains("<div class=\"send-what\">Sending failed after 2 of 4</div>")
+                .contains("The first two went out and the last two did not.");
+
+        verify(memory).remember(EmailGroup.CONFERENCES, new EmailPreviewMemory.Result(
+                NOW, 2, 4, "ted@example.com", "The send failed: Brevo returned 502"));
+    }
+
+    @Test
+    void postingConferencesWhenThereIsNoAddressOfYoursSendsNothing() {
+        given(brevo.hasKey()).willReturn(true);
+        given(brevo.replyTo()).willReturn("");
+
+        assertThat(mockMvc.post().uri("/admin/email-preview/send-conferences").with(csrf()))
+                .hasStatusOk();
+
+        verify(brevo, never()).sendTo(any(), any());
+        verify(memory, never()).remember(any(), any());
     }
 
     @Test
@@ -225,6 +312,6 @@ class EmailPreviewControllerTest {
 
         verify(brevo, never()).sendTo(any(), any());
         verify(brevo, never()).send(any());
-        verify(memory, never()).remember(any());
+        verify(memory, never()).remember(any(), any());
     }
 }

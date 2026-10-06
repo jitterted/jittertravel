@@ -19,7 +19,55 @@ class EmailPreviewPanelsTest {
 
     private PreviewPanel panel(boolean hasKey, String replyTo, Optional<EmailPreviewMemory.Result> last,
                                boolean justSent) {
-        return panels.panel(hasKey, replyTo, last, PACIFIC, justSent);
+        return panels.panel(EmailGroup.FLIGHTS, 3, hasKey, replyTo, last, PACIFIC, justSent);
+    }
+
+    private PreviewPanel conferencePanel(Optional<EmailPreviewMemory.Result> last) {
+        return panels.panel(EmailGroup.CONFERENCES, 4, true, "ted@example.com", last, PACIFIC, false);
+    }
+
+    // ---- the conference group, worded as https://claude.ai/artifact/HSWE6X49TxLtN26B7hKspZ ----
+
+    @Test
+    void theConferenceGroupIsReadyToSendAllFourAndNamesThemAsConferenceEmails() {
+        PreviewPanel panel = conferencePanel(Optional.empty());
+
+        assertThat(panel.state()).isEqualTo(State.READY);
+        assertThat(panel.what()).isEqualTo("Send these four conference emails to yourself");
+        assertThat(panel.buttonLabel()).isEqualTo("Send all four to ted@example.com");
+    }
+
+    @Test
+    void aConferenceSuccessSaysAcceptedAllFour() {
+        PreviewPanel panel = conferencePanel(
+                Optional.of(new EmailPreviewMemory.Result(AT, 4, 4, "ted@example.com", "")));
+
+        assertThat(panel.what()).isEqualTo("4 emails sent to ted@example.com at 3:42 PM PDT");
+        assertThat(panel.why())
+                .isEqualTo("Brevo accepted all four. Accepted is not the same as arrived: open that inbox, "
+                           + "and its spam folder, and look for messages starting \"(JitterTravel)\".");
+    }
+
+    @Test
+    void aCountPastNineIsWrittenAsDigitsRatherThanFailingToFindAWord() {
+        EmailPreviewMemory.Result result = new EmailPreviewMemory.Result(AT, 10, 12, "ted@example.com", "Nope.");
+
+        assertThat(conferencePanel(Optional.of(result)).why())
+                .isEqualTo("Nope. The first 10 went out and the last two did not.");
+    }
+
+    @Test
+    void aConferenceFailureSaysWhichOfTheFourWentOut() {
+        String reason = "The send failed: Brevo returned 502.";
+
+        assertThat(conferencePanel(Optional.of(new EmailPreviewMemory.Result(AT, 1, 4, "ted@example.com", reason))).why())
+                .isEqualTo(reason + " The first email went out and the other three did not.");
+        PreviewPanel two = conferencePanel(Optional.of(new EmailPreviewMemory.Result(AT, 2, 4, "ted@example.com", reason)));
+        assertThat(two.what()).isEqualTo("Sending failed after 2 of 4");
+        assertThat(two.why())
+                .isEqualTo(reason + " The first two went out and the last two did not.");
+        assertThat(conferencePanel(Optional.of(new EmailPreviewMemory.Result(AT, 3, 4, "ted@example.com", reason))).why())
+                .isEqualTo(reason + " The first three went out and the last did not.");
     }
 
     @Test

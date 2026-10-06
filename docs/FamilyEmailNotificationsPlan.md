@@ -1247,11 +1247,15 @@ written on 2026-10-05; it is in `conference-going.txt` and `conference-not-going
   conference has left the calendar.
 - **The translator** asks once per conference per batch for the five events, and the completeness
   test lists them under `TELLS_FAMILY`.
-- **Preview page:** shows the four conference emails (going, declined, cancelled, talk rejected).
-  **Still open: the separate "send the conference emails to me" button Ted asked for.** It is a
-  second send panel with its own four states and its own memory, which is a layout change and
-  therefore needs a mockup approved first; the existing button stays flight-only meanwhile.
-- **Not yet run:** the JS tier, default PIT and `-Ppit-spring`. The full `./mvnw test` was green.
+- **Preview page, built to Ted's chosen Option A** (mockup https://claude.ai/artifact/HSWE6X49TxLtN26B7hKspZ,
+  2026-10-05): two groups, "Flight emails" and "Conference emails", each with its own send panel above its
+  own cards, its own button (`/admin/email-preview/send` and `/send-conferences`) and its own remembered
+  result (`EmailPreviewMemory` is keyed by `EmailGroup`), so sending conferences leaves the flight result
+  alone. The four conference cards are going, declined, cancelled and talk rejected, in the order the
+  button sends them. The new path has a row in `AuthorizationMatrixTest`. **Known and accepted:** the three
+  exit previews share one subject, so they look alike in an inbox until opened.
+- **Not yet run:** the JS tier and `-Ppit-spring`. Default PIT over the slice-2 classes killed every
+  mutant; the full `./mvnw test` was green.
 
 ---
 

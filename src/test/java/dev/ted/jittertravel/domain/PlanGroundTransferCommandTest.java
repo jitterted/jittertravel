@@ -117,6 +117,101 @@ class PlanGroundTransferCommandTest {
                 .isInstanceOf(InvalidGroundTransferTimeRange.class);
     }
 
+    @Test
+    void endpointsAWeekApartAreRefusedWhateverDateIsTyped() {
+        LocalDate checkOut = LocalDate.of(2026, 9, 13);
+        LocalDate flight = LocalDate.of(2026, 9, 20);
+        PlanGroundTransferCommand command = commandBetween(
+                denverTime(flight, DEPARTS), denverTime(flight, ARRIVES),
+                denverTime(checkOut, LocalTime.of(11, 0)), denverTime(flight, LocalTime.of(14, 0)));
+
+        assertThatThrownBy(() -> command.execute(new PlanGroundTransferContext()))
+                .isInstanceOf(InvalidGroundTransferDate.class)
+                .hasMessage("Date must be within a day of both places");
+    }
+
+    @Test
+    void aDateThatIsTheDayOfNeitherEndIsRefused() {
+        LocalDate day = LocalDate.of(2026, 9, 14);
+        LocalDate wrongDay = LocalDate.of(2026, 9, 24);
+        PlanGroundTransferCommand command = commandBetween(
+                denverTime(wrongDay, DEPARTS), denverTime(wrongDay, ARRIVES),
+                denverTime(day, LocalTime.of(9, 0)), denverTime(day, LocalTime.of(15, 0)));
+
+        assertThatThrownBy(() -> command.execute(new PlanGroundTransferContext()))
+                .isInstanceOf(InvalidGroundTransferDate.class);
+    }
+
+    @Test
+    void anOvernightHopWithinTwentyFourHoursIsAcceptedOnEitherEndsDay() {
+        LocalDate arrivalDay = LocalDate.of(2026, 9, 14);
+        PlanGroundTransferCommand command = commandBetween(
+                denverTime(arrivalDay, DEPARTS), denverTime(arrivalDay, ARRIVES),
+                denverTime(arrivalDay, LocalTime.of(23, 30)),
+                denverTime(arrivalDay.plusDays(1), LocalTime.of(15, 0)));
+
+        assertThat(command.execute(new PlanGroundTransferContext()).toList())
+                .hasSize(1);
+    }
+
+    @Test
+    void exactlyTwentyFourHoursApartIsAccepted() {
+        LocalDate day = LocalDate.of(2026, 9, 14);
+        PlanGroundTransferCommand command = commandBetween(
+                denverTime(day, DEPARTS), denverTime(day, ARRIVES),
+                denverTime(day, LocalTime.of(12, 0)), denverTime(day.plusDays(1), LocalTime.of(12, 0)));
+
+        assertThat(command.execute(new PlanGroundTransferContext()).toList())
+                .hasSize(1);
+    }
+
+    @Test
+    void aMinuteOverTwentyFourHoursApartIsRefused() {
+        LocalDate day = LocalDate.of(2026, 9, 14);
+        PlanGroundTransferCommand command = commandBetween(
+                denverTime(day, DEPARTS), denverTime(day, ARRIVES),
+                denverTime(day, LocalTime.of(12, 0)), denverTime(day.plusDays(1), LocalTime.of(12, 1)));
+
+        assertThatThrownBy(() -> command.execute(new PlanGroundTransferContext()))
+                .isInstanceOf(InvalidGroundTransferDate.class);
+    }
+
+    /** With only one moment known there is no pair to compare, but the date still has to be its day. */
+    @Test
+    void aSingleKnownMomentOnlyHoldsTheDateToItsOwnDay() {
+        LocalDate day = LocalDate.of(2026, 9, 14);
+        PlanGroundTransferCommand sameDay = commandBetween(
+                denverTime(day, DEPARTS), denverTime(day, ARRIVES),
+                denverTime(day, LocalTime.of(9, 0)), null);
+        PlanGroundTransferCommand otherDay = commandBetween(
+                denverTime(day.plusDays(3), DEPARTS), denverTime(day.plusDays(3), ARRIVES),
+                denverTime(day, LocalTime.of(9, 0)), null);
+
+        assertThat(sameDay.execute(new PlanGroundTransferContext()).toList())
+                .hasSize(1);
+        assertThatThrownBy(() -> otherDay.execute(new PlanGroundTransferContext()))
+                .isInstanceOf(InvalidGroundTransferDate.class);
+    }
+
+    @Test
+    void whenNoMomentIsKnownAnyDateIsAccepted() {
+        PlanGroundTransferCommand command = commandBetween(
+                denverTime(TODAY, DEPARTS), denverTime(TODAY, ARRIVES), null, null);
+
+        assertThat(command.execute(new PlanGroundTransferContext()).toList())
+                .hasSize(1);
+    }
+
+    private static PlanGroundTransferCommand commandBetween(
+            ZonedTimestamp departsAt, ZonedTimestamp arrivesAt,
+            ZonedTimestamp originMoment, ZonedTimestamp destinationMoment) {
+        return new PlanGroundTransferCommand(
+                GroundTransferId.random(),
+                "DEN", "", AIRPORT,
+                "", "Marriott Lone Tree", HOTEL,
+                departsAt, arrivesAt, "", originMoment, destinationMoment);
+    }
+
     private static ZonedTimestamp denverTime(LocalDate date, LocalTime time) {
         return ZonedTimestamp.fromLocal(date.atTime(time), DENVER);
     }

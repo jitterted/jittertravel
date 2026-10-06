@@ -12,6 +12,7 @@ import dev.ted.jittertravel.application.UnknownTransferEndpoint;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.InvalidGroundTransferDate;
 import dev.ted.jittertravel.domain.InvalidGroundTransferTimeRange;
 import dev.ted.jittertravel.domain.StaticAirportCityResolver;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
@@ -346,6 +347,18 @@ class PlanGroundTransferWebIntegrationTest {
                 .hasStatusOk()
                 .bodyText()
                 .contains("Arrival time must be after departure time");
+    }
+
+    /** Lands on the date input, the one place Ted can fix it, and the error can be seen there. */
+    @Test
+    void aDateThatFitsNeitherPlaceRerendersTheFormWithTheReasonUnderTheDate() {
+        willThrow(new InvalidGroundTransferDate("Date must be within a day of both places"))
+                .given(groundTransferPlanning).planGroundTransfer(any());
+
+        assertThat(post("airport:DEN", HOTEL_TOKEN, "12:00", "12:45"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"error\">Date must be within a day of both places</span>");
     }
 
     /**

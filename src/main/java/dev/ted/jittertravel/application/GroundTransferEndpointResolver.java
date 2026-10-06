@@ -15,6 +15,7 @@ import dev.ted.jittertravel.domain.ZoneResolutionException;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -60,17 +61,33 @@ public class GroundTransferEndpointResolver {
     private final AirportCityResolver airportCities;
     private final AirportZoneResolver airportZones;
     private final LocationZoneResolver locationZones;
+    private final TransferEndpointProjector transferEndpoints;
 
     public GroundTransferEndpointResolver(HotelDetailsViewProjector hotelDetails,
                                           TrainDetailsViewProjector trainDetails,
                                           AirportCityResolver airportCities,
                                           AirportZoneResolver airportZones,
-                                          LocationZoneResolver locationZones) {
+                                          LocationZoneResolver locationZones,
+                                          TransferEndpointProjector transferEndpoints) {
         this.hotelDetails = hotelDetails;
         this.trainDetails = trainDetails;
         this.airportCities = airportCities;
         this.airportZones = airportZones;
         this.locationZones = locationZones;
+        this.transferEndpoints = transferEndpoints;
+    }
+
+    /**
+     * The moment the form offered for this token as the origin, if it offered one. A bare
+     * {@code airport:DEN} offered none, so it has none, and the date rule then has nothing to say.
+     */
+    public Optional<ZonedTimestamp> originMoment(String token) {
+        return transferEndpoints.momentOf(token, true);
+    }
+
+    /** As {@link #originMoment}, for the destination side. */
+    public Optional<ZonedTimestamp> destinationMoment(String token) {
+        return transferEndpoints.momentOf(token, false);
     }
 
     /**

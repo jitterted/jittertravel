@@ -44,7 +44,9 @@ public class PlanGroundTransferHandler {
                 destination.airportCode(), destination.name(), destination.address(),
                 ZonedTimestamp.fromLocal(request.date().atTime(request.departureTime()), zone),
                 ZonedTimestamp.fromLocal(request.date().atTime(request.arrivalTime()), zone),
-                mode(request)
+                mode(request),
+                endpoints.originMoment(request.origin()).orElse(null),
+                endpoints.destinationMoment(request.destination()).orElse(null)
         );
     }
 

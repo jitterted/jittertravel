@@ -7,6 +7,7 @@ import dev.ted.jittertravel.application.ScheduleGapProjector;
 import dev.ted.jittertravel.application.ScheduleProblem;
 import dev.ted.jittertravel.application.SameTransferEndpoints;
 import dev.ted.jittertravel.application.UnknownTransferEndpoint;
+import dev.ted.jittertravel.domain.InvalidGroundTransferDate;
 import dev.ted.jittertravel.domain.InvalidGroundTransferTimeRange;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -112,6 +113,8 @@ public class PlanGroundTransferController {
             bindingResult.rejectValue("destination", "sameEndpoints", e.getMessage());
         } catch (InvalidGroundTransferTimeRange e) {
             bindingResult.rejectValue("arrivalTime", "afterDepartureTime", e.getMessage());
+        } catch (InvalidGroundTransferDate e) {
+            bindingResult.rejectValue("date", "dateFitsNeitherPlace", e.getMessage());
         } catch (UnknownTransferEndpoint e) {
             // Which end failed is not worth guessing at: both selects are on screen, and the
             // message names the token. A global error keeps it on the page they are looking at.

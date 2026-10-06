@@ -41,6 +41,11 @@ public enum TransferEnd {
         this.verb = verb;
     }
 
+    /** Whether this end sits on the "From" select: a landing, an arrival or a check-out. */
+    public boolean isOrigin() {
+        return this == FLIGHT_ARRIVAL || this == TRAIN_ARRIVAL || this == HOTEL_CHECK_OUT;
+    }
+
     /** What the label calls this end's moment: {@code … · check out Fri Sep 18, 11:00 AM}. */
     public String verb() {
         return verb;

@@ -42,10 +42,12 @@ class PlanGroundTransferHandlerTest {
 
     private final HotelDetailsViewProjector hotelDetails = new HotelDetailsViewProjector();
     private final TrainDetailsViewProjector trainDetails = new TrainDetailsViewProjector();
+    private final TransferEndpointProjector transferEndpoints =
+            new TransferEndpointProjector(new StaticAirportCityResolver());
     private final PlanGroundTransferHandler handler = new PlanGroundTransferHandler(
             new GroundTransferEndpointResolver(hotelDetails, trainDetails,
                     new StaticAirportCityResolver(), new AirportZoneResolver(),
-                    new LocationZoneResolver()));
+                    new LocationZoneResolver(), transferEndpoints));
 
     @Test
     void anAirportTokenResolvesToItsCodeAndItsCityAsTheMatchLocation() {
@@ -284,9 +286,48 @@ class PlanGroundTransferHandlerTest {
                 .hasMessageContaining("no longer available");
     }
 
+    /**
+     * What the form filled in for each choice is what the date rule is later held to: a hotel
+     * reached is its check-in, a train left from is its arrival.
+     */
+    @Test
+    void eachEndCarriesTheMomentTheFormOfferedForIt() {
+        PlanGroundTransferCommand command = handler.handle(
+                request("train:" + TRIP.id() + ":arrival", "hotel:" + BOOKING.id(),
+                        bookedTrain(), bookedHotel()));
+
+        assertThat(command.originMoment())
+                .as("origin is the train's arrival")
+                .isEqualTo(ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 11, 0), HAMBURG));
+        assertThat(command.destinationMoment())
+                .as("destination is the hotel's check-in, not its check-out")
+                .isEqualTo(ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 15, 0), DENVER));
+    }
+
+    /** A bare airport was never offered as a leg, so it has no moment for the date rule to hold. */
+    @Test
+    void anEndWithNoOfferedMomentCarriesNone() {
+        PlanGroundTransferCommand command = handler.handle(
+                request("airport:DEN", "hotel:" + BOOKING.id(), bookedHotel()));
+
+        assertThat(command.originMoment())
+                .isNull();
+    }
+
+    /** A token offered for the other side has no moment on this one: a check-out is not an arrival. */
+    @Test
+    void aTokenOnTheWrongSideCarriesNoMoment() {
+        PlanGroundTransferCommand command = handler.handle(
+                request("airport:DEN", "train:" + TRIP.id() + ":arrival", bookedTrain()));
+
+        assertThat(command.destinationMoment())
+                .isNull();
+    }
+
     private PlanGroundTransferRequest request(String origin, String destination, StoredEvent... history) {
         hotelDetails.handle(Stream.of(history));
         trainDetails.handle(Stream.of(history));
+        transferEndpoints.handle(Stream.of(history));
         return new PlanGroundTransferRequest(UUID.randomUUID().toString(), origin, destination,
                                              null, LocalDate.of(2026, 9, 14),
                                              LocalTime.of(12, 0), LocalTime.of(12, 45));

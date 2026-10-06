@@ -22,6 +22,7 @@ import dev.ted.jittertravel.infrastructure.StoredEvent;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -118,6 +119,18 @@ public class TransferEndpointProjector implements EventStreamConsumer {
         return rows.values().stream()
                 .filter(row -> row.end() == end)
                 .toList();
+    }
+
+    /**
+     * The moment the form would have filled in for this token on the given side — empty when no row
+     * carries that token on that side, which is what a bare {@code airport:DEN} or a hand-made POST
+     * looks like. The token is matched exactly as the form submitted it.
+     */
+    public Optional<ZonedTimestamp> momentOf(String token, boolean asOrigin) {
+        return rows.values().stream()
+                .filter(row -> row.token().equals(token) && row.end().isOrigin() == asOrigin)
+                .map(TransferEndpointRow::moment)
+                .findFirst();
     }
 
     private void putFlight(FlightId flightId, String airline, String flightNumber,

@@ -349,6 +349,30 @@ class PlanGroundTransferWebIntegrationTest {
                 .contains("Arrival time must be after departure time");
     }
 
+    /**
+     * A blank date never reaches the service: the advice marks it required, and the handler must
+     * return before calling the planning service with a null (CLAUDE.md, rule 2 of the blank-date
+     * rules). Pins that the early return exists, since a service stub would swallow the call.
+     */
+    @Test
+    void aBlankDateRerendersTheFormWithRequiredUnderItAndPlansNothing() {
+        MvcTestResult result = mockMvc.post().uri("/plan-ground-transfer")
+                .with(csrf())
+                .param("groundTransferId", TRANSFER_ID)
+                .param("origin", "airport:DEN")
+                .param("destination", HOTEL_TOKEN)
+                .param("date", "")
+                .param("departureTime", "12:00")
+                .param("arrivalTime", "12:45")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .bodyText()
+                .contains("<span class=\"error\">Required</span>");
+        then(groundTransferPlanning).shouldHaveNoInteractions();
+    }
+
     /** Lands on the date input, the one place Ted can fix it, and the error can be seen there. */
     @Test
     void aDateThatFitsNeitherPlaceRerendersTheFormWithTheReasonUnderTheDate() {

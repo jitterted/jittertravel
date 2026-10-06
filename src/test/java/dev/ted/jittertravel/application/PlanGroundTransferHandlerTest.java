@@ -261,6 +261,59 @@ class PlanGroundTransferHandlerTest {
                 .isEqualTo(new Address("", "Berlin", "", "", "DE", "Berlin"));
     }
 
+    /**
+     * Each end of a trip is stamped in its own zone, so a trip that crosses one has two. The origin
+     * is the arrival's zone and the destination is the departure's, and swapping the choice of end
+     * would stamp the transfer in the wrong country.
+     */
+    @Test
+    void eachStationEndTakesTheZoneOfItsOwnMomentOnATripThatCrossesZones() {
+        ZoneId london = ZoneId.of("Europe/London");
+        StoredEvent crossZoneTrip = stored(new TrainBooked(TRIP,
+                new TrainStationAddress("Berlin Hbf", "Berlin", "DE", ""),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 5, 0), HAMBURG),
+                new TrainStationAddress("London St Pancras", "London", "GB", ""),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 12, 0), london),
+                "Eurostar 9"));
+
+        PlanGroundTransferCommand fromArrival = handler.handle(
+                request("train:" + TRIP.id() + ":arrival", "airport:DEN", crossZoneTrip));
+        PlanGroundTransferCommand toDeparture = handler.handle(
+                request("airport:DEN", "train:" + TRIP.id() + ":departure", crossZoneTrip));
+
+        assertThat(fromArrival.departsAt().zone())
+                .as("an origin that is the arrival station is stamped in the arrival's zone")
+                .isEqualTo(london);
+        assertThat(toDeparture.originMoment())
+                .as("a bare airport origin has no moment, so only the station end is under test")
+                .isNull();
+        assertThat(toDeparture.destinationMoment().zone())
+                .as("a destination that is the departure station carries the departure's zone")
+                .isEqualTo(HAMBURG);
+    }
+
+    /**
+     * Two empty selects are two nothings, not "the same place": the refusal Ted should see is the
+     * one that says to pick one, and a null place token must not compare equal to another.
+     */
+    @Test
+    void twoMissingEndsAskForAPlaceRatherThanReportingTheSamePlace() {
+        assertThat(GroundTransferEndpointResolver.placeToken(null))
+                .isNull();
+        assertThatThrownBy(() -> handler.handle(request(null, null)))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessage("Pick a place for each end");
+    }
+
+    /** The code is what precedes the first colon, so an empty one is named as empty, not as the leg. */
+    @Test
+    void anAirportTokenWhoseCodeIsEmptyIsRejectedAsNamingNoAirport() {
+        assertThatThrownBy(() -> handler.handle(
+                request("airport::" + FlightId.random().id(), "hotel:" + BOOKING.id(), bookedHotel())))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessage("Not an airport: airport:");
+    }
+
     @Test
     void aTrainTokenWithNoEndIsRejected() {
         assertThatThrownBy(() -> handler.handle(

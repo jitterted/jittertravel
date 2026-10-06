@@ -1,6 +1,10 @@
 package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.NotifyFamily;
+import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
+import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
+import dev.ted.jittertravel.domain.ConferenceCancelled;
+import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightId;
@@ -10,6 +14,8 @@ import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.NotifiedFact;
 import dev.ted.jittertravel.domain.NotifiedSubject;
+import dev.ted.jittertravel.domain.TalkAccepted;
+import dev.ted.jittertravel.domain.TalkRejected;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +25,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -80,6 +87,35 @@ public class FamilyNotificationTranslator implements EventReactor {
                 countFailure(NotifiedSubject.itinerary(cancellation.itinerary()), failed);
             }
         }
+        for (ConferenceId conference : conferencesMovedIn(events)) {
+            try {
+                notifyFamily.notifyOfConference(UUID.randomUUID(), conference, now);
+            } catch (RuntimeException failed) {
+                countFailure(NotifiedSubject.conference(conference), failed);
+            }
+        }
+    }
+
+    /**
+     * Conferences whose commitment may have moved in this batch: the five events that move
+     * {@code AttendanceCommitment}. Each conference once, however many of them arrived together, and
+     * the service decides from the folded stream whether that changed anything family were told.
+     * The other conference events are silent: a submitted or withdrawn talk and an invitation move
+     * only the speaking axis, and planning or re-dating a conference is not a commitment to go.
+     */
+    private Set<ConferenceId> conferencesMovedIn(List<StoredEvent> events) {
+        Set<ConferenceId> moved = new LinkedHashSet<>();
+        for (StoredEvent stored : events) {
+            switch (stored.payload()) {
+                case ConferenceAttendanceConfirmed event -> moved.add(event.conferenceId());
+                case ConferenceAttendanceDeclined event -> moved.add(event.conferenceId());
+                case ConferenceCancelled event -> moved.add(event.conferenceId());
+                case TalkAccepted event -> moved.add(event.conferenceId());
+                case TalkRejected event -> moved.add(event.conferenceId());
+                default -> { /* does not move a commitment */ }
+            }
+        }
+        return moved;
     }
 
     private void countFailure(NotifiedSubject subject, RuntimeException failed) {

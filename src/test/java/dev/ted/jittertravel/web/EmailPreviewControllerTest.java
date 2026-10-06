@@ -89,6 +89,22 @@ class EmailPreviewControllerTest {
     }
 
     @Test
+    void thePageShowsTheFourConferenceEmailsAsSentButTheSendButtonStaysFlightOnly() {
+        canSend();
+
+        assertThat(mockMvc.get().uri("/admin/email-preview"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<b>Conference going</b><span>email/conference-going.txt</span>")
+                .contains("<b>Conference declined</b><span>email/conference-not-going.txt</span>")
+                .contains("<b>Conference cancelled</b><span>email/conference-not-going.txt</span>")
+                .contains("<b>Conference talk rejected</b><span>email/conference-not-going.txt</span>")
+                .contains("<span>(JitterTravel) Ted is going to a conference: SoCraTes 2026</span>")
+                .contains("<span>(JitterTravel) Ted is no longer going to SoCraTes 2026</span>")
+                .contains("Send all three to ted@example.com");
+    }
+
+    @Test
     void theCalendarLinkInAnEmailIsAClickableLinkToTheFirstFlightsDay() {
         canSend();
 

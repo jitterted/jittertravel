@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.ConferenceNews;
 import dev.ted.jittertravel.application.ViewerTodayZone;
 import dev.ted.jittertravel.domain.NotifiedFact;
 import dev.ted.jittertravel.infrastructure.BrevoEmailClient;
@@ -116,14 +117,25 @@ public class EmailPreviewController {
                 messages.messageFor(NotifiedFact.ITINERARY_CANCELLED, samples.trip()));
     }
 
-    /** What the page shows: those three, then the test email, so every text is in one place. */
+    /**
+     * What the page shows: the three that are sent, the conference emails (shown only, until their
+     * own send button is agreed), then the test email, so every text is in one place.
+     */
     private List<PreviewEmail> previewEmails() {
         List<FamilyMessage> three = emailsToSend();
         FamilyMessage test = templates.render("test-email", Map.of());
+        ConferenceNews conference = samples.conference();
         return List.of(
                 preview("Flight booked", "flight-booked.txt", three.get(0)),
                 preview("Trip booked", "trip-booked.txt", three.get(1)),
                 preview("Trip cancelled", "trip-cancelled.txt", three.get(2)),
+                preview("Conference going", "conference-going.txt", messages.conferenceGoing(conference)),
+                preview("Conference declined", "conference-not-going.txt",
+                        messages.conferenceNotGoing(conference, ConferenceNews.Exit.DECLINED)),
+                preview("Conference cancelled", "conference-not-going.txt",
+                        messages.conferenceNotGoing(conference, ConferenceNews.Exit.CANCELLED)),
+                preview("Conference talk rejected", "conference-not-going.txt",
+                        messages.conferenceNotGoing(conference, ConferenceNews.Exit.REJECTED)),
                 preview("Test email", "test-email.txt", test));
     }
 

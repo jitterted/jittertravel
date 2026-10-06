@@ -1,5 +1,9 @@
 # Family email, slice 2 (conferences) — hand-off
 
+> **Superseded 2026-10-05: slice 2 is built.** What was built, and where it differs from this file,
+> is "Slice 2 as built" in `FamilyEmailNotificationsPlan.md`. Kept as the record of the decisions
+> and of the rules of engagement; the "Nothing for conferences is built" line below is no longer true.
+
 Written 2026-10-05 at the end of the session that shipped slice 1 (flights and itineraries), the
 itinerary cancel, the email-template files, the email preview page and the Settings test button. Read
 this first, then `FamilyEmailNotificationsPlan.md` §4.4, §4.5, §5 and §7 for the reasoning. This file

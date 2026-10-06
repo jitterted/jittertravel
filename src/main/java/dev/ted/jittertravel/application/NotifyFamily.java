@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.FamilyNotified;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightChanged;
@@ -50,7 +51,9 @@ public class NotifyFamily {
         /** A trip was cancelled that family were never told was booked: there is nothing to retract. */
         NEVER_TOLD,
         /** A cancellation named flights the stream does not know, so there is nothing to describe. */
-        NO_LEGS
+        NO_LEGS,
+        /** A conference that is only being watched, or that the stream does not know: never news. */
+        NOTHING_TO_SAY
     }
 
     private final CommandExecutor commandExecutor;
@@ -114,6 +117,49 @@ public class NotifyFamily {
         send(commandId, subject, NotifiedFact.ITINERARY_CANCELLED,
                 messages.messageFor(NotifiedFact.ITINERARY_CANCELLED, legs), now);
         return Outcome.SENT;
+    }
+
+    /**
+     * Something happened to a conference's commitment, and the question is only whether what family
+     * should now believe differs from what they were last told. The conference is folded from the
+     * stream ({@link ConferenceStanding}), so the five triggering events are interchangeable here:
+     * a talk accepted after a confirmation folds to the same "going" and is {@code ALREADY_TOLD}.
+     * <p>
+     * Merely watching a conference is never news, and an exit is <strong>told only where "going"
+     * went first</strong> ({@link #familyWereToldHeWasGoing}): a conference family never heard of
+     * is dropped in silence, which is what keeps a rejection from announcing a conference nobody
+     * knew he was considering.
+     */
+    public Outcome notifyOfConference(UUID commandId, ConferenceId conference, Instant now) {
+        Optional<Outcome> blocked = blocked();
+        if (blocked.isPresent()) {
+            return blocked.get();
+        }
+        List<StoredEvent> history = history();
+        Optional<ConferenceStanding> standing = ConferenceStanding.foldOf(history, conference);
+        Optional<NotifiedFact> fact = standing.flatMap(ConferenceStanding::fact);
+        if (fact.isEmpty()) {
+            return Outcome.NOTHING_TO_SAY;
+        }
+        NotifiedSubject subject = NotifiedSubject.conference(conference);
+        Optional<NotifiedFact> last = lastToldAbout(history, subject);
+        if (last.filter(fact.get()::equals).isPresent()) {
+            return Outcome.ALREADY_TOLD;
+        }
+        if (fact.get() == NotifiedFact.CONFERENCE_NOT_GOING && !familyWereToldHeWasGoing(last)) {
+            return Outcome.NEVER_TOLD;
+        }
+        ConferenceStanding told = standing.orElseThrow();
+        FamilyMessage message = fact.get() == NotifiedFact.CONFERENCE_GOING
+                ? messages.conferenceGoing(told.news())
+                : messages.conferenceNotGoing(told.news(), told.endedBy());
+        send(commandId, subject, fact.get(), message, now);
+        return Outcome.SENT;
+    }
+
+    /** The positive-first rule, named: an exit is a correction, so it needs something to correct. */
+    private boolean familyWereToldHeWasGoing(Optional<NotifiedFact> last) {
+        return last.filter(NotifiedFact.CONFERENCE_GOING::equals).isPresent();
     }
 
     /** The switch and the means to send, checked before any command row exists. */

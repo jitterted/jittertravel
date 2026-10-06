@@ -65,7 +65,12 @@ class FamilyNotificationTriggerCompletenessTest {
     private static final Set<Class<? extends Event>> TELLS_FAMILY = Set.of(
             FlightBooked.class,
             FlightItineraryBooked.class,
-            FlightItineraryCancelled.class);
+            FlightItineraryCancelled.class,
+            ConferenceAttendanceConfirmed.class,
+            ConferenceAttendanceDeclined.class,
+            ConferenceCancelled.class,
+            TalkAccepted.class,
+            TalkRejected.class);
 
     private static final Map<Class<? extends Event>, String> SILENT = silent();
 
@@ -115,10 +120,6 @@ class FamilyNotificationTriggerCompletenessTest {
         because("a schedule change is not a new trip; the FlightBooked it writes for an added or "
                 + "reinstated leg is suppressed by FlightItineraryChanged being in the same batch",
                 silent, FlightItineraryChanged.class);
-        because("a conference commitment moving is the second slice; it needs the fold of the "
-                + "conference's own events and is not built yet",
-                silent, ConferenceAttendanceConfirmed.class, ConferenceAttendanceDeclined.class,
-                ConferenceCancelled.class, TalkAccepted.class, TalkRejected.class);
         because("moves only the speaking axis, never the commitment, so it changes nothing family "
                 + "were told (Q1, 2026-09-10)",
                 silent, TalkSubmitted.class, TalkWithdrawn.class, InvitedToSpeak.class);

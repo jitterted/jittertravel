@@ -15,7 +15,9 @@ public record NotifiedSubject(Kind kind, UUID id) {
         /** One flight, entered on its own. */
         FLIGHT,
         /** A whole itinerary: the legs one confirmation booked together, told as one trip. */
-        FLIGHT_ITINERARY
+        FLIGHT_ITINERARY,
+        /** One conference, whatever has happened to it: the subject outlives its commitment. */
+        CONFERENCE
     }
 
     public NotifiedSubject {
@@ -29,6 +31,10 @@ public record NotifiedSubject(Kind kind, UUID id) {
 
     public static NotifiedSubject flight(FlightId flightId) {
         return new NotifiedSubject(Kind.FLIGHT, flightId.id());
+    }
+
+    public static NotifiedSubject conference(ConferenceId conferenceId) {
+        return new NotifiedSubject(Kind.CONFERENCE, conferenceId.id());
     }
 
     public static NotifiedSubject itinerary(FlightItineraryId itineraryId) {

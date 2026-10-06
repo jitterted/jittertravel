@@ -1375,6 +1375,31 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
+    void familyNotifiedAboutAConferenceDeserializes() {
+        // Additive: a new Kind and two new NotifiedFact values on the existing shape, so no schema
+        // version bump and no upcaster, and a backup taken before them restores unchanged.
+        String going = """
+                {
+                  "subject": {"kind": "CONFERENCE", "id": "77777777-7777-7777-7777-777777777777"},
+                  "fact": "CONFERENCE_GOING",
+                  "notifiedAt": "2026-10-05T17:00:00Z"
+                }
+                """;
+        String notGoing = going.replace("CONFERENCE_GOING", "CONFERENCE_NOT_GOING");
+
+        FamilyNotified goingEvent = deserialize(going, FamilyNotified.class);
+        FamilyNotified notGoingEvent = deserialize(notGoing, FamilyNotified.class);
+
+        assertThat(goingEvent.subject())
+                .isEqualTo(new NotifiedSubject(NotifiedSubject.Kind.CONFERENCE,
+                        UUID.fromString("77777777-7777-7777-7777-777777777777")));
+        assertThat(goingEvent.fact())
+                .isEqualTo(NotifiedFact.CONFERENCE_GOING);
+        assertThat(notGoingEvent.fact())
+                .isEqualTo(NotifiedFact.CONFERENCE_NOT_GOING);
+    }
+
+    @Test
     void flightCancelledWithNoCauseReadsAsManual() {
         // Every FlightCancelled stored before `cause` existed: none of them is reinstatable.
         String json = """

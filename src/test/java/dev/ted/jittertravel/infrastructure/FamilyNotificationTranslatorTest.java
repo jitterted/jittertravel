@@ -2,6 +2,12 @@ package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.NotifyFamily;
 import dev.ted.jittertravel.domain.AirportCode;
+import dev.ted.jittertravel.domain.AttendanceBasis;
+import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
+import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
+import dev.ted.jittertravel.domain.ConferenceCancelled;
+import dev.ted.jittertravel.domain.ConferenceDatesChanged;
+import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightCancelled;
@@ -10,8 +16,13 @@ import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.InvitedToSpeak;
 import dev.ted.jittertravel.domain.NotifiedFact;
 import dev.ted.jittertravel.domain.NotifiedSubject;
+import dev.ted.jittertravel.domain.TalkAccepted;
+import dev.ted.jittertravel.domain.TalkRejected;
+import dev.ted.jittertravel.domain.TalkSubmitted;
+import dev.ted.jittertravel.domain.TalkWithdrawn;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
@@ -182,6 +193,70 @@ class FamilyNotificationTranslatorTest {
         verify(notifyFamily, times(2)).notifyFamily(ids.capture(), any(), any(), any(), any());
         assertThat(ids.getAllValues())
                 .doesNotHaveDuplicates();
+    }
+
+    // ---- conferences: the five events that move a commitment ----------------------------------
+
+    private final ConferenceId socrates = ConferenceId.random();
+
+    @Test
+    void eachOfTheFiveCommitmentEventsAsksTheServiceAboutItsConference() {
+        List<Event> triggers = List.of(
+                new ConferenceAttendanceConfirmed(socrates, AttendanceBasis.TICKET_PURCHASED, NOW),
+                new ConferenceAttendanceDeclined(socrates, "", NOW),
+                new ConferenceCancelled(socrates, ""),
+                new TalkAccepted(socrates, NOW),
+                new TalkRejected(socrates, NOW));
+
+        for (Event trigger : triggers) {
+            translatorFor().react(batch(trigger));
+        }
+
+        verify(notifyFamily, times(5)).notifyOfConference(any(UUID.class), eq(socrates), eq(NOW));
+        verifyNoMoreInteractions(notifyFamily);
+    }
+
+    @Test
+    void severalEventsForOneConferenceInOneBatchAskOnceAndEachConferenceGetsItsOwnCommandId() {
+        ConferenceId devoxx = ConferenceId.random();
+
+        translatorFor().react(batch(
+                new TalkAccepted(socrates, NOW),
+                new ConferenceAttendanceConfirmed(socrates, AttendanceBasis.SPEAKING_ACCEPTED, NOW),
+                new TalkAccepted(devoxx, NOW)));
+
+        ArgumentCaptor<UUID> ids = ArgumentCaptor.forClass(UUID.class);
+        verify(notifyFamily).notifyOfConference(ids.capture(), eq(socrates), eq(NOW));
+        verify(notifyFamily).notifyOfConference(ids.capture(), eq(devoxx), eq(NOW));
+        assertThat(ids.getAllValues())
+                .doesNotHaveDuplicates();
+        verifyNoMoreInteractions(notifyFamily);
+    }
+
+    @Test
+    void conferenceEventsThatMoveOnlyTheTalkOrThePlanAreSilent() {
+        translatorFor().react(batch(
+                new TalkSubmitted(socrates, NOW),
+                new TalkWithdrawn(socrates, NOW),
+                new InvitedToSpeak(socrates, NOW),
+                new ConferenceDatesChanged(socrates,
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 8, 17, 9, 0), PACIFIC),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 8, 20, 9, 0), PACIFIC))));
+
+        verifyNoInteractions(notifyFamily);
+    }
+
+    @Test
+    void aFailureAboutAConferenceIsCountedAndDoesNotStopTheNext() {
+        ConferenceId devoxx = ConferenceId.random();
+        given(notifyFamily.notifyOfConference(any(), eq(socrates), any()))
+                .willThrow(new IllegalStateException("Brevo returned 502"));
+
+        translatorFor().react(batch(new TalkAccepted(socrates, NOW), new TalkAccepted(devoxx, NOW)));
+
+        verify(notifyFamily).notifyOfConference(any(), eq(devoxx), any());
+        assertThat(meters.counter("family.notification.failed").count())
+                .isEqualTo(1.0);
     }
 
     private List<StoredEvent> batch(Event... events) {

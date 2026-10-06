@@ -1208,6 +1208,44 @@ commitments alone would put a released version in production that can tell famil
 never that he is not — and shipping the original three alone would ship a version that mostly never
 tells them he is going at all (§4.5).
 
+#### Slice 2 as built (2026-10-05), and where it differs from the design above
+
+Built, uncommitted at the time of writing, and **not yet pushed**. Wording approved by Ted as
+written on 2026-10-05; it is in `conference-going.txt` and `conference-not-going.txt`.
+
+- **The fold is `application/ConferenceStanding`**, a package-private record built by an explicit
+  loop over the stream: the `ConferencePlanned` (with a later `ConferenceDatesChanged` applied),
+  `ConferenceProgress` for commitment and speaking, `ConferenceCancelled` folded separately, the last
+  `AttendanceBasis`, and **how it ended**. The ending is recorded on the move that *drops* the
+  conference, so a rejection recorded after he had already declined does not change the sentence.
+  Reads the stream, never a projector (R1). `NotifyFamily.notifyOfConference(commandId, conference,
+  now)` is the one entry point; the five triggers are interchangeable, because the fold decides.
+- **Rules, each with a case in `NotifyFamilyConferenceTest`:** fact comparison against the last
+  `FamilyNotified` for the subject; positive-first as its own private predicate
+  (`familyWereToldHeWasGoing`); `WATCHING` or an unknown conference is `NOTHING_TO_SAY`, a new
+  `Outcome`; an exit never told first is `NEVER_TOLD`. The sequence accept → reject → ticket is three
+  sends and confirm → re-confirm is one, in `ACCEPTANCE_REQUIRED` format (in `CALL_FOR_PAPERS` a
+  rejection after acceptance leaves him going, so it is silent). All mutation-verified.
+- **The email's content is `application/ConferenceNews`**, an allow-list record: name, venue, city,
+  country, dates, `infoUrl` and a three-valued speaking line. **No reason and no `AttendanceBasis`
+  field exists on it**, so neither can reach an email; the basis is read in the fold only to tell
+  "invited" from "accepted" for a conference recorded before the talk events existed. The exit
+  sentence (`ConferenceNews.Exit`) comes from the fold, not from the triggering event.
+- **`NotifiedFact`** gained `CONFERENCE_GOING` and `CONFERENCE_NOT_GOING`; **`NotifiedSubject.Kind`**
+  gained `CONFERENCE` with a `conference(ConferenceId)` factory. Additive: no schema bump, backup
+  stays v3. `GoldenEventDeserializationTest` has the case.
+- **`FamilyNotificationMessages`** got `conferenceGoing` and `conferenceNotGoing` rather than new arms
+  in `messageFor`, whose parameter is flights; its two new arms throw, so the exhaustive switch still
+  forces a decision. The calendar link is in the going email only (the start day), since an exit's
+  conference has left the calendar.
+- **The translator** asks once per conference per batch for the five events, and the completeness
+  test lists them under `TELLS_FAMILY`.
+- **Preview page:** shows the four conference emails (going, declined, cancelled, talk rejected).
+  **Still open: the separate "send the conference emails to me" button Ted asked for.** It is a
+  second send panel with its own four states and its own memory, which is a layout change and
+  therefore needs a mockup approved first; the existing button stays flight-only meanwhile.
+- **Not yet run:** the JS tier, default PIT and `-Ppit-spring`. The full `./mvnw test` was green.
+
 ---
 
 ## 8. Tests required

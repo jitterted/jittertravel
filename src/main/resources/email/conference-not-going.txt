@@ -1,0 +1,14 @@
+Subject: (JitterTravel) Ted is no longer going to [[${name}]]
+
+[# th:if="${exit != 'CANCELLED'}"]
+Hi, JitterTravel here. Ted is no longer going to the conference below, and he wanted to let you know.
+[/]
+[# th:if="${exit == 'CANCELLED'}"]
+Hi, JitterTravel here. The organizers cancelled the conference below, so Ted is no longer going, and he wanted to let you know.
+[/]
+
+
+[[${name}]]
+[[${dates}]]
+[# th:if="${exit == 'REJECTED'}"]His talk was rejected, so he is not going.
+[/]

@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.application.ConferenceNews;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightId;
@@ -13,6 +14,7 @@ import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FamilyNotificationMessagesTest {
 
@@ -193,6 +195,144 @@ class FamilyNotificationMessagesTest {
                 .doesNotContain("MD7LKB")
                 .doesNotContain("United")
                 .doesNotContain("Confirmation");
+    }
+
+    // ---- conferences: the wording Ted approved on 2026-10-05, line for line --------------------
+
+    private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
+
+    private static ConferenceNews socrates(ConferenceNews.SpeakingLine speaking) {
+        return new ConferenceNews("SoCraTes 2026", "Seminarzentrum Rückersbach", "Johannesberg", "DE",
+                berlin(2026, 8, 24), berlin(2026, 8, 27), "https://socrates-conference.de", speaking);
+    }
+
+    private static ZonedTimestamp berlin(int year, int month, int day) {
+        return ZonedTimestamp.fromLocal(LocalDateTime.of(year, month, day, 9, 0), BERLIN);
+    }
+
+    @Test
+    void theGoingEmailIsTheApprovedText() {
+        FamilyMessage message = messages.conferenceGoing(socrates(ConferenceNews.SpeakingLine.TALK_ACCEPTED));
+
+        assertThat(message.subject())
+                .isEqualTo("(JitterTravel) Ted is going to a conference: SoCraTes 2026");
+        assertThat(message.textContent().lines().toList())
+                .containsExactly(
+                        "Hi, JitterTravel here. Ted is going to the conference below, and he wanted you to know.",
+                        "",
+                        "You can see the conference in his calendar here: https://jittertravel.com/calendar?day=2026-08-24",
+                        "",
+                        "SoCraTes 2026",
+                        "Seminarzentrum Rückersbach, Johannesberg, DE",
+                        "Mon 24 Aug – Thu 27 Aug 2026",
+                        "His talk was accepted.",
+                        "https://socrates-conference.de");
+    }
+
+    @Test
+    void aBaseUrlEndingInASlashGivesOneSlashInTheConferenceLink() {
+        FamilyNotificationMessages withSlash =
+                new FamilyNotificationMessages(new StaticAirportCityResolver(), "https://jittertravel.com/");
+
+        assertThat(withSlash.conferenceGoing(socrates(ConferenceNews.SpeakingLine.NONE)).textContent())
+                .contains("here: https://jittertravel.com/calendar?day=2026-08-24");
+    }
+
+    @Test
+    void anInvitedSpeakerIsToldInTheInvitedWords() {
+        assertThat(messages.conferenceGoing(socrates(ConferenceNews.SpeakingLine.INVITED)).textContent().lines().toList())
+                .contains("He was invited to speak.")
+                .doesNotContain("His talk was accepted.");
+    }
+
+    @Test
+    void aGoingEmailLeavesOutEveryLineItHasNothingFor() {
+        ConferenceNews bare = new ConferenceNews("Open Space Night", "", "", "",
+                berlin(2026, 8, 24), berlin(2026, 8, 24), "", ConferenceNews.SpeakingLine.NONE);
+
+        assertThat(new FamilyNotificationMessages(new StaticAirportCityResolver(), "")
+                .conferenceGoing(bare).textContent().lines().toList())
+                .containsExactly(
+                        "Hi, JitterTravel here. Ted is going to the conference below, and he wanted you to know.",
+                        "",
+                        "Open Space Night",
+                        "Mon 24 Aug 2026");
+    }
+
+    @Test
+    void aVenueWithOnlyACityIsNotPaddedWithEmptyParts() {
+        ConferenceNews cityOnly = new ConferenceNews("Devoxx", "", "Antwerp", "",
+                berlin(2026, 10, 5), berlin(2026, 10, 9), "", ConferenceNews.SpeakingLine.NONE);
+
+        assertThat(messages.conferenceGoing(cityOnly).textContent().lines().toList())
+                .contains("Antwerp")
+                .contains("Mon 5 Oct – Fri 9 Oct 2026");
+    }
+
+    @Test
+    void aConferenceSpanningNewYearNamesTheYearOnBothDates() {
+        ConferenceNews overNewYear = new ConferenceNews("Winter Camp", "", "", "",
+                berlin(2026, 12, 30), berlin(2027, 1, 2), "", ConferenceNews.SpeakingLine.NONE);
+
+        assertThat(messages.conferenceGoing(overNewYear).textContent().lines().toList())
+                .contains("Wed 30 Dec 2026 – Sat 2 Jan 2027");
+    }
+
+    @Test
+    void theDeclinedAndRejectedExitsEndTheApprovedWay() {
+        ConferenceNews news = socrates(ConferenceNews.SpeakingLine.NONE);
+
+        FamilyMessage declined = messages.conferenceNotGoing(news, ConferenceNews.Exit.DECLINED);
+        FamilyMessage rejected = messages.conferenceNotGoing(news, ConferenceNews.Exit.REJECTED);
+
+        assertThat(declined.subject())
+                .isEqualTo("(JitterTravel) Ted is no longer going to SoCraTes 2026");
+        assertThat(declined.textContent().lines().toList())
+                .containsExactly(
+                        "Hi, JitterTravel here. Ted is no longer going to the conference below, and he wanted to let you know.",
+                        "",
+                        "SoCraTes 2026",
+                        "Mon 24 Aug – Thu 27 Aug 2026");
+        assertThat(rejected.textContent().lines().toList())
+                .containsExactly(
+                        "Hi, JitterTravel here. Ted is no longer going to the conference below, and he wanted to let you know.",
+                        "",
+                        "SoCraTes 2026",
+                        "Mon 24 Aug – Thu 27 Aug 2026",
+                        "His talk was rejected, so he is not going.");
+    }
+
+    @Test
+    void anOrganizerCancellationEndsTheApprovedWay() {
+        FamilyMessage cancelled = messages.conferenceNotGoing(socrates(ConferenceNews.SpeakingLine.NONE),
+                ConferenceNews.Exit.CANCELLED);
+
+        assertThat(cancelled.subject())
+                .isEqualTo("(JitterTravel) Ted is no longer going to SoCraTes 2026");
+        assertThat(cancelled.textContent().lines().toList())
+                .containsExactly(
+                        "Hi, JitterTravel here. The organizers cancelled the conference below, so Ted is no longer going, and he wanted to let you know.",
+                        "",
+                        "SoCraTes 2026",
+                        "Mon 24 Aug – Thu 27 Aug 2026");
+    }
+
+    @Test
+    void anExitNamesNoVenueAndNoLink() {
+        assertThat(messages.conferenceNotGoing(socrates(ConferenceNews.SpeakingLine.TALK_ACCEPTED),
+                ConferenceNews.Exit.DECLINED).textContent())
+                .doesNotContain("Seminarzentrum")
+                .doesNotContain("socrates-conference.de")
+                .doesNotContain("jittertravel.com")
+                .doesNotContain("accepted");
+    }
+
+    @Test
+    void aConferenceFactIsNotToldFromFlights() {
+        assertThatThrownBy(() -> messages.messageFor(NotifiedFact.CONFERENCE_GOING, List.of(sfoOrd)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> messages.messageFor(NotifiedFact.CONFERENCE_NOT_GOING, List.of(sfoOrd)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     private static FlightBooked leg(String number, String from, ZonedTimestamp departs,

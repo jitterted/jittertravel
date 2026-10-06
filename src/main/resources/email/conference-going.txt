@@ -1,0 +1,15 @@
+Subject: (JitterTravel) Ted is going to a conference: [[${name}]]
+
+Hi, JitterTravel here. Ted is going to the conference below, and he wanted you to know.
+
+[# th:if="${calendarUrl != null}"]
+You can see the conference in his calendar here: [[${calendarUrl}]]
+[/]
+
+
+[[${name}]]
+[# th:if="${where != null}"][[${where}]]
+[/][[${dates}]]
+[# th:if="${speaking != null}"][[${speaking}]]
+[/][# th:if="${infoUrl != null}"][[${infoUrl}]]
+[/]

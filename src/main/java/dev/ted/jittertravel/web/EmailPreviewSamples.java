@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.web;
 
+import dev.ted.jittertravel.application.ConferenceNews;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightId;
@@ -21,6 +22,7 @@ final class EmailPreviewSamples {
     private static final ZoneId PACIFIC = ZoneId.of("America/Los_Angeles");
     private static final ZoneId CHICAGO = ZoneId.of("America/Chicago");
     private static final ZoneId OTTAWA = ZoneId.of("America/Toronto");
+    private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
 
     /** A flight booked on its own. */
     List<FlightBooked> singleFlight() {
@@ -34,6 +36,14 @@ final class EmailPreviewSamples {
                 leg(2, "UA3509", "ORD", at(CHICAGO, 18, 14, 0), "YOW", at(OTTAWA, 18, 17, 5)),
                 leg(3, "UA3510", "YOW", at(OTTAWA, 25, 9, 0), "ORD", at(CHICAGO, 25, 10, 30)),
                 leg(4, "UA2092", "ORD", at(CHICAGO, 25, 13, 0), "SFO", at(PACIFIC, 25, 15, 55)));
+    }
+
+    /** A conference with every optional line present: a venue, a talk and a link. */
+    ConferenceNews conference() {
+        return new ConferenceNews("SoCraTes 2026", "Seminarzentrum Rückersbach", "Johannesberg", "DE",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 8, 24, 9, 0), BERLIN),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 8, 27, 9, 0), BERLIN),
+                "https://socrates-conference.de", ConferenceNews.SpeakingLine.TALK_ACCEPTED);
     }
 
     private FlightBooked leg(int number, String flightNumber, String from, ZonedTimestamp departs,

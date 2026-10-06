@@ -1,10 +1,12 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.application.ConferenceNews;
 import dev.ted.jittertravel.domain.AirportCityResolver;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.NotifiedFact;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -13,7 +15,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 /**
  * Chooses the email for a fact and hands it the values it needs. <strong>The words themselves are
@@ -36,6 +40,9 @@ public class FamilyNotificationMessages {
 
     private static final DateTimeFormatter DAY_AND_CLOCK =
             DateTimeFormatter.ofPattern("EEE d MMM yyyy, h:mm", Locale.US);
+
+    private static final DateTimeFormatter DAY_MONTH = DateTimeFormatter.ofPattern("EEE d MMM", Locale.US);
+    private static final DateTimeFormatter DAY_MONTH_YEAR = DateTimeFormatter.ofPattern("EEE d MMM yyyy", Locale.US);
 
     private final AirportCityResolver cities;
     private final String baseUrl;
@@ -61,7 +68,79 @@ public class FamilyNotificationMessages {
             case FLIGHT_BOOKED -> templates.render("flight-booked", flightValues(legs));
             case ITINERARY_BOOKED -> templates.render("trip-booked", tripValues(legs));
             case ITINERARY_CANCELLED -> templates.render("trip-cancelled", tripValues(legs));
+            case CONFERENCE_GOING, CONFERENCE_NOT_GOING -> throw new IllegalArgumentException(
+                    fact + " is told from a conference, not from flights: see conferenceGoing and "
+                    + "conferenceNotGoing");
         };
+    }
+
+    /** Ted is going: the conference as planned, with the talk line only where there is one. */
+    public FamilyMessage conferenceGoing(ConferenceNews news) {
+        Map<String, Object> values = conferenceValues(news);
+        where(news).ifPresent(where -> values.put("where", where));
+        speakingLine(news.speaking()).ifPresent(line -> values.put("speaking", line));
+        if (!news.infoUrl().isBlank()) {
+            values.put("infoUrl", news.infoUrl());
+        }
+        calendarUrl(news).ifPresent(url -> values.put("calendarUrl", url));
+        return templates.render("conference-going", values);
+    }
+
+    /**
+     * Ted is no longer going. The sentence follows how it ended, and <strong>nothing Ted typed ever
+     * reaches it</strong>: a decline's or a cancellation's reason is not in {@link ConferenceNews} to
+     * be passed (Ted, 2026-09-10).
+     */
+    public FamilyMessage conferenceNotGoing(ConferenceNews news, ConferenceNews.Exit exit) {
+        Map<String, Object> values = conferenceValues(news);
+        values.put("exit", exit.name());
+        return templates.render("conference-not-going", values);
+    }
+
+    private Map<String, Object> conferenceValues(ConferenceNews news) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("name", news.name());
+        values.put("dates", dates(news));
+        return values;
+    }
+
+    /** The venue, city and country that were recorded, comma-joined; empty when none were. */
+    private Optional<String> where(ConferenceNews news) {
+        String where = Stream.of(news.venueName(), news.city(), news.country())
+                .filter(part -> !part.isBlank())
+                .collect(Collectors.joining(", "));
+        return where.isEmpty() ? Optional.empty() : Optional.of(where);
+    }
+
+    private Optional<String> speakingLine(ConferenceNews.SpeakingLine speaking) {
+        return switch (speaking) {
+            case NONE -> Optional.empty();
+            case TALK_ACCEPTED -> Optional.of("His talk was accepted.");
+            case INVITED -> Optional.of("He was invited to speak.");
+        };
+    }
+
+    /**
+     * {@code Mon 24 Aug – Thu 27 Aug 2026}, or {@code Mon 24 Aug 2026} for one day. The days are the
+     * conference's own (its zone), and the year goes on the first date only when the two differ.
+     */
+    private String dates(ConferenceNews news) {
+        LocalDate start = news.startDate().localDateTime().toLocalDate();
+        LocalDate end = news.endDate().localDateTime().toLocalDate();
+        if (start.equals(end)) {
+            return DAY_MONTH_YEAR.format(start);
+        }
+        String first = start.getYear() == end.getYear() ? DAY_MONTH.format(start) : DAY_MONTH_YEAR.format(start);
+        return first + " – " + DAY_MONTH_YEAR.format(end);
+    }
+
+    /** The calendar opened at the conference's first day, or empty when no base URL is configured. */
+    private Optional<String> calendarUrl(ConferenceNews news) {
+        if (baseUrl.isEmpty()) {
+            return Optional.empty();
+        }
+        String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        return Optional.of(base + "/calendar?day=" + news.startDate().localDateTime().toLocalDate());
     }
 
     /**

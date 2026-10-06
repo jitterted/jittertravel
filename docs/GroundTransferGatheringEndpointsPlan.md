@@ -1,92 +1,134 @@
-# Plan: gatherings and private events as ground-transfer endpoints
+# Plan: gatherings, private events and conference venues as ground-transfer endpoints
 
-> **Status: `open`** — requested by Ted 2026-10-06, nothing built. Written as a plan only; the open
-> decisions in §4 want Ted before slice 1.
+> **Status: `open`** — requested by Ted 2026-10-06, nothing built. Reviewed and amended with Ted's
+> answers the same day (§5); all decisions are closed and slice 1 can start.
 
 ## 1. Context
 
 The ground-transfer form offers three kinds of endpoint: a flight leg's airport, a train station,
 and a hotel (`TransferEndpointProjector`, `GroundTransferEndpointResolver`; D12 forbids free text).
-A gathering or a private event cannot be picked, so the ride to a dinner or a talk cannot be
-recorded.
+A gathering, a private event or a conference venue cannot be picked, so the ride to a dinner or a
+talk cannot be recorded.
 
 It was noticed on 2026-10-06 while fixing the date rule (`PlanGroundTransferCommand`,
 `InvalidGroundTransferDate`). Ted had asked for a rule that refuses endpoints days apart; the
 example that argued against it — a mid-stay ride from a hotel to a gathering — could not happen
 because the gathering cannot be chosen. Two earlier notes record the same gap from the other side:
 `PrivateEventMatchingLocationPlan.md` rejected "a taxi there and a taxi back" because "a ground
-transfer cannot name a private event as either endpoint", and `ScheduleGapProjector` makes both
-kinds an `Occupancy`, so `/schedule-problems` raises a `MissingTravel` row to each whose fix link
-lands on a form that cannot express it. That is the same defect `archived/GroundTransferEndpointReadModelPlan.md`
-fixed for stations.
+transfer cannot name a private event as either endpoint", and `ScheduleGapProjector` makes
+gatherings, private events and conferences an `Occupancy`, so `/schedule-problems` raises a
+`MissingTravel` row to each whose fix link lands on a form that cannot express it. That is the same
+defect `archived/GroundTransferEndpointReadModelPlan.md` fixed for stations.
 
 ## 2. Design
 
-Follow the station pattern exactly (D4, D5, D7), one read model fact per end.
+Follow the station pattern (D4, D5, D7), one read-model fact per end.
 
-- **Two ends per event, like a hotel.** You *arrive at* a gathering at its start and *leave from* it
-  at its end. New `TransferEnd` values `GATHERING_START` (a destination, verb "starts") and
-  `GATHERING_END` (an origin, verb "ends"), and the same pair for a private event. `isOrigin()`
-  grows the two origin cases.
-- **Tokens:** `gathering:<id>` and `private-event:<id>`. One place, so no end in the token (D7); the
-  role decides the moment, as with a hotel. `placeToken` already lower-cases non-airport tokens.
-- **Rows** come from `TransferEndpointProjector`: `GatheringPlanned`/`GatheringChanged` put both
-  rows, `PrivateEventPlanned` and `PrivateEventMatchingLocationChanged` likewise, and the
-  cancellations remove both (as for a hotel). A cancelled event is no longer somewhere to go.
-- **Resolution** snapshots the venue name and `Address` verbatim into the command, `locationForMatching`
-  included, so the schedule can match the transfer to the occupancy it joins. The zone is the event's
-  own `startsAt.zone()`, which cannot fail, as for a station.
-- **Offered until** the event's own end-of-day, the same "today or later in the endpoint's zone" rule
-  (D10/D14) as every other kind.
-- **Label:** `Venue — City · starts Sat Sep 19, 7:00 PM`. A gathering's title is public; a private
-  event's is not, so see §3.
+- **Two ends per event, like a hotel.** You *arrive at* an event at its start and *leave from* it at
+  its end. New `TransferEnd` values `GATHERING_START`/`GATHERING_END`, `PRIVATE_EVENT_START`/
+  `PRIVATE_EVENT_END` and `CONFERENCE_START`/`CONFERENCE_END` (starts are destinations, ends are
+  origins; `isOrigin()` grows the three origin cases — consider a field on the enum rather than a
+  longer `||` chain).
+- **Tokens:** `gathering:<id>`, `private-event:<id>`, `conference:<id>`. One place, so no end in
+  the token (D7); the role decides the moment, as with a hotel.
+- **Rows** come from `TransferEndpointProjector`, one *event's* pair of rows each:
+  - Gathering: `GatheringPlanned` puts both; `GatheringChanged` replaces them. **Gatherings cannot
+    be cancelled** — there is no `GatheringCancelled` — so there is no removal case.
+  - Private event: `PrivateEventPlanned` puts both; `PrivateEventCancelled` removes both.
+    **`PrivateEventMatchingLocationChanged` amends the existing event** (it carries only the id and
+    `locationForMatching`): the projector keeps the row's other fields and **replaces the city used
+    for matching**. It does not create rows.
+  - Conference: from the conference events that carry the venue (`ConferencePlanned`,
+    `venueAddress`, start/end dates); removed when the conference is cancelled or dropped. Which
+    events apply is to be read from the conference projector before slice 3 starts.
+- **Resolution** snapshots the venue name and `Address` into the command, so the schedule can match
+  the transfer to the occupancy it joins. For a private event the matching city is its
+  `locationForMatching`. The zone is the event's own, which cannot fail, as for a station.
+- **Labels (Ted, 2026-10-06):**
+  - Gathering: its **title** when present, else venue — `Title — City · starts Sat Sep 19, 7:00 PM`.
+  - Private event: **city / state / country only**, never title or venue.
+  - Conference: name and city (public by decision).
+- **Offered until** the event's own end-of-day, the "today or later in the endpoint's zone" rule
+  (D10/D14) as for every other kind.
+- **Recorded transfers are snapshots** of the event as it stood when the transfer was created
+  (Ted, 2026-10-06). If an event later moves significantly, the mismatch is a *schedule problem*
+  for `/schedule-problems` to raise, not something to rewrite on the transfer.
 
-## 3. Redaction: this is the part to get right
+## 3. The date rule: endpoints carry a window, not only a moment
+
+The rule shipped 2026-10-06 compares *moments*: two known moments must be within 24 hours, and the
+typed date must be one moment's day. A hotel's single "moment" is a guess, so a mid-stay ride
+(stay Sep 13–18, dinner Sep 15) would be refused.
+
+**Decision (Ted): a hotel contributes a range, check-in through check-out, not a moment.** Applied
+to every endpoint kind, with a flight or train as the degenerate range (start = end):
+
+- each endpoint carries a `window` (start, end) alongside the `moment` that still drives the
+  prefill and the label;
+- the typed date must fall within **either** window's days, in that window's own zone;
+- two windows must be within 24 hours of each other, measured as the **gap between them** (overlap
+  is zero);
+- gatherings, private events and conferences are ranges too, so a ride *during* a conference works
+  without special-casing.
+
+Cost, as asked: `PlanGroundTransferCommand` swaps its two `ZonedTimestamp` moments for two
+windows and `requireDateToFitTheEndpoints` is rewritten around them (≈20 lines); `TransferEndpointRow`
+gains the window; `GroundTransferEndpointResolver.originMoment/destinationMoment` return windows;
+`PlanGroundTransferCommandTest` gains the mid-stay case and the boundary cases. Not large, and
+it removes a rule that would otherwise refuse the headline use case.
+
+## 4. Redaction: this is the part to get right
 
 A transfer is published to anonymous viewers as its route (two city names) and nothing else:
-`PublicCalendarProjector` reads the endpoints and never `name` or `mode`. Both new kinds already put
-a city on the public calendar (a gathering in full, a private event as `Busy` with city/country), so
-a transfer "to Centennial" adds no city a stranger could not read. It does add a **connection**: a
-public transfer line ending at the city of a private event, on the same day. That is the one thing
-to ask Ted about, not to assume (§4, D-R).
+`PublicCalendarProjector` reads the endpoints and never `name` or `mode`.
 
-Rules that carry over regardless: the private event's **title never** reaches a label that an
-anonymous viewer can see; the venue name rides on the event as private, as a hotel's does. Needs both
-tiers (CLAUDE.md "Redaction", rule 5): a case in `PublicCalendarProjectorTest` and one in
-`CalendarRedactionSecurityTest` built from real events through the real projector.
+- **Decided (Ted, 2026-10-06): a transfer to or from a private event may reveal city, state and
+  country only.** Nothing else about the event — not its title, its venue, its street address, its
+  time of day.
+- The private event's title never reaches any label an anonymous viewer can see; the venue name
+  rides on the event as private, as a hotel's does.
+- The public projector must read the transfer's route from the transfer's own endpoints, never from
+  the private event, so an owner-facing venue snapshot cannot be carried across (rule 1,
+  "don't read it").
+- Both tiers (CLAUDE.md "Redaction", rule 5): a case in `PublicCalendarProjectorTest` asserting the
+  private venue and title are not emitted, and one in `CalendarRedactionSecurityTest` built from
+  real events through the real projector, asserting the rendered anonymous body `doesNotContain`
+  them.
 
-## 4. Decisions for Ted
+## 5. Decisions
 
-- **D-H: the hotel moment, and the date rule shipped 2026-10-06.** That rule refuses endpoints more
-  than 24 hours apart and a date matching neither end. A mid-stay ride (stay Sep 13-18, dinner
-  Sep 15) goes hotel check-out Sep 18 → dinner Sep 15, which is 3 days apart, so **the rule would
-  refuse the very ride this feature exists to record.** The two have to be reconciled: exempt hotel
-  ends from the pair check, drop the hotel moment, or let a hotel offer the typed date's own day.
-  Ted chose "check hotels too" on 2026-10-06 knowing no mid-stay ride could be entered; this plan is
-  where that choice is revisited.
-- **D-R: whether a transfer may end at a private event's city on the public calendar** (§3).
-- **D-L: what a private event's option label says.** Its title is the only thing a reader
-  recognises, but it is private everywhere else a label could leak. Venue and city, like a hotel,
-  is the cautious default.
-- **D-S: slicing.** Gatherings first, then private events, or both together. Gatherings carry no
-  redaction question, so they are the cheaper first slice.
+| | Decision | Answer |
+|---|---|---|
+| D-H | Hotel moment vs. date rule | **Range, check-in through check-out (§3)** |
+| D-R | Transfer ending at a private event's city on the public calendar | **City/state/country only (§4)** |
+| D-L | Private event's label | **City/state/country** |
+| D-G | Gathering's label | **Title if present** |
+| D-C | Conferences | **In scope, as a third kind** |
+| D-S | Slicing | **Gatherings, then conferences, then private events** |
 
-## 5. Slices
+## 6. Slices
 
-1. **Gathering as an endpoint**: the two `TransferEnd` values, projector rows, resolver branch,
-   options label, `GroundTransferEndpointChoices` lists, and the date rule's moments.
-2. **Private event as an endpoint**, behind D-R and D-L, with both redaction tiers.
-3. **Fix links**: `ScheduleProblemsRenderer`/`ProblemFix` offer the transfer for a gap that ends at
-   either kind, and `GroundTransferPreselection` preselects it. Add the new paths to
-   `ProblemContextFragmentConventionTest` only if a new fix target is introduced; none is expected.
+1. **Gathering as an endpoint** (and the window rule of §3, since the first useful ride needs it):
+   two `TransferEnd` values, projector rows, resolver branch, options label,
+   `GroundTransferEndpointChoices` lists, windows on the command.
+2. **Conference venue as an endpoint** — same shape, from the conference projector's data.
+3. **Private event as an endpoint**, with both redaction tiers and the matching-location amend.
+4. **Fix links**: `ScheduleProblemsRenderer`/`ProblemFix` offer the transfer for a gap that ends at
+   one of these kinds, and `GroundTransferPreselection` preselects the matching endpoint token.
+   Add the new paths to `ProblemContextFragmentConventionTest` only if a new fix target is
+   introduced; none is expected.
 
-## 6. Tests required
+## 7. Tests required
 
-- `TransferEndpointProjectorTest`: planned, changed, cancelled, for each kind; a gathering whose
-  dates change replaces its own rows.
-- `GroundTransferEndpointOptionsTest`: label wording, offered-until, the two lists.
-- `PlanGroundTransferHandlerTest`: each token resolves to venue name and verbatim `Address`; the
-  moment lands on the command for each role; a stale id is `UnknownTransferEndpoint`.
-- `PlanGroundTransferCommandTest`: the mid-stay ride, according to D-H.
-- The golden-sample rule does not apply: no new event is introduced.
+- `TransferEndpointProjectorTest`: planned, changed, cancelled where cancellation exists, for each
+  kind; a gathering whose dates change replaces its own rows; a private event's matching location
+  changes the city on its existing rows and creates none.
+- `GroundTransferEndpointOptionsTest`: label wording (title present/absent, private event shows no
+  title or venue), offered-until, the two lists.
+- `PlanGroundTransferHandlerTest`: each token resolves to its name and `Address`; the window lands on
+  the command for each role; a stale id is `UnknownTransferEndpoint`.
+- `PlanGroundTransferCommandTest`: the mid-stay ride, the day-boundary and 24h-gap cases.
 - A `@WebMvcTest` that the new options render in both selects.
+- Redaction, both tiers (§4).
+- The golden-sample rule does not apply: no new event is introduced.
+- Mutation-verify the new `isOrigin()` cases and the window rule.

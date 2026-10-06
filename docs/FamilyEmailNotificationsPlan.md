@@ -1139,7 +1139,7 @@ Built with slice 1a, shipping dark. Everything in the list above exists except w
   one: every `Event` class in `domain` must be in `TELLS_FAMILY` or in `SILENT` with a reason. Adding
   an event class fails it until someone decides. It pins the decision, not the behaviour; the
   translator test owns the behaviour.
-- **Superseded 2026-10-06 (Ted): the checklist and its left column are deleted** once family email was
+- **Superseded 2026-10-05 (Ted): the checklist and its left column are deleted** once family email was
   live. The test email is now a button in the "Last test email" row of `/admin/settings`, in the four
   states of https://claude.ai/artifact/KZDEqfXHxftbMiWwEnofYF (not tested, sent, failed, not
   configured); a success redirects back to Settings and a failure re-renders it, so the reason is on a
@@ -1176,7 +1176,7 @@ Built with slice 1a, shipping dark. Everything in the list above exists except w
   about that is now off is news. A single `FlightCancelled` stays **silent** — one dropped leg is
   often a rebooking, not a trip that is off. A `FlightItineraryCancelled` **will** tell family, under
   the same positive-first rule as the conference exits (§4.4): only where an `ITINERARY_BOOKED` was
-  sent for that itinerary, so a trip family never heard about stays silent. **Built 2026-10-06 as
+  sent for that itinerary, so a trip family never heard about stays silent. **Built 2026-10-05 as
   its own slice, before conferences:** `NotifiedFact.ITINERARY_CANCELLED`, a message arm, and
   `FlightItineraryCancelled` moved from `SILENT` to `TELLS_FAMILY`. The translator reads the
   `FlightItineraryCancelled` in the batch together with the `FlightCancelled` events appended with

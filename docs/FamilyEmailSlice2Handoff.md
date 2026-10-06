@@ -1,6 +1,6 @@
 # Family email, slice 2 (conferences) — hand-off
 
-Written 2026-10-06 at the end of the session that shipped slice 1 (flights and itineraries), the
+Written 2026-10-05 at the end of the session that shipped slice 1 (flights and itineraries), the
 itinerary cancel, the email-template files, the email preview page and the Settings test button. Read
 this first, then `FamilyEmailNotificationsPlan.md` §4.4, §4.5, §5 and §7 for the reasoning. This file
 says what exists, what to build, and what must be asked.

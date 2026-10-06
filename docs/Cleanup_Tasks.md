@@ -176,8 +176,9 @@ down when it is created does not get written down later.
       **Conferences are the worst kind to hit it with, for two reasons.** `plan-conference.html`
       exposes `venueCity` but **not** `locationForMatching` — hotels, gatherings and private events
       all have that override input, so on those kinds a mismatch is repairable by naming a shared
-      match location. And there is **no conference edit at all**: no `ChangeConference` command, no
-      `ConferenceChanged` event, no template. A mistyped venue city on a conference is therefore not
+      match location. And there is **no conference edit for the venue or city**: only the dates can
+      change (`ChangeConferenceDates`, 2026-09-22); there is no `ChangeConference` command, no
+      `ConferenceChanged` event, no template for the rest. A mistyped venue city on a conference is therefore not
       fixable from inside the app.
 
       **Today's mitigation is a convention, which is why this is written down**: when entering the
@@ -193,11 +194,10 @@ down when it is created does not get written down later.
       findable.
 
       - **`events()` implementations construct their own `LocationZoneResolver`** (improvement 1).
-        Eleven implementations each `new` one up. Harmless while the resolver is a stateless,
-        dependency-free table, but import validation cannot be exercised with a stub, and every site
-        goes stale the day the resolver gains configuration. If that day comes, thread it through
-        `events(...)` (or an import context) in **one** sweep — the interface change touches all
-        eleven. Deliberately not done preemptively; written down so it is a decision, not a surprise.
+        **Overtaken, re-measured 2026-10-05:** the `events()` implementations went with the command
+        importer (`archived/EventOrientedBackupRestorePlan.md`), and the only `new
+        LocationZoneResolver()` left in `src/main` is the bean in `EventSourcingConfig`. Nothing to
+        thread through; kept as a line so the history is findable.
       - **`EventSourcingConfig` projector wiring** (improvement 4) repeats the subscribe-then-replay
         triple fifteen times; a small private `wire(projector)` helper collapses it without Spring
         cleverness. Cosmetic — do it opportunistically.
@@ -416,120 +416,6 @@ down when it is created does not get written down later.
       stays, but it is no longer what keeps that test green.
 
 
-- [x] **A fix action does not come back to the report it was launched from. FIXED 2026-09-06.** Ted, 2026-09-06:
-      *"I'm fixing schedule problems and keep ending up somewhere else and have to return to the
-      schedule problems page. not huge, just annoying."*
-      **Three-quarters of this already exists.** `ProblemFix.explaining` appends `&from=<origin>` to
-      every fix href, `FixOrigin` already holds the way back for all three surfaces — including
-      `?view=list` vs `?view=calendar` — and `fragments/problem-context.html` renders it as a Back
-      link. **The gap is the POST.** No form carries `from` through: every `th:action` drops the
-      query string, so all eight fix targets redirect to their own hardcoded default
-      (`/booked-hotels`, `/booked-trains`, `/calendar`, `/itinerary`). Ted clicks Book hotel from
-      the report, books it, and lands on the hotels list.
-      **`ClearConflictController` is the half-done case and shows the shape of the bug:** it already
-      redirects to `/schedule-problems`, but hardcoded — so it loses the view and drops a reader who
-      came from the list onto the calendar.
-      **Proposed fix, small and shared.** (1) `ProblemContextAdvice` exposes the raw `from` as a
-      model attribute, the same way it already exposes `problemContext` — an advice rather than six
-      constructor dependencies, for D6's reason exactly. (2) Each fix target's form carries it
-      (hidden input), so it survives both the POST and a validation re-render. (3) Each controller
-      redirects to `FixOrigin.fromParam(from).backHref()` when present, else its current default —
-      one line each. (4) A convention test mirroring `ProblemContextFragmentConventionTest`, which
-      walks every href `ProblemFix` can emit, so a new fix target cannot forget the return trip in
-      the same silent way it could forget the banner.
-      **Watch two things.** The redirect target is derived from a query parameter, so it must be
-      resolved through `FixOrigin.fromParam` and never used as a raw path — an open redirect is
-      exactly what a hand-edited `?from=` would otherwise buy. And a fix that *fails* validation
-      must keep `from` on the re-rendered form, or the second submit loses the way back.
-      **Built as proposed, all eight targets.** `FixOrigin.returnTo(String)` returns
-      `Optional<String>` — **empty when absent**, which is the whole subtlety: `fromParam` defaults
-      a missing value to the calendar so a hand-typed link still renders a Back link, and reusing
-      that on a redirect would send every ordinary booking made from a nav card to the report.
-      `ProblemContextAdvice` exposes the raw `from` as `fixOrigin` (no projector, no clock, so it
-      works in a slice that has neither); each template carries it in a `th:if`-guarded hidden
-      input; each controller's **success return only** goes through a two-line `returnTo` helper —
-      a read-only refusal or a stale-link miss has fixed nothing and still goes where it did.
-      `ClearConflictController` stopped hardcoding `/schedule-problems` and now keeps the view.
-      Guarded by two new cases in `ProblemContextFragmentConventionTest` — one walking every
-      `ProblemFix` href to assert its form carries the origin, one asserting an unrecognized
-      `?from=` resolves to the calendar rather than becoming a path — plus seven round-trip cases
-      in `CancelTrainControllerTest`. Mutation-verified three ways: ignoring the origin on success
-      failed 3, treating absent as calendar failed 3, dropping a hidden input failed 1.
-      **One near-miss worth recording:** restoring a mutated template with `git checkout` silently
-      reverted it to a *stale index*, losing the hidden input — caught only because the suite was
-      re-run afterwards. Restore mutations from a copy, not from git, while work is staged.
-
-
-- [x] **`ScheduleProblemsRenderer` partitions by `instanceof`, so a new problem type renders
-      nowhere and nothing fails. FIXED 2026-09-06** with slice 2 of
-      `CancelTrainAndOverlappingLegsPlan.md`, which is the change that would have hit it. The five
-      filters became one exhaustive `switch` in a private `Sections` record, so the compiler now
-      stops a sixth variant here as it already did in the other three places. Found 2026-09-06 while planning
-      `CancelTrainAndOverlappingLegsPlan.md`, and independent of it — this is a hole *today*.
-      `render(List<ScheduleProblem>)` splits its argument with **five separate `instanceof` filters**
-      into five explicit sections. `ScheduleProblem` is sealed, and the three other places that map
-      over it — `ProblemKey.of` (`ProblemRef` today), `ProblemFix.fixesFor`, `ProblemBand.from` —
-      are all **exhaustive switches**, each with a javadoc saying in as many words that a new problem
-      type cannot be added without deciding the question it asks. The list view is the one that
-      silently opts out: add a sixth variant and the compiler stops you in three files and says
-      nothing about the fourth, so the problem is detected, keyed, linked and drawn on the calendar,
-      and is **absent from `/schedule-problems` itself**. Fix is small: replace the five filters with
-      one exhaustive `switch` appending into per-kind lists. Do it whether or not the overlapping-legs
-      detector is ever built — the next variant is the one that pays for it.
-      Note the assertion to write with it must not be a hard-coded list of kinds, per the
-      `CalendarDayMenuTest` rule (a test that has to be edited on every change stops guarding).
-
-- [x] **`/calendar` never names the month except on the 1st.** **Done 2026-08-31.** The month tint is too faint to answer
-      "which month am I looking at", and the only text naming one is the day label on the 1st — so
-      any week not containing a 1st leaves a reader counting. Ted, 2026-08-31: *"i completely lose
-      what month it is for weeks that have entries."* Note **weeks that have entries**: this is the
-      ordinary case, not a side effect of collapsing anything.
-      **Built and then reverted the same day**, only because it rode in on the quiet-week-runs branch
-      (`archived/QuietWeekRunsPlan.md` D5b) — Ted's verdict on it was *"i like the months"*. The
-      shape: a sticky `.calendar-month-header` band, one per month, parked under the weekday header
-      (`top: var(--calendar-weekday-header-height)`, `z-index` below the header's 10). A week is
-      filed under the month its **Sunday** falls in, so a straddling week belongs to one month and
-      not both; the alternative puts two bands between two adjacent weeks. One test —
-      `everyMonthGetsOneBandAboveTheFirstWeekThatStartsInIt` — mutation-verified by filing a week
-      under its Saturday instead.
-      Re-landed on its own, as intended — then **removed again 2026-09-01** with the year overview
-      (`archived/YearOverviewPlan.md`). Two reasons, and the second is why it cannot come back in
-      this shape: they were built for orientation *while scrolling* to find a month, which the jump
-      replaces; and a week is filed under its **Sunday**, so Sep 1–5 rendered under a band reading
-      "AUGUST 2026", and a `gridEnd` on the 1st–5th left a month with no band at all. That is also
-      why they could not be the jump anchors — those are the month-start day cells, whose set is
-      complete by construction. The 1st still names its month in its own day label.
-- [x] **Nothing enforced that the public calendar handles the same removal events the owner's does.**
-      Raised by review of the S2 refactor 2026-08-21; **done the same day** — Ted chose
-      lifecycle-propagation scenarios over a source-scan convention test, the option that fits the
-      standing preference (sealing `Event` was rejected). `CalendarRemovalPropagationTest` drives one
-      event stream into **both** read models and asserts the entry is in both, then gone from both,
-      for all four removal events (`HotelBookingCancelled`, `GroundTransferCancelled`,
-      `ConferenceCancelled`, `ConferenceAttendanceDeclined`) plus the confirmed-then-cancelled
-      conference, whose entry both projectors have already rewritten once. The presence assertion is
-      what makes it meaningful: without it a creation event one side ignored would leave that side
-      empty from the start and the removal assertion would pass for the wrong reason.
-      **It found a real hole on the way in:** `GroundTransferCancelled`'s branch in
-      `GroundTransferCalendarProjector` had **no test at all** — deleting it left the entire suite
-      green. Now caught.
-      **Still true, and deliberately so:** adding a *fifth* removal event needs a new row in that
-      test, and nothing forces it. That is the known cost of the scenario-test approach. The
-      source-scan alternative (compare the two switches' matched event types, in the style of
-      `PublicCalendarBuildsOnlyPublishableEntriesTest`) stays available if this ever proves too easy
-      to forget.
-- [x] **No test covered the `PublicCalendarProjector` bean's registration.** From the 2026-08-21
-      review; **done the same day**. Every test that renders `/calendar` supplies it as a
-      `@MockitoBean`, so reducing `bootstrapper.register(...)` to a bare `new PublicCalendarProjector()`
-      would have left the projector neither subscribed nor replayed — **a permanently empty calendar
-      for every anonymous visitor**, with the whole suite green.
-      Fixed generally rather than for the one bean, as noted: `EveryProjectorBeanIsRegisteredTest`
-      asserts that **every `@Bean` returning an `EventStreamConsumer`** calls
-      `bootstrapper.register(...)` — 23 beans today. The set is derived by **reflection** over
-      `EventSourcingConfig`, so a new projector bean is covered the day it is written and there is no
-      fixture to forget; only "does it call register" is answered by reading source, that call being
-      the whole of what there is to check. A second test pins the guard against its own rot (the
-      config class moving, or the `bootstrapper` parameter being renamed), since either would
-      silently reduce it to checking nothing.
 - [ ] **A gap *into* home is dated by the wrong end — the mirror image of D14.** Lifted from
       `archived/ScheduleProblemsRewritePlan.md` (its whole "Open" section) when that plan was
       archived 2026-08-21. D14 fixed one direction: a gap *out of* home is now dated by the day
@@ -575,16 +461,6 @@ down when it is created does not get written down later.
         two endpoints rather than one address.
       - While you are there: `PlanPrivateEventRequest`'s Javadoc still says the shared interface is
         "deferred pending Ted's call". It is not; point it at A4.
-- [x] **`/planned-private-events` list view — SHIPPED 2026-08-24**, and it outgrew this list on
-      the way: it is now owned by `PlannedPrivateEventsListPlan.md`, not by this bullet. Read the
-      plan, not this line. The reason it was worth more than "one more list": a private event's
-      `street`, `region` and `postalCode` were carried by `PrivateEventPlanned` and read by **no
-      view at all**, so the address Ted typed into the plan form went to the log and never came
-      back. Lifted here from `archived/PrivateSocialEventPlan.md` 2026-08-21.
-- [x] **The private-event nav card's placeholder icon — SETTLED 2026-08-24.** Ted's answer ("🍴")
-      picked FA Pro `utensils`, which is the SVG the `/plan-private-event` card was already
-      carrying — the placeholder turned out to be the right icon. The new `/planned-private-events`
-      card uses the same one. From `archived/PrivateSocialEventPlan.md`.
 - [ ] **Full travel calendar in the subscription feed (Phase 2).** Lifted from
       `archived/CalendarSubscriptionFeedPlan.md` 2026-08-21, which shipped Phase 1
       (cancel-deadline reminders) and named this as "left open (not built now)": flights, trains,
@@ -596,7 +472,8 @@ down when it is created does not get written down later.
       the feed URL is the only credential, so widening what it serves widens what one leaked URL
       exposes.
       **Partly answered from the other side, 2026-09-08:** `web/GoogleCalendarLink` puts a
-      per-entry "Add to Google" push on conferences, gatherings and private events — a plain
+      per-entry "Add to Google" push on conferences, gatherings, private events (and, from
+      2026-10-05, each booked flight leg) — a plain
       pre-filled `render?action=TEMPLATE` link, no API. It is a *different* answer, not this one:
       the push is manual, one entry at a time, and lands in Google specifically, where this item
       is automatic, everything, and subscribed. The two do not conflict, but whoever picks this up
@@ -615,7 +492,7 @@ down when it is created does not get written down later.
       that answers when a problem is wrong and how it sits against the trip. The list is one click
       away on the toggle.
 - [ ] **Conferences have no `locationForMatching` — but ask whether that is still a problem
-      (Ted, 2026-08-20).** `PlanConferenceRequest:130` always passes `null` for the venue
+      (Ted, 2026-08-20).** `PlanConferenceRequest` always passes `null` for the venue
       `Address`, so the compact constructor falls back to the city and a conference can only ever
       match on that. A conference in **Lone Tree, CO** therefore never matches the **Denver** that
       `StaticAirportCityResolver` gives for a `DEN` flight, and `/schedule-problems` reported
@@ -646,7 +523,7 @@ down when it is created does not get written down later.
 
       1. **`ScheduleGapProjector` is its only reader.** Nothing else in `src/main` consults it; the
          controllers merely pass it through. It exists to feed one matcher.
-      2. **The geocoder writes it equal to the city.** `AddressParseService:89-95` returns
+      2. **The geocoder writes it equal to the city.** `AddressParseService` (its `coalesce(locality)` lines) returns
          `coalesce(locality)` for *both* `city` and `locationForMatching`, so every address filled
          by the paste-and-parse widget already has the two identical.
       3. **`Address`'s compact constructor falls back to `city` when it is blank.** So an absent
@@ -702,38 +579,12 @@ down when it is created does not get written down later.
       - **Only future days, OWNER-only**, as on the calendar (`CalendarViewBuilderTest` pins
         *where* the menu appears; the contents are pinned by calling `dayMenu` directly).
 
-- [x] **"Plan/Book another …" belongs upper-right on every list page, and two pages have none**
-      (Ted, 2026-09-19). **SHIPPED 2026-09-27.** The conferences toolbar became the shared
-      `ListToolbar` — filters on the left, a filled-green `.create-link` at the right edge — and
-      all six list renderers use it, so gatherings and private events gained their link and hotels,
-      flights and trains lost the one under the list. Its CSS is inlined per page via
-      `ListToolbar.CSS`, not put in `site.css`, which the anonymous calendar also loads.
-      `TimeFilterToggleConventionTest` now also asserts every list page ends its toolbar with the
-      create link, exactly once; mutation-verified. **Same day, `/conferences` (Ted):** its jump bar
-      moved out of the toolbar onto its own row beneath, so the create link shares a row with the
-      time toggle alone — in one row, a bar with several sections pushed the link onto a line of
-      its own at iPad width. **Left open:** the pages' outer containers
-      still differ (flights and trains indent under their heading, hotels and gatherings do not),
-      so the button's right edge lands at a slightly different x per page at 820px — same place in
-      the toolbar, not yet the same place on screen.
-      The original write-up, kept for its reasoning:
-      1. **Add it where missing.** `PlannedGatheringsRenderer` and `PlannedPrivateEventsRenderer`
-         have no "another" affordance at all — zero occurrences in either file. So the only way to
-         plan a second gathering or a second evening is the index nav card or the calendar day
-         menu; the list you are already looking at cannot do it.
-      2. **Move the ones that exist.** `BookedHotelsRenderer:84`, `BookedFlightsRenderer:120` and
-         `BookedTrainsRenderer:92` each render theirs in a `div().withClass("action-row")` **after
-         the table** — bottom-left, which Ted wants to move away from.
-      **`ConferencesRenderer.planLink()` was the shape to copy** (now `ListToolbar`). The case for
-      moving it: at the bottom the
-      link was reachable only by scrolling past every row, and it grew further away the more rows
-      there were — the one control on the page whose distance depended on the data (Ted,
-      2026-08-22).
-      Note this interacts with the standing **"action affordances never move"** rule: the point
-      here is that the control sits at a *fixed* place on every list page, which is the rule
-      pointing at consistency across pages rather than across rows. Also check `TimeFilterToggle`
-      placement, since on three of these pages the toggle already occupies the upper area and the
-      new link has to sit beside it rather than displace it.
+- [ ] **The list pages' create link lands at a different x per page at 820px.** Lifted
+      2026-10-05 from the shipped "Plan/Book another" item (Done): the `ListToolbar` link sits in the
+      same place in every toolbar, but the outer containers differ (flights and trains indent under
+      their heading, hotels and gatherings do not), so it is not the same place on screen. A page
+      that moves its affordance between pages is the "action affordances never move" rule across
+      pages rather than rows.
 
 - [ ] **Blank text is unvalidated on four write paths, starting with a private event's title**
       (Ted, 2026-09-19: *"don't allow 'title' to be empty for private event (there's likely other
@@ -747,7 +598,7 @@ down when it is created does not get written down later.
       **The rule, settled by Ted 2026-09-19 — and it is not `EnteredLocation`:**
       - **`title`/`name` is REQUIRED**, must not be blank. His reason is that it is *display* text
         and nothing else stands in for it: *"otherwise nothing is displayed on pages and if a
-        'clash' occurs."* Both halves check out. `PlannedPrivateEventsRenderer:173` renders
+        'clash' occurs."* Both halves check out. `PlannedPrivateEventsRenderer` renders
         `div(e.title()).withClass("private-event-title")` with no blank guard, so an empty title is
         an empty div — a row with a date, a time and no subject. And a clash names its entries by
         exactly this field: `ScheduleProblem.SchedulingConflict` carries `String name`,
@@ -788,20 +639,20 @@ down when it is created does not get written down later.
       machine wins where the two rules disagree**, and the disable-don't-hide rule keeps its force
       wherever an action is genuinely the same action, merely not available yet. Two other places
       still have the plain moving defect and were left alone:
-      - `PlannedGatheringsRenderer.actionsCell` (`PlannedGatheringsRenderer.java:157`) stacks an
+      - `PlannedGatheringsRenderer.actionsCell` (`PlannedGatheringsRenderer`) stacks an
         optional `Event page →` above an always-present `Edit` in a column flex
         (`.gathering-actions`, CSS at `:57`), so **Edit sits on the first line on gatherings with no
         info URL and the second line on those with one** — the link's vertical position changes row
         to row. Needs a reserved slot rather than the conferences fix (the shift is vertical, and
         this list stacks on narrow viewports).
-      - `ItineraryRenderer` train card (`ItineraryRenderer.java:163`) puts the OWNER edit pencil
+      - `ItineraryRenderer` train card (`ItineraryRenderer`) puts the OWNER edit pencil
         after an optional service-ID span, so the **pencil slides to the start of the line on trains
         with no service id**. The neighbour is text rather than an action, but the pencil is the
         thing being aimed at.
 - [ ] **A collapsed past week on `/calendar` is tappable and nothing says so.** Found 2026-09-04
       auditing for hover-only affordances after the `/conferences` CFP link was fixed
       (CLAUDE.md, "never have an affordance that relies on `:hover`"). `.calendar-week--collapsed
-      { cursor: pointer; }` (`CalendarRenderer.java:233`) is the *only* always-on signal that a
+      { cursor: pointer; }` (`CalendarRenderer`) is the *only* always-on signal that a
       collapsed week expands when clicked — and a cursor is a pointer affordance, so **on the iPad
       there is none at all**.
       **Why it is on this list rather than in that fix:** it is the weakest remaining case, not a
@@ -821,7 +672,7 @@ down when it is created does not get written down later.
       shift the row.
 
 - [ ] **Surface "restart needed" after a truncate, next to the read-only banner.** `PostgresPersister
-      .truncateAllTables()` (via `/admin/database/truncate`, `AdminController.java:128`) empties the
+      .truncateAllTables()` (via `/admin/database/truncate`, `AdminController`) empties the
       tables, but `EventStore`'s in-memory list and every projector keep the old data — the app goes
       on serving read models for events that no longer exist, and only a restart clears it. That is
       the known stale-after-truncate bug: the live `reset()`/`rebuildFromPersistence()` rebuild was
@@ -829,8 +680,8 @@ down when it is created does not get written down later.
       so a restart is the fix and the app should say so. It bites Ted's standard wipe-then-import
       workflow every time. Detection looks cheap and derivable: the persisted event count (or max
       sequence) being **lower** than what `EventStore` holds in memory can only mean the tables were
-      emptied underneath it. Render it like the existing read-only banner (`index.html:312`,
-      `role="alert"`, model attribute from `GeneralController:62`) rather than as a post-deploy task
+      emptied underneath it. Render it like the existing read-only banner (`readonly-banner` in `index.html`,
+      `role="alert"`, model attribute from `GeneralController`) rather than as a post-deploy task
       — it says the data on screen is wrong *now*. Split out of `PostDeployTaskBannerPlan.md`
       (decision 4, 2026-08-19), which deliberately excludes it.
 - [ ] **Extract a shared admin nav bar.** Every admin page hand-rolls its own: `admin-tasks` uses
@@ -893,7 +744,7 @@ down when it is created does not get written down later.
 - [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.
       `PostgresPersister.loadTimelinePage` resets `runningMaxSeq` to `Long.MIN_VALUE` on every
-      call (`PostgresPersister.java:291`), so a command whose event sequence numbers interleave
+      call (`PostgresPersister`, `runningMaxSeq`), so a command whose event sequence numbers interleave
       with those of a command on the *previous* page is silently unflagged — the first entry of
       any page can never be marked. Fix means seeding `runningMaxSeq` from the max event
       sequence of all commands before the page's window rather than starting fresh. Pre-existing
@@ -903,12 +754,12 @@ down when it is created does not get written down later.
       `archived/CuratedResolversToDomainPlan.md` 2026-08-23, which named it as the one thing left
       open after the `Address` alias retirement. Both are one line —
       `public void setState(String state) { this.region = state; }`, commented "backward compat for
-      old exports" (`BookHotelRequest.java:45`, `ChangeHotelRequest.java:46`) — and both exist for
+      old exports" (`BookHotelRequest`, `ChangeHotelRequest`) — and both exist for
       the **command-export** format, which today's `BackupService` cannot read at all. The same
       measurement that retired `Address`'s `@JsonAlias("state")` applies one layer up: no restorable
       artifact carries the old spelling, and nothing in `src/main`, the templates, or the tests
       binds `state` on either request. Delete both setters and the `region` field is the only
-      spelling left. **Not to be confused with** `AddressParseService.java:85`, which reads `"state"`
+      spelling left. **Not to be confused with** `AddressParseService`'s state handling, which reads `"state"`
       out of a *geocoder* response — that is an external wire format we do not control and it stays.
 - [ ] **`LocationAuditProjector` never sees a private event.** It handles `GatheringPlanned` and
       `GatheringChanged` — records of exactly the same shape — but not `PrivateEventPlanned`, so a
@@ -935,7 +786,7 @@ down when it is created does not get written down later.
       `BackupService.validateJson` (pre-import, via `/admin/restore/validate`) — between them they
       cover both directions the audit was reaching for, and neither went stale.
       **Scope if it goes:** `ZoneAuditController`, `LocationZoneAudit`, `LocationAuditProjector`,
-      `admin-zone-audit.html`, the nav card in `admin-home.html:208`, two `EventSourcingConfig`
+      `admin-zone-audit.html`, the nav card in `admin-home.html`, two `EventSourcingConfig`
       beans, three test classes, plus mentions in `EventPayloadUpcaster`'s Javadoc and
       `BootReplayPreflightTest`. No `SecurityConfig` matcher of its own (covered by `/admin/**`).
       Two methods in the cancellation-propagation tests assert *about the audit projector*
@@ -1004,7 +855,7 @@ down when it is created does not get written down later.
       collection, and doing the simpler-shaped one first keeps the shared vocabulary honest.
 - [ ] **`/conferences/{id}/cfp` is the one date form still on browser `required`, and
       `RequiredEntryAdvice` cannot reach it.** After `846ee9d` it is the **only** `required`
-      attribute left on a date input in the tree (`open-cfp.html:107`) — the three others are the
+      attribute left on a date input in the tree (`open-cfp.html`) — the three others are the
       hotel name/city text inputs queued two items above. The advice does not cover it *by design*:
       `OpenCfpController.openCfp` binds `closesOn` as a `@RequestParam`, and
       `RequiredEntryAdvice.formBeanType` returns null for a binder with no form bean, so the
@@ -1036,7 +887,7 @@ problem. Promote them if one of them actually bites.
       2026-09-08, where it had lived since `archived/GeneralControllerRefactorPlan.md` was archived —
       it was in a "loose follow-ups not tracked anywhere else" list that no longer exists, this file
       now being where small work lives. The authorization tests assert on `href` substrings and on
-      the literal `>Admin</span>`: `SecurityAuthorizationTest:101` and `:205` are
+      the literal `>Admin</span>`: `SecurityAuthorizationTest` (the two `doesNotContain(">Admin</span>")` assertions) are
       `doesNotContain(">Admin</span>")`, which is precisely the too-loose absence assertion
       CLAUDE.md's precise-HTML rule warns about — rename the label or restructure the group and the
       claim passes for the wrong reason, on a **security** test. Testids would let each assertion
@@ -1264,6 +1115,163 @@ count is deliberately not stated here so it cannot go stale again.)
       **Trigger:** actually running more than one replica.
 
 ## Done
+
+- [x] **`/planned-private-events` list view — SHIPPED 2026-08-24**, and it outgrew this list on
+      the way: it is now owned by `PlannedPrivateEventsListPlan.md`, not by this bullet. Read the
+      plan, not this line. The reason it was worth more than "one more list": a private event's
+      `street`, `region` and `postalCode` were carried by `PrivateEventPlanned` and read by **no
+      view at all**, so the address Ted typed into the plan form went to the log and never came
+      back. Lifted here from `archived/PrivateSocialEventPlan.md` 2026-08-21.
+- [x] **The private-event nav card's placeholder icon — SETTLED 2026-08-24.** Ted's answer ("🍴")
+      picked FA Pro `utensils`, which is the SVG the `/plan-private-event` card was already
+      carrying — the placeholder turned out to be the right icon. The new `/planned-private-events`
+      card uses the same one. From `archived/PrivateSocialEventPlan.md`.
+- [x] **"Plan/Book another …" belongs upper-right on every list page, and two pages have none**
+      (Ted, 2026-09-19). **SHIPPED 2026-09-27.** The conferences toolbar became the shared
+      `ListToolbar` — filters on the left, a filled-green `.create-link` at the right edge — and
+      all six list renderers use it, so gatherings and private events gained their link and hotels,
+      flights and trains lost the one under the list. Its CSS is inlined per page via
+      `ListToolbar.CSS`, not put in `site.css`, which the anonymous calendar also loads.
+      `TimeFilterToggleConventionTest` now also asserts every list page ends its toolbar with the
+      create link, exactly once; mutation-verified. **Same day, `/conferences` (Ted):** its jump bar
+      moved out of the toolbar onto its own row beneath, so the create link shares a row with the
+      time toggle alone — in one row, a bar with several sections pushed the link onto a line of
+      its own at iPad width. **Left open (lifted to its own item in Open, 2026-10-05):** the pages'
+      outer containers still differ (flights and trains indent under their heading, hotels and
+      gatherings do not), so the button's right edge lands at a slightly different x per page at
+      820px — same place in the toolbar, not yet the same place on screen.
+      The original write-up, kept for its reasoning:
+      1. **Add it where missing.** `PlannedGatheringsRenderer` and `PlannedPrivateEventsRenderer`
+         have no "another" affordance at all — zero occurrences in either file. So the only way to
+         plan a second gathering or a second evening is the index nav card or the calendar day
+         menu; the list you are already looking at cannot do it.
+      2. **Move the ones that exist.** The hotel, flight and train lists each rendered theirs in
+         a `div().withClass("action-row")` **after the table** — bottom-left, which Ted wanted to
+         move away from. (Done: no `action-row` remains in those renderers.)
+      **`ConferencesRenderer.planLink()` was the shape to copy** (now `ListToolbar`). The case for
+      moving it: at the bottom the
+      link was reachable only by scrolling past every row, and it grew further away the more rows
+      there were — the one control on the page whose distance depended on the data (Ted,
+      2026-08-22).
+      Note this interacts with the standing **"action affordances never move"** rule: the point
+      here is that the control sits at a *fixed* place on every list page, which is the rule
+      pointing at consistency across pages rather than across rows. Also check `TimeFilterToggle`
+      placement, since on three of these pages the toggle already occupies the upper area and the
+      new link has to sit beside it rather than displace it.
+
+- [x] **`ScheduleProblemsRenderer` partitions by `instanceof`, so a new problem type renders
+      nowhere and nothing fails. FIXED 2026-09-06** with slice 2 of
+      `CancelTrainAndOverlappingLegsPlan.md`, which is the change that would have hit it. The five
+      filters became one exhaustive `switch` in a private `Sections` record, so the compiler now
+      stops a sixth variant here as it already did in the other three places. Found 2026-09-06 while planning
+      `CancelTrainAndOverlappingLegsPlan.md`, and independent of it — this is a hole *today*.
+      `render(List<ScheduleProblem>)` splits its argument with **five separate `instanceof` filters**
+      into five explicit sections. `ScheduleProblem` is sealed, and the three other places that map
+      over it — `ProblemKey.of`, `ProblemFix.fixesFor`, `ProblemBand.from` —
+      are all **exhaustive switches**, each with a javadoc saying in as many words that a new problem
+      type cannot be added without deciding the question it asks. The list view is the one that
+      silently opts out: add a sixth variant and the compiler stops you in three files and says
+      nothing about the fourth, so the problem is detected, keyed, linked and drawn on the calendar,
+      and is **absent from `/schedule-problems` itself**. Fix is small: replace the five filters with
+      one exhaustive `switch` appending into per-kind lists. Do it whether or not the overlapping-legs
+      detector is ever built — the next variant is the one that pays for it.
+      Note the assertion to write with it must not be a hard-coded list of kinds, per the
+      `CalendarDayMenuTest` rule (a test that has to be edited on every change stops guarding).
+
+- [x] **`/calendar` never names the month except on the 1st.** **Done 2026-08-31.** The month tint is too faint to answer
+      "which month am I looking at", and the only text naming one is the day label on the 1st — so
+      any week not containing a 1st leaves a reader counting. Ted, 2026-08-31: *"i completely lose
+      what month it is for weeks that have entries."* Note **weeks that have entries**: this is the
+      ordinary case, not a side effect of collapsing anything.
+      **Built and then reverted the same day**, only because it rode in on the quiet-week-runs branch
+      (`archived/QuietWeekRunsPlan.md` D5b) — Ted's verdict on it was *"i like the months"*. The
+      shape: a sticky `.calendar-month-header` band, one per month, parked under the weekday header
+      (`top: var(--calendar-weekday-header-height)`, `z-index` below the header's 10). A week is
+      filed under the month its **Sunday** falls in, so a straddling week belongs to one month and
+      not both; the alternative puts two bands between two adjacent weeks. One test —
+      `everyMonthGetsOneBandAboveTheFirstWeekThatStartsInIt` — mutation-verified by filing a week
+      under its Saturday instead.
+      Re-landed on its own, as intended — then **removed again 2026-09-01** with the year overview
+      (`archived/YearOverviewPlan.md`). Two reasons, and the second is why it cannot come back in
+      this shape: they were built for orientation *while scrolling* to find a month, which the jump
+      replaces; and a week is filed under its **Sunday**, so Sep 1–5 rendered under a band reading
+      "AUGUST 2026", and a `gridEnd` on the 1st–5th left a month with no band at all. That is also
+      why they could not be the jump anchors — those are the month-start day cells, whose set is
+      complete by construction. The 1st still names its month in its own day label.
+- [x] **Nothing enforced that the public calendar handles the same removal events the owner's does.**
+      Raised by review of the S2 refactor 2026-08-21; **done the same day** — Ted chose
+      lifecycle-propagation scenarios over a source-scan convention test, the option that fits the
+      standing preference (sealing `Event` was rejected). `CalendarRemovalPropagationTest` drives one
+      event stream into **both** read models and asserts the entry is in both, then gone from both,
+      for all four removal events (`HotelBookingCancelled`, `GroundTransferCancelled`,
+      `ConferenceCancelled`, `ConferenceAttendanceDeclined`) plus the confirmed-then-cancelled
+      conference, whose entry both projectors have already rewritten once. The presence assertion is
+      what makes it meaningful: without it a creation event one side ignored would leave that side
+      empty from the start and the removal assertion would pass for the wrong reason.
+      **It found a real hole on the way in:** `GroundTransferCancelled`'s branch in
+      `GroundTransferCalendarProjector` had **no test at all** — deleting it left the entire suite
+      green. Now caught.
+      **Still true, and deliberately so:** adding a *fifth* removal event needs a new row in that
+      test, and nothing forces it. That is the known cost of the scenario-test approach. The
+      source-scan alternative (compare the two switches' matched event types, in the style of
+      `PublicCalendarBuildsOnlyPublishableEntriesTest`) stays available if this ever proves too easy
+      to forget.
+- [x] **No test covered the `PublicCalendarProjector` bean's registration.** From the 2026-08-21
+      review; **done the same day**. Every test that renders `/calendar` supplies it as a
+      `@MockitoBean`, so reducing `bootstrapper.register(...)` to a bare `new PublicCalendarProjector()`
+      would have left the projector neither subscribed nor replayed — **a permanently empty calendar
+      for every anonymous visitor**, with the whole suite green.
+      Fixed generally rather than for the one bean, as noted: `EveryProjectorBeanIsRegisteredTest`
+      asserts that **every `@Bean` returning an `EventStreamConsumer`** calls
+      `bootstrapper.register(...)` — 23 beans today. The set is derived by **reflection** over
+      `EventSourcingConfig`, so a new projector bean is covered the day it is written and there is no
+      fixture to forget; only "does it call register" is answered by reading source, that call being
+      the whole of what there is to check. A second test pins the guard against its own rot (the
+      config class moving, or the `bootstrapper` parameter being renamed), since either would
+      silently reduce it to checking nothing.
+
+- [x] **A fix action does not come back to the report it was launched from. FIXED 2026-09-06.** Ted, 2026-09-06:
+      *"I'm fixing schedule problems and keep ending up somewhere else and have to return to the
+      schedule problems page. not huge, just annoying."*
+      **Three-quarters of this already exists.** `ProblemFix.explaining` appends `&from=<origin>` to
+      every fix href, `FixOrigin` already holds the way back for all three surfaces — including
+      `?view=list` vs `?view=calendar` — and `fragments/problem-context.html` renders it as a Back
+      link. **The gap is the POST.** No form carries `from` through: every `th:action` drops the
+      query string, so all eight fix targets redirect to their own hardcoded default
+      (`/booked-hotels`, `/booked-trains`, `/calendar`, `/itinerary`). Ted clicks Book hotel from
+      the report, books it, and lands on the hotels list.
+      **`ClearConflictController` is the half-done case and shows the shape of the bug:** it already
+      redirects to `/schedule-problems`, but hardcoded — so it loses the view and drops a reader who
+      came from the list onto the calendar.
+      **Proposed fix, small and shared.** (1) `ProblemContextAdvice` exposes the raw `from` as a
+      model attribute, the same way it already exposes `problemContext` — an advice rather than six
+      constructor dependencies, for D6's reason exactly. (2) Each fix target's form carries it
+      (hidden input), so it survives both the POST and a validation re-render. (3) Each controller
+      redirects to `FixOrigin.fromParam(from).backHref()` when present, else its current default —
+      one line each. (4) A convention test mirroring `ProblemContextFragmentConventionTest`, which
+      walks every href `ProblemFix` can emit, so a new fix target cannot forget the return trip in
+      the same silent way it could forget the banner.
+      **Watch two things.** The redirect target is derived from a query parameter, so it must be
+      resolved through `FixOrigin.fromParam` and never used as a raw path — an open redirect is
+      exactly what a hand-edited `?from=` would otherwise buy. And a fix that *fails* validation
+      must keep `from` on the re-rendered form, or the second submit loses the way back.
+      **Built as proposed, all eight targets.** `FixOrigin.returnTo(String)` returns
+      `Optional<String>` — **empty when absent**, which is the whole subtlety: `fromParam` defaults
+      a missing value to the calendar so a hand-typed link still renders a Back link, and reusing
+      that on a redirect would send every ordinary booking made from a nav card to the report.
+      `ProblemContextAdvice` exposes the raw `from` as `fixOrigin` (no projector, no clock, so it
+      works in a slice that has neither); each template carries it in a `th:if`-guarded hidden
+      input; each controller's **success return only** goes through a two-line `returnTo` helper —
+      a read-only refusal or a stale-link miss has fixed nothing and still goes where it did.
+      `ClearConflictController` stopped hardcoding `/schedule-problems` and now keeps the view.
+      Guarded by two new cases in `ProblemContextFragmentConventionTest` — one walking every
+      `ProblemFix` href to assert its form carries the origin, one asserting an unrecognized
+      `?from=` resolves to the calendar rather than becoming a path — plus seven round-trip cases
+      in `CancelTrainControllerTest`. Mutation-verified three ways: ignoring the origin on success
+      failed 3, treating absent as calendar failed 3, dropping a hidden input failed 1.
+      **One near-miss worth recording:** restoring a mutated template with `git checkout` silently
+      reverted it to a *stale index*, losing the hidden input — caught only because the suite was
+      re-run afterwards. Restore mutations from a copy, not from git, while work is staged.
 
 - [x] **Every reading on the cookie probe carries a verdict** (2026-09-09). Ted, on being shown the
       raw values: *"showing me values without knowing if they're good or bad is useless."* The case

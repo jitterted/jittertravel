@@ -90,7 +90,9 @@ public class GroundTransferEndpointOptions {
                 optionsFor(TransferEnd.HOTEL_CHECK_OUT, now),
                 optionsFor(TransferEnd.HOTEL_CHECK_IN, now),
                 optionsFor(TransferEnd.GATHERING_END, now),
-                optionsFor(TransferEnd.GATHERING_START, now));
+                optionsFor(TransferEnd.GATHERING_START, now),
+                optionsFor(TransferEnd.CONFERENCE_END, now),
+                optionsFor(TransferEnd.CONFERENCE_START, now));
     }
 
     /**

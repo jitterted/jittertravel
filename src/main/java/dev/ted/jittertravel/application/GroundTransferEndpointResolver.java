@@ -5,6 +5,7 @@ import dev.ted.jittertravel.domain.AirportCityResolver;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.TransferEndpointWindow;
@@ -38,6 +39,9 @@ import java.util.UUID;
  *   <tr><td>{@code gathering:<gatheringId>}</td>
  *       <td>the gathering's venue name and its {@link Address} verbatim, and the zone it was
  *           entered in</td></tr>
+ *   <tr><td>{@code conference:<conferenceId>}</td>
+ *       <td>the conference's venue name and {@link Address} verbatim, and the zone it was entered
+ *           in — refused once the conference has been dropped</td></tr>
  * </table>
  *
  * A trip has two stations, so the end is part of the token; a hotel names one place, so its is not
@@ -58,6 +62,7 @@ public class GroundTransferEndpointResolver {
     static final String HOTEL_PREFIX = "hotel:";
     private static final String TRAIN_PREFIX = "train:";
     static final String GATHERING_PREFIX = "gathering:";
+    static final String CONFERENCE_PREFIX = "conference:";
 
     private static final String ARRIVAL_SUFFIX = ":arrival";
     private static final String DEPARTURE_SUFFIX = ":departure";
@@ -65,6 +70,7 @@ public class GroundTransferEndpointResolver {
     private final HotelDetailsViewProjector hotelDetails;
     private final TrainDetailsViewProjector trainDetails;
     private final GatheringDetailsViewProjector gatheringDetails;
+    private final ConferenceProjector conferenceDetails;
     private final AirportCityResolver airportCities;
     private final AirportZoneResolver airportZones;
     private final LocationZoneResolver locationZones;
@@ -73,6 +79,7 @@ public class GroundTransferEndpointResolver {
     public GroundTransferEndpointResolver(HotelDetailsViewProjector hotelDetails,
                                           TrainDetailsViewProjector trainDetails,
                                           GatheringDetailsViewProjector gatheringDetails,
+                                          ConferenceProjector conferenceDetails,
                                           AirportCityResolver airportCities,
                                           AirportZoneResolver airportZones,
                                           LocationZoneResolver locationZones,
@@ -80,6 +87,7 @@ public class GroundTransferEndpointResolver {
         this.hotelDetails = hotelDetails;
         this.trainDetails = trainDetails;
         this.gatheringDetails = gatheringDetails;
+        this.conferenceDetails = conferenceDetails;
         this.airportCities = airportCities;
         this.airportZones = airportZones;
         this.locationZones = locationZones;
@@ -174,8 +182,38 @@ public class GroundTransferEndpointResolver {
         if (token.startsWith(GATHERING_PREFIX)) {
             return gatheringEndpoint(token.substring(GATHERING_PREFIX.length()));
         }
+        if (token.startsWith(CONFERENCE_PREFIX)) {
+            return conferenceEndpoint(token.substring(CONFERENCE_PREFIX.length()), token);
+        }
         throw new UnknownTransferEndpoint(
-                "Not an airport, a booked hotel, a train station or a gathering: " + token);
+                "Not an airport, a booked hotel, a train station, a gathering or a conference: "
+                + token);
+    }
+
+    /**
+     * A conference's venue and {@link Address}, copied verbatim as a gathering's is, in the zone the
+     * conference was entered in. Unlike the others, a conference can be <em>dropped</em> — declined,
+     * or rejected where acceptance was the way in — and its details outlive that, so the endpoint
+     * read model is asked first: a venue that is no longer offered is no longer somewhere to go.
+     */
+    private TransferEndpoint conferenceEndpoint(String rawConferenceId, String wholeToken) {
+        ConferenceId conferenceId = parseConferenceId(rawConferenceId, wholeToken);
+        if (!transferEndpoints.offers(wholeToken.toLowerCase(Locale.ENGLISH))) {
+            throw new UnknownTransferEndpoint("That conference is no longer available");
+        }
+        ConferenceDetailView conference = conferenceDetails.detailById(conferenceId)
+                .orElseThrow(() -> new UnknownTransferEndpoint(
+                        "That conference is no longer available"));
+        return new TransferEndpoint("", conference.venueName(), conference.venueAddress(),
+                conference.startDate().zone());
+    }
+
+    private ConferenceId parseConferenceId(String rawConferenceId, String wholeToken) {
+        try {
+            return ConferenceId.of(UUID.fromString(rawConferenceId));
+        } catch (IllegalArgumentException e) {
+            throw new UnknownTransferEndpoint("Not a conference: " + wholeToken);
+        }
     }
 
     /**

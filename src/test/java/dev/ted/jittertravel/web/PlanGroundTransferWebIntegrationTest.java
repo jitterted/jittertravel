@@ -131,6 +131,26 @@ class PlanGroundTransferWebIntegrationTest {
     }
 
     @Test
+    void aConferenceIsOfferedOnBothSelectsUnderItsOwnGroup() {
+        given(endpointOptions.choicesAt(any())).willReturn(new GroundTransferEndpointChoices(
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(),
+                List.of(new TransferEndpointOption("conference:c1",
+                        "Craft Conf — Denver · ends Thu Sep 17, 6:00 PM",
+                        "Denver", "2026-09-17", "18:00")),
+                List.of(new TransferEndpointOption("conference:c1",
+                        "Craft Conf — Denver · starts Tue Sep 15, 8:00 AM",
+                        "Denver", "2026-09-15", "08:00"))));
+
+        assertThat(mockMvc.get().uri("/plan-ground-transfer"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<optgroup label=\"Conferences\">")
+                .contains("Craft Conf — Denver · ends Thu Sep 17, 6:00 PM")
+                .contains("Craft Conf — Denver · starts Tue Sep 15, 8:00 AM");
+    }
+
+    @Test
     void planGroundTransferFormRendersSuccessfully() {
         assertThat(mockMvc.get().uri("/plan-ground-transfer"))
                 .hasStatusOk();

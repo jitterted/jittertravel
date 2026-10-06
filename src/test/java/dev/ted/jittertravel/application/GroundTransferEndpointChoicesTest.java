@@ -215,6 +215,34 @@ class GroundTransferEndpointChoicesTest {
                 .contains(gatheringStart);
     }
 
+    /** The venue half the old comment promised: a gap leaving or reaching a conference settles on it. */
+    @Test
+    void aGapLeavingAConferenceOrReachingOneSettlesOnIt() {
+        TransferEndpointOption conferenceEnd = leg("conference:" + TRIP, "Hamburg", "2026-09-13", "17:00");
+        TransferEndpointOption conferenceStart = leg("conference:" + OTHER_TRIP, "Frankfurt",
+                "2026-09-13", "09:00");
+        GroundTransferEndpointChoices choices = new GroundTransferEndpointChoices(
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(conferenceEnd), List.of(conferenceStart));
+
+        assertThat(choices.originFor(hamburgToFrankfurt())).contains(conferenceEnd);
+        assertThat(choices.destinationFor(hamburgToFrankfurt())).contains(conferenceStart);
+    }
+
+    @Test
+    void choicesHoldingOnlyConferencesAreNotEmpty() {
+        TransferEndpointOption conference = leg("conference:" + TRIP, "Hamburg", "2026-09-13", "17:00");
+
+        assertThat(new GroundTransferEndpointChoices(List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(), List.of(), List.of(conference), List.of())
+                .isEmpty())
+                .isFalse();
+        assertThat(new GroundTransferEndpointChoices(List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(conference))
+                .isEmpty())
+                .isFalse();
+    }
+
     /** The gap's range runs from the day it opened, so an endpoint on that first day is inside it. */
     @Test
     void anEndpointOnTheDayTheGapOpenedIsInsideIt() {

@@ -6,6 +6,8 @@ import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
@@ -382,6 +384,25 @@ class GroundTransferEndpointOptionsTest {
         assertThat(options.choicesAt(Instant.parse("2026-09-02T20:00:00Z")).gatheringStarts())
                 .as("the day after it ended")
                 .isEmpty();
+    }
+
+    @Test
+    void aConferenceIsOfferedToReachAtItsStartAndToLeaveFromAtItsEndUnderItsName() {
+        ConferenceId conf = ConferenceId.random();
+        given(new ConferencePlanned(conf, "Craft Conf", at("2026-09-15 08:00"),
+                at("2026-09-17 18:00"), "Convention Center",
+                new Address("700 14th St", "Denver", "CO", "80202", "US", "Denver")));
+
+        GroundTransferEndpointChoices choices = options.choicesAt(NOW);
+
+        assertThat(choices.conferenceStarts()).containsExactly(new TransferEndpointOption(
+                "conference:" + conf.id(),
+                "Craft Conf — Denver · starts Tue Sep 15, 8:00 AM",
+                "Denver", "2026-09-15", "08:00"));
+        assertThat(choices.conferenceEnds()).containsExactly(new TransferEndpointOption(
+                "conference:" + conf.id(),
+                "Craft Conf — Denver · ends Thu Sep 17, 6:00 PM",
+                "Denver", "2026-09-17", "18:00"));
     }
 
     private static GatheringPlanned gathering(GatheringId id, String title, String venue,

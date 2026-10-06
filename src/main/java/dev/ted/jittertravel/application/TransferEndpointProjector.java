@@ -7,6 +7,12 @@ import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
+import dev.ted.jittertravel.domain.ConferenceCancelled;
+import dev.ted.jittertravel.domain.ConferenceDatesChanged;
+import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.ConferencePlanned;
+import dev.ted.jittertravel.domain.TalkRejected;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanned;
@@ -29,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 /**
@@ -70,6 +77,8 @@ import java.util.stream.Stream;
 public class TransferEndpointProjector implements EventStreamConsumer {
 
     private final Map<RowKey, TransferEndpointRow> rows = new ConcurrentHashMap<>();
+    /** Held only so a conference's progress can say whether it has been dropped. */
+    private final Map<ConferenceId, TrackedConference> conferences = new ConcurrentHashMap<>();
     private final AirportCityResolver airportCities;
 
     public TransferEndpointProjector(AirportCityResolver airportCities) {
@@ -119,6 +128,22 @@ public class TransferEndpointProjector implements EventStreamConsumer {
                         e.location(), e.startsAt(), e.endsAt());
                 case GatheringChanged e -> putGathering(e.gatheringId(), e.title(), e.venueName(),
                         e.location(), e.startsAt(), e.endsAt());
+                case ConferencePlanned e -> trackConference(new TrackedConference(e.conferenceId(),
+                        e.name(), e.venueName(), e.venueAddress(), e.startDate(), e.endDate(),
+                        ConferenceProgress.planned(e.format())));
+                case ConferenceDatesChanged e -> redateConference(e.conferenceId(),
+                        e.startDate(), e.endDate());
+                // The organizers called it off: there is no venue to ride to.
+                case ConferenceCancelled e -> forgetConference(e.conferenceId());
+                // Only these two can drop a conference, and ConferenceProgress alone says whether
+                // they did — a conference Ted is no longer going to stops being offered exactly
+                // when it leaves the schedule. The other talk and attendance events cannot change
+                // that (a rejection drops by the format alone, a decline always does), so unlike
+                // ScheduleGapProjector this does not fold them: here they would be dead weight.
+                case ConferenceAttendanceDeclined e ->
+                        moveConference(e.conferenceId(), ConferenceProgress::declined);
+                case TalkRejected e ->
+                        moveConference(e.conferenceId(), ConferenceProgress::rejected);
                 default -> { /* not an endpoint event */ }
             }
         });
@@ -141,6 +166,11 @@ public class TransferEndpointProjector implements EventStreamConsumer {
                 .filter(row -> row.token().equals(token) && row.end().isOrigin() == asOrigin)
                 .map(TransferEndpointRow::window)
                 .findFirst();
+    }
+
+    /** Whether any row is offered under this token — false for a conference since dropped. */
+    public boolean offers(String token) {
+        return rows.values().stream().anyMatch(row -> row.token().equals(token));
     }
 
     private void putFlight(FlightId flightId, String airline, String flightNumber,
@@ -234,6 +264,64 @@ public class TransferEndpointProjector implements EventStreamConsumer {
         put(new RowKey(gatheringId.id().toString(), TransferEnd.GATHERING_START),
                 new TransferEndpointRow(TransferEnd.GATHERING_START, token, name, location.city(),
                         place, startsAt, window, endsAt, ""));
+    }
+
+    /**
+     * Both ends are the conference's whole span and are offered until its last day, as for a
+     * gathering. The name is the conference's, which is public by decision; the venue is what the
+     * transfer itself records (see {@link GroundTransferEndpointResolver}).
+     */
+    private void putConference(TrackedConference conference) {
+        String id = conference.conferenceId().id().toString();
+        String token = GroundTransferEndpointResolver.CONFERENCE_PREFIX + id;
+        Address address = conference.venueAddress();
+        Place place = Place.of(address);
+        var window = new TransferEndpointWindow(conference.startDate(), conference.endDate());
+        put(new RowKey(id, TransferEnd.CONFERENCE_END),
+                new TransferEndpointRow(TransferEnd.CONFERENCE_END, token, conference.name(),
+                        address.city(), place, conference.endDate(), window,
+                        conference.endDate(), ""));
+        put(new RowKey(id, TransferEnd.CONFERENCE_START),
+                new TransferEndpointRow(TransferEnd.CONFERENCE_START, token, conference.name(),
+                        address.city(), place, conference.startDate(), window,
+                        conference.endDate(), ""));
+    }
+
+    private void trackConference(TrackedConference conference) {
+        conferences.put(conference.conferenceId(), conference);
+        putConference(conference);
+    }
+
+    private void forgetConference(ConferenceId conferenceId) {
+        conferences.remove(conferenceId);
+        rows.remove(new RowKey(conferenceId.id().toString(), TransferEnd.CONFERENCE_START));
+        rows.remove(new RowKey(conferenceId.id().toString(), TransferEnd.CONFERENCE_END));
+    }
+
+    /** An event for a conference never seen is a no-op; one that drops it takes its rows with it. */
+    private void moveConference(ConferenceId conferenceId,
+                                UnaryOperator<ConferenceProgress> change) {
+        TrackedConference tracked = conferences.get(conferenceId);
+        if (tracked != null && change.apply(tracked.progress()).dropped()) {
+            forgetConference(conferenceId);
+        }
+    }
+
+    private void redateConference(ConferenceId conferenceId,
+                                  ZonedTimestamp newStart, ZonedTimestamp newEnd) {
+        TrackedConference tracked = conferences.get(conferenceId);
+        if (tracked != null) {
+            trackConference(tracked.during(newStart, newEnd));
+        }
+    }
+
+    private record TrackedConference(ConferenceId conferenceId, String name, String venueName,
+                                     Address venueAddress, ZonedTimestamp startDate,
+                                     ZonedTimestamp endDate, ConferenceProgress progress) {
+        TrackedConference during(ZonedTimestamp newStart, ZonedTimestamp newEnd) {
+            return new TrackedConference(conferenceId, name, venueName, venueAddress,
+                    newStart, newEnd, progress);
+        }
     }
 
     private void put(RowKey key, TransferEndpointRow row) {

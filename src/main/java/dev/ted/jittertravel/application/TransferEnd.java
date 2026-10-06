@@ -37,7 +37,11 @@ public enum TransferEnd {
     /** A gathering being reached — a destination, at its start (Ted, 2026-10-06). */
     GATHERING_START("starts", false),
     /** A gathering being left — an origin, at its end. */
-    GATHERING_END("ends", true);
+    GATHERING_END("ends", true),
+    /** A conference venue being reached — a destination, at the conference's start. */
+    CONFERENCE_START("starts", false),
+    /** A conference venue being left — an origin, at the conference's end. */
+    CONFERENCE_END("ends", true);
 
     private final String verb;
     private final boolean origin;

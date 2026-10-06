@@ -7,6 +7,19 @@ import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.AttendanceBasis;
+import dev.ted.jittertravel.domain.ConferenceAttendanceConfirmed;
+import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
+import dev.ted.jittertravel.domain.ConferenceCancelled;
+import dev.ted.jittertravel.domain.ConferenceDatesChanged;
+import dev.ted.jittertravel.domain.ConferenceFormat;
+import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.ConferencePlanned;
+import dev.ted.jittertravel.domain.InvitedToSpeak;
+import dev.ted.jittertravel.domain.TalkAccepted;
+import dev.ted.jittertravel.domain.TalkRejected;
+import dev.ted.jittertravel.domain.TalkSubmitted;
+import dev.ted.jittertravel.domain.TalkWithdrawn;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanned;
@@ -434,6 +447,125 @@ class TransferEndpointProjectorTest {
                 .isEqualTo(at("2026-09-16 18:00"));
         assertThat(endpoints.rowsFor(TransferEnd.GATHERING_END))
                 .hasSize(1);
+    }
+
+    private static final Instant WHEN = Instant.parse("2026-01-01T00:00:00Z");
+
+    @Test
+    void aConferenceYieldsAStartRowToReachAndAnEndRowToLeaveFromCarryingItsWholeSpan() {
+        ConferenceId conf = ConferenceId.random();
+        given(conference(conf, ConferenceFormat.CALL_FOR_PAPERS));
+
+        var span = new TransferEndpointWindow(at("2026-09-15 08:00"), at("2026-09-17 18:00"));
+        assertThat(endpoints.rowsFor(TransferEnd.CONFERENCE_START))
+                .singleElement()
+                .extracting(TransferEndpointRow::token, TransferEndpointRow::name,
+                        TransferEndpointRow::city, TransferEndpointRow::moment,
+                        TransferEndpointRow::window)
+                .containsExactly("conference:" + conf.id(), "Craft Conf", "Denver",
+                        at("2026-09-15 08:00"), span);
+        assertThat(endpoints.rowsFor(TransferEnd.CONFERENCE_END))
+                .singleElement()
+                .extracting(TransferEndpointRow::moment, TransferEndpointRow::offeredUntil,
+                        TransferEndpointRow::window)
+                .containsExactly(at("2026-09-17 18:00"), at("2026-09-17 18:00"), span);
+    }
+
+    @Test
+    void aConferenceWhoseDatesChangedIsOfferedOnItsNewDays() {
+        ConferenceId conf = ConferenceId.random();
+        given(conference(conf, ConferenceFormat.CALL_FOR_PAPERS),
+              new ConferenceDatesChanged(conf, at("2026-10-01 08:00"), at("2026-10-02 18:00")));
+
+        assertThat(endpoints.rowsFor(TransferEnd.CONFERENCE_START))
+                .extracting(TransferEndpointRow::moment)
+                .containsExactly(at("2026-10-01 08:00"));
+        assertThat(endpoints.rowsFor(TransferEnd.CONFERENCE_END))
+                .extracting(TransferEndpointRow::window)
+                .containsExactly(new TransferEndpointWindow(
+                        at("2026-10-01 08:00"), at("2026-10-02 18:00")));
+    }
+
+    @Test
+    void aCancelledConferenceIsNoLongerOffered() {
+        ConferenceId conf = ConferenceId.random();
+        given(conference(conf, ConferenceFormat.CALL_FOR_PAPERS),
+              new ConferenceCancelled(conf, "venue closed"));
+
+        assertThat(endpoints.rowsFor(TransferEnd.CONFERENCE_START)).isEmpty();
+        assertThat(endpoints.rowsFor(TransferEnd.CONFERENCE_END)).isEmpty();
+    }
+
+    @Test
+    void aDeclinedConferenceIsNoLongerOffered() {
+        ConferenceId conf = ConferenceId.random();
+        given(conference(conf, ConferenceFormat.CALL_FOR_PAPERS),
+              new ConferenceAttendanceDeclined(conf, "clash", WHEN));
+
+        assertThat(endpoints.rowsFor(TransferEnd.CONFERENCE_START)).isEmpty();
+        assertThat(endpoints.rowsFor(TransferEnd.CONFERENCE_END)).isEmpty();
+    }
+
+    /** Where acceptance was the way in, a rejection drops the conference, exactly as on the calendars. */
+    @Test
+    void aRejectionDropsAnAcceptanceRequiredConferenceButNotACallForPapersOne() {
+        ConferenceId strict = ConferenceId.random();
+        ConferenceId open = ConferenceId.random();
+        given(conference(strict, ConferenceFormat.ACCEPTANCE_REQUIRED),
+              conference(open, ConferenceFormat.CALL_FOR_PAPERS),
+              new TalkRejected(strict, WHEN),
+              new TalkRejected(open, WHEN));
+
+        assertThat(endpoints.rowsFor(TransferEnd.CONFERENCE_START))
+                .extracting(TransferEndpointRow::token)
+                .containsExactly("conference:" + open.id());
+    }
+
+    /** Everything that does not drop a conference leaves its rows exactly where they were. */
+    @Test
+    void theOtherConferenceEventsKeepItOffered() {
+        ConferenceId conf = ConferenceId.random();
+        given(conference(conf, ConferenceFormat.CALL_FOR_PAPERS),
+              new TalkSubmitted(conf, WHEN),
+              new TalkAccepted(conf, WHEN),
+              new TalkWithdrawn(conf, WHEN),
+              new InvitedToSpeak(conf, WHEN),
+              new ConferenceAttendanceConfirmed(conf, AttendanceBasis.SPEAKING_INVITED, WHEN));
+
+        assertThat(endpoints.rowsFor(TransferEnd.CONFERENCE_START))
+                .extracting(TransferEndpointRow::token)
+                .containsExactly("conference:" + conf.id());
+        assertThat(endpoints.rowsFor(TransferEnd.CONFERENCE_END))
+                .hasSize(1);
+    }
+
+    @Test
+    void anEventForAConferenceNeverPlannedOffersNothing() {
+        ConferenceId unknown = ConferenceId.random();
+        given(new TalkAccepted(unknown, WHEN),
+              new ConferenceDatesChanged(unknown, at("2026-10-01 08:00"), at("2026-10-02 18:00")),
+              new ConferenceAttendanceDeclined(unknown, "", WHEN));
+
+        assertThat(endpoints.rowsFor(TransferEnd.CONFERENCE_START)).isEmpty();
+    }
+
+    @Test
+    void aConferenceDroppedAfterBeingChangedStaysGone() {
+        ConferenceId conf = ConferenceId.random();
+        given(conference(conf, ConferenceFormat.CALL_FOR_PAPERS),
+              new ConferenceAttendanceDeclined(conf, "", WHEN),
+              new ConferenceDatesChanged(conf, at("2026-10-01 08:00"), at("2026-10-02 18:00")));
+
+        assertThat(endpoints.rowsFor(TransferEnd.CONFERENCE_START))
+                .as("a dropped conference does not come back because the organizers moved it")
+                .isEmpty();
+        assertThat(endpoints.offers("conference:" + conf.id()))
+                .isFalse();
+    }
+
+    private static ConferencePlanned conference(ConferenceId id, ConferenceFormat format) {
+        return new ConferencePlanned(id, "Craft Conf", at("2026-09-15 08:00"),
+                at("2026-09-17 18:00"), "Convention Center", DENVER_ADDRESS, format);
     }
 
     private static final Address DENVER_ADDRESS = new Address(

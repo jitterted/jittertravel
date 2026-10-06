@@ -5,6 +5,9 @@ import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
+import dev.ted.jittertravel.domain.ConferenceId;
+import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.TransferEndpointWindow;
@@ -41,6 +44,7 @@ class PlanGroundTransferHandlerTest {
     private static final HotelBookingId BOOKING = HotelBookingId.random();
     private static final TrainTripId TRIP = TrainTripId.random();
     private static final GatheringId GATHERING = GatheringId.random();
+    private static final ConferenceId CONFERENCE = ConferenceId.random();
     private static final Address GATHERING_ADDRESS = new Address(
             "4242 Wynkoop St", "Denver", "CO", "80216", "US", "Denver");
     private static final Address HOTEL_ADDRESS = new Address(
@@ -49,10 +53,12 @@ class PlanGroundTransferHandlerTest {
     private final HotelDetailsViewProjector hotelDetails = new HotelDetailsViewProjector();
     private final TrainDetailsViewProjector trainDetails = new TrainDetailsViewProjector();
     private final GatheringDetailsViewProjector gatheringDetails = new GatheringDetailsViewProjector();
+    private final ConferenceProjector conferences = new ConferenceProjector();
     private final TransferEndpointProjector transferEndpoints =
             new TransferEndpointProjector(new StaticAirportCityResolver());
     private final PlanGroundTransferHandler handler = new PlanGroundTransferHandler(
             new GroundTransferEndpointResolver(hotelDetails, trainDetails, gatheringDetails,
+                    conferences,
                     new StaticAirportCityResolver(), new AirportZoneResolver(),
                     new LocationZoneResolver(), transferEndpoints));
 
@@ -425,6 +431,80 @@ class PlanGroundTransferHandlerTest {
                 .hasMessage("Not a gathering: gathering:not-a-uuid");
     }
 
+    @Test
+    void aConferenceTokenResolvesToItsVenueAndAddressAndCarriesItsSpan() {
+        PlanGroundTransferCommand command = handler.handle(
+                request("hotel:" + BOOKING.id(), "conference:" + CONFERENCE.id(),
+                        bookedHotel(), plannedConference()));
+
+        assertThat(command.destinationName())
+                .as("the transfer records the venue, not the conference's name")
+                .isEqualTo("Convention Center");
+        assertThat(command.destination())
+                .isEqualTo(GATHERING_ADDRESS);
+        assertThat(command.arrivesAt().zone())
+                .isEqualTo(DENVER);
+        assertThat(command.destinationWindow())
+                .isEqualTo(new TransferEndpointWindow(
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 8, 0), DENVER),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 16, 18, 0), DENVER)));
+    }
+
+    /** A declined conference's details outlive the decline; the offer must not. */
+    @Test
+    void aConferenceSinceDroppedIsRefusedEvenThoughItsDetailsRemain() {
+        assertThatThrownBy(() -> handler.handle(
+                request("hotel:" + BOOKING.id(), "conference:" + CONFERENCE.id(),
+                        bookedHotel(), plannedConference(), stored(
+                                new ConferenceAttendanceDeclined(CONFERENCE, "clash",
+                                        Instant.parse("2026-01-02T00:00:00Z"))))))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessage("That conference is no longer available");
+    }
+
+    @Test
+    void aConferenceIdThatWasNeverPlannedIsRefused() {
+        assertThatThrownBy(() -> handler.handle(
+                request("hotel:" + BOOKING.id(), "conference:" + ConferenceId.random().id(),
+                        bookedHotel())))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessage("That conference is no longer available");
+    }
+
+    /** The endpoint model and the conference details are two projectors; if they disagree, refuse. */
+    @Test
+    void aConferenceTheDetailsProjectorDoesNotHoldIsRefused() {
+        var withoutDetails = new PlanGroundTransferHandler(new GroundTransferEndpointResolver(
+                hotelDetails, trainDetails, gatheringDetails, new ConferenceProjector(),
+                new StaticAirportCityResolver(), new AirportZoneResolver(),
+                new LocationZoneResolver(), transferEndpoints));
+        transferEndpoints.handle(Stream.of(plannedConference()));
+        hotelDetails.handle(Stream.of(bookedHotel()));
+        transferEndpoints.handle(Stream.of(bookedHotel()));
+
+        assertThatThrownBy(() -> withoutDetails.handle(new PlanGroundTransferRequest(
+                UUID.randomUUID().toString(), "hotel:" + BOOKING.id(),
+                "conference:" + CONFERENCE.id(), null, LocalDate.of(2026, 9, 14),
+                LocalTime.of(12, 0), LocalTime.of(12, 45))))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessage("That conference is no longer available");
+    }
+
+    @Test
+    void aMalformedConferenceIdIsRefused() {
+        assertThatThrownBy(() -> handler.handle(
+                request("hotel:" + BOOKING.id(), "conference:not-a-uuid", bookedHotel())))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessage("Not a conference: conference:not-a-uuid");
+    }
+
+    private static StoredEvent plannedConference() {
+        return stored(new ConferencePlanned(CONFERENCE, "Craft Conf",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 8, 0), DENVER),
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 16, 18, 0), DENVER),
+                "Convention Center", GATHERING_ADDRESS));
+    }
+
     private static StoredEvent plannedGathering() {
         return stored(new GatheringPlanned(GATHERING, "Dinner with the CTO", "Mission Ballroom",
                 GATHERING_ADDRESS,
@@ -437,6 +517,7 @@ class PlanGroundTransferHandlerTest {
         hotelDetails.handle(Stream.of(history));
         trainDetails.handle(Stream.of(history));
         gatheringDetails.handle(Stream.of(history));
+        conferences.handle(Stream.of(history));
         transferEndpoints.handle(Stream.of(history));
         return new PlanGroundTransferRequest(UUID.randomUUID().toString(), origin, destination,
                                              null, LocalDate.of(2026, 9, 14),

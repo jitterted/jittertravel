@@ -38,6 +38,8 @@ import java.util.stream.Stream;
  * @param checkIns  hotels for the "To" select, each carrying its check-in
  * @param gatheringEnds gatherings for the "From" select, each carrying its end
  * @param gatheringStarts gatherings for the "To" select, each carrying its start
+ * @param conferenceEnds conference venues for the "From" select, each carrying the conference's end
+ * @param conferenceStarts conference venues for the "To" select, each carrying its start
  */
 public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrivals,
                                             List<TransferEndpointOption> departures,
@@ -46,9 +48,11 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
                                             List<TransferEndpointOption> checkOuts,
                                             List<TransferEndpointOption> checkIns,
                                             List<TransferEndpointOption> gatheringEnds,
-                                            List<TransferEndpointOption> gatheringStarts) {
+                                            List<TransferEndpointOption> gatheringStarts,
+                                            List<TransferEndpointOption> conferenceEnds,
+                                            List<TransferEndpointOption> conferenceStarts) {
 
-    /** Choices with no gatherings on offer — what the form had before gatherings could be picked. */
+    /** Choices with no gatherings or conferences on offer — what the form had before either. */
     public GroundTransferEndpointChoices(List<TransferEndpointOption> arrivals,
                                          List<TransferEndpointOption> departures,
                                          List<TransferEndpointOption> trainArrivals,
@@ -59,6 +63,19 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
                 List.of(), List.of());
     }
 
+    /** Choices with no conferences on offer — the form between gatherings and conferences. */
+    public GroundTransferEndpointChoices(List<TransferEndpointOption> arrivals,
+                                         List<TransferEndpointOption> departures,
+                                         List<TransferEndpointOption> trainArrivals,
+                                         List<TransferEndpointOption> trainDepartures,
+                                         List<TransferEndpointOption> checkOuts,
+                                         List<TransferEndpointOption> checkIns,
+                                         List<TransferEndpointOption> gatheringEnds,
+                                         List<TransferEndpointOption> gatheringStarts) {
+        this(arrivals, departures, trainArrivals, trainDepartures, checkOuts, checkIns,
+                gatheringEnds, gatheringStarts, List.of(), List.of());
+    }
+
     /**
      * Nothing recorded to travel between — the state the form says out loud rather than showing two
      * blank selects. Named because it is a case the form reasons about, and because spelling it as
@@ -66,7 +83,7 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
      */
     public static GroundTransferEndpointChoices nothing() {
         return new GroundTransferEndpointChoices(List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of());
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     public boolean isEmpty() {
@@ -92,11 +109,11 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
      * day are two candidates, and the form must ask rather than guess between them.
      */
     private List<TransferEndpointOption> origins() {
-        return concat(arrivals, trainArrivals, checkOuts, gatheringEnds);
+        return concat(arrivals, trainArrivals, checkOuts, gatheringEnds, conferenceEnds);
     }
 
     private List<TransferEndpointOption> destinations() {
-        return concat(departures, trainDepartures, checkIns, gatheringStarts);
+        return concat(departures, trainDepartures, checkIns, gatheringStarts, conferenceStarts);
     }
 
     /**

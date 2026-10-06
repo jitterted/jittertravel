@@ -245,6 +245,23 @@ class EmailPreviewControllerTest {
     }
 
     @Test
+    void afterTheRedirectOnlyTheGroupJustSentFlashesItsResult() {
+        canSend();
+        EmailPreviewMemory.Result ok = new EmailPreviewMemory.Result(NOW, 4, 4, "ted@example.com", "");
+        given(memory.last(EmailGroup.CONFERENCES)).willReturn(Optional.of(ok));
+        given(memory.last(EmailGroup.FLIGHTS)).willReturn(Optional.of(
+                new EmailPreviewMemory.Result(NOW, 3, 3, "ted@example.com", "")));
+
+        assertThat(mockMvc.get().uri("/admin/email-preview").flashAttr("justSentCONFERENCES", true))
+                .hasStatusOk()
+                .bodyText()
+                .containsOnlyOnce("class=\"send ok flash\"")
+                .containsOnlyOnce("class=\"send ok\"")
+                .containsPattern("(?s)class=\"send ok flash\".*?<div class=\"send-what\">4 emails sent")
+                .containsPattern("(?s)class=\"send ok\".*?<div class=\"send-what\">3 emails sent");
+    }
+
+    @Test
     void sendingTheConferenceEmailsGoesToTedOnlyInTheOrderTheCardsShowThem() {
         canSend();
 

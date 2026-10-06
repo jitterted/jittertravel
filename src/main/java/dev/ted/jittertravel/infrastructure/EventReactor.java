@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * A consumer that reacts to appended events <strong>asynchronously</strong>, off the append thread,
- * and may do I/O or append events of its own. The Translator/Processor pattern:
+ * and may do I/O or append events of its own. The Actuator/Processor pattern (a stateful processor that issues a command; a Translator, by contrast, is stateless and republishes a different event):
  * {@code docs/FamilyEmailNotificationsPlan.md} §4.1.
  *
  * <p><strong>Deliberately not an {@link EventStreamConsumer}, and the separation is the point.</strong>
@@ -18,7 +18,7 @@ import java.util.List;
  *   <li><strong>A reactor can never be replayed into.</strong> {@link ProjectorBootstrapper#register}
  *       is {@code <P extends EventStreamConsumer>}, so a reactor does not fit it, and
  *       {@link EventStore} has no other path that hands history to one. That is a compile error
- *       rather than a rule to remember — which matters because the one reactor there is ({@code FamilyNotificationTranslator}) sends email,
+ *       rather than a rule to remember — which matters because the one reactor there is ({@code FamilyNotificationActuator}) sends email,
  *       and replaying history into it at boot would mail years of bookings at once.</li>
  * </ul>
  *

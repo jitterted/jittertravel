@@ -1,5 +1,12 @@
 # Family Email Notifications — Plan
 
+> **Terminology, 2026-10-05 (Ted).** A *Translator* is a stateless Processor that turns an incoming
+> event into a different, usually externally published, event; an *Actuator* may have or derive state
+> and issues a **Command** when an event puts it into a particular state. What this plan built is an
+> **Actuator**, and the class is now `FamilyNotificationActuator` (it was `…Translator`). The prose
+> below, written before the rename, still says "Translator" and "the translator" for it — read those
+> as the actuator.
+
 **Status:** `partial` — designed 2026-09-09 (Ted), **revised 2026-09-10 after a review against the
 code**, **every open question answered by Ted the same day** in a second review pass, and the last
 one — `FlightChanged` — **closed as decided rather than deferred on 2026-09-15** (§1, §9). **Slice 0
@@ -28,7 +35,7 @@ and no notion of a person.
 | Decision | Choice |
 |---|---|
 | Channel | **Email via Brevo**, plain `POST https://api.brevo.com/v3/smtp/email`, no SDK |
-| Pattern | **Translator/Processor** — async subscriber → command → event |
+| Pattern | **Actuator/Processor** (written as "Translator" before 2026-10-05) — async subscriber → command → event |
 | Send order | **Send, then record the event.** The `NotifyFamily` command is write-ahead-logged PENDING, the POST *is* the command's work, `FamilyNotified` is appended on 2xx (§4.3) |
 | Boot semantics | **At-most-once. Never send at boot, ever.** No backlog send, no cutoff property |
 | Trigger config | **One place in code**, plus a runtime kill switch env var |
@@ -190,7 +197,7 @@ enough to actually do.
 EventStore.append(...)                     [existing, synchronous, holds transactionLock]
   ├─> notifySynchronousSubscribers(...)    [existing] projectors, unchanged
   └─> dispatchToReactors(...)              [NEW] executor.execute(...) per reactor, then RETURN
-        └─> FamilyNotificationTranslator   [infrastructure] EventReactor — on the worker thread
+        └─> FamilyNotificationActuator   [infrastructure] EventReactor — on the worker thread
               · filter to trigger types
               └─> NotifyFamily             [application]
                     0. enabled? configured? → return, write nothing
@@ -288,7 +295,7 @@ extra constructor parameter was a trivial change either way. Slice 0's own tests
    restriction is not optional: it is byte-for-byte the `CallerRunsPolicy` interleaving banned two
    sections below — the reactor runs on the append thread, inside `append`, holding
    `transactionLock`, and its own `append` re-enters the critical section. It is fine for
-   `EventStoreTest` (a recording reactor) and for `FamilyNotificationTranslatorTest` (`NotifyFamily`
+   `EventStoreTest` (a recording reactor) and for `FamilyNotificationActuatorTest` (`NotifyFamily`
    is a test double). It must **not** be wired into an integration test that has a real
    `EventStore` behind a real `NotifyFamily`. Say so in the javadoc of `subscribeAsync`, next to the
    `Executor` parameter, because the two paragraphs that explain it are far apart.
@@ -388,7 +395,7 @@ way: read-only refuses before the send, so nothing is sent. Failure mode #2 is r
 crash or a database failure between the 2xx and the append — the `appendOrMarkFailed` path, not
 this one.
 
-#### `FamilyNotificationTranslator` (infrastructure)
+#### `FamilyNotificationActuator` (infrastructure)
 
 What is left of it is genuinely small: an `EventReactor` that filters the batch to trigger types and
 calls `NotifyFamily`. No queue, no thread, no lifecycle. It runs on the worker thread, so it may
@@ -1090,7 +1097,7 @@ case already records:
 **three** amendments to the PENDING invariant (§4.3 — javadoc, boot log, the page's own wording);
 `FamilyNotified` + `NotifiedSubject` + `NotifiedFact` + `NotifyFamilyCommand` + `EventTypes` +
 golden sample; `BrevoEmailClient`; `NotifyFamily` with the fact-comparison fold;
-`FamilyNotificationTranslator`; `FamilyNotificationMessages` with the flight arm only (route in the
+`FamilyNotificationActuator`; `FamilyNotificationMessages` with the flight arm only (route in the
 subject, §5); **the probe** (§4.6 — route, matcher, matrix row, `/admin` form); wiring in
 `EventSourcingConfig` (including the kill switch passed in as a `boolean`); the completeness test;
 the four properties **and** the four env vars; the `DEPLOYMENT.md` rows. Deploy dark, probe to Ted,
@@ -1101,7 +1108,7 @@ repoint, probe to family, flip (§3).
 Built with slice 1a, shipping dark. Everything in the list above exists except where noted.
 - **Code.** `ExternalAction` and `CommandExecutor.executeExternalAction`; `FamilyNotified`,
   `NotifiedSubject`, `NotifiedFact`, `NotifyFamilyCommand` (registered, golden-sampled);
-  `BrevoEmailClient`; `NotifyFamily`; `FamilyNotificationTranslator`; `FamilyNotificationMessages`;
+  `BrevoEmailClient`; `NotifyFamily`; `FamilyNotificationActuator`; `FamilyNotificationMessages`;
   the probe on `/admin`; four properties in `application.properties`; wiring in `EventSourcingConfig`;
   `Pre-Push-Tasks.md` boxes and `DEPLOYMENT.md` rows.
 - **`NotifiedSubject` is a record `(Kind kind, UUID id)`, not the sealed interface §4.4 draws.** A
@@ -1258,7 +1265,7 @@ written on 2026-10-05; it is in `conference-going.txt` and `conference-not-going
   `Stream` the second gets an `IllegalStateException`, so this is the test that would have caught
   it); **a task still queued when the executor is shut down does not run** (the `shutdownNow`
   decision, which is otherwise invisible until production).
-- `FamilyNotificationTranslatorTest` — with `Runnable::run` as the executor, a trigger event reaches
+- `FamilyNotificationActuatorTest` — with `Runnable::run` as the executor, a trigger event reaches
   `NotifyFamily` and a non-trigger event does not. No queue or thread to test: they moved.
   `NotifyFamily` is a test double here, which is what makes `Runnable::run` legitimate — see §4.1(3)
   for the case where it is not.

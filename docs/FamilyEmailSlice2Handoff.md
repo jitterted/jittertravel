@@ -49,7 +49,7 @@ Slice 1's shape is the pattern. Use it, do not invent a second one.
    fact-comparison and positive-first rules, then sends. Add outcomes only if a new silent reason
    is distinct from the existing `Outcome` values (read `NotifyFamily.Outcome` first).
    `ConferenceProgress` lives in `application`; reuse it, do not re-derive the commitment.
-3. **Infrastructure.** `FamilyNotificationTranslator`: the five triggers produce a conference
+3. **Infrastructure.** `FamilyNotificationActuator`: the five triggers produce a conference
    notification (a `TalkAccepted` and a `ConferenceAttendanceConfirmed` can both occur; the
    fact-comparison makes the second silent). `FamilyNotificationMessages.messageFor` is an
    exhaustive switch over `NotifiedFact`, so the compiler will force the two new arms. Each arm
@@ -101,7 +101,7 @@ local instance without checking `/admin/settings` for the key's last four charac
 
 ## First steps for the next session
 
-1. Read this file, plan §4.4/§4.5/§5/§7, `NotifyFamily.java`, `FamilyNotificationTranslator.java`,
+1. Read this file, plan §4.4/§4.5/§5/§7, `NotifyFamily.java`, `FamilyNotificationActuator.java`,
    `FamilyNotificationMessages.java`, `ConferenceProgress.java` and the five trigger events.
 2. Draft the conference email wording (going: three basis variants plus speaking line; not going:
    decline, cancellation, rejection) and show Ted the literal text for approval before any code.

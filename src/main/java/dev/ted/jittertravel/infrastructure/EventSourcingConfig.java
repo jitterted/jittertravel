@@ -550,13 +550,13 @@ public class EventSourcingConfig {
      * past, by type and not by a rule to remember.
      */
     @Bean
-    public FamilyNotificationTranslator familyNotificationTranslator(EventStore eventStore,
-                                                                     NotifyFamily notifyFamily,
-                                                                     Clock clock,
-                                                                     MeterRegistry meterRegistry) {
-        FamilyNotificationTranslator translator = new FamilyNotificationTranslator(notifyFamily, clock, meterRegistry);
-        eventStore.subscribeAsync(translator);
-        return translator;
+    public FamilyNotificationActuator familyNotificationActuator(EventStore eventStore,
+                                                                 NotifyFamily notifyFamily,
+                                                                 Clock clock,
+                                                                 MeterRegistry meterRegistry) {
+        FamilyNotificationActuator actuator = new FamilyNotificationActuator(notifyFamily, clock, meterRegistry);
+        eventStore.subscribeAsync(actuator);
+        return actuator;
     }
 
     /**

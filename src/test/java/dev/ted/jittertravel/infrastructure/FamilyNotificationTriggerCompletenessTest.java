@@ -58,7 +58,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * has to do, which is the point of it being here rather than computed.
  * <p>
  * This pins the decision, not the behaviour: that each telling event really notifies is
- * {@code FamilyNotificationTranslatorTest}'s claim.
+ * {@code FamilyNotificationActuatorTest}'s claim.
  */
 class FamilyNotificationTriggerCompletenessTest {
 
@@ -92,7 +92,7 @@ class FamilyNotificationTriggerCompletenessTest {
 
         assertThat(undecided)
                 .as("a new event class needs a decision: does family hear about it? Add it to "
-                    + "TELLS_FAMILY (and teach FamilyNotificationTranslator), or to SILENT with a reason")
+                    + "TELLS_FAMILY (and teach FamilyNotificationActuator), or to SILENT with a reason")
                 .isEmpty();
     }
 

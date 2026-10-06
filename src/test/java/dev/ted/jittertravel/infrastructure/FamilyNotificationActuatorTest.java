@@ -55,7 +55,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
  * event — is what says whether legs arrived alone or as a trip.
  */
 @ExtendWith(MockitoExtension.class)
-class FamilyNotificationTranslatorTest {
+class FamilyNotificationActuatorTest {
 
     private static final Instant NOW = Instant.parse("2026-10-05T17:00:00Z");
     private static final ZoneId PACIFIC = ZoneId.of("America/Los_Angeles");
@@ -68,13 +68,13 @@ class FamilyNotificationTranslatorTest {
     private final FlightBooked second = leg("UA3509", 19);
     private final FlightBooked third = leg("UA3510", 25);
 
-    private FamilyNotificationTranslator translatorFor() {
-        return new FamilyNotificationTranslator(notifyFamily, Clock.fixed(NOW, ZoneOffset.UTC), meters);
+    private FamilyNotificationActuator actuatorFor() {
+        return new FamilyNotificationActuator(notifyFamily, Clock.fixed(NOW, ZoneOffset.UTC), meters);
     }
 
     @Test
     void aFlightBookedOnItsOwnNotifiesAsAFlight() {
-        translatorFor().react(batch(first));
+        actuatorFor().react(batch(first));
 
         verify(notifyFamily).notifyFamily(any(UUID.class), eq(NotifiedSubject.flight(first.flightId())),
                 eq(NotifiedFact.FLIGHT_BOOKED), eq(List.of(first)), eq(NOW));
@@ -84,7 +84,7 @@ class FamilyNotificationTranslatorTest {
     void aPastedItineraryNotifiesOnceForTheWholeTripNotOncePerLeg() {
         FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
 
-        translatorFor().react(batch(first, second, third,
+        actuatorFor().react(batch(first, second, third,
                 new FlightItineraryBooked(trip, "United Airlines", "MD7LKB",
                         List.of(first.flightId(), second.flightId(), third.flightId()))));
 
@@ -99,7 +99,7 @@ class FamilyNotificationTranslatorTest {
         // trip email with no flights in it would be worse than none.
         FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
 
-        translatorFor().react(batch(new FlightItineraryBooked(trip, "United Airlines", "MD7LKB",
+        actuatorFor().react(batch(new FlightItineraryBooked(trip, "United Airlines", "MD7LKB",
                 List.of(first.flightId()))));
 
         verifyNoInteractions(notifyFamily);
@@ -109,7 +109,7 @@ class FamilyNotificationTranslatorTest {
     void theLegsOfATripAreOrderedByDepartureWhateverOrderTheItineraryListsThem() {
         FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
 
-        translatorFor().react(batch(first, second, third,
+        actuatorFor().react(batch(first, second, third,
                 new FlightItineraryBooked(trip, "United Airlines", "MD7LKB",
                         List.of(third.flightId(), first.flightId(), second.flightId()))));
 
@@ -124,7 +124,7 @@ class FamilyNotificationTranslatorTest {
     void aFlightBookedByAScheduleChangeNotifiesNobody() {
         FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
 
-        translatorFor().react(batch(second,
+        actuatorFor().react(batch(second,
                 new FlightItineraryChanged(trip, List.of(first.flightId(), second.flightId()),
                         "Airline schedule change", NOW)));
 
@@ -133,7 +133,7 @@ class FamilyNotificationTranslatorTest {
 
     @Test
     void eventsThatAreNotNewTripsAreIgnored() {
-        translatorFor().react(batch(new FlightCancelled(first.flightId(), "", NOW)));
+        actuatorFor().react(batch(new FlightCancelled(first.flightId(), "", NOW)));
 
         verifyNoInteractions(notifyFamily);
     }
@@ -141,7 +141,7 @@ class FamilyNotificationTranslatorTest {
     /** One dropped leg is often a rebooking, not a trip that is off (Ted, 2026-10-05). */
     @Test
     void cancellingOneFlightOnItsOwnTellsNobody() {
-        translatorFor().react(batch(new FlightCancelled(first.flightId(), "Rebooked", NOW)));
+        actuatorFor().react(batch(new FlightCancelled(first.flightId(), "Rebooked", NOW)));
 
         verifyNoInteractions(notifyFamily);
     }
@@ -150,7 +150,7 @@ class FamilyNotificationTranslatorTest {
     void cancellingAWholeItineraryTellsFamilyOnceWithTheLegsThatWereCancelledWithIt() {
         FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
 
-        translatorFor().react(batch(
+        actuatorFor().react(batch(
                 new FlightCancelled(first.flightId(), "Rebooked", NOW),
                 new FlightCancelled(second.flightId(), "Rebooked", NOW),
                 new FlightItineraryCancelled(trip, "Rebooked", NOW)));
@@ -166,7 +166,7 @@ class FamilyNotificationTranslatorTest {
         given(notifyFamily.notifyOfCancelledItinerary(any(), any(), any(), any()))
                 .willThrow(new IllegalStateException("Brevo returned 502"));
 
-        translatorFor().react(batch(
+        actuatorFor().react(batch(
                 new FlightCancelled(first.flightId(), "", NOW), new FlightItineraryCancelled(trip, "", NOW)));
 
         assertThat(meters.counter("family.notification.failed").count())
@@ -178,7 +178,7 @@ class FamilyNotificationTranslatorTest {
         given(notifyFamily.notifyFamily(any(), eq(NotifiedSubject.flight(first.flightId())), any(), any(), any()))
                 .willThrow(new IllegalStateException("Brevo returned 502"));
 
-        translatorFor().react(batch(first, second));
+        actuatorFor().react(batch(first, second));
 
         verify(notifyFamily).notifyFamily(any(), eq(NotifiedSubject.flight(second.flightId())), any(), any(), any());
         assertThat(meters.counter("family.notification.failed").count())
@@ -187,7 +187,7 @@ class FamilyNotificationTranslatorTest {
 
     @Test
     void everyNotificationGetsItsOwnCommandId() {
-        translatorFor().react(batch(first, second));
+        actuatorFor().react(batch(first, second));
 
         ArgumentCaptor<UUID> ids = ArgumentCaptor.forClass(UUID.class);
         verify(notifyFamily, times(2)).notifyFamily(ids.capture(), any(), any(), any(), any());
@@ -209,7 +209,7 @@ class FamilyNotificationTranslatorTest {
                 new TalkRejected(socrates, NOW));
 
         for (Event trigger : triggers) {
-            translatorFor().react(batch(trigger));
+            actuatorFor().react(batch(trigger));
         }
 
         verify(notifyFamily, times(5)).notifyOfConference(any(UUID.class), eq(socrates), eq(NOW));
@@ -220,7 +220,7 @@ class FamilyNotificationTranslatorTest {
     void severalEventsForOneConferenceInOneBatchAskOnceAndEachConferenceGetsItsOwnCommandId() {
         ConferenceId devoxx = ConferenceId.random();
 
-        translatorFor().react(batch(
+        actuatorFor().react(batch(
                 new TalkAccepted(socrates, NOW),
                 new ConferenceAttendanceConfirmed(socrates, AttendanceBasis.SPEAKING_ACCEPTED, NOW),
                 new TalkAccepted(devoxx, NOW)));
@@ -235,7 +235,7 @@ class FamilyNotificationTranslatorTest {
 
     @Test
     void conferenceEventsThatMoveOnlyTheTalkOrThePlanAreSilent() {
-        translatorFor().react(batch(
+        actuatorFor().react(batch(
                 new TalkSubmitted(socrates, NOW),
                 new TalkWithdrawn(socrates, NOW),
                 new InvitedToSpeak(socrates, NOW),
@@ -252,7 +252,7 @@ class FamilyNotificationTranslatorTest {
         given(notifyFamily.notifyOfConference(any(), eq(socrates), any()))
                 .willThrow(new IllegalStateException("Brevo returned 502"));
 
-        translatorFor().react(batch(new TalkAccepted(socrates, NOW), new TalkAccepted(devoxx, NOW)));
+        actuatorFor().react(batch(new TalkAccepted(socrates, NOW), new TalkAccepted(devoxx, NOW)));
 
         verify(notifyFamily).notifyOfConference(any(), eq(devoxx), any());
         assertThat(meters.counter("family.notification.failed").count())

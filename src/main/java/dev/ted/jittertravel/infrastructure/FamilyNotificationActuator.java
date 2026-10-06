@@ -54,15 +54,15 @@ import java.util.stream.Stream;
  * replay reaches projectors only, and the next deploy therefore cannot mail the whole history.
  * Every failure is caught and counted here; nothing may escape into the worker and kill it.
  */
-public class FamilyNotificationTranslator implements EventReactor {
+public class FamilyNotificationActuator implements EventReactor {
 
-    private static final Logger log = LoggerFactory.getLogger(FamilyNotificationTranslator.class);
+    private static final Logger log = LoggerFactory.getLogger(FamilyNotificationActuator.class);
 
     private final NotifyFamily notifyFamily;
     private final Clock clock;
     private final MeterRegistry meterRegistry;
 
-    public FamilyNotificationTranslator(NotifyFamily notifyFamily, Clock clock, MeterRegistry meterRegistry) {
+    public FamilyNotificationActuator(NotifyFamily notifyFamily, Clock clock, MeterRegistry meterRegistry) {
         this.notifyFamily = notifyFamily;
         this.clock = clock;
         this.meterRegistry = meterRegistry;

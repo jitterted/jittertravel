@@ -20,6 +20,7 @@ import dev.ted.jittertravel.domain.TalkAccepted;
 import dev.ted.jittertravel.domain.TalkRejected;
 import dev.ted.jittertravel.domain.TalkSubmitted;
 import dev.ted.jittertravel.domain.TalkWithdrawn;
+import dev.ted.jittertravel.domain.PrivateEventCancelled;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanned;
@@ -561,6 +562,78 @@ class TransferEndpointProjectorTest {
                 .isEmpty();
         assertThat(endpoints.offers("conference:" + conf.id()))
                 .isFalse();
+    }
+
+    /** The row names the event by city, region and country; nothing private is on it to be picked up. */
+    @Test
+    void aPrivateEventYieldsRowsNamedOnlyByWhereItIs() {
+        var fixture = new PrivateEventTransferFixture();
+        given(fixture.dinner());
+
+        assertThat(endpoints.rowsFor(TransferEnd.PRIVATE_EVENT_START))
+                .singleElement()
+                .extracting(TransferEndpointRow::token, TransferEndpointRow::name,
+                        TransferEndpointRow::city, TransferEndpointRow::moment)
+                .containsExactly("private-event:" + fixture.dinnerId().id(), "", "Denver, CO, US",
+                        at("2026-09-15 19:00"));
+        assertThat(endpoints.rowsFor(TransferEnd.PRIVATE_EVENT_END))
+                .singleElement()
+                .extracting(TransferEndpointRow::moment, TransferEndpointRow::window)
+                .containsExactly(at("2026-09-15 22:00"), new TransferEndpointWindow(
+                        at("2026-09-15 19:00"), at("2026-09-15 22:00")));
+        assertThat(endpoints.rowsFor(TransferEnd.PRIVATE_EVENT_START).toString()
+                   + endpoints.rowsFor(TransferEnd.PRIVATE_EVENT_END))
+                .doesNotContain(PrivateEventTransferFixture.TITLE)
+                .doesNotContain(PrivateEventTransferFixture.VENUE)
+                .doesNotContain(PrivateEventTransferFixture.STREET)
+                .doesNotContain(PrivateEventTransferFixture.POSTAL_CODE);
+    }
+
+    /** An amendment of the existing event: it moves the place the schedule matches, and adds no rows. */
+    @Test
+    void aMatchingLocationChangeAmendsTheEventsRowsInPlace() {
+        var fixture = new PrivateEventTransferFixture();
+        given(fixture.dinner(), fixture.matchedInAnotherCity());
+
+        assertThat(endpoints.rowsFor(TransferEnd.PRIVATE_EVENT_START))
+                .singleElement()
+                .extracting(TransferEndpointRow::place, TransferEndpointRow::city)
+                .as("matched in the new city, still labelled by where it is")
+                .containsExactly(new Place(PrivateEventTransferFixture.MATCHING_CITY),
+                        "Denver, CO, US");
+        assertThat(endpoints.rowsFor(TransferEnd.PRIVATE_EVENT_END))
+                .hasSize(1);
+        assertThat(endpoints.privateEventEndpoint(fixture.dinnerId()))
+                .as("and a transfer is recorded against the matching city, venue and zone")
+                .isPresent()
+                .get()
+                .extracting(TransferEndpoint::name, endpoint -> endpoint.address().locationForMatching(),
+                        endpoint -> endpoint.address().street(), TransferEndpoint::zone)
+                .containsExactly(PrivateEventTransferFixture.VENUE,
+                        PrivateEventTransferFixture.MATCHING_CITY,
+                        PrivateEventTransferFixture.STREET, DENVER);
+    }
+
+    @Test
+    void aCancelledPrivateEventIsNoLongerOfferedOrResolvable() {
+        var fixture = new PrivateEventTransferFixture();
+        given(fixture.dinner(), new PrivateEventCancelled(fixture.dinnerId(), "flu"));
+
+        assertThat(endpoints.rowsFor(TransferEnd.PRIVATE_EVENT_START)).isEmpty();
+        assertThat(endpoints.rowsFor(TransferEnd.PRIVATE_EVENT_END)).isEmpty();
+        assertThat(endpoints.privateEventEndpoint(fixture.dinnerId())).isEmpty();
+    }
+
+    @Test
+    void aMatchingChangeForAnEventNeverPlannedOrAlreadyCancelledResurrectsNothing() {
+        var fixture = new PrivateEventTransferFixture();
+        given(fixture.matchedInAnotherCity(),
+              fixture.dinner(),
+              new PrivateEventCancelled(fixture.dinnerId(), ""),
+              fixture.matchedInAnotherCity());
+
+        assertThat(endpoints.rowsFor(TransferEnd.PRIVATE_EVENT_START)).isEmpty();
+        assertThat(endpoints.privateEventEndpoint(fixture.dinnerId())).isEmpty();
     }
 
     private static ConferencePlanned conference(ConferenceId id, ConferenceFormat format) {

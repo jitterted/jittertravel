@@ -41,7 +41,11 @@ public enum TransferEnd {
     /** A conference venue being reached — a destination, at the conference's start. */
     CONFERENCE_START("starts", false),
     /** A conference venue being left — an origin, at the conference's end. */
-    CONFERENCE_END("ends", true);
+    CONFERENCE_END("ends", true),
+    /** A private event being reached — a destination, at its start. */
+    PRIVATE_EVENT_START("starts", false),
+    /** A private event being left — an origin, at its end. */
+    PRIVATE_EVENT_END("ends", true);
 
     private final String verb;
     private final boolean origin;

@@ -230,6 +230,34 @@ class GroundTransferEndpointChoicesTest {
     }
 
     @Test
+    void aGapLeavingAPrivateEventOrReachingOneSettlesOnIt() {
+        TransferEndpointOption eventEnd = leg("private-event:" + TRIP, "Hamburg", "2026-09-13", "17:00");
+        TransferEndpointOption eventStart = leg("private-event:" + OTHER_TRIP, "Frankfurt",
+                "2026-09-13", "19:00");
+        GroundTransferEndpointChoices choices = new GroundTransferEndpointChoices(
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(), List.of(),
+                List.of(eventEnd), List.of(eventStart));
+
+        assertThat(choices.originFor(hamburgToFrankfurt())).contains(eventEnd);
+        assertThat(choices.destinationFor(hamburgToFrankfurt())).contains(eventStart);
+    }
+
+    @Test
+    void choicesHoldingOnlyPrivateEventsAreNotEmpty() {
+        TransferEndpointOption event = leg("private-event:" + TRIP, "Hamburg", "2026-09-13", "17:00");
+
+        assertThat(new GroundTransferEndpointChoices(List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(event), List.of()).isEmpty())
+                .isFalse();
+        assertThat(new GroundTransferEndpointChoices(List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(event)).isEmpty())
+                .isFalse();
+    }
+
+    @Test
     void choicesHoldingOnlyConferencesAreNotEmpty() {
         TransferEndpointOption conference = leg("conference:" + TRIP, "Hamburg", "2026-09-13", "17:00");
 

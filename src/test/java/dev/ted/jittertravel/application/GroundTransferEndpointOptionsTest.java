@@ -386,6 +386,41 @@ class GroundTransferEndpointOptionsTest {
                 .isEmpty();
     }
 
+    /** The label is the place alone: a title or a venue has no slot in it (Ted, 2026-10-06). */
+    @Test
+    void aPrivateEventIsOfferedByCityStateAndCountryAlone() {
+        var fixture = new PrivateEventTransferFixture();
+        given(fixture.dinner());
+
+        GroundTransferEndpointChoices choices = options.choicesAt(NOW);
+
+        assertThat(choices.privateEventStarts()).containsExactly(new TransferEndpointOption(
+                "private-event:" + fixture.dinnerId().id(),
+                "Denver, CO, US · starts Tue Sep 15, 7:00 PM",
+                "Denver", "2026-09-15", "19:00"));
+        assertThat(choices.privateEventEnds()).containsExactly(new TransferEndpointOption(
+                "private-event:" + fixture.dinnerId().id(),
+                "Denver, CO, US · ends Tue Sep 15, 10:00 PM",
+                "Denver", "2026-09-15", "22:00"));
+        assertThat(choices.toString())
+                .doesNotContain(PrivateEventTransferFixture.TITLE)
+                .doesNotContain(PrivateEventTransferFixture.VENUE)
+                .doesNotContain(PrivateEventTransferFixture.STREET);
+    }
+
+    /** What a gap is matched against is the schedule's city, which the label's is not. */
+    @Test
+    void aMatchingOverrideChangesWhatAGapMatchesAndNotWhatTheLabelSays() {
+        var fixture = new PrivateEventTransferFixture();
+        given(fixture.dinner(), fixture.matchedInAnotherCity());
+
+        assertThat(options.choicesAt(NOW).privateEventStarts())
+                .singleElement()
+                .extracting(TransferEndpointOption::label, TransferEndpointOption::city)
+                .containsExactly("Denver, CO, US · starts Tue Sep 15, 7:00 PM",
+                        PrivateEventTransferFixture.MATCHING_CITY);
+    }
+
     @Test
     void aConferenceIsOfferedToReachAtItsStartAndToLeaveFromAtItsEndUnderItsName() {
         ConferenceId conf = ConferenceId.random();

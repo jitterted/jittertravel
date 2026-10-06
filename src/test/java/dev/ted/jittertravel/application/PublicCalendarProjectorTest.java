@@ -301,6 +301,40 @@ class PublicCalendarProjectorTest {
                 .doesNotContain("Reichshof");
     }
 
+    /**
+     * A transfer to a private dinner may reveal the city, state and country and nothing else (Ted,
+     * 2026-10-06). Built from the events the write path really produces: the private event, its
+     * matching-city override, and the transfer the real handler resolved for it — which carries the
+     * dinner's street, postal code, venue name and the override, none of which may reach a stranger.
+     */
+    @Test
+    void aTransferToAPrivateEventPublishesOnlyItsCityRegionAndCountry() {
+        var fixture = new PrivateEventTransferFixture();
+        var dinner = fixture.dinner();
+        var override = fixture.matchedInAnotherCity();
+        var transfer = fixture.transferFromTheAirportToTheDinner(dinner, override);
+        projector.handle(Stream.of(stored(dinner), stored(override), stored(transfer)));
+
+        assertThat(projector.entries())
+                .as("the dinner as Busy, and the transfer")
+                .hasSize(2);
+        assertThat(projector.entries())
+                .filteredOn(entry -> entry.mainTitle().equals("🚕 Ground transfer"))
+                .singleElement()
+                .extracting(CalendarEntry::subTitle)
+                .isEqualTo(List.of(new SubtitleLine.Text("DEN → Denver, CO, US")));
+        assertThat(projector.entries().toString())
+                .as("the title, the venue, the street, the postal code")
+                .doesNotContain(PrivateEventTransferFixture.TITLE)
+                .doesNotContain(PrivateEventTransferFixture.VENUE)
+                .doesNotContain(PrivateEventTransferFixture.STREET)
+                .doesNotContain(PrivateEventTransferFixture.POSTAL_CODE)
+                .as("the city the schedule matches it in is not the city it is in")
+                .doesNotContain(PrivateEventTransferFixture.MATCHING_CITY)
+                .as("and how Ted gets there stays his own note")
+                .doesNotContain("Susan");
+    }
+
     @Test
     void aCancelledTransferLeavesThePublicCalendar() {
         GroundTransferId transferId = GroundTransferId.random();

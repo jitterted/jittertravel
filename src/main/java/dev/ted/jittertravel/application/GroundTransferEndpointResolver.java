@@ -12,6 +12,7 @@ import dev.ted.jittertravel.domain.TransferEndpointWindow;
 import dev.ted.jittertravel.domain.InvalidAirportCode;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.Place;
+import dev.ted.jittertravel.domain.PrivateEventId;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
@@ -42,6 +43,9 @@ import java.util.UUID;
  *   <tr><td>{@code conference:<conferenceId>}</td>
  *       <td>the conference's venue name and {@link Address} verbatim, and the zone it was entered
  *           in — refused once the conference has been dropped</td></tr>
+ *   <tr><td>{@code private-event:<privateEventId>}</td>
+ *       <td>the event's venue name and {@link Address} verbatim, with the matching city the
+ *           schedule uses, and the zone it was entered in — refused once it is cancelled</td></tr>
  * </table>
  *
  * A trip has two stations, so the end is part of the token; a hotel names one place, so its is not
@@ -63,6 +67,7 @@ public class GroundTransferEndpointResolver {
     private static final String TRAIN_PREFIX = "train:";
     static final String GATHERING_PREFIX = "gathering:";
     static final String CONFERENCE_PREFIX = "conference:";
+    static final String PRIVATE_EVENT_PREFIX = "private-event:";
 
     private static final String ARRIVAL_SUFFIX = ":arrival";
     private static final String DEPARTURE_SUFFIX = ":departure";
@@ -185,9 +190,37 @@ public class GroundTransferEndpointResolver {
         if (token.startsWith(CONFERENCE_PREFIX)) {
             return conferenceEndpoint(token.substring(CONFERENCE_PREFIX.length()), token);
         }
+        if (token.startsWith(PRIVATE_EVENT_PREFIX)) {
+            return privateEventEndpoint(token.substring(PRIVATE_EVENT_PREFIX.length()), token);
+        }
         throw new UnknownTransferEndpoint(
-                "Not an airport, a booked hotel, a train station, a gathering or a conference: "
-                + token);
+                "Not an airport, a booked hotel, a train station, a gathering, a conference or a "
+                + "private event: " + token);
+    }
+
+    /**
+     * A private event's venue and address, snapshotted verbatim for the same reason a hotel's is —
+     * with the matching city the schedule uses, which the endpoint read model already applied. The
+     * read model is asked rather than a details projector because it holds exactly that, and
+     * because it forgets a cancelled event, so a stale token is refused for free.
+     * <p>
+     * The venue name is private, as a hotel's is: it reaches the owner's label and the event, never
+     * the public calendar, which reads a transfer's endpoints as a code or city, region and
+     * country and nothing else.
+     */
+    private TransferEndpoint privateEventEndpoint(String rawPrivateEventId, String wholeToken) {
+        PrivateEventId privateEventId = parsePrivateEventId(rawPrivateEventId, wholeToken);
+        return transferEndpoints.privateEventEndpoint(privateEventId)
+                .orElseThrow(() -> new UnknownTransferEndpoint(
+                        "That private event is no longer available"));
+    }
+
+    private PrivateEventId parsePrivateEventId(String rawPrivateEventId, String wholeToken) {
+        try {
+            return PrivateEventId.of(UUID.fromString(rawPrivateEventId));
+        } catch (IllegalArgumentException e) {
+            throw new UnknownTransferEndpoint("Not a private event: " + wholeToken);
+        }
     }
 
     /**

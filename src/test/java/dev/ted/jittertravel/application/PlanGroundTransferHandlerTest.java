@@ -8,6 +8,7 @@ import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
+import dev.ted.jittertravel.domain.PrivateEventCancelled;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.TransferEndpointWindow;
@@ -488,6 +489,63 @@ class PlanGroundTransferHandlerTest {
                 LocalTime.of(12, 0), LocalTime.of(12, 45))))
                 .isInstanceOf(UnknownTransferEndpoint.class)
                 .hasMessage("That conference is no longer available");
+    }
+
+    /**
+     * The transfer is recorded against the venue and the address verbatim — with the matching city
+     * the schedule uses, so it joins the occupancy it connects to — and the event's own zone and
+     * window. The public calendar reads none of the private half; see PublicCalendarProjectorTest.
+     */
+    @Test
+    void aPrivateEventTokenResolvesToItsVenueAddressMatchingCityZoneAndWindow() {
+        var fixture = new PrivateEventTransferFixture();
+
+        PlanGroundTransferCommand command = handler.handle(
+                request("hotel:" + BOOKING.id(), "private-event:" + fixture.dinnerId().id(),
+                        bookedHotel(), stored(fixture.dinner()), stored(fixture.matchedInAnotherCity())));
+
+        assertThat(command.destinationName())
+                .isEqualTo(PrivateEventTransferFixture.VENUE);
+        assertThat(command.destination().street())
+                .isEqualTo(PrivateEventTransferFixture.STREET);
+        assertThat(command.destination().locationForMatching())
+                .as("matched where the schedule matches the event, not where it is")
+                .isEqualTo(PrivateEventTransferFixture.MATCHING_CITY);
+        assertThat(command.arrivesAt().zone())
+                .isEqualTo(DENVER);
+        assertThat(command.destinationWindow())
+                .isEqualTo(new TransferEndpointWindow(
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 15, 19, 0), DENVER),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 15, 22, 0), DENVER)));
+    }
+
+    @Test
+    void aCancelledPrivateEventIsRefused() {
+        var fixture = new PrivateEventTransferFixture();
+
+        assertThatThrownBy(() -> handler.handle(
+                request("hotel:" + BOOKING.id(), "private-event:" + fixture.dinnerId().id(),
+                        bookedHotel(), stored(fixture.dinner()),
+                        stored(new PrivateEventCancelled(fixture.dinnerId(), "flu")))))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessage("That private event is no longer available");
+    }
+
+    @Test
+    void aMalformedPrivateEventIdIsRefused() {
+        assertThatThrownBy(() -> handler.handle(
+                request("hotel:" + BOOKING.id(), "private-event:not-a-uuid", bookedHotel())))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessage("Not a private event: private-event:not-a-uuid");
+    }
+
+    @Test
+    void aTokenWithNoRecognizedKindNamesEveryKindThatIsAccepted() {
+        assertThatThrownBy(() -> handler.handle(request("hotel:" + BOOKING.id(), "spaceship:1",
+                bookedHotel())))
+                .isInstanceOf(UnknownTransferEndpoint.class)
+                .hasMessage("Not an airport, a booked hotel, a train station, a gathering, a "
+                            + "conference or a private event: spaceship:1");
     }
 
     @Test

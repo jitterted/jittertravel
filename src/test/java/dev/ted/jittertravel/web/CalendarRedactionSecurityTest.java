@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.AttendanceCommitment;
 import dev.ted.jittertravel.application.CalendarAggregator;
 import dev.ted.jittertravel.application.CalendarEntry;
+import dev.ted.jittertravel.application.PrivateEventTransferFixture;
 import dev.ted.jittertravel.application.EntryDetails;
 import dev.ted.jittertravel.application.PublicCalendarProjector;
 import dev.ted.jittertravel.application.ScheduleGapProjector;
@@ -444,6 +445,33 @@ class CalendarRedactionSecurityTest {
                 .contains("Hamburg, DE → Hamburg, DE")
                 .doesNotContain("Hamburg Hbf")
                 .doesNotContain("Reichshof");
+    }
+
+    /**
+     * The private-event half of rule 1, through the real chain, from events the write path really
+     * produced: a stranger reading a transfer to a private dinner gets the city, state and country
+     * and not one other thing the event or the transfer carries (Ted, 2026-10-06).
+     */
+    @Test
+    void anonymousUserSeesATransferToAPrivateEventWithoutAnythingPrivateAboutIt() throws Exception {
+        var fixture = new PrivateEventTransferFixture();
+        var dinner = fixture.dinner();
+        var override = fixture.matchedInAnotherCity();
+        anonymousSees(dinner, override, fixture.transferFromTheAirportToTheDinner(dinner, override));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous())
+                .exchange().getResponse().getContentAsString())
+                .contains("🚕 Ground transfer")
+                .contains("DEN → Denver, CO, US")
+                .doesNotContain(PrivateEventTransferFixture.TITLE)
+                .doesNotContain(PrivateEventTransferFixture.VENUE)
+                .doesNotContain(PrivateEventTransferFixture.STREET)
+                .doesNotContain(PrivateEventTransferFixture.POSTAL_CODE)
+                .doesNotContain(PrivateEventTransferFixture.MATCHING_CITY)
+                .doesNotContain("Susan")
+                .doesNotContain("/ground-transfers/")
+                .doesNotContain("5:00 PM")
+                .doesNotContain("5:45 PM");
     }
 
     /** The station-to-hotel hop, whose owner title reads "Hamburg Hbf → Reichshof". */

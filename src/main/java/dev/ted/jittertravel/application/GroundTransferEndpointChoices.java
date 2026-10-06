@@ -40,6 +40,8 @@ import java.util.stream.Stream;
  * @param gatheringStarts gatherings for the "To" select, each carrying its start
  * @param conferenceEnds conference venues for the "From" select, each carrying the conference's end
  * @param conferenceStarts conference venues for the "To" select, each carrying its start
+ * @param privateEventEnds private events for the "From" select, each carrying the event's end
+ * @param privateEventStarts private events for the "To" select, each carrying its start
  */
 public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrivals,
                                             List<TransferEndpointOption> departures,
@@ -50,7 +52,25 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
                                             List<TransferEndpointOption> gatheringEnds,
                                             List<TransferEndpointOption> gatheringStarts,
                                             List<TransferEndpointOption> conferenceEnds,
-                                            List<TransferEndpointOption> conferenceStarts) {
+                                            List<TransferEndpointOption> conferenceStarts,
+                                            List<TransferEndpointOption> privateEventEnds,
+                                            List<TransferEndpointOption> privateEventStarts) {
+
+    /** Choices with no private events on offer — the form between conferences and private events. */
+    public GroundTransferEndpointChoices(List<TransferEndpointOption> arrivals,
+                                         List<TransferEndpointOption> departures,
+                                         List<TransferEndpointOption> trainArrivals,
+                                         List<TransferEndpointOption> trainDepartures,
+                                         List<TransferEndpointOption> checkOuts,
+                                         List<TransferEndpointOption> checkIns,
+                                         List<TransferEndpointOption> gatheringEnds,
+                                         List<TransferEndpointOption> gatheringStarts,
+                                         List<TransferEndpointOption> conferenceEnds,
+                                         List<TransferEndpointOption> conferenceStarts) {
+        this(arrivals, departures, trainArrivals, trainDepartures, checkOuts, checkIns,
+                gatheringEnds, gatheringStarts, conferenceEnds, conferenceStarts,
+                List.of(), List.of());
+    }
 
     /** Choices with no gatherings or conferences on offer — what the form had before either. */
     public GroundTransferEndpointChoices(List<TransferEndpointOption> arrivals,
@@ -73,7 +93,7 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
                                          List<TransferEndpointOption> gatheringEnds,
                                          List<TransferEndpointOption> gatheringStarts) {
         this(arrivals, departures, trainArrivals, trainDepartures, checkOuts, checkIns,
-                gatheringEnds, gatheringStarts, List.of(), List.of());
+                gatheringEnds, gatheringStarts, List.of(), List.of(), List.of(), List.of());
     }
 
     /**
@@ -83,7 +103,8 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
      */
     public static GroundTransferEndpointChoices nothing() {
         return new GroundTransferEndpointChoices(List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of());
     }
 
     public boolean isEmpty() {
@@ -109,11 +130,13 @@ public record GroundTransferEndpointChoices(List<TransferEndpointOption> arrival
      * day are two candidates, and the form must ask rather than guess between them.
      */
     private List<TransferEndpointOption> origins() {
-        return concat(arrivals, trainArrivals, checkOuts, gatheringEnds, conferenceEnds);
+        return concat(arrivals, trainArrivals, checkOuts, gatheringEnds, conferenceEnds,
+                privateEventEnds);
     }
 
     private List<TransferEndpointOption> destinations() {
-        return concat(departures, trainDepartures, checkIns, gatheringStarts, conferenceStarts);
+        return concat(departures, trainDepartures, checkIns, gatheringStarts, conferenceStarts,
+                privateEventStarts);
     }
 
     /**

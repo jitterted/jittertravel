@@ -92,7 +92,9 @@ public class GroundTransferEndpointOptions {
                 optionsFor(TransferEnd.GATHERING_END, now),
                 optionsFor(TransferEnd.GATHERING_START, now),
                 optionsFor(TransferEnd.CONFERENCE_END, now),
-                optionsFor(TransferEnd.CONFERENCE_START, now));
+                optionsFor(TransferEnd.CONFERENCE_START, now),
+                optionsFor(TransferEnd.PRIVATE_EVENT_END, now),
+                optionsFor(TransferEnd.PRIVATE_EVENT_START, now));
     }
 
     /**
@@ -125,7 +127,10 @@ public class GroundTransferEndpointOptions {
      * parenthesis for a stay, which has no service to name.
      */
     private String label(TransferEndpointRow row) {
-        String label = row.name() + " — " + row.city()
+        // A row with no name is one whose name is private (a private event): the label is then the
+        // place alone, so there is no first part for a title or a venue to occupy.
+        String place = row.name().isBlank() ? row.city() : row.name() + " — " + row.city();
+        String label = place
                        + " · " + row.end().verb() + " "
                        + LEG_MOMENT.format(row.moment().localDateTime());
         return row.detail().isBlank() ? label : label + " (" + row.detail() + ")";

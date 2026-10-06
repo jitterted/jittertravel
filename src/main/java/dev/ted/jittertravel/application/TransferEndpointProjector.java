@@ -22,6 +22,10 @@ import dev.ted.jittertravel.domain.HotelBookingCancelled;
 import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.domain.Place;
+import dev.ted.jittertravel.domain.PrivateEventCancelled;
+import dev.ted.jittertravel.domain.PrivateEventId;
+import dev.ted.jittertravel.domain.PrivateEventMatchingLocationChanged;
+import dev.ted.jittertravel.domain.PrivateEventPlanned;
 import dev.ted.jittertravel.domain.TrainBooked;
 import dev.ted.jittertravel.domain.TrainCancelled;
 import dev.ted.jittertravel.domain.TrainChanged;
@@ -79,6 +83,8 @@ public class TransferEndpointProjector implements EventStreamConsumer {
     private final Map<RowKey, TransferEndpointRow> rows = new ConcurrentHashMap<>();
     /** Held only so a conference's progress can say whether it has been dropped. */
     private final Map<ConferenceId, TrackedConference> conferences = new ConcurrentHashMap<>();
+    private final Map<PrivateEventId, TrackedPrivateEvent> privateEvents = new ConcurrentHashMap<>();
+    private final TransferEndpointLabel labels = new TransferEndpointLabel();
     private final AirportCityResolver airportCities;
 
     public TransferEndpointProjector(AirportCityResolver airportCities) {
@@ -144,6 +150,14 @@ public class TransferEndpointProjector implements EventStreamConsumer {
                         moveConference(e.conferenceId(), ConferenceProgress::declined);
                 case TalkRejected e ->
                         moveConference(e.conferenceId(), ConferenceProgress::rejected);
+                case PrivateEventPlanned e -> trackPrivateEvent(new TrackedPrivateEvent(
+                        e.privateEventId(), e.venueName(), e.location(), e.startsAt(), e.endsAt()));
+                // An amendment of an existing event, never a new one: it replaces the city the
+                // schedule matches the event in, and the rows follow it. One for an event already
+                // cancelled (or never planned) is a no-op, as in ScheduleGapProjector.
+                case PrivateEventMatchingLocationChanged e -> rematchPrivateEvent(
+                        e.privateEventId(), e.locationForMatching());
+                case PrivateEventCancelled e -> forgetPrivateEvent(e.privateEventId());
                 default -> { /* not an endpoint event */ }
             }
         });
@@ -321,6 +335,68 @@ public class TransferEndpointProjector implements EventStreamConsumer {
         TrackedConference during(ZonedTimestamp newStart, ZonedTimestamp newEnd) {
             return new TrackedConference(conferenceId, name, venueName, venueAddress,
                     newStart, newEnd, progress);
+        }
+    }
+
+    /**
+     * What a transfer to or from this private event is recorded against: its venue and address
+     * (with the matching city the schedule uses), in the zone it was entered in. Empty once the
+     * event is cancelled. Held here rather than read from another read model (R12), and here
+     * because the amendment above has to be applied to the same state the rows come from.
+     */
+    public Optional<TransferEndpoint> privateEventEndpoint(PrivateEventId privateEventId) {
+        return Optional.ofNullable(privateEvents.get(privateEventId))
+                .map(event -> new TransferEndpoint("", event.venueName(), event.location(),
+                        event.startsAt().zone()));
+    }
+
+    /**
+     * Both ends offered until the event's end, as for a gathering. <strong>The row names the
+     * event by its city, region and country alone</strong> — the same words, from the same rule,
+     * that the public calendar publishes for a transfer's end ({@link TransferEndpointLabel}) — and
+     * never by its title or venue (Ted, 2026-10-06). The name is left blank for the label to skip;
+     * nothing private is on a row that a label could pick up.
+     */
+    private void putPrivateEvent(TrackedPrivateEvent event) {
+        String id = event.privateEventId().id().toString();
+        String token = GroundTransferEndpointResolver.PRIVATE_EVENT_PREFIX + id;
+        String where = labels.publicLabel("", event.location());
+        Place place = Place.of(event.location());
+        var window = new TransferEndpointWindow(event.startsAt(), event.endsAt());
+        put(new RowKey(id, TransferEnd.PRIVATE_EVENT_END),
+                new TransferEndpointRow(TransferEnd.PRIVATE_EVENT_END, token, "", where, place,
+                        event.endsAt(), window, event.endsAt(), ""));
+        put(new RowKey(id, TransferEnd.PRIVATE_EVENT_START),
+                new TransferEndpointRow(TransferEnd.PRIVATE_EVENT_START, token, "", where, place,
+                        event.startsAt(), window, event.endsAt(), ""));
+    }
+
+    private void trackPrivateEvent(TrackedPrivateEvent event) {
+        privateEvents.put(event.privateEventId(), event);
+        putPrivateEvent(event);
+    }
+
+    private void forgetPrivateEvent(PrivateEventId privateEventId) {
+        privateEvents.remove(privateEventId);
+        rows.remove(new RowKey(privateEventId.id().toString(), TransferEnd.PRIVATE_EVENT_START));
+        rows.remove(new RowKey(privateEventId.id().toString(), TransferEnd.PRIVATE_EVENT_END));
+    }
+
+    private void rematchPrivateEvent(PrivateEventId privateEventId, String locationForMatching) {
+        TrackedPrivateEvent tracked = privateEvents.get(privateEventId);
+        if (tracked != null) {
+            trackPrivateEvent(tracked.matchedIn(locationForMatching));
+        }
+    }
+
+    private record TrackedPrivateEvent(PrivateEventId privateEventId, String venueName,
+                                       Address location, ZonedTimestamp startsAt,
+                                       ZonedTimestamp endsAt) {
+        TrackedPrivateEvent matchedIn(String locationForMatching) {
+            return new TrackedPrivateEvent(privateEventId, venueName,
+                    new Address(location.street(), location.city(), location.region(),
+                            location.postalCode(), location.country(), locationForMatching),
+                    startsAt, endsAt);
         }
     }
 

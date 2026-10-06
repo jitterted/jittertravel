@@ -107,6 +107,32 @@ class EmailPreviewControllerTest {
     }
 
     @Test
+    void everyEmailIsFoldedToOneLineOfLabelAndFileWithAChevronAndNoSubject() {
+        canSend();
+
+        assertThat(mockMvc.get().uri("/admin/email-preview"))
+                .hasStatusOk()
+                .bodyText()
+                .containsOnlyOnce("<summary><span class=\"chev\" aria-hidden=\"true\">&#9656;</span>"
+                                  + "<span class=\"head\"><b>Conference declined</b>"
+                                  + "<span>email/conference-not-going.txt</span></span></summary>")
+                .doesNotContain("<details class=\"email\" open")
+                .doesNotContainPattern("<summary>[^<]*(<[^/][^>]*>[^<]*)*\\(JitterTravel\\)")
+                .contains("<div class=\"subject\"><b>Subject</b><span>(JitterTravel) Ted is no longer going to SoCraTes 2026</span></div>");
+    }
+
+    @Test
+    void aFoldedEmailsOnlySignOfBeingAControlIsNotAHoverRule() {
+        canSend();
+
+        assertThat(mockMvc.get().uri("/admin/email-preview"))
+                .hasStatusOk()
+                .bodyText()
+                .contains(".email[open] .chev { transform: rotate(90deg); }")
+                .doesNotContain(":hover");
+    }
+
+    @Test
     void theCalendarLinkInAnEmailIsAClickableLinkToTheFirstFlightsDay() {
         canSend();
 

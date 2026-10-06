@@ -2,10 +2,11 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
 <!--/* One email as the preview page shows it. Styled by admin-email-preview.html, the only page that includes it. */-->
-<section class="email" th:fragment="card(email)" th:attr="aria-label=${email.label()}">
-    <div class="email-head"><b th:text="${email.label()}">Flight booked</b><span th:text="${email.file()}">email/flight-booked.txt</span></div>
+<!--/* Folded by default (Ted, 2026-10-05; mockup https://claude.ai/artifact/53ehCoa5LwY4hBbw5ChaoD): one line of label and file, and the subject is the first line once it is opened. The chevron is what says it opens. */-->
+<details class="email" th:fragment="card(email)" th:attr="aria-label=${email.label()}">
+    <summary><span class="chev" aria-hidden="true">&#9656;</span><span class="head"><b th:text="${email.label()}">Flight booked</b><span th:text="${email.file()}">email/flight-booked.txt</span></span></summary>
     <div class="subject"><b>Subject</b><span th:text="${email.subject()}">Subject.</span></div>
     <pre class="body"><th:block th:each="part : ${email.segments()}"><a th:if="${part.link()}" th:href="${part.text()}" th:text="${part.text()}">link</a><span th:unless="${part.link()}" th:text="${part.text()}">text</span></th:block></pre>
-</section>
+</details>
 </body>
 </html>

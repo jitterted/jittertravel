@@ -7,6 +7,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,6 +72,66 @@ class LocationDataCorrectionsTest {
 
         assertThat(payload)
                 .isEqualTo(once);
+    }
+
+    @Test
+    void reportsANamedFixAsAppliedThenAsAlreadyApplied() {
+        ObjectNode payload = hotel("St. Georg", "Hamburg");
+
+        LocationDataCorrections.Outcome first = corrections.apply(ST_RAPHAEL, "HotelBooked", payload);
+        LocationDataCorrections.Outcome second = corrections.apply(ST_RAPHAEL, "HotelBooked", payload);
+
+        assertThat(first.namedFix())
+                .as("the first run moves the values")
+                .isEqualTo(LocationDataCorrections.NamedFix.APPLIED);
+        assertThat(second.namedFix())
+                .as("a re-run finds the new values in place")
+                .isEqualTo(LocationDataCorrections.NamedFix.ALREADY_APPLIED);
+    }
+
+    @Test
+    void reportsANamedFixWhoseValuesHaveChangedAsDiffering() {
+        LocationDataCorrections.Outcome outcome =
+                corrections.apply(ST_RAPHAEL, "HotelBooked", hotel("St. Georg", "Altona"));
+
+        assertThat(outcome.namedFix())
+                .isEqualTo(LocationDataCorrections.NamedFix.VALUES_DIFFER);
+    }
+
+    @Test
+    void reportsNoNamedFixForAnEventWithoutOne() {
+        LocationDataCorrections.Outcome outcome =
+                corrections.apply(UUID.randomUUID(), "HotelBooked", hotel("St. Georg", "Hamburg"));
+
+        assertThat(outcome.namedFix())
+                .isEqualTo(LocationDataCorrections.NamedFix.NONE);
+    }
+
+    @Test
+    void listsTheTenApprovedCorrectionsWithWhatEachChanges() {
+        assertThat(corrections.approved())
+                .hasSize(10)
+                .contains(new LocationDataCorrections.Approved(
+                        ST_RAPHAEL, "Hotel Best Western Plus St. Raphael",
+                        List.of(new LocationDataCorrections.FieldChange("city", "St. Georg", "Hamburg"),
+                                new LocationDataCorrections.FieldChange("region", "Hamburg", "St. Georg"))));
+    }
+
+    @Test
+    void reportsEachAirportEndItFillsInAndOneItCannot() {
+        ObjectNode payload = transfer("""
+                {"city": "Ottawa", "region": "", "country": ""}""", "YOW",
+                                      """
+                {"city": "Nowhere", "region": "", "country": ""}""", "ZZZ");
+
+        LocationDataCorrections.Outcome outcome =
+                corrections.apply(UUID.randomUUID(), "GroundTransferPlanned", payload);
+
+        assertThat(outcome.airportEnds())
+                .as("ZZZ is not in the airport table")
+                .containsExactlyInAnyOrder(
+                        new LocationDataCorrections.AirportEndFill("YOW", "ON", "CA", true),
+                        new LocationDataCorrections.AirportEndFill("ZZZ", "", "", false));
     }
 
     @Test

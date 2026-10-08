@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 /**
  * The eager migration bakes the current payload shape and the per-type schema-version stamp into
@@ -180,6 +181,55 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
                 .contains("\"region\": \"GA\"");
         assertThat(devnexus.schemaVersion())
                 .isEqualTo(CONFERENCE_CURRENT_VERSION);
+    }
+
+    @Test
+    void previewListsEveryApprovedCorrectionWithWhereItStandsHere() {
+        seedStampedEvent(UUID.randomUUID(), DEVNEXUS_EVENT_ID, 7L,
+                OffsetDateTime.parse("2026-09-10T10:00:00Z"), "ConferencePlanned", DEVNEXUS_AT_V3, 3);
+
+        LegacyEventMigration.CorrectionsCheck corrections = migration.preview().corrections();
+
+        assertThat(corrections.expected())
+                .isEqualTo(10);
+        assertThat(corrections.willBeMade())
+                .as("Devnexus is the one corrected event in this database")
+                .isEqualTo(1);
+        assertThat(corrections.allAccountedFor())
+                .as("nine approved corrections have no event here")
+                .isFalse();
+        assertThat(corrections.corrections())
+                .filteredOn(line -> line.correction().eventId().equals(DEVNEXUS_EVENT_ID))
+                .extracting(LegacyEventMigration.CorrectionLine::event, LegacyEventMigration.CorrectionLine::state)
+                .containsExactly(tuple(7L, LegacyEventMigration.CorrectionState.WILL_BE_MADE));
+        assertThat(corrections.corrections())
+                .filteredOn(line -> line.state() == LegacyEventMigration.CorrectionState.EVENT_NOT_FOUND)
+                .as("every other correction is named as skipped, with no event number")
+                .hasSize(9)
+                .extracting(LegacyEventMigration.CorrectionLine::event)
+                .containsOnlyNulls();
+    }
+
+    @Test
+    void migrateReReadsTheStoreAndConfirmsEveryRowAndFixLanded() {
+        seedStampedEvent(UUID.randomUUID(), DEVNEXUS_EVENT_ID, 1L,
+                OffsetDateTime.parse("2026-09-10T10:00:00Z"), "ConferencePlanned", DEVNEXUS_AT_V3, 3);
+        seedLegacyEvent(UUID.randomUUID(), UUID.randomUUID(), 2L,
+                OffsetDateTime.parse("2026-06-01T10:00:00Z"), "HotelBooked", LEGACY_HOTEL);
+
+        LegacyEventMigration.MigrationResult result = migration.migrate();
+
+        assertThat(result.verification())
+                .containsExactly(
+                        new LegacyEventMigration.Check("Rows written", 2, 2),
+                        new LegacyEventMigration.Check("Rows still needing migration", 0, 0),
+                        new LegacyEventMigration.Check("Corrections now in the database", 1, 1),
+                        new LegacyEventMigration.Check("Airport ends now filled in", 0, 0));
+        assertThat(result.verified())
+                .isTrue();
+        assertThat(migration.preview().corrections().alreadyMade())
+                .as("a later preview finds the correction already made")
+                .isEqualTo(1);
     }
 
     @Test

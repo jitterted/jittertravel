@@ -1,5 +1,7 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.application.LocationDataCorrections.AirportEndFill;
+import dev.ted.jittertravel.application.LocationDataCorrections.Approved;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.infrastructure.EventPayloadUpcaster;
@@ -12,7 +14,11 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Eager legacy-event migration (see {@code docs/archived/LegacyEventEagerMigrationPlan.md}). Bakes the current
@@ -70,12 +76,17 @@ public class LegacyEventMigration {
         Plan plan = plan();
         int alreadyCurrent = plan.scanned - plan.rows.size() - plan.errors.size();
         return new MigrationReport(plan.scanned, plan.payloadRewrites, plan.stampsOnly,
-                plan.renames, plan.rows.size(), alreadyCurrent, plan.errors);
+                plan.renames, plan.rows.size(), alreadyCurrent, plan.errors, plan.corrections);
     }
 
     /**
      * Bakes the current shape and stamp into every stale row in one transaction. Refuses in read-only
      * mode; refuses (writing nothing) if any row fails to bind, reporting all failures.
+     *
+     * <p>Then it <b>reads the store again</b> and checks what is there against what it set out to do:
+     * every row it meant to write was written, none is still stale, and every correction it meant to
+     * apply now holds its new value. The verdict comes from what is stored, never from what this code
+     * believed it wrote.
      */
     public MigrationResult migrate() {
         if (commandExecutor.isReadOnly()) {
@@ -85,8 +96,19 @@ public class LegacyEventMigration {
         if (!plan.errors.isEmpty()) {
             return MigrationResult.failed(plan.errors);  // nothing written: fix the data and re-run
         }
-        persister.migrateEventPayloads(plan.rows);
-        return new MigrationResult(false, plan.payloadRewrites, plan.stampsOnly, plan.renames, List.of());
+        int written = persister.migrateEventPayloads(plan.rows);
+        Plan after = plan();
+        List<Check> verification = List.of(
+                new Check("Rows written", plan.rows.size(), written),
+                new Check("Rows still needing migration", 0, after.rows.size() + after.errors.size()),
+                new Check("Corrections now in the database",
+                          plan.corrections.willBeMade(),
+                          after.corrections.alreadyMade() - plan.corrections.alreadyMade()),
+                new Check("Airport ends now filled in",
+                          plan.corrections.airportEndsToFill(),
+                          plan.corrections.airportEndsToFill() - after.corrections.airportEndsToFill()));
+        return new MigrationResult(false, plan.payloadRewrites, plan.stampsOnly, plan.renames, List.of(),
+                                   verification);
     }
 
     private Plan plan() {
@@ -96,6 +118,7 @@ public class LegacyEventMigration {
         int renames = 0;
         List<MigratedEventRow> rows = new ArrayList<>();
         List<String> errors = new ArrayList<>();
+        CorrectionsTally tally = new CorrectionsTally(locationDataCorrections.approved());
 
         for (BackupEventRow row : persister.findAllEventsForBackup()) {
             scanned++;
@@ -113,7 +136,7 @@ public class LegacyEventMigration {
                 // Value corrections ride on the same rewrite, after the rung, so they see codes. They
                 // are not part of the read path: restore and boot replay never apply them.
                 if (upcasted instanceof ObjectNode payload) {
-                    locationDataCorrections.apply(row.eventId(), currentType, payload);
+                    tally.add(row, locationDataCorrections.apply(row.eventId(), currentType, payload));
                 }
 
                 boolean payloadChanged = !upcasted.equals(original);
@@ -142,12 +165,127 @@ public class LegacyEventMigration {
                         .formatted(row.sequence(), row.type(), e.getMessage()));
             }
         }
-        return new Plan(scanned, payloadRewrites, stampsOnly, renames, rows, errors);
+        return new Plan(scanned, payloadRewrites, stampsOnly, renames, rows, errors, tally.check());
     }
 
     /** What one pass found: the rows to write, and why the rest are not written. */
     private record Plan(int scanned, int payloadRewrites, int stampsOnly, int renames,
-                        List<MigratedEventRow> rows, List<String> errors) {}
+                        List<MigratedEventRow> rows, List<String> errors, CorrectionsCheck corrections) {}
+
+    /** Gathers, across one pass, what each approved correction and each airport end found. */
+    private static class CorrectionsTally {
+        private final List<Approved> approved;
+        private final Map<UUID, CorrectionLine> found = new HashMap<>();
+        private final List<AirportEndLine> airportEnds = new ArrayList<>();
+
+        CorrectionsTally(List<Approved> approved) {
+            this.approved = approved;
+        }
+
+        void add(BackupEventRow row, LocationDataCorrections.Outcome outcome) {
+            stateOf(outcome.namedFix()).ifPresent(state -> found.put(
+                    row.eventId(), new CorrectionLine(row.sequence(), approvedFor(row.eventId()), state)));
+            outcome.airportEnds()
+                   .forEach(end -> airportEnds.add(new AirportEndLine(row.sequence(), end)));
+        }
+
+        CorrectionsCheck check() {
+            List<CorrectionLine> lines = approved.stream()
+                                                 .map(correction -> found.getOrDefault(
+                                                         correction.eventId(),
+                                                         new CorrectionLine(null, correction,
+                                                                            CorrectionState.EVENT_NOT_FOUND)))
+                                                 .toList();
+            return new CorrectionsCheck(lines, List.copyOf(airportEnds));
+        }
+
+        private Approved approvedFor(UUID eventId) {
+            return approved.stream()
+                           .filter(correction -> correction.eventId().equals(eventId))
+                           .findFirst()
+                           .orElseThrow();
+        }
+
+        private static Optional<CorrectionState> stateOf(LocationDataCorrections.NamedFix namedFix) {
+            return switch (namedFix) {
+                case APPLIED -> Optional.of(CorrectionState.WILL_BE_MADE);
+                case ALREADY_APPLIED -> Optional.of(CorrectionState.ALREADY_MADE);
+                case VALUES_DIFFER -> Optional.of(CorrectionState.VALUES_CHANGED);
+                case NONE -> Optional.empty();
+            };
+        }
+    }
+
+    /** Where one approved correction stands in this database. */
+    public enum CorrectionState {
+        /** Its fields hold the approved old values: this migration will make it. */
+        WILL_BE_MADE,
+        /** Its fields hold the new values: an earlier run made it. */
+        ALREADY_MADE,
+        /** Its fields hold something else, changed since it was approved: it is skipped. */
+        VALUES_CHANGED,
+        /** No event with its id is stored here: it is skipped. */
+        EVENT_NOT_FOUND;
+
+        public boolean accountedFor() {
+            return this == WILL_BE_MADE || this == ALREADY_MADE;
+        }
+    }
+
+    /**
+     * One approved correction and where it stands. {@code event} is the stored sequence number, null
+     * when the event is not in this database.
+     */
+    public record CorrectionLine(Long event, Approved correction, CorrectionState state) {}
+
+    /** An airport transfer end with no country, by the event it is on. */
+    public record AirportEndLine(long event, AirportEndFill end) {}
+
+    /** One claim about the migration: what was expected, what is actually so, and whether they agree. */
+    public record Check(String what, int expected, int actual) {
+        public boolean matches() {
+            return expected == actual;
+        }
+    }
+
+    /**
+     * Every approved correction and every airport end missing a country, each with where it stands.
+     * The verdict, {@link #allAccountedFor()}, holds when every correction will be made or already
+     * has been, and every airport end can be filled in.
+     */
+    public record CorrectionsCheck(List<CorrectionLine> corrections, List<AirportEndLine> airportEnds) {
+        public int expected() {
+            return corrections.size();
+        }
+
+        public int willBeMade() {
+            return count(CorrectionState.WILL_BE_MADE);
+        }
+
+        public int alreadyMade() {
+            return count(CorrectionState.ALREADY_MADE);
+        }
+
+        public int skipped() {
+            return expected() - accountedFor();
+        }
+
+        public int accountedFor() {
+            return willBeMade() + alreadyMade();
+        }
+
+        public int airportEndsToFill() {
+            return (int) airportEnds.stream().filter(line -> line.end().filled()).count();
+        }
+
+        public boolean allAccountedFor() {
+            return accountedFor() == expected() && airportEndsToFill() == airportEnds.size();
+        }
+
+        private int count(CorrectionState state) {
+            return (int) corrections.stream().filter(line -> line.state() == state).count();
+        }
+    }
 
     /**
      * A dry-run summary: how many rows would be payload-rewritten, stamp-only stamped, renamed to the
@@ -158,7 +296,7 @@ public class LegacyEventMigration {
      * write — so {@code toMigrate}, the row count, is the only true total.
      */
     public record MigrationReport(int scanned, int toRewrite, int toStamp, int toRename, int toMigrate,
-                                  int alreadyCurrent, List<String> errors) {
+                                  int alreadyCurrent, List<String> errors, CorrectionsCheck corrections) {
         public boolean hasErrors() {
             return !errors.isEmpty();
         }
@@ -171,20 +309,28 @@ public class LegacyEventMigration {
     /**
      * Outcome of an applied migration: rows rewritten/stamped/renamed, or why nothing was written.
      * {@code renamed} overlaps {@code rewritten} and {@code stamped}, as in {@link MigrationReport}.
+     * {@code verification} is what a re-read of the store found, one {@link Check} per claim; it is
+     * empty when nothing was written.
      */
     public record MigrationResult(boolean refusedReadOnly, int rewritten, int stamped, int renamed,
-                                  List<String> errors) {
+                                  List<String> errors, List<Check> verification) {
         public boolean hasErrors() {
             return !errors.isEmpty();
         }
 
+        /** Whether everything the re-read found is what the run set out to do. */
+        public boolean verified() {
+            return verification.stream().allMatch(Check::matches);
+        }
+
         static MigrationResult readOnlyRefusal() {
             return new MigrationResult(true, 0, 0, 0, List.of(
-                    "Migration refused: the application is in read-only mode, so nothing was written."));
+                    "Migration refused: the application is in read-only mode, so nothing was written."),
+                    List.of());
         }
 
         static MigrationResult failed(List<String> errors) {
-            return new MigrationResult(false, 0, 0, 0, errors);
+            return new MigrationResult(false, 0, 0, 0, errors, List.of());
         }
     }
 }

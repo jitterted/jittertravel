@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.BackupService;
 import dev.ted.jittertravel.application.BackupSource;
 import dev.ted.jittertravel.application.LegacyEventMigration;
+import dev.ted.jittertravel.application.LocationDataCorrections;
 import dev.ted.jittertravel.infrastructure.BrevoEmailClient;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import org.junit.jupiter.api.Tag;
@@ -20,6 +21,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,6 +35,29 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 @WebMvcTest(AdminController.class)
 @WithMockUser(roles = "OWNER")
 class AdminControllerTest {
+
+    private static final LocationDataCorrections.Approved ST_RAPHAEL = new LocationDataCorrections.Approved(
+            UUID.fromString("c1598660-df8b-4139-af16-2bdc49dca1e8"), "Hotel Best Western Plus St. Raphael",
+            List.of(new LocationDataCorrections.FieldChange("city", "St. Georg", "Hamburg"),
+                    new LocationDataCorrections.FieldChange("region", "Hamburg", "St. Georg")));
+    private static final LocationDataCorrections.Approved DEVNEXUS = new LocationDataCorrections.Approved(
+            UUID.fromString("3f43b7c1-1201-4411-8ed9-a69bbba8fc2f"), "Devnexus 2027",
+            List.of(new LocationDataCorrections.FieldChange("region", "", "GA")));
+    private static final LegacyEventMigration.AirportEndLine DEN_END = new LegacyEventMigration.AirportEndLine(
+            132, new LocationDataCorrections.AirportEndFill("DEN", "CO", "US", true));
+
+    // Corrections before a run, all still to make; and after one, all already made.
+    private static final LegacyEventMigration.CorrectionsCheck FIXES_PENDING = new LegacyEventMigration.CorrectionsCheck(
+            List.of(new LegacyEventMigration.CorrectionLine(58L, ST_RAPHAEL, LegacyEventMigration.CorrectionState.WILL_BE_MADE),
+                    new LegacyEventMigration.CorrectionLine(98L, DEVNEXUS, LegacyEventMigration.CorrectionState.WILL_BE_MADE)),
+            List.of(DEN_END));
+    private static final LegacyEventMigration.CorrectionsCheck FIXES_SETTLED = new LegacyEventMigration.CorrectionsCheck(
+            List.of(new LegacyEventMigration.CorrectionLine(58L, ST_RAPHAEL, LegacyEventMigration.CorrectionState.ALREADY_MADE),
+                    new LegacyEventMigration.CorrectionLine(98L, DEVNEXUS, LegacyEventMigration.CorrectionState.ALREADY_MADE)),
+            List.of());
+    private static final List<LegacyEventMigration.Check> VERIFIED = List.of(
+            new LegacyEventMigration.Check("Rows written", 5, 5),
+            new LegacyEventMigration.Check("Corrections now in the database", 2, 2));
 
     @TestConfiguration
     static class TestBeans {
@@ -184,7 +209,7 @@ class AdminControllerTest {
     @Test
     void migrateLegacyEventsFormRendersThePreviewCounts() {
         given(legacyEventMigration.preview()).willReturn(
-                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of()));
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of(), FIXES_PENDING));
 
         assertThat(mockMvc.get().uri("/admin/migrate-legacy-events"))
                 .hasStatusOk()
@@ -202,7 +227,7 @@ class AdminControllerTest {
         // Reached from the post-deploy task banner, so it needs a way back to the app rather than
         // only up to /admin (Ted, 2026-08-19).
         given(legacyEventMigration.preview()).willReturn(
-                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of()));
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of(), FIXES_PENDING));
 
         assertThat(mockMvc.get().uri("/admin/migrate-legacy-events"))
                 .hasStatusOk()
@@ -214,7 +239,7 @@ class AdminControllerTest {
     @Test
     void migrateLegacyEventsFormWithNothingToRenameOmitsTheOneWayWarning() {
         given(legacyEventMigration.preview()).willReturn(
-                new LegacyEventMigration.MigrationReport(10, 3, 2, 0, 5, 5, List.of()));
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 0, 5, 5, List.of(), FIXES_PENDING));
 
         assertThat(mockMvc.get().uri("/admin/migrate-legacy-events"))
                 .hasStatusOk()
@@ -225,25 +250,102 @@ class AdminControllerTest {
     @Test
     void migrateLegacyEventsPostRunsMigrationAndShowsResult() {
         given(legacyEventMigration.migrate()).willReturn(
-                new LegacyEventMigration.MigrationResult(false, 3, 2, 4, List.of()));
+                new LegacyEventMigration.MigrationResult(false, 3, 2, 4, List.of(), VERIFIED));
         given(legacyEventMigration.preview()).willReturn(
-                new LegacyEventMigration.MigrationReport(10, 0, 0, 0, 0, 10, List.of()));
+                new LegacyEventMigration.MigrationReport(10, 0, 0, 0, 0, 10, List.of(), FIXES_SETTLED));
 
         assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()).param("confirm", "MIGRATE"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("Migration complete")
+                .contains("<strong>✓ Migration complete and verified.</strong>")
                 .contains("3 payloads rewritten, 2 stamps added, 4 types renamed")
-                .contains("Renamed rows make this database new-build-only.");
+                .contains("Renamed rows make this database new-build-only.")
+                .contains("<td>Corrections now in the database</td>")
+                .contains("<td class=\"match\">✓ match</td>")
+                .doesNotContain("<td class=\"mismatch\">");
         verify(legacyEventMigration).migrate();
+    }
+
+    @Test
+    void migrateLegacyEventsPostWhoseReReadDoesNotMatchIsNeverShownAsComplete() {
+        given(legacyEventMigration.migrate()).willReturn(
+                new LegacyEventMigration.MigrationResult(false, 3, 2, 0, List.of(), List.of(
+                        new LegacyEventMigration.Check("Rows written", 5, 5),
+                        new LegacyEventMigration.Check("Corrections now in the database", 10, 9))));
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 0, 0, 0, 0, 10, List.of(), FIXES_SETTLED));
+
+        assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()).param("confirm", "MIGRATE"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<strong>✗ Migration written, but the database does not hold what was expected.</strong>")
+                .doesNotContain("Migration complete")
+                .contains("<td class=\"num\">9</td>")
+                .contains("<td class=\"mismatch\">✗ mismatch</td>");
+    }
+
+    @Test
+    void migrateLegacyEventsFormListsEveryCorrectionWithWhatThisRunWillDo() {
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 0, 5, 5, List.of(), FIXES_PENDING));
+
+        assertThat(mockMvc.get().uri("/admin/migrate-legacy-events"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<strong>✓ All 2 approved corrections accounted for</strong>")
+                .contains("<span>This migration will make 2. An earlier run made 0. None will be skipped.</span>")
+                .contains("<td class=\"ev\">#58</td>")
+                .contains("<span>Hotel Best Western Plus St. Raphael</span>")
+                .contains("<span>city </span><del>St. Georg</del><span> → Hamburg, </span>")
+                .contains("<del>(none)</del><span> → GA</span>")
+                .contains("<span class=\"pill will\">Will be made</span>")
+                .contains("<td class=\"ev\">#132</td>")
+                .contains("<div class=\"chg\">→ CO, US</div>")
+                .contains("<span class=\"pill will\">Will be filled in</span>");
+    }
+
+    @Test
+    void migrateLegacyEventsFormNamesASkippedCorrectionAndWhy() {
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 0, 5, 5, List.of(),
+                        new LegacyEventMigration.CorrectionsCheck(List.of(
+                                new LegacyEventMigration.CorrectionLine(58L, ST_RAPHAEL,
+                                        LegacyEventMigration.CorrectionState.VALUES_CHANGED),
+                                new LegacyEventMigration.CorrectionLine(null, DEVNEXUS,
+                                        LegacyEventMigration.CorrectionState.EVENT_NOT_FOUND)),
+                                List.of())));
+
+        assertThat(mockMvc.get().uri("/admin/migrate-legacy-events"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<div class=\"banner warning\">")
+                .contains("<strong>⚠ 0 of 2 approved corrections accounted for</strong>")
+                .contains("<span>This migration will make 0. An earlier run made 0. 2 will be skipped. Its row below says why.</span>")
+                .contains("<span class=\"pill skip\">Skipped: values changed since approval</span>")
+                .contains("<td class=\"ev\">—</td>")
+                .contains("<span class=\"pill skip\">Skipped: event not in this database</span>");
+    }
+
+    @Test
+    void migrateLegacyEventsFormAfterARunShowsEveryCorrectionAlreadyMade() {
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 0, 0, 0, 0, 10, List.of(), FIXES_SETTLED));
+
+        assertThat(mockMvc.get().uri("/admin/migrate-legacy-events"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<strong>✓ All 2 approved corrections accounted for</strong>")
+                .contains("<span>This migration will make 0. An earlier run made 2. None will be skipped.</span>")
+                .contains("<span class=\"pill done\">Already made</span>")
+                .doesNotContain("<span class=\"pill will\">");
     }
 
     @Test
     void migrateLegacyEventsPostWithNoRenamesOmitsTheRollbackWarning() {
         given(legacyEventMigration.migrate()).willReturn(
-                new LegacyEventMigration.MigrationResult(false, 3, 2, 0, List.of()));
+                new LegacyEventMigration.MigrationResult(false, 3, 2, 0, List.of(), VERIFIED));
         given(legacyEventMigration.preview()).willReturn(
-                new LegacyEventMigration.MigrationReport(10, 0, 0, 0, 0, 10, List.of()));
+                new LegacyEventMigration.MigrationReport(10, 0, 0, 0, 0, 10, List.of(), FIXES_SETTLED));
 
         assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()).param("confirm", "MIGRATE"))
                 .hasStatusOk()
@@ -256,9 +358,10 @@ class AdminControllerTest {
     void migrateLegacyEventsPostRefusedInReadOnlyShowsRefusal() {
         given(legacyEventMigration.migrate()).willReturn(
                 new LegacyEventMigration.MigrationResult(true, 0, 0, 0,
-                        List.of("Migration refused: the application is in read-only mode, so nothing was written.")));
+                        List.of("Migration refused: the application is in read-only mode, so nothing was written."),
+                        List.of()));
         given(legacyEventMigration.preview()).willReturn(
-                new LegacyEventMigration.MigrationReport(10, 3, 2, 0, 5, 5, List.of()));
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 0, 5, 5, List.of(), FIXES_PENDING));
 
         assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()).param("confirm", "MIGRATE"))
                 .hasStatusOk()
@@ -271,7 +374,7 @@ class AdminControllerTest {
     void migrateLegacyEventsPostWithoutTheConfirmWordRunsNothing() {
         // Destructive and one-way, so it takes a typed confirmation like truncation does.
         given(legacyEventMigration.preview()).willReturn(
-                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of()));
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of(), FIXES_PENDING));
 
         assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf()))
                 .hasStatusOk()
@@ -284,7 +387,7 @@ class AdminControllerTest {
     @Test
     void migrateLegacyEventsPostWithTheWrongConfirmWordRunsNothing() {
         given(legacyEventMigration.preview()).willReturn(
-                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of()));
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of(), FIXES_PENDING));
 
         assertThat(mockMvc.post().uri("/admin/migrate-legacy-events").with(csrf())
                 .param("confirm", "migrate"))
@@ -299,7 +402,7 @@ class AdminControllerTest {
     void migrateLegacyEventsPageWarnsInRedAndOffersARedButtonBehindATypedConfirmation() {
         // Irreversible actions are red and gated; amber is for the recoverable kind (CLAUDE.md).
         given(legacyEventMigration.preview()).willReturn(
-                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of()));
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 4, 5, 5, List.of(), FIXES_PENDING));
 
         assertThat(mockMvc.get().uri("/admin/migrate-legacy-events"))
                 .hasStatusOk()

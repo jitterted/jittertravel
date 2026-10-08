@@ -48,12 +48,25 @@ health check at best and comes up misconfigured at worst.
   (`docs/LocationDataCleanupPlan.md` §5; the commit that adds `LocationCodesUpcaster`).
   1. *Before the push:* take a production backup (`/admin/backup`), then run
      `./mvnw test -Preplay-preflight -Dpreflight.dump=<that file>`. The new rung **fails loud** on a
-     country name it cannot map, so a booking typed since 2026-10-08 with an unusual spelling would
-     put production into read-only mode at boot; the preflight names the event first. If it fails,
-     add the spelling to `LocationCodesUpcaster.ALIASES` and re-run. Plan nothing in the app between
-     this backup and the push.
-  2. *After the rollout:* `/admin/migrate-legacy-events` on the app service. The preview should show
-     about 110 rows to migrate and no errors; type `MIGRATE`. Skipping it is safe for reads (the rung
+     country name it cannot map **and on a US, Canadian or Australian state/province name not in its
+     list**, so a booking typed since 2026-10-08 with an unusual spelling of either would put
+     production into read-only mode at boot; the preflight names the event first. A country spelling
+     is fixed by adding it to `LocationCodesUpcaster.ALIASES`; a region has no alias table, so a
+     failing region is a code change to the rung — stop and decide before pushing. (Passed against
+     the 2026-10-08T052706Z backup.) Plan nothing in the app between this backup and the push.
+  2. *After the rollout:* `/admin/migrate-legacy-events` on the app service. **Before typing
+     `MIGRATE`**, the preview should show: about 110 rows to migrate (the 2026-10-08 backup gives
+     exactly 110), no errors, the green **"✓ All 10 approved corrections accounted for — This
+     migration will make 10. An earlier run made 0. None will be skipped."**, every one of the ten
+     rows *Will be made*, and five airport ends (#132, #133, #135, #136 DEN; #162 YOW) *Will be
+     filled in*. Anything amber, stop and read its row. **After**, the result must read *✓ Migration
+     complete and verified* with every row of *Checked against the database after the write* a
+     ✓ match, and the list below it must show all ten *Already made*. Skipping the migration is safe for reads (the rung
      converts every row as it is read) but leaves the approved fixes unapplied: Didcot, St. Georg,
      Devnexus's GA, Aschaffenburg, Johannesberg, and the five blank airport ends.
   3. *Then:* a second backup. It is the new floor; the one from step 1 is the rollback artifact.
+  4. *Rollback means losing what was entered since step 1.* From the moment the new build is up —
+     before `MIGRATE` too — anything saved is stored with codes at the new schema versions. Restoring
+     the step-1 backup is the only tested way back, and it discards every booking, plan or change
+     made after it was taken. Whether the old build can read the new rows is untested; do not count
+     on rolling back the code alone.

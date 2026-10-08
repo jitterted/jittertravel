@@ -24,6 +24,8 @@
             --warning-text: #6e4d00;
             --warning-bg: #fdf3d8;
             --warning-border: #e6c66b;
+            --note: #3d4a7a;
+            --note-bg: #eef1fb;
             --radius: 10px;
         }
 
@@ -54,7 +56,28 @@
             border-radius: 6px; padding: 0.6rem 0.85rem; margin-top: 0.5rem;
         }
 
-        .banner.error ul { margin: 0.35rem 0 0 1.1rem; font-weight: 400; }
+        .banner.error ul, .banner.warning ul { margin: 0.35rem 0 0 1.1rem; font-weight: 400; }
+        /* Amber: a correction that is skipped leaves that value as it was, which is recoverable. */
+        .banner.warning { background: var(--warning-bg); border: 1px solid var(--warning-border); color: var(--warning-text); }
+
+        caption { text-align: left; font-weight: 600; padding: 0.6rem 1rem 0.3rem; }
+        th { font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; border-bottom: 1px solid var(--border); }
+        table.checks td, table.items td { text-align: left; vertical-align: top; }
+        table.checks td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        table.checks td.match { color: var(--success); font-weight: 600; white-space: nowrap; }
+        table.checks td.mismatch { color: var(--danger); font-weight: 600; white-space: nowrap; }
+
+        /* The corrections table can outgrow a phone; it scrolls in its own box, never the page. */
+        .scroll { overflow-x: auto; margin-bottom: 1.5rem; }
+        .scroll table { margin-bottom: 0; }
+        table.items td.ev { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        table.items .chg { font-family: monospace; font-size: 0.8rem; color: var(--text-secondary); }
+        .pill { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 0.1rem 0.5rem;
+                border-radius: 999px; white-space: nowrap; }
+        .pill.will { background: var(--note-bg); color: var(--note); }
+        .pill.done { background: var(--success-bg); color: var(--success); }
+        .pill.skip { background: var(--warning-bg); color: var(--warning-text); }
+        .no-airport-ends { margin-bottom: 1.5rem; }
 
         table {
             width: 100%; border-collapse: collapse; background: var(--surface);
@@ -113,8 +136,16 @@
     </p>
 
     <!--/* Applied-run outcome */-->
-    <div class="banner success" th:if="${result != null and !result.hasErrors()}">
-        <strong>✓ Migration complete.</strong>
+    <!--/* Read back from the database after the write: each claim with what was expected and what is
+           there. A mismatch is never a success banner — the rows were written, but not as intended. */-->
+    <div class="banner error" th:if="${result != null and !result.hasErrors() and !result.verified()}">
+        <strong>✗ Migration written, but the database does not hold what was expected.</strong>
+        Do not take the new backup yet. If the difference is not understood, restore the backup taken
+        before this run.
+    </div>
+
+    <div class="banner success" th:if="${result != null and !result.hasErrors() and result.verified()}">
+        <strong>✓ Migration complete and verified.</strong>
         <span th:text="${result.rewritten()} + ' payload' + (${result.rewritten()} == 1 ? '' : 's') + ' rewritten, '
                        + ${result.stamped()} + ' stamp' + (${result.stamped()} == 1 ? '' : 's') + ' added, '
                        + ${result.renamed()} + ' type' + (${result.renamed()} == 1 ? '' : 's') + ' renamed.'">
@@ -127,6 +158,22 @@
             name invented after it shipped: it boots into read-only mode with empty read models. Keep
             the backup you took before this run — it is the only fast way back.</span>
     </div>
+
+    <table class="checks" th:if="${result != null and !result.hasErrors()}">
+        <caption>Checked against the database after the write</caption>
+        <thead>
+            <tr><th>Check</th><th>Expected</th><th>Found</th><th></th></tr>
+        </thead>
+        <tbody>
+            <tr th:each="check : ${result.verification()}">
+                <td th:text="${check.what()}">Rows written</td>
+                <td class="num" th:text="${check.expected()}">0</td>
+                <td class="num" th:text="${check.actual()}">0</td>
+                <td th:class="${check.matches()} ? 'match' : 'mismatch'"
+                    th:text="${check.matches()} ? '✓ match' : '✗ mismatch'">✓ match</td>
+            </tr>
+        </tbody>
+    </table>
 
     <div class="banner error" th:if="${result != null and result.hasErrors()}">
         <strong th:text="${result.refusedReadOnly()} ? 'Migration refused.' : 'Migration failed — nothing was written.'">
@@ -164,6 +211,71 @@
             </tr>
         </tbody>
     </table>
+
+    <!--/* The approved location corrections ride inside the rows above, so their count says nothing
+           about them. Each is listed on its own, with where it stands in this database, and the verdict
+           says whether all of them are accounted for (Ted, 2026-10-08: confirm per item, like a test). */-->
+    <div th:with="corrections=${report.corrections()}">
+        <div th:class="${corrections.allAccountedFor()} ? 'banner success' : 'banner warning'">
+            <strong th:text="${corrections.accountedFor() == corrections.expected()}
+                             ? '✓ All ' + ${corrections.expected()} + ' approved corrections accounted for'
+                             : '⚠ ' + ${corrections.accountedFor()} + ' of ' + ${corrections.expected()} + ' approved corrections accounted for'">
+                ✓ All 10 approved corrections accounted for</strong>
+            <span th:text="'This migration will make ' + ${corrections.willBeMade()}
+                           + '. An earlier run made ' + ${corrections.alreadyMade()} + '. '
+                           + (${corrections.skipped()} == 0 ? 'None will be skipped.'
+                              : ${corrections.skipped()} + ' will be skipped. Its row below says why.')">
+                This migration will make 10. An earlier run made 0. None will be skipped.</span>
+        </div>
+
+        <div class="scroll">
+            <table class="items">
+                <caption>Approved corrections</caption>
+                <thead>
+                    <tr><th>Event</th><th>Correction</th><th>This run</th></tr>
+                </thead>
+                <tbody>
+                    <tr th:each="line : ${corrections.corrections()}">
+                        <td class="ev" th:text="${line.event() != null} ? '#' + ${line.event()} : '—'">#58</td>
+                        <td><span th:text="${line.correction().label()}">Hotel Best Western Plus St. Raphael</span>
+                            <div class="chg"><th:block th:each="change, iter : ${line.correction().changes()}"><span
+                                    th:text="${change.field()} + ' '">city </span><del
+                                    th:text="${change.from().isEmpty()} ? '(none)' : ${change.from()}">St. Georg</del><span
+                                    th:text="' → ' + ${change.to()} + (${iter.last} ? '' : ', ')"> → Hamburg</span></th:block></div>
+                        </td>
+                        <td th:switch="${line.state().name()}">
+                            <span th:case="'WILL_BE_MADE'" class="pill will">Will be made</span>
+                            <span th:case="'ALREADY_MADE'" class="pill done">Already made</span>
+                            <span th:case="'VALUES_CHANGED'" class="pill skip">Skipped: values changed since approval</span>
+                            <span th:case="'EVENT_NOT_FOUND'" class="pill skip">Skipped: event not in this database</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="scroll" th:if="${!corrections.airportEnds().isEmpty()}">
+            <table class="items">
+                <caption>Airport transfer ends with no country</caption>
+                <thead>
+                    <tr><th>Event</th><th>Airport</th><th>This run</th></tr>
+                </thead>
+                <tbody>
+                    <tr th:each="line : ${corrections.airportEnds()}">
+                        <td class="ev" th:text="'#' + ${line.event()}">#132</td>
+                        <td><span th:text="${line.end().airportCode()}">DEN</span>
+                            <div class="chg" th:if="${line.end().filled()}"
+                                 th:text="'→ ' + ${line.end().region()} + ', ' + ${line.end().country()}">→ CO, US</div></td>
+                        <td>
+                            <span th:if="${line.end().filled()}" class="pill will">Will be filled in</span>
+                            <span th:unless="${line.end().filled()}" class="pill skip">Skipped: airport not in the airport table</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="hint no-airport-ends" th:if="${corrections.airportEnds().isEmpty()}">No airport transfer end is missing a country.</p>
+    </div>
 
     <div class="danger-note" th:if="${report.totalToMigrate() > 0}">
         This rewrites real rows. Download a backup from <a href="/admin/backup">Admin → Backup</a>

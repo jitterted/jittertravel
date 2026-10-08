@@ -2,6 +2,10 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.web.SecureCookieProbe.ProbeValue;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,23 +39,26 @@ class SecureCookieProbeTest {
                                        + "applied, which is what the strategy does"));
     }
 
-    @Test
-    void everyReadingCarriesAVerdictInEveryState() {
-        // The point of the record: a value shown without a verdict puts the reader back where they
-        // started. Driven over all five states so a new one cannot ship a blank verdict.
-        for (SecureCookieProbe probe : new SecureCookieProbe[]{
+    static Stream<SecureCookieProbe> everyState() {
+        return Stream.of(
                 new SecureCookieProbe(true, "https", ""),
                 new SecureCookieProbe(true, "https", "https"),
                 new SecureCookieProbe(false, "http", ""),
                 new SecureCookieProbe(false, "http", "https"),
-                new SecureCookieProbe(false, "http", "http")}) {
-            assertThat(probe.values())
-                    .as("readings for %s", probe)
-                    .isNotEmpty()
-                    .allSatisfy(reading -> assertThat(reading.verdict())
-                            .as("verdict for %s", reading.label())
-                            .isNotBlank());
-        }
+                new SecureCookieProbe(false, "http", "http"));
+    }
+
+    // The point of the record: a value shown without a verdict puts the reader back where they
+    // started. Driven over all five states so a new one cannot ship a blank verdict.
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("everyState")
+    void everyReadingCarriesAVerdictInEveryState(SecureCookieProbe probe) {
+        assertThat(probe.values())
+                .as("readings for %s", probe)
+                .isNotEmpty()
+                .extracting(ProbeValue::verdict)
+                .as("every reading's verdict for %s", probe)
+                .noneMatch(String::isBlank);
     }
 
     @Test

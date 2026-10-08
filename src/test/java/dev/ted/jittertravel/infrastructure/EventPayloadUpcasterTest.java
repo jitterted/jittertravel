@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -249,23 +250,22 @@ class EventPayloadUpcasterTest {
                 .isEqualTo(Instant.parse("2026-06-07T13:00:00Z"));
     }
 
-    @Test
-    void aRenamedTypesRetiredWireIdsStillClimbTheirLadder() {
-        // ConferenceTentativelyPlanned was renamed to ConferencePlanned on 2026-08-19; stored rows
-        // keep both retired wire ids (the old logical name, and the older FQCN). Each must normalize
-        // to the new logical name, or those rows silently stop being upcast — bare-scalar datetimes
-        // and no format, exactly the shape that fails to bind.
-        for (String retiredWireId : List.of("ConferenceTentativelyPlanned",
-                                            "dev.ted.jittertravel.domain.ConferenceTentativelyPlanned")) {
-            JsonNode result = upcaster.upcast(retiredWireId, legacyScalarConference(), null);
+    // ConferenceTentativelyPlanned was renamed to ConferencePlanned on 2026-08-19; stored rows keep
+    // both retired wire ids (the old logical name, and the older FQCN). Each must normalize to the new
+    // logical name, or those rows silently stop being upcast — bare-scalar datetimes and no format,
+    // exactly the shape that fails to bind.
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"ConferenceTentativelyPlanned",
+                            "dev.ted.jittertravel.domain.ConferenceTentativelyPlanned"})
+    void aRenamedTypesRetiredWireIdsStillClimbTheirLadder(String retiredWireId) {
+        JsonNode result = upcaster.upcast(retiredWireId, legacyScalarConference(), null);
 
-            assertThat(result.get("startDate").isObject())
-                    .as("%s: the datetime rung must run for the retired wire id too", retiredWireId)
-                    .isTrue();
-            assertThat(result.get("format").asString())
-                    .as("%s: and so must the format rung", retiredWireId)
-                    .isEqualTo("CALL_FOR_PAPERS");
-        }
+        assertThat(result.get("startDate").isObject())
+                .as("%s: the datetime rung must run for the retired wire id too", retiredWireId)
+                .isTrue();
+        assertThat(result.get("format").asString())
+                .as("%s: and so must the format rung", retiredWireId)
+                .isEqualTo("CALL_FOR_PAPERS");
     }
 
     @ParameterizedTest(name = "{0}")

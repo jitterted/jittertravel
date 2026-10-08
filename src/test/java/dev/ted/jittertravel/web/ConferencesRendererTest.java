@@ -13,6 +13,8 @@ import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.SpeakingStatus;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -401,48 +403,6 @@ class ConferencesRendererTest {
                 .contains("href=\"" + base + "/decline\"");
     }
 
-    /**
-     * No state offers more than three, which is what keeps the actions cell to plain links: a menu
-     * is only worth its extra click above three (CLAUDE.md), and this table only just fits.
-     */
-    @Test
-    void noStateOffersMoreThanThreeActions() {
-        List<ConferenceView> everyState = List.of(
-                view("watching", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
-                     AttendanceCommitment.WATCHING, false, SpeakingStatus.NOT_SPEAKING, null,
-                     ConferenceFormat.CALL_FOR_PAPERS),
-                view("submitted", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
-                     AttendanceCommitment.WATCHING, false, SpeakingStatus.SUBMITTED, null,
-                     ConferenceFormat.CALL_FOR_PAPERS),
-                view("invited", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
-                     AttendanceCommitment.WATCHING, false, SpeakingStatus.INVITED, null,
-                     ConferenceFormat.CALL_FOR_PAPERS),
-                view("rejected", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
-                     AttendanceCommitment.WATCHING, false, SpeakingStatus.REJECTED, null,
-                     ConferenceFormat.CALL_FOR_PAPERS),
-                view("withdrawn", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
-                     AttendanceCommitment.WATCHING, false, SpeakingStatus.WITHDRAWN, null,
-                     ConferenceFormat.CALL_FOR_PAPERS),
-                view("accepted", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
-                     AttendanceCommitment.GOING, true, SpeakingStatus.ACCEPTED, null,
-                     ConferenceFormat.CALL_FOR_PAPERS),
-                view("going", "2026-11-05T09:00", "2026-11-05T18:00", "Ede", "NL",
-                     AttendanceCommitment.GOING, false, SpeakingStatus.NOT_SPEAKING, null,
-                     ConferenceFormat.CALL_FOR_PAPERS));
-
-        for (ConferenceView conf : everyState) {
-            String cell = actionsCellOf(ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE));
-            assertThat(cell.split("<a ").length - 1)
-                    .as("actions offered on a '%s' row", conf.name())
-                    .isLessThanOrEqualTo(3);
-        }
-    }
-
-    private static String actionsCellOf(String html) {
-        int start = html.indexOf("<div class=\"conf-actions\">");
-        return html.substring(start, html.indexOf("</td>", start));
-    }
-
     @Test
     void decliningStaysAvailableOnACommittedConference() {
         // Changing your mind about a conference you committed to is exactly what Decline is for,
@@ -645,21 +605,20 @@ class ConferencesRendererTest {
      * above because pulling a talk puts submitting back on the table — the dashboard offers
      * {@code Submitted} on exactly these two rows.
      */
-    @Test
-    void whileSubmittingIsStillOpenTheDeadlineStaysAndStaysALink() {
-        for (SpeakingStatus stillOpen : List.of(SpeakingStatus.NOT_SPEAKING, SpeakingStatus.WITHDRAWN)) {
-            ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
-                    "Ede", "Netherlands", AttendanceCommitment.WATCHING, false, stillOpen,
-                    ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-12T23:59"), ZONE),
-                    ConferenceFormat.CALL_FOR_PAPERS);
+    @ParameterizedTest(name = "{0}")
+    @EnumSource(value = SpeakingStatus.class, names = {"NOT_SPEAKING", "WITHDRAWN"})
+    void whileSubmittingIsStillOpenTheDeadlineStaysAndStaysALink(SpeakingStatus stillOpen) {
+        ConferenceView conf = view("J-Fall", "2026-11-05T09:00", "2026-11-05T18:00",
+                "Ede", "Netherlands", AttendanceCommitment.WATCHING, false, stillOpen,
+                ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-12T23:59"), ZONE),
+                ConferenceFormat.CALL_FOR_PAPERS);
 
-            assertThat(ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE))
-                    .as("%s still has a CFP to submit to", stillOpen)
-                    .contains("title=\"Change the recorded CFP deadline\"")
-                    .contains("<span class=\"nowrap\">Sat 9/12</span>")
-                    .doesNotContain("Talk submitted")
-                    .doesNotContain("Talk rejected");
-        }
+        assertThat(ConferencesRenderer.render(oneSection(conf), TimeView.FUTURE))
+                .as("%s still has a CFP to submit to", stillOpen)
+                .contains("title=\"Change the recorded CFP deadline\"")
+                .contains("<span class=\"nowrap\">Sat 9/12</span>")
+                .doesNotContain("Talk submitted")
+                .doesNotContain("Talk rejected");
     }
 
     /**

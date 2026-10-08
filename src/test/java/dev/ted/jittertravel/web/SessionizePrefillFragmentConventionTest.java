@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.file.Path;
 
@@ -54,25 +56,27 @@ class SessionizePrefillFragmentConventionTest {
                 .doesNotContain("method: 'POST'");
     }
 
+    // The property names are the interface between the two halves. A widget copied from the address
+    // fragment and not renamed would look right and write to nothing: this form has no
+    // [name="city"], only [name="venueCity"].
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"name", "infoUrl", "startDate", "endDate",
+                            "cfpClosesOn", "cfpSubmissionUrl",
+                            "venueName", "venueCity"})
+    void theWidgetWritesEveryFieldByTheNameThisFormActuallyUses(String property) {
+        assertThat(templates.read(FRAGMENT))
+                .as("the widget writes %s", property)
+                .contains("set('" + property + "', d." + property + ")");
+        assertThat(templates.read(PLAN_CONFERENCE))
+                .as("%s is a field on the form the widget writes into", property)
+                .contains("th:field=\"*{" + property + "}\"");
+    }
+
     @Test
-    void theWidgetWritesEveryFieldByTheNameThisFormActuallyUses() {
+    void theWidgetWritesCountryAndStateThroughThePlacePickers() {
         String fragment = templates.read(FRAGMENT);
         String form = templates.read(PLAN_CONFERENCE);
 
-        // The property names are the interface between the two halves. A widget copied from the
-        // address fragment and not renamed would look right and write to nothing: this form has
-        // no [name="city"], only [name="venueCity"].
-        for (String property : new String[]{"name", "infoUrl", "startDate", "endDate",
-                                            "cfpClosesOn", "cfpSubmissionUrl",
-                                            "venueName", "venueCity"}) {
-            assertThat(fragment)
-                    .as("the widget writes %s", property)
-                    .contains("set('" + property + "', d." + property + ")");
-            assertThat(form)
-                    .as("%s is a field on the form the widget writes into", property)
-                    .contains("th:field=\"*{" + property + "}\"");
-        }
-        // Country and State are the shared place pickers on this form, written through them.
         assertThat(fragment)
                 .as("the widget writes the venue's country and state through the place picker")
                 .contains("window.placePicker.setCountry(country, d.venueCountry)")

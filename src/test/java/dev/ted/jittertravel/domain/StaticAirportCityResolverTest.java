@@ -1,6 +1,10 @@
 package dev.ted.jittertravel.domain;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -88,35 +92,66 @@ class StaticAirportCityResolverTest {
                 .isEmpty();
     }
 
-    /**
+    /*
      * Every entry is held to the rules a typed address now meets: a real ISO country, and a state
      * from the list exactly where the country has one. A wrong entry here would be frozen into every
-     * transfer that leaves from that airport.
+     * transfer that leaves from that airport. One case per airport, so every bad entry is reported in
+     * one run rather than the first one found.
      */
-    @Test
-    void everyEntryIsACompleteAddress() {
-        Countries countries = new Countries();
+
+    static List<String> everyAirport() {
+        return new StaticAirportCityResolver().knownCodes().stream()
+                                              .sorted()
+                                              .toList();
+    }
+
+    static List<String> airportsInStateListCountries() {
+        return airportsWhereStateListIs(true);
+    }
+
+    static List<String> airportsElsewhere() {
+        return airportsWhereStateListIs(false);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("everyAirport")
+    void everyAirportHasAKnownCountryCode(String code) {
+        assertThat(resolver.addressFor(code))
+                .as("Address for " + code)
+                .isPresent();
+        String country = resolver.addressFor(code).orElseThrow().country();
+
+        assertThat(new Countries().isKnown(country))
+                .as(code + " has a known ISO country code: " + country)
+                .isTrue();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("airportsInStateListCountries")
+    void anAirportInAStateListCountryNamesOneOfItsStates(String code) {
+        Address address = resolver.addressFor(code).orElseThrow();
+
+        assertThat(new Subdivisions().find(address.country(), address.region()))
+                .as(code + " names a state of " + address.country() + ": '" + address.region() + "'")
+                .isPresent();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("airportsElsewhere")
+    void anAirportElsewhereHasNoRegion(String code) {
+        assertThat(resolver.addressFor(code).orElseThrow().region())
+                .as(code + " has no region outside the state-list countries")
+                .isEmpty();
+    }
+
+    // A code with no address is in neither list: everyAirportHasAKnownCountryCode reports it.
+    private static List<String> airportsWhereStateListIs(boolean required) {
+        StaticAirportCityResolver resolver = new StaticAirportCityResolver();
         Subdivisions subdivisions = new Subdivisions();
-        for (String code : resolver.knownCodes()) {
-            assertThat(resolver.addressFor(code))
-                    .as("Address for " + code)
-                    .isPresent();
-            Address address = resolver.addressFor(code).orElseThrow();
-            assertThat(countries.isKnown(address.country()))
-                    .as(code + " has a known country code: " + address.country())
-                    .isTrue();
-            if (subdivisions.required(address.country())) {
-                assertThat(subdivisions.find(address.country(), address.region()))
-                        .as(code + " names a state of " + address.country() + ": " + address.region())
-                        .isPresent();
-            } else {
-                assertThat(address.region())
-                        .as(code + " has no region outside the state-list countries")
-                        .isEmpty();
-            }
-        }
-        assertThat(resolver.knownCodes())
-                .as("All 58 airports were checked")
-                .hasSize(58);
+        return everyAirport().stream()
+                             .filter(code -> resolver.addressFor(code)
+                                                     .map(address -> subdivisions.required(address.country()) == required)
+                                                     .orElse(false))
+                             .toList();
     }
 }

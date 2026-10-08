@@ -2,9 +2,13 @@ package dev.ted.jittertravel.domain;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.ZoneId;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,6 +28,92 @@ class LocationZoneResolverTest {
     private static Address address(String city, String region, String country) {
         return new Address("", city, region, "", country, "");
     }
+
+    // ---- Every entry of the curated tables, checked against a source that does not depend on them.
+    // A table entry that is deleted or mistyped must fail a case of its own here.
+
+    static Stream<Arguments> everyStateAndProvince() {
+        Subdivisions subdivisions = new Subdivisions();
+        return Stream.of("US", "CA", "AU")
+                     .flatMap(country -> subdivisions.of(country).stream()
+                                                     .map(state -> Arguments.of(country, state.code())));
+    }
+
+    /** Every state the form offers must resolve, or a town in it cannot be booked without a zone. */
+    @ParameterizedTest(name = "{0} {1}")
+    @MethodSource("everyStateAndProvince")
+    void everyStateAndProvinceTheFormOffersResolves(String country, String state) {
+        assertThat(resolver.resolve(address("A town no table lists", state, country)))
+                .as("%s in %s", state, country)
+                .isNotNull();
+    }
+
+    // Single-zone countries with airports in a country the zone table does not cover yet: a place
+    // there falls back to the form's time-zone select. Named here so adding one is a visible change.
+    private static final Set<String> COUNTRIES_WITHOUT_A_ZONE_ENTRY = Set.of("HK", "HU", "KR");
+
+    static Stream<String> everyAirportInACountryTheZoneTableCovers() {
+        StaticAirportCityResolver airports = new StaticAirportCityResolver();
+        return airports.knownCodes().stream()
+                       .sorted()
+                       .filter(code -> !COUNTRIES_WITHOUT_A_ZONE_ENTRY.contains(
+                               airports.addressFor(code).orElseThrow().country()));
+    }
+
+    /**
+     * The two curated tables must agree: an airport's own place, resolved by its city, state and
+     * country, lands in the zone the airport table gives the airport. That pins every country entry
+     * an airport stands in, and it is the check that two hand-kept tables have not drifted apart.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("everyAirportInACountryTheZoneTableCovers")
+    void anAirportsPlaceResolvesToTheAirportsOwnZone(String code) {
+        Address place = new StaticAirportCityResolver().addressFor(code).orElseThrow();
+
+        assertThat(resolver.resolve(place))
+                .as("%s: %s, %s, %s", code, place.city(), place.region(), place.country())
+                .isEqualTo(new AirportZoneResolver().resolve(AirportCode.of(code)));
+    }
+
+    /** The countries the zone table holds that no airport stands in, so no table can vouch for them. */
+    @ParameterizedTest
+    @CsvSource({
+            "Bengaluru, IN, Asia/Kolkata",
+            "Reykjavik, IS, Atlantic/Reykjavik",
+            "Casablanca, MA, Africa/Casablanca",
+            "Auckland, NZ, Pacific/Auckland"
+    })
+    void aCountryWithNoAirportInTheTableResolves(String city, String country, String zone) {
+        assertThat(resolver.resolve(address(city, country)))
+                .as(city + ", " + country)
+                .isEqualTo(ZoneId.of(zone));
+    }
+
+    /**
+     * One city from each group of the city table, with no state, so only the city entry can answer.
+     * A state would answer too and hide a deleted city, which is why the airport check above cannot
+     * pin these.
+     */
+    @ParameterizedTest
+    @CsvSource({
+            "Boston, US, America/New_York",
+            "Dallas, US, America/Chicago",
+            "Salt Lake City, US, America/Denver",
+            "Phoenix, US, America/Phoenix",
+            "Las Vegas, US, America/Los_Angeles",
+            "Montreal, CA, America/Toronto",
+            "Vancouver, CA, America/Vancouver",
+            "Calgary, CA, America/Edmonton",
+            "Melbourne, AU, Australia/Sydney",
+            "Perth, AU, Australia/Perth"
+    })
+    void eachCityGroupResolvesWithoutAState(String city, String country, String zone) {
+        assertThat(resolver.resolve(address(city, country)))
+                .as(city + ", " + country)
+                .isEqualTo(ZoneId.of(zone));
+    }
+
+    // ---- Behaviour
 
     @ParameterizedTest
     @CsvSource({

@@ -1,14 +1,15 @@
 # Location Data Cleanup Plan
 
 **Status:** `in progress` — direction agreed with Ted 2026-10-06; the fix list in §5.2 approved
-2026-10-07. Steps 1 and 2 built, uncommitted (2026-10-07); step 3 waits on the migration having run
-in production. Mockup:
+2026-10-07. Steps 1 and 2 committed together in `7ccc180` (2026-10-08), not yet pushed; the
+pre-push preflight and the post-rollout `MIGRATE` are in `Pre-Push-Tasks.md`. Step 3 waits on the
+migration having run in production. Mockup:
 <https://claude.ai/artifact/KvPTqeESSdR6H29rL5EgkQ>.
 
 ## 1. Why
 
 Ted asked for US places to read "Denver, CO" and everywhere else "Vienna, Austria". The first
-attempt (uncommitted, see §7) did it by teaching the display to tolerate every spelling in the log:
+attempt (see §7) did it by teaching the display to tolerate every spelling in the log:
 six names for the United States, states by name or by code. That is a second copy of a workaround
 that already exists — `LocationZoneResolver.defaultRegionScopeTable` and its region table, keyed
 "under both the postal abbreviation and the spelled-out name — stored data uses both". Ted's
@@ -55,7 +56,7 @@ still holds a name. Opening any existing hotel or gathering would show its count
 option, and saving it would fail with "Unknown country" until the migration had run. The upcaster
 rung in §5 converts on read, so the two together leave no window.
 
-**Step 1 is built** (uncommitted, 2026-10-07). Where it differs from §4:
+**Step 1 is built** (2026-10-07, committed in `7ccc180`). Where it differs from §4:
 
 - The zone table gained the **ISO codes of its existing 23 countries**, not every country. A
   country picked from "Another country…" that the table lacks falls back to the form's time-zone
@@ -210,16 +211,15 @@ outside US/CA/AU).
   retired (`EventPayloadUpcasterDesign.md`, "How to retire a rung"), i.e. once pre-migration backups
   no longer need restoring.
 
-## 7. The uncommitted display change
+## 7. The display change
 
-Held, not committed. Kept: one display rule in `CityLabel` and every call site moved onto it,
+Held back until the migration was built, then committed with it in `7ccc180`. Kept: one display rule in `CityLabel` and every call site moved onto it,
 `cityLine()` on the conference and hotel views (eight Thymeleaf forms used to build "City, Country"
 themselves), the `qualifier` renames, and the redaction tests. Simplified after §5 as in §6. The
 family-email wording was approved by Ted on 2026-10-07: a US conference reads "<venue>, Denver, CO"
 ("Atlanta, USA" with no state), a non-US one is unchanged ("<venue>, Johannesberg, Germany"), and
-the preview's sample says "Germany" rather than "DE". Step 1 stays uncommitted until the migration
-is built, and both are committed together (Ted, 2026-10-07).
+the preview's sample says "Germany" rather than "DE".
 
 ## 8. Open
 
-- CLAUDE.md redaction section: say that a US state code is public (it is a city-level fact).
+_nothing open_ — the CLAUDE.md redaction section says a US state code is public (done in `9cc7d2f`).

@@ -1,9 +1,9 @@
 # Location Data Cleanup Plan
 
 **Status:** `in progress` — direction agreed with Ted 2026-10-06; the fix list in §5.2 approved
-2026-10-07. Steps 1 and 2 committed together in `7ccc180` (2026-10-08), not yet pushed; the
-pre-push preflight and the post-rollout `MIGRATE` are in `Pre-Push-Tasks.md`. Step 3 waits on the
-migration having run in production. Mockup:
+2026-10-07. Steps 1 and 2 shipped 2026-10-08 (`7ccc180` and follow-ups), and the migration ran
+in production the same day: complete and verified, all ten corrections and five airport ends made,
+and the post-migration backup holds only ISO country codes. **Step 3 (§6) is next.** Mockup:
 <https://claude.ai/artifact/KvPTqeESSdR6H29rL5EgkQ>.
 
 ## 1. Why

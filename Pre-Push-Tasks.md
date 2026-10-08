@@ -45,8 +45,10 @@ health check at best and comes up misconfigured at worst.
 ## Open
 
 - [ ] **Location codes: preflight before the push, `MIGRATE` after the rollout**
-  (`docs/LocationDataCleanupPlan.md` §5; the commit that adds `LocationCodesUpcaster`).
-  1. *Before the push:* take a production backup (`/admin/backup`), then run
+  (`docs/LocationDataCleanupPlan.md` §5; `7ccc180` adds `LocationCodesUpcaster`).
+  1. *Before the push:* take **both** backups. A `pg_dump` with `scripts/backup-db.sh` is the
+     rollback artifact (`DEPLOYMENT.md`: the JSON export is not a substitute, and this is an
+     event-shape change). The JSON export from `/admin/backup` feeds the preflight:
      `./mvnw test -Preplay-preflight -Dpreflight.dump=<that file>`. The new rung **fails loud** on a
      country name it cannot map **and on a US, Canadian or Australian state/province name not in its
      list**, so a booking typed since 2026-10-08 with an unusual spelling of either would put
@@ -61,12 +63,14 @@ health check at best and comes up misconfigured at worst.
      rows *Will be made*, and five airport ends (#132, #133, #135, #136 DEN; #162 YOW) *Will be
      filled in*. Anything amber, stop and read its row. **After**, the result must read *✓ Migration
      complete and verified* with every row of *Checked against the database after the write* a
-     ✓ match, and the list below it must show all ten *Already made*. Skipping the migration is safe for reads (the rung
-     converts every row as it is read) but leaves the approved fixes unapplied: Didcot, St. Georg,
-     Devnexus's GA, Aschaffenburg, Johannesberg, and the five blank airport ends.
-  3. *Then:* a second backup. It is the new floor; the one from step 1 is the rollback artifact.
+     ✓ match, and the list below it must show all ten *Already made*. Skipping the migration is
+     safe for reads (the rung converts every row as it is read) but leaves the approved fixes
+     unapplied: Didcot, St. Georg, Devnexus's GA, Aschaffenburg, Johannesberg, and the five blank
+     airport ends.
+  3. *Then:* a second `pg_dump` (`scripts/backup-db.sh`). It is the new floor; the one from step 1
+     is the rollback artifact.
   4. *Rollback means losing what was entered since step 1.* From the moment the new build is up —
-     before `MIGRATE` too — anything saved is stored with codes at the new schema versions. Restoring
-     the step-1 backup is the only tested way back, and it discards every booking, plan or change
-     made after it was taken. Whether the old build can read the new rows is untested; do not count
-     on rolling back the code alone.
+     before `MIGRATE` too — anything saved is stored with codes at the new schema versions.
+     Restoring the step-1 `pg_dump` (`scripts/restore-db.sh … --to=prod`) is the only way back, and
+     it discards every booking, plan or change made after it was taken. Whether the old build can
+     read the new rows is untested; do not count on rolling back the code alone.

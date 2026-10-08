@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.StaticAirportCityResolver;
 import dev.ted.jittertravel.infrastructure.EventPayloadUpcaster;
 import dev.ted.jittertravel.infrastructure.PostgresPersister;
 import org.junit.jupiter.api.Test;
@@ -22,7 +23,8 @@ class LegacyEventMigrationReadOnlyTest {
         CommandExecutor readOnly = mock(CommandExecutor.class);
         when(readOnly.isReadOnly()).thenReturn(true);
         LegacyEventMigration migration = new LegacyEventMigration(
-                persister, mock(EventPayloadUpcaster.class), null, readOnly);
+                persister, mock(EventPayloadUpcaster.class), null, readOnly,
+                new LocationDataCorrections(new StaticAirportCityResolver()));
 
         LegacyEventMigration.MigrationResult result = migration.migrate();
 

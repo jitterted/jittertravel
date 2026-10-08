@@ -11,6 +11,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 class PlanGatheringCommandTest {
 
@@ -122,6 +123,20 @@ class PlanGatheringCommandTest {
 
         assertThatThrownBy(() -> command.execute(new GatheringPlanningContext(NOW)))
                 .isInstanceOf(InvalidGatheringTimeRange.class);
+    }
+
+    @Test
+    void aUsVenueWithNoStateIsRefusedOnTheRegion() {
+        Address noState = new Address("", "New York", "", "", "US", null);
+        PlanGatheringCommand command = new PlanGatheringCommand(
+                GatheringId.random(), "NY JUG", "Venue", noState,
+                londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, END), false, "");
+
+        assertThatThrownBy(() -> command.execute(new GatheringPlanningContext(NOW)))
+                .isInstanceOfSatisfying(InvalidEnteredLocation.class, invalid ->
+                        assertThat(invalid.problems())
+                                .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
+                                .containsExactly(tuple(LocationRole.VENUE, LocationField.REGION)));
     }
 
     private static ZonedTimestamp londonTime(LocalDate date, LocalTime time) {

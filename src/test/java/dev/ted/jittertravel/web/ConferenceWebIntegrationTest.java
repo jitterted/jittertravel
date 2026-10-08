@@ -4,6 +4,10 @@ import dev.ted.jittertravel.application.ConferencePlanning;
 import dev.ted.jittertravel.application.ConferenceProjector;
 import dev.ted.jittertravel.domain.ConferenceAlreadyEnded;
 import dev.ted.jittertravel.domain.ConferenceHasNoCfp;
+import dev.ted.jittertravel.domain.InvalidEnteredLocation;
+import dev.ted.jittertravel.domain.InvalidLocationEntry;
+import dev.ted.jittertravel.domain.LocationField;
+import dev.ted.jittertravel.domain.LocationRole;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -148,6 +152,40 @@ class ConferenceWebIntegrationTest {
         assertThat(result)
                 .bodyText()
                 .contains("<span class=\"error\">Conference has already ended</span>");
+    }
+
+    /** The render check for the venue Country and State inputs: each one's error span exists. */
+    @Test
+    void aRefusedVenueCountryAndStateRenderUnderTheirInputs() {
+        given(conferencePlanning.isReadOnly()).willReturn(false);
+        willThrow(new InvalidEnteredLocation(List.of(
+                new InvalidLocationEntry(LocationRole.VENUE, LocationField.COUNTRY, "Unknown country"),
+                new InvalidLocationEntry(LocationRole.VENUE, LocationField.REGION,
+                                         "State required for United States"))))
+                .given(conferencePlanning).planConference(any(), any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/plan-conference")
+                .with(csrf())
+                .param("conferenceId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("name", "Devnexus 2027")
+                .param("startDate", "2027-04-05T09:00")
+                .param("endDate", "2027-04-07T17:00")
+                .param("venueName", "Georgia World Congress Center")
+                .param("venueCity", "Atlanta")
+                .param("venueState", "")
+                .param("venueCountry", "US")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("planConference")
+                .hasFieldErrorCode("venueCountry", "invalidLocation")
+                .hasFieldErrorCode("venueState", "invalidLocation");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Unknown country</span>")
+                .contains("<span class=\"error\">State required for United States</span>");
     }
 
     /**

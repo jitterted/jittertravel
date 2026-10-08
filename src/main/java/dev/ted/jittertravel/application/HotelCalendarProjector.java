@@ -19,6 +19,7 @@ import java.util.stream.Stream;
 public class HotelCalendarProjector implements EventStreamConsumer {
 
     private final Map<HotelBookingId, CalendarEntry> entriesById = new ConcurrentHashMap<>();
+    private final CityLabel cityLabel = new CityLabel();
 
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
@@ -36,7 +37,7 @@ public class HotelCalendarProjector implements EventStreamConsumer {
 
     private void put(HotelBookingId hotelBookingId, String hotelName, Address address,
                      LocalDateTime checkIn, LocalDateTime checkOut, String rawMapsUrl) {
-        String location = address.city() + ", " + address.country();
+        String location = cityLabel.label(address);
         String mapsUrl = rawMapsUrl.isBlank()
                 ? AddressRenderer.mapsUrl(hotelName, address)
                 : rawMapsUrl;

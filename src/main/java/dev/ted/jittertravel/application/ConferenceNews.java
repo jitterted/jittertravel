@@ -10,10 +10,10 @@ import dev.ted.jittertravel.domain.ZonedTimestamp;
  *
  * @param venueName the building, or blank when none was recorded
  * @param city      where it is, or blank
- * @param country   or blank
+ * @param qualifier the US state code or the country, per {@link CityLabel}; or blank
  * @param infoUrl   the conference's own public page, or blank
  */
-public record ConferenceNews(String name, String venueName, String city, String country,
+public record ConferenceNews(String name, String venueName, String city, String qualifier,
                              ZonedTimestamp startDate, ZonedTimestamp endDate, String infoUrl,
                              SpeakingLine speaking) {
 

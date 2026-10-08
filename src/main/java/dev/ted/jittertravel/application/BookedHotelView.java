@@ -31,7 +31,7 @@ public record BookedHotelView(
         String hotelName,
         String city,
         String locationForMatching,
-        String country,
+        String qualifier,
         ZonedTimestamp checkIn,
         ZonedTimestamp checkOut,
         BookingIntent status,
@@ -62,7 +62,7 @@ public record BookedHotelView(
 
     /** A copy with the advisory deadline evaluated against {@code now}. */
     BookedHotelView withDeadlineEvaluatedAt(Instant now) {
-        return new BookedHotelView(hotelBookingId, hotelName, city, locationForMatching, country,
+        return new BookedHotelView(hotelBookingId, hotelName, city, locationForMatching, qualifier,
                 checkIn, checkOut,
                 status, mapsUrl, cancelBy,
                 cancelBy != null && !now.isBefore(cancelBy.utc()),
@@ -71,7 +71,7 @@ public record BookedHotelView(
 
     /** A copy marked cancelled, carrying the reason the cancellation recorded. */
     BookedHotelView cancelledWith(String reason) {
-        return new BookedHotelView(hotelBookingId, hotelName, city, locationForMatching, country,
+        return new BookedHotelView(hotelBookingId, hotelName, city, locationForMatching, qualifier,
                 checkIn, checkOut,
                 status, mapsUrl, cancelBy, cancelDeadlinePassed,
                 true, reason);

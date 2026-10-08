@@ -147,7 +147,8 @@ class ConferencePlanningTest {
         RecordingCommandExecutor executor = new RecordingCommandExecutor();
         ConferencePlanning planning = planningWith(executor);
 
-        planning.planConference(requestAt("Springfield", "Freedonia", "US_CENTRAL"),
+        // Brazil is a real country with no single zone, so only the pick can place the venue.
+        planning.planConference(requestAt("Springfield", "BR", "US_CENTRAL"),
                                 NOW, UUID.randomUUID());
 
         assertThat(executor.emitted)
@@ -243,7 +244,7 @@ class ConferencePlanningTest {
         return new PlanConferenceRequest(
                 UUID.randomUUID().toString(), "J-Fall",
                 LocalDateTime.of(2026, 11, 5, 9, 0), LocalDateTime.of(2026, 11, 5, 18, 0),
-                "Reehorst", null, "Ede", null, "Netherlands", null, null,
+                "Reehorst", null, "Ede", null, "NL", null, null,
                 format, infoUrl, cfpClosesOn, cfpSubmissionUrl);
     }
 

@@ -202,6 +202,37 @@ class ChangeTrainWebIntegrationTest {
                 .contains("<span class=\"error\">Venue name, not a city</span>");
     }
 
+    /** The render check for a station's Country picker on the change form: its error span exists. */
+    @Test
+    void aRefusedStationCountryRendersUnderThatEndsCountry() {
+        willThrow(new InvalidTrainEntry(List.of(
+                new InvalidLocationEntry(LocationRole.DEPARTURE, LocationField.COUNTRY,
+                        "Unknown country")), List.of()))
+                .given(changeTrain).changeTrain(any(), any(), any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/booked-trains/" + UUID.randomUUID())
+                .with(csrf())
+                .param("departureStationName", "Frankfurt Hbf")
+                .param("departureCityName", "Frankfurt")
+                .param("departureCountry", "Germany")
+                .param("departureDateTime", "2026-07-01T09:00")
+                .param("arrivalStationName", "Manchester Piccadilly")
+                .param("arrivalCityName", "Manchester")
+                .param("arrivalCountry", "GB")
+                .param("arrivalDateTime", "2026-07-01T13:00")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("changeTrain")
+                .hasOnlyFieldErrors("departureCountry")
+                .hasFieldErrorCode("departureCountry", "invalidLocation");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Unknown country</span>");
+    }
+
     @Test
     void aBlankCountryErrorsOnThatCountryFieldOnTheChangeFormToo() {
         // change-train.html has its own copy of the fieldsets, so it needs its own copy of the
@@ -261,8 +292,7 @@ class ChangeTrainWebIntegrationTest {
                 .hasOnlyFieldErrors("departureZone");
         assertThat(result)
                 .bodyText()
-                .contains("<span class=\"error\">Unknown country — pick a zone, "
-                          + "or fix Country name above</span>");
+                .contains("<span class=\"error\">No time zone known for this country — pick one</span>");
     }
 
     private static TrainDetailsView detailsFor(String tripId) {

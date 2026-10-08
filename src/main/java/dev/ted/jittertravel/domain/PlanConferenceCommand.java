@@ -28,6 +28,7 @@ public record PlanConferenceCommand(
 
     @Override
     public Stream<ConferencePlanned> execute(PlanConferenceContext context) {
+        EnteredCountry.of(venueAddress).check(LocationRole.VENUE);
         // A backwards range is checked first: it is a typo, and the more useful thing to report.
         // Both endpoints share the venue's zone, so comparing instants is the same as comparing
         // wall-clock — and stays right if that ever stops being true. Both are present by now: a

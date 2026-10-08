@@ -48,7 +48,7 @@ class GatheringCalendarProjectorTest {
         assertThat(entry.mainTitle()).isEqualTo("London Java Community");
         assertThat(entry.subTitle()).isEqualTo(List.of(
                 new SubtitleLine.Text("Skills Matter"),
-                new SubtitleLine.Text("London, GB"),
+                new SubtitleLine.Text("London, United Kingdom"),
                 new SubtitleLine.Range(ukTime(DATE, START), ukTime(DATE, END))));
         assertThat(entry.start()).isEqualTo(LocalDateTime.of(2026, 7, 10, 18, 0));
         assertThat(entry.end()).isEqualTo(LocalDateTime.of(2026, 7, 10, 21, 0));
@@ -133,7 +133,7 @@ class GatheringCalendarProjectorTest {
 
         assertThat(projector.entries().getFirst().subTitle())
                 .isEqualTo(List.of(
-                        new SubtitleLine.Text("London, GB"),
+                        new SubtitleLine.Text("London, United Kingdom"),
                         new SubtitleLine.Range(ukTime(DATE, START), ukTime(DATE, END))));
     }
 
@@ -179,7 +179,7 @@ class GatheringCalendarProjectorTest {
         assertThat(entry.mainTitle()).isEqualTo("New Title");
         assertThat(entry.subTitle()).isEqualTo(List.of(
                 new SubtitleLine.Text("Federation House"),
-                new SubtitleLine.Text("Manchester, GB"),
+                new SubtitleLine.Text("Manchester, United Kingdom"),
                 new SubtitleLine.Range(ukTime(DATE.plusWeeks(1), LocalTime.of(17, 30)),
                                        ukTime(DATE.plusWeeks(1), LocalTime.of(20, 0)))));
         assertThat(entry.start()).isEqualTo(LocalDateTime.of(2026, 7, 17, 17, 30));

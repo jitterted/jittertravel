@@ -38,7 +38,9 @@ import java.util.Set;
  *   <li>the building has a name — the half of the paste that gets left blank;</li>
  *   <li>the city is filled in;</li>
  *   <li>the city does not <em>look</em> like a building: it carries no brackets, no digit, and no
- *       word from {@link #VENUE_WORDS}.</li>
+ *       word from {@link #VENUE_WORDS};</li>
+ *   <li>the country and, where it has a list, the state are real codes — {@link EnteredCountry}'s
+ *       rules, on fields of their own.</li>
  * </ol>
  *
  * <p><strong>A fourth rule was tried and removed</strong> (2026-08-30): "the city is not the
@@ -56,7 +58,7 @@ import java.util.Set;
  * submit again); a false negative is silent bad data, which is what this is for. When one does
  * misfire, shortening the list is the fix, not weakening the rule.
  */
-public record EnteredLocation(String venueName, String city) {
+public record EnteredLocation(String venueName, String city, EnteredCountry country) {
 
     /**
      * Whole words that name a building, a platform or a desk — never a city. Matched
@@ -72,6 +74,12 @@ public record EnteredLocation(String venueName, String city) {
     public EnteredLocation {
         venueName = normalized(venueName);
         city = normalized(city);
+        country = country == null ? EnteredCountry.NONE : country;
+    }
+
+    /** A building and its city, with no country to check. */
+    public EnteredLocation(String venueName, String city) {
+        this(venueName, city, EnteredCountry.NONE);
     }
 
     /** Null and surrounding whitespace both mean "nothing was typed here". */
@@ -81,7 +89,7 @@ public record EnteredLocation(String venueName, String city) {
 
     /** A station is a building with a name, standing in a city. */
     public static EnteredLocation of(TrainStationAddress station) {
-        return new EnteredLocation(station.name(), station.city());
+        return new EnteredLocation(station.name(), station.city(), EnteredCountry.of(station));
     }
 
     /**
@@ -90,7 +98,8 @@ public record EnteredLocation(String venueName, String city) {
      * is left blank — the ordinary case.
      */
     public static EnteredLocation of(String hotelName, Address address) {
-        return new EnteredLocation(hotelName, address == null ? "" : address.city());
+        return new EnteredLocation(hotelName, address == null ? "" : address.city(),
+                                   EnteredCountry.of(address));
     }
 
     /**
@@ -137,6 +146,8 @@ public record EnteredLocation(String venueName, String city) {
             problems.add(new InvalidLocationEntry(role, LocationField.CITY,
                     "Venue name, not a city"));
         }
+        // Its own fields, so the one-problem-per-field guarantee above is untouched.
+        problems.addAll(country.problems(role));
         return List.copyOf(problems);
     }
 

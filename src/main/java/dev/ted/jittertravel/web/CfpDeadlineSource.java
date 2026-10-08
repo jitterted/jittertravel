@@ -78,6 +78,6 @@ public class CfpDeadlineSource implements ICalEventSource {
     private String description(ConferenceView view) {
         String start = DESCRIPTION_DATE.format(view.startDate().atEntryZone());
         String end = DESCRIPTION_DATE.format(view.endDate().atEntryZone());
-        return view.city() + ", " + view.country() + " — conference runs " + start + " to " + end;
+        return view.cityLine() + " — conference runs " + start + " to " + end;
     }
 }

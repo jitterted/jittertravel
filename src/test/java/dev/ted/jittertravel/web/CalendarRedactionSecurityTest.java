@@ -178,6 +178,21 @@ class CalendarRedactionSecurityTest {
     }
 
     @Test
+    void anonymousUserSeesAUsStayByStateButNeverByNeighbourhood() {
+        anonymousSees(new HotelBooked(HotelBookingId.random(), "The Oxford",
+                new Address("1600 17th St", "Denver", "Lower Downtown", "80202", "USA", null),
+                ZonedTimestamp.fromLocal(CHECK_IN, BERLIN),
+                ZonedTimestamp.fromLocal(CHECK_OUT, BERLIN),
+                BookingIntent.FINAL, "", null));
+
+        assertThat(mockMvc.get().uri("/calendar").with(anonymous()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("Denver, USA")
+                .doesNotContain("Lower Downtown");
+    }
+
+    @Test
     void anonymousUserSeesTheAwayBand() {
         // The away band is public by decision: it aggregates day-granularity travel facts that
         // are already published, and assembling them by eye takes no effort. This is the case
@@ -357,7 +372,7 @@ class CalendarRedactionSecurityTest {
                 .contains("Marriott Lone Tree")
                 .contains("12:00 PM")
                 .as("the owner reads the title and the times, not the journey spelled out twice")
-                .doesNotContain("DEN → Lone Tree, CO, US");
+                .doesNotContain("DEN → Lone Tree, CO");
     }
 
     @Test
@@ -369,7 +384,7 @@ class CalendarRedactionSecurityTest {
                 .bodyText()
                 // Public: that a hop happened, and each end as a code or a city.
                 .contains("\uD83D\uDE95 Ground transfer")
-                .contains("DEN → Lone Tree, CO, US")
+                .contains("DEN → Lone Tree, CO")
                 // Private: the hotel Ted sleeps in, and the times of day.
                 .doesNotContain("Marriott Lone Tree")
                 .doesNotContain("12:00 PM")
@@ -442,7 +457,7 @@ class CalendarRedactionSecurityTest {
                 .hasStatusOk()
                 .bodyText()
                 .contains("🚕 Ground transfer")
-                .contains("Hamburg, DE → Hamburg, DE")
+                .contains("Hamburg, Germany → Hamburg, Germany")
                 .doesNotContain("Hamburg Hbf")
                 .doesNotContain("Reichshof");
     }
@@ -462,7 +477,7 @@ class CalendarRedactionSecurityTest {
         assertThat(mockMvc.get().uri("/calendar").with(anonymous())
                 .exchange().getResponse().getContentAsString())
                 .contains("🚕 Ground transfer")
-                .contains("DEN → Denver, CO, US")
+                .contains("DEN → Denver, CO")
                 .doesNotContain(PrivateEventTransferFixture.TITLE)
                 .doesNotContain(PrivateEventTransferFixture.VENUE)
                 .doesNotContain(PrivateEventTransferFixture.STREET)
@@ -499,7 +514,7 @@ class CalendarRedactionSecurityTest {
                 .hasStatusOk()
                 .bodyText()
                 .contains("🚕 Ground transfer")
-                .contains("DEN → Lone Tree, CO, US")
+                .contains("DEN → Lone Tree, CO")
                 .doesNotContain("U3 with Susan");
     }
 

@@ -7,6 +7,10 @@ import dev.ted.jittertravel.domain.Address;
 import dev.ted.jittertravel.domain.GatheringDateNotInFuture;
 import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringNotFound;
+import dev.ted.jittertravel.domain.InvalidEnteredLocation;
+import dev.ted.jittertravel.domain.InvalidLocationEntry;
+import dev.ted.jittertravel.domain.LocationField;
+import dev.ted.jittertravel.domain.LocationRole;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -16,12 +20,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -163,6 +169,39 @@ class ChangeGatheringWebIntegrationTest {
                 .param("startTime", "18:00")
                 .param("endTime", "21:00"))
                 .hasStatusOk();
+    }
+
+    /** The render check for the Country and Region inputs: each one's error span exists. */
+    @Test
+    void aRefusedVenueCountryAndStateRenderUnderTheirInputs() {
+        willThrow(new InvalidEnteredLocation(List.of(
+                new InvalidLocationEntry(LocationRole.VENUE, LocationField.COUNTRY, "Unknown country"),
+                new InvalidLocationEntry(LocationRole.VENUE, LocationField.REGION,
+                                         "State required for United States"))))
+                .given(changeGathering).changeGathering(any(), any(), any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/planned-gatherings/" + UUID.randomUUID())
+                .with(csrf())
+                .param("title", "NY JUG")
+                .param("venueName", "Some Venue")
+                .param("city", "New York")
+                .param("region", "")
+                .param("country", "US")
+                .param("date", "2026-07-15")
+                .param("startTime", "18:00")
+                .param("endTime", "21:00")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("changeGathering")
+                .hasFieldErrorCode("country", "invalidLocation")
+                .hasFieldErrorCode("region", "invalidLocation");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Unknown country</span>")
+                .contains("<span class=\"error\">State required for United States</span>");
     }
 
     private static GatheringDetailsView detailsFor(String gatheringId) {

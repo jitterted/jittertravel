@@ -1,7 +1,8 @@
 # Location Data Cleanup Plan
 
-**Status:** `decision` — direction agreed with Ted 2026-10-06; the fix list in §5.2 approved
-2026-10-07. Nothing built. Mockup:
+**Status:** `in progress` — direction agreed with Ted 2026-10-06; the fix list in §5.2 approved
+2026-10-07. Steps 1 and 2 built, uncommitted (2026-10-07); step 3 waits on the migration having run
+in production. Mockup:
 <https://claude.ai/artifact/KvPTqeESSdR6H29rL5EgkQ>.
 
 ## 1. Why
@@ -47,6 +48,28 @@ addresses):
 1. **Write path** (§4). Otherwise every fix is re-dirtied by the next booking.
 2. **Migration** (§5), after a fresh production backup.
 3. **Delete the workarounds** (§6).
+
+**Steps 1 and 2 ship in one push** (found while building step 1, 2026-10-07). Once step 1 is
+deployed the forms submit codes and the commands refuse anything else, while every stored event
+still holds a name. Opening any existing hotel or gathering would show its country as a leftover
+option, and saving it would fail with "Unknown country" until the migration had run. The upcaster
+rung in §5 converts on read, so the two together leave no window.
+
+**Step 1 is built** (uncommitted, 2026-10-07). Where it differs from §4:
+
+- The zone table gained the **ISO codes of its existing 23 countries**, not every country. A
+  country picked from "Another country…" that the table lacks falls back to the form's time-zone
+  select, as Brazil always will.
+- **Without the script**, Region is the control for the country the page was loaded with, rather
+  than both controls side by side. A mismatch is refused by the command.
+- The mockup's "Not a state of Germany" cannot happen, because Region is free text outside the US,
+  Canada and Australia. The real messages are "State required for United States",
+  "Province required for Canada" and "Not a state of United States".
+- **Parse ▶ and the Sessionize prefill** were filling in "United States" and "Colorado"; the
+  Nominatim response's street order shows that most of the log's full names came from Parse ▶.
+  Both now return codes. Sessionize also keeps the middle part of "Atlanta, Georgia,
+  United States" when it is exactly one of the country's states, so Devnexus would now arrive
+  as GA.
 
 ## 4. Write path
 
@@ -97,29 +120,43 @@ form's existing time-zone select.
 
 An upcaster rung on each type carrying an `Address` or a station address (`HotelBooked`,
 `HotelChanged`, `TrainBooked`, `TrainChanged`, `ConferencePlanned`, `GatheringPlanned`,
-`GatheringChanged`, `GroundTransferPlanned`, `PrivateEventPlanned`, and check
-`PrivateEventMatchingLocationChanged`), plus the eager migration so stored rows are rewritten.
-Destructive by CLAUDE.md's definition: red, typed `MIGRATE`, backup first.
+`GatheringChanged`, `GroundTransferPlanned`, `PrivateEventPlanned`), plus the eager migration so
+stored rows are rewritten. `PrivateEventMatchingLocationChanged` carries only a
+`locationForMatching` string, no address, and needs no rung. Destructive by CLAUDE.md's definition:
+red, typed `MIGRATE`, backup first.
 
-**Re-run the extraction against a fresh backup before building.** The counts and sequence numbers
-below are from `jittertravel-backup-production-2026-09-18T222302Z.json`; events added since are not
-in them.
+**Extraction re-run 2026-10-07** against `jittertravel-backup-production-2026-10-08T052706Z.json`
+(172 events). Every sequence number in §5.2 still names the same event. New since 2026-09-18: a
+second Ottawa/Kawartha trip (Ontario ×10 more), **British Columbia** ×2 (Vancouver gatherings #147,
+#148), a fifth blank-country airport endpoint (**#162**, YOW), and **#172** Dallas, already stored as
+`US`/`TX` — so the rung must pass a code through unchanged.
 
 ### 5.1 Mechanical (the rung itself)
 
 | From | To | Count |
 |---|---|---|
-| `Germany` (incl. `"Germany "`) | `DE` | 65 |
+| `Germany` (incl. `"Germany "`) | `DE` | 66 |
 | `Belgium` | `BE` | 12 |
 | `United States` / `USA` | `US` | 18 |
 | `UK` | `GB` | 10 |
-| `Canada` | `CA` | 10 |
+| `Canada` | `CA` | 22 |
 | `Netherlands` | `NL` | 3 |
 | `Austria`, `Morocco`, `Sweden` | `AT`, `MA`, `SE` | 1 each |
+| `US` (already a code) | unchanged | 1 |
 | region `Colorado` (US) | `CO` | 10 |
-| region `Ontario` / `Quebec` (CA) | `ON` / `QC` | 9 / 1 |
+| region `Ontario` / `Quebec` / `British Columbia` (CA) | `ON` / `QC` / `BC` | 19 / 1 / 2 |
 
 Every other region is untouched (D3).
+
+**How the rung decides (agreed 2026-10-07).** One `LocationCodesUpcaster` serves all nine types,
+each bumped one schema version. It trims, then maps a country through `Countries.codeFor` plus the
+aliases `USA` and `UK`, and a US/CA/AU region through `Subdivisions.findByName`. A value that is
+already a code passes through. **A country name it cannot map fails loud** (Ted): boot replay and
+restore stop and name the event, and the boot-replay preflight against the backup taken just before
+the push is what catches it before production does. The approved fixes below and the airport rule
+need lookups beyond the payload, so per R7a they are in the eager migration, not the rung.
+Each fix is keyed by event id and **compare-and-set**: it rewrites a field only while it still holds
+the expected old value.
 
 ### 5.2 Value fixes — all approved by Ted, 2026-10-07
 
@@ -127,7 +164,9 @@ Per-event, by event id, applied by the eager migration only. These are correctio
 a restore of an older backup brings the old values back; that is acceptable and keeps them out of
 the rung.
 
-- [x] **#19 HotelBooked — Prize by Radisson, Antwerp City.** country `Brussels` → `BE`.
+- [x] **#19 HotelBooked — Prize by Radisson, Antwerp City.** country `Brussels` → `BE`. **Moved
+  into the rung** as an alias: a rung that fails loud on an unknown name would otherwise stop boot on
+  this row, so the correction has to be on the read path.
 - [x] **#26, #27 TrainBooked — Didcot Parkway** (to and from SoCraTes UK, June 2026). city
   `Oxfordshire` → `Didcot`. The station is in Didcot; Oxfordshire was where Ted was heading, which
   the venue already records. Consequence: the June trip may show a missing **Didcot → Steventon**
@@ -141,13 +180,19 @@ the rung.
 - [x] **#107, #111, #115 Train, #112 GroundTransferPlanned — Aschaffenberg.** city and
   `locationForMatching` `Aschaffenberg` → `Aschaffenburg`, and the names too: station name
   `Aschaffenberg Hbf` (#107, #111, #115) and transfer `originName` (#112) → `Aschaffenburg Hbf`.
+  **#115's station is actually named `Asch`** (and its arrival `Frank`), so only its city is
+  corrected; renaming it was not part of the approval.
 - [x] **#123 ConferencePlanned — The Last Coder 2027.** city and `locationForMatching`
   `Rückersbach` → `Johannesberg`, region `""` → `Rückersbach`. The same venue is `Johannesberg` for
   Play4Agile, so today a Johannesberg hotel does not count as covering this conference. The venue
   name "SeminarZentrum Rückersbach" is unchanged, and Rückersbach moves to Region rather than being
   dropped.
-- [x] **#132, #133, #135, #136 GroundTransferPlanned — DEN endpoints.** country `""` → `US`, region
-  `""` → `CO`. After §4.3 no new ones appear.
+- [x] **Airport endpoints — by rule, not by number** (Ted, 2026-10-07). A `GroundTransferPlanned`
+  endpoint whose `originAirportCode`/`destinationAirportCode` is set and whose country is blank takes
+  its region and country from the airport table: #132, #133, #135, #136 (DEN → `CO`, `US`) and #162
+  (YOW → `ON`, `CA`), plus any airport transfer planned between the backup and the deploy, which a
+  list of numbers would miss. An endpoint without an airport code is never touched. After §4.3 no
+  new ones are written.
 
 Untouched on purpose: Altona, Mitte, Westminster Borough, Abingdon, Bavaria, Baden-Württemberg,
 Hesse, North Rhine-Westphalia, and blank regions for Aachen/Munich/Frankfurt (Region is optional
@@ -170,7 +215,10 @@ outside US/CA/AU).
 Held, not committed. Kept: one display rule in `CityLabel` and every call site moved onto it,
 `cityLine()` on the conference and hotel views (eight Thymeleaf forms used to build "City, Country"
 themselves), the `qualifier` renames, and the redaction tests. Simplified after §5 as in §6. The
-family-email wording change ("<venue>, Denver, CO") still needs Ted's approval before it ships.
+family-email wording was approved by Ted on 2026-10-07: a US conference reads "<venue>, Denver, CO"
+("Atlanta, USA" with no state), a non-US one is unchanged ("<venue>, Johannesberg, Germany"), and
+the preview's sample says "Germany" rather than "DE". Step 1 stays uncommitted until the migration
+is built, and both are committed together (Ted, 2026-10-07).
 
 ## 8. Open
 

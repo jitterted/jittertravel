@@ -24,6 +24,7 @@ public class ItineraryProjector implements EventStreamConsumer {
     private final Map<GroundTransferId, GroundTransferItineraryEntry> groundTransferEntries = new ConcurrentHashMap<>();
 
     private final TransferEndpointLabel transferLabel = new TransferEndpointLabel();
+    private final CityLabel cityLabel = new CityLabel();
 
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
@@ -104,7 +105,7 @@ public class ItineraryProjector implements EventStreamConsumer {
                 // that started first so the answer is at least the same on every render.
                 .min(Comparator.comparing(HotelItineraryEntry::anchorTime))
                 .map(entry -> new OngoingStay(entry.hotelName(),
-                        entry.address().city(), entry.address().country()));
+                        entry.address().city(), cityLabel.qualifier(entry.address())));
     }
 
     private static boolean spansAllOf(List<HotelItineraryEntry> stay, LocalDate date) {
@@ -247,7 +248,7 @@ public class ItineraryProjector implements EventStreamConsumer {
         return new GatheringItineraryEntry(
                 gatheringId,
                 title, venueName,
-                location.city(), location.country(),
+                location.city(), new CityLabel().qualifier(location),
                 speaking, infoUrl,
                 startsAt, endsAt);
     }
@@ -256,7 +257,7 @@ public class ItineraryProjector implements EventStreamConsumer {
         return new PrivateEventItineraryEntry(
                 e.privateEventId(),
                 e.title(), e.venueName(),
-                e.location().city(), e.location().country(),
+                e.location().city(), new CityLabel().qualifier(e.location()),
                 e.startsAt(), e.endsAt());
     }
 

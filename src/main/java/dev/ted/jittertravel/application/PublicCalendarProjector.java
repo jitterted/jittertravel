@@ -94,6 +94,7 @@ public class PublicCalendarProjector implements EventStreamConsumer {
      */
     private final Map<ConferenceId, String> conferenceInfoUrls = new ConcurrentHashMap<>();
     private final TransferEndpointLabel label = new TransferEndpointLabel();
+    private final CityLabel cityLabel = new CityLabel();
 
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
@@ -357,11 +358,9 @@ public class PublicCalendarProjector implements EventStreamConsumer {
                 new EntryDetails.PublicGroundTransfer());
     }
 
-    /** "City, Country" — or just the city when no country was recorded. */
+    /** "City, ST" in the US, "City, Country" elsewhere — the public form; see {@link CityLabel}. */
     private String cityCountry(Address address) {
-        return address.country().isBlank()
-                ? address.city()
-                : address.city() + ", " + address.country();
+        return cityLabel.publicLabel(address);
     }
 
     /**

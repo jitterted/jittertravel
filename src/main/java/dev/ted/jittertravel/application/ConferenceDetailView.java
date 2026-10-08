@@ -51,5 +51,6 @@ public record ConferenceDetailView(
 ) implements CfpDeadlineView {
     public String city() { return venueAddress.city(); }
 
-    public String country() { return venueAddress.country(); }
+    /** "Denver, CO" or "Vienna, Austria" — see {@link CityLabel}. */
+    public String cityLine() { return new CityLabel().label(venueAddress); }
 }

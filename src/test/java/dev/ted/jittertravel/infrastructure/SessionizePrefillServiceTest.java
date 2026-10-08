@@ -32,7 +32,7 @@ class SessionizePrefillServiceTest {
 
     /** Stands in when a document yields nothing at all, so a test can assert on the fields anyway. */
     private static final SessionizePrefill EMPTY =
-            new SessionizePrefill("", "", "", "", "", "", "", "", "", "");
+            new SessionizePrefill("", "", "", "", "", "", "", "", "", "", "");
 
     private final SessionizePrefillService service =
             new SessionizePrefillService(RestClient.builder(), new LocationZoneResolver());
@@ -98,7 +98,45 @@ class SessionizePrefillServiceTest {
             assertThat(prefill.infoUrl()).isEqualTo("https://www.jfokus.se/");
             assertThat(prefill.venueName()).isEqualTo("Stockholm Waterfront Congress Centre");
             assertThat(prefill.venueCity()).isEqualTo("Stockholm");
-            assertThat(prefill.venueCountry()).isEqualTo("Sweden");
+            assertThat(prefill.venueCountry())
+                    .as("the page says 'Sweden'; the form's Country is a select of ISO codes")
+                    .isEqualTo("SE");
+            assertThat(prefill.venueState())
+                    .as("Sweden has no state list")
+                    .isEmpty();
+        }
+
+        /**
+         * Devnexus 2027 came in this way with no state, because the middle part was always dropped.
+         * A state is kept when it is exactly one of the country's own, and it is what resolves the
+         * zone for a US city the city table does not know.
+         */
+        @Test
+        void aUsVenueKeepsItsStateAsACode() {
+            String atlanta = html.replace("Stockholm, Sweden", "Centennial, Colorado, United States");
+
+            SessionizePrefill prefill = service.assemble("jfokus-2027", ics, atlanta).orElseThrow();
+
+            assertThat(prefill.venueCity()).isEqualTo("Centennial");
+            assertThat(prefill.venueState())
+                    .as("Colorado, read as one of the US states")
+                    .isEqualTo("CO");
+            assertThat(prefill.venueCountry()).isEqualTo("US");
+            assertThat(prefill.deadlineZone())
+                    .as("Centennial is not in the city table; its state resolves the zone")
+                    .isEqualTo("America/Denver");
+        }
+
+        @Test
+        void aMiddlePartThatIsNotOneOfTheCountrysStatesIsDropped() {
+            String county = html.replace("Stockholm, Sweden", "Steventon, Oxfordshire, United Kingdom");
+
+            SessionizePrefill prefill = service.assemble("jfokus-2027", ics, county).orElseThrow();
+
+            assertThat(prefill.venueState())
+                    .as("the UK has no state list, so the county is not guessed into one")
+                    .isEmpty();
+            assertThat(prefill.venueCountry()).isEqualTo("GB");
         }
 
         @Test

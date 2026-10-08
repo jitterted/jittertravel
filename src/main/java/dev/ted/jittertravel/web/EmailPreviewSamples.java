@@ -40,7 +40,9 @@ final class EmailPreviewSamples {
 
     /** A conference with every optional line present: a venue, a talk and a link. */
     ConferenceNews conference() {
-        return new ConferenceNews("SoCraTes 2026", "Seminarzentrum Rückersbach", "Johannesberg", "DE",
+        // "Germany", not "DE": a stored country is a code now, and the email names it, as
+        // CityLabel.qualifier does — the preview shows what is actually sent.
+        return new ConferenceNews("SoCraTes 2026", "Seminarzentrum Rückersbach", "Johannesberg", "Germany",
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 8, 24, 9, 0), BERLIN),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 8, 27, 9, 0), BERLIN),
                 "https://socrates-conference.de", ConferenceNews.SpeakingLine.TALK_ACCEPTED);

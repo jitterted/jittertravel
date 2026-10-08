@@ -15,6 +15,7 @@ public record PlanGatheringCommand(
 
     @Override
     public Stream<GatheringPlanned> execute(GatheringPlanningContext context) {
+        EnteredCountry.of(location).check(LocationRole.VENUE);
         // Today or later, judged by *date* in the gathering's own zone rather than the server's.
         // Today is allowed because gatherings can be last-minute (Ted, 2026-09-22).
         if (startsAt == null || !startsAt.isOnOrAfterDayOf(context.now())) {

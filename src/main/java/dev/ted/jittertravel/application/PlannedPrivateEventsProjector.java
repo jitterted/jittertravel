@@ -48,7 +48,7 @@ public class PlannedPrivateEventsProjector implements EventStreamConsumer {
                 e.location().city(),
                 e.location().region(),
                 e.location().postalCode(),
-                e.location().country(),
+                new CityLabel().countryName(e.location().country()),
                 e.startsAt(),
                 e.endsAt()
         );

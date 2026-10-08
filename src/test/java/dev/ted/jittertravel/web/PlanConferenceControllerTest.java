@@ -6,6 +6,10 @@ import dev.ted.jittertravel.application.ReadOnlyModeException;
 import dev.ted.jittertravel.domain.ConferenceAlreadyEnded;
 import dev.ted.jittertravel.domain.ConferenceHasNoCfp;
 import dev.ted.jittertravel.domain.InvalidDateRange;
+import dev.ted.jittertravel.domain.InvalidEnteredLocation;
+import dev.ted.jittertravel.domain.InvalidLocationEntry;
+import dev.ted.jittertravel.domain.LocationField;
+import dev.ted.jittertravel.domain.LocationRole;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -22,6 +26,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -93,7 +98,15 @@ class PlanConferenceControllerTest {
                 arguments(new InvalidDateRange("End date must be on or after start date"), "endDate"),
                 arguments(new ConferenceHasNoCfp("no call for papers"), "cfpClosesOn"),
                 arguments(new CfpDeadlineMissing("needs the closing date too"), "cfpClosesOn"),
-                arguments(new ZoneResolutionException("Springfield", "Freedonia"), "zone"));
+                arguments(new ZoneResolutionException("Springfield", "Freedonia"), "zone"),
+                arguments(venueRefusal(LocationField.COUNTRY, "Unknown country"), "venueCountry"),
+                arguments(venueRefusal(LocationField.REGION, "State required for United States"),
+                          "venueState"));
+    }
+
+    private static InvalidEnteredLocation venueRefusal(LocationField field, String message) {
+        return new InvalidEnteredLocation(List.of(
+                new InvalidLocationEntry(LocationRole.VENUE, field, message)));
     }
 
     @Test

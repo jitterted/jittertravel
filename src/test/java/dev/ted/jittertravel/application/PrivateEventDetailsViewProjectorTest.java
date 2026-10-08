@@ -35,7 +35,7 @@ class PrivateEventDetailsViewProjectorTest {
 
         assertThat(projector.findById(privateEventId))
                 .contains(new PrivateEventDetailsView(
-                        privateEventId, "Dinner with the Smiths", "Chez Moi", "London", "GB",
+                        privateEventId, "Dinner with the Smiths", "Chez Moi", "London", "United Kingdom",
                         LocalDateTime.of(2026, 6, 1, 19, 0),
                         LocalDateTime.of(2026, 6, 1, 22, 0)));
     }

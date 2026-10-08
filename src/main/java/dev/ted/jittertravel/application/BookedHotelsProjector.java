@@ -22,6 +22,7 @@ import java.util.stream.Stream;
 public class BookedHotelsProjector implements EventStreamConsumer {
 
     private final Map<HotelBookingId, BookedHotelView> viewsById = new ConcurrentHashMap<>();
+    private final CityLabel cityLabel = new CityLabel();
 
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
@@ -53,7 +54,7 @@ public class BookedHotelsProjector implements EventStreamConsumer {
                 // The schedule's place for this stay, which the ground-transfer form matches a gap
                 // against — derived by the same rule ScheduleGapProjector uses, not alongside it.
                 Place.of(address).value(),
-                address.country(),
+                cityLabel.qualifier(address),
                 checkIn,
                 checkOut,
                 bookingIntent,

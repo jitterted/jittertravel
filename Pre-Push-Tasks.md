@@ -44,4 +44,16 @@ health check at best and comes up misconfigured at worst.
 
 ## Open
 
-_nothing open_
+- [ ] **Location codes: preflight before the push, `MIGRATE` after the rollout**
+  (`docs/LocationDataCleanupPlan.md` §5; the commit that adds `LocationCodesUpcaster`).
+  1. *Before the push:* take a production backup (`/admin/backup`), then run
+     `./mvnw test -Preplay-preflight -Dpreflight.dump=<that file>`. The new rung **fails loud** on a
+     country name it cannot map, so a booking typed since 2026-10-08 with an unusual spelling would
+     put production into read-only mode at boot; the preflight names the event first. If it fails,
+     add the spelling to `LocationCodesUpcaster.ALIASES` and re-run. Plan nothing in the app between
+     this backup and the push.
+  2. *After the rollout:* `/admin/migrate-legacy-events` on the app service. The preview should show
+     about 110 rows to migrate and no errors; type `MIGRATE`. Skipping it is safe for reads (the rung
+     converts every row as it is read) but leaves the approved fixes unapplied: Didcot, St. Georg,
+     Devnexus's GA, Aschaffenburg, Johannesberg, and the five blank airport ends.
+  3. *Then:* a second backup. It is the new floor; the one from step 1 is the rollback artifact.

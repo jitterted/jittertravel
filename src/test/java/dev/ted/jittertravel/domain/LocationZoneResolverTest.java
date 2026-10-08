@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.domain;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.ZoneId;
 
@@ -23,6 +25,32 @@ class LocationZoneResolverTest {
     void resolvesSingleZoneCountryFromCountryName() {
         assertThat(resolver.resolve(address("Frankfurt", "Germany")))
                 .isEqualTo(ZoneId.of("Europe/Berlin"));
+    }
+
+    /** A picked country is stored as its ISO code (docs/LocationDataCleanupPlan.md D2). */
+    @ParameterizedTest
+    @CsvSource({
+            "Soltau, DE, Europe/Berlin",
+            "Steventon, GB, Europe/London",
+            "Gembloux, be, Europe/Brussels",
+            "Casablanca, MA, Africa/Casablanca"
+    })
+    void resolvesASingleZoneCountryFromItsIsoCode(String city, String country, String zone) {
+        assertThat(resolver.resolve(address(city, country)))
+                .as(city + ", " + country)
+                .isEqualTo(ZoneId.of(zone));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "Centennial, CO, US, America/Denver",
+            "North Kawartha, ON, CA, America/Toronto"
+    })
+    void resolvesAnUnknownTownFromItsPickedStateAndCountryCodes(String city, String region,
+                                                                String country, String zone) {
+        assertThat(resolver.resolve(address(city, region, country)))
+                .as(city + ", " + region + ", " + country)
+                .isEqualTo(ZoneId.of(zone));
     }
 
     @Test

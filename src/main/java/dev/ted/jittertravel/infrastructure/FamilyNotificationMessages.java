@@ -112,7 +112,7 @@ public class FamilyNotificationMessages {
 
     /** The venue, city and country that were recorded, comma-joined; empty when none were. */
     private Optional<String> where(ConferenceNews news) {
-        String where = Stream.of(news.venueName(), news.city(), news.country())
+        String where = Stream.of(news.venueName(), news.city(), news.qualifier())
                 .filter(part -> !part.isBlank())
                 .collect(Collectors.joining(", "));
         return where.isEmpty() ? Optional.empty() : Optional.of(where);

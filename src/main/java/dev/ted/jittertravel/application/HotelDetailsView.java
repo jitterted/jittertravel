@@ -27,4 +27,7 @@ public record HotelDetailsView(
         String mapsUrl,
         LocalDateTime cancelBy
 ) {
+
+    /** "Denver, CO" or "Vienna, Austria" — see {@link CityLabel}. */
+    public String cityLine() { return new CityLabel().label(address); }
 }

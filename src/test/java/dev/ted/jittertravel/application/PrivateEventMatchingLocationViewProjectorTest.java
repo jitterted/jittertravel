@@ -40,7 +40,7 @@ class PrivateEventMatchingLocationViewProjectorTest {
                 .as("Planned private event " + privateEventId)
                 .contains(new PrivateEventMatchingLocationView(
                         privateEventId, "Dinner with the Smiths", "Chez Moi",
-                        "Centennial", "US", "Centennial",
+                        "Centennial", "CO","Centennial",
                         LocalDateTime.of(2026, 10, 1, 19, 0),
                         LocalDateTime.of(2026, 10, 1, 22, 0)));
     }
@@ -59,7 +59,7 @@ class PrivateEventMatchingLocationViewProjectorTest {
                 .as("Private event after re-matching")
                 .contains(new PrivateEventMatchingLocationView(
                         privateEventId, "Dinner with the Smiths", "Chez Moi",
-                        "Centennial", "US", "Lone Tree",
+                        "Centennial", "CO","Lone Tree",
                         LocalDateTime.of(2026, 10, 1, 19, 0),
                         LocalDateTime.of(2026, 10, 1, 22, 0)));
     }

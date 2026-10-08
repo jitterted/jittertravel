@@ -85,7 +85,7 @@
 
     <div class="summary">
         <div class="name" th:text="${booking.hotelName()}">Hotel Name</div>
-        <div class="line" th:text="${booking.address().city() + ', ' + booking.address().country()}">City, Country</div>
+        <div class="line" th:text="${booking.cityLine()}">City, Country</div>
         <div class="line">
             Check-in: <span th:text="${#temporals.format(booking.checkIn(), 'EEE, MMM d, yyyy, h:mm a')}">date</span>
         </div>

@@ -370,14 +370,14 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
         PlanConferenceRequest req = newRequest(commandId, "Stamped Conf");
         persister.saveCommand(commandId, req);
         // ConferencePlanned migrated datetimes → ZonedTimestamp (v2) and then added the
-        // format field (v3), so its current schema version is 3.
+        // format field (v3), then stored its venue's country as an ISO code (v4).
         persister.appendEvents(List.of(storedEvent(1L, commandId, "Stamped Conf", req)), commandId);
 
         assertThat(persister.findAllEventsForBackup())
                 .singleElement()
                 .satisfies(e -> assertThat(e.schemaVersion())
                         .as("a freshly appended event carries its type's current schema version")
-                        .isEqualTo(3));
+                        .isEqualTo(4));
     }
 
     @Test

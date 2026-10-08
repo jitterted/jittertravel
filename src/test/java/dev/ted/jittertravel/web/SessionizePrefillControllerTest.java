@@ -44,7 +44,8 @@ class SessionizePrefillControllerTest {
                 PASTED,
                 "Stockholm Waterfront Congress Centre",
                 "Stockholm",
-                "Sweden",
+                "",
+                "SE",
                 "Europe/Stockholm")));
 
         // Every key here is a form property name the widget writes by — venue-prefixed, and
@@ -61,7 +62,8 @@ class SessionizePrefillControllerTest {
                             "cfpSubmissionUrl": "https://sessionize.com/jfokus-2027/",
                             "venueName": "Stockholm Waterfront Congress Centre",
                             "venueCity": "Stockholm",
-                            "venueCountry": "Sweden",
+                            "venueState": "",
+                            "venueCountry": "SE",
                             "deadlineZone": "Europe/Stockholm"}""");
     }
 

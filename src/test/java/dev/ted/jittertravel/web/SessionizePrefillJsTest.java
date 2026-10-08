@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import com.microsoft.playwright.Request;
 import com.microsoft.playwright.Route;
+import dev.ted.jittertravel.domain.Country;
 import org.junit.jupiter.api.Test;
 
 import java.net.URLDecoder;
@@ -44,7 +45,8 @@ class SessionizePrefillJsTest extends JsBehaviorTest {
              "cfpSubmissionUrl": "https://sessionize.com/jfokus-2027/",
              "venueName": "Stockholm Waterfront Congress Centre",
              "venueCity": "Stockholm",
-             "venueCountry": "Sweden",
+             "venueState": "",
+             "venueCountry": "SE",
              "deadlineZone": "Europe/Stockholm"}""";
 
     /** A reachable page whose {@code .ics} did not parse: no deadline, so no submission URL either. */
@@ -57,7 +59,8 @@ class SessionizePrefillJsTest extends JsBehaviorTest {
              "cfpSubmissionUrl": "",
              "venueName": "Stockholm Waterfront Congress Centre",
              "venueCity": "Stockholm",
-             "venueCountry": "Sweden",
+             "venueState": "",
+             "venueCountry": "SE",
              "deadlineZone": ""}""";
 
     private final TemplateSources templates = new TemplateSources();
@@ -88,7 +91,24 @@ class SessionizePrefillJsTest extends JsBehaviorTest {
         assertThat(valueOf("cfpClosesOn")).isEqualTo("2026-10-01T08:30");
         assertThat(valueOf("venueName")).isEqualTo("Stockholm Waterfront Congress Centre");
         assertThat(valueOf("venueCity")).isEqualTo("Stockholm");
-        assertThat(valueOf("venueCountry")).isEqualTo("Sweden");
+        assertThat(valueOf("venueCountry"))
+                .as("Sweden is not on this page's short list; the prefill adds and selects it")
+                .isEqualTo("SE");
+    }
+
+    /** Devnexus came in with no state; a US venue's state now arrives and lands in the state list. */
+    @Test
+    void aUsVenuesStateIsPickedInTheStateList() {
+        serve(PrefillEndpointStub.answering(200, SESSIONIZE_HIT
+                .replace("\"venueState\": \"\"", "\"venueState\": \"GA\"")
+                .replace("\"venueCountry\": \"SE\"", "\"venueCountry\": \"US\"")));
+
+        pasteAndFill();
+
+        assertThat(valueOf("venueCountry")).isEqualTo("US");
+        assertThat(page.locator("[name='venueState']:enabled").inputValue())
+                .as("choosing the US made State the list, and Georgia is picked in it")
+                .isEqualTo("GA");
     }
 
     @Test
@@ -253,10 +273,11 @@ class SessionizePrefillJsTest extends JsBehaviorTest {
      * decision to include it — is the shipped source untouched.
      */
     private String rendered() {
-        return templates.read(FORM)
-                        .replace(FRAGMENT_REFERENCE, fragmentBody())
-                        .replace("th:value=\"${cf.name()}\"", "value=\"OPEN_SPACE\"")
-                        .replaceAll("th:field=\"\\*\\{(\\w+)}\"", "name=\"$1\"");
+        return new PlacePickerMarkup(List.of(new Country("US", "United States")))
+                .expand(templates.read(FORM)
+                                 .replace(FRAGMENT_REFERENCE, fragmentBody())
+                                 .replace("th:value=\"${cf.name()}\"", "value=\"OPEN_SPACE\""))
+                .replaceAll("th:field=\"\\*\\{(\\w+)}\"", "name=\"$1\"");
     }
 
     private String fragmentBody() {

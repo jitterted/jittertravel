@@ -93,6 +93,16 @@ public final class EventTypes {
      */
     private static final int CONFERENCE_FORMAT_SCHEMA_VERSION = 3;
 
+    /**
+     * Every type carrying an address or a station address went up one version when its country
+     * became an ISO code and a US/CA/AU region its postal code ({@link LocationCodesUpcaster},
+     * {@code docs/LocationDataCleanupPlan.md}). The step is one, but the types started at three
+     * different versions, so they end at three.
+     */
+    private static final int LOCATION_CODES_SCHEMA_VERSION = ZONED_TIMESTAMP_SCHEMA_VERSION + 1;
+    private static final int CONFERENCE_LOCATION_CODES_SCHEMA_VERSION = CONFERENCE_FORMAT_SCHEMA_VERSION + 1;
+    private static final int BORN_ZONED_LOCATION_CODES_SCHEMA_VERSION = INITIAL_SCHEMA_VERSION + 1;
+
     private static final Map<String, Class<? extends Event>> LOGICAL_TO_CLASS = new LinkedHashMap<>();
     private static final Map<Class<? extends Event>, String> CLASS_TO_LOGICAL = new LinkedHashMap<>();
     private static final Map<String, String> WIRE_ID_TO_LOGICAL = new LinkedHashMap<>();
@@ -106,13 +116,13 @@ public final class EventTypes {
         register("FlightItineraryCancelled", FlightItineraryCancelled.class);
         register("FlightItineraryChanged", FlightItineraryChanged.class);
         register("FamilyNotified", FamilyNotified.class);
-        register("TrainBooked", TrainBooked.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
-        register("TrainChanged", TrainChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
+        register("TrainBooked", TrainBooked.class, LOCATION_CODES_SCHEMA_VERSION);
+        register("TrainChanged", TrainChanged.class, LOCATION_CODES_SCHEMA_VERSION);
         register("TrainCancelled", TrainCancelled.class);
-        register("HotelBooked", HotelBooked.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
-        register("HotelChanged", HotelChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
+        register("HotelBooked", HotelBooked.class, LOCATION_CODES_SCHEMA_VERSION);
+        register("HotelChanged", HotelChanged.class, LOCATION_CODES_SCHEMA_VERSION);
         register("HotelBookingCancelled", HotelBookingCancelled.class);
-        register("ConferencePlanned", ConferencePlanned.class, CONFERENCE_FORMAT_SCHEMA_VERSION);
+        register("ConferencePlanned", ConferencePlanned.class, CONFERENCE_LOCATION_CODES_SCHEMA_VERSION);
         register("ConferenceCancelled", ConferenceCancelled.class);
         register("ConferenceAttendanceConfirmed", ConferenceAttendanceConfirmed.class);
         register("ConferenceAttendanceDeclined", ConferenceAttendanceDeclined.class);
@@ -129,14 +139,14 @@ public final class EventTypes {
         register("TalkRejected", TalkRejected.class);
         register("TalkWithdrawn", TalkWithdrawn.class);
         register("InvitedToSpeak", InvitedToSpeak.class);
-        register("GatheringPlanned", GatheringPlanned.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
-        register("GatheringChanged", GatheringChanged.class, ZONED_TIMESTAMP_SCHEMA_VERSION);
-        register("PrivateEventPlanned", PrivateEventPlanned.class);
+        register("GatheringPlanned", GatheringPlanned.class, LOCATION_CODES_SCHEMA_VERSION);
+        register("GatheringChanged", GatheringChanged.class, LOCATION_CODES_SCHEMA_VERSION);
+        register("PrivateEventPlanned", PrivateEventPlanned.class, BORN_ZONED_LOCATION_CODES_SCHEMA_VERSION);
         register("PrivateEventCancelled", PrivateEventCancelled.class);
         // Additive at schema_version 1: no bump, no upcaster, no migration, and the backup format
         // stays v3 — the shape PrivateEventCancelled and TrainCancelled both went in as.
         register("PrivateEventMatchingLocationChanged", PrivateEventMatchingLocationChanged.class);
-        register("GroundTransferPlanned", GroundTransferPlanned.class);
+        register("GroundTransferPlanned", GroundTransferPlanned.class, BORN_ZONED_LOCATION_CODES_SCHEMA_VERSION);
         register("GroundTransferCancelled", GroundTransferCancelled.class);
         register("DifferentCityConflictCleared", DifferentCityConflictCleared.class);
         register("OneOffTaskCompleted", OneOffTaskCompleted.class);

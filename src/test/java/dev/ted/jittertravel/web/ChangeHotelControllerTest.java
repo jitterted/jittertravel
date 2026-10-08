@@ -302,6 +302,39 @@ class ChangeHotelControllerTest {
                 .contains("<span class=\"error\">City is required</span>");
     }
 
+    /** The render check for the Country and Region inputs: each one's error span exists. */
+    @Test
+    void aRefusedCountryAndStateRenderUnderTheirInputs() {
+        willThrow(new InvalidEnteredLocation(List.of(
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.COUNTRY,
+                                "Unknown country"),
+                        new InvalidLocationEntry(LocationRole.STAY, LocationField.REGION,
+                                "State required for United States"))))
+                .given(changeHotel).changeHotel(any(), any(), any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
+                .with(csrf())
+                .param("hotelName", "Grand Hotel")
+                .param("city", "Springfield")
+                .param("region", "")
+                .param("country", "US")
+                .param("checkIn", "2026-08-02T16:00")
+                .param("checkOut", "2026-08-06T10:00")
+                .param("bookingIntent", "FINAL")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("changeHotel")
+                .hasFieldErrorCode("country", "invalidLocation")
+                .hasFieldErrorCode("region", "invalidLocation");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Unknown country</span>")
+                .contains("<span class=\"error\">State required for United States</span>");
+    }
+
     /**
      * <strong>Rule 1 on the change form too.</strong> It has its own copy of the fieldsets, so it
      * needs its own proof that two problems arrive in one body rather than one at a time.

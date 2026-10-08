@@ -37,7 +37,7 @@ class TentativeHotelBookingsProjectorTest {
         assertThat(view.city())
                 .isEqualTo("Springfield");
         assertThat(view.country())
-                .isEqualTo("US");
+                .isEqualTo("United States");
         assertThat(view.checkIn())
                 .isEqualTo(CHECK_IN);
         assertThat(view.checkOut())

@@ -695,8 +695,7 @@ class ItineraryRendererTest {
         assertThat(html)
                 .contains("JitterConf 2026")
                 .contains("Moscone Center")
-                .contains("San Francisco")
-                .contains("US");
+                .contains("<div class=\"entry-detail entry-location\">San Francisco, CA</div>");
     }
 
     // --- Gathering ---

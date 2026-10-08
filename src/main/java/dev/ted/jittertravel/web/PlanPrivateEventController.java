@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.PrivateEventPlanning;
 import dev.ted.jittertravel.domain.CommonZone;
+import dev.ted.jittertravel.domain.InvalidEnteredLocation;
 import dev.ted.jittertravel.domain.InvalidPrivateEventTimeRange;
 import dev.ted.jittertravel.domain.PrivateEventDateNotInFuture;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
@@ -58,6 +59,8 @@ public class PlanPrivateEventController {
         try {
             // now is captured at the boundary as an Instant; the venue zone is resolved inward.
             privateEventPlanning.planPrivateEvent(request, Instant.now(clock));
+        } catch (InvalidEnteredLocation e) {
+            new VenueLocationErrors(bindingResult, "country", "region").reject(e);
         } catch (PrivateEventDateNotInFuture e) {
             bindingResult.rejectValue("date", "future", e.getMessage());
         } catch (InvalidPrivateEventTimeRange e) {

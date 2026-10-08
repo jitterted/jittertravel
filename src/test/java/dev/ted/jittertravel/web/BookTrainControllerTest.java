@@ -166,6 +166,10 @@ class BookTrainControllerTest {
                                   new InvalidLocationEntry(LocationRole.ARRIVAL, LocationField.CITY,
                                                            "Venue name, not a city")), List.of()),
                           List.of("arrivalCityName")),
+                arguments(new InvalidTrainEntry(List.of(
+                                  new InvalidLocationEntry(LocationRole.DEPARTURE, LocationField.COUNTRY,
+                                                           "Unknown country")), List.of()),
+                          List.of("departureCountry")),
                 arguments(new InvalidTrainEntry(List.of(), List.of(
                                   new UnresolvedStationZone(LocationRole.DEPARTURE,
                                                             UnresolvedStationZone.Cause.COUNTRY_MISSING),

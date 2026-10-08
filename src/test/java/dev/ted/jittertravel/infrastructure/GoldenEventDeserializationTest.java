@@ -1541,6 +1541,159 @@ class GoldenEventDeserializationTest {
                 .isEqualTo(Instant.parse("2026-10-03T12:00:00Z"));
     }
 
+    // The shapes retired by LocationCodesUpcaster, copied from production (backup 2026-10-08): a
+    // country stored as a name, and a US or Canadian region spelled out. Frozen — add, never edit.
+
+    @Test
+    void legacyHotelBookedCountryAndStateNamesAreUpcastToCodes() {
+        String json = """
+                {
+                  "address": {"city": "Denver", "region": "Colorado", "street": "3601 North Brighton Boulevard",
+                              "country": "United States", "postalCode": "80216", "locationForMatching": "Denver"},
+                  "checkIn": {"utc": "2026-09-21T21:00:00Z", "zone": "America/Denver"},
+                  "mapsUrl": "",
+                  "cancelBy": {"utc": "2026-09-20T21:00:00Z", "zone": "America/Denver"},
+                  "checkOut": {"utc": "2026-09-26T17:00:00Z", "zone": "America/Denver"},
+                  "hotelName": "Cambria Hotel Denver Downtown RiNo",
+                  "bookingIntent": "TENTATIVE",
+                  "hotelBookingId": {"id": "11fa67e9-f0af-4977-a8cc-f4402be16991"}
+                }
+                """;
+
+        HotelBooked event = deserializeLegacy(json, "HotelBooked", HotelBooked.class);
+
+        assertThat(event.address().country())
+                .isEqualTo("US");
+        assertThat(event.address().region())
+                .isEqualTo("CO");
+    }
+
+    @Test
+    void legacyTrainBookedStationCountryNamesAreUpcastToCodes() {
+        String json = """
+                {
+                  "tripId": {"id": "21c41742-3435-4d90-85c2-73abc146d389"},
+                  "serviceId": "GWR - St Pancras - Didcot Parkway",
+                  "arrivalStation": {"city": "Oxfordshire", "name": "Didcot Parkway (DID)", "country": "UK", "mapsUrl": ""},
+                  "arrivalDateTime": {"utc": "2026-06-17T12:37:00Z", "zone": "Europe/London"},
+                  "departureStation": {"city": "London", "name": "London St Pancras Int'l (STP) East ",
+                                       "country": "UK", "mapsUrl": ""},
+                  "departureDateTime": {"utc": "2026-06-17T11:30:00Z", "zone": "Europe/London"}
+                }
+                """;
+
+        TrainBooked event = deserializeLegacy(json, "TrainBooked", TrainBooked.class);
+
+        assertThat(event.departureStation().country())
+                .isEqualTo("GB");
+        assertThat(event.arrivalStation().country())
+                .isEqualTo("GB");
+        assertThat(event.arrivalStation().city())
+                .as("the rung changes format only; Didcot is the eager migration's correction")
+                .isEqualTo("Oxfordshire");
+    }
+
+    @Test
+    void legacyConferencePlannedVenueCountryNameIsUpcastToItsCode() {
+        String json = """
+                {
+                  "name": "Devnexus 2027",
+                  "format": "CALL_FOR_PAPERS",
+                  "endDate": {"utc": "2027-04-07T21:00:00Z", "zone": "America/New_York"},
+                  "infoUrl": "https://devnexus.com/",
+                  "startDate": {"utc": "2027-04-05T13:00:00Z", "zone": "America/New_York"},
+                  "venueName": "GEORGIA WORLD CONGRESS CENTER",
+                  "conferenceId": {"id": "e0684bf2-fc0a-4bce-8732-f3248900154a"},
+                  "venueAddress": {"city": "Atlanta", "region": "", "street": "", "country": "United States",
+                                   "postalCode": "", "locationForMatching": "Atlanta"}
+                }
+                """;
+
+        ConferencePlanned event = deserializeLegacy(json, "ConferencePlanned", ConferencePlanned.class);
+
+        assertThat(event.venueAddress().country())
+                .isEqualTo("US");
+        assertThat(event.venueAddress().region())
+                .as("a missing state stays missing; GA is the eager migration's correction")
+                .isEmpty();
+    }
+
+    @Test
+    void legacyGatheringPlannedCountryAndProvinceNamesAreUpcastToCodes() {
+        String json = """
+                {
+                  "title": "Rush Fiftysomething",
+                  "endsAt": {"utc": "2026-08-10T03:30:00Z", "zone": "America/Toronto"},
+                  "infoUrl": "",
+                  "location": {"city": "Toronto", "region": "Ontario", "street": "40 Bay St.", "country": "Canada",
+                               "postalCode": "M5J 2L2", "locationForMatching": "Toronto"},
+                  "speaking": false,
+                  "startsAt": {"utc": "2026-08-09T23:30:00Z", "zone": "America/Toronto"},
+                  "venueName": "Scotiabank Arena",
+                  "gatheringId": {"id": "16fdd9e2-bddb-426c-bb63-0928b1a5cbfc"}
+                }
+                """;
+
+        GatheringPlanned event = deserializeLegacy(json, "GatheringPlanned", GatheringPlanned.class);
+
+        assertThat(event.location().country())
+                .isEqualTo("CA");
+        assertThat(event.location().region())
+                .isEqualTo("ON");
+    }
+
+    @Test
+    void legacyGroundTransferPlannedConvertsTheTypedEndAndLeavesTheBlankAirportEnd() {
+        String json = """
+                {
+                  "mode": "Uber/Lyft",
+                  "origin": {"city": "Denver", "region": "", "street": "", "country": "", "postalCode": "",
+                             "locationForMatching": "Denver"},
+                  "arrivesAt": {"utc": "2026-10-11T20:30:00Z", "zone": "America/Denver"},
+                  "departsAt": {"utc": "2026-10-11T19:30:00Z", "zone": "America/Denver"},
+                  "originName": "",
+                  "destination": {"city": "Lone Tree", "region": "Colorado", "street": "10345 Park Meadows Drive",
+                                  "country": "United States", "postalCode": "80124", "locationForMatching": "Lone Tree"},
+                  "destinationName": "Denver Marriott South at Park Meadows",
+                  "groundTransferId": {"id": "ff128618-f281-480d-b608-782c4b5e056d"},
+                  "originAirportCode": "DEN",
+                  "destinationAirportCode": ""
+                }
+                """;
+
+        GroundTransferPlanned event = deserializeLegacy(json, "GroundTransferPlanned", GroundTransferPlanned.class);
+
+        assertThat(event.destination().country())
+                .isEqualTo("US");
+        assertThat(event.destination().region())
+                .isEqualTo("CO");
+        assertThat(event.origin().country())
+                .as("the airport end is completed by the eager migration, not on read")
+                .isEmpty();
+    }
+
+    @Test
+    void legacyPrivateEventPlannedCountryAndStateNamesAreUpcastToCodes() {
+        String json = """
+                {
+                  "title": "Speakers's Dinner dev2next",
+                  "endsAt": {"utc": "2026-10-14T03:00:00Z", "zone": "America/Denver"},
+                  "location": {"city": "Centennial", "region": "Colorado", "street": "10601 East Easter Avenue",
+                               "country": "United States", "postalCode": "80112", "locationForMatching": "Centennial"},
+                  "startsAt": {"utc": "2026-10-14T01:00:00Z", "zone": "America/Denver"},
+                  "venueName": "TopGolf",
+                  "privateEventId": {"id": "78ef6b7a-5ce6-448f-8be8-a7e683301d9f"}
+                }
+                """;
+
+        PrivateEventPlanned event = deserializeLegacy(json, "PrivateEventPlanned", PrivateEventPlanned.class);
+
+        assertThat(event.location().country())
+                .isEqualTo("US");
+        assertThat(event.location().region())
+                .isEqualTo("CO");
+    }
+
     private static <T> T deserialize(String json, Class<T> type) {
         return MAPPER.readValue(json, type);
     }

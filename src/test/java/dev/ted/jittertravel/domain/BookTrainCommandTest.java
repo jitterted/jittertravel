@@ -19,9 +19,9 @@ class BookTrainCommandTest {
     private static final LocalDateTime DEPARTURE = NOW.toLocalDate().plusWeeks(1).atTime(9, 0);
     private static final LocalDateTime ARRIVAL = DEPARTURE.plusHours(4);
     private static final TrainStationAddress LONDON =
-            new TrainStationAddress("London Euston", "London", "UK", "");
+            new TrainStationAddress("London Euston", "London", "GB", "");
     private static final TrainStationAddress MANCHESTER =
-            new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", "");
+            new TrainStationAddress("Manchester Piccadilly", "Manchester", "GB", "");
 
     @Test
     void validCommandProducesTrainBookedEventWithAllFields() {
@@ -85,7 +85,7 @@ class BookTrainCommandTest {
 
     @Test
     void stationWithNoNameThrowsInvalidLocationEntryForThatEnd() {
-        TrainStationAddress nameless = new TrainStationAddress("", "London", "UK", "");
+        TrainStationAddress nameless = new TrainStationAddress("", "London", "GB", "");
         BookTrainCommand command = new BookTrainCommand(
                 TrainTripId.random(), nameless, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
 
@@ -123,7 +123,7 @@ class BookTrainCommandTest {
         // One submit, one list. Reporting only the departure would mean fixing it, submitting
         // again, and meeting a fresh error about the arrival — which on screen is indistinguishable
         // from the first fix having done nothing.
-        TrainStationAddress nameless = new TrainStationAddress("", "London", "UK", "");
+        TrainStationAddress nameless = new TrainStationAddress("", "London", "GB", "");
         TrainStationAddress pasted = new TrainStationAddress(
                 "Frankfurt (Main) Hbf", "Frankfurt (Main) Hbf", "DE", "");
         BookTrainCommand command = new BookTrainCommand(
@@ -147,7 +147,7 @@ class BookTrainCommandTest {
      */
     @Test
     void oneEndWithNoNameAndNoCityContributesBothProblems() {
-        TrainStationAddress empty = new TrainStationAddress("", "", "UK", "");
+        TrainStationAddress empty = new TrainStationAddress("", "", "GB", "");
         BookTrainCommand command = new BookTrainCommand(
                 TrainTripId.random(), empty, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
 

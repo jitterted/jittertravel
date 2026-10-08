@@ -38,11 +38,12 @@ an absent argument means version 1). A type's version counts *its own* schema ch
 
 | Type | Current version | Rungs it climbs |
 |---|---|---|
-| `HotelBooked`, `HotelChanged` | 2 | v1→v2 datetime |
-| `TrainBooked`, `TrainChanged` | 2 | v1→v2 datetime |
+| `HotelBooked`, `HotelChanged` | 3 | v1→v2 datetime, v2→v3 location codes |
+| `TrainBooked`, `TrainChanged` | 3 | v1→v2 datetime, v2→v3 location codes |
 | `FlightBooked`, `FlightChanged` | 2 | v1→v2 datetime |
-| `GatheringPlanned`, `GatheringChanged` | 2 | v1→v2 datetime (field-set change) |
-| `ConferencePlanned` | 3 | v1→v2 datetime, **then** v2→v3 `format` |
+| `GatheringPlanned`, `GatheringChanged` | 3 | v1→v2 datetime (field-set change), v2→v3 location codes |
+| `ConferencePlanned` | 4 | v1→v2 datetime, **then** v2→v3 `format`, **then** v3→v4 location codes |
+| `GroundTransferPlanned`, `PrivateEventPlanned` | 2 | v1→v2 location codes |
 | everything else | 1 | — (no rungs) |
 
 Rungs are keyed by the **logical** type name, so a logical-name rename moves every rung with it:
@@ -103,7 +104,11 @@ the climb from that stamp is correct.
   `ConferenceFormatUpcaster` (v2→v3, `format`). Each is one small class. The flight rung is the one
   wired to `AirportZoneResolver` rather than `LocationZoneResolver` — the split that had made a single
   all-events class incohesive. The format rung takes *no* collaborators at all — exactly why it is its
-  own rung and not a branch inside a datetime class.
+  own rung and not a branch inside a datetime class. `LocationCodesUpcaster` (2026-10-07,
+  `LocationDataCleanupPlan.md`) is one rung across the nine address-bearing types, claiming each at
+  its own version; it reads only the constant `Countries`/`Subdivisions` tables and fails loud on a
+  country it cannot name. The value corrections that came with it are **not** a rung: they need event
+  ids and the airport table, so `LegacyEventMigration` applies them through `LocationDataCorrections`.
 
 ### Why it was split out of one class
 

@@ -216,31 +216,36 @@ public class LocationZoneResolver {
         return table;
     }
 
+    /**
+     * Single-zone countries, keyed first by the ISO code a picked country is stored as
+     * ({@link Countries}), then by the names stored before the picker existed. The names go once the
+     * stored events are migrated to codes (docs/LocationDataCleanupPlan.md §6).
+     */
     private static Map<String, ZoneId> defaultCountryTable() {
         Map<String, ZoneId> table = new HashMap<>();
-        put(table, "Europe/London", "united kingdom", "uk", "england", "scotland", "wales");
-        put(table, "Europe/Dublin", "ireland");
-        put(table, "Europe/Paris", "france");
-        put(table, "Europe/Berlin", "germany");
-        put(table, "Europe/Amsterdam", "netherlands");
-        put(table, "Europe/Brussels", "belgium");
-        put(table, "Europe/Madrid", "spain");
-        put(table, "Europe/Rome", "italy");
-        put(table, "Europe/Zurich", "switzerland");
-        put(table, "Europe/Vienna", "austria");
-        put(table, "Europe/Copenhagen", "denmark");
-        put(table, "Europe/Oslo", "norway");
-        put(table, "Europe/Stockholm", "sweden");
-        put(table, "Europe/Helsinki", "finland");
-        put(table, "Europe/Warsaw", "poland");
-        put(table, "Europe/Prague", "czech republic", "czechia");
-        put(table, "Europe/Lisbon", "portugal");
-        put(table, "Asia/Tokyo", "japan");
-        put(table, "Asia/Singapore", "singapore");
-        put(table, "Asia/Kolkata", "india");
-        put(table, "Atlantic/Reykjavik", "iceland");
-        put(table, "Africa/Casablanca", "morocco");
-        put(table, "Pacific/Auckland", "new zealand");
+        put(table, "Europe/London", "gb", "united kingdom", "uk", "england", "scotland", "wales");
+        put(table, "Europe/Dublin", "ie", "ireland");
+        put(table, "Europe/Paris", "fr", "france");
+        put(table, "Europe/Berlin", "de", "germany");
+        put(table, "Europe/Amsterdam", "nl", "netherlands");
+        put(table, "Europe/Brussels", "be", "belgium");
+        put(table, "Europe/Madrid", "es", "spain");
+        put(table, "Europe/Rome", "it", "italy");
+        put(table, "Europe/Zurich", "ch", "switzerland");
+        put(table, "Europe/Vienna", "at", "austria");
+        put(table, "Europe/Copenhagen", "dk", "denmark");
+        put(table, "Europe/Oslo", "no", "norway");
+        put(table, "Europe/Stockholm", "se", "sweden");
+        put(table, "Europe/Helsinki", "fi", "finland");
+        put(table, "Europe/Warsaw", "pl", "poland");
+        put(table, "Europe/Prague", "cz", "czech republic", "czechia");
+        put(table, "Europe/Lisbon", "pt", "portugal");
+        put(table, "Asia/Tokyo", "jp", "japan");
+        put(table, "Asia/Singapore", "sg", "singapore");
+        put(table, "Asia/Kolkata", "in", "india");
+        put(table, "Atlantic/Reykjavik", "is", "iceland");
+        put(table, "Africa/Casablanca", "ma", "morocco");
+        put(table, "Pacific/Auckland", "nz", "new zealand");
         return table;
     }
 

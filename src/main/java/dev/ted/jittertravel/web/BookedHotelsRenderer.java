@@ -156,7 +156,7 @@ public class BookedHotelsRenderer {
         return td(
                 span(hotel.city()).withClass("nowrap"),
                 rawHtml(", "),
-                span(hotel.country()).withClass("nowrap")
+                span(hotel.qualifier()).withClass("nowrap")
         );
     }
 

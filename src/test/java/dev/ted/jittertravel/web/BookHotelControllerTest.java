@@ -165,6 +165,12 @@ class BookHotelControllerTest {
                                   locationProblem(LocationField.VENUE_NAME, "Name is required"),
                                   locationProblem(LocationField.CITY, "City is required"))),
                           List.of("hotelName", "city")),
+                arguments(new InvalidEnteredLocation(List.of(
+                                  locationProblem(LocationField.COUNTRY, "Unknown country"))),
+                          List.of("country")),
+                arguments(new InvalidEnteredLocation(List.of(
+                                  locationProblem(LocationField.REGION, "State required for United States"))),
+                          List.of("region")),
                 arguments(new ZoneResolutionException("Springfield", "Freedonia"),
                           List.of("zone")));
     }

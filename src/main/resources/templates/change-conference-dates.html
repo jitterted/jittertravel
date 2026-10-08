@@ -89,7 +89,7 @@
         <div class="name" th:text="${conference.name()}">Conference Name</div>
         <div class="line" th:if="${!conference.venueName().isBlank()}" th:text="${conference.venueName()}">Venue</div>
         <div class="line"
-             th:text="${conference.city() + (conference.country().isBlank() ? '' : ', ' + conference.country())}">City, Country</div>
+             th:text="${conference.cityLine()}">City, Country</div>
     </div>
 
     <form th:action="@{|/conferences/${conference.conferenceId().id()}/dates|}"

@@ -139,6 +139,18 @@ class BookHotelCommandTest {
     }
 
     @Test
+    void aUsStayWithNoStateIsRejectedAgainstTheRegionField() {
+        Address noState = new Address("123 Main St", "Springfield", "", "62701", "US", null);
+        BookHotelCommand command = new BookHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", noState,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, null);
+
+        assertThat(locationProblems(command))
+                .extracting(InvalidLocationEntry::field, InvalidLocationEntry::getMessage)
+                .containsExactly(tuple(LocationField.REGION, "State required for United States"));
+    }
+
+    @Test
     void hotelWithNoNameIsRejectedAgainstTheNameField() {
         BookHotelCommand command = new BookHotelCommand(
                 HotelBookingId.random(), "", ADDRESS,

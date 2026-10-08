@@ -65,7 +65,8 @@ public class EventPayloadUpcaster {
                 new FlightTimeZoneUpcaster(airportZoneResolver, zoning),
                 new GatheringTimeZoneUpcaster(locationZoneResolver, zoning),
                 new ConferenceTimeZoneUpcaster(locationZoneResolver, zoning),
-                new ConferenceFormatUpcaster()));
+                new ConferenceFormatUpcaster(),
+                new LocationCodesUpcaster()));
     }
 
     /**

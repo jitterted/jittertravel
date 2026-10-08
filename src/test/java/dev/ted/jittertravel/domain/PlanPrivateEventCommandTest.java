@@ -11,6 +11,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 class PlanPrivateEventCommandTest {
 
@@ -21,7 +22,7 @@ class PlanPrivateEventCommandTest {
     private static final LocalDate NEXT_WEEK = TODAY.plusWeeks(1);
     private static final LocalTime START = LocalTime.of(18, 0);
     private static final LocalTime END = LocalTime.of(21, 0);
-    private static final Address LOCATION = new Address("1 Example St", "Toronto", "ON", "M5V 2T6", "Canada", null);
+    private static final Address LOCATION = new Address("1 Example St", "Toronto", "ON", "M5V 2T6", "CA", null);
 
     @Test
     void validCommandProducesPrivateEventPlannedEventWithAllFields() {
@@ -117,6 +118,20 @@ class PlanPrivateEventCommandTest {
 
         assertThatThrownBy(() -> command.execute(new PlanPrivateEventContext(NOW)))
                 .isInstanceOf(InvalidPrivateEventTimeRange.class);
+    }
+
+    @Test
+    void aCanadianVenueWithAStateFromAnotherCountryIsRefusedOnTheRegion() {
+        Address wrongProvince = new Address("1 Example St", "Toronto", "CO", "M5V 2T6", "CA", null);
+        PlanPrivateEventCommand command = new PlanPrivateEventCommand(
+                PrivateEventId.random(), "Dinner", "Alo", wrongProvince,
+                londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, END));
+
+        assertThatThrownBy(() -> command.execute(new PlanPrivateEventContext(NOW)))
+                .isInstanceOfSatisfying(InvalidEnteredLocation.class, invalid ->
+                        assertThat(invalid.problems())
+                                .extracting(InvalidLocationEntry::field, InvalidLocationEntry::getMessage)
+                                .containsExactly(tuple(LocationField.REGION, "Not a province of Canada")));
     }
 
     private static ZonedTimestamp londonTime(LocalDate date, LocalTime time) {

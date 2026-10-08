@@ -53,6 +53,11 @@ class ScheduleGapProjectorTest {
         }
 
         @Override
+        public Optional<Address> addressFor(String airportCode) {
+            return Optional.empty();
+        }
+
+        @Override
         public Optional<String> soleAirportFor(String city) {
             return Optional.empty();
         }

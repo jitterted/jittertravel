@@ -54,7 +54,7 @@ public class PrivateEventMatchingLocationViewProjector implements EventStreamCon
                 e.title(),
                 e.venueName(),
                 e.location().city(),
-                e.location().country(),
+                new CityLabel().qualifier(e.location()),
                 e.location().locationForMatching(),
                 e.startsAt().localDateTime(),
                 e.endsAt().localDateTime());
@@ -63,7 +63,7 @@ public class PrivateEventMatchingLocationViewProjector implements EventStreamCon
     private PrivateEventMatchingLocationView matchedIn(PrivateEventMatchingLocationView view,
                                                        String locationForMatching) {
         return new PrivateEventMatchingLocationView(
-                view.privateEventId(), view.title(), view.venueName(), view.city(), view.country(),
+                view.privateEventId(), view.title(), view.venueName(), view.city(), view.qualifier(),
                 locationForMatching, view.startsAt(), view.endsAt());
     }
 

@@ -10,6 +10,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 class ChangeGatheringCommandTest {
 
@@ -148,6 +149,31 @@ class ChangeGatheringCommandTest {
 
         assertThat(events)
                 .hasSize(1);
+    }
+
+    @Test
+    void aVenueCountryThatIsNotACodeIsRefusedOnTheCountry() {
+        Address legacy = new Address("2 New St", "Manchester", "", "M1 1AA", "UK", null);
+        ChangeGatheringCommand command = new ChangeGatheringCommand(
+                GatheringId.random(), "LJC", "Venue", legacy,
+                londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, END), false, "");
+
+        assertThatThrownBy(() -> command.execute(new ChangeGatheringContext(true, NOW)))
+                .isInstanceOfSatisfying(InvalidEnteredLocation.class, invalid ->
+                        assertThat(invalid.problems())
+                                .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
+                                .containsExactly(tuple(LocationRole.VENUE, LocationField.COUNTRY)));
+    }
+
+    @Test
+    void aMissingGatheringIsReportedBeforeItsVenue() {
+        Address legacy = new Address("2 New St", "Manchester", "", "M1 1AA", "UK", null);
+        ChangeGatheringCommand command = new ChangeGatheringCommand(
+                GatheringId.random(), "LJC", "Venue", legacy,
+                londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, END), false, "");
+
+        assertThatThrownBy(() -> command.execute(new ChangeGatheringContext(false, NOW)))
+                .isInstanceOf(GatheringNotFound.class);
     }
 
     private static ZonedTimestamp londonTime(LocalDate date, LocalTime time) {

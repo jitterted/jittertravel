@@ -69,8 +69,9 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
             }
             """;
 
-    // A ConferencePlanned already in its v3 shape (zoned timestamps, "region", a format). Seeded under
-    // the retired wire id "ConferenceTentativelyPlanned" so the stored NAME is its only staleness.
+    // A ConferencePlanned already in its v4 shape (zoned timestamps, "region", a format, a country
+    // code). Seeded under the retired wire id "ConferenceTentativelyPlanned" so the stored NAME is its
+    // only staleness.
     private static final String CONFERENCE_CURRENT_SHAPE = """
             {
               "conferenceId": {"id": "55555555-5555-5555-5555-555555555555"},
@@ -80,14 +81,32 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
               "venueName": "Moscone Center",
               "venueAddress": {
                 "street": "747 Howard St", "city": "San Francisco", "region": "CA",
-                "postalCode": "94103", "country": "USA", "locationForMatching": "San Francisco"
+                "postalCode": "94103", "country": "US", "locationForMatching": "San Francisco"
               },
               "format": "OPEN_SPACE"
             }
             """;
+    private static final int CONFERENCE_CURRENT_VERSION = 4;
+
+    // Devnexus 2027 as production stored it (event 98): stamped v3, no state, the country spelled out.
+    private static final String DEVNEXUS_AT_V3 = """
+            {
+              "conferenceId": {"id": "77777777-7777-7777-7777-777777777777"},
+              "name": "Devnexus 2027",
+              "startDate": {"utc": "2027-03-03T13:00:00Z", "zone": "America/New_York"},
+              "endDate": {"utc": "2027-03-05T22:00:00Z", "zone": "America/New_York"},
+              "venueName": "Georgia World Congress Center",
+              "venueAddress": {
+                "street": "", "city": "Atlanta", "region": "",
+                "postalCode": "", "country": "United States", "locationForMatching": "Atlanta"
+              },
+              "format": "CALL_FOR_PAPERS"
+            }
+            """;
+    private static final UUID DEVNEXUS_EVENT_ID = UUID.fromString("3f43b7c1-1201-4411-8ed9-a69bbba8fc2f");
 
     @Test
-    void migratesLegacyHotelPayloadToZonedShapeStampsVersion2AndKeepsIdentity() {
+    void migratesLegacyHotelPayloadToZonedShapeAndCountryCodeStampsCurrentVersionAndKeepsIdentity() {
         UUID commandId = UUID.randomUUID();
         UUID eventId = UUID.randomUUID();
         OffsetDateTime ts = OffsetDateTime.parse("2026-06-01T10:00:00Z");
@@ -106,13 +125,17 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
                 .satisfies(e -> {
                     assertThat(e.schemaVersion())
                             .as("row is stamped with the type's current schema version")
-                            .isEqualTo(2);
+                            .isEqualTo(3);
                     assertThat(e.payloadJson())
                             .as("checkIn is now a {utc,zone} object")
                             .contains("utc")
                             .contains("Europe/London")
                             .contains("2026-06-17T14:00:00Z")          // 15:00 BST -> 14:00Z
                             .doesNotContain("2026-06-17T15:00:00");    // the bare local scalar is gone
+                    assertThat(e.payloadJson())
+                            .as("both rungs ran in the one write: the country is a code")
+                            .contains("\"country\": \"GB\"")
+                            .doesNotContain("\"country\": \"UK\"");
                     // Verbatim identity: only payload + stamp changed.
                     assertThat(e.sequence()).isEqualTo(1L);
                     assertThat(e.eventId()).isEqualTo(eventId);
@@ -135,6 +158,28 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
         assertThat(migration.preview().totalToMigrate())
                 .as("a fully-migrated store has nothing left to migrate")
                 .isZero();
+    }
+
+    @Test
+    void appliesAnApprovedCorrectionInTheSameWriteAsTheRung() {
+        seedStampedEvent(UUID.randomUUID(), DEVNEXUS_EVENT_ID, 1L,
+                OffsetDateTime.parse("2026-09-10T10:00:00Z"), "ConferencePlanned", DEVNEXUS_AT_V3, 3);
+
+        LegacyEventMigration.MigrationResult result = migration.migrate();
+
+        assertThat(result.hasErrors())
+                .as("errors: %s", result.errors())
+                .isFalse();
+        List<BackupEventRow> rows = persister.findAllEventsForBackup();
+        assertThat(rows)
+                .hasSize(1);
+        BackupEventRow devnexus = rows.getFirst();
+        assertThat(devnexus.payloadJson())
+                .as("the rung turned the country into a code, and the correction added the state")
+                .contains("\"country\": \"US\"")
+                .contains("\"region\": \"GA\"");
+        assertThat(devnexus.schemaVersion())
+                .isEqualTo(CONFERENCE_CURRENT_VERSION);
     }
 
     @Test
@@ -171,7 +216,7 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
         OffsetDateTime ts = OffsetDateTime.parse("2026-08-01T10:00:00Z");
         // Current shape, correctly stamped: the retired wire id is this row's ONLY staleness.
         seedStampedEvent(commandId, eventId, 1L, ts,
-                "ConferenceTentativelyPlanned", CONFERENCE_CURRENT_SHAPE, 3);
+                "ConferenceTentativelyPlanned", CONFERENCE_CURRENT_SHAPE, CONFERENCE_CURRENT_VERSION);
 
         assertThat(migration.preview().toRename())
                 .as("a rename-only row is selected, not skipped as already-current")
@@ -197,7 +242,7 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
                             .isEqualTo("ConferencePlanned");
                     assertThat(e.schemaVersion())
                             .as("the stamp is left where it was")
-                            .isEqualTo(3);
+                            .isEqualTo(CONFERENCE_CURRENT_VERSION);
                     assertThat(e.payloadJson())
                             .as("the payload is untouched")
                             .contains("OPEN_SPACE")
@@ -236,7 +281,7 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
                 .singleElement()
                 .satisfies(e -> {
                     assertThat(e.type()).isEqualTo("HotelBooked");
-                    assertThat(e.schemaVersion()).isEqualTo(2);
+                    assertThat(e.schemaVersion()).isEqualTo(3);
                     assertThat(e.payloadJson()).contains("2026-06-17T14:00:00Z");
                 });
     }
@@ -249,7 +294,7 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
                 OffsetDateTime.parse("2026-06-01T10:00:00Z"), "HotelBooked", LEGACY_HOTEL_UNRESOLVABLE);
         seedStampedEvent(UUID.randomUUID(), UUID.randomUUID(), 3L,
                 OffsetDateTime.parse("2026-08-01T10:00:00Z"),
-                "ConferenceTentativelyPlanned", CONFERENCE_CURRENT_SHAPE, 3);
+                "ConferenceTentativelyPlanned", CONFERENCE_CURRENT_SHAPE, CONFERENCE_CURRENT_VERSION);
 
         LegacyEventMigration.MigrationResult result = migration.migrate();
 

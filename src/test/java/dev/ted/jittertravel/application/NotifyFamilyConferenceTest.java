@@ -218,7 +218,7 @@ class NotifyFamilyConferenceTest {
         notifyOfConference();
 
         assertThat(sent().textContent())
-                .contains("SoCraTes 2026\nSeminarzentrum Rückersbach, Johannesberg, DE\nMon 24 Aug – Thu 27 Aug 2026\n"
+                .contains("SoCraTes 2026\nSeminarzentrum Rückersbach, Johannesberg, Germany\nMon 24 Aug – Thu 27 Aug 2026\n"
                           + "His talk was accepted.\nhttps://socrates-conference.de");
     }
 
@@ -323,7 +323,7 @@ class NotifyFamilyConferenceTest {
                 .isEqualTo("(JitterTravel) Ted is no longer going to SoCraTes 2026");
         assertThat(message.textContent())
                 .contains("Hi, JitterTravel here. Ted is no longer going to the conference below, and he wanted to let you know.")
-                .contains("SoCraTes 2026\nSeminarzentrum Rückersbach, Johannesberg, DE\nMon 24 Aug – Thu 27 Aug 2026")
+                .contains("SoCraTes 2026\nSeminarzentrum Rückersbach, Johannesberg, Germany\nMon 24 Aug – Thu 27 Aug 2026")
                 .doesNotContain("rejected")
                 .doesNotContain("organizers");
     }
@@ -366,7 +366,7 @@ class NotifyFamilyConferenceTest {
         assertThat(outcome)
                 .isEqualTo(NotifyFamily.Outcome.SENT);
         assertThat(sent().textContent())
-                .contains("SoCraTes 2026\nSeminarzentrum Rückersbach, Johannesberg, DE\nMon 24 Aug – Thu 27 Aug 2026\n"
+                .contains("SoCraTes 2026\nSeminarzentrum Rückersbach, Johannesberg, Germany\nMon 24 Aug – Thu 27 Aug 2026\n"
                           + "His talk was rejected, so he is not going.");
     }
 

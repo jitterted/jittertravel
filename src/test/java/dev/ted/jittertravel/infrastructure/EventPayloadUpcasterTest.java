@@ -85,10 +85,10 @@ class EventPayloadUpcasterTest {
                 """);
         JsonNode before = current.deepCopy();
 
-        JsonNode result = upcaster.upcast("ConferencePlanned", current, 3);
+        JsonNode result = upcaster.upcast("ConferencePlanned", current, 4);
 
         assertThat(result)
-                .as("a row stamped at the current version is returned untouched")
+                .as("a row stamped at the current version is returned untouched, even a country name")
                 .isEqualTo(before);
     }
 
@@ -175,8 +175,10 @@ class EventPayloadUpcasterTest {
     void aRetiredRungIsInvisibleToARowAlreadyMigratedPastIt() {
         // The property that makes retirement safe, and the reason the eager migration must run first:
         // the climb starts at the stored version, so it never looks up the deleted rung at all. Same
-        // degraded ladder as above; this row is stamped v2, so only the surviving format rung runs.
-        EventPayloadUpcaster afterRetirement = new EventPayloadUpcaster(List.of(new ConferenceFormatUpcaster()));
+        // degraded ladder as above; this row is stamped v2, so only the surviving rungs above it run.
+        EventPayloadUpcaster afterRetirement = new EventPayloadUpcaster(List.of(
+                new ConferenceFormatUpcaster(),
+                new LocationCodesUpcaster()));
 
         JsonNode result = afterRetirement.upcast("ConferencePlanned", legacyScalarConference(), 2);
 
@@ -195,7 +197,8 @@ class EventPayloadUpcasterTest {
         WallClockZoning zoning = new WallClockZoning(mapper);
         EventPayloadUpcaster hotelRungRetired = new EventPayloadUpcaster(List.of(
                 new TrainTimeZoneUpcaster(new LocationZoneResolver(), zoning),
-                new ConferenceFormatUpcaster()));
+                new ConferenceFormatUpcaster(),
+                new LocationCodesUpcaster()));
 
         assertThatThrownBy(() -> hotelRungRetired.upcast("HotelBooked", legacyScalarHotel(), null))
                 .isInstanceOf(IllegalStateException.class)

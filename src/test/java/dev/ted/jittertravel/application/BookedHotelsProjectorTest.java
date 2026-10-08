@@ -34,7 +34,7 @@ class BookedHotelsProjectorTest {
         assertThat(view.hotelBookingId()).isEqualTo(event.hotelBookingId());
         assertThat(view.hotelName()).isEqualTo("Grand Hotel");
         assertThat(view.city()).isEqualTo("Springfield");
-        assertThat(view.country()).isEqualTo("US");
+        assertThat(view.qualifier()).isEqualTo("IL");
         assertThat(view.checkIn().localDateTime()).isEqualTo(CHECK_IN);
         assertThat(view.checkOut().localDateTime()).isEqualTo(CHECK_OUT);
         assertThat(view.status()).isEqualTo(BookingIntent.TENTATIVE);

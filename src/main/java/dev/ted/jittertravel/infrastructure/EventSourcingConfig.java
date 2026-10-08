@@ -280,8 +280,10 @@ public class EventSourcingConfig {
     @Bean
     public LegacyEventMigration legacyEventMigration(PostgresPersister persister,
                                                      EventPayloadUpcaster eventPayloadUpcaster,
-                                                     JsonMapper jsonMapper, CommandExecutor commandExecutor) {
-        return new LegacyEventMigration(persister, eventPayloadUpcaster, jsonMapper, commandExecutor);
+                                                     JsonMapper jsonMapper, CommandExecutor commandExecutor,
+                                                     AirportCityResolver airportCityResolver) {
+        return new LegacyEventMigration(persister, eventPayloadUpcaster, jsonMapper, commandExecutor,
+                                        new LocationDataCorrections(airportCityResolver));
     }
 
     /**
@@ -478,6 +480,12 @@ public class EventSourcingConfig {
     public PrivateEventMatchingLocationViewProjector privateEventMatchingLocationViewProjector(
             ProjectorBootstrapper bootstrapper) {
         return bootstrapper.register(new PrivateEventMatchingLocationViewProjector());
+    }
+
+    /** The countries and states Ted has used — the short lists the address forms offer first. */
+    @Bean
+    public PlacesUsedProjector placesUsedProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new PlacesUsedProjector());
     }
 
     /**

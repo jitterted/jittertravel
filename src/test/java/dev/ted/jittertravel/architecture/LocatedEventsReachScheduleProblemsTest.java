@@ -5,16 +5,8 @@ import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.TrainStationAddress;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
-import org.springframework.core.type.filter.AssignableTypeFilter;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,21 +36,12 @@ class LocatedEventsReachScheduleProblemsTest {
      * The types that carry a location. An event holding one of these places Ted somewhere and owes
      * the timeline a presence fact.
      */
-    private static final Set<Class<?>> LOCATION_TYPES =
-            Set.of(Address.class, AirportCode.class, TrainStationAddress.class);
+    private final LocatedEvents locatedEvents =
+            new LocatedEvents(Set.of(Address.class, AirportCode.class, TrainStationAddress.class));
 
     @Test
     void everyEventCarryingALocationIsHandledByTheProjector() {
-        String projectorSource = read(PROJECTOR);
-        List<String> unhandled = new ArrayList<>();
-
-        for (Class<? extends Event> located : locatedEventClasses()) {
-            if (!projectorSource.contains("case " + located.getSimpleName() + " ")) {
-                unhandled.add(located.getSimpleName());
-            }
-        }
-
-        assertThat(unhandled)
+        assertThat(locatedEvents.notHandledIn(PROJECTOR))
                 .as("""
                     These events carry a location but never reach ScheduleGapProjector, so the \
                     location trace cannot see them — and every problem after one of them is wrong, \
@@ -72,44 +55,9 @@ class LocatedEventsReachScheduleProblemsTest {
     void theScanFindsTheLocatedEventsItIsMeantToCover() {
         // Without this, a broken scan (wrong package, filter that matches nothing) would leave the
         // guard above passing vacuously forever.
-        assertThat(locatedEventClasses())
+        assertThat(locatedEvents.classes())
                 .extracting(Class::getSimpleName)
                 .contains("FlightBooked", "TrainBooked", "HotelBooked",
                           "ConferencePlanned", "GatheringPlanned", "PrivateEventPlanned");
-    }
-
-    private static List<Class<? extends Event>> locatedEventClasses() {
-        var scanner = new ClassPathScanningCandidateComponentProvider(false);
-        scanner.addIncludeFilter(new AssignableTypeFilter(Event.class));
-
-        List<Class<? extends Event>> located = new ArrayList<>();
-        for (var candidate : scanner.findCandidateComponents("dev.ted.jittertravel.domain")) {
-            Class<?> clazz = classFor(candidate.getBeanClassName());
-            if (clazz.isInterface() || !clazz.isRecord()) {
-                continue;
-            }
-            boolean carriesALocation = Arrays.stream(clazz.getRecordComponents())
-                    .anyMatch(component -> LOCATION_TYPES.contains(component.getType()));
-            if (carriesALocation) {
-                located.add(clazz.asSubclass(Event.class));
-            }
-        }
-        return located;
-    }
-
-    private static Class<?> classFor(String className) {
-        try {
-            return Class.forName(className);
-        } catch (ClassNotFoundException e) {
-            throw new IllegalStateException("scanned class disappeared: " + className, e);
-        }
-    }
-
-    private static String read(Path path) {
-        try {
-            return Files.readString(path);
-        } catch (IOException e) {
-            throw new UncheckedIOException("cannot read " + path.toAbsolutePath(), e);
-        }
     }
 }

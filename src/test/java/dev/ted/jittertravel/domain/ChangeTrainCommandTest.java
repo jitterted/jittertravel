@@ -18,9 +18,9 @@ class ChangeTrainCommandTest {
     private static final LocalDateTime DEPARTURE = NOW.toLocalDate().plusWeeks(1).atTime(9, 0);
     private static final LocalDateTime ARRIVAL = DEPARTURE.plusHours(4);
     private static final TrainStationAddress LONDON =
-            new TrainStationAddress("London Euston", "London", "UK", "");
+            new TrainStationAddress("London Euston", "London", "GB", "");
     private static final TrainStationAddress MANCHESTER =
-            new TrainStationAddress("Manchester Piccadilly", "Manchester", "UK", "");
+            new TrainStationAddress("Manchester Piccadilly", "Manchester", "GB", "");
 
     @Test
     void validChangeProducesTrainChangedEventWithAllFields() {
@@ -110,7 +110,7 @@ class ChangeTrainCommandTest {
 
     @Test
     void stationWithNoNameThrowsInvalidLocationEntryForThatEnd() {
-        TrainStationAddress nameless = new TrainStationAddress("", "Manchester", "UK", "");
+        TrainStationAddress nameless = new TrainStationAddress("", "Manchester", "GB", "");
         ChangeTrainCommand command = new ChangeTrainCommand(
                 TrainTripId.random(), LONDON, zt(DEPARTURE), nameless, zt(ARRIVAL), "");
 

@@ -32,7 +32,7 @@ public record PrivateEventMatchingLocationView(
         String title,
         String venueName,
         String city,
-        String country,
+        String qualifier,
         String locationForMatching,
         LocalDateTime startsAt,
         LocalDateTime endsAt

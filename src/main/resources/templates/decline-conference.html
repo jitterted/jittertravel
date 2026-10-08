@@ -83,7 +83,7 @@
 
     <div class="summary">
         <div class="name" th:text="${conference.name()}">Conference Name</div>
-        <div class="line" th:text="${conference.city() + ', ' + conference.country()}">City, Country</div>
+        <div class="line" th:text="${conference.cityLine()}">City, Country</div>
         <div class="line" th:if="${!conference.venueName().isBlank()}" th:text="${conference.venueName()}">Venue</div>
         <div class="line">
             <span th:text="${#temporals.format(conference.startDate().localDateTime(), 'EEE, MMM d, yyyy')}">start</span>

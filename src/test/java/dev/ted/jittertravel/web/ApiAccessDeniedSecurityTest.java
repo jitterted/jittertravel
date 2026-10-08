@@ -79,7 +79,7 @@ class ApiAccessDeniedSecurityTest {
     @WithMockUser(roles = "OWNER")
     void ownerSessionizePrefillIsAllowed() {
         when(prefillService.prefill(anyString()))
-                .thenReturn(Optional.of(new SessionizePrefill("", "", "", "", "", "", "", "", "", "")));
+                .thenReturn(Optional.of(new SessionizePrefill("", "", "", "", "", "", "", "", "", "", "")));
         assertThat(mockMvc.get().uri("/api/sessionize-prefill?url={url}", SESSIONIZE_URL))
                 .hasStatusOk();
     }

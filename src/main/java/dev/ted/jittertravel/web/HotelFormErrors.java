@@ -36,6 +36,8 @@ class HotelFormErrors extends FormErrors {
         return switch (problem.field()) {
             case VENUE_NAME -> "hotelName";
             case CITY -> "city";
+            case COUNTRY -> "country";
+            case REGION -> "region";
         };
     }
 }

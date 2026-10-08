@@ -592,16 +592,9 @@ public class ConferenceDetailRenderer {
         return block.with(p(cityLine(conference)).withClass("conf-rail-line"));
     }
 
-    /**
-     * A country is {@code ""} when absent, so the city stands alone rather than trailing a comma.
-     * {@code isBlank}, not {@code isEmpty}, per CLAUDE.md: optional text is guarded on blankness so
-     * a value of {@code " "} reads as absent. {@code Address}'s compact constructor trims, so the
-     * two agree today — which is exactly why the weaker one would go unnoticed.
-     */
+    /** "Denver, CO" or "Vienna, Austria"; the city alone when nothing follows it. */
     private static String cityLine(ConferenceDetailView conference) {
-        return conference.country().isBlank()
-                ? conference.city()
-                : conference.city() + ", " + conference.country();
+        return conference.cityLine();
     }
 
     /**

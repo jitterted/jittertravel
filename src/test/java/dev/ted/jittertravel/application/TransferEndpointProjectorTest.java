@@ -574,7 +574,7 @@ class TransferEndpointProjectorTest {
                 .singleElement()
                 .extracting(TransferEndpointRow::token, TransferEndpointRow::name,
                         TransferEndpointRow::city, TransferEndpointRow::moment)
-                .containsExactly("private-event:" + fixture.dinnerId().id(), "", "Denver, CO, US",
+                .containsExactly("private-event:" + fixture.dinnerId().id(), "", "Denver, CO",
                         at("2026-09-15 19:00"));
         assertThat(endpoints.rowsFor(TransferEnd.PRIVATE_EVENT_END))
                 .singleElement()
@@ -600,7 +600,7 @@ class TransferEndpointProjectorTest {
                 .extracting(TransferEndpointRow::place, TransferEndpointRow::city)
                 .as("matched in the new city, still labelled by where it is")
                 .containsExactly(new Place(PrivateEventTransferFixture.MATCHING_CITY),
-                        "Denver, CO, US");
+                        "Denver, CO");
         assertThat(endpoints.rowsFor(TransferEnd.PRIVATE_EVENT_END))
                 .hasSize(1);
         assertThat(endpoints.privateEventEndpoint(fixture.dinnerId()))

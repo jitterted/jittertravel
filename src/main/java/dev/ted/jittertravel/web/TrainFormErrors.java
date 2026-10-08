@@ -48,6 +48,9 @@ class TrainFormErrors extends FormErrors {
         return switch (invalid.field()) {
             case VENUE_NAME -> departure ? "departureStationName" : "arrivalStationName";
             case CITY -> departure ? "departureCityName" : "arrivalCityName";
+            case COUNTRY -> departure ? "departureCountry" : "arrivalCountry";
+            // A station has no region, so EnteredCountry never names one for a train.
+            case REGION -> throw new IllegalStateException("A train station has no region: " + invalid);
         };
     }
 
@@ -70,11 +73,11 @@ class TrainFormErrors extends FormErrors {
             // Not "Country is required": leaving it blank and picking a zone is a legitimate way
             // through, and a message that says otherwise is wrong about its own form.
             case COUNTRY_MISSING -> "Country or time zone required";
-            // Longer than the others, and it can afford to be: the time-zone select is a
-            // full-width field rather than one of the narrow country columns. It names the second
-            // way out because this error lands one field below the value that caused it, and a
-            // misspelled country is at least as likely as one the table has never heard of.
-            case COUNTRY_UNRECOGNISED -> "Unknown country — pick a zone, or fix Country name above";
+            // The country was picked from the list, so it is spelled right and real; the zone
+            // table just has no single zone for it (Brazil, or one not added yet). Picking a zone
+            // is the only way out, so the message no longer points back at Country — it did until
+            // 2026-10-07, when the country was typed and a misspelling was the likelier cause.
+            case COUNTRY_UNRECOGNISED -> "No time zone known for this country — pick one";
         };
     }
 }

@@ -1,6 +1,9 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.domain.Countries;
 import dev.ted.jittertravel.domain.LocationZoneResolver;
+import dev.ted.jittertravel.domain.Subdivision;
+import dev.ted.jittertravel.domain.Subdivisions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -80,6 +83,8 @@ public class SessionizePrefillService {
 
     private final RestClient restClient;
     private final LocationZoneResolver zoneResolver;
+    private final Countries countries = new Countries();
+    private final Subdivisions subdivisions = new Subdivisions();
 
     public SessionizePrefillService(RestClient.Builder restClientBuilder,
                                     LocationZoneResolver zoneResolver) {
@@ -113,6 +118,7 @@ public class SessionizePrefillService {
             String cfpSubmissionUrl,
             String venueName,
             String venueCity,
+            String venueState,
             String venueCountry,
             String deadlineZone
     ) {}
@@ -150,21 +156,25 @@ public class SessionizePrefillService {
         String name = conferenceName(html, ics);
         String venueName = "";
         String city = "";
+        String state = "";
         String country = "";
         List<String> venueLines = venueLines(html);
         if (!venueLines.isEmpty()) {
             venueName = venueLines.getFirst();
         }
         if (venueLines.size() > 1) {
-            String[] cityCountry = splitCityCountry(venueLines.get(1));
-            city = cityCountry[0];
-            country = cityCountry[1];
+            String[] cityStateCountry = splitLocation(venueLines.get(1));
+            city = cityStateCountry[0];
+            country = countries.codeFor(cityStateCountry[2]).orElse("");
+            state = subdivisions.findByName(country, cityStateCountry[1])
+                                .map(Subdivision::code)
+                                .orElse("");
         }
 
         String deadlineZone = "";
         String cfpClosesOn = "";
         Instant deadline = cfpDeadline(ics);
-        ZoneId venueZone = venueZone(city, country);
+        ZoneId venueZone = venueZone(city, state, country);
         if (deadline != null && venueZone != null) {
             deadlineZone = venueZone.getId();
             cfpClosesOn = FORM_DATE_TIME.format(deadline.atZone(venueZone));
@@ -179,6 +189,7 @@ public class SessionizePrefillService {
                 cfpClosesOn.isEmpty() ? "" : "https://sessionize.com/" + slug + "/",
                 venueName,
                 city,
+                state,
                 country,
                 deadlineZone);
         return isEmpty(prefill) ? Optional.empty() : Optional.of(prefill);
@@ -194,12 +205,12 @@ public class SessionizePrefillService {
      * two hours early is exactly the kind of wrong Ted would not catch by looking. A blank field he
      * fills himself is a papercut; a plausible wrong deadline is a missed CFP.
      */
-    private ZoneId venueZone(String city, String country) {
+    private ZoneId venueZone(String city, String state, String country) {
         if (city.isEmpty() && country.isEmpty()) {
             return null;
         }
         try {
-            return zoneResolver.resolve(city, country);
+            return zoneResolver.resolve(city, state, country);
         } catch (RuntimeException e) {
             // Unresolvable is ordinary: the form will re-prompt for a zone at submit anyway.
             return null;
@@ -288,16 +299,18 @@ public class SessionizePrefillService {
     }
 
     /**
-     * City and country out of one line. A middle part (a state) is dropped rather than guessed into
-     * {@code venueState}: the zone resolves from city and country, and inventing a region is the
-     * kind of fiction this must not do.
+     * City, middle part and country out of one line — {@code "Atlanta, Georgia, United States"}.
+     * The caller keeps the middle part only when it is exactly the name of one of the country's
+     * states ({@link Subdivisions#findByName}), which is reading it rather than guessing: anything
+     * else is dropped, because inventing a region is the kind of fiction this must not do.
      */
-    private String[] splitCityCountry(String line) {
+    private String[] splitLocation(String line) {
         String[] parts = line.split(",");
         if (parts.length == 1) {
-            return new String[]{parts[0].trim(), ""};
+            return new String[]{parts[0].trim(), "", ""};
         }
-        return new String[]{parts[0].trim(), parts[parts.length - 1].trim()};
+        String middle = parts.length > 2 ? parts[parts.length - 2].trim() : "";
+        return new String[]{parts[0].trim(), middle, parts[parts.length - 1].trim()};
     }
 
     private String websiteUrl(String html) {

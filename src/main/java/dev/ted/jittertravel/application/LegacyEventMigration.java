@@ -9,6 +9,7 @@ import dev.ted.jittertravel.infrastructure.PostgresPersister.BackupEventRow;
 import dev.ted.jittertravel.infrastructure.PostgresPersister.MigratedEventRow;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,13 +53,16 @@ public class LegacyEventMigration {
     private final EventPayloadUpcaster upcaster;
     private final JsonMapper jsonMapper;
     private final CommandExecutor commandExecutor;
+    private final LocationDataCorrections locationDataCorrections;
 
     public LegacyEventMigration(PostgresPersister persister, EventPayloadUpcaster upcaster,
-                                JsonMapper jsonMapper, CommandExecutor commandExecutor) {
+                                JsonMapper jsonMapper, CommandExecutor commandExecutor,
+                                LocationDataCorrections locationDataCorrections) {
         this.persister = persister;
         this.upcaster = upcaster;
         this.jsonMapper = jsonMapper;
         this.commandExecutor = commandExecutor;
+        this.locationDataCorrections = locationDataCorrections;
     }
 
     /** Describes what {@link #migrate()} would do — scans and bind-checks every row, writing nothing. */
@@ -106,6 +110,11 @@ public class LegacyEventMigration {
                 JsonNode original = jsonMapper.readTree(row.payloadJson());
                 // upcast mutates the node in place, so hand it a copy and compare against the original.
                 JsonNode upcasted = upcaster.upcast(row.type(), original.deepCopy(), row.schemaVersion());
+                // Value corrections ride on the same rewrite, after the rung, so they see codes. They
+                // are not part of the read path: restore and boot replay never apply them.
+                if (upcasted instanceof ObjectNode payload) {
+                    locationDataCorrections.apply(row.eventId(), currentType, payload);
+                }
 
                 boolean payloadChanged = !upcasted.equals(original);
                 boolean stampChanged = row.schemaVersion() == null || row.schemaVersion() != currentVersion;

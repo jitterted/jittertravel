@@ -601,9 +601,7 @@ public class ConferencesRenderer {
      * (`isBlank`, not `isEmpty`, per CLAUDE.md).
      */
     private static String cityLine(ConferenceView conf) {
-        return conf.country().isEmpty()
-                ? conf.city()
-                : conf.city() + ", " + conf.country();
+        return conf.cityLine();
     }
 
     /**

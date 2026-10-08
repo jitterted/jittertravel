@@ -773,10 +773,13 @@ it); a future city rule that could hold alongside another is the moment that gua
    which field this is.
 
    **Terse is not a word count, though** — a full-width field can afford a longer sentence, and the
-   one message that lands somewhere other than the value that caused it earns one. An unrecognised
-   country is reported on the time-zone select, a field below, so it reads "Unknown country — pick
-   a zone, or fix Country name above": pointing back at the culprit is the whole reason it is
-   longer than its neighbours.
+   one message that lands somewhere other than the value that caused it earns one. A country with
+   no single zone is reported on the time-zone select, a field below, so it reads "No time zone
+   known for this country — pick one": it says what to do in the field it sits under. Until
+   2026-10-07 it read "Unknown country — pick a zone, or fix Country name above", pointing back at
+   the culprit, because the country was typed and a misspelling was the likelier cause. Once the
+   country became a picked code (`fragments/place-picker.html`) it could no longer be misspelt, so
+   a message sending Ted back to fix it would name a fix that does not exist — rule 2 above.
 
    Two more consequences. A message being shortened must keep the *distinction* it carries
    ("Country or time zone required", not "Country is required" — leaving it blank and picking a

@@ -1,5 +1,7 @@
 package dev.ted.jittertravel.infrastructure;
 
+import dev.ted.jittertravel.domain.Subdivision;
+import dev.ted.jittertravel.domain.Subdivisions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -7,6 +9,7 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -21,6 +24,7 @@ public class AddressParseService {
 
     private final RestClient restClient;
     private final JsonMapper jsonMapper;
+    private final Subdivisions subdivisions = new Subdivisions();
 
     public AddressParseService(RestClient.Builder restClientBuilder, JsonMapper jsonMapper) {
         this.jsonMapper = jsonMapper;
@@ -82,9 +86,14 @@ public class AddressParseService {
                     : "";
 
             String locality = firstOf(addr, "city", "town", "village", "hamlet", "suburb");
-            String region = firstOf(addr, "state", "county", "state_district");
             String postalCode = text(addr, "postcode");
-            String country = text(addr, "country");
+            // Codes, because the form's Country and State are selects of codes. Nominatim's full
+            // names ("United States", "Colorado") are where half the log's two spellings came from
+            // (docs/LocationDataCleanupPlan.md).
+            String country = coalesce(text(addr, "country_code")).toUpperCase(Locale.ROOT);
+            String region = subdivisions.required(country)
+                    ? subdivisionCode(addr, country)
+                    : firstOf(addr, "state", "county", "state_district");
 
             return Optional.of(new ParsedAddress(
                     coalesce(street),
@@ -98,6 +107,21 @@ public class AddressParseService {
             log.warn("Failed to parse Nominatim JSON response", e);
             return Optional.empty();
         }
+    }
+
+    /**
+     * The postal code of the state or province, from Nominatim's ISO 3166-2 field ({@code "US-CO"}),
+     * kept only when it is one of the country's own; otherwise blank, so the form asks for it.
+     */
+    private String subdivisionCode(JsonNode addr, String country) {
+        String iso = coalesce(text(addr, "ISO3166-2-lvl4"));
+        String prefix = country + "-";
+        if (!iso.toUpperCase(Locale.ROOT).startsWith(prefix)) {
+            return "";
+        }
+        return subdivisions.find(country, iso.substring(prefix.length()))
+                           .map(Subdivision::code)
+                           .orElse("");
     }
 
     private static String text(JsonNode node, String field) {

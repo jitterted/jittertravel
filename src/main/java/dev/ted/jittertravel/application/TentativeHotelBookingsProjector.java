@@ -39,7 +39,7 @@ public class TentativeHotelBookingsProjector implements EventStreamConsumer {
                 hotelBookingId,
                 hotelName,
                 address.city(),
-                address.country(),
+                new CityLabel().countryName(address.country()),
                 checkIn,
                 checkOut,
                 false

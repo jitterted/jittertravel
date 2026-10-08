@@ -224,32 +224,22 @@
                 </label>
             </div>
             <div class="field-row">
-                <div class="field">
-                    <label>
-                        City
-                        <input type="text" th:field="*{venueCity}"/>
-                    </label>
-                </div>
-                <div class="field narrow">
-                    <label>
-                        State
-                        <input type="text" th:field="*{venueState}"/>
-                    </label>
-                </div>
-            </div>
-            <div class="field-row">
-                <div class="field">
-                    <label>
-                        Country
-                        <input type="text" th:field="*{venueCountry}"/>
-                    </label>
-                </div>
+                <div th:replace="~{fragments/place-picker :: country('venueCountry')}"></div>
                 <div class="field narrow">
                     <label>
                         Postal Code
                         <input type="text" th:field="*{venuePostalCode}"/>
                     </label>
                 </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>
+                        City
+                        <input type="text" th:field="*{venueCity}"/>
+                    </label>
+                </div>
+                <div th:replace="~{fragments/place-picker :: region('venueCountry', 'venueState')}"></div>
             </div>
         </fieldset>
 
@@ -271,6 +261,8 @@
 
         <button type="submit">Plan Conference</button>
     </form>
+
+    <div th:replace="~{fragments/place-picker :: placePickerScript}"></div>
 
 </div>
 </body>

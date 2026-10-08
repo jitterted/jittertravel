@@ -205,8 +205,8 @@ public class GroundTransferEndpointResolver {
      * because it forgets a cancelled event, so a stale token is refused for free.
      * <p>
      * The venue name is private, as a hotel's is: it reaches the owner's label and the event, never
-     * the public calendar, which reads a transfer's endpoints as a code or city, region and
-     * country and nothing else.
+     * the public calendar, which reads a transfer's endpoints as a code or a city with its US
+     * state or country, and nothing else.
      */
     private TransferEndpoint privateEventEndpoint(String rawPrivateEventId, String wholeToken) {
         PrivateEventId privateEventId = parsePrivateEventId(rawPrivateEventId, wholeToken);
@@ -279,9 +279,11 @@ public class GroundTransferEndpointResolver {
         // Throws ZoneResolutionException for a well-formed code the curated table does not know,
         // which is the only way an airport token can be stale — the options only ever offer
         // airports that appear on a booked flight.
-        return new TransferEndpoint(airport.code(), "",
-                new Address("", city, "", "", "", city),
-                airportZones.resolve(airport));
+        // The table's whole place, so the frozen endpoint names its country and state; a city alone
+        // is what left four DEN transfers with no country (docs/LocationDataCleanupPlan.md §4.3).
+        Address address = airportCities.addressFor(airport.code())
+                                       .orElse(new Address("", city, "", "", "", city));
+        return new TransferEndpoint(airport.code(), "", address, airportZones.resolve(airport));
     }
 
     /**

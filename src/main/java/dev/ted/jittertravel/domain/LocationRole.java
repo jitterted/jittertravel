@@ -8,5 +8,7 @@ package dev.ted.jittertravel.domain;
 public enum LocationRole {
     DEPARTURE,
     ARRIVAL,
-    STAY
+    STAY,
+    /** The place a gathering, conference or private event is held. */
+    VENUE
 }

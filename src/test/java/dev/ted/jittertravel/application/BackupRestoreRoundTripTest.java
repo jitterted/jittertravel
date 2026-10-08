@@ -166,7 +166,7 @@ class BackupRestoreRoundTripTest extends AbstractTestcontainerIntegrationTest {
     private static BookHotelRequest bookHotel(String hotelBookingId) {
         return new BookHotelRequest(
                 hotelBookingId, "Marriott Downtown",
-                "742 Evergreen Terrace", "San Francisco", "CA", "USA", "94103",
+                "742 Evergreen Terrace", "San Francisco", "CA", "US", "94103",
                 "San Francisco", "", null,
                 FUTURE.atTime(15, 0), FUTURE.plusDays(2).atTime(11, 0), null,
                 BookingIntent.FINAL);

@@ -155,6 +155,27 @@ class BookTrainWebIntegrationTest {
                 .contains("<span class=\"error\">Venue name, not a city</span>");
     }
 
+    /** The render check for a station's Country picker: its error span exists. */
+    @Test
+    void aRefusedStationCountryRendersUnderThatEndsCountry() {
+        willThrow(new InvalidTrainEntry(List.of(
+                new InvalidLocationEntry(LocationRole.DEPARTURE, LocationField.COUNTRY,
+                        "Unknown country")), List.of()))
+                .given(trainBooking).bookTrain(any(), any());
+
+        MvcTestResult result = trip("Frankfurt", "DE");
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookTrain")
+                .hasOnlyFieldErrors("departureCountry")
+                .hasFieldErrorCode("departureCountry", "invalidLocation");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Unknown country</span>");
+    }
+
     @Test
     void missingDepartureStationNameErrorsOnThatNameField() {
         willThrow(new InvalidTrainEntry(List.of(
@@ -222,8 +243,7 @@ class BookTrainWebIntegrationTest {
                 .hasFieldErrorCode("arrivalZone", "zoneUnresolved");
         assertThat(result)
                 .bodyText()
-                .contains("<span class=\"error\">Unknown country — pick a zone, "
-                          + "or fix Country name above</span>");
+                .contains("<span class=\"error\">No time zone known for this country — pick one</span>");
     }
 
     @Test

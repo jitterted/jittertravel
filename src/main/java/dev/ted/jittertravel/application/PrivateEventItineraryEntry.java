@@ -19,7 +19,7 @@ public record PrivateEventItineraryEntry(
         String title,
         String venueName,
         String city,
-        String country,
+        String qualifier,
         ZonedTimestamp anchorDateTime,
         ZonedTimestamp endDateTime
 ) implements ItineraryEntry {
@@ -28,6 +28,6 @@ public record PrivateEventItineraryEntry(
 
     public String venueLocation() {
         String prefix = venueName.isBlank() ? "" : venueName + " · ";
-        return prefix + city + (country.isBlank() ? "" : ", " + country);
+        return prefix + city + (qualifier.isBlank() ? "" : ", " + qualifier);
     }
 }

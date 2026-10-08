@@ -396,11 +396,11 @@ class GroundTransferEndpointOptionsTest {
 
         assertThat(choices.privateEventStarts()).containsExactly(new TransferEndpointOption(
                 "private-event:" + fixture.dinnerId().id(),
-                "Denver, CO, US · starts Tue Sep 15, 7:00 PM",
+                "Denver, CO · starts Tue Sep 15, 7:00 PM",
                 "Denver", "2026-09-15", "19:00"));
         assertThat(choices.privateEventEnds()).containsExactly(new TransferEndpointOption(
                 "private-event:" + fixture.dinnerId().id(),
-                "Denver, CO, US · ends Tue Sep 15, 10:00 PM",
+                "Denver, CO · ends Tue Sep 15, 10:00 PM",
                 "Denver", "2026-09-15", "22:00"));
         assertThat(choices.toString())
                 .doesNotContain(PrivateEventTransferFixture.TITLE)
@@ -417,7 +417,7 @@ class GroundTransferEndpointOptionsTest {
         assertThat(options.choicesAt(NOW).privateEventStarts())
                 .singleElement()
                 .extracting(TransferEndpointOption::label, TransferEndpointOption::city)
-                .containsExactly("Denver, CO, US · starts Tue Sep 15, 7:00 PM",
+                .containsExactly("Denver, CO · starts Tue Sep 15, 7:00 PM",
                         PrivateEventTransferFixture.MATCHING_CITY);
     }
 

@@ -64,7 +64,7 @@ class SessionizePrefillFragmentConventionTest {
         // no [name="city"], only [name="venueCity"].
         for (String property : new String[]{"name", "infoUrl", "startDate", "endDate",
                                             "cfpClosesOn", "cfpSubmissionUrl",
-                                            "venueName", "venueCity", "venueCountry"}) {
+                                            "venueName", "venueCity"}) {
             assertThat(fragment)
                     .as("the widget writes %s", property)
                     .contains("set('" + property + "', d." + property + ")");
@@ -72,6 +72,15 @@ class SessionizePrefillFragmentConventionTest {
                     .as("%s is a field on the form the widget writes into", property)
                     .contains("th:field=\"*{" + property + "}\"");
         }
+        // Country and State are the shared place pickers on this form, written through them.
+        assertThat(fragment)
+                .as("the widget writes the venue's country and state through the place picker")
+                .contains("window.placePicker.setCountry(country, d.venueCountry)")
+                .contains("window.placePicker.setRegion(country.form, 'venueState', d.venueState)");
+        assertThat(form)
+                .as("venueCountry and venueState are the place pickers on the form")
+                .contains("~{fragments/place-picker :: country('venueCountry')}")
+                .contains("~{fragments/place-picker :: region('venueCountry', 'venueState')}");
     }
 
     @Test

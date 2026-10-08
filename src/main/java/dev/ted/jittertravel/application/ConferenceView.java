@@ -62,7 +62,9 @@ public record ConferenceView(
         String infoUrl
 ) implements TemporalView, CfpDeadlineView {
     public String city() { return venueAddress.city(); }
-    public String country() { return venueAddress.country(); }
+
+    /** "Denver, CO" or "Vienna, Austria" — see {@link CityLabel}. */
+    public String cityLine() { return new CityLabel().label(venueAddress); }
 
     /** A conference is "upcoming" until its last day ends, in the venue's zone. */
     @Override

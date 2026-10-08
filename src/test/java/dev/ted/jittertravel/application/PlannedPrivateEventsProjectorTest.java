@@ -64,7 +64,9 @@ class PlannedPrivateEventsProjectorTest {
         assertThat(view.region()).isEqualTo("Greater London");
         assertThat(view.postalCode()).isEqualTo("W1D 3LL");
         assertThat(view.city()).isEqualTo("London");
-        assertThat(view.country()).isEqualTo("GB");
+        assertThat(view.country())
+                .as("a picked code is shown as the country's name")
+                .isEqualTo("United Kingdom");
         assertThat(view.startsAt()).isEqualTo(london(DATE_JUN_20, START));
         assertThat(view.endsAt()).isEqualTo(london(DATE_JUN_20, END));
     }

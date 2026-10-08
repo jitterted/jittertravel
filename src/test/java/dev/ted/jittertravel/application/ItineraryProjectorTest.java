@@ -350,9 +350,9 @@ class ItineraryProjectorTest {
                 DATE, DATE.plusDays(3)))));
 
         assertThat(projector.ongoingStayOn(DATE.plusDays(1)))
-                .contains(new OngoingStay("Marriott Downtown", "San Francisco", "USA"));
+                .contains(new OngoingStay("Marriott Downtown", "San Francisco", "CA"));
         assertThat(projector.ongoingStayOn(DATE.plusDays(2)))
-                .contains(new OngoingStay("Marriott Downtown", "San Francisco", "USA"));
+                .contains(new OngoingStay("Marriott Downtown", "San Francisco", "CA"));
     }
 
     @Test
@@ -408,7 +408,7 @@ class ItineraryProjectorTest {
                 .as("the new check-in day is no longer an in-between day")
                 .isEmpty();
         assertThat(projector.ongoingStayOn(DATE.plusDays(4)))
-                .contains(new OngoingStay("Hotel Adlon", "Berlin", "DE"));
+                .contains(new OngoingStay("Hotel Adlon", "Berlin", "Germany"));
     }
 
     @Test
@@ -611,7 +611,7 @@ class ItineraryProjectorTest {
         assertThat(entry.title()).isEqualTo("London Java Community");
         assertThat(entry.venueName()).isEqualTo("Skills Matter");
         assertThat(entry.city()).isEqualTo("London");
-        assertThat(entry.country()).isEqualTo("GB");
+        assertThat(entry.qualifier()).isEqualTo("United Kingdom");
         assertThat(entry.speaking()).as("speaking flag must be true").isTrue();
         assertThat(entry.infoUrl()).isEqualTo("https://meetup.com/ljc/events/123");
         assertThat(entry.anchorTime()).isEqualTo(DATE.atTime(18, 0));
@@ -680,7 +680,7 @@ class ItineraryProjectorTest {
         assertThat(entry.title()).isEqualTo("Dinner with the Smiths");
         assertThat(entry.venueName()).isEqualTo("Alo");
         assertThat(entry.city()).isEqualTo("Toronto");
-        assertThat(entry.country()).isEqualTo("Canada");
+        assertThat(entry.qualifier()).isEqualTo("Canada");
         assertThat(entry.anchorTime()).isEqualTo(DATE.atTime(19, 0));
     }
 

@@ -352,7 +352,7 @@ public class TransferEndpointProjector implements EventStreamConsumer {
 
     /**
      * Both ends offered until the event's end, as for a gathering. <strong>The row names the
-     * event by its city, region and country alone</strong> — the same words, from the same rule,
+     * event by its city and its US state or country alone</strong> — the same words, from the same rule,
      * that the public calendar publishes for a transfer's end ({@link TransferEndpointLabel}) — and
      * never by its title or venue (Ted, 2026-10-06). The name is left blank for the label to skip;
      * nothing private is on a row that a label could pick up.

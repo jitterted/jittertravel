@@ -45,6 +45,7 @@ import java.util.stream.Stream;
  */
 public class ConferenceCalendarProjector implements EventStreamConsumer {
     private final Map<ConferenceId, Tracked> entries = new ConcurrentHashMap<>();
+    private final CityLabel cityLabel = new CityLabel();
 
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
@@ -53,7 +54,7 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                 case ConferencePlanned event -> {
                     String infoUrl = event.infoUrl().isBlank() ? null : event.infoUrl();
                     String detailPath = "/conferences/" + event.conferenceId().id();
-                    String location = event.venueAddress().city() + ", " + event.venueAddress().country();
+                    String location = cityLabel.label(event.venueAddress());
                     List<SubtitleLine> locationLines = List.of(new SubtitleLine.Text(location));
                     // Calendar days are venue-local days (decision 7): bucket by the wall-clock
                     // the traveler will read off a clock at the venue, not by UTC.

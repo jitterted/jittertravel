@@ -13,6 +13,7 @@ public record PlanPrivateEventCommand(
 
     @Override
     public Stream<PrivateEventPlanned> execute(PlanPrivateEventContext context) {
+        EnteredCountry.of(location).check(LocationRole.VENUE);
         // Same rule as a gathering: today or later, judged by *date* in the event's own zone
         // rather than the server's. Today is allowed because plans can be last-minute.
         if (startsAt == null || !startsAt.isOnOrAfterDayOf(context.now())) {

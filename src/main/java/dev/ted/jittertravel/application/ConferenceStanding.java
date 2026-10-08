@@ -114,7 +114,7 @@ record ConferenceStanding(ConferencePlanned planned, ConferenceProgress progress
 
     ConferenceNews news() {
         return new ConferenceNews(planned.name(), planned.venueName(), planned.venueAddress().city(),
-                planned.venueAddress().country(), planned.startDate(), planned.endDate(),
+                new CityLabel().qualifier(planned.venueAddress()), planned.startDate(), planned.endDate(),
                 planned.infoUrl(), speakingLine());
     }
 

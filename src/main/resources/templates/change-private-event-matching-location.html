@@ -94,7 +94,7 @@
         <div class="line" th:if="${!privateEvent.venueName().isBlank()}"
              th:text="${privateEvent.venueName()}">venue</div>
         <div class="line"
-             th:text="${privateEvent.city() + (privateEvent.country().isBlank() ? '' : ', ' + privateEvent.country())}">city</div>
+             th:text="${privateEvent.city() + (privateEvent.qualifier().isBlank() ? '' : ', ' + privateEvent.qualifier())}">city</div>
         <div class="line" th:text="${#temporals.format(privateEvent.startsAt(), 'EEE, MMM d, yyyy')}">date</div>
         <div class="line">
             <span th:text="${#temporals.format(privateEvent.startsAt(), 'h:mm a')}">time</span>

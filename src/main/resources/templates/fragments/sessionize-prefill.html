@@ -73,7 +73,17 @@
                 set('cfpSubmissionUrl', d.cfpSubmissionUrl);
                 set('venueName', d.venueName);
                 set('venueCity', d.venueCity);
-                set('venueCountry', d.venueCountry);
+                // Through the place picker when the page has it: Country is a select of codes, and
+                // choosing it decides whether State is a list — so Country goes first.
+                const country = document.querySelector('[name="venueCountry"]');
+                if (country && window.placePicker && d.venueCountry) {
+                    window.placePicker.setCountry(country, d.venueCountry);
+                    window.placePicker.setRegion(country.form, 'venueState', d.venueState);
+                    filled += d.venueState ? 2 : 1;
+                } else {
+                    set('venueCountry', d.venueCountry);
+                    set('venueState', d.venueState);
+                }
 
                 // Say what happened. Partial fills are the normal case, so without this a field
                 // left blank by a restyled page is indistinguishable from one Sessionize never had.

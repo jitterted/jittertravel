@@ -3,6 +3,7 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.GatheringPlanning;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.GatheringDateNotInFuture;
+import dev.ted.jittertravel.domain.InvalidEnteredLocation;
 import dev.ted.jittertravel.domain.InvalidGatheringTimeRange;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -58,6 +59,8 @@ public class PlanGatheringController {
         try {
             // now is captured at the boundary as an Instant; the venue zone is resolved inward.
             gatheringPlanning.planGathering(request, Instant.now(clock));
+        } catch (InvalidEnteredLocation e) {
+            new VenueLocationErrors(bindingResult, "country", "region").reject(e);
         } catch (GatheringDateNotInFuture e) {
             bindingResult.rejectValue("date", "future", e.getMessage());
         } catch (InvalidGatheringTimeRange e) {

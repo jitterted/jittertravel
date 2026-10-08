@@ -7,7 +7,8 @@
   went on POSTing JSON and reported the resulting 405 to the user as "Not found".
 
   The widget writes into sibling inputs by name (street, city, region, postalCode, country,
-  locationForMatching), so it must sit inside a form carrying those fields.
+  locationForMatching), so it must sit inside a form carrying those fields. Country and region
+  are written through fragments/place-picker's window.placePicker when the page has it.
 
   Enforced by AddressPasteFragmentConventionTest; behavior covered by AddressParseJsTest.
 */-->
@@ -45,8 +46,17 @@
                 const set = (name, val) => { if (val) { const el = document.querySelector('[name="' + name + '"]'); if (el) el.value = val; } };
                 set('street', d.street);
                 set('city', d.city);
-                set('region', d.region);
-                set('country', d.country);
+                // Country and Region go through the place picker: Country is a select of codes
+                // (a code not yet in the short list has to be added to it), and choosing it
+                // decides whether Region is a list of states or a text box — so Country first.
+                const country = document.querySelector('[name="country"]');
+                if (country && window.placePicker) {
+                    window.placePicker.setCountry(country, d.country);
+                    window.placePicker.setRegion(country.form, 'region', d.region);
+                } else {
+                    set('country', d.country);
+                    set('region', d.region);
+                }
                 set('postalCode', d.postalCode);
                 set('locationForMatching', d.locationForMatching || d.city);
             } catch (e) {

@@ -52,7 +52,7 @@ public class PlannedGatheringsProjector implements EventStreamConsumer {
                 location.city(),
                 location.region(),
                 location.postalCode(),
-                location.country(),
+                new CityLabel().countryName(location.country()),
                 startsAt,
                 endsAt,
                 speaking,

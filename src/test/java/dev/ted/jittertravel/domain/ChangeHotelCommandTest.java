@@ -138,6 +138,22 @@ class ChangeHotelCommandTest {
                 .containsExactly(tuple(LocationRole.STAY, LocationField.CITY));
     }
 
+    /**
+     * A stay stored before countries were picked meets the rule only when it is edited — which is
+     * the moment Ted can fix it, rather than a replay refusing the old event.
+     */
+    @Test
+    void aCountryThatIsNotACodeIsRejectedAgainstTheCountryField() {
+        Address legacy = new Address("123 Main St", "Springfield", "IL", "62701", "USA", null);
+        ChangeHotelCommand command = new ChangeHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", legacy,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
+
+        assertThat(locationProblems(command))
+                .extracting(InvalidLocationEntry::field, InvalidLocationEntry::getMessage)
+                .containsExactly(tuple(LocationField.COUNTRY, "Unknown country"));
+    }
+
     /** The change path answers with every problem too, not only the booking path. */
     @Test
     void aStayWithNoNameAndNoCityReportsBothInOneAnswer() {

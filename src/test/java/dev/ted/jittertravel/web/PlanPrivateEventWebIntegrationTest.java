@@ -1,6 +1,10 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.PrivateEventPlanning;
+import dev.ted.jittertravel.domain.InvalidEnteredLocation;
+import dev.ted.jittertravel.domain.InvalidLocationEntry;
+import dev.ted.jittertravel.domain.LocationField;
+import dev.ted.jittertravel.domain.LocationRole;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -10,10 +14,12 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -106,5 +112,41 @@ class PlanPrivateEventWebIntegrationTest {
                 .bodyText()
                 .as("the form comes back with the picker and an explanation, not a redirect")
                 .contains("Could not determine the time zone from the location");
+    }
+
+    /** The render check for the Country and Region inputs: each one's error span exists. */
+    @Test
+    void aRefusedVenueCountryAndStateRenderUnderTheirInputs() {
+        willThrow(new InvalidEnteredLocation(List.of(
+                new InvalidLocationEntry(LocationRole.VENUE, LocationField.COUNTRY, "Unknown country"),
+                new InvalidLocationEntry(LocationRole.VENUE, LocationField.REGION,
+                                         "State required for United States"))))
+                .given(privateEventPlanning).planPrivateEvent(any(), any());
+
+        MvcTestResult result = mockMvc.post().uri("/plan-private-event")
+                .with(csrf())
+                .param("privateEventId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("title", "Some Dinner")
+                .param("venueName", "Some Venue")
+                .param("street", "")
+                .param("city", "Centennial")
+                .param("region", "")
+                .param("country", "US")
+                .param("postalCode", "")
+                .param("date", "2026-07-15")
+                .param("startTime", "19:00")
+                .param("endTime", "22:00")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("planPrivateEvent")
+                .hasFieldErrorCode("country", "invalidLocation")
+                .hasFieldErrorCode("region", "invalidLocation");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Unknown country</span>")
+                .contains("<span class=\"error\">State required for United States</span>");
     }
 }

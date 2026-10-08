@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<!--/*
+  The Country and State/Region pickers every address form shares (docs/LocationDataCleanupPlan.md
+  D1, D3; approved mockup https://claude.ai/artifact/KvPTqeESSdR6H29rL5EgkQ).
+
+  Country stores an ISO code. The server renders one select: the countries Ted has used, then an
+  "All countries" group. The script turns that group into a second list behind "Another country…",
+  so the short list is what he sees; without the script the one select still offers everything.
+
+  Region is a list of states storing the code for the US, Canada and Australia, and free text
+  everywhere else. Both controls are rendered and the one that does not apply is disabled, so only
+  one is submitted; the script swaps them when Country changes, and on load if the page was
+  re-rendered with no form object to read the country from. Without the script the control
+  matches the country the page was loaded with, and the command refuses a mismatch.
+
+  th:field does the binding, because it reads the BindingResult and so survives a re-render whose
+  form object is null (a date that would not parse). The form object is read directly only behind
+  a #object null check, for the two things th:field cannot do: keep a stored value that is not a
+  code as an option of its own (so opening a change form never silently changes it — the command
+  refuses it on submit, the moment Ted can fix it), and choose which Region control to show.
+
+  Include `placePickerScript` once per page, after the pickers. Behaviour: PlacePickerJsTest.
+*/-->
+<body>
+
+<th:block th:fragment="country(field)">
+    <div class="field"
+         th:with="current=${#object == null ? '' : #object.__${field}__},
+                  currentValue=${current == null ? '' : current.trim()}">
+        <label>
+            Country
+            <select class="place-select" th:field="*{__${field}__}" data-country-picker>
+                <option value="">—</option>
+                <option th:if="${!currentValue.isEmpty() and !placePicker.isKnown(currentValue)}"
+                        th:value="${currentValue}" th:text="${currentValue}"></option>
+                <option th:each="country : ${placePicker.usedCountries()}"
+                        th:value="${country.code()}" th:text="${country.name()}"></option>
+                <optgroup label="All countries" data-all-countries>
+                    <option th:each="country : ${placePicker.allCountries()}"
+                            th:value="${country.code()}" th:text="${country.name()}"></option>
+                </optgroup>
+            </select>
+        </label>
+        <span class="error"
+              th:if="${#fields.hasErrors('__${field}__')}"
+              th:errors="*{__${field}__}"></span>
+    </div>
+</th:block>
+
+<th:block th:fragment="region(countryField, regionField)">
+    <div class="field narrow" data-region-picker th:attr="data-country-field=${countryField}"
+         th:with="country=${#object == null ? '' : #object.__${countryField}__},
+                  countryCode=${country == null ? '' : country.trim()},
+                  current=${#object == null ? '' : #object.__${regionField}__},
+                  currentValue=${current == null ? '' : current.trim()},
+                  listed=${placePicker.hasStateList(countryCode)}">
+        <label>
+            <span data-region-label th:text="${listed ? placePicker.stateLabel(countryCode) : 'Region (optional)'}">Region (optional)</span>
+            <select class="place-select" th:id="${regionField} + '-list'" th:field="*{__${regionField}__}"
+                    data-region-list th:disabled="${!listed}" th:hidden="${!listed}">
+                <option value="">—</option>
+                <th:block th:if="${listed}">
+                    <option th:if="${!currentValue.isEmpty() and !placePicker.isStateOf(countryCode, currentValue)}"
+                            th:value="${currentValue}" th:text="${currentValue}"></option>
+                    <optgroup label="Used before" th:unless="${placePicker.usedStates(countryCode).isEmpty()}">
+                        <option th:each="state : ${placePicker.usedStates(countryCode)}"
+                                th:value="${state.code()}" th:text="${state.name()}"></option>
+                    </optgroup>
+                    <optgroup th:label="${placePicker.countryName(countryCode)}">
+                        <option th:each="state : ${placePicker.states(countryCode)}"
+                                th:value="${state.code()}" th:text="${state.name()}"></option>
+                    </optgroup>
+                </th:block>
+            </select>
+            <input type="text" th:field="*{__${regionField}__}"
+                   data-region-text th:disabled="${listed}" th:hidden="${listed}"/>
+        </label>
+        <span class="error"
+              th:if="${#fields.hasErrors('__${regionField}__')}"
+              th:errors="*{__${regionField}__}"></span>
+    </div>
+</th:block>
+
+<th:block th:fragment="placePickerScript">
+    <style>
+        .place-select {
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+        .place-other { margin-top: 0.4rem; }
+    </style>
+    <script th:inline="javascript">
+        (() => {
+            // The US, Canadian and Australian state lists, with the ones Ted has used.
+            const STATES = /*[[${placePicker.stateListsForScript()}]]*/ {};
+
+            const option = (value, text) => new Option(text, value);
+            const isAnother = o => o.dataset.another !== undefined;
+
+            // Country: the "All countries" group becomes a second list behind "Another country…".
+            function enhanceCountry(select) {
+                const group = select.querySelector('optgroup[data-all-countries]');
+                if (!group) return;
+                // th:field marks every option with the bound value, so a used country is marked
+                // twice; the browser keeps the last, which is the one in the group.
+                const chosen = select.selectedOptions[0];
+                const chosenFromAll = chosen && chosen.parentElement === group;
+
+                const other = document.createElement('select');
+                other.className = 'place-select place-other';
+                other.setAttribute('aria-label', 'Which country');
+                other.add(option('', 'Which country? Every country, A to Z'));
+                Array.from(group.children).forEach(o => other.add(option(o.value, o.text)));
+                other.hidden = true;
+                group.remove();
+
+                const another = option('', 'Another country…');
+                another.dataset.another = '';
+                select.add(another);
+                if (chosenFromAll) {
+                    choose(select, chosen.value, chosen.text);
+                }
+                select.parentElement.after(other);
+
+                select.addEventListener('change', () => {
+                    other.hidden = !isAnother(select.selectedOptions[0]);
+                });
+                other.addEventListener('change', () => {
+                    if (!other.value) return;
+                    choose(select, other.value, other.selectedOptions[0].text);
+                    other.hidden = true;
+                    select.dispatchEvent(new Event('change', {bubbles: true}));
+                });
+                select.placePickerOther = other;
+            }
+
+            // Selects a country, adding it to the short list (before "Another country…") if absent.
+            function choose(select, code, name) {
+                let existing = Array.from(select.options).find(o => o.value === code && !isAnother(o));
+                if (!existing) {
+                    existing = option(code, name);
+                    select.add(existing, Array.from(select.options).find(isAnother) || null);
+                }
+                existing.selected = true;
+            }
+
+            // Region: a list for the state-list countries, the text box everywhere else.
+            function enhanceRegion(picker) {
+                const form = picker.closest('form') || document;
+                const country = form.querySelector('select[name="' + picker.dataset.countryField + '"]');
+                if (!country) return;
+                const list = picker.querySelector('[data-region-list]');
+                if (!!STATES[country.value] === list.disabled) {
+                    // Rendered for another country (no form object to read it from): fix it now,
+                    // carrying over what is there.
+                    const text = picker.querySelector('[data-region-text]');
+                    const value = list.disabled ? text.value : list.value;
+                    switchRegion(picker, country.value);
+                    setRegionValue(picker, value);
+                }
+                country.addEventListener('change', () => switchRegion(picker, country.value));
+            }
+
+            function switchRegion(picker, code) {
+                const list = picker.querySelector('[data-region-list]');
+                const text = picker.querySelector('[data-region-text]');
+                const label = picker.querySelector('[data-region-label]');
+                const states = STATES[code];
+                if (states) {
+                    list.replaceChildren(option('', '—'));
+                    if (states.used.length) list.appendChild(group('Used before', states.used));
+                    list.appendChild(group(states.name, states.all));
+                    label.textContent = states.label;
+                } else {
+                    label.textContent = 'Region (optional)';
+                }
+                list.hidden = list.disabled = !states;
+                text.hidden = text.disabled = !!states;
+            }
+
+            function setRegionValue(picker, value) {
+                if (!value) return;
+                const list = picker.querySelector('[data-region-list]');
+                const live = list.disabled ? picker.querySelector('[data-region-text]') : list;
+                if (live === list && !Array.from(list.options).some(o => o.value === value)) {
+                    list.add(option(value, value));
+                }
+                live.value = value;
+            }
+
+            function group(label, pairs) {
+                const g = document.createElement('optgroup');
+                g.label = label;
+                pairs.forEach(([code, name]) => g.appendChild(option(code, name)));
+                return g;
+            }
+
+            // For the address paste and the Sessionize prefill, which fill fields by name.
+            window.placePicker = {
+                setCountry(select, code) {
+                    if (!code) return;
+                    const known = select.placePickerOther
+                        && Array.from(select.placePickerOther.options).find(o => o.value === code);
+                    choose(select, code, known ? known.text : code);
+                    select.dispatchEvent(new Event('change', {bubbles: true}));
+                },
+                setRegion(form, name, value) {
+                    const field = form.querySelector('[data-region-picker] [name="' + name + '"]');
+                    if (field) setRegionValue(field.closest('[data-region-picker]'), value);
+                }
+            };
+
+            document.querySelectorAll('select[data-country-picker]').forEach(enhanceCountry);
+            document.querySelectorAll('[data-region-picker]').forEach(enhanceRegion);
+        })();
+    </script>
+</th:block>
+
+</body>
+</html>

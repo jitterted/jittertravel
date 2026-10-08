@@ -153,32 +153,22 @@
                 </label>
             </div>
             <div class="field-row">
-                <div class="field">
-                    <label>
-                        City
-                        <input type="text" th:field="*{city}"/>
-                    </label>
-                </div>
-                <div class="field">
-                    <label>
-                        Region
-                        <input type="text" th:field="*{region}"/>
-                    </label>
-                </div>
-            </div>
-            <div class="field-row">
-                <div class="field">
-                    <label>
-                        Country
-                        <input type="text" th:field="*{country}"/>
-                    </label>
-                </div>
+                <div th:replace="~{fragments/place-picker :: country('country')}"></div>
                 <div class="field">
                     <label>
                         Postal Code
                         <input type="text" th:field="*{postalCode}"/>
                     </label>
                 </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>
+                        City
+                        <input type="text" th:field="*{city}"/>
+                    </label>
+                </div>
+                <div th:replace="~{fragments/place-picker :: region('country', 'region')}"></div>
             </div>
             <div class="field">
                 <label>
@@ -252,6 +242,8 @@
 
         <button type="submit">Plan Gathering</button>
     </form>
+
+    <div th:replace="~{fragments/place-picker :: placePickerScript}"></div>
 
 </div>
 </body>

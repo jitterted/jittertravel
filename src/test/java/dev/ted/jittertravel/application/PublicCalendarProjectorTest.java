@@ -124,11 +124,27 @@ class PublicCalendarProjectorTest {
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.mainTitle()).isEqualTo("Hotel");
         assertThat(entry.continuationTitle()).isEqualTo("Hotel cont'd");
-        assertThat(entry.subTitle()).isEqualTo(List.of(new SubtitleLine.Text("Lone Tree, US")));
+        assertThat(entry.subTitle()).isEqualTo(List.of(new SubtitleLine.Text("Lone Tree, CO")));
         assertThat(entry.toString())
                 .as("neither the hotel's name nor its map link may appear anywhere on the entry")
                 .doesNotContain("Marriott Lone Tree")
                 .doesNotContain("maps.google.com");
+    }
+
+    @Test
+    void aUsRegionThatIsNotAStateIsNeverPublished() {
+        projector.handle(Stream.of(stored(new HotelBooked(HotelBookingId.random(), "The Oxford",
+                new Address("1600 17th St", "Denver", "Lower Downtown", "80202", "USA", null),
+                zoned(LocalDateTime.of(2026, 7, 5, 15, 0), DENVER),
+                zoned(LocalDateTime.of(2026, 7, 9, 11, 0), DENVER),
+                BookingIntent.FINAL, "", null))));
+
+        CalendarEntry entry = projector.entries().getFirst();
+        assertThat(entry.subTitle())
+                .as("a neighbourhood narrows where Ted sleeps, so the public form falls back to USA")
+                .isEqualTo(List.of(new SubtitleLine.Text("Denver, USA")));
+        assertThat(entry.toString())
+                .doesNotContain("Lower Downtown");
     }
 
     @Test
@@ -227,7 +243,7 @@ class PublicCalendarProjectorTest {
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.mainTitle()).isEqualTo("🚕 Ground transfer");
         assertThat(entry.subTitle())
-                .isEqualTo(List.of(new SubtitleLine.Text("DEN → Lone Tree, CO, US")));
+                .isEqualTo(List.of(new SubtitleLine.Text("DEN → Lone Tree, CO")));
         assertThat(entry.toString()).doesNotContain("Marriott Lone Tree");
     }
 
@@ -242,7 +258,7 @@ class PublicCalendarProjectorTest {
 
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.subTitle())
-                .isEqualTo(List.of(new SubtitleLine.Text("Lone Tree, CO, US → DEN")));
+                .isEqualTo(List.of(new SubtitleLine.Text("Lone Tree, CO → DEN")));
         assertThat(entry.toString()).doesNotContain("Marriott Lone Tree");
     }
 
@@ -269,7 +285,7 @@ class PublicCalendarProjectorTest {
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.subTitle())
                 .as("the route is the whole of a public transfer's subtitle")
-                .isEqualTo(List.of(new SubtitleLine.Text("Hamburg, DE → Hamburg, DE")));
+                .isEqualTo(List.of(new SubtitleLine.Text("Hamburg, Germany → Hamburg, Germany")));
         assertThat(entry.toString())
                 .doesNotContain("U3")
                 .doesNotContain("Mönckebergstraße")
@@ -294,7 +310,7 @@ class PublicCalendarProjectorTest {
 
         CalendarEntry entry = projector.entries().getFirst();
         assertThat(entry.subTitle())
-                .isEqualTo(List.of(new SubtitleLine.Text("Hamburg, DE → Hamburg, DE")));
+                .isEqualTo(List.of(new SubtitleLine.Text("Hamburg, Germany → Hamburg, Germany")));
         assertThat(entry.toString())
                 .as("the station is a building Ted was standing in; the city is all a stranger gets")
                 .doesNotContain("Hamburg Hbf")
@@ -322,7 +338,7 @@ class PublicCalendarProjectorTest {
                 .filteredOn(entry -> entry.mainTitle().equals("🚕 Ground transfer"))
                 .singleElement()
                 .extracting(CalendarEntry::subTitle)
-                .isEqualTo(List.of(new SubtitleLine.Text("DEN → Denver, CO, US")));
+                .isEqualTo(List.of(new SubtitleLine.Text("DEN → Denver, CO")));
         assertThat(projector.entries().toString())
                 .as("the title, the venue, the street, the postal code")
                 .doesNotContain(PrivateEventTransferFixture.TITLE)

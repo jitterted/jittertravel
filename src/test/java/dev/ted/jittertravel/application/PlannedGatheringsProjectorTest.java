@@ -65,7 +65,9 @@ class PlannedGatheringsProjectorTest {
         assertThat(view.city()).isEqualTo("London");
         assertThat(view.region()).isEqualTo("");
         assertThat(view.postalCode()).isEqualTo("EC1A 1BB");
-        assertThat(view.country()).isEqualTo("GB");
+        assertThat(view.country())
+                .as("a picked code is shown as the country's name")
+                .isEqualTo("United Kingdom");
         assertThat(view.startsAt()).isEqualTo(london(DATE_JUN_20, START));
         assertThat(view.endsAt()).isEqualTo(london(DATE_JUN_20, END));
         assertThat(view.speaking()).isTrue();

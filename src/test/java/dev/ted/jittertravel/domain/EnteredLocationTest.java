@@ -250,7 +250,9 @@ class EnteredLocationTest {
                     new TrainStationAddress("Frankfurt (Main) Hbf", "Frankfurt", "DE", "");
 
             assertThat(EnteredLocation.of(station))
-                    .isEqualTo(new EnteredLocation("Frankfurt (Main) Hbf", "Frankfurt"));
+                    .as("a station has a country but no region to check")
+                    .isEqualTo(new EnteredLocation("Frankfurt (Main) Hbf", "Frankfurt",
+                                                   new EnteredCountry("DE", "", false)));
         }
 
         @Test
@@ -258,7 +260,17 @@ class EnteredLocationTest {
             Address address = new Address("123 Main St", "Springfield", "IL", "62701", "US", null);
 
             assertThat(EnteredLocation.of("Grand Hotel", address))
-                    .isEqualTo(new EnteredLocation("Grand Hotel", "Springfield"));
+                    .isEqualTo(new EnteredLocation("Grand Hotel", "Springfield",
+                                                   new EnteredCountry("US", "IL", true)));
+        }
+
+        @Test
+        void aCountryProblemIsReportedAlongsideTheCityOnesOnItsOwnField() {
+            Address address = new Address("", "", "", "", "US", null);
+
+            assertThat(EnteredLocation.of("Grand Hotel", address).problems(LocationRole.STAY))
+                    .extracting(InvalidLocationEntry::field)
+                    .containsExactly(LocationField.CITY, LocationField.REGION);
         }
 
         @Test

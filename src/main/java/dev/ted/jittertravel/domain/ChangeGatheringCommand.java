@@ -7,6 +7,8 @@ import java.util.stream.Stream;
  * rules:
  * <ul>
  *   <li>The gathering must already exist ({@link GatheringNotFound} otherwise).</li>
+ *   <li>The country is a real code, and a US, Canadian or Australian venue names its state
+ *       ({@link EnteredCountry}).</li>
  *   <li>The new date must be today or later, judged in the gathering's own zone
  *       ({@link GatheringDateNotInFuture}). Unlike planning, today is allowed: a gathering
  *       happening today can still have its details corrected.</li>
@@ -30,6 +32,7 @@ public record ChangeGatheringCommand(
         if (!context.gatheringExists()) {
             throw new GatheringNotFound("No gathering exists with that gatheringId");
         }
+        EnteredCountry.of(location).check(LocationRole.VENUE);
         if (startsAt == null || !startsAt.isOnOrAfterDayOf(context.now())) {
             throw new GatheringDateNotInFuture("Gathering date must be today or later");
         }

@@ -6,6 +6,7 @@ import dev.ted.jittertravel.application.GatheringDetailsViewProjector;
 import dev.ted.jittertravel.domain.CommonZone;
 import dev.ted.jittertravel.domain.GatheringDateNotInFuture;
 import dev.ted.jittertravel.domain.GatheringId;
+import dev.ted.jittertravel.domain.InvalidEnteredLocation;
 import dev.ted.jittertravel.domain.GatheringNotFound;
 import dev.ted.jittertravel.domain.InvalidGatheringTimeRange;
 import dev.ted.jittertravel.domain.ZoneResolutionException;
@@ -75,6 +76,8 @@ public class ChangeGatheringController {
             // The gathering vanished between GET and POST (e.g. removed in another tab). Report it on
             // the form itself — never by redirecting to the view-only list, which drops the flash.
             bindingResult.reject("notFound", e.getMessage());
+        } catch (InvalidEnteredLocation e) {
+            new VenueLocationErrors(bindingResult, "country", "region").reject(e);
         } catch (GatheringDateNotInFuture e) {
             bindingResult.rejectValue("date", "future", e.getMessage());
         } catch (InvalidGatheringTimeRange e) {

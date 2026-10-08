@@ -159,15 +159,7 @@
                               th:if="${#fields.hasErrors('departureCityName')}"
                               th:errors="*{departureCityName}"></span>
                     </div>
-                    <div class="field narrow">
-                        <label>
-                            Country
-                            <input type="text" th:field="*{departureCountry}"/>
-                        </label>
-                        <span class="error"
-                              th:if="${#fields.hasErrors('departureCountry')}"
-                              th:errors="*{departureCountry}"></span>
-                    </div>
+                    <div th:replace="~{fragments/place-picker :: country('departureCountry')}"></div>
                 </div>
                 <div class="field">
                     <label>
@@ -224,15 +216,7 @@
                               th:if="${#fields.hasErrors('arrivalCityName')}"
                               th:errors="*{arrivalCityName}"></span>
                     </div>
-                    <div class="field narrow">
-                        <label>
-                            Country
-                            <input type="text" th:field="*{arrivalCountry}"/>
-                        </label>
-                        <span class="error"
-                              th:if="${#fields.hasErrors('arrivalCountry')}"
-                              th:errors="*{arrivalCountry}"></span>
-                    </div>
+                    <div th:replace="~{fragments/place-picker :: country('arrivalCountry')}"></div>
                 </div>
                 <div class="field">
                     <label>
@@ -268,6 +252,8 @@
 
         <button type="submit">Save changes</button>
     </form>
+
+    <div th:replace="~{fragments/place-picker :: placePickerScript}"></div>
 
 </div>
 </body>

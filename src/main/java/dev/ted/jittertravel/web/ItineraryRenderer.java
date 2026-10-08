@@ -319,7 +319,7 @@ public class ItineraryRenderer {
                 title,
                 div(addr.street()).withClass("entry-detail"),
                 div(cityLine).withClass("entry-detail entry-location"),
-                div(addr.country()).withClass("entry-detail entry-location"),
+                div(new CityLabel().countryName(addr.country())).withClass("entry-detail entry-location"),
                 div().withClass("entry-detail").with(ZonedTimeTag.render(e.anchorDateTime(), TIME_FORMAT))
         );
     }
@@ -361,7 +361,7 @@ public class ItineraryRenderer {
         String kindLabel = e.totalDays() > 1
                 ? "Day " + e.dayNumber() + " of " + e.totalDays()
                 : "Conference";
-        String location = e.venueAddress().city() + ", " + e.venueAddress().country();
+        String location = new CityLabel().label(e.venueAddress());
         DomContent titleContent = conferenceTitle(e, isOwner);
         DivTag card = div().withClass("entry-card entry-card--conference").with(
                 div(kindLabel).withClass("entry-kind entry-kind--conference"),

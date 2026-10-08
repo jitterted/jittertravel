@@ -2,6 +2,7 @@ package dev.ted.jittertravel.web;
 
 import com.microsoft.playwright.Request;
 import com.microsoft.playwright.Route;
+import dev.ted.jittertravel.domain.Country;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -41,9 +42,14 @@ class AddressParseJsTest extends JsBehaviorTest {
             1 Blue Jays Way
             Toronto, ON M5V 1J1""";
 
+    /** Codes, as AddressParseService now answers: Country and State are selects of codes. */
     private static final String GEOCODER_HIT = """
-            {"street": "1 Blue Jays Way", "city": "Toronto", "region": "Ontario",
-             "postalCode": "M5V 1J1", "country": "Canada", "locationForMatching": "Toronto"}""";
+            {"street": "1 Blue Jays Way", "city": "Toronto", "region": "ON",
+             "postalCode": "M5V 1J1", "country": "CA", "locationForMatching": "Toronto"}""";
+
+    /** The page's short list; Canada is not on it, so the parse has to add it. */
+    private final PlacePickerMarkup placePickers =
+            new PlacePickerMarkup(List.of(new Country("DE", "Germany"), new Country("US", "United States")));
 
     private final TemplateSources templates = new TemplateSources();
 
@@ -77,9 +83,15 @@ class AddressParseJsTest extends JsBehaviorTest {
 
         assertThat(valueOf("street")).isEqualTo("1 Blue Jays Way");
         assertThat(valueOf("city")).isEqualTo("Toronto");
-        assertThat(valueOf("region")).isEqualTo("Ontario");
+        assertThat(valueOf("country"))
+                .as("Canada was not on the short list; the parse adds and selects it")
+                .isEqualTo("CA");
+        assertThat(page.locator("[name='region']:enabled").inputValue())
+                .as("choosing Canada made Region the province list, and Ontario is picked in it")
+                .isEqualTo("ON");
+        assertThat(page.locator("[name='region']:enabled").evaluate("el => el.tagName"))
+                .isEqualTo("SELECT");
         assertThat(valueOf("postalCode")).isEqualTo("M5V 1J1");
-        assertThat(valueOf("country")).isEqualTo("Canada");
         assertThat(valueOf("locationForMatching")).isEqualTo("Toronto");
     }
 
@@ -152,9 +164,9 @@ class AddressParseJsTest extends JsBehaviorTest {
      * it — is the shipped source untouched.
      */
     private String rendered(Path form) {
-        return templates.read(form)
-                        .replace(FRAGMENT_REFERENCE, fragmentBody())
-                        .replaceAll("th:field=\"\\*\\{(\\w+)}\"", "name=\"$1\"");
+        return placePickers.expand(templates.read(form)
+                                            .replace(FRAGMENT_REFERENCE, fragmentBody()))
+                           .replaceAll("th:field=\"\\*\\{(\\w+)}\"", "name=\"$1\"");
     }
 
     private String fragmentBody() {

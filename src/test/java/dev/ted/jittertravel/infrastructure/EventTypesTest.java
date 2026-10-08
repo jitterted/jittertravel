@@ -3,7 +3,9 @@ package dev.ted.jittertravel.infrastructure;
 import dev.ted.jittertravel.domain.ConferenceAttendanceDeclined;
 import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.Event;
+import dev.ted.jittertravel.domain.GroundTransferPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
+import dev.ted.jittertravel.domain.PrivateEventPlanned;
 import dev.ted.jittertravel.domain.TrainBooked;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
@@ -52,27 +54,35 @@ class EventTypesTest {
     }
 
     @Test
-    void datetimeBearingTypeIsAtSchemaVersionTwo() {
-        // HotelBooked migrated bare-scalar -> ZonedTimestamp, so its current schema version is 2.
+    void hotelBookedIsAtSchemaVersionThreeAfterLocationCodes() {
+        // HotelBooked migrated bare-scalar -> ZonedTimestamp (v2), then country names -> ISO codes (v3).
         assertThat(EventTypes.currentSchemaVersion(HotelBooked.class))
-                .isEqualTo(2);
+                .isEqualTo(3);
         assertThat(EventTypes.currentSchemaVersion("HotelBooked"))
                 .as("by logical wire id")
-                .isEqualTo(2);
+                .isEqualTo(3);
         assertThat(EventTypes.currentSchemaVersion("dev.ted.jittertravel.domain.HotelBooked"))
                 .as("legacy FQCN wire id resolves to the same version")
-                .isEqualTo(2);
+                .isEqualTo(3);
     }
 
     @Test
-    void conferencePlannedIsAtSchemaVersionThreeAfterTheFormatField() {
+    void conferencePlannedIsAtSchemaVersionFourAfterLocationCodes() {
         // v1→v2 migrated its datetimes to ZonedTimestamp; v2→v3 added the format field (injected by
-        // the upcaster into pre-v3 payloads). It is the only type past version 2.
+        // the upcaster into pre-v3 payloads); v3→v4 turned its venue's country into an ISO code.
         assertThat(EventTypes.currentSchemaVersion(ConferencePlanned.class))
-                .isEqualTo(3);
+                .isEqualTo(4);
         assertThat(EventTypes.currentSchemaVersion("ConferencePlanned"))
                 .as("by logical wire id")
-                .isEqualTo(3);
+                .isEqualTo(4);
+    }
+
+    @Test
+    void theTypesBornZonedAreAtSchemaVersionTwoAfterLocationCodes() {
+        assertThat(EventTypes.currentSchemaVersion(GroundTransferPlanned.class))
+                .isEqualTo(2);
+        assertThat(EventTypes.currentSchemaVersion(PrivateEventPlanned.class))
+                .isEqualTo(2);
     }
 
     @Test
@@ -89,7 +99,7 @@ class EventTypesTest {
                 .isEqualTo(ConferencePlanned.class);
         assertThat(EventTypes.currentSchemaVersion("ConferenceTentativelyPlanned"))
                 .as("a retired wire id resolves to the same current schema version")
-                .isEqualTo(3);
+                .isEqualTo(4);
         assertThat(EventTypes.logicalNameFor(ConferencePlanned.class))
                 .as("new appends carry the new name; only stored rows keep the old one")
                 .isEqualTo("ConferencePlanned");

@@ -8,6 +8,8 @@ import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.assertj.core.api.Assertions.tuple;
 
 /**
  * The venue zone is what every rule is read in: "not yet ended" asks whether the conference's last
@@ -19,7 +21,7 @@ class PlanConferenceCommandTest {
 
     private static final ZoneId VENUE_ZONE = ZoneId.of("America/Los_Angeles");
     private static final Address VENUE = new Address("747 Howard St", "San Francisco", "CA",
-                                                     "94103", "USA", null);
+                                                     "94103", "US", null);
 
     @Test
     void aConferenceAlreadyUnderwayIsAccepted() {
@@ -163,6 +165,27 @@ class PlanConferenceCommandTest {
         assertThat(start.utc())
                 .as("09:00 Pacific in May (PDT, UTC-7) is 16:00Z")
                 .isEqualTo(Instant.parse("2026-05-20T16:00:00Z"));
+    }
+
+    /** Devnexus 2027 was planned with no state; Atlanta, GA is the shape every US venue now has. */
+    @Test
+    void aUsVenueWithNoStateIsRefusedOnTheRegion() {
+        Address atlanta = new Address("", "Atlanta", "", "", "US", null);
+        PlanConferenceCommand command = new PlanConferenceCommand(
+                ConferenceId.random(), "Devnexus 2027",
+                zt(LocalDateTime.of(2027, 4, 5, 9, 0)), zt(LocalDateTime.of(2027, 4, 7, 17, 0)),
+                "Georgia World Congress Center", atlanta, ConferenceFormat.CALL_FOR_PAPERS);
+
+        InvalidEnteredLocation invalid = catchThrowableOfType(InvalidEnteredLocation.class,
+                () -> command.execute(
+                        new PlanConferenceContext(instantAt(LocalDateTime.of(2026, 10, 7, 9, 0)))));
+
+        assertThat(invalid)
+                .as("refused for its venue")
+                .isNotNull();
+        assertThat(invalid.problems())
+                .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
+                .containsExactly(tuple(LocationRole.VENUE, LocationField.REGION));
     }
 
     private static PlanConferenceCommand conference(LocalDateTime start, LocalDateTime end) {

@@ -40,7 +40,7 @@ public class PrivateEventDetailsViewProjector implements EventStreamConsumer {
                 e.title(),
                 e.venueName(),
                 e.location().city(),
-                e.location().country(),
+                new CityLabel().qualifier(e.location()),
                 e.startsAt().localDateTime(),
                 e.endsAt().localDateTime());
     }

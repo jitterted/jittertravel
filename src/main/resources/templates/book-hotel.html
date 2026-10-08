@@ -170,6 +170,15 @@
                 </label>
             </div>
             <div class="field-row">
+                <div th:replace="~{fragments/place-picker :: country('country')}"></div>
+                <div class="field narrow">
+                    <label>
+                        Postal Code
+                        <input type="text" th:field="*{postalCode}"/>
+                    </label>
+                </div>
+            </div>
+            <div class="field-row">
                 <div class="field">
                     <label>
                         City
@@ -179,26 +188,7 @@
                           th:if="${#fields.hasErrors('city')}"
                           th:errors="*{city}"></span>
                 </div>
-                <div class="field narrow">
-                    <label>
-                        Region
-                        <input type="text" th:field="*{region}"/>
-                    </label>
-                </div>
-            </div>
-            <div class="field-row">
-                <div class="field">
-                    <label>
-                        Country
-                        <input type="text" th:field="*{country}"/>
-                    </label>
-                </div>
-                <div class="field narrow">
-                    <label>
-                        Postal Code
-                        <input type="text" th:field="*{postalCode}"/>
-                    </label>
-                </div>
+                <div th:replace="~{fragments/place-picker :: region('country', 'region')}"></div>
             </div>
             <div class="field">
                 <label>
@@ -277,6 +267,8 @@
 
         <button type="submit">Book Hotel</button>
     </form>
+
+    <div th:replace="~{fragments/place-picker :: placePickerScript}"></div>
 
 </div>
 </body>

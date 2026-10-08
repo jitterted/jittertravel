@@ -8,13 +8,13 @@ package dev.ted.jittertravel.application;
  * days already carry the stay's own entries. This is the answer to "where am I today", which is
  * the one thing a blank column cannot say.
  */
-public record OngoingStay(String hotelName, String city, String country) {
+public record OngoingStay(String hotelName, String city, String qualifier) {
 
     /**
      * The first of the row's two lines, and the one that answers the question: <em>where</em>.
      * The hotel name is the second line rather than a tail on this one — together they wrapped.
      */
     public String locationLabel() {
-        return "In " + city + (country.isBlank() ? "" : ", " + country);
+        return "In " + city + (qualifier.isBlank() ? "" : ", " + qualifier);
     }
 }

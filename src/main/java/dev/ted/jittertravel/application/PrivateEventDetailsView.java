@@ -21,7 +21,7 @@ public record PrivateEventDetailsView(
         String title,
         String venueName,
         String city,
-        String country,
+        String qualifier,
         LocalDateTime startsAt,
         LocalDateTime endsAt
 ) {

@@ -10,7 +10,7 @@ public record GatheringItineraryEntry(
         String title,
         String venueName,
         String city,
-        String country,
+        String qualifier,
         boolean speaking,
         String infoUrl,
         ZonedTimestamp anchorDateTime,
@@ -21,6 +21,6 @@ public record GatheringItineraryEntry(
 
     public String venueLocation() {
         String prefix = venueName.isBlank() ? "" : venueName + " · ";
-        return prefix + city + (country.isBlank() ? "" : ", " + country);
+        return prefix + city + (qualifier.isBlank() ? "" : ", " + qualifier);
     }
 }

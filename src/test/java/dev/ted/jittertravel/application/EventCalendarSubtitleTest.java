@@ -25,7 +25,7 @@ class EventCalendarSubtitleTest {
         assertThat(subtitle.venueLocationAndTime("Skills Matter", location, START, END))
                 .containsExactly(
                         new SubtitleLine.Text("Skills Matter"),
-                        new SubtitleLine.Text("London, GB"),
+                        new SubtitleLine.Text("London, United Kingdom"),
                         new SubtitleLine.Range(START, END));
     }
 
@@ -35,7 +35,7 @@ class EventCalendarSubtitleTest {
 
         assertThat(subtitle.venueLocationAndTime("", location, START, END))
                 .containsExactly(
-                        new SubtitleLine.Text("London, GB"),
+                        new SubtitleLine.Text("London, United Kingdom"),
                         new SubtitleLine.Range(START, END));
     }
 

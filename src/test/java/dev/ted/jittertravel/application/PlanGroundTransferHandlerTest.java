@@ -74,7 +74,8 @@ class PlanGroundTransferHandlerTest {
                 .as("an airport end has no private name to carry")
                 .isEmpty();
         assertThat(command.origin())
-                .isEqualTo(new Address("", "Denver", "", "", "", "Denver"));
+                .as("the airport's whole place, so the frozen endpoint names its state and country")
+                .isEqualTo(new Address("", "Denver", "CO", "", "US", "Denver"));
     }
 
     @Test
@@ -188,7 +189,7 @@ class PlanGroundTransferHandlerTest {
                 .isEqualTo("DEN");
         assertThat(command.origin())
                 .as("the flight id reaches neither the command nor the event")
-                .isEqualTo(new Address("", "Denver", "", "", "", "Denver"));
+                .isEqualTo(new Address("", "Denver", "CO", "", "US", "Denver"));
     }
 
     /**

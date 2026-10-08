@@ -31,8 +31,8 @@ class BookTrainHandlerTest {
 
     @Test
     void eachEndpointResolvesFromItsOwnStation() {
-        BookTrainCommand command = handler.handle(trip("Paris", "France", null,
-                                                       "London", "United Kingdom", null));
+        BookTrainCommand command = handler.handle(trip("Paris", "FR", null,
+                                                       "London", "GB", null));
 
         assertThat(command.departureDateTime().zone())
                 .isEqualTo(ZoneId.of("Europe/Paris"));
@@ -43,8 +43,8 @@ class BookTrainHandlerTest {
 
     @Test
     void aCrossZoneTripKeepsEachWallClockInItsOwnZone() {
-        BookTrainCommand command = handler.handle(trip("Paris", "France", null,
-                                                       "London", "United Kingdom", null));
+        BookTrainCommand command = handler.handle(trip("Paris", "FR", null,
+                                                       "London", "GB", null));
 
         assertThat(command.departureDateTime().utc())
                 .as("09:00 CEST is 07:00Z")
@@ -56,8 +56,8 @@ class BookTrainHandlerTest {
 
     @Test
     void explicitPickWinsPerEndpointWithoutAffectingTheOther() {
-        BookTrainCommand command = handler.handle(trip("Paris", "France", null,
-                                                       "London", "United Kingdom", "US_CENTRAL"));
+        BookTrainCommand command = handler.handle(trip("Paris", "FR", null,
+                                                       "London", "GB", "US_CENTRAL"));
 
         assertThat(command.departureDateTime().zone())
                 .as("the departure end keeps its derived zone")
@@ -68,16 +68,35 @@ class BookTrainHandlerTest {
 
     @Test
     void unresolvableStationWithNoPickIsRejected() {
-        assertThatThrownBy(() -> handler.handle(trip("Paris", "France", null,
-                                                     "Springfield", "Freedonia", null)))
+        assertThatThrownBy(() -> handler.handle(trip("Paris", "FR", null,
+                                                     "Springfield", "BR", null)))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
                     assertThat(invalid.zones())
                             .hasSize(1);
                     assertThat(invalid.zones().getFirst().role())
                             .isEqualTo(LocationRole.ARRIVAL);
                     assertThat(invalid.zones().getFirst().cause())
-                            .as("a country was typed; it is just not one a zone follows from")
+                            .as("Brazil is a real country, but not one a single zone follows from")
                             .isEqualTo(UnresolvedStationZone.Cause.COUNTRY_UNRECOGNISED);
+                });
+    }
+
+    /**
+     * A country that is not an ISO code is a location problem on its own input, reported before the
+     * zone is asked about — the picker offers nothing else, so this is a page out of step with the
+     * table or a hand-made request.
+     */
+    @Test
+    void aCountryThatIsNotACodeIsReportedOnTheCountryRatherThanAsAZoneProblem() {
+        assertThatThrownBy(() -> handler.handle(trip("Paris", "FR", null,
+                                                     "Springfield", "Freedonia", null)))
+                .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
+                    assertThat(invalid.locations())
+                            .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
+                            .containsExactly(tuple(LocationRole.ARRIVAL, LocationField.COUNTRY));
+                    assertThat(invalid.zones())
+                            .as("that end said its piece; it does not also get a zone complaint")
+                            .isEmpty();
                 });
     }
 
@@ -85,7 +104,7 @@ class BookTrainHandlerTest {
     void aBlankCountryIsReportedAsMissingRatherThanUnrecognised() {
         // The two want different fixes: type the country, versus pick a zone because no country
         // will help. Telling them apart is the whole reason the cause travels to the form.
-        assertThatThrownBy(() -> handler.handle(trip("Paris", "France", null,
+        assertThatThrownBy(() -> handler.handle(trip("Paris", "FR", null,
                                                      "Frankfurt", "", null)))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid ->
                         assertThat(invalid.zones().getFirst().cause())
@@ -110,7 +129,7 @@ class BookTrainHandlerTest {
         // country. Checking every location before any zone reported only the departure, so the
         // form still took two submits — the original bug, one layer further in. The location/zone
         // order is per end and never across the trip.
-        assertThatThrownBy(() -> handler.handle(trip("", "Germany", null,
+        assertThatThrownBy(() -> handler.handle(trip("", "DE", null,
                                                      "Frankfurt", "", null)))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
                     assertThat(invalid.locations())
@@ -126,7 +145,7 @@ class BookTrainHandlerTest {
     void aStationPastedIntoTheCityIsReportedAsThatRatherThanAsAZoneProblem() {
         // Within one end the order is load-bearing: "Frankfurt (Main) Hbf" resolves no zone
         // either, so asking the zone first buries the rule that can actually name the mistake.
-        assertThatThrownBy(() -> handler.handle(trip("Paris", "France", null,
+        assertThatThrownBy(() -> handler.handle(trip("Paris", "FR", null,
                                                      "Frankfurt (Main) Hbf", "", null)))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
                     assertThat(invalid.locations().getFirst().field())
@@ -139,8 +158,8 @@ class BookTrainHandlerTest {
 
     @Test
     void unresolvableStationIsAcceptedOnceAZoneIsPicked() {
-        BookTrainCommand command = handler.handle(trip("Paris", "France", null,
-                                                       "Springfield", "Freedonia", "US_CENTRAL"));
+        BookTrainCommand command = handler.handle(trip("Paris", "FR", null,
+                                                       "Springfield", "BR", "US_CENTRAL"));
 
         assertThat(command.arrivalDateTime().zone())
                 .isEqualTo(ZoneId.of("America/Chicago"));

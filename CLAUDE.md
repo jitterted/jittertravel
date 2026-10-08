@@ -107,8 +107,11 @@ someone remembered to strip it.
   `ConferenceProgress` beside the entries, never on one.
 
 **Public by decision** (do not "fix" these without asking Ted): the fact that travel is
-happening on a given day, airport codes and city names for flights/trains/hotels, and
-**conferences and gatherings in full** — name, venue, city, `infoUrl`, and start/end times.
+happening on a given day, airport codes and city names for flights/trains/hotels — with the
+**US state code** for a US place ("Denver, CO", Ted 2026-10-07: a state is coarser than the city
+beside it; a region anywhere else is free text holding neighbourhoods and post towns like
+"Altona" and is never published, see `docs/LocationDataCleanupPlan.md`) — and **conferences and
+gatherings in full** — name, venue, city, `infoUrl`, and start/end times.
 A conference's `infoUrl` was on this list before a conference had one; it **shipped 2026-08-22**
 as a field on `ConferencePlanned` and a component of both `EntryDetails.Conference` and
 `EntryDetails.PublicConference`, so the title links out for every viewer. Do not confuse it with

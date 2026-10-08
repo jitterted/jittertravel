@@ -217,9 +217,12 @@
            says whether all of them are accounted for (Ted, 2026-10-08: confirm per item, like a test). */-->
     <div th:with="corrections=${report.corrections()}">
         <div th:class="${corrections.allAccountedFor()} ? 'banner success' : 'banner warning'">
-            <strong th:text="${corrections.accountedFor() == corrections.expected()}
+            <!--/* The tick only when nothing at all is skipped: an amber box never wears a ✓. */-->
+            <strong th:text="${corrections.allAccountedFor()}
                              ? '✓ All ' + ${corrections.expected()} + ' approved corrections accounted for'
-                             : '⚠ ' + ${corrections.accountedFor()} + ' of ' + ${corrections.expected()} + ' approved corrections accounted for'">
+                             : (${corrections.accountedFor() == corrections.expected()}
+                                ? '⚠ All ' + ${corrections.expected()} + ' approved corrections accounted for, but an airport end cannot be filled in'
+                                : '⚠ ' + ${corrections.accountedFor()} + ' of ' + ${corrections.expected()} + ' approved corrections accounted for')">
                 ✓ All 10 approved corrections accounted for</strong>
             <span th:text="'This migration will make ' + ${corrections.willBeMade()}
                            + '. An earlier run made ' + ${corrections.alreadyMade()} + '. '

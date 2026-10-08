@@ -233,6 +233,21 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
     }
 
     @Test
+    void aSecondRunExpectsNoNewCorrectionsAndFindsNone() {
+        seedStampedEvent(UUID.randomUUID(), DEVNEXUS_EVENT_ID, 1L,
+                OffsetDateTime.parse("2026-09-10T10:00:00Z"), "ConferencePlanned", DEVNEXUS_AT_V3, 3);
+        migration.migrate();
+
+        LegacyEventMigration.MigrationResult second = migration.migrate();
+
+        assertThat(second.verification())
+                .as("the correction made by the first run is not counted again as this run's")
+                .contains(new LegacyEventMigration.Check("Corrections now in the database", 0, 0));
+        assertThat(second.verified())
+                .isTrue();
+    }
+
+    @Test
     void stampsAVersion1TypeWithoutRewritingItsPayload() {
         UUID commandId = UUID.randomUUID();
         UUID eventId = UUID.randomUUID();

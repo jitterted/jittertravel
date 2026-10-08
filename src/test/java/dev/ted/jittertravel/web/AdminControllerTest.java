@@ -327,6 +327,23 @@ class AdminControllerTest {
     }
 
     @Test
+    void migrateLegacyEventsFormWithAnUnfillableAirportEndNeverShowsATick() {
+        given(legacyEventMigration.preview()).willReturn(
+                new LegacyEventMigration.MigrationReport(10, 3, 2, 0, 5, 5, List.of(),
+                        new LegacyEventMigration.CorrectionsCheck(FIXES_PENDING.corrections(), List.of(
+                                new LegacyEventMigration.AirportEndLine(133,
+                                        new LocationDataCorrections.AirportEndFill("ZZZ", "", "", false))))));
+
+        assertThat(mockMvc.get().uri("/admin/migrate-legacy-events"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<div class=\"banner warning\">")
+                .contains("<strong>⚠ All 2 approved corrections accounted for, but an airport end cannot be filled in</strong>")
+                .doesNotContain("<strong>✓ All 2 approved corrections accounted for</strong>")
+                .contains("<span class=\"pill skip\">Skipped: airport not in the airport table</span>");
+    }
+
+    @Test
     void migrateLegacyEventsFormAfterARunShowsEveryCorrectionAlreadyMade() {
         given(legacyEventMigration.preview()).willReturn(
                 new LegacyEventMigration.MigrationReport(10, 0, 0, 0, 0, 10, List.of(), FIXES_SETTLED));

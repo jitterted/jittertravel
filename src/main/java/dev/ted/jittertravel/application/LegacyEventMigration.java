@@ -225,11 +225,7 @@ public class LegacyEventMigration {
         /** Its fields hold something else, changed since it was approved: it is skipped. */
         VALUES_CHANGED,
         /** No event with its id is stored here: it is skipped. */
-        EVENT_NOT_FOUND;
-
-        public boolean accountedFor() {
-            return this == WILL_BE_MADE || this == ALREADY_MADE;
-        }
+        EVENT_NOT_FOUND
     }
 
     /**

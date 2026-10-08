@@ -1,7 +1,10 @@
 # Restore Compatibility Floor — refusing a backup that predates a retired rung
 
-**Status:** `design 2026-08-19, nothing built`. The trigger to build it is the **first rung
-retirement**; before that every floor is 1 and the check is dead code. **Related:**
+**Status:** `design 2026-08-19, nothing built — deferred 2026-10-08`. The trigger fired: the five
+datetime rungs were the first retirement (`LocationDataCleanupPlan.md` §6). Ted chose **"do nothing
+extra"** for now — not worth the cost: a pre-2026-08-19 backup is refused safely, writing nothing,
+just with the rung-level message ("No upcaster advances HotelBooked from schema version 1 — was a rung
+retired…") rather than the clearer verdict below. Revisit if such a file is ever genuinely in hand. **Related:**
 `EventPayloadUpcasterDesign.md` ("How to retire a rung"), `archived/LegacyEventEagerMigrationPlan.md`
 (retirement is gated on old backups leaving rotation), `MigrationLessonsLearned.md` (follow-up 3, the
 undrawn retirement date), `archived/EventOrientedBackupRestorePlan.md` (restore is validate-then-apply).

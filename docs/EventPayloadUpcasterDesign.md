@@ -38,13 +38,19 @@ an absent argument means version 1). A type's version counts *its own* schema ch
 
 | Type | Current version | Rungs it climbs |
 |---|---|---|
-| `HotelBooked`, `HotelChanged` | 3 | v1→v2 datetime, v2→v3 location codes |
-| `TrainBooked`, `TrainChanged` | 3 | v1→v2 datetime, v2→v3 location codes |
-| `FlightBooked`, `FlightChanged` | 2 | v1→v2 datetime |
-| `GatheringPlanned`, `GatheringChanged` | 3 | v1→v2 datetime (field-set change), v2→v3 location codes |
-| `ConferencePlanned` | 4 | v1→v2 datetime, **then** v2→v3 `format`, **then** v3→v4 location codes |
+| `HotelBooked`, `HotelChanged` | 3 | ~~v1→v2 datetime~~ (retired), v2→v3 location codes |
+| `TrainBooked`, `TrainChanged` | 3 | ~~v1→v2 datetime~~ (retired), v2→v3 location codes |
+| `FlightBooked`, `FlightChanged` | 2 | ~~v1→v2 datetime~~ (retired) — no live rungs |
+| `GatheringPlanned`, `GatheringChanged` | 3 | ~~v1→v2 datetime~~ (retired), v2→v3 location codes |
+| `ConferencePlanned` | 4 | ~~v1→v2 datetime~~ (retired), v2→v3 `format`, **then** v3→v4 location codes |
 | `GroundTransferPlanned`, `PrivateEventPlanned` | 2 | v1→v2 location codes |
 | everything else | 1 | — (no rungs) |
+
+**The five datetime rungs were retired on 2026-10-08** (Ted), the first retirement: every stored row
+and every backup from 2026-08-19 on sits above them, and the backups older than that were retired with
+them. Restoring one now fails loud on its first pre-zone row (`RestoreCompatibilityFloorPlan.md`
+describes a clearer refusal, not yet built). The `format` rung stays because the 2026-08-19 backup
+still holds conferences at version 2.
 
 Rungs are keyed by the **logical** type name, so a logical-name rename moves every rung with it:
 `ConferencePlanned` was `ConferenceTentativelyPlanned` until 2026-08-19, and stored rows still carry
@@ -91,20 +97,16 @@ the climb from that stamp is correct.
   logicalType)` advances the payload one version, in place. Deliberately narrow: it knows one type
   (or a family that shares a shape) and one step, nothing about its neighbours.
 - **`EventPayloadUpcaster`** (composite) — owns no migration logic; holds the registered rungs and
-  drives the climb. `standard(locationZoneResolver, airportZoneResolver, jsonMapper)` assembles the
-  production ladder (the one place the rung list lives — config and tests both call it). Normalizes
+  drives the climb. `standard()` assembles the production ladder (the one place the rung list
+  lives — config and tests both call it); it took the zone resolvers and the mapper until the
+  datetime rungs that needed them were retired. Normalizes
   the wire id (logical name **or** legacy FQCN) to the logical name before looking up rungs. Enforces
   **at most one rung per `(type, version)`** and **fails loud** when a needed rung is missing.
-- **`WallClockZoning`** — the injected collaborator shared by the timezone rungs: `toZoned(...)`
-  (renders a `ZonedTimestamp` to a tree via the `JsonMapper`), `isLegacyScalar`, `nestedText`. It
-  carries no event-type knowledge, so it is a *collaborator*, not a base class — each rung owns which
-  of *its* fields resolve from which location.
-- **The rungs** — `HotelTimeZoneUpcaster`, `TrainTimeZoneUpcaster`, `FlightTimeZoneUpcaster`,
-  `GatheringTimeZoneUpcaster`, `ConferenceTimeZoneUpcaster` (all v1→v2, datetime), and
-  `ConferenceFormatUpcaster` (v2→v3, `format`). Each is one small class. The flight rung is the one
-  wired to `AirportZoneResolver` rather than `LocationZoneResolver` — the split that had made a single
-  all-events class incohesive. The format rung takes *no* collaborators at all — exactly why it is its
-  own rung and not a branch inside a datetime class. `LocationCodesUpcaster` (2026-10-07,
+- **The rungs** — `ConferenceFormatUpcaster` (v2→v3, `format`) and `LocationCodesUpcaster`. Each is
+  one small class. The five datetime rungs (`HotelTimeZoneUpcaster` and its siblings, all v1→v2) and
+  the `WallClockZoning` collaborator they shared were deleted on 2026-10-08 — the split below is what
+  made that a matter of deleting classes. The format rung takes *no* collaborators at all — exactly
+  why it was its own rung and not a branch inside a datetime class. `LocationCodesUpcaster` (2026-10-07,
   `LocationDataCleanupPlan.md`) is one rung across the nine address-bearing types, claiming each at
   its own version; it reads only the constant `Countries`/`Subdivisions` tables and fails loud on a
   country it cannot name. The value corrections that came with it are **not** a rung: they need event
@@ -127,9 +129,9 @@ When an event's stored JSON changes shape in a breaking way:
    Say it goes from *N* to *N+1*.
 2. **Write an `EventUpcaster`** whose `canHandle` returns true for `(thatLogicalType, N)` and whose
    `upcast` advances the *N*→*N+1* shape, mutating the `ObjectNode` in place. Keep it **idempotent**
-   (an absence/shape check) so a payload already in the new shape passes through untouched. Reuse
-   `WallClockZoning` if it's a datetime change; take no collaborators if it isn't.
-3. **Register it** in `EventPayloadUpcaster.standard(...)`.
+   (an absence/shape check) so a payload already in the new shape passes through untouched. Take
+   as few collaborators as the step needs; none, if you can.
+3. **Register it** in `EventPayloadUpcaster.standard()`.
 4. **Make the record bind loud on the missing field** (a fail-loud compact constructor), so a payload
    that reaches binding without being upcast is caught rather than silently defaulted — production
    always upcasts before binding, so the non-null field is safe. (See `ConferencePlanned`.)
@@ -201,12 +203,12 @@ eagerly migrated, decoding is deterministic and the frozen value is the final on
 
 ## Testing convention
 
-- **Per-rung tests** (`HotelTimeZoneUpcasterTest`, …, `ConferenceFormatUpcasterTest`): construct the
+- **Per-rung tests** (`ConferenceFormatUpcasterTest`, `LocationCodesUpcasterTest`): construct the
   one rung with real collaborators, feed an `ObjectNode` directly, assert the mutation and the
   `canHandle` gating (right type + right version only). Migration mechanics live here.
 - **Composite test** (`EventPayloadUpcasterTest`): asserts *composition only* — wire-id normalization
   (legacy FQCN reaches the same rungs as the logical name), the version-driven climb (starts from the
-  stored version, skips already-passed rungs, climbs multiple steps from version 1), and the failure
+  stored version, skips already-passed rungs, climbs more than one step), and the failure
   modes (unknown type, missing rung, duplicate rung).
 - **Golden contract** (`GoldenEventDeserializationTest`): binds a real sample per event, including a
   legacy sample proving the old shape still upcasts.

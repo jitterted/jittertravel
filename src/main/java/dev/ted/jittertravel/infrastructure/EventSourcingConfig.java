@@ -55,10 +55,8 @@ public class EventSourcingConfig {
     }
 
     @Bean
-    public EventPayloadUpcaster eventPayloadUpcaster(LocationZoneResolver locationZoneResolver,
-                                                     AirportZoneResolver airportZoneResolver,
-                                                     JsonMapper jsonMapper) {
-        return EventPayloadUpcaster.standard(locationZoneResolver, airportZoneResolver, jsonMapper);
+    public EventPayloadUpcaster eventPayloadUpcaster() {
+        return EventPayloadUpcaster.standard();
     }
 
     /**

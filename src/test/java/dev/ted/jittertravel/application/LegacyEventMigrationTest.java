@@ -29,8 +29,8 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
     @Autowired LegacyEventMigration migration;
     @Autowired PostgresPersister persister;
 
-    // A legacy HotelBooked: bare-scalar checkIn/checkOut, no stamp. 2026-06-17 is BST (+01:00) in
-    // London, so 15:00 local == 14:00Z after upcast.
+    // A HotelBooked as every kept backup stores one, stamped v2: zoned datetimes and the country
+    // spelled out. The oldest shape the ladder still climbs since the datetime rungs were retired.
     private static final String LEGACY_HOTEL = """
             {
               "hotelBookingId": {"id": "33333333-3333-3333-3333-333333333333"},
@@ -39,13 +39,14 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
                 "street": "Milton Hill", "city": "Steventon", "region": "Oxfordshire",
                 "postalCode": "OX13 6AF", "country": "UK", "locationForMatching": "Steventon"
               },
-              "checkIn": "2026-06-17T15:00:00",
-              "checkOut": "2026-06-21T11:00:00",
+              "checkIn": {"utc": "2026-06-17T14:00:00Z", "zone": "Europe/London"},
+              "checkOut": {"utc": "2026-06-21T10:00:00Z", "zone": "Europe/London"},
               "bookingIntent": "FINAL"
             }
             """;
+    private static final int LEGACY_HOTEL_VERSION = 2;
 
-    // Same shape but an unresolvable location, so upcast throws ZoneResolutionException.
+    // Same shape but a country no rung can name, so the upcast throws.
     private static final String LEGACY_HOTEL_UNRESOLVABLE = """
             {
               "hotelBookingId": {"id": "44444444-4444-4444-4444-444444444444"},
@@ -54,8 +55,8 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
                 "street": "1 Nowhere", "city": "Zzxqville", "region": "",
                 "postalCode": "00000", "country": "Freedonia", "locationForMatching": "Zzxqville"
               },
-              "checkIn": "2026-06-17T15:00:00",
-              "checkOut": "2026-06-21T11:00:00",
+              "checkIn": {"utc": "2026-06-17T14:00:00Z", "zone": "Europe/London"},
+              "checkOut": {"utc": "2026-06-21T10:00:00Z", "zone": "Europe/London"},
               "bookingIntent": "FINAL"
             }
             """;
@@ -107,11 +108,11 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
     private static final UUID DEVNEXUS_EVENT_ID = UUID.fromString("3f43b7c1-1201-4411-8ed9-a69bbba8fc2f");
 
     @Test
-    void migratesLegacyHotelPayloadToZonedShapeAndCountryCodeStampsCurrentVersionAndKeepsIdentity() {
+    void migratesAStoredHotelToCountryCodesStampsCurrentVersionAndKeepsIdentity() {
         UUID commandId = UUID.randomUUID();
         UUID eventId = UUID.randomUUID();
         OffsetDateTime ts = OffsetDateTime.parse("2026-06-01T10:00:00Z");
-        seedLegacyEvent(commandId, eventId, 1L, ts, "HotelBooked", LEGACY_HOTEL);
+        seedStampedEvent(commandId, eventId, 1L, ts, "HotelBooked", LEGACY_HOTEL, LEGACY_HOTEL_VERSION);
 
         LegacyEventMigration.MigrationResult result = migration.migrate();
 
@@ -128,15 +129,12 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
                             .as("row is stamped with the type's current schema version")
                             .isEqualTo(3);
                     assertThat(e.payloadJson())
-                            .as("checkIn is now a {utc,zone} object")
-                            .contains("utc")
-                            .contains("Europe/London")
-                            .contains("2026-06-17T14:00:00Z")          // 15:00 BST -> 14:00Z
-                            .doesNotContain("2026-06-17T15:00:00");    // the bare local scalar is gone
-                    assertThat(e.payloadJson())
-                            .as("both rungs ran in the one write: the country is a code")
+                            .as("the location-codes rung ran: the country is a code")
                             .contains("\"country\": \"GB\"")
                             .doesNotContain("\"country\": \"UK\"");
+                    assertThat(e.payloadJson())
+                            .as("the zoned check-in is carried through unchanged")
+                            .contains("\"utc\": \"2026-06-17T14:00:00Z\"");
                     // Verbatim identity: only payload + stamp changed.
                     assertThat(e.sequence()).isEqualTo(1L);
                     assertThat(e.eventId()).isEqualTo(eventId);
@@ -147,8 +145,8 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
 
     @Test
     void isIdempotentSecondRunRewritesNothing() {
-        seedLegacyEvent(UUID.randomUUID(), UUID.randomUUID(), 1L,
-                OffsetDateTime.parse("2026-06-01T10:00:00Z"), "HotelBooked", LEGACY_HOTEL);
+        seedStampedEvent(UUID.randomUUID(), UUID.randomUUID(), 1L,
+                OffsetDateTime.parse("2026-06-01T10:00:00Z"), "HotelBooked", LEGACY_HOTEL, LEGACY_HOTEL_VERSION);
         migration.migrate();
 
         LegacyEventMigration.MigrationResult second = migration.migrate();
@@ -214,8 +212,8 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
     void migrateReReadsTheStoreAndConfirmsEveryRowAndFixLanded() {
         seedStampedEvent(UUID.randomUUID(), DEVNEXUS_EVENT_ID, 1L,
                 OffsetDateTime.parse("2026-09-10T10:00:00Z"), "ConferencePlanned", DEVNEXUS_AT_V3, 3);
-        seedLegacyEvent(UUID.randomUUID(), UUID.randomUUID(), 2L,
-                OffsetDateTime.parse("2026-06-01T10:00:00Z"), "HotelBooked", LEGACY_HOTEL);
+        seedStampedEvent(UUID.randomUUID(), UUID.randomUUID(), 2L,
+                OffsetDateTime.parse("2026-06-01T10:00:00Z"), "HotelBooked", LEGACY_HOTEL, LEGACY_HOTEL_VERSION);
 
         LegacyEventMigration.MigrationResult result = migration.migrate();
 
@@ -328,9 +326,9 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
 
     @Test
     void normalizesALegacyFqcnTypeInTheSameWriteAsThePayloadAndStamp() {
-        seedLegacyEvent(UUID.randomUUID(), UUID.randomUUID(), 1L,
+        seedStampedEvent(UUID.randomUUID(), UUID.randomUUID(), 1L,
                 OffsetDateTime.parse("2026-06-01T10:00:00Z"),
-                "dev.ted.jittertravel.domain.HotelBooked", LEGACY_HOTEL);
+                "dev.ted.jittertravel.domain.HotelBooked", LEGACY_HOTEL, LEGACY_HOTEL_VERSION);
 
         LegacyEventMigration.MigrationResult result = migration.migrate();
 
@@ -347,16 +345,17 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
                 .satisfies(e -> {
                     assertThat(e.type()).isEqualTo("HotelBooked");
                     assertThat(e.schemaVersion()).isEqualTo(3);
-                    assertThat(e.payloadJson()).contains("2026-06-17T14:00:00Z");
+                    assertThat(e.payloadJson()).contains("\"country\": \"GB\"");
                 });
     }
 
     @Test
     void oneUnbindableRowAbortsTheWholeMigrationLeavingEveryRowUntouched() {
-        seedLegacyEvent(UUID.randomUUID(), UUID.randomUUID(), 1L,
-                OffsetDateTime.parse("2026-06-01T10:00:00Z"), "HotelBooked", LEGACY_HOTEL);
-        seedLegacyEvent(UUID.randomUUID(), UUID.randomUUID(), 2L,
-                OffsetDateTime.parse("2026-06-01T10:00:00Z"), "HotelBooked", LEGACY_HOTEL_UNRESOLVABLE);
+        seedStampedEvent(UUID.randomUUID(), UUID.randomUUID(), 1L,
+                OffsetDateTime.parse("2026-06-01T10:00:00Z"), "HotelBooked", LEGACY_HOTEL, LEGACY_HOTEL_VERSION);
+        seedStampedEvent(UUID.randomUUID(), UUID.randomUUID(), 2L,
+                OffsetDateTime.parse("2026-06-01T10:00:00Z"), "HotelBooked", LEGACY_HOTEL_UNRESOLVABLE,
+                LEGACY_HOTEL_VERSION);
         seedStampedEvent(UUID.randomUUID(), UUID.randomUUID(), 3L,
                 OffsetDateTime.parse("2026-08-01T10:00:00Z"),
                 "ConferenceTentativelyPlanned", CONFERENCE_CURRENT_SHAPE, CONFERENCE_CURRENT_VERSION);
@@ -375,11 +374,11 @@ class LegacyEventMigrationTest extends AbstractTestcontainerIntegrationTest {
                 .singleElement()
                 .satisfies(e -> {
                     assertThat(e.schemaVersion())
-                            .as("the good row is left unstamped — nothing was written")
-                            .isNull();
+                            .as("the good row keeps its old stamp — nothing was written")
+                            .isEqualTo(LEGACY_HOTEL_VERSION);
                     assertThat(e.payloadJson())
-                            .as("the good row still holds its bare-scalar payload")
-                            .contains("2026-06-17T15:00:00");
+                            .as("the good row still holds its country name")
+                            .contains("\"country\": \"UK\"");
                 });
         assertThat(persister.findAllEventsForBackup())
                 .filteredOn(e -> e.sequence() == 3L)

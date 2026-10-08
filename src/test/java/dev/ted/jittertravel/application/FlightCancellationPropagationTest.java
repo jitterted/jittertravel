@@ -181,9 +181,9 @@ class FlightCancellationPropagationTest {
 
     @Test
     void theZoneAuditStillReportsTheCancelledFlightsAirports() {
-        // The one projector that must NOT react: FlightBooked stays in the log forever and
-        // FlightTimeZoneUpcaster resolves its airports' zones on every replay, so dropping them
-        // here would hide exactly the unresolvable airport that breaks startup.
+        // The one projector that must NOT react: FlightBooked stays in the log forever, and the
+        // audit's job is every airport the log holds — dropping a cancelled one here would hide an
+        // unresolvable airport that is still stored.
         LocationAuditProjector projector = new LocationAuditProjector();
 
         projector.handle(bookThenCancel());

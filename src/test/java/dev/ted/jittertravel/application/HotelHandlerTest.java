@@ -37,7 +37,7 @@ class HotelHandlerTest {
 
     @Test
     void hotelZoneIsDerivedFromTheAddressWhenNoZoneIsPicked() {
-        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "Japan", null, null));
+        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "JP", null, null));
 
         assertThat(command.checkIn().zone())
                 .isEqualTo(ZoneId.of("Asia/Tokyo"));
@@ -48,7 +48,7 @@ class HotelHandlerTest {
 
     @Test
     void theFormsWallClockBecomesAnInstantInThatZone() {
-        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "Japan", null, null));
+        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "JP", null, null));
 
         assertThat(command.checkIn().utc())
                 .as("15:00 JST is 06:00Z")
@@ -57,7 +57,7 @@ class HotelHandlerTest {
 
     @Test
     void explicitZonePickWinsOverTheAddress() {
-        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "Japan", "US_CENTRAL", null));
+        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "JP", "US_CENTRAL", null));
 
         assertThat(command.checkIn().zone())
                 .isEqualTo(ZoneId.of("America/Chicago"));
@@ -80,7 +80,7 @@ class HotelHandlerTest {
     @Test
     void theCancelByDeadlineIsReadInTheHotelsZoneToo() {
         BookHotelCommand command = handler.bookHotel(
-                requestIn("Tokyo", "Japan", null, LocalDateTime.of(2026, 9, 13, 18, 0)));
+                requestIn("Tokyo", "JP", null, LocalDateTime.of(2026, 9, 13, 18, 0)));
 
         assertThat(command.cancelBy().zone())
                 .as("a deadline read in the server's zone would shift by the offset")
@@ -92,7 +92,7 @@ class HotelHandlerTest {
 
     @Test
     void anOmittedCancelByStaysNullRatherThanBecomingAnInstant() {
-        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "Japan", null, null));
+        BookHotelCommand command = handler.bookHotel(requestIn("Tokyo", "JP", null, null));
 
         assertThat(command.cancelBy())
                 .isNull();
@@ -101,7 +101,7 @@ class HotelHandlerTest {
     @Test
     void changingAHotelReadsTheZoneAndTheDeadlineExactlyAsBookingDoes() {
         ChangeHotelCommand command = handler.changeHotel(BOOKING_ID,
-                changeRequestIn("Tokyo", "Japan", null, LocalDateTime.of(2026, 9, 13, 18, 0)));
+                changeRequestIn("Tokyo", "JP", null, LocalDateTime.of(2026, 9, 13, 18, 0)));
 
         assertThat(command.checkIn().zone())
                 .isEqualTo(ZoneId.of("Asia/Tokyo"));
@@ -113,7 +113,7 @@ class HotelHandlerTest {
     @Test
     void clearingTheDeadlineOnAChangeLeavesItNull() {
         ChangeHotelCommand command =
-                handler.changeHotel(BOOKING_ID, changeRequestIn("Tokyo", "Japan", null, null));
+                handler.changeHotel(BOOKING_ID, changeRequestIn("Tokyo", "JP", null, null));
 
         assertThat(command.cancelBy())
                 .as("HotelChanged is a full snapshot, so a cleared field must clear the deadline")

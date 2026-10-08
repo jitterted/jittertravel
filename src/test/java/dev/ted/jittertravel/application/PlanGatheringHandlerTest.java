@@ -27,7 +27,7 @@ class PlanGatheringHandlerTest {
 
     @Test
     void venueZoneIsDerivedFromTheLocationWhenNoZoneIsPicked() {
-        PlanGatheringCommand command = handler.handle(requestIn("Tokyo", "Japan", null));
+        PlanGatheringCommand command = handler.handle(requestIn("Tokyo", "JP", null));
 
         assertThat(command.startsAt().zone())
                 .isEqualTo(ZoneId.of("Asia/Tokyo"));
@@ -37,7 +37,7 @@ class PlanGatheringHandlerTest {
 
     @Test
     void theFormsDateAndTimesBecomeInstantsInThatZone() {
-        PlanGatheringCommand command = handler.handle(requestIn("Tokyo", "Japan", null));
+        PlanGatheringCommand command = handler.handle(requestIn("Tokyo", "JP", null));
 
         assertThat(command.startsAt().utc())
                 .as("18:00 JST is 09:00Z")
@@ -50,7 +50,7 @@ class PlanGatheringHandlerTest {
     void explicitZonePickWinsOverTheLocation() {
         // Springfield/USA is ambiguous — and even for a resolvable location, the pick is what the
         // traveler asked for.
-        PlanGatheringCommand command = handler.handle(requestIn("Tokyo", "Japan", "US_CENTRAL"));
+        PlanGatheringCommand command = handler.handle(requestIn("Tokyo", "JP", "US_CENTRAL"));
 
         assertThat(command.startsAt().zone())
                 .isEqualTo(ZoneId.of("America/Chicago"));

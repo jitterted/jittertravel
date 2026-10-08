@@ -1,10 +1,7 @@
 package dev.ted.jittertravel.infrastructure;
 
-import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.Event;
-import dev.ted.jittertravel.domain.LocationZoneResolver;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.util.List;
@@ -14,9 +11,7 @@ import java.util.List;
  * current schema shape before it binds. It is a <em>composite</em> — it owns no migration logic of
  * its own but drives a ladder of registered {@link EventUpcaster} rungs, each of which advances one
  * event type by one version (see {@link #standard} for the production set). Splitting the rungs out
- * keeps each one cohesive: the datetime→{@link dev.ted.jittertravel.domain.ZonedTimestamp} rungs that
- * need a zone resolver no longer share a class with the {@code format}-field rung that needs nothing,
- * and the flight rung's {@link AirportZoneResolver} no longer sits in a class that also does hotels.
+ * keeps each one cohesive, and makes retiring one a matter of deleting its class.
  *
  * <p><b>Version-driven, not shape-sniffing.</b> The climb starts from the row's stored
  * {@code schema_version} (a legacy row that predates the column reads as {@code null} ⇒ version 1)
@@ -34,8 +29,7 @@ import java.util.List;
  *
  * <p>The stored {@code type} may be a stable logical name (new rows) or a legacy FQCN (rows written
  * before logical names); it is normalized to the logical name (see {@link EventTypes}) before the
- * climb, so both reach the same rungs. The pre-migration zone audit ({@code /admin/zone-audit})
- * guarantees every legacy location resolves, so the datetime rungs never throw for stored data.
+ * climb, so both reach the same rungs.
  */
 public class EventPayloadUpcaster {
 
@@ -52,19 +46,14 @@ public class EventPayloadUpcaster {
     }
 
     /**
-     * The production ladder, assembled from the zone resolvers and mapper. Every timezone rung shares
-     * one {@link WallClockZoning} collaborator; the conference {@code format} rung needs none.
+     * The production ladder. The five datetime→{@code ZonedTimestamp} rungs were retired on
+     * 2026-10-08 (Ted): every stored row and every backup kept from 2026-08-19 on is past them, and
+     * the backups older than that are retired with them — restoring one fails loud on its first
+     * pre-zone row. The conference {@code format} rung stays, because the 2026-08-19 backup still
+     * holds conferences at version 2.
      */
-    public static EventPayloadUpcaster standard(LocationZoneResolver locationZoneResolver,
-                                                AirportZoneResolver airportZoneResolver,
-                                                JsonMapper jsonMapper) {
-        WallClockZoning zoning = new WallClockZoning(jsonMapper);
+    public static EventPayloadUpcaster standard() {
         return new EventPayloadUpcaster(List.of(
-                new HotelTimeZoneUpcaster(locationZoneResolver, zoning),
-                new TrainTimeZoneUpcaster(locationZoneResolver, zoning),
-                new FlightTimeZoneUpcaster(airportZoneResolver, zoning),
-                new GatheringTimeZoneUpcaster(locationZoneResolver, zoning),
-                new ConferenceTimeZoneUpcaster(locationZoneResolver, zoning),
                 new ConferenceFormatUpcaster(),
                 new LocationCodesUpcaster()));
     }

@@ -1,10 +1,8 @@
 package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.domain.Address;
-import dev.ted.jittertravel.domain.AirportZoneResolver;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
-import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.web.PlanConferenceRequest;
 import org.junit.jupiter.api.Tag;
@@ -46,9 +44,8 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
         }
 
         @Bean
-        EventPayloadUpcaster eventPayloadUpcaster(JsonMapper jsonMapper) {
-            return EventPayloadUpcaster.standard(new LocationZoneResolver(),
-                    new AirportZoneResolver(), jsonMapper);
+        EventPayloadUpcaster eventPayloadUpcaster() {
+            return EventPayloadUpcaster.standard();
         }
 
         /**

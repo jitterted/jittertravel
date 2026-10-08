@@ -337,9 +337,13 @@ kept as opaque history and never re-executed. Still **not** a substitute for `pg
 - After a restore (or a truncate), **restart the app** — the read models are rebuilt by the boot
   replay, not live.
 - Its format is a versioned compatibility contract. New backups are written at **`version: 3`**
-  (each event carries its own `schemaVersion` stamp); `version: 2` files — taken before the stamp
-  existed — still restore, so older backups aren't orphaned. The long-dead command-only
-  `version: 1` export is no longer restorable.
+  (each event carries its own `schemaVersion` stamp). **The oldest backup that restores is from
+  2026-08-19.** Anything older — every `version: 2` file, and the 2026-08-16/17 `version: 3` ones —
+  holds rows from before time zones were stored, and the rungs that read those were retired on
+  2026-10-08 (Ted); restoring one is refused on its first such row and writes nothing. The same goes
+  for a `pg_dump` from before 2026-08-19: it restores, but the app's boot replay then fails on those
+  rows and comes up read-only. The long-dead command-only `version: 1` export is not restorable
+  either.
 - Restore is validate-then-apply: `/admin/restore/validate` runs the checking pass on its own as a
   dry run, and a real restore writes nothing unless every event binds.
 

@@ -1,7 +1,5 @@
 package dev.ted.jittertravel.application;
 
-import dev.ted.jittertravel.domain.AirportZoneResolver;
-import dev.ted.jittertravel.domain.LocationZoneResolver;
 import dev.ted.jittertravel.domain.StaticAirportCityResolver;
 import dev.ted.jittertravel.infrastructure.EventJsonMapperFactory;
 import dev.ted.jittertravel.infrastructure.EventPayloadUpcaster;
@@ -70,7 +68,7 @@ class LegacyEventMigrationVerificationTest {
     private final PostgresPersister persister = mock(PostgresPersister.class);
     private final LegacyEventMigration migration = new LegacyEventMigration(
             persister,
-            EventPayloadUpcaster.standard(new LocationZoneResolver(), new AirportZoneResolver(), jsonMapper),
+            EventPayloadUpcaster.standard(),
             jsonMapper,
             mock(CommandExecutor.class),
             new LocationDataCorrections(new StaticAirportCityResolver()));

@@ -20,7 +20,7 @@ class LocationZoneAuditTest {
     @Test
     void reportsResolvedLocationsWithTheirZones() {
         LocationZoneAudit.Report report = audit.report(
-                List.of(location("Frankfurt", "Germany"), location("Chicago", "USA")),
+                List.of(location("Frankfurt", "DE"), location("Chicago", "US")),
                 List.of(airport("SFO")));
 
         assertThat(report.allResolved())
@@ -29,15 +29,15 @@ class LocationZoneAuditTest {
         assertThat(report.resolved())
                 .extracting(LocationZoneAudit.Entry::label, LocationZoneAudit.Entry::zoneId)
                 .containsExactlyInAnyOrder(
-                        Tuple.tuple("Chicago, USA", "America/Chicago"),
-                        Tuple.tuple("Frankfurt, Germany", "Europe/Berlin"),
+                        Tuple.tuple("Chicago, US", "America/Chicago"),
+                        Tuple.tuple("Frankfurt, DE", "Europe/Berlin"),
                         Tuple.tuple("SFO", "America/Los_Angeles"));
     }
 
     @Test
     void separatesUnresolvableLocationsAndAirports() {
         LocationZoneAudit.Report report = audit.report(
-                List.of(location("Frankfurt", "Germany"), location("Nowheresville", "Atlantis")),
+                List.of(location("Frankfurt", "DE"), location("Nowheresville", "Atlantis")),
                 List.of(airport("XXX")));
 
         assertThat(report.allResolved())
@@ -48,7 +48,7 @@ class LocationZoneAuditTest {
                 .containsExactlyInAnyOrder("Nowheresville, Atlantis", "XXX");
         assertThat(report.resolved())
                 .extracting(LocationZoneAudit.Entry::label)
-                .containsExactly("Frankfurt, Germany");
+                .containsExactly("Frankfurt, DE");
     }
 
     @Test

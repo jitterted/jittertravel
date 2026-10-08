@@ -61,8 +61,10 @@ doesn't resolve, a schema-incompatible payload). Applying events as they are rea
 half-populated database that has to be wiped. Pass two also skips events already present in
 `event_log`, so a partially applied restore resumes on re-run instead of colliding on the primary key.
 
-Backup format is at **v3** (per-event `schema_version`); restore still reads v2 (unstamped)
-files, so older backups aren't orphaned.
+Backup format is at **v3** (per-event `schema_version`). Restore still parses a v2 (unstamped)
+file, but every v2 file predates stored time zones, so since the datetime rungs were retired
+(2026-10-08, Ted) it is refused on its first such row, writing nothing. The oldest backup that
+restores is **2026-08-19**.
 Covered by `RestoreSafetyTest`.
 
 ### Redaction: anonymous viewers are a first-class threat model

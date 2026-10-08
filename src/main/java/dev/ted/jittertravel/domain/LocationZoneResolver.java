@@ -131,17 +131,13 @@ public class LocationZoneResolver {
         // Australia (multi-zone)
         put(table, "Australia/Sydney", "sydney", "melbourne", "canberra", "brisbane");
         put(table, "Australia/Perth", "perth");
-        // Single-zone-country cities whose stored country field is unreliable: an Antwerp hotel was
-        // entered with country "Brussels" (a city, not a country), which resolves nowhere. The city
-        // step runs first, so naming Antwerp here lands it in Belgium's zone regardless.
-        put(table, "Europe/Brussels", "antwerp");
         return table;
     }
 
     /**
-     * States and provinces of the multi-zone countries, keyed {@code "<scope>|<region>"} under both
-     * the postal abbreviation and the spelled-out name — stored data uses both (e.g. {@code "CO"}
-     * for Colorado but {@code "Ontario"} spelled out).
+     * States and provinces of the multi-zone countries, keyed {@code "<scope>|<postal code>"}. A
+     * region is stored as its code since the location-codes migration (2026-10-08), and the command
+     * refuses anything else, so the spelled-out names that used to sit beside the codes are gone.
      */
     private static Map<String, ZoneId> defaultRegionTable() {
         Map<String, ZoneId> table = new HashMap<>();
@@ -149,103 +145,81 @@ public class LocationZoneResolver {
         // --- United States. Split states (FL, IN, KY, MI, TN, KS, NE, ND, SD, TX, ID, OR) are
         // keyed to their predominant zone; put an exception city in the city table above.
         putRegion(table, "America/New_York", "us",
-                "ct", "connecticut", "de", "delaware", "dc", "district of columbia",
-                "fl", "florida", "ga", "georgia", "in", "indiana", "ky", "kentucky",
-                "me", "maine", "md", "maryland", "ma", "massachusetts", "mi", "michigan",
-                "nh", "new hampshire", "nj", "new jersey", "ny", "new york",
-                "nc", "north carolina", "oh", "ohio", "pa", "pennsylvania",
-                "ri", "rhode island", "sc", "south carolina", "vt", "vermont",
-                "va", "virginia", "wv", "west virginia");
+                "ct", "de", "dc", "fl", "ga", "in", "ky", "me", "md", "ma", "mi", "nh", "nj", "ny",
+                "nc", "oh", "pa", "ri", "sc", "vt", "va", "wv");
         putRegion(table, "America/Chicago", "us",
-                "al", "alabama", "ar", "arkansas", "il", "illinois", "ia", "iowa",
-                "ks", "kansas", "la", "louisiana", "mn", "minnesota", "ms", "mississippi",
-                "mo", "missouri", "ne", "nebraska", "nd", "north dakota", "ok", "oklahoma",
-                "sd", "south dakota", "tn", "tennessee", "tx", "texas", "wi", "wisconsin");
-        putRegion(table, "America/Denver", "us",
-                "co", "colorado", "id", "idaho", "mt", "montana", "nm", "new mexico",
-                "ut", "utah", "wy", "wyoming");
-        putRegion(table, "America/Phoenix", "us", "az", "arizona");
-        putRegion(table, "America/Los_Angeles", "us",
-                "ca", "california", "nv", "nevada", "or", "oregon", "wa", "washington");
-        putRegion(table, "America/Anchorage", "us", "ak", "alaska");
-        putRegion(table, "Pacific/Honolulu", "us", "hi", "hawaii");
+                "al", "ar", "il", "ia", "ks", "la", "mn", "ms", "mo", "ne", "nd", "ok", "sd", "tn",
+                "tx", "wi");
+        putRegion(table, "America/Denver", "us", "co", "id", "mt", "nm", "ut", "wy");
+        putRegion(table, "America/Phoenix", "us", "az");
+        putRegion(table, "America/Los_Angeles", "us", "ca", "nv", "or", "wa");
+        putRegion(table, "America/Anchorage", "us", "ak");
+        putRegion(table, "Pacific/Honolulu", "us", "hi");
 
         // --- Canada
-        putRegion(table, "America/St_Johns", "ca", "nl", "newfoundland and labrador", "newfoundland");
-        putRegion(table, "America/Halifax", "ca",
-                "ns", "nova scotia", "nb", "new brunswick", "pe", "pei", "prince edward island");
-        putRegion(table, "America/Toronto", "ca", "on", "ontario", "qc", "quebec", "québec");
-        putRegion(table, "America/Winnipeg", "ca", "mb", "manitoba");
-        putRegion(table, "America/Regina", "ca", "sk", "saskatchewan");
-        putRegion(table, "America/Edmonton", "ca", "ab", "alberta");
-        putRegion(table, "America/Vancouver", "ca", "bc", "british columbia");
-        putRegion(table, "America/Whitehorse", "ca", "yt", "yukon");
-        putRegion(table, "America/Yellowknife", "ca", "nt", "northwest territories");
-        putRegion(table, "America/Iqaluit", "ca", "nu", "nunavut");
+        putRegion(table, "America/St_Johns", "ca", "nl");
+        putRegion(table, "America/Halifax", "ca", "ns", "nb", "pe");
+        putRegion(table, "America/Toronto", "ca", "on", "qc");
+        putRegion(table, "America/Winnipeg", "ca", "mb");
+        putRegion(table, "America/Regina", "ca", "sk");
+        putRegion(table, "America/Edmonton", "ca", "ab");
+        putRegion(table, "America/Vancouver", "ca", "bc");
+        putRegion(table, "America/Whitehorse", "ca", "yt");
+        putRegion(table, "America/Yellowknife", "ca", "nt");
+        putRegion(table, "America/Iqaluit", "ca", "nu");
 
         // --- Australia
-        putRegion(table, "Australia/Sydney", "au",
-                "nsw", "new south wales", "act", "australian capital territory");
-        putRegion(table, "Australia/Melbourne", "au", "vic", "victoria");
-        putRegion(table, "Australia/Hobart", "au", "tas", "tasmania");
-        putRegion(table, "Australia/Brisbane", "au", "qld", "queensland");
-        putRegion(table, "Australia/Adelaide", "au", "sa", "south australia");
-        putRegion(table, "Australia/Perth", "au", "wa", "western australia");
-        putRegion(table, "Australia/Darwin", "au", "nt", "northern territory");
+        putRegion(table, "Australia/Sydney", "au", "nsw", "act");
+        putRegion(table, "Australia/Melbourne", "au", "vic");
+        putRegion(table, "Australia/Hobart", "au", "tas");
+        putRegion(table, "Australia/Brisbane", "au", "qld");
+        putRegion(table, "Australia/Adelaide", "au", "sa");
+        putRegion(table, "Australia/Perth", "au", "wa");
+        putRegion(table, "Australia/Darwin", "au", "nt");
 
         return table;
     }
 
     /**
-     * The countries whose regions the table above covers, mapped to their scope prefix. A country
-     * absent here never consults the region table — a single-zone country does not need it, and an
-     * unlisted multi-zone country must keep failing loudly rather than matching a US state code.
+     * The countries whose regions the table above covers, by ISO code, mapped to their scope prefix.
+     * A country absent here never consults the region table — a single-zone country does not need
+     * it, and an unlisted multi-zone country must keep failing loudly rather than matching a US state
+     * code.
      */
     private static Map<String, String> defaultRegionScopeTable() {
-        Map<String, String> table = new HashMap<>();
-        for (String key : new String[]{"usa", "us", "u.s.", "u.s.a.", "united states",
-                "united states of america"}) {
-            table.put(key, "us");
-        }
-        for (String key : new String[]{"canada", "ca", "can"}) {
-            table.put(key, "ca");
-        }
-        for (String key : new String[]{"australia", "au", "aus"}) {
-            table.put(key, "au");
-        }
-        return table;
+        return Map.of("us", "us", "ca", "ca", "au", "au");
     }
 
     /**
-     * Single-zone countries, keyed first by the ISO code a picked country is stored as
-     * ({@link Countries}), then by the names stored before the picker existed. The names go once the
-     * stored events are migrated to codes (docs/LocationDataCleanupPlan.md §6).
+     * Single-zone countries, keyed by the ISO code a picked country is stored as ({@link Countries}).
+     * The names stored before the picker existed went with the location-codes migration
+     * (docs/LocationDataCleanupPlan.md §6).
      */
     private static Map<String, ZoneId> defaultCountryTable() {
         Map<String, ZoneId> table = new HashMap<>();
-        put(table, "Europe/London", "gb", "united kingdom", "uk", "england", "scotland", "wales");
-        put(table, "Europe/Dublin", "ie", "ireland");
-        put(table, "Europe/Paris", "fr", "france");
-        put(table, "Europe/Berlin", "de", "germany");
-        put(table, "Europe/Amsterdam", "nl", "netherlands");
-        put(table, "Europe/Brussels", "be", "belgium");
-        put(table, "Europe/Madrid", "es", "spain");
-        put(table, "Europe/Rome", "it", "italy");
-        put(table, "Europe/Zurich", "ch", "switzerland");
-        put(table, "Europe/Vienna", "at", "austria");
-        put(table, "Europe/Copenhagen", "dk", "denmark");
-        put(table, "Europe/Oslo", "no", "norway");
-        put(table, "Europe/Stockholm", "se", "sweden");
-        put(table, "Europe/Helsinki", "fi", "finland");
-        put(table, "Europe/Warsaw", "pl", "poland");
-        put(table, "Europe/Prague", "cz", "czech republic", "czechia");
-        put(table, "Europe/Lisbon", "pt", "portugal");
-        put(table, "Asia/Tokyo", "jp", "japan");
-        put(table, "Asia/Singapore", "sg", "singapore");
-        put(table, "Asia/Kolkata", "in", "india");
-        put(table, "Atlantic/Reykjavik", "is", "iceland");
-        put(table, "Africa/Casablanca", "ma", "morocco");
-        put(table, "Pacific/Auckland", "nz", "new zealand");
+        put(table, "Europe/London", "gb");
+        put(table, "Europe/Dublin", "ie");
+        put(table, "Europe/Paris", "fr");
+        put(table, "Europe/Berlin", "de");
+        put(table, "Europe/Amsterdam", "nl");
+        put(table, "Europe/Brussels", "be");
+        put(table, "Europe/Madrid", "es");
+        put(table, "Europe/Rome", "it");
+        put(table, "Europe/Zurich", "ch");
+        put(table, "Europe/Vienna", "at");
+        put(table, "Europe/Copenhagen", "dk");
+        put(table, "Europe/Oslo", "no");
+        put(table, "Europe/Stockholm", "se");
+        put(table, "Europe/Helsinki", "fi");
+        put(table, "Europe/Warsaw", "pl");
+        put(table, "Europe/Prague", "cz");
+        put(table, "Europe/Lisbon", "pt");
+        put(table, "Asia/Tokyo", "jp");
+        put(table, "Asia/Singapore", "sg");
+        put(table, "Asia/Kolkata", "in");
+        put(table, "Atlantic/Reykjavik", "is");
+        put(table, "Africa/Casablanca", "ma");
+        put(table, "Pacific/Auckland", "nz");
         return table;
     }
 

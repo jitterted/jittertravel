@@ -358,9 +358,9 @@ public class PublicCalendarProjector implements EventStreamConsumer {
                 new EntryDetails.PublicGroundTransfer());
     }
 
-    /** "City, ST" in the US, "City, Country" elsewhere — the public form; see {@link CityLabel}. */
+    /** "City, ST" in the US, "City, Country" elsewhere; see {@link CityLabel}. */
     private String cityCountry(Address address) {
-        return cityLabel.publicLabel(address);
+        return cityLabel.label(address);
     }
 
     /**

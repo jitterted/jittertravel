@@ -25,7 +25,7 @@ class ChangeGatheringHandlerTest {
 
     @Test
     void movingTheVenueToAnotherCountryRederivesTheZone() {
-        ChangeGatheringCommand command = handler.handle(SOME_GATHERING, requestIn("Lisbon", "Portugal", null));
+        ChangeGatheringCommand command = handler.handle(SOME_GATHERING, requestIn("Lisbon", "PT", null));
 
         assertThat(command.startsAt().zone())
                 .isEqualTo(ZoneId.of("Europe/Lisbon"));
@@ -36,7 +36,7 @@ class ChangeGatheringHandlerTest {
 
     @Test
     void explicitZonePickWinsOverTheLocation() {
-        ChangeGatheringCommand command = handler.handle(SOME_GATHERING, requestIn("Lisbon", "Portugal", "UK"));
+        ChangeGatheringCommand command = handler.handle(SOME_GATHERING, requestIn("Lisbon", "PT", "UK"));
 
         assertThat(command.startsAt().zone())
                 .isEqualTo(ZoneId.of("Europe/London"));

@@ -1,9 +1,10 @@
 # Location Data Cleanup Plan
 
-**Status:** `in progress` — direction agreed with Ted 2026-10-06; the fix list in §5.2 approved
-2026-10-07. Steps 1 and 2 shipped 2026-10-08 (`7ccc180` and follow-ups), and the migration ran
-in production the same day: complete and verified, all ten corrections and five airport ends made,
-and the post-migration backup holds only ISO country codes. **Step 3 (§6) is next.** Mockup:
+**Status:** `done` except the rung's own spelling table (§6, last bullet) — direction agreed with
+Ted 2026-10-06; the fix list in §5.2 approved 2026-10-07. Steps 1 and 2 shipped 2026-10-08
+(`7ccc180` and follow-ups), and the migration ran in production the same day: complete and
+verified, all ten corrections and five airport ends made, and the post-migration backup holds only
+ISO country codes. Step 3 built the same evening (§6). Mockup:
 <https://claude.ai/artifact/KvPTqeESSdR6H29rL5EgkQ>.
 
 ## 1. Why
@@ -199,17 +200,28 @@ Untouched on purpose: Altona, Mitte, Westminster Borough, Abingdon, Bavaria, Bad
 Hesse, North Rhine-Westphalia, and blank regions for Aachen/Munich/Frankfurt (Region is optional
 outside US/CA/AU).
 
-## 6. What gets deleted afterwards
+## 6. What gets deleted afterwards — done 2026-10-08, with two decisions this section had missed
 
-- `LocationZoneResolver`: the country-name aliases (`usa`, `u.s.a.`, `england`…) and the
-  spelled-out state/province keys.
-- `UsStates.isUnitedStates` and the name→code half of `stateCode`; what remains is the list of
-  states that fills the select and validates the command.
-- `CityLabel` reduces to "US → region, else the country's name"; the public-calendar fallback for
-  an unrecognised US region goes, since the command no longer admits one.
-- The rung's own translation table is the one list of old spellings left. It goes when the rung is
+- [x] `LocationZoneResolver`: the country-name aliases (`usa`, `u.s.a.`, `england`…), the
+  spelled-out state/province keys, and the `antwerp` city entry that covered event 19's "Brussels"
+  country. Codes only now.
+- [x] `UsStates`, **deleted whole** rather than halved: `Subdivisions` already fills the select and
+  validates the command, so nothing was left for it to do.
+- [x] `CityLabel` reduces to "US → region, else the country's name". The public-calendar fallback for
+  an unrecognised US region went too (Ted chose this over keeping it as an allow-list): the command
+  refuses one, and the rung fails loud on one in an older backup.
+- [ ] The rung's own translation table is the one list of old spellings left. It goes when the rung is
   retired (`EventPayloadUpcasterDesign.md`, "How to retire a rung"), i.e. once pre-migration backups
   no longer need restoring.
+
+**What this section had missed: the zone names were not only a workaround.** The five datetime rungs
+resolved a pre-zone row's zone by its stored country *name*, and they run before the location-codes
+rung, so deleting the names would have broken restoring every backup older than 2026-08-19. Ted chose
+(2026-10-08) to **retire those rungs and those backups together**, over sharing one spelling list
+between the rungs or keeping the names until a later retirement. So the oldest backup that restores is
+now 2026-08-19: the 08-16 and 08-17 files and every `version: 2` file are refused on their first
+pre-zone row, writing nothing. The first rung retirement in the project, gated by the boot-replay
+preflight against the post-migration production backup (passed).
 
 ## 7. The display change
 

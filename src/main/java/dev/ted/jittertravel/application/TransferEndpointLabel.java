@@ -29,11 +29,11 @@ public class TransferEndpointLabel {
         return address.city();
     }
 
-    /** What anyone may see: the airport code, else the public {@link CityLabel} of the place. */
+    /** What anyone may see: the airport code, else the {@link CityLabel} of the place. */
     public String publicLabel(String airportCode, Address address) {
         if (!airportCode.isBlank()) {
             return airportCode;
         }
-        return cityLabel.publicLabel(address);
+        return cityLabel.label(address);
     }
 }

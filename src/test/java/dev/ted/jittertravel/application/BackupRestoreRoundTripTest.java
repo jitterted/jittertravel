@@ -91,26 +91,28 @@ class BackupRestoreRoundTripTest extends AbstractTestcontainerIntegrationTest {
                 .isEqualTo(commandsBefore);
     }
 
+    /**
+     * A version-2 file predates the schemaVersion stamp, so every event in it reads as version 1 —
+     * below the datetime rungs retired on 2026-10-08 (Ted chose to retire those backups with them).
+     * Restore refuses it, names the row, and writes nothing, rather than binding a stale shape.
+     */
     @Test
-    void restoresAPreStampVersion2BackupLeavingSchemaVersionNull() {
+    void aPreStampVersion2BackupIsRefusedWritingNothing() {
         persister.truncateAllTables();
         flightBooking.bookFlight(bookFlight(UUID.randomUUID().toString()), Instant.now());
 
-        // Simulate an old backup file taken before the schemaVersion stamp existed: version 2, and no
-        // schemaVersion key on any event. New code must still restore it (the stamp is simply absent).
         String v3Backup = backupService.backupJson(OffsetDateTime.parse("2026-08-11T14:30:00Z"), "local");
         String v2Backup = downgradeToPreStampVersion2(v3Backup);
 
         persister.truncateAllTables();
         BackupService.RestoreResult result = backupService.restoreJson(v2Backup);
 
-        assertThat(result.hasErrors())
-                .as("restore errors: %s", result.errors())
-                .isFalse();
+        assertThat(result.errors())
+                .as("the unstamped flight is below the retired datetime rung")
+                .anyMatch(error -> error.contains("No upcaster advances FlightBooked from schema version 1"));
         assertThat(persister.findAllEventsForBackup())
-                .as("a pre-stamp backup restores with a null schema_version, exactly like a legacy row")
-                .isNotEmpty()
-                .allSatisfy(e -> assertThat(e.schemaVersion()).isNull());
+                .as("validate-then-apply: a refused restore writes nothing")
+                .isEmpty();
     }
 
     private String downgradeToPreStampVersion2(String v3Backup) {

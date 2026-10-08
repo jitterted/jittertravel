@@ -6,8 +6,8 @@ import tools.jackson.databind.node.ObjectNode;
 /**
  * v2→v3 for {@code ConferencePlanned}: an absent {@code format} is injected as
  * {@link ConferenceFormat#CALL_FOR_PAPERS}, so the record's non-null field binds rather than reaching
- * a projector as a null. A field-default increment, not a datetime one — it needs no zone resolver
- * and no {@link WallClockZoning}, which is exactly why it is its own rung.
+ * a projector as a null. A field-default increment that needs no collaborators — which is why it was
+ * its own rung, and why it outlived the datetime rungs beside it (retired 2026-10-08).
  */
 class ConferenceFormatUpcaster implements EventUpcaster {
 

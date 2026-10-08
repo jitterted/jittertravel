@@ -301,7 +301,7 @@ class ItineraryProjectorTest {
         LocalDate checkOut = DATE.plusDays(3);
         HotelBooked event = new HotelBooked(
                 HotelBookingId.random(), "Marriott Downtown",
-                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
+                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "US", null),
                 zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null, null);
 
         projector.handle(Stream.of(stored(event)));
@@ -330,7 +330,7 @@ class ItineraryProjectorTest {
         LocalDate checkOut = DATE.plusDays(3);
         HotelBooked event = new HotelBooked(
                 HotelBookingId.random(), "Marriott Downtown",
-                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
+                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "US", null),
                 zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null, null);
 
         projector.handle(Stream.of(stored(event)));
@@ -419,13 +419,13 @@ class ItineraryProjectorTest {
         LocalDate checkOut = DATE.plusDays(3);
         HotelBooked booked = new HotelBooked(
                 id, "Marriott Downtown",
-                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
+                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "US", null),
                 zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null, null);
         LocalDate newCheckIn = DATE.plusDays(10);
         LocalDate newCheckOut = DATE.plusDays(12);
         HotelChanged changed = new HotelChanged(
                 id, "Hilton Union Square",
-                new Address("333 O'Farrell St", "San Francisco", "CA", "94102", "USA", null),
+                new Address("333 O'Farrell St", "San Francisco", "CA", "94102", "US", null),
                 zt(newCheckIn.atTime(16, 0)), zt(newCheckOut.atTime(10, 0)), BookingIntent.FINAL, null, null);
 
         projector.handle(Stream.of(stored(booked), stored(changed)));
@@ -458,7 +458,7 @@ class ItineraryProjectorTest {
                 conferenceId, "JitterConf 2026",
                 zt(DATE.atStartOfDay()), zt(DATE.plusDays(1).atStartOfDay()),
                 "Moscone Center",
-                new Address("747 Howard St", "San Francisco", "CA", "94103", "USA", null)))));
+                new Address("747 Howard St", "San Francisco", "CA", "94103", "US", null)))));
 
         assertThat(List.of(projector.entriesForDate(DATE).getFirst(),
                            projector.entriesForDate(DATE.plusDays(1)).getFirst()))
@@ -473,7 +473,7 @@ class ItineraryProjectorTest {
                 ConferenceId.random(), "JitterConf 2026",
                 zt(DATE.atStartOfDay()), zt(DATE.plusDays(2).atStartOfDay()),
                 "Moscone Center",
-                new Address("747 Howard St", "San Francisco", "CA", "94103", "USA", null));
+                new Address("747 Howard St", "San Francisco", "CA", "94103", "US", null));
 
         projector.handle(Stream.of(stored(event)));
 
@@ -501,7 +501,7 @@ class ItineraryProjectorTest {
                 conferenceId, "JitterConf 2026",
                 zt(DATE.atStartOfDay()), zt(DATE.plusDays(2).atStartOfDay()),
                 "Moscone Center",
-                new Address("747 Howard St", "San Francisco", "CA", "94103", "USA", null));
+                new Address("747 Howard St", "San Francisco", "CA", "94103", "US", null));
 
         projector.handle(Stream.of(stored(planned)));
         assertThat(projector.entriesForDate(DATE))
@@ -765,7 +765,7 @@ class ItineraryProjectorTest {
     private static HotelBooked hotelBooked(HotelBookingId id, String hotelName,
                                            LocalDate checkIn, LocalDate checkOut) {
         return new HotelBooked(id, hotelName,
-                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "USA", null),
+                new Address("742 Evergreen Terrace", "San Francisco", "CA", "94103", "US", null),
                 zt(checkIn.atTime(15, 0)), zt(checkOut.atTime(11, 0)), BookingIntent.FINAL, null, null);
     }
 
@@ -963,7 +963,7 @@ class ItineraryProjectorTest {
                 conferenceId, "JitterConf 2026",
                 zt(DATE.atStartOfDay()), zt(DATE.plusDays(1).atStartOfDay()),
                 "Moscone Center",
-                new Address("747 Howard St", "San Francisco", "CA", "94103", "USA", null),
+                new Address("747 Howard St", "San Francisco", "CA", "94103", "US", null),
                 format);
     }
 

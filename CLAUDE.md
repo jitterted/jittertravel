@@ -360,6 +360,11 @@ Two standing UI rules for buttons, links, and icons (Ted, 2026-08-19):
    were — same position on every row, in every state. Reserve the slot; do **not** re-align the
    container to compensate (flush-right was tried on `/conferences` and rejected: it reads as off,
    and it drags the column header right with it).
+   **What "move" means (Ted, 2026-10-08):** an action appearing or disappearing so that a
+   *different* action lands where another one used to be. A whole actions column drifting a little
+   sideways because content-sized columns changed width (showing cancelled flights widens Airline
+   on `/booked-flights`) is not a violation. The actions still line up vertically and keep their
+   order within each row, so the reader still aims at the right one.
 2. **An action that cannot be triggered right now is shown disabled, with the reason** — greyed,
    non-interactive text (a `span`, never a disabled `<a>`), carrying a `title` that says why. It is
    not removed. Removing it changes the row's vocabulary between rows and hides that the capability

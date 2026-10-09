@@ -131,10 +131,10 @@ class BookedFlightsRendererTest {
 
         assertThat(html)
                 .contains("class=\"flight-card flight-card-row flight-card--cancelled\"")
-                .as("when and why, in one box")
-                .contains("<span class=\"flight-cancelled-badge\"><span class=\"flight-cancelled-headline\">"
-                        + "Cancelled <span class=\"nowrap\">May 20, 2026</span></span>"
-                        + "<span class=\"flight-cancelled-reason\">Credit on file</span></span>")
+                .as("when and why, on one line of its own")
+                .contains("<div class=\"flight-cancelled-line\">"
+                        + "<span class=\"flight-cancelled-badge\">Cancelled May 20, 2026</span>"
+                        + "<span class=\"flight-cancelled-reason\">Credit on file</span></div>")
                 .contains("<span class=\"flight-action-disabled\" title=\"This flight was cancelled\">Edit</span>")
                 .contains("<span class=\"flight-action-disabled\" title=\"This flight was cancelled\">Cancel</span>")
                 .as("nothing left to follow on a cancelled flight")
@@ -187,45 +187,52 @@ class BookedFlightsRendererTest {
         String html = BookedFlightsRenderer.render(List.of(cancelled), TimeView.ALL, CancelledView.SHOW, 1);
 
         assertThat(html)
-                .contains("<span class=\"flight-cancelled-badge\"><span class=\"flight-cancelled-headline\">"
-                        + "Cancelled <span class=\"nowrap\">May 20, 2026</span></span></span>")
+                .contains("<div class=\"flight-cancelled-line\">"
+                        + "<span class=\"flight-cancelled-badge\">Cancelled May 20, 2026</span></div>")
                 .as("no reason given, so no empty reason line")
                 .doesNotContain("<span class=\"flight-cancelled-reason\">");
     }
 
     /**
-     * The layout rules the 2026-09-29 measurements settled, pinned as CSS because the renderer is
-     * the only place they exist. What they buy — no column wraps while another has room, no
-     * overflow at any width — was measured in headless Chrome, which this tier cannot do; these
-     * assertions stop the declarations that produce it being "tidied" away.
+     * The layout rules the 2026-10-08 measurements settled, pinned as CSS because the renderer is
+     * the only place they exist. What they buy (columns only as wide as their content, a reason
+     * that never widens one, no overflow at any width) was measured in headless Chrome, which this
+     * tier cannot do. These assertions stop the declarations that produce it being "tidied" away.
      */
     @Test
-    void theGridLetsRouteAbsorbSpaceOnlyAfterEveryOtherColumnIsOnOneLine() {
+    void theColumnsPackToTheirContentAndTheSpareWidthGoesToAnEmptyTrackAtTheEnd() {
         // A row, not an empty list: the empty state renders no header, and the header is asserted.
         String html = BookedFlightsRenderer.render(List.of(
                 viewWithoutChanges("Sat, Jun 6, 1:55 PM", "SFO→FRA", "United", "UA59")
         ), TimeView.FUTURE);
 
         assertThat(html)
-                .as("auto tracks reach max-content before the one fr track gets anything")
-                .contains("grid-template-columns: auto auto 1fr auto auto 28px auto;")
-                .doesNotContain("grid-template-columns: 2fr 2fr")
-                .doesNotContain("min-content min-content")
-                .as("the cancelled box claims Route's width by content, and only on a table with room")
-                .contains("container-type: inline-size;")
-                .contains("@container (width >= 41rem) {\n    .flight-cancelled-headline { white-space: nowrap; }")
-                .as("the actions never wrap, so toggling the cancelled view cannot move them")
+                .as("every data column is auto, and only the empty last track is fr")
+                .contains("grid-template-columns: auto auto auto auto auto auto 1fr;")
+                .doesNotContain("grid-template-columns: auto auto 1fr")
+                .as("spacing is padding, so no gap is spent in front of the empty track")
+                .doesNotContain("column-gap:")
+                .contains(".flight-card-cell { padding-right: 24px; }")
+                .contains(".flight-card-cell.flight-number { padding-right: 36px; }")
+                .as("the header cells carry the same spacing as the column they name")
+                .contains("<div class=\"flight-card-cell\">Departure</div>")
+                .contains("<div class=\"flight-card-cell flight-number\">Flight #</div>")
+                .as("the reason has no width of its own, so it can never widen a column")
+                .contains("grid-column: 1 / -1; contain: inline-size;")
+                .as("clip, not hidden: an overflow is a bug to see, not to scroll away")
+                .contains("overflow: clip;")
+                .doesNotContain("overflow: hidden;")
+                .as("the actions never wrap, so Edit and Cancel keep their shape on every row")
                 .contains(".flight-actions { display: flex; gap: 0.75rem; align-items: baseline; }")
                 .doesNotContain(".flight-actions { display: flex; flex-wrap: wrap;")
-                .as("stack where the floors stop fitting, measured")
-                .contains("@media (max-width: 640px) {")
-                .as("no side insets: they were width taken from the table, and pushed its floors past the breakpoint")
-                .contains(".conference-container { margin: 1rem 0 0; }")
+                .as("stack where the floors stop fitting, measured on the list rather than the viewport")
+                .contains(".conference-container { margin: 1rem 0 0; container: flights / inline-size; }")
+                .contains("@container flights (width < 40rem) {")
+                .doesNotContain("@media (max-width:")
                 .as("the time always on its own line under the date, not only when the column is narrow")
                 .contains(".flight-card-row time > .nowrap { display: block; }")
                 .as("a short header, so it is not the Flight # column's widest line")
-                .contains("<div>Flight #</div>")
-                .doesNotContain("<div>Flight Number</div>");
+                .doesNotContain(">Flight Number</div>");
     }
 
     @Test
@@ -259,6 +266,39 @@ class BookedFlightsRendererTest {
         assertThat(html)
                 .contains("Booked on 2026-05-20 12:22PM")
                 .contains("Changed on 2026-05-21 9:00AM");
+    }
+
+    /**
+     * The visible sign that a row opens, under its route. It replaced a lightning bolt in a column
+     * of its own (Ted, 2026-10-08), and it must read as tappable at rest: the iPad has no hover.
+     */
+    @Test
+    void aChangedFlightSaysSoUnderItsRouteWithAMarkerThatTurnsWhenOpen() {
+        String html = BookedFlightsRenderer.render(List.of(
+                viewWithChanges("", "SFO→FRA", "United", "UA59",
+                        "Booked on 2026-05-20 12:22PM",
+                        "Changed on 2026-05-21 9:00AM")
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .contains("</a><span class=\"flight-changed\">Changed</span></div>")
+                .as("an underline at rest, not on hover")
+                .contains("font-size: 0.8rem; color: var(--accent-color); text-decoration: underline;")
+                .contains(".flight-changed::after { content: \" \\25B8\"; }")
+                .contains(".flight-card-has-history[open] .flight-changed::after { content: \" \\25BE\"; }")
+                .as("the lightning bolt and its column are gone")
+                .doesNotContain("flight-card-chevron")
+                .doesNotContain("⚡");
+    }
+
+    @Test
+    void anUnchangedFlightHasNoChangedMarker() {
+        String html = BookedFlightsRenderer.render(List.of(
+                viewWithoutChanges("", "SFO→FRA", "United", "UA59")
+        ), TimeView.FUTURE);
+
+        assertThat(html)
+                .doesNotContain("<span class=\"flight-changed\">");
     }
 
     @Test

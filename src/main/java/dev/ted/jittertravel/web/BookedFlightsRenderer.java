@@ -22,58 +22,56 @@ public class BookedFlightsRenderer {
     private static final DateTimeFormatter CANCELLED_ON =
             DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH);
 
-    // No container max-width, and the grid collapses instead of scrolling. Wide, the seven columns
-    // sit side by side; at 640px and below they stack into one column, the column header hides, and each
-    // info cell shows its own leg label so Departure/Arrival/Route/Airline/Flight Number stay
-    // unambiguous. The empty chevron slot is dropped from plain rows when stacked, but kept on
-    // history rows as their expand affordance. The time always sits on its own line under the date
-    // (see the time > .nowrap rule). No page ever scrolls sideways.
+    // No container max-width, and the grid collapses instead of scrolling. Wide, the six columns
+    // sit side by side, each only as wide as its content; on a narrow list they stack into one
+    // column, the column header hides, and each info cell shows its own leg label so
+    // Departure/Arrival/Route/Airline/Flight Number stay unambiguous. The time always sits on its
+    // own line under the date (see the time > .nowrap rule). No page ever scrolls sideways.
     //
-    // ONE grid owns the columns. .flight-cards defines the seven tracks; the header and every row
-    // (and a history flight's <details> and its <summary>) inherit them with
+    // ONE grid owns the columns. .flight-cards defines the tracks; the header and every row (and a
+    // history flight's <details> and its <summary>) inherit them with
     // grid-template-columns: subgrid, so all columns are sized once from every row's content
-    // together and line up across rows — with min-content floors, so no cell overflows into the
-    // next. (Separate per-row grids drift out of alignment; fixed floors instead let wide content
-    // overflow and overlap.) A history flight's change list lives INSIDE its <summary> (the grid
-    // row that already spans all seven columns), so the list — grid-column: 1 / -1 within that same
-    // subgrid row — spans every column too. As a sibling of the summary it stayed in the first
-    // column instead.
+    // together and line up across rows. (Separate per-row grids drift out of alignment.) A
+    // history flight's change list and a cancelled flight's reason both live INSIDE the row (the
+    // grid row that already spans every column), so with grid-column: 1 / -1 they span every
+    // column too. As siblings of the summary they stayed in the first column instead.
     private static final String CSS = """
             /* No side margin or padding: the list lines up with the heading and nav above it rather
-               than sitting 48px in from them on each side, which was width taken from the table. */
-            .conference-container { margin: 1rem 0 0; }
+               than sitting 48px in from them on each side, which was width taken from the table.
+               It is also the container the stacking query below asks about: the grid cannot be its
+               own query container, because the rules there change the grid itself. */
+            .conference-container { margin: 1rem 0 0; container: flights / inline-size; }
             .flight-cards {
                 display: grid;
-                /* Nothing wraps while another column has room, and this falls out of the grid's
-                   own track sizing (CSS Grid, "Maximize Tracks" before "Expand Flexible Tracks"):
-                   free space first grows every auto track toward its max-content, and only what
-                   is left goes to the one fr track. So Departure, Arrival, Airline and Flight
-                   Number reach one line before Route gets anything extra, and they wrap only when
-                   the row genuinely cannot hold them. Route is the absorber.
-                   Route's own claim is made by content, not here: a cancelled flight's box keeps
-                   its "Cancelled <date>" line unbroken, which raises Route's min-content (its base
-                   size) to that line only while such a row is on the page. Rows share these tracks
-                   through subgrid, so the default list is unaffected. Tried and rejected:
-                   2fr 2fr 3fr auto auto, where auto tracks eat the free space before any fr,
-                   leaving Route too narrow for the box at 820px; min-content for Airline, which
-                   wrapped it even with room to spare; and a 12rem min-width on the box, a guess
-                   that claimed more than the line needs and wrapped the dates at 1024px.
-                   inline-size containment is for the container query on the box below; this
-                   element's width comes from its parent anyway, so containment changes nothing
-                   about it. */
-                grid-template-columns: auto auto 1fr auto auto 28px auto;
-                container-type: inline-size;
-                column-gap: 0.75rem;
+                /* Every data column is auto, so each is exactly as wide as its widest cell, and the
+                   one fr track at the end takes whatever is left. The card still spans the page
+                   (its rows span all seven tracks), but the columns pack to the left instead of
+                   one of them stretching to fill it (Ted, 2026-10-08). The last track holds no
+                   cell, which is why the spacing below is padding rather than column-gap: a gap
+                   would also sit in front of the empty track and spend width on nothing, which is
+                   what made 30px gaps wrap Route at 820px.
+                   Before this, Route was the 1fr absorber, and a cancelled flight's reason sat in
+                   its cell and set its floor. The reason now has a line of its own under the row,
+                   with zero intrinsic width (see .flight-cancelled-line), so it never widens a
+                   column at all. */
+                grid-template-columns: auto auto auto auto auto auto 1fr;
                 margin-top: 1rem;
                 background-color: var(--surface, #fff);
-                border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;
+                /* clip, not hidden: the corners need it, but hidden would also make this a scroll
+                   container, and an overflow here is a layout bug to fix rather than to mask. */
+                border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: clip;
             }
             .flight-card-header, .flight-card-row {
                 grid-column: 1 / -1;
                 display: grid;
                 grid-template-columns: subgrid;
-                align-items: center; padding: 10px 16px;
+                align-items: center; padding: 12px 20px;
             }
+            /* The space between columns: 24px after every data column, and 36px between Flight #
+               and the actions, which read as one block without it (Ted, 2026-10-08). Padding on
+               the cell instead of column-gap; see .flight-cards for why. */
+            .flight-card-cell { padding-right: 24px; }
+            .flight-card-cell.flight-number { padding-right: 36px; }
             /* The Add-to-Google icon beside the route. Larger than site.css's 1.15rem, with a visible
                gap of 0.5rem (the 0.15rem margin plus the 0.35rem of hit-area padding that
                .gcal-add cancels with a negative margin). The icon is an inline-flex box whose
@@ -84,10 +82,7 @@ public class BookedFlightsRenderer {
             .flight-route .gcal-add svg { width: 1.4rem; height: 1.4rem; }
             .flight-edit-link { font-size: 0.85rem; color: var(--accent-color); text-decoration: none; }
             .flight-edit-link:hover { text-decoration: underline; }
-            /* Never wraps: letting Cancel drop under Edit made the pair change shape at 820px only
-               while cancelled flights were shown, so toggling the view moved the actions
-               (affordances never move). The cost is a wider floor, paid by stacking the whole
-               table earlier — see the media query below. */
+            /* Never wraps: letting Cancel drop under Edit made the pair change shape between rows. */
             .flight-actions { display: flex; gap: 0.75rem; align-items: baseline; }
             /* Red, matching the confirmation page it leads to: there is no undo from inside the app. */
             .flight-cancel-link { font-size: 0.85rem; color: #b00; text-decoration: none; }
@@ -121,22 +116,17 @@ public class BookedFlightsRenderer {
             .flight-trip-leg { display: block; margin-top: 1px; font-size: 0.7rem; color: var(--muted-text); }
             /* A cancelled flight is a record, muted so it reads as inactive. */
             .flight-card--cancelled .flight-card-cell { color: var(--muted-text); }
-            /* The headline line is what claims Route's width for the box (see .flight-cards): kept
-               unbroken, it is the box's min-content, so the claim is exactly as wide as the text.
-               Only on a table wide enough to afford it — a container query on the table itself,
-               not the viewport. 41rem is measured: the narrowest table on which the seven columns'
-               floors (645px with an unbroken headline) still fit; below it the headline may break
-               after "Cancelled" again, or the grid would overflow. The reason always wraps inside
-               the box. */
+            /* When and why, on a line of its own under the row and spanning all of it. contain:
+               inline-size gives the line no intrinsic width, so however long the reason is it
+               wraps inside the width the columns already made and never widens one of them. */
+            .flight-cancelled-line {
+                grid-column: 1 / -1; contain: inline-size;
+                margin-top: 4px; font-size: 0.85rem; line-height: 1.4; color: var(--text-color);
+            }
             .flight-cancelled-badge {
-                display: block; width: fit-content; margin-top: 0.2rem;
-                padding: 1px 7px; border-radius: 4px; font-size: 0.75rem;
-                background: #f1f1f1; color: #6b7280;
+                display: inline-block; margin-right: 0.5rem; padding: 0 7px; border-radius: 4px;
+                font-size: 0.75rem; background: #f1f1f1; color: #6b7280; white-space: nowrap;
             }
-            @container (width >= 41rem) {
-                .flight-cancelled-headline { white-space: nowrap; }
-            }
-            .flight-cancelled-reason { display: block; margin-top: 0.15rem; color: var(--text-color); }
             /* Its own row under the toolbar, as the conferences' jump bar, so the toolbar keeps the
                time toggle and the create link on one row. The switch copies the conferences' "Show
                dropped": the label never changes, only the box, so it says what the page shows. */
@@ -161,6 +151,7 @@ public class BookedFlightsRenderer {
                 border-color: var(--accent-color); background: var(--accent-color);
             }
             .flight-card-header {
+                padding-block: 10px;
                 background-color: var(--header-bg); color: var(--muted-text);
                 font-weight: 600; text-transform: uppercase;
                 font-size: 0.75rem; letter-spacing: 0.5px;
@@ -177,27 +168,31 @@ public class BookedFlightsRenderer {
             .flight-card-has-history > summary { cursor: pointer; list-style: none; }
             .flight-card-has-history > summary::-webkit-details-marker { display: none; }
             .flight-card-has-history > summary:hover { background-color: var(--hover-bg); }
-            .flight-card-chevron::before {
-                content: "⚡️"; color: var(--muted-text);
-                transition: transform 0.15s ease; display: inline-block;
+            /* What says a row opens, under its route. It replaced a lightning bolt in a column of
+               its own (Ted, 2026-10-08): the bolt said nothing about what it was for, and its
+               column cost the width the wider spacing needed. Accent and a permanent underline, so
+               it reads as tappable with nothing pointing at it — the iPad has no hover. A span,
+               not a link: the whole summary is the toggle, and this is its visible sign. */
+            .flight-changed {
+                display: block; width: fit-content;
+                font-size: 0.8rem; color: var(--accent-color); text-decoration: underline;
             }
-            .flight-card-has-history[open] > summary .flight-card-chevron::before { transform: rotate(90deg); }
-            div.flight-card-row > .flight-card-chevron::before,
-            .flight-card-header > .flight-card-chevron::before { content: ""; }
+            .flight-changed::after { content: " \\25B8"; }
+            .flight-card-has-history[open] .flight-changed::after { content: " \\25BE"; }
             .flight-departure { font-weight: 500; }
             /* The time always on its own line under the date, at every width (Ted, 2026-09-30):
                run into the date on one line, the time is hard to pick out. The two are already
                separate .nowrap spans inside the <time>, so making each a block is the whole change;
                the vertical space is the price, paid knowingly. */
             .flight-card-row time > .nowrap { display: block; }
-            /* Inside the summary's subgrid row; grid-column: 1 / -1 spans all seven columns, with
-               the entries stacking in its single implicit column. It lives in the summary (not as a
-               sibling) so it spans, but is hidden while the <details> is closed so the chevron still
-               shows/hides it — the summary click toggles [open] as usual. */
+            /* Inside the summary's subgrid row; grid-column: 1 / -1 spans every column, with the
+               entries stacking in its single implicit column. It lives in the summary (not as a
+               sibling) so it spans, but is hidden while the <details> is closed so tapping the row
+               still shows/hides it — the summary click toggles [open] as usual. */
             .flight-history-list {
                 grid-column: 1 / -1;
                 display: grid;
-                margin: 0; padding: 4px 16px 12px 3rem; color: var(--muted-text); font-size: 0.9rem;
+                margin: 0; padding: 4px 16px 0 2rem; color: var(--muted-text); font-size: 0.9rem;
             }
             .flight-card-has-history:not([open]) .flight-history-list { display: none; }
             .flight-history-list li { list-style: none; margin: 0.15rem 0; }
@@ -209,12 +204,13 @@ public class BookedFlightsRenderer {
                 font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
                 letter-spacing: 0.5px; color: var(--muted-text);
             }
-            /* Measured: the columns' floors (the DEPARTURE header, an unbreakable route, the
-               unwrapping Edit/Cancel, a cancelled row's box) need 586px of table, which the page
-               gives from 618px. Watch this when widening a floor or the container's margins: with
-               the old 48px side insets the same floors overflowed from 641 to ~715px — clipped by
-               overflow: hidden rather than scrolling, so the right edge simply went missing. */
-            @media (max-width: 640px) {
+            /* Measured (2026-10-08, headless Chrome, a cancelled "United Airlines" row and two
+               trips on the page): the columns' floors need 621px of list, and overflow by 13px at
+               608. 40rem leaves a little over that. A container query on the list, not the
+               viewport, so the breakpoint is the list's own width whatever margins the page has
+               around it. Watch this when widening a column's padding: every 8px added across the
+               six columns is 48px more floor. */
+            @container flights (width < 40rem) {
                 .flight-cards { grid-template-columns: 1fr; }
                 .flight-card-header { display: none; }
                 .flight-card-row {
@@ -222,7 +218,6 @@ public class BookedFlightsRenderer {
                     align-items: start; gap: 0.15rem;
                 }
                 .leg-label { display: block; margin-top: 0.5rem; }
-                div.flight-card-row > .flight-card-chevron { display: none; }
                 .flight-card-row > .flight-actions-cell { justify-self: start; margin-top: 0.6rem; }
             }
             """;
@@ -309,15 +304,16 @@ public class BookedFlightsRenderer {
     private static DomContent renderFlightList(List<BookedFlightView> flights, Map<FlightId, FlightTrip> trips) {
         boolean reserveTripLine = !trips.isEmpty();
         return div().withClass("flight-cards").with(
+                // The header cells carry the data cells' classes, so a column's spacing is stated
+                // once and the header cannot sit a few pixels off the column it names.
                 header().withClass("flight-card-header").with(
-                        div("Departure"),
-                        div("Arrival"),
-                        div("Route"),
-                        div("Airline"),
+                        div("Departure").withClass("flight-card-cell"),
+                        div("Arrival").withClass("flight-card-cell"),
+                        div("Route").withClass("flight-card-cell"),
+                        div("Airline").withClass("flight-card-cell"),
                         // Short, so the header is not the column's widest line; stacked, each cell's
                         // own leg label has the room and keeps the full "Flight Number".
-                        div("Flight #"),
-                        div().withClass("flight-card-chevron").attr("aria-hidden", "true"),
+                        div("Flight #").withClass("flight-card-cell flight-number"),
                         div()
                 ),
                 each(flights, flight -> renderFlightCard(flight, trips.get(flight.flightId()), reserveTripLine))
@@ -330,8 +326,8 @@ public class BookedFlightsRenderer {
                                 + (trip == null ? "" : " flight-card--trip-" + trip.hue());
         if (flight.hasChanges()) {
             // The change list lives inside the <summary> — the grid row that already spans and
-            // aligns the seven columns — so the list (grid-column: 1 / -1 within that same subgrid
-            // row) spans every column too. As a sibling of the summary it stayed stuck in the first
+            // aligns the columns — so the list (grid-column: 1 / -1 within that same subgrid row)
+            // spans every column too. As a sibling of the summary it stayed stuck in the first
             // column.
             return details().withClass("flight-card flight-card-has-history" + cancelledClass).with(
                     summary().withClass("flight-card-row")
@@ -345,8 +341,9 @@ public class BookedFlightsRenderer {
                     .with(rowCells(flight, changeUrl, trip, reserveTripLine));
     }
 
-    // The plain row and the history summary row share the same seven grid cells, so both pick up the
-    // stacking times, the leg labels, and the collapse behaviour from one place.
+    // The plain row and the history summary row share the same cells, so both pick up the
+    // stacking times, the leg labels, the cancellation line and the collapse behaviour from one
+    // place.
     private static DomContent[] rowCells(BookedFlightView flight, String changeUrl,
                                          FlightTrip trip, boolean reserveTripLine) {
         return new DomContent[]{
@@ -356,18 +353,19 @@ public class BookedFlightsRenderer {
                         legLabel("Arrival"), dateTime(flight.arrivalDateTime())),
                 div().withClass("flight-card-cell flight-route").with(
                         legLabel("Route"), text(flight.route()),
-                        // A ternary, not iff(): iff evaluates its argument eagerly, and a live
-                        // flight has no cancelledOn to format.
-                        flight.cancelled() ? cancelledBadge(flight) : googleCalendarIcon(flight)),
+                        flight.cancelled() ? text("") : googleCalendarIcon(flight),
+                        flight.hasChanges() ? span("Changed").withClass("flight-changed") : text("")),
                 div().withClass("flight-card-cell").with(
                         legLabel("Airline"), text(flight.airline())),
-                div().withClass("flight-card-cell").with(
+                div().withClass("flight-card-cell flight-number").with(
                         legLabel("Flight Number"), text(flight.flightNumber()),
                         trip == null ? text("") : tripChip(trip)),
-                div().withClass("flight-card-cell flight-card-chevron").attr("aria-hidden", "true"),
                 div().withClass("flight-actions-cell").with(
                         flight.cancelled() ? disabledActions() : actions(changeUrl),
-                        tripAction(flight, trip, reserveTripLine))
+                        tripAction(flight, trip, reserveTripLine)),
+                // A ternary, not iff(): iff evaluates its argument eagerly, and a live flight has
+                // no cancelledOn to format.
+                flight.cancelled() ? cancelledLine(flight) : text("")
         };
     }
 
@@ -385,7 +383,7 @@ public class BookedFlightsRenderer {
      * cancelled flight does not offer it, since pushing one to Google is only noise.
      */
     private static DomContent googleCalendarIcon(BookedFlightView flight) {
-        String title = flight.flightNumber() + " \u00b7 " + flight.route();
+        String title = flight.flightNumber() + " · " + flight.route();
         String href = GoogleCalendarLink.href(
                 title, flight.departureDateTime(), flight.arrivalDateTime(), "", "");
         return GoogleCalendarLink.icon(href, "Add " + title + " to Google Calendar");
@@ -394,7 +392,7 @@ public class BookedFlightsRenderer {
     /**
      * The itinerary's confirmation code, tinted to match the row's left edge, with this leg's place
      * in it underneath. The label sits below the code rather than beside it so the chip adds no
-     * width to the Flight # column, whose floor is part of the measured table (see the media query).
+     * width to the Flight # column.
      * The tint is a hint only; the code is what identifies the trip.
      */
     private static DomContent tripChip(FlightTrip trip) {
@@ -449,25 +447,23 @@ public class BookedFlightsRenderer {
     }
 
     /**
-     * One box saying when and why the flight was cancelled (Ted, 2026-09-29). The date is shown in
-     * the departure airport's zone: {@code cancelledOn} is an instant, and the flight's own zone is
-     * the one on the rest of the row. The reason, when one was given, is written out inside the box
-     * rather than hidden in a tooltip: the iPad has no hover, and the extra height is fine on a list
-     * you opted into.
+     * When and why the flight was cancelled (Ted, 2026-09-29), on a line of its own under the row
+     * (Ted, 2026-10-08) so a long reason wraps across the whole row instead of widening the Route
+     * column. The date is shown in the departure airport's zone: {@code cancelledOn} is an instant,
+     * and the flight's own zone is the one on the rest of the row. The reason is written out rather
+     * than hidden in a tooltip: the iPad has no hover, and the extra height is fine on a list you
+     * opted into.
      */
-    private static DomContent cancelledBadge(BookedFlightView flight) {
+    private static DomContent cancelledLine(BookedFlightView flight) {
         String on = CANCELLED_ON.format(flight.cancelledOn().atZone(flight.departureDateTime().zone()));
-        // The date is one no-break unit, so a narrow Route column breaks only after "Cancelled";
-        // the headline span is what the container query keeps whole when the table has room.
-        var badge = span(span(text("Cancelled "), span(on).withClass("nowrap"))
-                                 .withClass("flight-cancelled-headline"))
-                .withClass("flight-cancelled-badge");
+        var line = div(span("Cancelled " + on).withClass("flight-cancelled-badge"))
+                .withClass("flight-cancelled-line");
         return flight.cancellationReason().isBlank()
-                ? badge
-                : badge.with(span(flight.cancellationReason()).withClass("flight-cancelled-reason"));
+                ? line
+                : line.with(span(flight.cancellationReason()).withClass("flight-cancelled-reason"));
     }
 
-    // Shown only once the grid stacks (see the media query); on a wide viewport the column header
+    // Shown only once the grid stacks (see the container query); on a wide list the column header
     // carries these labels instead.
     private static DomContent legLabel(String text) {
         return span(text).withClass("leg-label");

@@ -691,7 +691,7 @@ the log **to the sequence of the last `FamilyNotified`** and recompute what was 
 exactly the argument §9.5 used to drop `summary`, and it is a good argument there. It is weaker
 here: `summary` was a *rendered string* the log could reproduce, whereas `fact` is the decision the
 notifier made, and a decision that is recomputed can silently change when the folding rules change —
-a later edit to `ConferenceProgress` would retroactively alter what the log says family were told.
+a later edit to `ConferenceState` would retroactively alter what the log says family were told.
 `fact` is also what makes the comparison a one-line read instead of a sequence-aware fold that
 nothing in the codebase does today. Recorded rather than assumed: this is the one place the plan
 stores a derived value. **Confirmed 2026-09-10 (Ted, Q5): stored.** The distinction that decided it
@@ -754,14 +754,14 @@ and was rejected because the conference message needs the event-stream fold, whi
 original list — `ConferenceAttendanceConfirmed`, `ConferenceAttendanceDeclined`,
 `ConferenceCancelled` — misses both of the paths the code actually takes most often:
 
-- **`TalkAccepted` is an auto-commit.** `ConferenceProgress.accepted()` says so in its own javadoc:
+- **`TalkAccepted` is an auto-commit.** `ConferenceState.accepted()` says so in its own javadoc:
   *"An acceptance makes Ted GOING on its own, **with no confirmation event anywhere** — submitting
   the talk was already the opt-in."* On `/conferences` the `Accepted` link emits `TalkAccepted`, not
   a confirmation. So on the CFP path — the ordinary way Ted gets into a conference — the original
   trigger list fires **nothing**, and §5's flagship example (*"Ted is going to SoCraTes 2026 / His
   talk was accepted."*) is the case that would almost never have been sent.
 - **`TalkRejected` is an auto-drop** where `format == ACCEPTANCE_REQUIRED`:
-  `ConferenceProgress.rejected()` moves the commitment to `NOT_GOING`, the conference leaves both
+  `ConferenceState.rejected()` moves the commitment to `NOT_GOING`, the conference leaves both
   calendars, and no decline or cancellation event is ever written. So §9.1's guarantee — no released
   version can tell family he is going and never that he is not — does not hold for that format.
 
@@ -773,7 +773,7 @@ them, `NotifyFamily` folds that conference's own events and asks what family sho
 ```
 fold the conference's events →
     ConferencePlanned            → name, dates, venue, infoUrl   (the message's content)
-    ConferenceProgress           → commitment, speakingStatus, speaking()
+    ConferenceState           → commitment, speakingStatus, speaking()
     ConferenceCancelled          → gone
 
 gone or commitment == NOT_GOING  → CONFERENCE_NOT_GOING
@@ -781,10 +781,10 @@ commitment == GOING              → CONFERENCE_GOING
 commitment == WATCHING           → nothing to say, ever
 ```
 
-**`ConferenceCancelled` is folded separately from `ConferenceProgress`, and this is a real shape of
+**`ConferenceCancelled` is folded separately from `ConferenceState`, and this is a real shape of
 the code rather than an oversight** (checked 2026-09-10): `ConferenceCalendarProjector` handles it
 with `entries.remove(conferenceId)`, a hard removal, while every other conference event is a
-`ConferenceProgress` transition. The notifier's fold has to carry the same two-part state.
+`ConferenceState` transition. The notifier's fold has to carry the same two-part state.
 
 **`TalkSubmitted`, `TalkWithdrawn` and `InvitedToSpeak` are not triggers**, because they move only
 the speaking axis and leave the commitment where it was — which under the fact-comparison rule
@@ -933,7 +933,7 @@ name, venue or dates**, so the message cannot be built from the triggering event
 folds the stream for the matching `ConferencePlanned` (`name`, `startDate`, `endDate`, `venueName`,
 `venueAddress`, `infoUrl`) — the same fold `ConfirmConferenceAttendance` already performs for
 existence, and R1-compatible because it reads the stream and not a projector. It folds
-`ConferenceProgress` in the same pass (§4.5), so the commitment and the speaking line come from one
+`ConferenceState` in the same pass (§4.5), so the commitment and the speaking line come from one
 traversal.
 
 ```
@@ -953,7 +953,7 @@ per value, mapped explicitly in `FamilyNotificationMessages` rather than by prin
 
 **The speaking line has two sources, and only one is an `AttendanceBasis`** (2026-09-10). On the
 auto-commit path there is no `ConferenceAttendanceConfirmed` and therefore **no basis at all** — the
-line has to come from `ConferenceProgress.speakingStatus()`/`speaking()` instead. So the mapping is
+line has to come from `ConferenceState.speakingStatus()`/`speaking()` instead. So the mapping is
 over the folded progress, not over the basis enum: an `ACCEPTED` speaking status gives *"His talk
 was accepted."*, a confirmation with `SPEAKING_INVITED` gives the invited wording,
 `TICKET_PURCHASED` with no speaking gives no line at all. `AttendanceBasis` remains *includable*
@@ -1215,7 +1215,7 @@ with slice 1; if it slips, correct §6.1's wording in slice 1's commit rather th
 standing.
 
 **Slice 2 — conferences, every commitment transition together.** Adds the `ConferencePlanned` +
-`ConferenceProgress` + cancelled fold, the second `NotifiedSubject` variant, and **five** trigger
+`ConferenceState` + cancelled fold, the second `NotifiedSubject` variant, and **five** trigger
 arms: `ConferenceAttendanceConfirmed`, `ConferenceAttendanceDeclined`, `ConferenceCancelled`,
 `TalkAccepted`, `TalkRejected`. Sequenced second because it is the one that needs the fold, and
 slice 1 proves the pipe without it. **The five do not split further** (§9.1): shipping the
@@ -1230,7 +1230,7 @@ written on 2026-10-05; it is in `conference-going.txt` and `conference-not-going
 
 - **The fold is `application/ConferenceStanding`**, a package-private record built by an explicit
   loop over the stream: the `ConferencePlanned` (with a later `ConferenceDatesChanged` applied),
-  `ConferenceProgress` for commitment and speaking, `ConferenceCancelled` folded separately, the last
+  `ConferenceState` for commitment and speaking, `ConferenceCancelled` folded separately, the last
   `AttendanceBasis`, and **how it ended**. The ending is recorded on the move that *drops* the
   conference, so a rejection recorded after he had already declined does not change the sentence.
   Reads the stream, never a projector (R1). `NotifyFamily.notifyOfConference(commandId, conference,

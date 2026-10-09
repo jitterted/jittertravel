@@ -81,7 +81,7 @@ import java.util.stream.Stream;
 public class TransferEndpointProjector implements EventStreamConsumer {
 
     private final Map<RowKey, TransferEndpointRow> rows = new ConcurrentHashMap<>();
-    /** Held only so a conference's progress can say whether it has been dropped. */
+    /** Held only so a conference's state can say whether it has been dropped. */
     private final Map<ConferenceId, TrackedConference> conferences = new ConcurrentHashMap<>();
     private final Map<PrivateEventId, TrackedPrivateEvent> privateEvents = new ConcurrentHashMap<>();
     private final TransferEndpointLabel labels = new TransferEndpointLabel();
@@ -136,20 +136,20 @@ public class TransferEndpointProjector implements EventStreamConsumer {
                         e.location(), e.startsAt(), e.endsAt());
                 case ConferencePlanned e -> trackConference(new TrackedConference(e.conferenceId(),
                         e.name(), e.venueName(), e.venueAddress(), e.startDate(), e.endDate(),
-                        ConferenceProgress.planned(e.format())));
+                        ConferenceState.planned(e.format())));
                 case ConferenceDatesChanged e -> redateConference(e.conferenceId(),
                         e.startDate(), e.endDate());
                 // The organizers called it off: there is no venue to ride to.
                 case ConferenceCancelled e -> forgetConference(e.conferenceId());
-                // Only these two can drop a conference, and ConferenceProgress alone says whether
+                // Only these two can drop a conference, and ConferenceState alone says whether
                 // they did — a conference Ted is no longer going to stops being offered exactly
                 // when it leaves the schedule. The other talk and attendance events cannot change
                 // that (a rejection drops by the format alone, a decline always does), so unlike
                 // ScheduleGapProjector this does not fold them: here they would be dead weight.
                 case ConferenceAttendanceDeclined e ->
-                        moveConference(e.conferenceId(), ConferenceProgress::declined);
+                        moveConference(e.conferenceId(), ConferenceState::declined);
                 case TalkRejected e ->
-                        moveConference(e.conferenceId(), ConferenceProgress::rejected);
+                        moveConference(e.conferenceId(), ConferenceState::rejected);
                 case PrivateEventPlanned e -> trackPrivateEvent(new TrackedPrivateEvent(
                         e.privateEventId(), e.venueName(), e.location(), e.startsAt(), e.endsAt()));
                 // An amendment of an existing event, never a new one: it replaces the city the
@@ -314,9 +314,9 @@ public class TransferEndpointProjector implements EventStreamConsumer {
 
     /** An event for a conference never seen is a no-op; one that drops it takes its rows with it. */
     private void moveConference(ConferenceId conferenceId,
-                                UnaryOperator<ConferenceProgress> change) {
+                                UnaryOperator<ConferenceState> change) {
         TrackedConference tracked = conferences.get(conferenceId);
-        if (tracked != null && change.apply(tracked.progress()).dropped()) {
+        if (tracked != null && change.apply(tracked.state()).dropped()) {
             forgetConference(conferenceId);
         }
     }
@@ -331,10 +331,10 @@ public class TransferEndpointProjector implements EventStreamConsumer {
 
     private record TrackedConference(ConferenceId conferenceId, String name, String venueName,
                                      Address venueAddress, ZonedTimestamp startDate,
-                                     ZonedTimestamp endDate, ConferenceProgress progress) {
+                                     ZonedTimestamp endDate, ConferenceState state) {
         TrackedConference during(ZonedTimestamp newStart, ZonedTimestamp newEnd) {
             return new TrackedConference(conferenceId, name, venueName, venueAddress,
-                    newStart, newEnd, progress);
+                    newStart, newEnd, state);
         }
     }
 

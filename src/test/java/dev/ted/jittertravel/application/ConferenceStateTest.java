@@ -12,33 +12,33 @@ import static org.assertj.core.api.Assertions.assertThat;
  * the one with teeth — when Ted counts as speaking.
  * <p>
  * That last one is a <strong>redaction</strong> rule, not a display one. The public calendar
- * publishes a speaking badge, so anything that makes {@link ConferenceProgress#speaking()} true
+ * publishes a speaking badge, so anything that makes {@link ConferenceState#speaking()} true
  * before Ted has committed becomes visible to a stranger. This is where that is guarded; the
  * projector repeats the check at the point of publication but cannot be reached in that state.
  */
-class ConferenceProgressTest {
+class ConferenceStateTest {
 
-    private static ConferenceProgress planned() {
-        return ConferenceProgress.planned(ConferenceFormat.CALL_FOR_PAPERS);
+    private static ConferenceState planned() {
+        return ConferenceState.planned(ConferenceFormat.CALL_FOR_PAPERS);
     }
 
     @Test
     void aPlannedConferenceIsWatchedAndSaysNothingAboutSpeaking() {
-        ConferenceProgress progress = planned();
+        ConferenceState state = planned();
 
-        assertThat(progress.commitment()).isEqualTo(AttendanceCommitment.WATCHING);
-        assertThat(progress.speakingStatus()).isEqualTo(SpeakingStatus.NOT_SPEAKING);
-        assertThat(progress.speaking()).isFalse();
-        assertThat(progress.dropped()).isFalse();
+        assertThat(state.commitment()).isEqualTo(AttendanceCommitment.WATCHING);
+        assertThat(state.speakingStatus()).isEqualTo(SpeakingStatus.NOT_SPEAKING);
+        assertThat(state.speaking()).isFalse();
+        assertThat(state.dropped()).isFalse();
     }
 
     /** Submitting was the opt-in, so the acceptance completes a decision Ted already made. */
     @Test
     void anAcceptanceCommitsAttendanceAndMeansSpeaking() {
-        ConferenceProgress progress = planned().submitted().accepted();
+        ConferenceState state = planned().submitted().accepted();
 
-        assertThat(progress.commitment()).isEqualTo(AttendanceCommitment.GOING);
-        assertThat(progress.speaking()).isTrue();
+        assertThat(state.commitment()).isEqualTo(AttendanceCommitment.GOING);
+        assertThat(state.speaking()).isTrue();
     }
 
     /** Waiting to hear is not speaking, however hopeful. */
@@ -54,33 +54,33 @@ class ConferenceProgressTest {
      */
     @Test
     void anUnansweredInvitationIsNotSpeaking() {
-        ConferenceProgress progress = planned().invited();
+        ConferenceState state = planned().invited();
 
-        assertThat(progress.commitment())
+        assertThat(state.commitment())
                 .as("an invitation commits nothing")
                 .isEqualTo(AttendanceCommitment.WATCHING);
-        assertThat(progress.speaking())
+        assertThat(state.speaking())
                 .as("and until he says yes, he is not speaking there")
                 .isFalse();
     }
 
     @Test
     void anInvitationAcceptedAsSpeakingIsSpeaking() {
-        ConferenceProgress progress = planned().invited()
+        ConferenceState state = planned().invited()
                                                .confirmed(AttendanceBasis.SPEAKING_INVITED);
 
-        assertThat(progress.commitment()).isEqualTo(AttendanceCommitment.GOING);
-        assertThat(progress.speaking()).isTrue();
+        assertThat(state.commitment()).isEqualTo(AttendanceCommitment.GOING);
+        assertThat(state.speaking()).isTrue();
     }
 
     /** Going on a bought ticket after an invitation is attending, not speaking. */
     @Test
     void anInvitationTakenUpAsAPlainTicketIsNotSpeaking() {
-        ConferenceProgress progress = planned().invited()
+        ConferenceState state = planned().invited()
                                                .confirmed(AttendanceBasis.TICKET_PURCHASED);
 
-        assertThat(progress.commitment()).isEqualTo(AttendanceCommitment.GOING);
-        assertThat(progress.speaking()).isFalse();
+        assertThat(state.commitment()).isEqualTo(AttendanceCommitment.GOING);
+        assertThat(state.speaking()).isFalse();
     }
 
     /**
@@ -96,44 +96,44 @@ class ConferenceProgressTest {
     /** But once the stream has spoken it wins: the basis is a manual annotation, the events are history. */
     @Test
     void theStreamOverridesTheBasisWhenTheyDisagree() {
-        ConferenceProgress progress = planned()
+        ConferenceState state = planned()
                 .confirmed(AttendanceBasis.SPEAKING_ACCEPTED)
                 .submitted()
                 .rejected();
 
-        assertThat(progress.speaking()).isFalse();
+        assertThat(state.speaking()).isFalse();
     }
 
     /** Pulling a talk moves one axis only. */
     @Test
     void withdrawingAnAcceptedTalkLeavesHimGoingButNotSpeaking() {
-        ConferenceProgress progress = planned().submitted().accepted().withdrawn();
+        ConferenceState state = planned().submitted().accepted().withdrawn();
 
-        assertThat(progress.commitment()).isEqualTo(AttendanceCommitment.GOING);
-        assertThat(progress.speaking()).isFalse();
-        assertThat(progress.dropped()).isFalse();
+        assertThat(state.commitment()).isEqualTo(AttendanceCommitment.GOING);
+        assertThat(state.speaking()).isFalse();
+        assertThat(state.dropped()).isFalse();
     }
 
     /** The auto-drop: acceptance was the way in, so a rejection takes the conference with it. */
     @Test
     void aRejectionDropsAConferenceWhereAcceptanceWasRequired() {
-        ConferenceProgress progress =
-                ConferenceProgress.planned(ConferenceFormat.ACCEPTANCE_REQUIRED)
+        ConferenceState state =
+                ConferenceState.planned(ConferenceFormat.ACCEPTANCE_REQUIRED)
                                   .submitted()
                                   .rejected();
 
-        assertThat(progress.dropped()).isTrue();
-        assertThat(progress.commitment()).isEqualTo(AttendanceCommitment.NOT_GOING);
+        assertThat(state.dropped()).isTrue();
+        assertThat(state.commitment()).isEqualTo(AttendanceCommitment.NOT_GOING);
     }
 
     /** The same event elsewhere leaves a decision to make rather than making it. */
     @Test
     void aRejectionLeavesACallForPapersConferenceWatched() {
-        ConferenceProgress progress = planned().submitted().rejected();
+        ConferenceState state = planned().submitted().rejected();
 
-        assertThat(progress.dropped()).isFalse();
-        assertThat(progress.commitment()).isEqualTo(AttendanceCommitment.WATCHING);
-        assertThat(progress.speakingStatus()).isEqualTo(SpeakingStatus.REJECTED);
+        assertThat(state.dropped()).isFalse();
+        assertThat(state.commitment()).isEqualTo(AttendanceCommitment.WATCHING);
+        assertThat(state.speakingStatus()).isEqualTo(SpeakingStatus.REJECTED);
     }
 
     @Test

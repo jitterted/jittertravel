@@ -73,29 +73,29 @@ down when it is created does not get written down later.
       clean version.
 
 - [ ] **DISCUSS: the conference fold is now written out in three read models.** Raised by Ted
-      2026-09-09 while approving the `/itinerary` conference sync: *"this looks like computing the
-      same information in 2 (or more) different places."* He is right —
+  2026-09-09 while approving the `/itinerary` conference sync: *"this looks like computing the
+  same information in 2 (or more) different places."* He is right —
       `ConferenceCalendarProjector`, `ItineraryProjector` and the dashboard's `ConferenceProjector`
-      each keep their own `Map<ConferenceId, ConferenceProgress>` and each write out the **same nine
+      each keep their own `Map<ConferenceId, ConferenceState>` and each write out the **same nine
       `case` arms** (`ConferencePlanned`, `ConferenceCancelled`, `ConferenceAttendanceConfirmed`,
       `ConferenceAttendanceDeclined`, and the five talk events) to drive it.
-      **What is already shared, and what is not.** `ConferenceProgress` holds the *rules* — the
-      auto-commit on acceptance, the auto-drop on rejection, that an invitation commits nothing —
-      and its javadoc explains why they are shared: written out three times they would be three
-      chances to disagree, and one of the three is the anonymous calendar, where disagreeing means
-      leaking. What is **not** shared is the *fold* — the switch that walks the event stream and
-      applies those rules. That is the duplication.
-      **The constraint any answer has to respect:** R12 forbids one read model being built from
-      another, so the fix is **not** "let the itinerary read the calendar projector". The shape to
-      discuss is a shared *folder* — something that turns a `Stream<StoredEvent>` into
-      `Map<ConferenceId, ConferenceProgress>` — that each projector composes while still building
-      its own view. That keeps every read model event-sourced and removes only the copied switch.
-      **Do not act on this without the discussion**, for two reasons. It is a fourth user arriving,
-      so "no abstraction before the second user" no longer objects — but the three current copies
-      are not quite identical (each also builds its own view type in the same switch, and the
-      dashboard keeps dropped conferences that the other two remove), and pulling out a shared fold
-      that has to carry those differences may buy nothing. **Measure first:** the honest question is
-      how many lines actually coincide once the view-building is set aside.
+  **What is already shared, and what is not.** `ConferenceState` holds the *rules* — the
+  auto-commit on acceptance, the auto-drop on rejection, that an invitation commits nothing —
+  and its javadoc explains why they are shared: written out three times they would be three
+  chances to disagree, and one of the three is the anonymous calendar, where disagreeing means
+  leaking. What is **not** shared is the *fold* — the switch that walks the event stream and
+  applies those rules. That is the duplication.
+  **The constraint any answer has to respect:** R12 forbids one read model being built from
+  another, so the fix is **not** "let the itinerary read the calendar projector". The shape to
+  discuss is a shared *folder* — something that turns a `Stream<StoredEvent>` into
+      `Map<ConferenceId, ConferenceState>` — that each projector composes while still building
+  its own view. That keeps every read model event-sourced and removes only the copied switch.
+  **Do not act on this without the discussion**, for two reasons. It is a fourth user arriving,
+  so "no abstraction before the second user" no longer objects — but the three current copies
+  are not quite identical (each also builds its own view type in the same switch, and the
+  dashboard keeps dropped conferences that the other two remove), and pulling out a shared fold
+  that has to carry those differences may buy nothing. **Measure first:** the honest question is
+  how many lines actually coincide once the view-building is set aside.
 
 - [ ] **Locations and addresses should be valid before they are stored.** Raised by Ted 2026-09-07,
       while closing the alpha-2 zone-alias item: the real problem in that area is not a missing
@@ -1017,7 +1017,7 @@ count is deliberately not stated here so it cannot go stale again.)
         while half the story is still `Submitted · Ticket Bought · Decline`.
 
       **The sharpest consequence is a wrong public badge.** Training day accepted, main talk
-      rejected folds `ACCEPTED` then, last-wins, `REJECTED` — and `ConferenceProgress.speaking()`
+      rejected folds `ACCEPTED` then, last-wins, `REJECTED` — and `ConferenceState.speaking()`
       answers **false** for `REJECTED`, so the "A Ted Talk" badge disappears from a conference Ted
       genuinely speaks at. Not reachable from any surface (`ConferenceActions` offers only
       `Withdrawn` from `ACCEPTED`), but `RejectTalkCommand` refuses only `NOT_SPEAKING` and
@@ -1038,7 +1038,7 @@ count is deliberately not stated here so it cannot go stale again.)
       **The real fix is a track key on the CFP and submission axes** — the per-talk state the
       submission-tracking plan deferred. It ripples: a `CfpOpened` schema bump, `ConferenceView`
       going plural on `cfpClosesOn`/`cfpSubmissionUrl`, a uid suffix in `CfpDeadlineSource`,
-      `ConferenceProgress` holding a map instead of a status, `speaking()` becoming "any track
+      `ConferenceState` holding a map instead of a status, `speaking()` becoming "any track
       accepted", and `ConferenceActions` going per-track — which also breaks its three-move budget
       and the dashboard's fixed 240px Actions column.
       **Trigger:** a *second* conference running two CFPs, or one where the two tracks resolve

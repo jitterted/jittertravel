@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * (since 2026-10-06) the ground-transfer endpoint form.
  * <p>
  * <strong>Why this exists.</strong> Each of the first five writes its own nine-arm switch over the same
- * events and hands them to {@link ConferenceProgress}. Until 2026-09-09 the itinerary read three of
+ * events and hands them to {@link ConferenceState}. Until 2026-09-09 the itinerary read three of
  * the nine, so family saw less than a stranger and kept a conference Ted had been rejected from, and
  * nothing failed. The sibling {@code *CancellationPropagationTest}s guard hotels, trains, ground
  * transfers and private events the same way; conferences had none.
@@ -63,8 +63,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * example, {@link TalkSubmitted} follows a speaking confirmation (submitting is what turns speaking
  * <em>off</em>) rather than a bare plan.
  * <p>
- * <strong>The schedule sees less, honestly.</strong> {@link ScheduleGapProjector} holds progress
- * only to answer {@link ConferenceProgress#dropped()}, so it can observe only the three events that
+ * <strong>The schedule sees less, honestly.</strong> {@link ScheduleGapProjector} holds the state
+ * only to answer {@link ConferenceState#dropped()}, so it can observe only the three events that
  * change whether a conference is there at all. A forgotten arm for the other six changes nothing it
  * reports, and this test does not pretend otherwise. {@link TransferEndpointProjector} is on the same
  * footing and goes one step further: it does not fold those six at all (see {@link #transferEndpoints}).

@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>
  * <strong>Both orders are covered</strong>, because the two halves of each projector's state are
  * rebuilt by different arms. A move after a commitment must keep the commitment; a commitment after
- * a move must keep the move — the second is the easier one to lose, since every progress arm
+ * a move must keep the move — the second is the easier one to lose, since every state arm
  * rebuilds the entry from whatever dates it kept.
  */
 class ConferenceDatesPropagationTest {

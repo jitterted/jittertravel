@@ -274,7 +274,7 @@ public class ConferenceDetailRenderer {
      * Why Ted is going, or {@code null} where there is nothing to say.
      * <p>
      * <strong>The recorded basis wins, and the acceptance is the fallback</strong> — which is the
-     * <em>opposite</em> precedence to {@code ConferenceProgress.speaking()}, deliberately, because
+     * <em>opposite</em> precedence to {@code ConferenceState.speaking()}, deliberately, because
      * the question is different. There the stream outranks the basis because a stale annotation
      * must not contradict what the organizers did; here the question is why Ted is going, and a
      * confirmation is the reason he gave rather than a claim about anyone else.

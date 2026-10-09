@@ -27,7 +27,7 @@ import static j2html.TagCreator.a;
  * property of the conference, and keeping it out is what lets every state fit in three actions.
  * <p>
  * <strong>Two axes, and committing does not close the other one.</strong> A conference moves on an
- * attendance axis and a talk axis independently — {@code ConferenceProgress.submitted()} and
+ * attendance axis and a talk axis independently — {@code ConferenceState.submitted()} and
  * {@code invited()} both carry the commitment through untouched — so {@code GOING} is not a terminal
  * state. Ted buys an early-bird ticket, then submits; the organizers ask him to keynote something he
  * was already attending. The talk-side moves are therefore chosen by {@code speakingStatus} alone,

@@ -11,19 +11,14 @@ import dev.ted.jittertravel.domain.ConferencePlanned;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
-import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.GatheringChanged;
-import dev.ted.jittertravel.domain.GatheringId;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.GroundTransferCancelled;
-import dev.ted.jittertravel.domain.GroundTransferId;
 import dev.ted.jittertravel.domain.GroundTransferPlanned;
 import dev.ted.jittertravel.domain.HotelBooked;
 import dev.ted.jittertravel.domain.HotelBookingCancelled;
-import dev.ted.jittertravel.domain.HotelBookingId;
 import dev.ted.jittertravel.domain.HotelChanged;
 import dev.ted.jittertravel.domain.InvitedToSpeak;
-import dev.ted.jittertravel.domain.PrivateEventId;
 import dev.ted.jittertravel.domain.PrivateEventCancelled;
 import dev.ted.jittertravel.domain.PrivateEventPlanned;
 import dev.ted.jittertravel.domain.TalkAccepted;
@@ -34,7 +29,6 @@ import dev.ted.jittertravel.domain.TrainBooked;
 import dev.ted.jittertravel.domain.TrainCancelled;
 import dev.ted.jittertravel.domain.TrainChanged;
 import dev.ted.jittertravel.domain.TrainStationAddress;
-import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -85,11 +79,11 @@ public class PublicCalendarProjector implements EventStreamConsumer {
      * is in the pipeline, and whether the last confirmation named a speaking reason. Only their
      * consequences are published, through {@link #publishable}.
      */
-    private final Map<ConferenceId, ConferenceProgress> progress = new ConcurrentHashMap<>();
+    private final Map<ConferenceId, ConferenceState> states = new ConcurrentHashMap<>();
     /**
      * Each conference's own public web page, remembered beside its entries so that a later event —
      * a confirmation, a rejection — can rewrite them without re-reading the plan. It is the
-     * mirror image of {@link #progress}: that map holds what may never be published, this one holds
+     * mirror image of {@link #states}: that map holds what may never be published, this one holds
      * the single published value that moves with neither axis.
      */
     private final Map<ConferenceId, String> conferenceInfoUrls = new ConcurrentHashMap<>();
@@ -105,9 +99,9 @@ public class PublicCalendarProjector implements EventStreamConsumer {
                 // starts out merely WATCHING and with no speaking badge; later events rewrite the
                 // same entry.
                 case ConferencePlanned e -> {
-                    progress.put(e.conferenceId(), ConferenceProgress.planned(e.format()));
+                    states.put(e.conferenceId(), ConferenceState.planned(e.format()));
                     conferenceInfoUrls.put(e.conferenceId(), e.infoUrl());
-                    put(e.conferenceId(), conference(e, ConferenceProgress.planned(e.format())));
+                    put(e.conferenceId(), conference(e, ConferenceState.planned(e.format())));
                 }
                 // The event's AttendanceBasis is read to answer one question — does Ted speak here
                 // — and is never carried onto an entry. That answer is published only once he is
@@ -125,11 +119,11 @@ public class PublicCalendarProjector implements EventStreamConsumer {
                 // move is the collapsed commitment and the speaking badge, nothing else. A talk
                 // that was submitted, turned down or pulled leaves no mark an anonymous viewer can
                 // read — a rejection is indistinguishable from never having submitted.
-                case TalkSubmitted e -> moveTo(e.conferenceId(), ConferenceProgress::submitted);
-                case TalkAccepted e -> moveTo(e.conferenceId(), ConferenceProgress::accepted);
-                case TalkRejected e -> moveTo(e.conferenceId(), ConferenceProgress::rejected);
-                case TalkWithdrawn e -> moveTo(e.conferenceId(), ConferenceProgress::withdrawn);
-                case InvitedToSpeak e -> moveTo(e.conferenceId(), ConferenceProgress::invited);
+                case TalkSubmitted e -> moveTo(e.conferenceId(), ConferenceState::submitted);
+                case TalkAccepted e -> moveTo(e.conferenceId(), ConferenceState::accepted);
+                case TalkRejected e -> moveTo(e.conferenceId(), ConferenceState::rejected);
+                case TalkWithdrawn e -> moveTo(e.conferenceId(), ConferenceState::withdrawn);
+                case InvitedToSpeak e -> moveTo(e.conferenceId(), ConferenceState::invited);
 
                 // Gatherings are public in full too, speaking marker and info URL included.
                 case GatheringPlanned e -> put(e.gatheringId(), gathering(
@@ -182,7 +176,7 @@ public class PublicCalendarProjector implements EventStreamConsumer {
         });
     }
 
-    private CalendarEntry conference(ConferencePlanned event, ConferenceProgress progress) {
+    private CalendarEntry conference(ConferencePlanned event, ConferenceState state) {
         List<SubtitleLine> location = List.of(new SubtitleLine.Text(cityCountry(event.venueAddress())));
         return entry(
                 event.startDate().localDateTime(),
@@ -193,7 +187,7 @@ public class PublicCalendarProjector implements EventStreamConsumer {
                 location,
                 // The URL is named off the event here, which is the allow-list rule: a public value
                 // is published only by naming the event field it comes from.
-                publishable(progress, event.infoUrl()));
+                publishable(state, event.infoUrl()));
     }
 
     /**
@@ -201,8 +195,8 @@ public class PublicCalendarProjector implements EventStreamConsumer {
      * dropped the conference (Ted declined, or a rejection dropped one where acceptance was the way
      * in). A conference this projector has never seen is a no-op.
      */
-    private void moveTo(ConferenceId conferenceId, UnaryOperator<ConferenceProgress> change) {
-        ConferenceProgress moved = progress.computeIfPresent(conferenceId,
+    private void moveTo(ConferenceId conferenceId, UnaryOperator<ConferenceState> change) {
+        ConferenceState moved = states.computeIfPresent(conferenceId,
                 (id, current) -> change.apply(current));
         if (moved == null) {
             return;
@@ -229,18 +223,18 @@ public class PublicCalendarProjector implements EventStreamConsumer {
      * wearing a badge would tell a stranger he had been asked to speak somewhere he has not decided
      * about. That is the submission pipeline leaking one bit at a time.
      * <p>
-     * <strong>What enforces it is {@link ConferenceProgress#speaking()}</strong>, which answers
+     * <strong>What enforces it is {@link ConferenceState#speaking()}</strong>, which answers
      * false for an invitation until a confirmation names a speaking reason. The check repeated
      * here is belt-and-braces and, today, unreachable: the only way to be speaking without being
      * committed is to have been accepted and then declined, and a dropped conference has already
      * left this calendar. It is kept because it states the rule at the point of publication, where
      * the next person will look for it — but the test that guards the rule pins
-     * {@code ConferenceProgress}, not this line.
+     * {@code ConferenceState}, not this line.
      */
-    private EntryDetails.PublicConference publishable(ConferenceProgress progress, String infoUrl) {
+    private EntryDetails.PublicConference publishable(ConferenceState state, String infoUrl) {
         return new EntryDetails.PublicConference(
-                progress.commitment(),
-                progress.commitment() == AttendanceCommitment.GOING && progress.speaking(),
+                state.commitment(),
+                state.commitment() == AttendanceCommitment.GOING && state.speaking(),
                 // Blank becomes null so a title with nowhere to point stays plain text, exactly as
                 // a gathering's does.
                 infoUrl.isBlank() ? null : infoUrl);
@@ -248,12 +242,12 @@ public class PublicCalendarProjector implements EventStreamConsumer {
 
     /**
      * Rewrites a conference's entry onto its new days. The details are rebuilt through
-     * {@link #publishable} from the tracked progress rather than carried off the old entry, so this
+     * {@link #publishable} from the tracked state rather than carried off the old entry, so this
      * arm goes through {@link #entry} like every other and stays inside the allow-list. A conference
      * this projector has forgotten — dropped, or never seen — is a no-op.
      */
     private void reschedule(ConferenceDatesChanged event) {
-        ConferenceProgress current = progress.get(event.conferenceId());
+        ConferenceState current = states.get(event.conferenceId());
         if (current == null) {
             return;
         }
@@ -268,7 +262,7 @@ public class PublicCalendarProjector implements EventStreamConsumer {
 
     private void forget(ConferenceId conferenceId) {
         entriesBySubject.remove(conferenceId);
-        progress.remove(conferenceId);
+        states.remove(conferenceId);
         conferenceInfoUrls.remove(conferenceId);
     }
 

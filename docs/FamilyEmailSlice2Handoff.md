@@ -30,7 +30,7 @@ The design is settled (Ted, 2026-09-09/10/15); do not reopen it. The decisions, 
 | Not triggers | `TalkSubmitted`, `TalkWithdrawn`, `InvitedToSpeak`, `ConferencePlanned`, `ConferenceDatesChanged`. A speaking-axis change while still attending is **silent** (a stale "his talk was accepted" is accepted) |
 | Fact comparison | Send only when the **latest** `FamilyNotified` for the subject has a different `NotifiedFact` than the one the trigger now produces |
 | Positive-first | An exit (`CONFERENCE_NOT_GOING`) is sent **only where `CONFERENCE_GOING` went first**. Write it as its own named predicate, not a condition inside the comparison. Same rule `NEVER_TOLD` already implements for itinerary cancels |
-| What family believe | Fold the conference's events: `ConferencePlanned` (name, dates, venue, `infoUrl`), `ConferenceProgress` (commitment, speaking), and `ConferenceCancelled` **separately** (it hard-removes, it is not a `ConferenceProgress` transition). Gone or `NOT_GOING` -> `CONFERENCE_NOT_GOING`; `GOING` -> `CONFERENCE_GOING`; `WATCHING` -> nothing, ever |
+| What family believe | Fold the conference's events: `ConferencePlanned` (name, dates, venue, `infoUrl`), `ConferenceState` (commitment, speaking), and `ConferenceCancelled` **separately** (it hard-removes, it is not a `ConferenceState` transition). Gone or `NOT_GOING` -> `CONFERENCE_NOT_GOING`; `GOING` -> `CONFERENCE_GOING`; `WATCHING` -> nothing, ever |
 | Content | `AttendanceBasis` may be included (family already know his working life). A decline or cancellation `reason` **never** reaches family. The rejection is said plainly: "His talk was rejected, so he is not going." |
 | Not about | Private events and the CFP pipeline are not conferences family hear about unless he is going. A conference never confirmed and then rejected stays silent |
 
@@ -48,7 +48,7 @@ Slice 1's shape is the pattern. Use it, do not invent a second one.
    `notifyOfCancelledItinerary`. It folds the conference's events, decides the fact, applies the
    fact-comparison and positive-first rules, then sends. Add outcomes only if a new silent reason
    is distinct from the existing `Outcome` values (read `NotifyFamily.Outcome` first).
-   `ConferenceProgress` lives in `application`; reuse it, do not re-derive the commitment.
+   `ConferenceState` lives in `application`; reuse it, do not re-derive the commitment.
 3. **Infrastructure.** `FamilyNotificationActuator`: the five triggers produce a conference
    notification (a `TalkAccepted` and a `ConferenceAttendanceConfirmed` can both occur; the
    fact-comparison makes the second silent). `FamilyNotificationMessages.messageFor` is an
@@ -102,7 +102,7 @@ local instance without checking `/admin/settings` for the key's last four charac
 ## First steps for the next session
 
 1. Read this file, plan §4.4/§4.5/§5/§7, `NotifyFamily.java`, `FamilyNotificationActuator.java`,
-   `FamilyNotificationMessages.java`, `ConferenceProgress.java` and the five trigger events.
+   `FamilyNotificationMessages.java`, `ConferenceState.java` and the five trigger events.
 2. Draft the conference email wording (going: three basis variants plus speaking line; not going:
    decline, cancellation, rejection) and show Ted the literal text for approval before any code.
 3. Then the tests, then the code, smallest slice first: the positive-first predicate and the

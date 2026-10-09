@@ -25,7 +25,7 @@
 >   "Maybe" chip goes on raising problems, and decision 5 stands. Pinned by a test that says so and
 >   cites it, because the tempting "fix" is exactly the one that would break the band.
 >
-> The fold goes through `ConferenceProgress` — the fourth read model to ask, as slice 4's
+> The fold goes through `ConferenceState` — the fourth read model to ask, as slice 4's
 > carry-forward note asked for — so the rules are asked, never restated. Both tiers green (1618 +
 > 61); four mutations verified, one of which (filtering to `GOING`) failed 22 tests and so also
 > measured what the wider option would have cost: `ConferenceAttendanceConfirmed` added to some 45
@@ -123,7 +123,7 @@
 > `ScheduleGapProjector` filtering by attendance, and the Schengen ceiling. **Re-cut 2026-08-23 to
 > the middle one alone**; see the box at the top.
 >
-> **One thing worth carrying forward.** `ConferenceProgress` now holds the rules both axes share,
+> **One thing worth carrying forward.** `ConferenceState` now holds the rules both axes share,
 > because three read models needed them and one of the three is the anonymous calendar, where two
 > copies disagreeing means leaking. Slice 5 filters the schedule by attendance — a fourth reader of
 > the same question — so extend that rather than folding commitment a fourth time.
@@ -629,7 +629,7 @@ The original bottom-up order is re-cut so the CFP-season payoff and the backfill
    **SHIPPED 2026-08-22** — see "Slice 4 as built" at the top. `TalkWaitlisted` was dropped (an
    outcome is accepted or rejected), and the dropped-conference toggle was pulled forward into this
    slice rather than left unscheduled.
-5. **`ScheduleGapProjector` drops a dropped conference** — folded through `ConferenceProgress`, so
+5. **`ScheduleGapProjector` drops a dropped conference** — folded through `ConferenceState`, so
    the derived `NOT_GOING` from a rejection removes it exactly as a decline already did. A
    `WATCHING` conference still occupies the schedule. **SHIPPED 2026-08-23** — see "Slice 5 as
    built" at the top for why it is this and not "only `GOING` occupies".
@@ -707,16 +707,16 @@ a public page. What shipped is the defect half — a **dropped** conference leav
 **Since slice 4 the drop half was a defect, not just a missing feature.** `ScheduleGapProjector` puts every
 `ConferencePlanned` on the timeline and takes it off again only for `ConferenceCancelled` and
 `ConferenceAttendanceDeclined` — the two facts that arrive as *events*. But slice 4's auto-drop is
-**derived**: `ConferenceProgress` turns a `TalkRejected` at an `ACCEPTANCE_REQUIRED` conference into
+**derived**: `ConferenceState` turns a `TalkRejected` at an `ACCEPTANCE_REQUIRED` conference into
 `NOT_GOING` with no event to show for it. So that conference left both calendars and moved to
 the dashboard's dropped group while **still** occupying the schedule, where it could raise a missing
 hotel or a different-city conflict for a trip Ted is not taking. A rejection is exactly when the
 report should get quieter, not louder.
 
-**The fix, from slice 4's own carry-forward note:** `ConferenceProgress` already held this rule for
+**The fix, from slice 4's own carry-forward note:** `ConferenceState` already held this rule for
 the three read models that ask it, one of which is the anonymous calendar — which is why the rule
 lives in one place rather than three. The gap projector is the **fourth** reader of the same
-question, so it folds commitment through `ConferenceProgress` rather than growing a fifth copy of
+question, so it folds commitment through `ConferenceState` rather than growing a fifth copy of
 "is Ted going to this one". **As built:** the conferences map holds a `TrackedConference`
 (occupancy + progress), every conference event moves the progress, and a move that returns
 `dropped()` removes it — the same `computeIfPresent`-returning-null idiom

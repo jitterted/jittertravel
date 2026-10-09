@@ -786,7 +786,7 @@ class ItineraryProjectorTest {
         return ZonedTimestamp.fromLocal(date.atTime(time), ZoneId.of("Europe/London"));
     }
 
-    // --- Conference commitment and speaking, folded through ConferenceProgress ---
+    // --- Conference commitment and speaking, folded through ConferenceState ---
     //
     // Until 2026-09-09 this projector read three conference events and ignored six, so /itinerary
     // showed family neither the commitment chip nor the speaking badge that an anonymous visitor

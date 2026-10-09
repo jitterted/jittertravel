@@ -79,7 +79,7 @@ public class ConferenceProjector implements EventStreamConsumer {
                                         "",
                                         event.format(),
                                         event.infoUrl()),
-                                ConferenceProgress.planned(event.format()),
+                                ConferenceState.planned(event.format()),
                                 // Nothing has been confirmed yet, so there is no reason on record
                                 // for going — see Tracked#basis.
                                 null));
@@ -99,13 +99,13 @@ public class ConferenceProjector implements EventStreamConsumer {
                 case ConferenceCancelled event -> conferences.remove(event.conferenceId());
                 // Ted said no. The row stays, at NOT_GOING, hidden behind ?dropped=show.
                 case ConferenceAttendanceDeclined event ->
-                        update(event.conferenceId(), ConferenceProgress::declined);
+                        update(event.conferenceId(), ConferenceState::declined);
 
-                case TalkSubmitted event -> update(event.conferenceId(), ConferenceProgress::submitted);
-                case TalkAccepted event -> update(event.conferenceId(), ConferenceProgress::accepted);
-                case TalkRejected event -> update(event.conferenceId(), ConferenceProgress::rejected);
-                case TalkWithdrawn event -> update(event.conferenceId(), ConferenceProgress::withdrawn);
-                case InvitedToSpeak event -> update(event.conferenceId(), ConferenceProgress::invited);
+                case TalkSubmitted event -> update(event.conferenceId(), ConferenceState::submitted);
+                case TalkAccepted event -> update(event.conferenceId(), ConferenceState::accepted);
+                case TalkRejected event -> update(event.conferenceId(), ConferenceState::rejected);
+                case TalkWithdrawn event -> update(event.conferenceId(), ConferenceState::withdrawn);
+                case InvitedToSpeak event -> update(event.conferenceId(), ConferenceState::invited);
                 default -> {}
             }
         });
@@ -116,9 +116,9 @@ public class ConferenceProjector implements EventStreamConsumer {
      * view from the result, so the view can never drift from the facts it is derived from. An event
      * for a conference that is not here — never planned, or cancelled — is a no-op.
      */
-    private void update(ConferenceId conferenceId, UnaryOperator<ConferenceProgress> change) {
+    private void update(ConferenceId conferenceId, UnaryOperator<ConferenceState> change) {
         conferences.computeIfPresent(conferenceId,
-                (id, tracked) -> tracked.showing(change.apply(tracked.progress())));
+                (id, tracked) -> tracked.showing(change.apply(tracked.state())));
     }
 
     /**
@@ -173,21 +173,21 @@ public class ConferenceProjector implements EventStreamConsumer {
     /**
      * One conference's row, and where that conference stands on both axes.
      * <p>
-     * {@link ConferenceProgress} holds one fact the row may not: whether the last attendance
+     * {@link ConferenceState} holds one fact the row may not: whether the last attendance
      * confirmation named a speaking basis. "Which basis" is submission status wearing a different
      * hat, and CLAUDE.md's redaction rule is that a field which never enters a view cannot leak
      * from it — so only its consequence reaches {@link ConferenceView}.
      *
      * @param basis the reason the last confirmation gave, kept whole rather than collapsed, because
-     *              {@link ConferenceDetailView} may show it and {@link ConferenceProgress} answers
+     *              {@link ConferenceDetailView} may show it and {@link ConferenceState} answers
      *              only the yes/no question. {@code null} until Ted confirms, and kept afterwards
      *              even if he declines — a decline is a later fact about the same conference, not
      *              an erasure of why he was going.
      */
-    private record Tracked(ConferenceView view, ConferenceProgress progress, AttendanceBasis basis) {
+    private record Tracked(ConferenceView view, ConferenceState state, AttendanceBasis basis) {
 
-        /** The row as this progress makes it: both derived fields recomputed from scratch. */
-        Tracked showing(ConferenceProgress moved) {
+        /** The row as this state makes it: both derived fields recomputed from scratch. */
+        Tracked showing(ConferenceState moved) {
             return new Tracked(new ConferenceView(
                     view.conferenceId(), view.name(), view.venueName(), view.venueAddress(),
                     view.startDate(), view.endDate(), moved.commitment(), moved.speaking(),
@@ -198,11 +198,11 @@ public class ConferenceProjector implements EventStreamConsumer {
 
         /** Ted said yes, and said why. Both axes move as usual; the reason is what is extra here. */
         Tracked confirmed(AttendanceBasis newBasis) {
-            return showing(progress.confirmed(newBasis)).withBasis(newBasis);
+            return showing(state.confirmed(newBasis)).withBasis(newBasis);
         }
 
         private Tracked withBasis(AttendanceBasis newBasis) {
-            return new Tracked(view, progress, newBasis);
+            return new Tracked(view, state, newBasis);
         }
 
         /**
@@ -215,7 +215,7 @@ public class ConferenceProjector implements EventStreamConsumer {
                     view.startDate(), view.endDate(), view.commitment(), view.speaking(),
                     view.speakingStatus(), closesOn, submissionUrl,
                     view.format(), view.infoUrl()
-            ), progress, basis);
+            ), state, basis);
         }
 
         /** The organizers moved it. Like a CFP, it says nothing about either axis. */
@@ -225,7 +225,7 @@ public class ConferenceProjector implements EventStreamConsumer {
                     startDate, endDate, view.commitment(), view.speaking(),
                     view.speakingStatus(), view.cfpClosesOn(), view.cfpSubmissionUrl(),
                     view.format(), view.infoUrl()
-            ), progress, basis);
+            ), state, basis);
         }
 
         /**

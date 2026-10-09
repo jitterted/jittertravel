@@ -29,7 +29,7 @@ import java.util.stream.Stream;
  * Both axes are folded here rather than in a second projector, since neither is a separate source
  * of conferences: a {@link ConferencePlanned} lands as {@link AttendanceCommitment#WATCHING}, and
  * everything after it rewrites that same entry. The rules for how the two axes move — and how they
- * touch — live in {@link ConferenceProgress}, shared with the other two conference read models
+ * touch — live in {@link ConferenceState}, shared with the other two conference read models
  * because they are rules rather than rendering.
  * <p>
  * <strong>The collapse to publishable values happens here.</strong> Only the commitment level and
@@ -70,29 +70,29 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                             // and it records no speaking evidence either way.
                             new EntryDetails.Conference(AttendanceCommitment.WATCHING, false,
                                                         infoUrl, detailPath)
-                    ), ConferenceProgress.planned(event.format()), infoUrl, detailPath));
+                    ), ConferenceState.planned(event.format()), infoUrl, detailPath));
                 }
                 // Ted is going. `event.basis()` is read only to answer whether he speaks, and is
                 // never carried onto the entry — see the class comment.
                 case ConferenceAttendanceConfirmed event ->
-                        update(event.conferenceId(), progress -> progress.confirmed(event.basis()));
+                        update(event.conferenceId(), state -> state.confirmed(event.basis()));
                 // A dropped conference is already gone from `entries`, so a move for it is a no-op.
                 case ConferenceDatesChanged event -> entries.computeIfPresent(event.conferenceId(),
                         (id, tracked) -> tracked.movedTo(event.startDate().localDateTime(),
                                                          event.endDate().localDateTime()));
                 case ConferenceCancelled event -> entries.remove(event.conferenceId());
                 case ConferenceAttendanceDeclined event ->
-                        update(event.conferenceId(), ConferenceProgress::declined);
+                        update(event.conferenceId(), ConferenceState::declined);
 
                 // The speaking axis. Only its consequences reach the entry: an acceptance commits
                 // attendance and means Ted speaks, a rejection can drop the conference — but that
                 // a talk was submitted, turned down or pulled is submission status, and no calendar
                 // entry says so.
-                case TalkSubmitted event -> update(event.conferenceId(), ConferenceProgress::submitted);
-                case TalkAccepted event -> update(event.conferenceId(), ConferenceProgress::accepted);
-                case TalkRejected event -> update(event.conferenceId(), ConferenceProgress::rejected);
-                case TalkWithdrawn event -> update(event.conferenceId(), ConferenceProgress::withdrawn);
-                case InvitedToSpeak event -> update(event.conferenceId(), ConferenceProgress::invited);
+                case TalkSubmitted event -> update(event.conferenceId(), ConferenceState::submitted);
+                case TalkAccepted event -> update(event.conferenceId(), ConferenceState::accepted);
+                case TalkRejected event -> update(event.conferenceId(), ConferenceState::rejected);
+                case TalkWithdrawn event -> update(event.conferenceId(), ConferenceState::withdrawn);
+                case InvitedToSpeak event -> update(event.conferenceId(), ConferenceState::invited);
                 default -> {}
             }
         });
@@ -102,9 +102,9 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
      * Moves the conference along both axes and rebuilds the entry — or removes it, if the move
      * dropped the conference. An event for a conference not on the calendar is a no-op.
      */
-    private void update(ConferenceId conferenceId, UnaryOperator<ConferenceProgress> change) {
+    private void update(ConferenceId conferenceId, UnaryOperator<ConferenceState> change) {
         entries.computeIfPresent(conferenceId, (id, tracked) -> {
-            ConferenceProgress moved = change.apply(tracked.progress());
+            ConferenceState moved = change.apply(tracked.state());
             return moved.dropped() ? null : tracked.showing(moved);
         });
     }
@@ -118,17 +118,17 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
 
     /**
      * One conference's calendar entry, and where that conference stands on both axes.
-     * {@link ConferenceProgress} holds what the entry may not — the format, where the talk stands,
+     * {@link ConferenceState} holds what the entry may not — the format, where the talk stands,
      * and whether the last confirmation named a speaking basis — so none of it can reach a view.
      * <p>
      * {@code infoUrl} and {@code detailPath} ride here rather than being read back off the entry
      * every rebuild: neither moves with either axis. {@code infoUrl} is null when there is none;
      * {@code detailPath} always has a value, since it is derived from the conference's own id.
      */
-    private record Tracked(CalendarEntry entry, ConferenceProgress progress,
+    private record Tracked(CalendarEntry entry, ConferenceState state,
                            String infoUrl, String detailPath) {
 
-        Tracked showing(ConferenceProgress moved) {
+        Tracked showing(ConferenceState moved) {
             return new Tracked(new CalendarEntry(
                     entry.start(), entry.end(),
                     entry.mainTitle(), entry.subTitle(),
@@ -145,7 +145,7 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
                     entry.mainTitle(), entry.subTitle(),
                     entry.continuationTitle(), entry.continuationSubTitle(),
                     entry.details()
-            ), progress, infoUrl, detailPath);
+            ), state, infoUrl, detailPath);
         }
 
         /**
@@ -153,8 +153,8 @@ public class ConferenceCalendarProjector implements EventStreamConsumer {
          * an invitation he has not taken up — and marking a "Maybe" entry as a talk would publish
          * that he was asked. See {@link EntryDetails.PublicConference}.
          */
-        private boolean speakingBadge(ConferenceProgress progress) {
-            return progress.commitment() == AttendanceCommitment.GOING && progress.speaking();
+        private boolean speakingBadge(ConferenceState state) {
+            return state.commitment() == AttendanceCommitment.GOING && state.speaking();
         }
     }
 }

@@ -449,7 +449,7 @@ conference from a speculative one, which arrived with step 2 of `archived/Confer
 (the commitment events); slices 1–4 of that plan have all shipped, so `AttendanceCommitment` is live
 and nothing here waits on it any more. The concern that motivated the dependency — building the
 counter against an all-tentative model, giving every conference a floor of zero — no longer applies.
-**Read the commitment through `ConferenceProgress`**, which is where that plan put the shared rules
+**Read the commitment through `ConferenceState`**, which is where that plan put the shared rules
 precisely so that readers cannot disagree; do not fold the commitment events again here.
 
 **And this plan now owns `datesConfirmed`** (moved 2026-08-23) — see the section above. It is a field

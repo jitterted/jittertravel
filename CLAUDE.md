@@ -106,7 +106,7 @@ someone remembered to strip it.
   public projector reads the confirmation event only to answer whether Ted speaks and never carries
   that field onto a view, which is the pattern to copy — do not carry a private value into a view
   and strip it later. `SpeakingStatus` and `ConferenceFormat` are the same: they live in
-  `ConferenceProgress` beside the entries, never on one.
+  `ConferenceState` beside the entries, never on one.
 
 **Public by decision** (do not "fix" these without asking Ted): the fact that travel is
 happening on a given day, airport codes and city names for flights/trains/hotels — with the
@@ -150,7 +150,7 @@ wears. Two conditions on it, and both are load-bearing:
   would tell a stranger he was asked to speak somewhere he has not decided about. That is the
   submission pipeline leaking one bit at a time. Going on a bought ticket after an invitation is
   *attending*, so the confirmation's basis is what separates the two.
-- **The stream decides, and only its conclusion is published.** `ConferenceProgress.speaking()` is
+- **The stream decides, and only its conclusion is published.** `ConferenceState.speaking()` is
   where the rule lives (`PublicCalendarProjector` repeats the commitment check at the point of
   publication, which is belt-and-braces and today unreachable). Nothing else about the pipeline
   reaches a calendar: a submitted talk, a rejection and a withdrawal move only the collapsed

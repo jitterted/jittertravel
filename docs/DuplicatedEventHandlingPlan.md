@@ -1,7 +1,7 @@
 # Duplicated Event Handling — conferences first, then the general case
 
 **Status: plan only, nothing built** (2026-09-13). Written after the pre-push review of `6eb097b`
-found the conference state machine being folded five times on the read side, and after one of those
+found the conference state machine being folded five times across the read models, and after one of those
 copies (the itinerary) had been three events short for months without anything failing.
 
 The guard that shipped the same day is `ConferenceLifecyclePropagationTest`. This plan is about
@@ -11,7 +11,7 @@ whether to go further than a guard, and how.
 
 ## 1. The problem, measured
 
-### 1.1 Read side: five copies of one dispatch (six since 2026-10-06)
+### 1.1 Read models: five copies of one dispatch (six since 2026-10-06)
 
 > **Update 2026-10-06.** `TransferEndpointProjector` became the sixth reader when conference venues
 > became ground-transfer endpoints (`archived/GroundTransferGatheringEndpointsPlan.md`). It is a
@@ -19,7 +19,7 @@ whether to go further than a guard, and how.
 > that can drop a conference** (`ConferenceAttendanceDeclined`, `TalkRejected`): the other seven arms
 > were written first and PIT reported every one as a surviving mutant, because no test can tell an
 > arm that cannot change `dropped()` from its absence. Ted's rule, stated the same day: *do not fold
-> events that have no bearing on the decision or the view*; a rule change in `ConferenceProgress` is
+> events that have no bearing on the decision or the view*; a rule change in `ConferenceState` is
 > caught by `ConferenceLifecyclePropagationTest`, which now walks six read models, not by a
 > speculative fold. **That reopens the schedule's own nine-arm fold**, whose comment argues the
 > opposite ("a partial fold would answer a later question wrongly") and whose six unobservable arms
@@ -28,7 +28,7 @@ whether to go further than a guard, and how.
 > the clearest case yet for `ConferenceChange`.
 
 Each of these writes its own switch over the same nine events and hands each one to
-`ConferenceProgress`:
+`ConferenceState`:
 
 | Projector | Arms | What "dropped" does there |
 |---|---|---|
@@ -38,7 +38,7 @@ Each of these writes its own switch over the same nine events and hands each one
 | `ItineraryProjector` | 9 | removes the days (since 2026-09-09; before that, 3 arms) |
 | `ScheduleGapProjector` | 9 | removes the occupancy |
 
-**What is already shared** is the *rules*: `ConferenceProgress` decides that an acceptance commits
+**What is already shared** is the *rules*: `ConferenceState` decides that an acceptance commits
 attendance, that a rejection drops an `ACCEPTANCE_REQUIRED` conference, that an invitation commits
 nothing. Its own javadoc says so, and says the switches were deliberately left per-projector.
 
@@ -46,10 +46,10 @@ nothing. Its own javadoc says so, and says the switches were deliberately left p
 
 - which event maps to which transition (`TalkSubmitted` → `submitted`, …);
 - that an event for a conference never planned, or already cancelled, is ignored;
-- that `ConferencePlanned` starts from `ConferenceProgress.planned(format)`;
+- that `ConferencePlanned` starts from `ConferenceState.planned(format)`;
 - that `ConferenceCancelled` bypasses the state machine entirely;
 - the "hold the progress beside the view, rebuild the view when it moves" record: `Tracked`,
-  `TrackedConference` (twice), and a bare `Map<ConferenceId, ConferenceProgress>` in the public
+  `TrackedConference` (twice), and a bare `Map<ConferenceId, ConferenceState>` in the public
   projector.
 
 The argument for leaving the switches per-projector was independence (H2). The itinerary shows the
@@ -57,7 +57,7 @@ cost: an arm is not a *view* decision you might want to make differently, it is 
 the state machine. Nobody wants the itinerary to ignore `TalkRejected`, so there is nothing
 independent about it. It was simply left out.
 
-### 1.2 Write side: four more folds, and one of them disagrees
+### 1.2 Command decision contexts: four more folds, and one of them disagrees
 
 | Decision class | What it folds | Conference live when |
 |---|---|---|
@@ -66,14 +66,28 @@ independent about it. It was simply left out.
 | `DeclineConference` | existence | planned, not cancelled, not declined |
 | `OpenCfp` | the plan itself | planned, not cancelled, not declined |
 
-These do not use `ConferenceProgress`, and **their "live" differs from the read side's
+These do not use `ConferenceState`, and **their "live" differs from the read models'
 `dropped()`**: a rejection at an `ACCEPTANCE_REQUIRED` conference drops it from every calendar but
 leaves it live for all four commands. `TalkTracking` also re-derives `SpeakingStatus` from events
-with its own mapping instead of `ConferenceProgress`'s.
+with its own mapping instead of `ConferenceState`'s.
 
 **I don't know whether that is deliberate.** It may be: the dashboard keeps a dropped row, and Ted
 might still confirm attendance (a ticket bought after all). It may also be a gap nobody has walked
-into yet. It is Open Question 1, and it should be answered before the write side is touched.
+into yet. It is Open Question 1, and it should be answered before the decision contexts are touched.
+
+**Update 2026-10-08 — the table above is stale, and the question is answered.** The four folds
+were consolidated into one, `LiveConferencePlan`, which `ChangeConferenceDates` also uses (five
+callers), so the command decision contexts already state "live" once. **A second decision-context
+fold this plan never counted (found 2026-10-09): `ConferenceStanding`**, built for `NotifyFamily`,
+walks the same nine events through `ConferenceState` and keeps beside it the basis and *which*
+event ended things, for the family email's sentence. So the state machine is folded **eight**
+times, not seven; under the ConferenceLifecycle fold it would consume `ConferenceChange` like the
+dashboard, and `Dropped` would need to carry its cause (or the reader keeps its two dropping arms). Its javadoc says in as many words that a
+conference a rejection dropped *is* still live there — so it was deliberate — but it was deliberate
+in isolation: `ConferenceActions` offers **no** move on any `NOT_GOING` row, with a comment claiming
+the domain refuses every command against it (true for a decline, false for a rejection drop), so the
+confirm `FamilyEmailNotificationsPlan.md` §4.4 calls "the reachable re-entry" was reachable only by
+typing the URL. Ted's answer is in §6.
 
 ### 1.3 What guards it today
 
@@ -101,9 +115,12 @@ What it does not fix: the same transcription, 45 arms of it, and a new lifecycle
 five edits, which the guard only reminds you about. The five `Tracked` records keep drifting in
 shape.
 
-### B. One conference fold that reports a *change*, owned once by each projector — **recommended**
+### B. The ConferenceLifecycle fold: one conference fold that reports a *change*, owned once by each projector — **recommended**
 
-A small class in `application`, beside `ConferenceProgress`, that owns the dispatch and the
+> Called **the ConferenceLifecycle fold** in discussion from 2026-10-09 (Ted: a letter is "a terrible
+> way to refer to things"). The letters stay here only as list markers.
+
+A small class in `application`, beside `ConferenceState`, that owns the dispatch and the
 per-conference state, and answers each event with what happened to the conference in terms a view
 can act on:
 
@@ -114,19 +131,19 @@ can act on:
  */
 public final class ConferenceLifecycle {
 
-    private final Map<ConferenceId, ConferenceProgress> progress = new HashMap<>();
+    private final Map<ConferenceId, ConferenceState> progress = new HashMap<>();
 
     public ConferenceChange apply(Event event) {
         return switch (event) {
             case ConferencePlanned e -> planned(e);
             case ConferenceCancelled e -> cancelled(e.conferenceId());
             case ConferenceAttendanceConfirmed e -> move(e.conferenceId(), p -> p.confirmed(e.basis()));
-            case ConferenceAttendanceDeclined e -> move(e.conferenceId(), ConferenceProgress::declined);
-            case TalkSubmitted e -> move(e.conferenceId(), ConferenceProgress::submitted);
-            case TalkAccepted e -> move(e.conferenceId(), ConferenceProgress::accepted);
-            case TalkRejected e -> move(e.conferenceId(), ConferenceProgress::rejected);
-            case TalkWithdrawn e -> move(e.conferenceId(), ConferenceProgress::withdrawn);
-            case InvitedToSpeak e -> move(e.conferenceId(), ConferenceProgress::invited);
+            case ConferenceAttendanceDeclined e -> move(e.conferenceId(), ConferenceState::declined);
+            case TalkSubmitted e -> move(e.conferenceId(), ConferenceState::submitted);
+            case TalkAccepted e -> move(e.conferenceId(), ConferenceState::accepted);
+            case TalkRejected e -> move(e.conferenceId(), ConferenceState::rejected);
+            case TalkWithdrawn e -> move(e.conferenceId(), ConferenceState::withdrawn);
+            case InvitedToSpeak e -> move(e.conferenceId(), ConferenceState::invited);
             default -> new ConferenceChange.Unrelated();
         };
     }
@@ -134,9 +151,9 @@ public final class ConferenceLifecycle {
 }
 
 public sealed interface ConferenceChange {
-    record Planned(ConferencePlanned planned, ConferenceProgress progress) implements ConferenceChange {}
-    record Moved(ConferenceId id, ConferenceProgress progress) implements ConferenceChange {}
-    record Dropped(ConferenceId id, ConferenceProgress progress) implements ConferenceChange {}
+    record Planned(ConferencePlanned planned, ConferenceState progress) implements ConferenceChange {}
+    record Moved(ConferenceId id, ConferenceState progress) implements ConferenceChange {}
+    record Dropped(ConferenceId id, ConferenceState progress) implements ConferenceChange {}
     record Cancelled(ConferenceId id) implements ConferenceChange {}
     record Unrelated() implements ConferenceChange {}
 }
@@ -189,31 +206,56 @@ holds a private value.
 
 A pre-processor turns raw events into progress-change notifications that projectors subscribe to.
 It makes subscriber order load-bearing, which is exactly R12's objection, and it goes against
-`ConferenceProgress`'s stated design: *folds rather than extra events, so they replay and they
+`ConferenceState`'s stated design: *folds rather than extra events, so they replay and they
 reverse*. If it were ever a *stored* event, it would also be a projection result written back into
 the log.
 
 ### Recommendation
 
-**B, in two steps, read side first.** Step 1 touches the five projectors and nothing on the write
-path, and `ConferenceLifecyclePropagationTest` has to pass *without edits* before and after. That
-is the evidence the refactor changed no behaviour. Step 2, the write side, waits for Open
-Question 1.
+**B, in two steps, read models first.** Step 1 touches the five projectors and no command decision
+context, and `ConferenceLifecyclePropagationTest` has to pass *without edits* before and after. That
+is the evidence the refactor changed no behaviour. Step 2, the command decision contexts, waits for
+Open Question 1.
+
+> **Terminology (Ted, 2026-10-09):** this document said "write side" for step 2 until today. That is
+> not specific enough. A conference command has two parts: the application service builds the
+> command's **decision context** by folding `eventsForDecision()`, and the command's **decider**
+> accepts or refuses on what that context says. Everything this plan changes is the first part, so
+> it is called the command decision context throughout. "Read side" became "read models" at the
+> same time.
 
 ---
 
-## 3. The write side (step 2, after Open Question 1)
+## 3. The command decision contexts (step 2, after Open Question 1)
 
-If Ted answers that a dropped conference should refuse commands: the four decision classes fold
-`ConferenceLifecycle` over `eventsForDecision()` and refuse when the conference is `Dropped` or
-`Cancelled`. That is a behaviour change, and it needs its own tests per command.
+**Answered 2026-10-08 (Ted): a rejection drop is final, exactly like a decline.** So step 2 is a
+behaviour change: `LiveConferencePlan` (the one fold the five commands share, see §1.2's update)
+must forget the conference on a `TalkRejected` *when its format is `ACCEPTANCE_REQUIRED`* — which is
+the rule `ConferenceState.rejected()` already holds for the read models. Teaching the fold the rule
+by hand makes a second copy of it; folding `ConferenceLifecycle` there instead is Option B's step 2,
+and it needs its own refusal test per command (confirm, decline, talk moves, CFP, dates).
 
-If Ted answers that it is deliberate: the four still fold `ConferenceLifecycle` for the
-speaking status (`TalkTracking` stops re-deriving it), and "live" stays planned-and-not-cancelled-or-declined,
-written **once** as a named method rather than four identical three-arm switches.
+Consequences settled with the answer:
+
+- **`ConferenceActions`'s comment becomes true** ("the domain refuses every command against" a
+  dropped row), and so does its "going after all means planning it again". Reword it from
+  "declined" to "declined or dropped". No UI change.
+- **The family plan's three-send row is unreachable** (`FamilyEmailNotificationsPlan.md` §4.4 and
+  §8, `NotifyFamilyConferenceTest.acceptRejectThenATicketIsThreeSendsAndConfirmThenReconfirmIsOne`).
+  With both exits terminal there is no `GOING → NOT_GOING → GOING` production can produce, so the
+  row goes and the test is retired with the decision-context change, in the same change — the row's own
+  precedent (it replaced an earlier unreachable example on 2026-09-10). The positive-first rule and
+  the "going after all" wording are untouched; only the example dies.
+- **Production has nothing to migrate**: the backup of 2026-10-08 holds no `ACCEPTANCE_REQUIRED`
+  conference and one `TalkRejected` (J-Fall, a CFP conference, followed by an explicit decline).
+  The auto-drop has never fired.
+- **Why not "invitation only"** (keep `InvitedToSpeak` accepted after the drop, since a keynote
+  after a rejection does not contradict the format the way a ticket does): offered and declined;
+  simpler is one terminal rule, and an invitation after a drop is a new plan like any other
+  re-entry.
 
 Either way this is R1 as written: decide from the authoritative stream, never from a projection.
-`ConferenceLifecycle` is a fold, not a projection, so using it on the write path is allowed.
+`ConferenceLifecycle` is a fold, not a projection, so building a decision context from it is allowed.
 
 ---
 
@@ -235,7 +277,7 @@ because the kinds want opposite treatment:
 ### 4.1 A duplicated *rule*: extract it (conferences, today the only case)
 
 **Test: would it be a bug if two copies disagreed?** If yes, it is one rule written N times, not N
-views, and it belongs in one place: a domain rule (`Place.of`), a fold helper (`ConferenceProgress`),
+views, and it belongs in one place: a domain rule (`Place.of`), a fold helper (`ConferenceState`),
 or a change-reporting fold (option B). State machines are the obvious case. A derived value compared
 across surfaces (a place, a zone, "is this day away") is the other.
 
@@ -307,7 +349,7 @@ Proposed as **H9** in `EventSourcingRulesHeuristics.md`:
    two redaction tests, **all unedited**.
 4. Mutation-verify `ConferenceLifecycle`: drop an arm, swap two transitions, answer `Moved` for a
    drop. Each must fail a named case.
-5. Update `ConferenceProgress`'s javadoc ("each projector still writes its own switch" stops being
+5. Update `ConferenceState`'s javadoc ("each projector still writes its own switch" stops being
    true) and the "Redaction" section of CLAUDE.md where it names where the `basis` is read.
 6. Separately, and not blocked on this: G1 (self-enumerating propagation guards) and the §4.3
    formatting collaborator are each a `Cleanup_Tasks.md` item.
@@ -317,7 +359,10 @@ Proposed as **H9** in `EventSourcingRulesHeuristics.md`:
 ## 6. Open questions for Ted
 
 1. **Should a conference dropped by a rejection refuse commands?** Today every calendar hides it
-   and the four write-side decision classes still treat it as live (§1.2). Deliberate or a gap?
+   and the four command decision contexts still treat it as live (§1.2). Deliberate or a gap?
+   — **Decided 2026-10-08 (Ted): yes, refuse; the drop is final, like a decline.** Chosen over
+   "invitation only" and "ticket or invitation" with the worked example of an accepted-then-pulled
+   talk at an `ACCEPTANCE_REQUIRED` conference. Consequences in §3.
 2. **B now, or A until a tenth conference event forces it?** The guard makes A safe against
    omission. B removes the transcription. My recommendation is B, because the one bug it would have
    prevented already happened.

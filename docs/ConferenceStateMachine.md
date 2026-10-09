@@ -4,7 +4,7 @@ Where one conference stands, what moves it, and what the app offers to do about 
 2026-09-06, after a review found that `ConferenceActions` had quietly modelled the two axes below as
 one — see "The bug this doc exists because of" at the end.
 
-The rules themselves live in `ConferenceProgress` (application), the domain's refusals live on the
+The rules themselves live in `ConferenceState` (application), the domain's refusals live on the
 `*Command` records, and what a surface offers lives in `ConferenceActions` (web). This doc is the
 map; where it and the code disagree, the code is right and this file is stale — say so rather than
 fixing one silently.
@@ -12,7 +12,7 @@ fixing one silently.
 ## Two axes, and they move independently
 
 A conference has an **attendance** state (`AttendanceCommitment`: is Ted going?) and a **talk** state
-(`SpeakingStatus`: where is his talk?). They are not one lifecycle. `ConferenceProgress.submitted()`
+(`SpeakingStatus`: where is his talk?). They are not one lifecycle. `ConferenceState.submitted()`
 and `invited()` both carry the commitment through untouched, and `withdrawn()` does too — so a
 conference Ted has a ticket for is *not* finished moving, and `GOING` is not a terminal state.
 
@@ -104,7 +104,7 @@ conference from `ConferenceProjector` entirely, so there is no state left to be 
 
 ## The three couplings
 
-The only places the two axes touch. All three are **folds** in `ConferenceProgress`, not extra
+The only places the two axes touch. All three are **folds** in `ConferenceState`, not extra
 events, so they replay and they reverse if the event that produced them is superseded.
 
 | Coupling | Rule | Why |
@@ -113,7 +113,7 @@ events, so they replay and they reverse if the event that produced them is super
 | **Auto-drop** | `TalkRejected` ⇒ `NOT_GOING`, but **only** on `ACCEPTANCE_REQUIRED` | Where acceptance was the way in there is no going anyway. On every other format the same event leaves the conference exactly as committed as it was, with a decision to make. |
 | **An invitation commits nothing** | `InvitedToSpeak` leaves the commitment alone | An invitation is an offer. This is the whole difference from an acceptance, and it is what keeps an unanswered invitation off the public calendar. |
 
-**Speaking is derived, never stored** (`ConferenceProgress.speaking()`): the stream wins wherever it
+**Speaking is derived, never stored** (`ConferenceState.speaking()`): the stream wins wherever it
 has spoken (`ACCEPTED` ⇒ yes; `SUBMITTED`/`REJECTED`/`WITHDRAWN` ⇒ no), and only `INVITED` and
 `NOT_SPEAKING` fall back to whether the last confirmation named a speaking basis. That is what makes
 the "A Ted Talk" badge publishable — see CLAUDE.md's redaction section, which is the authority.

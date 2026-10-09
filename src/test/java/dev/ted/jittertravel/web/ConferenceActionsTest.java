@@ -177,7 +177,7 @@ class ConferenceActionsTest {
 
     /**
      * <strong>The talk axis does not close when the attendance axis commits.</strong> Both moves
-     * independently — {@code ConferenceProgress.submitted()} and {@code invited()} carry the
+     * independently — {@code ConferenceState.submitted()} and {@code invited()} carry the
      * commitment through — so wherever the organizers are holding something, this must offer the
      * way to record what they say, whether or not Ted already has a ticket.
      * <p>

@@ -52,7 +52,7 @@ entry points need a different icon, or the title/name link instead. See Q5.
 
 **And the CFP is legible only in pieces.** The deadline is a sub-line under the name; the submission
 URL hides behind the `Submitted` action; `SpeakingStatus`, `ConferenceFormat` and the basis live in
-`ConferenceProgress` and never reach a view *by design* (they are the private half). There is
+`ConferenceState` and never reach a view *by design* (they are the private half). There is
 nowhere that answers "what is going on with this conference" in one look.
 
 ---
@@ -126,10 +126,10 @@ Concretely it carries:
 |---|---|---|
 | Identity | name (linked to `infoUrl`), venue name, full street address, city, country | `ConferencePlanned` |
 | When | start/end as `ZonedTimeTag` in the venue zone, day count | `ConferencePlanned` |
-| Attendance | commitment chip (`WATCHING`/`GOING`/`NOT_GOING`), and the **basis** when confirmed | `ConferenceProgress` |
+| Attendance | commitment chip (`WATCHING`/`GOING`/`NOT_GOING`), and the **basis** when confirmed | `ConferenceState` |
 | Format | `CALL_FOR_PAPERS` / `ACCEPTANCE_REQUIRED` / `OPEN_SPACE`, in words | `ConferencePlanned.format` |
 | CFP | see D3 | `CfpOpened` |
-| Talk | `SpeakingStatus` in words, and what it means for attendance | `ConferenceProgress` |
+| Talk | `SpeakingStatus` in words, and what it means for attendance | `ConferenceState` |
 | Actions | the same state-machine links `/conferences` offers, plus **Change** | `ConferencesRenderer.actions` |
 
 **The basis is publishable here and nowhere else.** `AttendanceBasis` is on CLAUDE.md's private
@@ -288,7 +288,7 @@ Four things worth knowing that the plan above did not predict:
   caller and a second copy is two chances to disagree about which transitions are legal. It carries
   its own `CSS` constant, concatenated by both pages the way `DisclosureMenu.CSS` already is; the
   dashboard keeps `.conf-actions` (its own nowrap layout) and gives up `.conf-action`/`.conf-decline`.
-- **The basis/stream precedence is the *opposite* of `ConferenceProgress.speaking()`'s, and that is
+- **The basis/stream precedence is the *opposite* of `ConferenceState.speaking()`'s, and that is
   deliberate.** Mutation-verifying caught it: reading the acceptance first meant a ticket bought
   *before* a talk was accepted rendered "A submitted talk was accepted, which is what committed you",
   which is false — he was already going. The recorded basis wins; the acceptance sentence is the

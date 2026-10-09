@@ -17,11 +17,11 @@ import java.time.LocalDateTime;
  * ({@code docs/ConferenceDetailAndChangePlan.md}).
  * <p>
  * <strong>{@code commitment} and {@code speaking} are both derived</strong> — folded from the
- * conference's own events through {@link ConferenceProgress}, never stored on one. They were added
+ * conference's own events through {@link ConferenceState}, never stored on one. They were added
  * 2026-09-09 to close a gap in which family saw <em>less</em> than an anonymous visitor: both facts
  * had been on {@code /calendar} for every viewer since {@code e4a7b67}, and the itinerary was never
  * updated. The private half stays private exactly as it does on the calendar — the
- * {@code AttendanceBasis} is answered as {@link ConferenceProgress#speaking()} and never carried
+ * {@code AttendanceBasis} is answered as {@link ConferenceState#speaking()} and never carried
  * onto this record.
  */
 public record ConferenceItineraryEntry(

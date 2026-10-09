@@ -25,7 +25,7 @@ import dev.ted.jittertravel.domain.SpeakingStatus;
  *                                  applies is submission status, so it lives here and is answered
  *                                  only as {@link #speaking()} — never carried onto a view.
  */
-public record ConferenceProgress(
+public record ConferenceState(
         ConferenceFormat format,
         AttendanceCommitment commitment,
         SpeakingStatus speakingStatus,
@@ -33,12 +33,12 @@ public record ConferenceProgress(
 ) {
 
     /** A conference just put on the watch list: no commitment, and no speaking evidence either way. */
-    public static ConferenceProgress planned(ConferenceFormat format) {
-        return new ConferenceProgress(format, AttendanceCommitment.WATCHING,
+    public static ConferenceState planned(ConferenceFormat format) {
+        return new ConferenceState(format, AttendanceCommitment.WATCHING,
                                       SpeakingStatus.NOT_SPEAKING, false);
     }
 
-    public ConferenceProgress submitted() {
+    public ConferenceState submitted() {
         return movedTo(SpeakingStatus.SUBMITTED, commitment);
     }
 
@@ -47,7 +47,7 @@ public record ConferenceProgress(
      * confirmation event anywhere: submitting the talk was already the opt-in, so the acceptance
      * completes a decision rather than posing a new one.
      */
-    public ConferenceProgress accepted() {
+    public ConferenceState accepted() {
         return movedTo(SpeakingStatus.ACCEPTED, AttendanceCommitment.GOING);
     }
 
@@ -56,7 +56,7 @@ public record ConferenceProgress(
      * conference with it — there is no going anyway. Everywhere else the same event leaves the
      * conference merely watched, with a decision to make.
      */
-    public ConferenceProgress rejected() {
+    public ConferenceState rejected() {
         return movedTo(SpeakingStatus.REJECTED,
                        format == ConferenceFormat.ACCEPTANCE_REQUIRED
                                ? AttendanceCommitment.NOT_GOING
@@ -64,7 +64,7 @@ public record ConferenceProgress(
     }
 
     /** Pulling a talk moves one axis only: a conference Ted committed to stays committed. */
-    public ConferenceProgress withdrawn() {
+    public ConferenceState withdrawn() {
         return movedTo(SpeakingStatus.WITHDRAWN, commitment);
     }
 
@@ -72,16 +72,16 @@ public record ConferenceProgress(
      * An invitation is an offer, so it commits nothing. That is the whole difference from an
      * acceptance, and it is why an unanswered invitation stays off the public calendar.
      */
-    public ConferenceProgress invited() {
+    public ConferenceState invited() {
         return movedTo(SpeakingStatus.INVITED, commitment);
     }
 
-    public ConferenceProgress confirmed(AttendanceBasis basis) {
-        return new ConferenceProgress(format, AttendanceCommitment.GOING, speakingStatus,
+    public ConferenceState confirmed(AttendanceBasis basis) {
+        return new ConferenceState(format, AttendanceCommitment.GOING, speakingStatus,
                                       speakingBasis(basis));
     }
 
-    public ConferenceProgress declined() {
+    public ConferenceState declined() {
         return movedTo(speakingStatus, AttendanceCommitment.NOT_GOING);
     }
 
@@ -130,7 +130,7 @@ public record ConferenceProgress(
         };
     }
 
-    private ConferenceProgress movedTo(SpeakingStatus status, AttendanceCommitment newCommitment) {
-        return new ConferenceProgress(format, newCommitment, status, confirmationNamedSpeaking);
+    private ConferenceState movedTo(SpeakingStatus status, AttendanceCommitment newCommitment) {
+        return new ConferenceState(format, newCommitment, status, confirmationNamedSpeaking);
     }
 }

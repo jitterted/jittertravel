@@ -290,7 +290,7 @@ passing while its behaviour quietly shifts.
 
 The guard against a rule change is the entity's **propagation test**, which runs
 one scenario per lifecycle event through every read model that folds the entity
-and asserts each one's outcome. When a shared fold (`ConferenceProgress`) changes
+and asserts each one's outcome. When a shared fold (`ConferenceState`) changes
 its rules, that test fails *by name* for the projector that now needs an arm, and
 the fix is the arm. That is why each entity has one
 (`*CancellationPropagationTest`, `ConferenceLifecyclePropagationTest`,

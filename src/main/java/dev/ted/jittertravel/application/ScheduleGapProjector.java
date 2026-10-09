@@ -30,7 +30,7 @@ import java.util.stream.Stream;
  * {@code docs/archived/ScheduleProblemsRewritePlan.md}.
  *
  * <p><strong>A conference leaves the schedule when it is dropped, and only then.</strong> Three
- * things can drop one, and the third is why this projector folds {@link ConferenceProgress} rather
+ * things can drop one, and the third is why this projector folds {@link ConferenceState} rather
  * than watching for a removal event: the organizers cancel it, Ted declines it, or a
  * {@code TalkRejected} arrives at a conference where acceptance was the way in — and that last one
  * is <em>derived</em>, with no event to say so. Before this fold, such a conference left both
@@ -133,7 +133,7 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                 case ConferencePlanned e -> conferences.put(e.conferenceId(), new TrackedConference(
                         new ScheduleTimeline.Occupancy(e.name(), Place.of(e.venueAddress()).value(),
                                 e.startDate(), e.endDate(), ScheduleTimeline.Occupancy.Kind.CONFERENCE),
-                        ConferenceProgress.planned(e.format())));
+                        ConferenceState.planned(e.format())));
                 // The organizers called it off: there is no event to be at, so it does not come back.
                 case ConferenceCancelled e -> conferences.remove(e.conferenceId());
                 // The organizers moved it: the gaps and the away band follow it to its new days.
@@ -141,18 +141,18 @@ public class ScheduleGapProjector implements EventStreamConsumer {
                         (id, tracked) -> tracked.during(e.startDate(), e.endDate()));
 
                 // Everything below moves the conference along the two axes and lets
-                // ConferenceProgress decide whether that dropped it. Only `declined` and
+                // ConferenceState decide whether that dropped it. Only `declined` and
                 // `rejected` can, but the whole fold is kept so this stays the same reader as the
                 // other three — a partial fold would answer a later question wrongly.
                 case ConferenceAttendanceDeclined e ->
-                        moveConference(e.conferenceId(), ConferenceProgress::declined);
+                        moveConference(e.conferenceId(), ConferenceState::declined);
                 case ConferenceAttendanceConfirmed e ->
-                        moveConference(e.conferenceId(), progress -> progress.confirmed(e.basis()));
-                case TalkSubmitted e -> moveConference(e.conferenceId(), ConferenceProgress::submitted);
-                case TalkAccepted e -> moveConference(e.conferenceId(), ConferenceProgress::accepted);
-                case TalkRejected e -> moveConference(e.conferenceId(), ConferenceProgress::rejected);
-                case TalkWithdrawn e -> moveConference(e.conferenceId(), ConferenceProgress::withdrawn);
-                case InvitedToSpeak e -> moveConference(e.conferenceId(), ConferenceProgress::invited);
+                        moveConference(e.conferenceId(), state -> state.confirmed(e.basis()));
+                case TalkSubmitted e -> moveConference(e.conferenceId(), ConferenceState::submitted);
+                case TalkAccepted e -> moveConference(e.conferenceId(), ConferenceState::accepted);
+                case TalkRejected e -> moveConference(e.conferenceId(), ConferenceState::rejected);
+                case TalkWithdrawn e -> moveConference(e.conferenceId(), ConferenceState::withdrawn);
+                case InvitedToSpeak e -> moveConference(e.conferenceId(), ConferenceState::invited);
                 case GatheringPlanned e -> gatherings.put(e.gatheringId(),
                         new ScheduleTimeline.Occupancy(e.title(), Place.of(e.location()).value(),
                                 e.startsAt(), e.endsAt(), ScheduleTimeline.Occupancy.Kind.GATHERING));
@@ -286,9 +286,9 @@ public class ScheduleGapProjector implements EventStreamConsumer {
      * An event for a conference this projector has never seen is a no-op.
      */
     private void moveConference(ConferenceId conferenceId,
-                                UnaryOperator<ConferenceProgress> change) {
+                                UnaryOperator<ConferenceState> change) {
         conferences.computeIfPresent(conferenceId, (id, tracked) -> {
-            ConferenceProgress moved = change.apply(tracked.progress());
+            ConferenceState moved = change.apply(tracked.state());
             return moved.dropped() ? null : tracked.movedTo(moved);
         });
     }
@@ -296,17 +296,17 @@ public class ScheduleGapProjector implements EventStreamConsumer {
     /**
      * Where a conference is, and where it stands.
      * <p>
-     * The progress is held only to answer {@link ConferenceProgress#dropped()}: nothing about the
+     * The state is held only to answer {@link ConferenceState#dropped()}: nothing about the
      * submission pipeline reaches a {@link ScheduleProblem}, and nothing should — the report names
      * conferences, cities and dates, never talks.
      */
-    private record TrackedConference(ScheduleTimeline.Occupancy occupancy, ConferenceProgress progress) {
-        TrackedConference movedTo(ConferenceProgress moved) {
+    private record TrackedConference(ScheduleTimeline.Occupancy occupancy, ConferenceState state) {
+        TrackedConference movedTo(ConferenceState moved) {
             return new TrackedConference(occupancy, moved);
         }
 
         TrackedConference during(ZonedTimestamp newStart, ZonedTimestamp newEnd) {
-            return new TrackedConference(occupancy.during(newStart, newEnd), progress);
+            return new TrackedConference(occupancy.during(newStart, newEnd), state);
         }
     }
 

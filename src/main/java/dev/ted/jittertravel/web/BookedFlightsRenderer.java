@@ -67,11 +67,24 @@ public class BookedFlightsRenderer {
                 grid-template-columns: subgrid;
                 align-items: center; padding: 12px 20px;
             }
-            /* The space between columns: 24px after every data column, and 36px between Flight #
-               and the actions, which read as one block without it (Ted, 2026-10-08). Padding on
-               the cell instead of column-gap; see .flight-cards for why. */
-            .flight-card-cell { padding-right: 24px; }
-            .flight-card-cell.flight-number { padding-right: 36px; }
+            /* The space between columns, with 12px more between Flight # and the actions, which
+               read as one block without it (Ted, 2026-10-08). Padding on the cell instead of
+               column-gap; see .flight-cards for why.
+               24px on the iPad, 64px to 96px on a laptop (Ted, 2026-10-08). CSS cannot tell the
+               two apart, only how wide the list is, so the space follows the list's width: 24px
+               up to a 1148px list, which is the iPad in landscape at 1180 (px rather than rem
+               because it is that exact width); a step to 64px just above it; then rising evenly
+               to 96px at a 1408px list, a 1440 window. The step is deliberate, chosen over one
+               smooth ramp from 24px: a laptop window gets the wide spacing straight away.
+               cqi resolves against the flights container. Slope 32px over 260px = 12.3077cqi;
+               intercept 64 - 0.123077 * 1148 = -77.29px.
+               Below 1148px it is 24px, so the stacking breakpoint measured below is unaffected. */
+            .flight-cards { --column-space: 24px; }
+            @container flights (width > 1148px) {
+                .flight-cards { --column-space: clamp(64px, calc(12.3077cqi - 77.29px), 96px); }
+            }
+            .flight-card-cell { padding-right: var(--column-space); }
+            .flight-card-cell.flight-number { padding-right: calc(var(--column-space) + 12px); }
             /* The Add-to-Google icon beside the route. Larger than site.css's 1.15rem, with a visible
                gap of 0.5rem (the 0.15rem margin plus the 0.35rem of hit-area padding that
                .gcal-add cancels with a negative margin). The icon is an inline-flex box whose

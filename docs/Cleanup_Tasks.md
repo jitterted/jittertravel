@@ -12,9 +12,10 @@ stale in both directions — three of nine deferred items were listed, and two d
 and you are finished. The rule that keeps it that way is stated in `Backlog.md`'s header — a row
 there may not carry a fact that is not in the doc it points at.
 
-Three sections: **Open** is work that is wanted, **Deferred (until needed)** is work whose shape is
-known but whose need has not arrived — each item names the trigger that would promote it — and
-**Done** is the record.
+Four sections: **Open** is work that is wanted, **UI and layout** is wanted work that is about how a
+page looks or behaves on screen, kept together so it can be done in one pass (2026-10-08),
+**Deferred (until needed)** is work whose shape is known but whose need has not arrived — each item
+names the trigger that would promote it — and **Done** is the record.
 
 Some items below were **lifted out of a shipped plan doc** when that doc moved to `docs/archived/`
 (2026-08-21). The archived doc keeps the reasoning and is still worth reading before starting;
@@ -56,25 +57,6 @@ down when it is created does not get written down later.
       loudly (a test over every template, or the preview page flagging it) instead of rendering a gap;
       and whether the plain-text templating earns its keep against a few formatted strings.
 
-- [ ] **Put the time on its own line under the date on every list page, not just flights.** Ted,
-      2026-09-30: a time run into its date on one line is hard to pick out, and the vertical space
-      is worth it. `/booked-flights` does it (shipped 2026-09-30) with one CSS rule,
-      `.flight-card-row time > .nowrap { display: block; }`: `ZonedTimeTag.renderDateTimeStacking`
-      already emits the date and the time as two `.nowrap` spans inside the `<time>`, so making each
-      a block is the whole change and the markup is untouched.
-      **Left to do** — the other callers of `renderDateTimeStacking`, where the time still wraps
-      only when the column is narrow: `BookedTrainsRenderer` (departure/arrival),
-      `BookedHotelsRenderer` (check-in/check-out, and the cancel-by deadline in the same cell
-      style), and `ConferencesRenderer` (two call sites, ~L689 and ~L698).
-      `PlannedGatheringsRenderer` and `PlannedPrivateEventsRenderer` use `ZonedTimeTag.render`
-      with a single pattern, so their date and time are one string. There, the change is a
-      markup change first: a second pattern, or a switch to `renderDateTimeStacking`.
-      Whether to do it per page (a rule in each renderer's CSS, as flights does) or once (the rule
-      in `site.css`, or a `renderDateTimeOnTwoLines` variant on `ZonedTimeTag`) is the open
-      question. Per page is what flights did so the scope stayed one page; once is less to forget
-      on the next list. Measure each page for overflow after the change, as flights was: freeing
-      width is the likely effect, not the only one.
-
 - [ ] **Ground-transfer date rule (shipped 2026-10-06): two things it does not cover.** The rule —
       endpoints' windows no more than 24 hours apart, and the typed date one of the days a window
       covers — lives in `PlanGroundTransferCommand` and `TransferEndpointWindow`, and reports
@@ -114,19 +96,6 @@ down when it is created does not get written down later.
       dashboard keeps dropped conferences that the other two remove), and pulling out a shared fold
       that has to carry those differences may buy nothing. **Measure first:** the honest question is
       how many lines actually coincide once the view-building is set aside.
-
-- [ ] **`/itinerary` and `/calendar` disagree on the speaking chip's wording and colour.** Noticed
-      2026-09-09 while adding the conference chips to the itinerary. `/calendar` says **"A Ted
-      Talk"** on a near-black pill (`.entry-speaking-badge`, `#111827`); `/itinerary` says
-      **"Speaking"** on purple (`.speaking-badge`, `#7c3aed`) — and has done since gatherings
-      arrived. The new conference chip on the itinerary follows its own page rather than the
-      calendar, so the page is at least self-consistent, but the same fact now wears two names and
-      two colours depending on which surface Ted is looking at. The "Maybe" chip was deliberately
-      **not** given this treatment: it uses the calendar's amber (`#b45309`) on both pages, because
-      CLAUDE.md's reasoning for that colour (amber so it reads as a different statement from the
-      speaking chip; solid rather than muted, since muted reads as *cancelled*) is about the
-      meaning, not the page. Deciding which wording wins is a judgment call for Ted, not a cleanup
-      to apply.
 
 - [ ] **Locations and addresses should be valid before they are stored.** Raised by Ted 2026-09-07,
       while closing the alpha-2 zone-alias item: the real problem in that area is not a missing
@@ -552,43 +521,6 @@ down when it is created does not get written down later.
         so there is little to gain and a compatibility commitment to lose.
 
       Recommendation: do the first, live with it, and treat the second as probably-never.
-- [ ] **Itinerary: add-entry day dropdown** (like the calendar's). The `/calendar` future-day
-      disclosure menu lets the owner add an entry for a specific day; the itinerary has no such
-      affordance. Add the same per-day "add an entry" dropdown to the itinerary so a day can be
-      populated directly from that surface (OWNER-only; reuse the `DAY_MENU` pattern).
-      **The one item that differs (Ted, 2026-09-19): "Open itinerary" becomes "Open calendar",**
-      pointing back at `/calendar` for that day — his words were *"redirects back to the calendar
-      with `from=` that date"*. Everything else is the same seven `Add …` links.
-      Three things to settle while building it:
-      - **Which query parameter.** `CalendarViewBuilder.dayMenu` seeds every `Add …` link with
-        `?date=<iso>`, while `from=` is what `ProblemFix` appends to name the *origin surface* a
-        link was clicked on. Ted said `from=`; check whether he means "the calendar should scroll
-        to/open that date" (which is `?date=`, and `/calendar` would need to honour it — today
-        `/itinerary?date=` is the only one of the pair that does) or "remember I came from the
-        itinerary". Ask rather than guess: the two do different jobs and only one is implemented.
-        **Update 2026-09-29: `/calendar` now honours a date** — `?day=<iso>` (commit `f487c56`,
-        built for the conferences page's dates). It widens the range to take in the week before
-        that day, even a past one, and flashes the day's column on arrival; the scrolling is a
-        `#w-<Sunday>` fragment spelled by `CalendarViewBuilder.weekAnchorId`, which the link must
-        carry too. So if the answer is "open at that date", "Open calendar" is
-        `/calendar?day=<iso>#` + `weekAnchorId(day.minusWeeks(1))`, exactly as
-        `ConferencesRenderer.calendarHref` builds it — the question itself is still Ted's.
-      - **`CalendarDayMenuTest` must cover the second menu too.** It is the *only* thing in the
-        tree that fails when an `EntryKind` constant is added — driven from `EntryKind.values()`
-        with an exhaustive switch in `expectedAddItem`, deliberately written so adding a kind does
-        not require editing it. A second menu that does not share the builder would leave that
-        guard covering one of two surfaces, which is how `PRIVATE_EVENT` went eleven days without
-        a create link. Prefer extracting the shared builder over copying it.
-      - **Only future days, OWNER-only**, as on the calendar (`CalendarViewBuilderTest` pins
-        *where* the menu appears; the contents are pinned by calling `dayMenu` directly).
-
-- [ ] **The list pages' create link lands at a different x per page at 820px.** Lifted
-      2026-10-05 from the shipped "Plan/Book another" item (Done): the `ListToolbar` link sits in the
-      same place in every toolbar, but the outer containers differ (flights and trains indent under
-      their heading, hotels and gatherings do not), so it is not the same place on screen. A page
-      that moves its affordance between pages is the "action affordances never move" rule across
-      pages rather than rows.
-
 - [ ] **Blank text is unvalidated on four write paths, starting with a private event's title**
       (Ted, 2026-09-19: *"don't allow 'title' to be empty for private event (there's likely other
       similar validation missing, so make a note to look for those)"*). He is right, and the audit
@@ -630,50 +562,6 @@ down when it is created does not get written down later.
       Check the stored log before shipping, the way the fourth `EnteredLocation` rule was checked
       against the production backup: an existing event with a blank title would fail a replay if
       the check ever moved into a constructor, and needs finding either way.
-- [ ] **Action affordances that still move (general rule: they must not).** The standing rule and
-      its state-vs-authorization split are in CLAUDE.md.
-      **`/conferences` no longer follows it, deliberately (Ted, 2026-08-22).** The two-slot fix of
-      2026-08-19 — greyed, non-interactive `Confirm` text so Decline could not move — was removed
-      with slice 4 of the conference plan, which made the row's actions a *state machine*: what a
-      conference offers depends on where its talk stands, and most of those moves are not
-      unavailable-for-now but meaningless (`Accepted` on a conference nothing was submitted to
-      names an event that could never be true). Carrying nine greyed labels on every row to hold
-      positions fixed would say less, not more. That is the nuance Ted agreed to: **the state
-      machine wins where the two rules disagree**, and the disable-don't-hide rule keeps its force
-      wherever an action is genuinely the same action, merely not available yet. Two other places
-      still have the plain moving defect and were left alone:
-      - `PlannedGatheringsRenderer.actionsCell` (`PlannedGatheringsRenderer`) stacks an
-        optional `Event page →` above an always-present `Edit` in a column flex
-        (`.gathering-actions`, CSS at `:57`), so **Edit sits on the first line on gatherings with no
-        info URL and the second line on those with one** — the link's vertical position changes row
-        to row. Needs a reserved slot rather than the conferences fix (the shift is vertical, and
-        this list stacks on narrow viewports).
-      - `ItineraryRenderer` train card (`ItineraryRenderer`) puts the OWNER edit pencil
-        after an optional service-ID span, so the **pencil slides to the start of the line on trains
-        with no service id**. The neighbour is text rather than an action, but the pencil is the
-        thing being aimed at.
-- [ ] **A collapsed past week on `/calendar` is tappable and nothing says so.** Found 2026-09-04
-      auditing for hover-only affordances after the `/conferences` CFP link was fixed
-      (CLAUDE.md, "never have an affordance that relies on `:hover`"). `.calendar-week--collapsed
-      { cursor: pointer; }` (`CalendarRenderer`) is the *only* always-on signal that a
-      collapsed week expands when clicked — and a cursor is a pointer affordance, so **on the iPad
-      there is none at all**.
-      **Why it is on this list rather than in that fix:** it is the weakest remaining case, not a
-      clear-cut one. Two things soften it — the `.day-badge` entry count renders on collapsed weeks
-      only, so a week does say "there is something here you cannot see", and the global
-      "Show/Hide past weeks" toggle is a second, fully visible route to the same content. Nobody is
-      stranded. But the badge says *"3"*, not *"tap to open"*, and the rule is about the control
-      being visible as a control.
-      **`HoverIsNeverTheAffordanceTest` does not catch this and cannot.** Its rule is about a
-      `:hover` rule that introduces `text-decoration: underline`; this is `cursor: pointer` with no
-      hover rule at all, and whether an always-on affordance exists depends on markup
-      (`.day-badge`) rather than CSS. A mechanical version would have to reason across both, so
-      this one needs a person.
-      **Shape of a fix:** a small caret in the day-label row of a collapsed week, or making the
-      badge itself read as a control. Mind the standing rule that affordances never move — whatever
-      goes there must occupy the same slot on expanded weeks or be absent by a state rule, not
-      shift the row.
-
 - [ ] **Surface "restart needed" after a truncate, next to the read-only banner.** `PostgresPersister
       .truncateAllTables()` (via `/admin/database/truncate`, `AdminController`) empties the
       tables, but `EventStore`'s in-memory list and every projector keep the old data — the app goes
@@ -687,17 +575,6 @@ down when it is created does not get written down later.
       `role="alert"`, model attribute from `GeneralController`) rather than as a post-deploy task
       — it says the data on screen is wrong *now*. Split out of `PostDeployTaskBannerPlan.md`
       (decision 4, 2026-08-19), which deliberately excludes it.
-- [ ] **Extract a shared admin nav bar.** Every admin page hand-rolls its own: `admin-tasks` uses
-      one shape (as did `admin-migrate-conferences`, retired in `4b9d9d4`), `admin-eventlog` another
-      (`<nav><h3><a href="/admin">Admin</a> · <a href="/">JitterTravel</a></h3></nav>`), and
-      `migrate-legacy-events` / `database` / `zone-audit` a third — each with its own CSS, and each
-      needing the same edit when a link changes (as on 2026-08-19, when four pages had to gain a
-      home link one at a time). Three pages — `admin-calendar-feed`, `admin-restore`,
-      `admin-restore-success` — still have **no nav at all** and are dead ends. Extract one fragment
-      (a Thymeleaf `th:replace` fragment, since these are all Thymeleaf pages) taking the current
-      page's label, and apply it everywhere including the three with none. Compare
-      `Page.viewNav(NavAudience, activePath)`, which already does exactly this job for the eight
-      j2html view pages.
 - [ ] Clean up usage of Mockito, replacing it with better test doubles.
 - [ ] **Read-only mode redirect is untested on the conference action controllers.** Both
       `ConfirmConferenceAttendanceController` and `DeclineConferenceController` catch
@@ -905,6 +782,185 @@ problem. Promote them if one of them actually bites.
       not treat this as a separate programme. Deliberately not queued: CLAUDE.md's standing rule is
       no abstraction before a second user, and the case for each extraction has to be made on the
       duplication that exists now, one renderer pair at a time.
+
+## UI and layout
+
+Open items that are about how a page looks or behaves on screen, gathered here (Ted, 2026-10-08) so
+they can be done in one pass. They are as wanted as anything in **Open**. Form validation items stay
+in Open even though they show on a form, because their substance is which rule fires and where the
+error lands. A UI item that is waiting on a trigger stays in **Deferred**.
+
+**Use the `modern-web-guidance` skill before writing CSS for any of these.** `/booked-flights` was
+redone with it on 2026-10-08 (`ed28779`, `eb0c47f`), and it is the worked example for the first item.
+
+- [ ] **Give the other list pages the `/booked-flights` layout.** Ted saw `/booked-flights` on a
+      laptop after it was redone on 2026-10-08 and wanted the same for the rest. Those lists still
+      have what flights had: `fr` columns that stretch across a wide screen, a viewport media query
+      at 640px, and `overflow: hidden`.
+
+      | Page | Columns today | Stacking | Overflow |
+      |---|---|---|---|
+      | `BookedTrainsRenderer` | `2fr 1fr 2fr 1fr auto` | `@media (max-width: 640px)` | `hidden` |
+      | `PlannedGatheringsRenderer` | `auto auto 2fr 2fr auto` | `@media (max-width: 640px)` | `hidden` |
+      | `PlannedPrivateEventsRenderer` | `auto 2fr 2fr auto` | `@media (max-width: 640px)` | `hidden` |
+      | `BookedHotelsRenderer`, `ConferencesRenderer` | not a subgrid; check first | — | `hidden` |
+
+      **What flights did, and each page should copy:**
+      - **Every data column is `auto`, with an empty `1fr` track at the end** that takes the spare
+        width, so the card still spans the page but the columns pack to the left.
+      - **Spacing is cell padding, not `column-gap`.** A gap also sits in front of the empty track
+        and spends width on nothing: 30px gaps wrapped Route at 820px for exactly that reason.
+      - **`--column-space`**: 24px up to a 1148px list (the iPad in landscape at 1180), a step to
+        64px just above that, then rising to 96px at a 1408px list. It's a container query plus
+        `clamp()` with `cqi`, with 12px more before the actions column.
+      - **Stacking is a container query on the list's wrapper** (`container: flights /
+        inline-size`), not the viewport. The grid can't be its own query container, because the
+        stacked rules change the grid itself.
+      - **`overflow: clip`**, which the guide recommends over `hidden`: the corners still clip, but
+        an overflow can't be hidden as a missing right edge.
+      - **Long free text goes on a line of its own** with `contain: inline-size`, as the
+        cancellation reason did, so it never widens a column.
+
+      **Measure each page's breakpoint; never copy 40rem.** Each page has different floors. Flights
+      measured them in headless Chrome by rendering the real page with sample data through the
+      renderer and loading it into iframes of different widths. Its floors were 621px of list.
+      Pin the result in the renderer test as flights' `BookedFlightsRendererTest` does, and check
+      the assertions by breaking the code.
+
+      **Do two of the items below in the same pass**, since they touch the same CSS on the same
+      pages: the time on its own line, and the create link's x position.
+
+- [ ] **Put the time on its own line under the date on every list page, not just flights.** Ted,
+      2026-09-30: a time run into its date on one line is hard to pick out, and the vertical space
+      is worth it. `/booked-flights` does it (shipped 2026-09-30) with one CSS rule,
+      `.flight-card-row time > .nowrap { display: block; }`: `ZonedTimeTag.renderDateTimeStacking`
+      already emits the date and the time as two `.nowrap` spans inside the `<time>`, so making each
+      a block is the whole change and the markup is untouched.
+      **Left to do** — the other callers of `renderDateTimeStacking`, where the time still wraps
+      only when the column is narrow: `BookedTrainsRenderer` (departure/arrival),
+      `BookedHotelsRenderer` (check-in/check-out, and the cancel-by deadline in the same cell
+      style), and `ConferencesRenderer` (two call sites, ~L689 and ~L698).
+      `PlannedGatheringsRenderer` and `PlannedPrivateEventsRenderer` use `ZonedTimeTag.render`
+      with a single pattern, so their date and time are one string. There, the change is a
+      markup change first: a second pattern, or a switch to `renderDateTimeStacking`.
+      Whether to do it per page (a rule in each renderer's CSS, as flights does) or once (the rule
+      in `site.css`, or a `renderDateTimeOnTwoLines` variant on `ZonedTimeTag`) is the open
+      question. Per page is what flights did so the scope stayed one page; once is less to forget
+      on the next list. Measure each page for overflow after the change, as flights was: freeing
+      width is the likely effect, not the only one.
+
+- [ ] **The list pages' create link lands at a different x per page at 820px.** Lifted
+      2026-10-05 from the shipped "Plan/Book another" item (Done): the `ListToolbar` link sits in the
+      same place in every toolbar, but the outer containers differ (flights and trains indent under
+      their heading, hotels and gatherings do not), so it is not the same place on screen. A page
+      that moves its affordance between pages is the "action affordances never move" rule across
+      pages rather than rows. **Re-measure before starting:** flights' container lost its side
+      insets in an earlier change, so the description of which pages indent may be stale.
+
+- [ ] **Action affordances that still move (general rule: they must not).** The standing rule and
+      its state-vs-authorization split are in CLAUDE.md.
+      **`/conferences` no longer follows it, deliberately (Ted, 2026-08-22).** The two-slot fix of
+      2026-08-19 — greyed, non-interactive `Confirm` text so Decline could not move — was removed
+      with slice 4 of the conference plan, which made the row's actions a *state machine*: what a
+      conference offers depends on where its talk stands, and most of those moves are not
+      unavailable-for-now but meaningless (`Accepted` on a conference nothing was submitted to
+      names an event that could never be true). Carrying nine greyed labels on every row to hold
+      positions fixed would say less, not more. That is the nuance Ted agreed to: **the state
+      machine wins where the two rules disagree**, and the disable-don't-hide rule keeps its force
+      wherever an action is genuinely the same action, merely not available yet.
+      **What "move" means was clarified on 2026-10-08** (Ted, now in CLAUDE.md): one action
+      appearing or vanishing so that a *different* action lands where another used to be. A control
+      drifting a little because the content beside it changed width is not a violation. Measured
+      against that:
+      - `PlannedGatheringsRenderer.actionsCell` (`PlannedGatheringsRenderer`) stacks an
+        optional `Event page →` above an always-present `Edit` in a column flex
+        (`.gathering-actions`, CSS at `:57`), so **Edit sits on the first line on gatherings with no
+        info URL and the second line on those with one** — exactly where `Event page →` sits on the
+        other rows. **Still a violation.** Needs a reserved slot rather than the conferences fix
+        (the shift is vertical, and this list stacks on narrow viewports).
+      - `ItineraryRenderer` train card (`ItineraryRenderer`) puts the OWNER edit pencil
+        after an optional service-ID span, so the **pencil slides to the start of the line on trains
+        with no service id**. The neighbour is text, not an action, so no other action lands in the
+        pencil's place. **Probably no longer a violation** under the clarified rule. Ask Ted whether
+        to close this half before changing anything.
+
+- [ ] **A collapsed past week on `/calendar` is tappable and nothing says so.** Found 2026-09-04
+      auditing for hover-only affordances after the `/conferences` CFP link was fixed
+      (CLAUDE.md, "never have an affordance that relies on `:hover`"). `.calendar-week--collapsed
+      { cursor: pointer; }` (`CalendarRenderer`) is the *only* always-on signal that a
+      collapsed week expands when clicked — and a cursor is a pointer affordance, so **on the iPad
+      there is none at all**.
+      **Why it is on this list rather than in that fix:** it is the weakest remaining case, not a
+      clear-cut one. Two things soften it — the `.day-badge` entry count renders on collapsed weeks
+      only, so a week does say "there is something here you cannot see", and the global
+      "Show/Hide past weeks" toggle is a second, fully visible route to the same content. Nobody is
+      stranded. But the badge says *"3"*, not *"tap to open"*, and the rule is about the control
+      being visible as a control.
+      **`HoverIsNeverTheAffordanceTest` does not catch this and cannot.** Its rule is about a
+      `:hover` rule that introduces `text-decoration: underline`; this is `cursor: pointer` with no
+      hover rule at all, and whether an always-on affordance exists depends on markup
+      (`.day-badge`) rather than CSS. A mechanical version would have to reason across both, so
+      this one needs a person.
+      **Shape of a fix:** a small caret in the day-label row of a collapsed week, or making the
+      badge itself read as a control. Mind the standing rule that affordances never move — whatever
+      goes there must occupy the same slot on expanded weeks or be absent by a state rule, not
+      shift the row. `/booked-flights` solved the same problem on 2026-10-08 by replacing a ⚡️
+      with an underlined "Changed ▸/▾" that names what the tap does.
+
+- [ ] **`/itinerary` and `/calendar` disagree on the speaking chip's wording and colour.** Noticed
+      2026-09-09 while adding the conference chips to the itinerary. `/calendar` says **"A Ted
+      Talk"** on a near-black pill (`.entry-speaking-badge`, `#111827`); `/itinerary` says
+      **"Speaking"** on purple (`.speaking-badge`, `#7c3aed`) — and has done since gatherings
+      arrived. The new conference chip on the itinerary follows its own page rather than the
+      calendar, so the page is at least self-consistent, but the same fact now wears two names and
+      two colours depending on which surface Ted is looking at. The "Maybe" chip was deliberately
+      **not** given this treatment: it uses the calendar's amber (`#b45309`) on both pages, because
+      CLAUDE.md's reasoning for that colour (amber so it reads as a different statement from the
+      speaking chip; solid rather than muted, since muted reads as *cancelled*) is about the
+      meaning, not the page. Deciding which wording wins is a judgment call for Ted, not a cleanup
+      to apply.
+
+- [ ] **Itinerary: add-entry day dropdown** (like the calendar's). The `/calendar` future-day
+      disclosure menu lets the owner add an entry for a specific day; the itinerary has no such
+      affordance. Add the same per-day "add an entry" dropdown to the itinerary so a day can be
+      populated directly from that surface (OWNER-only; reuse the `DAY_MENU` pattern).
+      **The one item that differs (Ted, 2026-09-19): "Open itinerary" becomes "Open calendar",**
+      pointing back at `/calendar` for that day — his words were *"redirects back to the calendar
+      with `from=` that date"*. Everything else is the same seven `Add …` links.
+      Three things to settle while building it:
+      - **Which query parameter.** `CalendarViewBuilder.dayMenu` seeds every `Add …` link with
+        `?date=<iso>`, while `from=` is what `ProblemFix` appends to name the *origin surface* a
+        link was clicked on. Ted said `from=`; check whether he means "the calendar should scroll
+        to/open that date" (which is `?date=`, and `/calendar` would need to honour it — today
+        `/itinerary?date=` is the only one of the pair that does) or "remember I came from the
+        itinerary". Ask rather than guess: the two do different jobs and only one is implemented.
+        **Update 2026-09-29: `/calendar` now honours a date** — `?day=<iso>` (commit `f487c56`,
+        built for the conferences page's dates). It widens the range to take in the week before
+        that day, even a past one, and flashes the day's column on arrival; the scrolling is a
+        `#w-<Sunday>` fragment spelled by `CalendarViewBuilder.weekAnchorId`, which the link must
+        carry too. So if the answer is "open at that date", "Open calendar" is
+        `/calendar?day=<iso>#` + `weekAnchorId(day.minusWeeks(1))`, exactly as
+        `ConferencesRenderer.calendarHref` builds it — the question itself is still Ted's.
+      - **`CalendarDayMenuTest` must cover the second menu too.** It is the *only* thing in the
+        tree that fails when an `EntryKind` constant is added — driven from `EntryKind.values()`
+        with an exhaustive switch in `expectedAddItem`, deliberately written so adding a kind does
+        not require editing it. A second menu that does not share the builder would leave that
+        guard covering one of two surfaces, which is how `PRIVATE_EVENT` went eleven days without
+        a create link. Prefer extracting the shared builder over copying it.
+      - **Only future days, OWNER-only**, as on the calendar (`CalendarViewBuilderTest` pins
+        *where* the menu appears; the contents are pinned by calling `dayMenu` directly).
+
+- [ ] **Extract a shared admin nav bar.** Every admin page hand-rolls its own: `admin-tasks` uses
+      one shape (as did `admin-migrate-conferences`, retired in `4b9d9d4`), `admin-eventlog` another
+      (`<nav><h3><a href="/admin">Admin</a> · <a href="/">JitterTravel</a></h3></nav>`), and
+      `migrate-legacy-events` / `database` / `zone-audit` a third — each with its own CSS, and each
+      needing the same edit when a link changes (as on 2026-08-19, when four pages had to gain a
+      home link one at a time). Three pages — `admin-calendar-feed`, `admin-restore`,
+      `admin-restore-success` — still have **no nav at all** and are dead ends. Extract one fragment
+      (a Thymeleaf `th:replace` fragment, since these are all Thymeleaf pages) taking the current
+      page's label, and apply it everywhere including the three with none. Compare
+      `Page.viewNav(NavAudience, activePath)`, which already does exactly this job for the eight
+      j2html view pages.
 
 ## Deferred (until needed)
 

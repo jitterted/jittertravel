@@ -5,7 +5,8 @@
 **Event-sourcing rules live in `EventSourcingRulesHeuristics.md`** (repo root) — R1–R12 and H1–H8,
 the numbered rules a dozen plan docs cite by number. Read it before designing anything that touches
 events, commands, projectors or a schema migration. The ones most often needed: **R1** never decide
-from a projection, **R4** the write-path order, **R7** an event's shape is contract, **R8/R10** a
+from an asynchronous projection (until LSN-seen and conditional appends exist; R3 says which source
+to prefer), **R4** the write-path order, **R7** an event's shape is contract, **R8/R10** a
 view's fields come from events and only from events, **R11** a displayed time is a payload field and
 never the store's envelope, **R12** a read model is built from events alone and never from another
 read model — compose them a layer up, in an aggregator or a controller
@@ -121,7 +122,7 @@ the CFP's `submissionUrl` above: one is the conference's public page, the other 
 thinking of submitting there.
 Both are public events Ted speaks at or attends publicly. That Ted is **speaking** at a
 gathering is public too (shipped 2026-08-17): `speaking` is a component of
-`EntryDetails.PublicGathering` and renders as a "Speaking" badge on the anonymous `/calendar`
+`EntryDetails.PublicGathering` and renders as the "A Ted Talk" badge on the anonymous `/calendar`
 (the venue and time are already public, so the badge reveals nothing new). The conference
 conference half **shipped 2026-08-22** — see below; a **private** talk at a company is
 neither — it has no public venue/time and collapses to `EntryDetails.Busy` like every other

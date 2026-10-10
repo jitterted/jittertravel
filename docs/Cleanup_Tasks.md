@@ -43,6 +43,41 @@ down when it is created does not get written down later.
 
 ## Open
 
+- [ ] **Four Change services decide existence from a read model built for their edit form
+      (R3).** Found by the
+      ubiquitous-language review, 2026-10-10 (`docs/terms.md`). Each asks a details projector whether
+      the thing being changed exists, then builds its decision context from the answer:
+      - `ChangeFlight` → `FlightDetailsViewProjector.findById` (`ChangeFlightContext.flightExists`)
+      - `ChangeHotel` → `HotelDetailsViewProjector.findById` (`ChangeHotelContext.bookingExists`)
+      - `ChangeTrain` → `TrainDetailsViewProjector.findById` (`ChangeTrainContext.tripExists`)
+      - `ChangeGathering` → `GatheringDetailsViewProjector.findById`
+        (`ChangeGatheringContext.gatheringExists`, whose javadoc says "read from the details
+        projection")
+
+      Their `Cancel*` siblings fold existence from the event stream, so the two shapes sit side by
+      side; `docs/Backlog.md` records `CancelTrain` as "deliberately unlike its sibling
+      `ChangeTrain`". `GroundTransferEndpointResolver`'s window read (the ground-transfer date entry
+      above) is a fifth case of the same thing. Nothing catches it:
+      `ApplicationServicesUseCommandExecutorTest` bans an `EventStore` constructor parameter, not a
+      projector.
+
+      **R1 was relaxed the same day (Ted, 2026-10-10), so these are no longer R1 violations.** A read
+      model is wrong to decide from only when it can *lag*; a synchronous one on a single instance
+      cannot, and all four of these are synchronous. R1 now forbids only asynchronous projections, and
+      only until every read-model result carries the **last sequence number (LSN) seen** and appends
+      are **conditional** on it (the `afterPosition` in `CommandConsistencyEventStore.md` §2–3).
+      LSN-seen then goes on **every** read model.
+
+      **They still break R3's preference order, which was written the same day:** a cheap stream
+      fold first, a dedicated synchronous read model second, and reuse of a read model built for
+      something else discouraged — here a projector that prefills an edit form. An existence check is
+      the cheapest fold there is, and each `Cancel*` sibling already does it, so the fix is to fold
+      existence the way `CancelTrain` does. Low risk, no behaviour change on a single instance.
+
+      Still open beyond these four: the LSN-seen contract on read-model results, and the conditional
+      append it feeds. `GroundTransferEndpointResolver`'s window read (above) is a costlier fold, so
+      by R3 it wants a dedicated read model or a decision-context fold, not the resolver's reuse.
+
 - [ ] **Revisit how much an email template can change without Java** (Ted, 2026-10-05: "I can see
       this being a source of pain"). The email text lives in `src/main/resources/email/` so Ted can
       edit it, but the *values* a template may use are chosen in `FamilyNotificationMessages`, so a
@@ -67,7 +102,8 @@ down when it is created does not get written down later.
       windows it is given: `TransferEndpointProjector.windowOf` matches a token exactly as the form
       offered it, so a bare `airport:DEN` or a hand-made POST carries none and is unchecked (the form
       never offers one). **(2)** The windows are read from a projector in
-      `GroundTransferEndpointResolver`, a decision from a read model in the sense of R1. It follows
+      `GroundTransferEndpointResolver`, a decision from a read model built for the form — allowed by
+      R1 since it is synchronous (relaxed 2026-10-10), but against R3's preference order. It follows
       the resolver's existing reads of the hotel and train projectors, but those fill a snapshot and
       this one *refuses*; moving the windows into a decision context folded from the stream is the
       clean version.

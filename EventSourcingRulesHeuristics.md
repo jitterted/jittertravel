@@ -30,15 +30,38 @@ conference's standing, and issues `NotifyFamily` — an Actuator, renamed from
 
 ## Rules (do not violate)
 
-### R1. Never use a projection (read model) to make an automated decision.
+### R1. Never make an automated decision from an asynchronous projection — until reads carry LSN-seen and appends are conditional.
 
-Projections are potentially **stale** and are intended to serve views, not the
-write path. Even when subscribers are synchronous today (as in this codebase),
-that is an implementation detail — replays, retries, async transports, or
-multi-node deployments can introduce staleness. Read-side state must never be
-the source of truth for "should this command be allowed / what events should
-I emit?". To decide, fold from the authoritative event stream using a
-"strongly-consistent decision query".
+A projection is unsafe to decide from only when it can **lag** the log: a stale
+read gives an obsolete decision. Today every projector is registered with
+`EventStore.subscribe` and updated inside `append`, before `append` returns, on a
+single instance. Such a **synchronous** projection is as current as a fold of
+`eventsForDecision()`, and may supply a decision context. An **asynchronous** one
+can lag: anything registered with `subscribeAsync`, anything fed through a
+transport, or anything on another instance. Never decide from one.
+
+**"Synchronous" assumes one instance.** A second replica makes every projection
+asynchronous with respect to the other replica's appends, so the exemption ends
+the day a second replica runs, unless the condition below already holds.
+
+**The restriction lifts when both of these exist:**
+
+1. every result a read model returns carries the **last sequence number it had
+   seen** (LSN-seen), and
+2. appends are **conditional** on it (the `afterPosition` of
+   `docs/CommandConsistencyEventStore.md` §2–3). An append decided on facts older
+   than the log is refused, the context is rebuilt and the command retried.
+
+Staleness is then a retry cost, not a correctness bug, and any projection may
+feed a decision. At that point LSN-seen goes on **every** read model.
+
+**What neither a synchronous projection nor a stream fold protects against:** two
+concurrent commands. `CommandExecutor.execute` decides and then appends without a
+lock across both. The conditional append closes that too.
+
+*Ted, 2026-10-10, relaxing the earlier "never use a projection (read model) to
+make an automated decision". Which source to prefer, where R1 allows several, is
+in R3.*
 
 ### R2. Events are immutable, in the domain, and implement `Event`.
 
@@ -72,10 +95,24 @@ state needed for decisions). They have no infrastructure dependencies.
 could be judged: *"that's a GOOD thing: it's a pattern that will become more
 common as UI tasks become more complex"*). A decision that depends on what else
 is on the schedule can only be made honestly by a context that carries what else
-is on the schedule; the only alternative is a command reaching for a read model,
-which R1 forbids. So: fold it from the stream, never a projector; fold *live*
-state (apply the cancellations); where two commands want the same facts build
-one shared value rather than two near-identical folds; keep it in `domain`.
+is on the schedule. Fold *live* state (apply the cancellations); where two
+commands want the same facts build one shared value rather than two
+near-identical folds; keep it in `domain`.
+
+**Where the facts come from, in order of preference** (Ted, 2026-10-10):
+
+1. **A fold of the event stream, when the fold is cheap** — an existence check, one
+   entity's history, the live legs.
+2. **A dedicated synchronous read model, when the fold is costly** — one that exists
+   to serve this decision.
+3. **A dedicated asynchronous read model** — only once R1 allows it (LSN-seen and
+   conditional appends).
+
+**Reusing a read model built for something else is discouraged**, at any rank: a
+details projector that prefills an edit form couples the decision to the page, and
+a change made for the page silently changes what the command decides. R1 says
+whether a read model is *safe* to decide from; this says whether it is the *right*
+one.
 
 ### R4. Application services orchestrate the write path in a fixed order.
 

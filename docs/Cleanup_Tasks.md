@@ -819,6 +819,20 @@ problem. Promote them if one of them actually bites.
       no abstraction before a second user, and the case for each extraction has to be made on the
       duplication that exists now, one renderer pair at a time.
 
+- [ ] **Nothing tests which nav `/itinerary` shows a family viewer.** Found by PIT, 2026-10-12, on
+      the ground-transfer mode-as-title change (`2fc9033`), and not part of it. The surviving
+      mutant negates `isOwner ? Page.NavAudience.OWNER : Page.NavAudience.FAMILY` in
+      `ItineraryRenderer.render` (line 106), and the suite stays green. So a change that hands a
+      family viewer the OWNER nav, with links to `/booked-flights`, `/booked-hotels`,
+      `/schedule-problems` and the rest, would ship unnoticed. The routes themselves are gated in
+      `SecurityConfig`, but the links alone tell family those surfaces exist, which is the
+      "hiding by permission stays hiding" rule in CLAUDE.md. Only two renderers choose an audience at
+      all: `CalendarRenderer` through `NavAudience.of`, and `ItineraryRenderer` with this ternary.
+      The rest are OWNER-only pages and pass `OWNER`.
+      Fix: an `ItineraryRendererTest` pair, owner and family, asserting the whole
+      `<a href="/booked-flights">Flights</a>` element is present for one and absent for the other.
+      Then re-run PIT on `ItineraryRenderer` to confirm the mutant dies.
+
 ## UI and layout
 
 Open items that are about how a page looks or behaves on screen, gathered here (Ted, 2026-10-08) so

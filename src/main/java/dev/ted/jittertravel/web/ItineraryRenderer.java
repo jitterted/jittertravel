@@ -410,16 +410,25 @@ public class ItineraryRenderer {
      * (approximate) times, and nothing else — the airport code or hotel name already says where
      * each end is, so a cities line only repeated the journey (Ted, 2026-08-20).
      * <p>
+     * When Ted recorded how the hop is made — a bus, a subway line, "taxi" — that is the title,
+     * because it is what he acts on, and the route drops under the times (Ted, 2026-10-10). With no
+     * mode the route stays the title, as it was before the field existed. The itinerary is
+     * OWNER/FAMILY only, so the mode is safe in full here.
+     * <p>
      * There is nothing to edit into either, so the owner's action in the pencil's slot is a cancel:
      * a wrong transfer is corrected by removing it and entering it again — and left in place it
      * keeps asserting a hop that never happened, masking a real gap on /schedule-problems.
      */
     private static DivTag renderGroundTransfer(GroundTransferItineraryEntry e, boolean isOwner) {
-        DivTag title = div().withClass("entry-title").with(
+        boolean hasMode = !e.mode().isBlank();
+        DivTag route = div().with(
                 span(e.origin()),
                 rawHtml("&nbsp;&rarr;&nbsp;"),
                 span(e.destination())
         );
+        DivTag title = hasMode
+                ? div().withClass("entry-title").with(span(e.mode()))
+                : route.withClass("entry-title");
         if (isOwner) {
             title.with(cancelBin("/ground-transfers/" + e.groundTransferId().id() + "/cancel",
                     "Cancel ground transfer"));
@@ -436,10 +445,8 @@ public class ItineraryRenderer {
                         ZonedTimeTag.render(e.arrivesAt(), TIME_FORMAT)
                 )
         );
-        // Only when Ted recorded one: an empty line under the times would be a card that says less
-        // in more space. The itinerary is OWNER/FAMILY only, so the mode is safe in full here.
-        if (!e.mode().isBlank()) {
-            card.with(div(e.mode()).withClass("entry-detail"));
+        if (hasMode) {
+            card.with(route.withClass("entry-detail"));
         }
         return card;
     }

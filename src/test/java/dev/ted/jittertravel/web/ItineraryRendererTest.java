@@ -942,20 +942,33 @@ class ItineraryRendererTest {
                 .contains("<time datetime=\"2026-06-01T11:45:00Z\" data-fmt=\"h:mm a\">12:45 PM</time>");
     }
 
+    /**
+     * How the hop is made is what Ted acts on, so a recorded mode is the title and the route drops
+     * under the times (Ted, 2026-10-10).
+     */
     @Test
-    void groundTransferShowsHowTheHopIsMadeWhenOneWasRecorded() {
+    void groundTransferWithAModeTitlesTheCardWithItAndPutsTheRouteUnderTheTimes() {
         String html = renderWithEntry(groundTransfer("A16 hotel shuttle"));
 
         assertThat(html)
-                .contains("<div class=\"entry-detail\">A16 hotel shuttle</div>");
+                .contains("<div class=\"entry-title\"><span>A16 hotel shuttle</span></div>")
+                .contains("<div class=\"entry-detail\"><span>DEN</span>&nbsp;&rarr;&nbsp;"
+                          + "<span>Marriott Lone Tree</span></div>")
+                .doesNotContain("<div class=\"entry-title\"><span>DEN</span>");
+        assertThat(html.indexOf("data-fmt=\"h:mm a\">12:45 PM</time>"))
+                .as("the times come before the route line")
+                .isLessThan(html.indexOf("<div class=\"entry-detail\"><span>DEN</span>"));
     }
 
     /** A transfer with no mode reads exactly as it did before the field existed. */
     @Test
-    void groundTransferWithNoModeCarriesNoEmptyLineWhereOneWouldGo() {
+    void groundTransferWithNoModeKeepsTheRouteAsItsTitleAndCarriesNoExtraLine() {
         String html = renderWithEntry(groundTransfer());
 
         assertThat(html)
+                .contains("<div class=\"entry-title\"><span>DEN</span>&nbsp;&rarr;&nbsp;"
+                          + "<span>Marriott Lone Tree</span></div>")
+                .doesNotContain("<div class=\"entry-detail\"><span>DEN</span>")
                 .doesNotContain("<div class=\"entry-detail\"></div>");
     }
 

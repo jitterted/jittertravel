@@ -14,8 +14,9 @@ import java.util.stream.Stream;
 
 /**
  * Projects {@link GroundTransferPlanned} into the owner's full {@link CalendarEntry}: the route as
- * Ted knows it ({@code DEN → Marriott Lone Tree}), and the times. That is the whole owner view —
- * naming the same journey a second time as cities was noise on the entry (Ted, 2026-08-20).
+ * Ted knows it ({@code DEN → Marriott Lone Tree}), and the times — with the mode as the title
+ * instead, when one was recorded (see {@link #subtitle}). Naming the same journey a second time as
+ * cities was noise on the entry (Ted, 2026-08-20).
  * <p>
  * The publishable form of the route ({@code DEN → Lone Tree, CO, US}) used to ride along here as a
  * field no renderer read, because the redactor could not derive a city from a hotel name.
@@ -49,12 +50,13 @@ public class GroundTransferCalendarProjector implements EventStreamConsumer {
     private CalendarEntry toEntry(GroundTransferPlanned e) {
         // Bucketed on the transfer-zone local day; both ends share one zone, so a transfer is
         // normally a single day column.
+        String route = route(label.ownerLabel(e.originAirportCode(), e.originName(), e.origin()),
+                             label.ownerLabel(e.destinationAirportCode(), e.destinationName(), e.destination()));
         return new CalendarEntry(
                 e.departsAt().localDateTime(),
                 e.arrivesAt().localDateTime(),
-                TAXI + route(label.ownerLabel(e.originAirportCode(), e.originName(), e.origin()),
-                             label.ownerLabel(e.destinationAirportCode(), e.destinationName(), e.destination())),
-                subtitle(e),
+                TAXI + (e.mode().isBlank() ? route : e.mode()),
+                subtitle(e, route),
                 // A transfer has nothing to edit — correcting one means removing it and entering it
                 // again — so its owner action is cancel, and the calendar carries the link. The
                 // renderer gates it on isOwner, and it is never built for the public calendar.
@@ -64,17 +66,19 @@ public class GroundTransferCalendarProjector implements EventStreamConsumer {
     }
 
     /**
-     * The times, and below them how the hop is made — when Ted recorded one. A transfer with no
-     * mode reads exactly as it did before the field existed, rather than carrying an empty line.
+     * The times, and below them the route — when the mode has taken the title. How the hop is made
+     * (the bus, the subway line, "taxi") is what Ted needs to act on, so a recorded mode leads and
+     * the route it serves drops under the times (Ted, 2026-10-10). A transfer with no mode keeps
+     * the route as its title and reads exactly as it did before the field existed.
      * <p>
-     * Both lines are the owner's alone: {@link PublicCalendarProjector} builds its own transfer
+     * All of it is the owner's alone: {@link PublicCalendarProjector} builds its own transfer
      * entry straight from the event and reads neither the times nor the mode.
      */
-    private List<SubtitleLine> subtitle(GroundTransferPlanned e) {
+    private List<SubtitleLine> subtitle(GroundTransferPlanned e, String route) {
         SubtitleLine when = new SubtitleLine.Range(e.departsAt(), e.arrivesAt());
         return e.mode().isBlank()
                 ? List.of(when)
-                : List.of(when, new SubtitleLine.Text(e.mode()));
+                : List.of(when, new SubtitleLine.Text(route));
     }
 
     /** A spaced arrow, so the browser can wrap a long route rather than widening the day column. */

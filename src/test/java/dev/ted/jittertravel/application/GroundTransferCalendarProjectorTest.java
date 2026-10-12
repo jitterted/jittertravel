@@ -78,20 +78,25 @@ class GroundTransferCalendarProjectorTest {
     }
 
     /**
-     * How the hop is made is Ted's own note — a line name, a shuttle, who is driving — and it hangs
-     * under the times where a flight would put nothing. Owner-only: the anonymous calendar is a
-     * separate read model that never sees this field.
+     * How the hop is made is Ted's own note — a line name, a shuttle, a taxi — and it is what he
+     * acts on, so it takes the title and the route drops under the times (Ted, 2026-10-10).
+     * Owner-only: the anonymous calendar is a separate read model that never sees this field.
      */
     @Test
-    void aRecordedModeBecomesASecondSubtitleLineUnderTheTimes() {
+    void aRecordedModeIsTheTitleAndTheRouteMovesUnderTheTimes() {
         projector.handle(Stream.of(stored(new GroundTransferPlanned(GroundTransferId.random(),
                 "DEN", "", AIRPORT,
                 "", "Marriott Lone Tree", HOTEL,
                 DEPARTS, ARRIVES, "A16 hotel shuttle"))));
 
-        assertThat(projector.entries().getFirst().subTitle())
+        CalendarEntry entry = projector.entries().getFirst();
+        assertThat(entry.mainTitle())
+                .as("the mode leads, after the taxi")
+                .isEqualTo("🚕 A16 hotel shuttle");
+        assertThat(entry.subTitle())
+                .as("times first, then the route the title no longer carries")
                 .containsExactly(new SubtitleLine.Range(DEPARTS, ARRIVES),
-                                 new SubtitleLine.Text("A16 hotel shuttle"));
+                                 new SubtitleLine.Text("DEN → Marriott Lone Tree"));
     }
 
     @Test

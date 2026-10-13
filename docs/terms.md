@@ -12,6 +12,43 @@
 > This document **renames nothing**. The Commentary section lists drift; each fix is its own
 > decision.
 
+## Agreed: flight vocabulary
+
+Settled with Ted, 2026-10-13. These are the words to use from now on; where the code still says
+something else, the Commentary entry for it is marked **Decided** and the rename is its own change.
+
+| Term | Means | Example |
+|------|-------|---------|
+| **Leg** | One scheduled ride: a flight or a train ride. A **flight leg** is one flight number, from the airport Ted boards at to the airport he gets off at. A stop on the way is not recorded — this bends the industry meaning ("segments are what you buy, legs are what you fly", under which a one-stop flight is two legs), knowingly, because Ted almost never flies one. Not *segment*, *hop*, *movement* or *member*. | UA 1234 SFO→DEN→BOS, landing at DEN, is one leg SFO→BOS. VIA 45 Ottawa→Toronto is a train leg. |
+| **Stop** | A landing on the way within one leg, same flight number. Not recorded. | DEN, above. |
+| **Connection** | Changing from one leg to the next within a journey: **24 hours or less** on the ground. **Layover** is the time spent at it. | SFO→ORD lands 14:10, ORD→YOW leaves 16:05. Landing at ORD 21:00 and leaving 07:30 next day is still a connection. |
+| **Journey** | One direction of an itinerary: consecutive legs joined by connections. **More than 24 hours on the ground ends a journey**, whether or not a hotel is booked — a rule based on hotels would merge the whole itinerary into one journey whenever the hotel is not booked yet, which is most of the months before a trip. Worked out from the legs, never stored. No longer a synonym for itinerary. | MD7LKB: SFO→ORD→YOW (outbound journey), YYZ→SFO (return journey). |
+| **Itinerary** | The legs under **one confirmation code**. A codeshare leg sold under the same code belongs to it; a leg bought separately, even with the same airline, is another itinerary. | SFO→ORD, ORD→YOW, YYZ→SFO on MD7LKB, the last operated by Air Canada. |
+| **Confirmation code** | The 6-character code the airline gives a booking; how Ted refers to it with the airline. Also called *record locator*, *PNR* or *booking reference*. Not *booking code*. | MD7LKB |
+| **Codeshare** | A leg sold by one airline (the **marketing carrier**) and flown by another (the **operating carrier**). | YYZ→SFO sold by United on MD7LKB, flown by Air Canada. |
+| **Trip** | Ted's **whole time away from home**: every itinerary, hotel, train and transfer from leaving home to getting back. Not an itinerary, and not a train ride. Still has no type. | 2026-11-02 to 11-09: fly to Ottawa, hotel, train to Toronto, hotel, fly home. |
+| **Home city** | Any configured home city (`HomeCities`); all of them count as one place. | SFO, SJC and OAK. |
+
+**Itinerary types**, worked out from its journeys and never stored. A type describes **one
+itinerary**, so it says how Ted *booked* the travel: legs under separate confirmation codes are
+separate itineraries, each with its own type, and never add up to an open jaw or a round trip.
+
+| Type | Rule | Example |
+|------|------|---------|
+| **One-way** | One journey. | SFO→ORD→DEN |
+| **Round trip** | Two journeys; the second starts where the first ended and ends where the first started — or at any home city, when the first started at one. | SFO→BER, BER→SFO; SFO→YOW, YOW→OAK; SJC→YYZ, YYZ→SFO |
+| **Open jaw** | Two journeys; the second starts somewhere other than where the first ended. | SFO→YOW, YYZ→SFO |
+| **Multi-city** | Three or more journeys, whether or not the last returns to the start. | LHR→CDG, CDG→AMS, AMS→BCN; SFO→LHR, LHR→AMS, AMS→SFO |
+
+**Changing an itinerary:**
+
+| Term | Means |
+|------|-------|
+| **Schedule change** | The airline changed the itinerary: times, flight numbers or legs. |
+| **Rebooking** | Ted changed the itinerary himself, under the same confirmation code. A different fact from a schedule change, so a different event (`FlightItineraryRebooked`, not built yet). |
+| **Dropped** (leg) | Removed from its itinerary by a schedule change or a rebooking. A later email that lists it again books it again. Close to the conference meaning: removed as a consequence, not by Ted cancelling it directly. |
+| **Cancelled** (leg) | Ted cancelled that leg on its own. A later email listing it again is refused. |
+
 ## Nouns
 
 ### Flight
@@ -534,6 +571,8 @@ Follow a link from a schedule problem to the form that resolves it. Navigation, 
   in `application/` and read as one family.
 - **Suggestion**: give one of them another name. The page is a day-by-day agenda; the booking
   is what the airline calls an itinerary — so the page is the one that can move more cheaply.
+- **Decided (2026-10-13)**: an itinerary is the legs under one confirmation code (see Agreed:
+  flight vocabulary). The page's name is still open.
 
 #### "Trip" means four things
 
@@ -546,6 +585,9 @@ Follow a link from a schedule problem to the form that resolves it. Navigation, 
   meaning with no type (see Missing terms).
 - **Suggestion**: reserve "trip" for the time away from home; use "itinerary" or "train ride"
   for the others.
+- **Decided (2026-10-13)**: trip = the whole time away from home. `FlightTrip`, `TripOnTheBooks`
+  and the "Cancel trip" link on `/booked-flights` are itineraries and are now misnamed;
+  `TrainTripId` and "Cancel this trip" are a train leg.
 
 #### "Event" means four things
 
@@ -568,6 +610,20 @@ Follow a link from a schedule problem to the form that resolves it. Navigation, 
   *member* (`ChangeFlightItineraryContext.liveMembers` beside
   `CancelFlightItineraryContext.liveLegs`), *hop* (tests).
 - **Suggestion**: "leg" everywhere outside the AeroDataBox adapter.
+- **Decided (2026-10-13)**: "leg" for any scheduled ride, flight or train. *Journey* now means one
+  direction of an itinerary, so the 44 comments that use it for a leg, and `sameJourney`, are
+  misnamed.
+
+#### The trip chip's "one-way" means "one leg"
+
+- **Type**: Wrong term
+- **Where**: `BookedFlightsRenderer.tripChip` labels an itinerary with one leg "one-way" and
+  any other "leg N of M".
+- **Problem**: one-way is an itinerary type and means one *journey* (see Agreed: flight
+  vocabulary). SFO→ORD→YOW alone is one-way but shows "leg 1 of 2"; one leg of a round trip
+  bought under its own code is not one-way in Ted's sense, but shows it.
+- **Suggestion**: show the itinerary type worked out from its journeys, or drop the word and keep
+  "leg N of M".
 
 #### Overlap, collision, conflict and clash
 
@@ -766,6 +822,9 @@ Follow a link from a schedule problem to the form that resolves it. Navigation, 
   - **Invitation** — only the event `InvitedToSpeak`.
   - **Command status** — bare strings (`PENDING`, `FAILED_DOMAIN`, …).
   - **Decider**, **translator**, **slice**, **stream** — in docs only.
+  - **Journey**, **connection**, **itinerary type**, **rebooking** — defined in Agreed: flight
+    vocabulary (2026-10-13); no type yet. *Trip*, *confirmation code* and *schedule change*
+    above are defined there too, and still have none.
 
 #### Dead or stale terms
 

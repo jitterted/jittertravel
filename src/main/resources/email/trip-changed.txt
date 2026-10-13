@@ -1,0 +1,26 @@
+Subject: (JitterTravel) Ted's trip has changed: [[${chain}]]
+
+Hi, JitterTravel here. Ted's trip has changed, and he wanted you to know. These are his flights now.
+
+[# th:if="${calendarUrl != null}"]
+You can see the trip in his calendar here: [[${calendarUrl}]]
+[/]
+
+[# th:each="leg : ${legs}"]
+[[${leg.number()}]]. [[${leg.flightNumber()}]]
+   [[${leg.route()}]]
+   Departs  [[${leg.departs()}]]
+   Arrives  [[${leg.arrives()}]]
+
+[/]
+[# th:if="${!oldLegs.isEmpty()}"]
+These are the old flights that were changed:
+
+[# th:each="leg : ${oldLegs}"]
+[[${leg.flightNumber()}]]
+   [[${leg.route()}]]
+   Was due to depart  [[${leg.departs()}]]
+   Was due to arrive  [[${leg.arrives()}]]
+
+[/]
+[/]

@@ -833,6 +833,23 @@ problem. Promote them if one of them actually bites.
       `<a href="/booked-flights">Flights</a>` element is present for one and absent for the other.
       Then re-run PIT on `ItineraryRenderer` to confirm the mutant dies.
 
+- [ ] **A pasted itinerary is matched to a booked one by confirmation code alone.** Found
+      2026-10-13 while working out how to record a rebooking. `TripOnTheBooks.fold` (line 65) picks
+      the booked itinerary whose `confirmationCode` equals the pasted one, and ignores the airline.
+      Airlines reuse confirmation codes after a while, and two airlines can issue the same one, so
+      a new booking can land on an old itinerary:
+      - the old one was **cancelled**: the paste is refused with "Itinerary MD7LKB was cancelled;
+        it cannot be changed", and the new trip cannot be booked from its email at all;
+      - the old one was **flown**: it is still live, so the paste becomes a schedule change to it,
+        and is refused because its flown legs are not in the paste (`FlownLegContradicted`).
+
+      Either way nothing wrong is written; the cost is a confusing refusal with no way around it on
+      that page. Low odds for one traveller, which is why it waits. Fix to weigh: match on airline
+      and code, and only against an itinerary that still has a leg in the future, so a finished or
+      cancelled one never claims a new paste. The codeshare case (`docs/terms.md`, Agreed: flight
+      vocabulary) is why "airline" needs care here: an itinerary's legs can be flown by different
+      airlines under one code, so it is the itinerary's airline that has to match, not each leg's.
+
 ## UI and layout
 
 Open items that are about how a page looks or behaves on screen, gathered here (Ted, 2026-10-08) so

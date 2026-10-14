@@ -3,15 +3,21 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.BookedFlightView;
 import dev.ted.jittertravel.application.CancelledView;
 import dev.ted.jittertravel.application.FlightTrip;
+import dev.ted.jittertravel.application.ItinerarySummary;
 import dev.ted.jittertravel.application.TimeView;
+import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.Journey;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import j2html.tags.DomContent;
 
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 import static j2html.TagCreator.*;
 
@@ -21,6 +27,8 @@ public class BookedFlightsRenderer {
     private static final String TIME_PATTERN = "h:mm a";
     private static final DateTimeFormatter CANCELLED_ON =
             DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH);
+    private static final DateTimeFormatter BAND_DATE =
+            DateTimeFormatter.ofPattern(DATE_PATTERN, Locale.ENGLISH);
 
     // No container max-width, and the grid collapses instead of scrolling. Wide, the six columns
     // sit side by side, each only as wide as its content; on a narrow list they stack into one
@@ -101,32 +109,54 @@ public class BookedFlightsRenderer {
             .flight-cancel-link { font-size: 0.85rem; color: #b00; text-decoration: none; }
             .flight-cancel-link:hover { text-decoration: underline; }
             .flight-action-disabled { font-size: 0.85rem; color: var(--muted-text); opacity: 0.6; cursor: default; }
-            /* The actions cell stacks Edit/Cancel over the trip line. When the page has any trip,
-               every row keeps that second line (an empty one for a hand-entered flight), so
-               nothing is ever at a different height from the row above. */
             .flight-actions-cell { display: grid; gap: 3px; justify-items: start; }
-            /* Red like Cancel Flight, and for the same reason: nothing puts the trip back. */
-            .flight-trip-cancel-link { font-size: 0.85rem; color: #b00; text-decoration: none; }
-            .flight-trip-cancel-link:hover { text-decoration: underline; }
-            .flight-trip-disabled { display: grid; gap: 1px; justify-items: start; }
-            /* The reason is text on the page, never a title: the iPad has no hover. */
-            .flight-trip-why { font-size: 0.7rem; line-height: 1.3; color: var(--muted-text); max-width: 15ch; }
-            /* Each trip wears one of two hues: a left edge on its rows and a tint on its chip. They
-               are indigo and teal on purpose, never amber, which belongs to problems. The inset
-               shadow keeps a tinted row the same width as an untinted one. Colour is a hint; the
-               code beside it is what names the trip. */
+            /* Each itinerary wears one of two hues: a left edge on its band and its rows, a light
+               tint on its band, and the fill of its code badge. They are indigo and teal on
+               purpose, never amber, which belongs to problems. The inset shadow keeps a tinted row
+               the same width as an untinted one. Colour is a hint; the code is what names the
+               itinerary. */
             .flight-card--trip-0 { --trip-edge: #4f46e5; --trip-soft: #e0e7ff; }
             .flight-card--trip-1 { --trip-edge: #0f8b8d; --trip-soft: #d5f1f1; }
             [class*="flight-card--trip-"].flight-card-row,
-            [class*="flight-card--trip-"] > summary { box-shadow: inset 4px 0 0 var(--trip-edge); }
-            .flight-trip { margin-top: 4px; }
-            .flight-trip-code {
-                display: inline-block; padding: 0 6px; border-radius: 4px;
-                border: 1px solid var(--trip-edge); background: var(--trip-soft);
-                font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-                font-size: 0.7rem; letter-spacing: 0.04em; color: #212529;
-            }
+            [class*="flight-card--trip-"] > summary,
+            [class*="flight-card--trip-"].flight-band { box-shadow: inset 4px 0 0 var(--trip-edge); }
             .flight-trip-leg { display: block; margin-top: 1px; font-size: 0.7rem; color: var(--muted-text); }
+            /* A run of consecutive rows from one itinerary, or of flights booked on their own, under
+               the band that names it (docs/FlightItineraryRebookingPlan.md D10: Ted could not see
+               where one trip ended and the next began). A subgrid like the rows, so the band's
+               actions sit in the rows' actions column. An itinerary another booking interleaves
+               with is two runs, each with its own band (Ted, 2026-10-13): the list stays in
+               departure order. */
+            .flight-group { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
+            .flight-band {
+                grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center;
+                padding: 9px 20px; border-bottom: 1px solid var(--border-color);
+                border-top: 2px solid var(--trip-edge, #adb5bd);
+                /* Light: the full --trip-soft read as heavy (Ted, 2026-10-13). */
+                background: color-mix(in srgb, var(--trip-soft, var(--header-bg)) 40%, #fff);
+            }
+            .flight-group:first-of-type > .flight-band { border-top: none; }
+            .flight-band--alone { background: var(--header-bg); color: var(--muted-text); font-size: 0.85rem; }
+            .flight-band-text {
+                /* The five data columns; the actions go in the sixth, under the rows' own. */
+                grid-column: 1 / 6; display: flex; flex-wrap: wrap; align-items: baseline;
+                gap: 4px 14px; font-size: 0.9rem;
+            }
+            .flight-band-code {
+                display: inline-block; padding: 2px 9px; border-radius: 999px;
+                background: var(--trip-edge); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+                font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+                font-weight: 700; font-size: 0.8rem; letter-spacing: 0.06em;
+            }
+            .flight-band-route { font-weight: 600; }
+            .flight-band-dates, .flight-band-count { color: var(--muted-text); }
+            .flight-band-actions { grid-column: 6; display: flex; gap: 0.75rem; align-items: baseline; }
+            /* Red like Cancel Flight, and for the same reason: nothing puts the itinerary back. */
+            .flight-itinerary-cancel-link { font-size: 0.85rem; color: #b00; text-decoration: none; }
+            .flight-itinerary-cancel-link:hover { text-decoration: underline; }
+            .flight-itinerary-disabled { display: grid; gap: 1px; justify-items: start; }
+            /* The reason is text on the page, never a title: the iPad has no hover. */
+            .flight-itinerary-why { font-size: 0.7rem; line-height: 1.3; color: var(--muted-text); max-width: 15ch; }
             /* A cancelled flight is a record, muted so it reads as inactive. */
             .flight-card--cancelled .flight-card-cell { color: var(--muted-text); }
             /* When and why, on a line of its own under the row and spanning all of it. contain:
@@ -171,7 +201,8 @@ public class BookedFlightsRenderer {
                 border-bottom: 1px solid var(--border-color);
             }
             .flight-card { grid-column: 1 / -1; border-bottom: 1px solid var(--border-color); }
-            .flight-card:last-child { border-bottom: none; }
+            .flight-cards > .flight-card:last-child,
+            .flight-group:last-child > .flight-card:last-child { border-bottom: none; }
             .flight-card-has-history {
                 grid-column: 1 / -1;
                 display: grid; grid-template-columns: subgrid;
@@ -231,6 +262,8 @@ public class BookedFlightsRenderer {
                     align-items: start; gap: 0.15rem;
                 }
                 .leg-label { display: block; margin-top: 0.5rem; }
+                .flight-band { grid-template-columns: 1fr; gap: 0.4rem; }
+                .flight-band-text, .flight-band-actions { grid-column: 1; }
                 .flight-card-row > .flight-actions-cell { justify-self: start; margin-top: 0.6rem; }
             }
             """;
@@ -254,8 +287,8 @@ public class BookedFlightsRenderer {
 
     /**
      * @param trips the itinerary each listed flight belongs to; a flight entered by hand has no
-     *              entry. When any row has one, every row reserves the trip line of its actions
-     *              cell, so an action never sits in a different place from one row to the next.
+     *              entry. When any row has one, the list is drawn in runs, each under a band naming
+     *              its itinerary (or saying its flights were booked on their own).
      */
     public static String render(List<BookedFlightView> flights, TimeView activeFilter,
                                 CancelledView activeCancelled, int cancelledCount,
@@ -315,7 +348,6 @@ public class BookedFlightsRenderer {
     }
 
     private static DomContent renderFlightList(List<BookedFlightView> flights, Map<FlightId, FlightTrip> trips) {
-        boolean reserveTripLine = !trips.isEmpty();
         return div().withClass("flight-cards").with(
                 // The header cells carry the data cells' classes, so a column's spacing is stated
                 // once and the header cannot sit a few pixels off the column it names.
@@ -329,14 +361,120 @@ public class BookedFlightsRenderer {
                         div("Flight #").withClass("flight-card-cell flight-number"),
                         div()
                 ),
-                each(flights, flight -> renderFlightCard(flight, trips.get(flight.flightId()), reserveTripLine))
+                trips.isEmpty()
+                        ? each(flights, flight -> renderFlightCard(flight, null))
+                        : each(runsOf(flights, trips), run -> renderRun(run, trips))
         );
     }
 
-    private static DomContent renderFlightCard(BookedFlightView flight, FlightTrip trip, boolean reserveTripLine) {
+    /**
+     * Consecutive flights of one itinerary, or consecutive flights booked on their own, in list
+     * order. An itinerary whose legs another booking falls between is more than one run.
+     */
+    private static List<List<BookedFlightView>> runsOf(List<BookedFlightView> flights,
+                                                       Map<FlightId, FlightTrip> trips) {
+        List<List<BookedFlightView>> runs = new ArrayList<>();
+        Optional<FlightItineraryId> previous = Optional.empty();
+        for (BookedFlightView flight : flights) {
+            Optional<FlightItineraryId> current = itineraryOf(flight, trips);
+            if (runs.isEmpty() || !current.equals(previous)) {
+                runs.add(new ArrayList<>());
+            }
+            runs.getLast().add(flight);
+            previous = current;
+        }
+        return runs;
+    }
+
+    private static Optional<FlightItineraryId> itineraryOf(BookedFlightView flight, Map<FlightId, FlightTrip> trips) {
+        return Optional.ofNullable(trips.get(flight.flightId()))
+                .map(trip -> trip.itinerary().itineraryId());
+    }
+
+    private static DomContent renderRun(List<BookedFlightView> run, Map<FlightId, FlightTrip> trips) {
+        FlightTrip first = trips.get(run.getFirst().flightId());
+        return div().withClass("flight-group").with(
+                first == null ? aloneBand() : itineraryBand(first.itinerary()),
+                each(run, flight -> renderFlightCard(flight, trips.get(flight.flightId()))));
+    }
+
+    private static DomContent aloneBand() {
+        return div().withClass("flight-band flight-band--alone").with(
+                div("Booked on its own").withClass("flight-band-text"));
+    }
+
+    /**
+     * The code as a badge, where the itinerary goes, when, and how many legs, with the actions that
+     * belong to the itinerary as a whole in the rows' actions column (D10).
+     */
+    private static DomContent itineraryBand(ItinerarySummary itinerary) {
+        return div().withClass("flight-band flight-card--trip-" + itinerary.hue()).with(
+                div().withClass("flight-band-text").with(
+                        span(itinerary.confirmationCode()).withClass("flight-band-code"),
+                        span(routeOf(itinerary.journeys())).withClass("flight-band-route"),
+                        span(datesOf(itinerary)).withClass("flight-band-dates"),
+                        span(itinerary.legCount() + (itinerary.legCount() == 1 ? " leg" : " legs"))
+                                .withClass("flight-band-count")),
+                div().withClass("flight-band-actions").with(cancelItinerary(itinerary)));
+    }
+
+    /**
+     * Each journey as its two ends, run together where one starts where the last ended:
+     * {@code SFO → YOW → SFO} for a round trip, {@code SFO → YOW, YYZ → SFO} for an open jaw.
+     */
+    private static String routeOf(List<Journey> journeys) {
+        StringBuilder route = new StringBuilder();
+        AirportCode previousEnd = null;
+        for (Journey journey : journeys) {
+            if (previousEnd == null) {
+                route.append(journey.from().code());
+            } else if (!journey.from().equals(previousEnd)) {
+                route.append(", ").append(journey.from().code());
+            }
+            route.append(" → ").append(journey.to().code());
+            previousEnd = journey.to();
+        }
+        return route.toString();
+    }
+
+    /** First departure to last arrival, each on its own airport's calendar; one date for a day trip. */
+    private static String datesOf(ItinerarySummary itinerary) {
+        String departs = BAND_DATE.format(itinerary.departs().atEntryZone());
+        String arrives = BAND_DATE.format(itinerary.arrives().atEntryZone());
+        return departs.equals(arrives) ? departs : departs + " – " + arrives;
+    }
+
+    /**
+     * Shown disabled with its reason written out where the itinerary cannot be cancelled whole: the
+     * iPad has no hover, so a tooltip would explain nothing. The reason has to be there even when
+     * the date filter hides the legs that already left.
+     */
+    private static DomContent cancelItinerary(ItinerarySummary itinerary) {
+        if (itinerary.cancelled()) {
+            return disabledItineraryAction("Itinerary cancelled");
+        }
+        if (!itinerary.flying()) {
+            return disabledItineraryAction("Every leg cancelled");
+        }
+        if (!itinerary.canBeCancelledWhole()) {
+            return disabledItineraryAction(itinerary.departedLegs()
+                                           + (itinerary.departedLegs() == 1 ? " leg" : " legs")
+                                           + " already left");
+        }
+        return a("Cancel itinerary").withClass("flight-itinerary-cancel-link")
+                .withHref("/booked-itineraries/" + itinerary.itineraryId().id() + "/cancel");
+    }
+
+    private static DomContent disabledItineraryAction(String why) {
+        return div().withClass("flight-itinerary-disabled").with(
+                span("Cancel itinerary").withClass("flight-action-disabled"),
+                span(why).withClass("flight-itinerary-why"));
+    }
+
+    private static DomContent renderFlightCard(BookedFlightView flight, FlightTrip trip) {
         String changeUrl = "/booked-flights/" + flight.flightId().id();
         String cancelledClass = (flight.cancelled() ? " flight-card--cancelled" : "")
-                                + (trip == null ? "" : " flight-card--trip-" + trip.hue());
+                                + (trip == null ? "" : " flight-card--trip-" + trip.itinerary().hue());
         if (flight.hasChanges()) {
             // The change list lives inside the <summary> — the grid row that already spans and
             // aligns the columns — so the list (grid-column: 1 / -1 within that same subgrid row)
@@ -344,21 +482,20 @@ public class BookedFlightsRenderer {
             // column.
             return details().withClass("flight-card flight-card-has-history" + cancelledClass).with(
                     summary().withClass("flight-card-row")
-                            .with(rowCells(flight, changeUrl, trip, reserveTripLine))
+                            .with(rowCells(flight, changeUrl, trip))
                             .with(ul().withClass("flight-history-list").with(
                                     each(flight.history(), entry -> li(entry.displayText()))
                             ))
             );
         }
         return div().withClass("flight-card flight-card-row" + cancelledClass)
-                    .with(rowCells(flight, changeUrl, trip, reserveTripLine));
+                    .with(rowCells(flight, changeUrl, trip));
     }
 
     // The plain row and the history summary row share the same cells, so both pick up the
     // stacking times, the leg labels, the cancellation line and the collapse behaviour from one
     // place.
-    private static DomContent[] rowCells(BookedFlightView flight, String changeUrl,
-                                         FlightTrip trip, boolean reserveTripLine) {
+    private static DomContent[] rowCells(BookedFlightView flight, String changeUrl, FlightTrip trip) {
         return new DomContent[]{
                 div().withClass("flight-card-cell flight-departure").with(
                         legLabel("Departure"), dateTime(flight.departureDateTime())),
@@ -372,10 +509,9 @@ public class BookedFlightsRenderer {
                         legLabel("Airline"), text(flight.airline())),
                 div().withClass("flight-card-cell flight-number").with(
                         legLabel("Flight Number"), text(flight.flightNumber()),
-                        trip == null ? text("") : tripChip(trip)),
+                        trip == null || !trip.flying() ? text("") : legPlace(trip)),
                 div().withClass("flight-actions-cell").with(
-                        flight.cancelled() ? disabledActions() : actions(changeUrl),
-                        tripAction(flight, trip, reserveTripLine)),
+                        flight.cancelled() ? disabledActions() : actions(changeUrl)),
                 // A ternary, not iff(): iff evaluates its argument eagerly, and a live flight has
                 // no cancelledOn to format.
                 flight.cancelled() ? cancelledLine(flight) : text("")
@@ -403,47 +539,13 @@ public class BookedFlightsRenderer {
     }
 
     /**
-     * The itinerary's confirmation code, tinted to match the row's left edge, with this leg's place
-     * in it underneath. The label sits below the code rather than beside it so the chip adds no
-     * width to the Flight # column.
-     * The tint is a hint only; the code is what identifies the trip.
+     * This leg's place among the itinerary's legs still flying, under the flight number. The code
+     * is on the band above, so the row carries only the place. A leg no longer flying has none.
      */
-    private static DomContent tripChip(FlightTrip trip) {
-        String place = trip.legCount() == 1 ? "one-way" : "leg " + trip.legNumber() + " of " + trip.legCount();
-        return div().withClass("flight-trip").with(
-                span(trip.confirmationCode()).withClass("flight-trip-code"),
-                span(place).withClass("flight-trip-leg"));
-    }
-
-    /**
-     * The second line of the actions cell. A hand-entered flight keeps an empty line whenever any
-     * other row on the page has a trip action, so Edit and Cancel sit at the same height on every
-     * row. Where a trip cannot be cancelled whole, the link is shown disabled with its reason
-     * written out: the iPad has no hover, so a tooltip would explain nothing. The reason also has to
-     * be there when the date filter hides the legs that already left.
-     */
-    private static DomContent tripAction(BookedFlightView flight, FlightTrip trip, boolean reserveTripLine) {
-        if (!reserveTripLine) {
-            return text("");
-        }
-        if (trip == null) {
-            return span(rawHtml("&nbsp;")).withClass("flight-trip-slot").attr("aria-hidden", "true");
-        }
-        if (flight.cancelled()) {
-            return disabledTripAction("Flight cancelled");
-        }
-        if (!trip.canBeCancelledWhole()) {
-            return disabledTripAction(trip.departedLegs() + (trip.departedLegs() == 1 ? " leg" : " legs")
-                                      + " already left");
-        }
-        return a("Cancel trip").withClass("flight-trip-cancel-link")
-                .withHref("/booked-itineraries/" + trip.itineraryId().id() + "/cancel");
-    }
-
-    private static DomContent disabledTripAction(String why) {
-        return div().withClass("flight-trip-disabled").with(
-                span("Cancel trip").withClass("flight-action-disabled"),
-                span(why).withClass("flight-trip-why"));
+    private static DomContent legPlace(FlightTrip trip) {
+        int legs = trip.itinerary().legCount();
+        String place = legs == 1 ? "one-way" : "leg " + trip.legNumber() + " of " + legs;
+        return span(place).withClass("flight-trip-leg");
     }
 
     /**

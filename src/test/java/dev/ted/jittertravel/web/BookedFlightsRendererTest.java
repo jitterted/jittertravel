@@ -4,11 +4,17 @@ import dev.ted.jittertravel.application.BookedFlightView;
 import dev.ted.jittertravel.application.CancelledView;
 import dev.ted.jittertravel.application.ChangeEntry;
 import dev.ted.jittertravel.application.FlightTrip;
+import dev.ted.jittertravel.application.ItinerarySummary;
 import dev.ted.jittertravel.application.TimeView;
+import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.ItineraryLeg;
+import dev.ted.jittertravel.domain.Journey;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -147,7 +153,8 @@ class BookedFlightsRendererTest {
      */
     @Test
     void liveFlightOffersAnAddToGoogleIconWithFlightNumberAndRoute() {
-        BookedFlightView flight = new BookedFlightView(FlightId.random(), "United", "UA59", "SFO→FRA",
+        BookedFlightView flight = new BookedFlightView(FlightId.random(), "United", "UA59",
+                AirportCode.of("SFO"), AirportCode.of("FRA"),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 6, 13, 55), ZoneId.of("America/Los_Angeles")),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 7, 9, 45), ZoneId.of("Europe/Berlin")),
                 List.of());
@@ -178,7 +185,8 @@ class BookedFlightsRendererTest {
     @Test
     void theCancellationDateIsReadInTheDepartureAirportsZone() {
         // 03:00 UTC on the 21st is still the evening of the 20th in Los Angeles.
-        BookedFlightView cancelled = new BookedFlightView(FlightId.random(), "United", "UA59", "SFO→FRA",
+        BookedFlightView cancelled = new BookedFlightView(FlightId.random(), "United", "UA59",
+                AirportCode.of("SFO"), AirportCode.of("FRA"),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 6, 13, 55), ZoneId.of("America/Los_Angeles")),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 7, 9, 45), ZoneId.of("Europe/Berlin")),
                 List.of(new ChangeEntry(LocalDateTime.of(2026, 5, 1, 12, 0), "Booked on 2026-05-01 12:00PM")),
@@ -318,14 +326,133 @@ class BookedFlightsRendererTest {
     }
 
     @Test
-    void aTripLegShowsItsCodeAndItsPlaceInTheBookingUnderTheFlightNumber() {
+    void aTripLegShowsItsPlaceUnderTheFlightNumberAndLeavesTheCodeToTheBand() {
         FlightId flightId = FlightId.random();
         String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "YOW→ORD", "United", "UA3510")),
                 Map.of(flightId, trip("K3PQ9R", 3, 4, 0, 1)));
 
         assertThat(html)
-                .contains("<span class=\"flight-trip-code\">K3PQ9R</span>")
-                .contains("<span class=\"flight-trip-leg\">leg 3 of 4</span>");
+                .contains("UA3510<span class=\"flight-trip-leg\">leg 3 of 4</span></div>")
+                .as("the code appears once, as the band's badge")
+                .contains("<span class=\"flight-band-code\">K3PQ9R</span>")
+                .doesNotContain("flight-trip-code");
+    }
+
+    @Test
+    void aLegNoLongerFlyingHasNoPlaceAmongTheLegs() {
+        FlightId flightId = FlightId.random();
+        String html = renderWithTrips(List.of(cancelledView(flightId)),
+                Map.of(flightId, trip("MD7LKB", 0, 3, 0, 0)));
+
+        assertThat(html)
+                .doesNotContain("<span class=\"flight-trip-leg\">");
+    }
+
+    @Test
+    void theBandNamesTheItineraryWhereItGoesWhenAndHowManyLegs() {
+        FlightId flightId = FlightId.random();
+        ItinerarySummary md7lkb = summary("MD7LKB", 4, 0, 0, false, true,
+                journey("SFO", "YOW", 18, 31), journey("YOW", "SFO", 31, 31));
+        String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "SFO→ORD", "United", "UA2091")),
+                Map.of(flightId, new FlightTrip(md7lkb, 1)));
+
+        assertThat(html)
+                .contains("<div class=\"flight-band flight-card--trip-0\"><div class=\"flight-band-text\">"
+                          + "<span class=\"flight-band-code\">MD7LKB</span>"
+                          + "<span class=\"flight-band-route\">SFO → YOW → SFO</span>"
+                          + "<span class=\"flight-band-dates\">Sun, Oct 18 – Sat, Oct 31</span>"
+                          + "<span class=\"flight-band-count\">4 legs</span></div>");
+    }
+
+    @Test
+    void aReturnFromSomewhereElseIsASecondJourneyInTheRoute() {
+        FlightId flightId = FlightId.random();
+        ItinerarySummary md7lkb = summary("MD7LKB", 3, 0, 0, false, true,
+                journey("SFO", "YOW", 18, 18), journey("YYZ", "SFO", 31, 31));
+        String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "SFO→ORD", "United", "UA2091")),
+                Map.of(flightId, new FlightTrip(md7lkb, 1)));
+
+        assertThat(html)
+                .contains("<span class=\"flight-band-route\">SFO → YOW, YYZ → SFO</span>");
+    }
+
+    @Test
+    void aDayTripShowsOneDateAndOneLegInTheSingular() {
+        FlightId flightId = FlightId.random();
+        ItinerarySummary p5c9dv = summary("P5C9DV", 1, 0, 0, false, true, journey("HAM", "MUC", 18, 18));
+        String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "HAM→MUC", "Lufthansa", "LH2093")),
+                Map.of(flightId, new FlightTrip(p5c9dv, 1)));
+
+        assertThat(html)
+                .contains("<span class=\"flight-band-dates\">Sun, Oct 18</span>")
+                .contains("<span class=\"flight-band-count\">1 leg</span>");
+    }
+
+    @Test
+    void flightsBookedOnTheirOwnGetAQuietBandAndAnInterleavedItineraryIsTwoRuns() {
+        FlightId byHand = FlightId.random();
+        FlightId out = FlightId.random();
+        FlightId sideTrip = FlightId.random();
+        FlightId back = FlightId.random();
+        ItinerarySummary md7lkb = summary("MD7LKB", 2, 0, 0, false, true,
+                journey("SFO", "YOW", 18, 18), journey("YOW", "SFO", 31, 31));
+        ItinerarySummary qx4tzn = summary("QX4TZN", 1, 0, 1, false, true, journey("YOW", "YYZ", 24, 24));
+        String html = renderWithTrips(List.of(
+                        viewWithoutChanges(byHand, "", "DEN→SJC", "United", "UA1883"),
+                        viewWithoutChanges(out, "", "SFO→YOW", "United", "UA2091"),
+                        viewWithoutChanges(sideTrip, "", "YOW→YYZ", "Air Canada", "AC8201"),
+                        viewWithoutChanges(back, "", "YOW→SFO", "United", "UA3659")),
+                Map.of(out, new FlightTrip(md7lkb, 1), sideTrip, new FlightTrip(qx4tzn, 1),
+                        back, new FlightTrip(md7lkb, 2)));
+
+        assertThat(html)
+                .contains("<div class=\"flight-group\"><div class=\"flight-band flight-band--alone\">"
+                          + "<div class=\"flight-band-text\">Booked on its own</div></div>")
+                .as("the list stays in departure order, so MD7LKB is split by the side trip")
+                .containsSubsequence("<span class=\"flight-band-code\">MD7LKB</span>", "UA2091",
+                        "<span class=\"flight-band-code\">QX4TZN</span>", "AC8201",
+                        "<span class=\"flight-band-code\">MD7LKB</span>", "UA3659");
+    }
+
+    @Test
+    void aPageWithNoTripsHasNoBands() {
+        String html = BookedFlightsRenderer.render(List.of(
+                viewWithoutChanges("", "SFO→LAX", "United", "UA608")), TimeView.FUTURE);
+
+        assertThat(html)
+                .doesNotContain("<div class=\"flight-group\">")
+                .doesNotContain("Booked on its own");
+    }
+
+    @Test
+    void aLegRowCarriesOnlyItsOwnEditAndCancel() {
+        FlightId flightId = FlightId.random();
+        String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "SFO→ORD", "United", "UA1")),
+                Map.of(flightId, trip("MD7LKB", 1, 2, 0, 0)));
+
+        assertThat(html)
+                .contains("<div class=\"flight-actions-cell\"><div class=\"flight-actions\">"
+                          + "<a class=\"flight-edit-link\" href=\"/booked-flights/" + flightId.id() + "\">Edit</a>"
+                          + "<a class=\"flight-cancel-link\" href=\"/booked-flights/" + flightId.id() + "/cancel\">Cancel</a>"
+                          + "</div></div>")
+                .doesNotContain("Cancel trip");
+    }
+
+    /**
+     * The band's look as Ted approved it in the mockup: a light tint, and the code as a solid badge
+     * in the itinerary's own hue (Ted, 2026-10-13).
+     */
+    @Test
+    void theBandIsALightTintAndTheCodeASolidBadge() {
+        String html = renderWithTrips(List.of(), Map.of());
+
+        assertThat(html)
+                .contains("background: color-mix(in srgb, var(--trip-soft, var(--header-bg)) 40%, #fff);")
+                .contains("background: var(--trip-edge); color: #fff;")
+                .as("the band's actions sit in the rows' actions column")
+                .contains(".flight-band-actions { grid-column: 6;")
+                .as("stacked, the actions go under the band's text")
+                .contains(".flight-band { grid-template-columns: 1fr; gap: 0.4rem; }");
     }
 
     @Test
@@ -353,77 +480,47 @@ class BookedFlightsRendererTest {
         assertThat(html)
                 .contains("<div class=\"flight-card flight-card-row flight-card--trip-0\">")
                 .contains("<div class=\"flight-card flight-card-row flight-card--trip-1\">")
-                .contains("<div class=\"flight-card flight-card-row\">");
+                .contains("<div class=\"flight-card flight-card-row\">")
+                .as("and each band wears its itinerary's hue too")
+                .contains("<div class=\"flight-band flight-card--trip-0\">")
+                .contains("<div class=\"flight-band flight-card--trip-1\">");
     }
 
     @Test
-    void aTripThatCanBeCancelledWholeLinksToItsCancelPageInRed() {
-        FlightItineraryId itinerary = FlightItineraryId.of(UUID.randomUUID());
+    void anItineraryThatCanBeCancelledWholeLinksToItsCancelPageInRedFromItsBand() {
         FlightId flightId = FlightId.random();
+        ItinerarySummary md7lkb = summary("MD7LKB", 2, 0, 0, false, true, journey("SFO", "ORD", 18, 18));
         String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "SFO→ORD", "United", "UA1")),
-                Map.of(flightId, new FlightTrip(itinerary, "MD7LKB", 1, 2, 0, 0)));
+                Map.of(flightId, new FlightTrip(md7lkb, 1)));
 
         assertThat(html)
-                .contains("<a class=\"flight-trip-cancel-link\" href=\"/booked-itineraries/"
-                          + itinerary.id() + "/cancel\">Cancel trip</a>")
-                .contains(".flight-trip-cancel-link { font-size: 0.85rem; color: #b00;");
+                .contains("<div class=\"flight-band-actions\"><a class=\"flight-itinerary-cancel-link\" "
+                          + "href=\"/booked-itineraries/" + md7lkb.itineraryId().id() + "/cancel\">"
+                          + "Cancel itinerary</a></div>")
+                .contains(".flight-itinerary-cancel-link { font-size: 0.85rem; color: #b00;");
     }
 
-    @Test
-    void aTripWithADepartedLegShowsCancelTripDisabledWithTheReasonWrittenOut() {
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', textBlock = """
+            two legs left    | 2 | false | true  | 2 legs already left
+            one leg left     | 1 | false | true  | 1 leg already left
+            itinerary gone   | 0 | true  | false | Itinerary cancelled
+            nothing flying   | 0 | false | false | Every leg cancelled
+            """)
+    void anItineraryThatCannotBeCancelledWholeShowsItDisabledWithTheReasonWrittenOut(
+            String state, int departed, boolean cancelled, boolean flying, String reason) {
         FlightId flightId = FlightId.random();
+        ItinerarySummary k3pq9r = summary("K3PQ9R", 4, departed, 0, cancelled, flying,
+                journey("YOW", "ORD", 18, 18));
         String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "YOW→ORD", "United", "UA3510")),
-                Map.of(flightId, trip("K3PQ9R", 3, 4, 2, 0)));
+                Map.of(flightId, new FlightTrip(k3pq9r, 3)));
 
         assertThat(html)
-                .contains("<span class=\"flight-action-disabled\">Cancel trip</span>")
+                .contains("<div class=\"flight-band-actions\"><div class=\"flight-itinerary-disabled\">"
+                          + "<span class=\"flight-action-disabled\">Cancel itinerary</span>"
+                          + "<span class=\"flight-itinerary-why\">" + reason + "</span></div></div>")
                 .as("the reason is text, because the iPad has no hover for a tooltip")
-                .contains("<span class=\"flight-trip-why\">2 legs already left</span>")
                 .doesNotContain("href=\"/booked-itineraries/");
-    }
-
-    @Test
-    void oneDepartedLegIsSaidInTheSingular() {
-        FlightId flightId = FlightId.random();
-        String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "YOW→ORD", "United", "UA3510")),
-                Map.of(flightId, trip("K3PQ9R", 2, 2, 1, 0)));
-
-        assertThat(html)
-                .contains("<span class=\"flight-trip-why\">1 leg already left</span>");
-    }
-
-    @Test
-    void aCancelledFlightsTripActionIsDisabledAndSaysWhy() {
-        FlightId flightId = FlightId.random();
-        String html = renderWithTrips(List.of(cancelledView(flightId)),
-                Map.of(flightId, trip("MD7LKB", 1, 2, 0, 0)));
-
-        assertThat(html)
-                .contains("<span class=\"flight-trip-why\">Flight cancelled</span>")
-                .doesNotContain("href=\"/booked-itineraries/");
-    }
-
-    @Test
-    void aHandEnteredFlightKeepsAnEmptyTripLineWhenAnotherRowHasATripSoActionsNeverMove() {
-        FlightId inTrip = FlightId.random();
-        FlightId byHand = FlightId.random();
-        String html = renderWithTrips(List.of(
-                        viewWithoutChanges(inTrip, "", "SFO→ORD", "United", "UA1"),
-                        viewWithoutChanges(byHand, "", "SFO→LAX", "United", "UA608")),
-                Map.of(inTrip, trip("MD7LKB", 1, 2, 0, 0)));
-
-        assertThat(html)
-                .contains("<span class=\"flight-trip-slot\" aria-hidden=\"true\">&nbsp;</span>");
-    }
-
-    @Test
-    void aPageWithNoTripsReservesNoTripLineAtAll() {
-        String html = BookedFlightsRenderer.render(List.of(
-                viewWithoutChanges("", "SFO→LAX", "United", "UA608")), TimeView.FUTURE);
-
-        assertThat(html)
-                .doesNotContain("class=\"flight-trip-slot\"")
-                .doesNotContain("Cancel trip");
     }
 
     @Test
@@ -447,11 +544,33 @@ class BookedFlightsRendererTest {
     }
 
     private static FlightTrip trip(String code, int leg, int of, int departed, int hue) {
-        return new FlightTrip(FlightItineraryId.of(UUID.randomUUID()), code, leg, of, departed, hue);
+        return new FlightTrip(summary(code, of, departed, hue, false, true, journey("SFO", "ORD", 18, 18)), leg);
+    }
+
+    private static ItinerarySummary summary(String code, int legs, int departed, int hue,
+                                            boolean cancelled, boolean flying, Journey... journeys) {
+        return new ItinerarySummary(FlightItineraryId.of(UUID.randomUUID()), code, List.of(journeys),
+                legs, departed, flying, cancelled, hue);
+    }
+
+    /** A one-leg journey leaving on one October day and arriving on another, in Chicago. */
+    private static Journey journey(String from, String to, int departsOnDay, int arrivesOnDay) {
+        ZoneId chicago = ZoneId.of("America/Chicago");
+        return new Journey(List.of(new ItineraryLeg(FlightId.random(), "United", "UA1",
+                AirportCode.of(from), ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, departsOnDay, 8, 0), chicago),
+                AirportCode.of(to), ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, arrivesOnDay, 11, 0), chicago))));
+    }
+
+    private static AirportCode from(String route) {
+        return AirportCode.of(route.split("→")[0]);
+    }
+
+    private static AirportCode to(String route) {
+        return AirportCode.of(route.split("→")[1]);
     }
 
     private static BookedFlightView cancelledView(FlightId flightId) {
-        return new BookedFlightView(flightId, "United", "UA1", "SFO→ORD",
+        return new BookedFlightView(flightId, "United", "UA1", AirportCode.of("SFO"), AirportCode.of("ORD"),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 6, 13, 55), UTC),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 7, 9, 45), UTC),
                 List.of(new ChangeEntry(LocalDateTime.of(2026, 5, 1, 12, 0), "Booked on 2026-05-01 12:00PM")),
@@ -467,7 +586,7 @@ class BookedFlightsRendererTest {
 
     private static BookedFlightView cancelledView(FlightId flightId, Instant cancelledOn, String reason) {
         return new BookedFlightView(
-                flightId, "United", "UA59", "SFO→FRA",
+                flightId, "United", "UA59", AirportCode.of("SFO"), AirportCode.of("FRA"),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 6, 13, 55), UTC),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 7, 9, 45), UTC),
                 List.of(new ChangeEntry(LocalDateTime.of(2026, 5, 1, 12, 0), "Booked on 2026-05-01 12:00PM")),
@@ -478,7 +597,7 @@ class BookedFlightsRendererTest {
                                                        String route, String airline,
                                                        String flightNumber) {
         return new BookedFlightView(
-                flightId, airline, flightNumber, route,
+                flightId, airline, flightNumber, from(route), to(route),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 6, 13, 55), UTC),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 7, 9, 45), UTC),
                 List.of(new ChangeEntry(LocalDateTime.of(2026, 5, 20, 12, 22), "Booked on 2026-05-20 12:22PM"))
@@ -492,7 +611,7 @@ class BookedFlightsRendererTest {
                 .map(text -> new ChangeEntry(LocalDateTime.now(), text))
                 .toList();
         return new BookedFlightView(
-                FlightId.random(), airline, flightNumber, route,
+                FlightId.random(), airline, flightNumber, from(route), to(route),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 6, 13, 55), UTC),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 6, 7, 9, 45), UTC),
                 history

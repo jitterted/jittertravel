@@ -22,7 +22,7 @@ something else, the Commentary entry for it is marked **Decided** and the rename
 | **Leg** | One scheduled ride: a flight or a train ride. A **flight leg** is one flight number, from the airport Ted boards at to the airport he gets off at. A stop on the way is not recorded — this bends the industry meaning ("segments are what you buy, legs are what you fly", under which a one-stop flight is two legs), knowingly, because Ted almost never flies one. Not *segment*, *hop*, *movement* or *member*. | UA 1234 SFO→DEN→BOS, landing at DEN, is one leg SFO→BOS. VIA 45 Ottawa→Toronto is a train leg. |
 | **Stop** | A landing on the way within one leg, same flight number. Not recorded. | DEN, above. |
 | **Connection** | Changing from one leg to the next within a journey: **24 hours or less** on the ground. **Layover** is the time spent at it. | SFO→ORD lands 14:10, ORD→YOW leaves 16:05. Landing at ORD 21:00 and leaving 07:30 next day is still a connection. |
-| **Journey** | One direction of an itinerary: consecutive legs joined by connections. **More than 24 hours on the ground ends a journey**, whether or not a hotel is booked — a rule based on hotels would merge the whole itinerary into one journey whenever the hotel is not booked yet, which is most of the months before a trip. Worked out from the legs, never stored. No longer a synonym for itinerary. | MD7LKB: SFO→ORD→YOW (outbound journey), YYZ→SFO (return journey). |
+| **Journey** | One direction of an itinerary: consecutive legs joined by connections. **More than 24 hours on the ground ends a journey**, whether or not a hotel is booked — a rule based on hotels would merge the whole itinerary into one journey whenever the hotel is not booked yet, which is most of the months before a trip. Worked out from the legs, never stored (`domain/Journey`). No longer a synonym for itinerary. | MD7LKB: SFO→ORD→YOW (outbound journey), YYZ→SFO (return journey). |
 | **Itinerary** | The legs under **one confirmation code**. A codeshare leg sold under the same code belongs to it; a leg bought separately, even with the same airline, is another itinerary. | SFO→ORD, ORD→YOW, YYZ→SFO on MD7LKB, the last operated by Air Canada. |
 | **Confirmation code** | The 6-character code the airline gives a booking; how Ted refers to it with the airline. Also called *record locator*, *PNR* or *booking reference*. Not *booking code*. | MD7LKB |
 | **Codeshare** | A leg sold by one airline (the **marketing carrier**) and flown by another (the **operating carrier**). | YYZ→SFO sold by United on MD7LKB, flown by Air Canada. |
@@ -95,7 +95,7 @@ id and never replaces them; a hand-booked flight never joins one. Both models ar
 | `FlightTrip` / `FlightTrips` | `application/FlightTrip.java:21` | The itinerary seen from one list row (`legNumber`, `legCount`, `hue`) |
 | `TripOnTheBooks` | `application/TripOnTheBooks.java:33` | The itinerary folded for a decision |
 
-- **Aliases**: *trip* (`FlightTrip`, `TripOnTheBooks`, the "Cancel trip" link), *booking* (tests).
+- **Aliases**: *trip* (`FlightTrip`, `TripOnTheBooks`), *booking* (tests).
   Flagged below.
 - **Related to**: Flight, Leg, Confirmation code (no type).
 
@@ -498,7 +498,7 @@ Record that a booking or plan is off. Appends an event; destroys nothing (no typ
 | Expression | Event | UI |
 |------------|-------|----|
 | `CancelFlightCommand` | `FlightCancelled(MANUAL)` | "Cancel this flight" |
-| `CancelFlightItineraryCommand` | n×`FlightCancelled` + `FlightItineraryCancelled` | link "Cancel trip", page "Cancel Flight Itinerary" |
+| `CancelFlightItineraryCommand` | n×`FlightCancelled` + `FlightItineraryCancelled` | link "Cancel itinerary", page "Cancel Flight Itinerary" |
 | `CancelHotelCommand` | `HotelBookingCancelled` | "Cancel this booking"; badge "Canceled" |
 | `CancelTrainCommand` | `TrainCancelled` | "Cancel this trip" |
 | `CancelGroundTransferCommand` | `GroundTransferCancelled` | "Cancel this transfer" |
@@ -577,17 +577,17 @@ Follow a link from a schedule problem to the form that resolves it. Navigation, 
 #### "Trip" means four things
 
 - **Type**: Homonym
-- **Where**: a flight itinerary (`FlightTrip`, `TripOnTheBooks`, link "Cancel trip"
-  `web/BookedFlightsRenderer.java:439`); one train ride (`TrainTripId`, "Cancel this trip");
+- **Where**: a flight itinerary (`FlightTrip`, `TripOnTheBooks`); one train ride (`TrainTripId`, "Cancel this trip");
   a chained through-flight (`infrastructure/FlightLookupCandidates.java:36`); any leg
   (`LiveScheduledLegs.java:31`); and in tests, Ted's whole time away (`aTripWithNoReturnBooked…`).
 - **Problem**: "Trip" is the word Ted would use for the *whole* time away — which is the one
   meaning with no type (see Missing terms).
 - **Suggestion**: reserve "trip" for the time away from home; use "itinerary" or "train ride"
   for the others.
-- **Decided (2026-10-13)**: trip = the whole time away from home. `FlightTrip`, `TripOnTheBooks`
-  and the "Cancel trip" link on `/booked-flights` are itineraries and are now misnamed;
-  `TrainTripId` and "Cancel this trip" are a train leg.
+- **Decided (2026-10-13)**: trip = the whole time away from home. `FlightTrip` and
+  `TripOnTheBooks` are itineraries and are now misnamed; `TrainTripId` and "Cancel this trip" are
+  a train leg. The "Cancel trip" link on `/booked-flights` became **Cancel itinerary** on the
+  itinerary's heading band (2026-10-14, `FlightItineraryRebookingPlan.md` D10).
 
 #### "Event" means four things
 

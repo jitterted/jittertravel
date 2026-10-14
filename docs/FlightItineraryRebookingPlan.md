@@ -1,6 +1,6 @@
 # Flight Itinerary Rebooking Plan
 
-Status: **decisions (D1–D10), mockup and email wording approved; nothing built** (2026-10-13).
+Status: **decisions (D1–D10), mockup and email wording approved; D10's heading band built, the rest not** (2026-10-14).
 
 Vocabulary as agreed in `terms.md`, "Agreed: flight vocabulary": *leg*, *journey*, *itinerary*,
 *confirmation code*, *schedule change*, *rebooking*, *dropped*, *cancelled*.
@@ -78,8 +78,8 @@ the itinerary, comparing before with after:
 Example: UA 512 SFO→ORD moving from 08:00 to 08:40, arriving ORD 1 h 15 later, with the Ottawa
 arrival unchanged, sends nothing. MD7LKB's return moving from YOW to YYZ sends one.
 
-A journey ends after more than 24 hours on the ground (`terms.md`). Nothing in the code finds
-journeys yet; this is its first user.
+A journey ends after more than 24 hours on the ground (`terms.md`). `domain/Journey`
+finds them (built for D10's band); this email is its second user.
 
 The email lists the itinerary's flights still to come, then "the old flights that were changed":
 every dropped leg **and every moved leg, with its old times** (Ted, 2026-10-13). Without the moved
@@ -164,6 +164,13 @@ https://claude.ai/artifact/4sr6NRo7LTzrtMo2HYyWQi, chosen over separate cards an
 - **Open for build**: grouping assumes an itinerary's legs are consecutive in departure order. A
   hand-entered flight that departs *between* two legs of a trip breaks that; decide then whether it
   sits inside the trip's group or splits it.
+- **Built 2026-10-13**: the band, the badge, Cancel itinerary on
+  the band with its three greyed reasons ("N legs already left", "Itinerary cancelled", "Every leg
+  cancelled"), `Booked on its own`, split runs, `Edit · Cancel` on the legs, and numbering among
+  flying legs (`ItinerarySummary`, `FlightTrips.forList`). Journeys are worked out by
+  `domain/Journey`, its first user. **Not yet built:** the band's Change itinerary link (waits for
+  D3's page) and the "Added"/"Dropped · Rebooked" labels, which need the cancellation's cause on
+  `BookedFlightView` (D2) — a dropped leg still shows today's "Cancelled <date>" line.
 - Can ship before the rest of the plan: the band's Change link is the first thing D3's change page
   needs, and until then the band holds only Cancel itinerary in its usual slot.
 

@@ -5,9 +5,13 @@ import dev.ted.jittertravel.application.BookedFlightView;
 import dev.ted.jittertravel.application.CancelledView;
 import dev.ted.jittertravel.application.FlightTrip;
 import dev.ted.jittertravel.application.FlightTrips;
+import dev.ted.jittertravel.application.ItinerarySummary;
 import dev.ted.jittertravel.application.TimeView;
+import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.ItineraryLeg;
+import dev.ted.jittertravel.domain.Journey;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -77,25 +81,30 @@ class BookedFlightsWebIntegrationTest {
 
     /**
      * The controller composes the listed flights with their trips at the boundary's own "now", and
-     * hands both to the renderer; the chip on the page is the proof the trips arrived.
+     * hands both to the renderer; the band and the leg's place on the page are the proof the trips
+     * arrived.
      */
     @Test
     void theListedFlightsAreHandedToTheTripComposerAtNowAndTheirTripsAreRendered() {
         FlightId flightId = FlightId.random();
-        List<BookedFlightView> listed = List.of(new BookedFlightView(flightId, "United Airlines", "UA3510",
-                "YOW→ORD",
+        BookedFlightView flight = new BookedFlightView(flightId, "United Airlines", "UA3510",
+                AirportCode.of("YOW"), AirportCode.of("ORD"),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 6, 6, 0), ZoneId.of("America/Toronto")),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 6, 7, 30), ZoneId.of("America/Chicago")),
-                List.of()));
+                List.of());
+        List<BookedFlightView> listed = List.of(flight);
         given(projector.views(any(), any(), any())).willReturn(listed);
+        ItineraryLeg leg = new ItineraryLeg(flightId, flight.airline(), flight.flightNumber(),
+                flight.departureAirport(), flight.departureDateTime(), flight.arrivalAirport(), flight.arrivalDateTime());
         given(flightTrips.forList(listed, WebTodayTestConfig.FIXED_INSTANT))
-                .willReturn(Map.of(flightId, new FlightTrip(FlightItineraryId.of(UUID.randomUUID()),
-                        "K3PQ9R", 3, 4, 0, 1)));
+                .willReturn(Map.of(flightId, new FlightTrip(new ItinerarySummary(
+                        FlightItineraryId.of(UUID.randomUUID()), "K3PQ9R", Journey.of(List.of(leg)),
+                        4, 0, true, false, 1), 3)));
 
         assertThat(mockMvc.get().uri("/booked-flights"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("<span class=\"flight-trip-code\">K3PQ9R</span>")
+                .contains("<span class=\"flight-band-code\">K3PQ9R</span>")
                 .contains("<span class=\"flight-trip-leg\">leg 3 of 4</span>");
     }
 }

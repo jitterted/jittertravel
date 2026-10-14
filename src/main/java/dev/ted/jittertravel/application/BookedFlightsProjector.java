@@ -67,12 +67,12 @@ public class BookedFlightsProjector implements EventStreamConsumer {
             List<ChangeEntry> history = previous == null
                     ? List.of(newEntry)
                     : appendHistory(previous.history(), newEntry);
-            String route = departureAirport.code() + "→" + arrivalAirport.code();
             return new BookedFlightView(
                     flightId,
                     airline,
                     flightNumber,
-                    route,
+                    departureAirport,
+                    arrivalAirport,
                     departureDateTime,
                     arrivalDateTime,
                     history

@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.application;
 
+import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.ItineraryLeg;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.time.Instant;
@@ -25,7 +27,8 @@ public record BookedFlightView(
         FlightId flightId,
         String airline,
         String flightNumber,
-        String route,
+        AirportCode departureAirport,
+        AirportCode arrivalAirport,
         ZonedTimestamp departureDateTime,
         ZonedTimestamp arrivalDateTime,
         List<ChangeEntry> history,
@@ -41,11 +44,23 @@ public record BookedFlightView(
     }
 
     /** A live flight: not cancelled. */
-    public BookedFlightView(FlightId flightId, String airline, String flightNumber, String route,
+    public BookedFlightView(FlightId flightId, String airline, String flightNumber,
+                            AirportCode departureAirport, AirportCode arrivalAirport,
                             ZonedTimestamp departureDateTime, ZonedTimestamp arrivalDateTime,
                             List<ChangeEntry> history) {
-        this(flightId, airline, flightNumber, route, departureDateTime, arrivalDateTime, history,
-             false, "", null);
+        this(flightId, airline, flightNumber, departureAirport, arrivalAirport,
+             departureDateTime, arrivalDateTime, history, false, "", null);
+    }
+
+    /** {@code SFO→ORD}. */
+    public String route() {
+        return departureAirport.code() + "→" + arrivalAirport.code();
+    }
+
+    /** This flight as a leg, for the rules that work on legs, such as splitting into journeys. */
+    ItineraryLeg asLeg() {
+        return new ItineraryLeg(flightId, airline, flightNumber,
+                departureAirport, departureDateTime, arrivalAirport, arrivalDateTime);
     }
 
     @Override
@@ -65,7 +80,7 @@ public record BookedFlightView(
 
     /** A copy marked cancelled, carrying what the cancellation recorded. */
     BookedFlightView cancelledWith(String reason, Instant on) {
-        return new BookedFlightView(flightId, airline, flightNumber, route, departureDateTime,
-                arrivalDateTime, history, true, reason, on);
+        return new BookedFlightView(flightId, airline, flightNumber, departureAirport, arrivalAirport,
+                departureDateTime, arrivalDateTime, history, true, reason, on);
     }
 }

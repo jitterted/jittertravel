@@ -293,7 +293,9 @@ class CancelFlightItineraryControllerTest {
     }
 
     private static BookedFlightView bookedView(String route, int dayOfOctober) {
-        return new BookedFlightView(FlightId.random(), "United Airlines", "UA1", route,
+        String[] ends = route.split("→");
+        return new BookedFlightView(FlightId.random(), "United Airlines", "UA1",
+                AirportCode.of(ends[0]), AirportCode.of(ends[1]),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, dayOfOctober, 6, 10), LOS_ANGELES),
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, dayOfOctober, 8, 0), LOS_ANGELES),
                 List.of());

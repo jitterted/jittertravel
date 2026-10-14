@@ -2,8 +2,10 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.Journey;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,23 +30,31 @@ public class FlightTrips {
     }
 
     /**
-     * The trip each listed flight belongs to; a flight entered by hand has no entry. Hues go out in
-     * order of first appearance down the list, alternating.
+     * The trip each listed flight belongs to; a flight entered by hand has no entry. Each itinerary
+     * is summarised once, from all of its legs whatever the filter hides, and every listed leg of it
+     * shares that one summary. Hues go out in order of first appearance down the list, alternating.
      */
     public Map<FlightId, FlightTrip> forList(List<BookedFlightView> listed, Instant now) {
         Map<FlightId, FlightTrip> trips = new HashMap<>();
-        Map<FlightItineraryId, Integer> hueByItinerary = new HashMap<>();
+        Map<FlightItineraryId, ItinerarySummary> summaries = new HashMap<>();
+        Map<FlightItineraryId, List<FlightId>> flyingLegs = new HashMap<>();
         for (BookedFlightView view : listed) {
             Optional<BookedItineraryView> itinerary = itineraries.findContaining(view.flightId());
             if (itinerary.isEmpty()) {
                 continue;
             }
             FlightItineraryId id = itinerary.get().itineraryId();
-            if (!hueByItinerary.containsKey(id)) {
-                hueByItinerary.put(id, hueByItinerary.size() % FlightTrip.HUES);
+            if (!summaries.containsKey(id)) {
+                List<BookedFlightView> members = membersOf(itinerary.get());
+                flyingLegs.put(id, members.stream()
+                        .filter(member -> !member.cancelled())
+                        .map(BookedFlightView::flightId)
+                        .toList());
+                summaries.put(id, summaryOf(itinerary.get(), members, now)
+                        .withHue(summaries.size() % ItinerarySummary.HUES));
             }
             trips.put(view.flightId(),
-                    tripOf(itinerary.get(), view.flightId(), now).withHue(hueByItinerary.get(id)));
+                    new FlightTrip(summaries.get(id), flyingLegs.get(id).indexOf(view.flightId()) + 1));
         }
         return trips;
     }
@@ -76,14 +86,26 @@ public class FlightTrips {
                 .toList();
     }
 
-    private FlightTrip tripOf(BookedItineraryView itinerary, FlightId flightId, Instant now) {
-        int departed = (int) itinerary.flightIds().stream()
+    /** The itinerary's legs in departure order, cancelled ones included. */
+    private List<BookedFlightView> membersOf(BookedItineraryView itinerary) {
+        return itinerary.flightIds().stream()
                 .map(flights::find)
                 .flatMap(Optional::stream)
+                .sorted(Comparator.comparing(view -> view.departureDateTime().utc()))
+                .toList();
+    }
+
+    private ItinerarySummary summaryOf(BookedItineraryView itinerary, List<BookedFlightView> members,
+                                       Instant now) {
+        List<BookedFlightView> flying = members.stream()
                 .filter(view -> !view.cancelled())
+                .toList();
+        List<BookedFlightView> described = flying.isEmpty() ? members : flying;
+        int departed = (int) flying.stream()
                 .filter(view -> view.departureDateTime().hasPassed(now))
                 .count();
-        return new FlightTrip(itinerary.itineraryId(), itinerary.confirmationCode(),
-                itinerary.flightIds().indexOf(flightId) + 1, itinerary.flightIds().size(), departed, 0);
+        return new ItinerarySummary(itinerary.itineraryId(), itinerary.confirmationCode(),
+                Journey.of(described.stream().map(BookedFlightView::asLeg).toList()),
+                described.size(), departed, !flying.isEmpty(), itinerary.cancelled(), 0);
     }
 }

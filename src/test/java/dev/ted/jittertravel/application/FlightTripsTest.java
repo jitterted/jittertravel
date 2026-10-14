@@ -6,6 +6,8 @@ import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
+import dev.ted.jittertravel.domain.FlightItineraryCancelled;
+import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -46,10 +48,11 @@ class FlightTripsTest {
         Map<FlightId, FlightTrip> result = trips.forList(listed(), NOW);
 
         assertThat(result.get(first))
-                .extracting(FlightTrip::confirmationCode, FlightTrip::legNumber, FlightTrip::legCount)
+                .extracting(trip -> trip.itinerary().confirmationCode(), FlightTrip::legNumber,
+                        trip -> trip.itinerary().legCount())
                 .containsExactly("MD7LKB", 1, 2);
         assertThat(result.get(second))
-                .extracting(FlightTrip::legNumber, FlightTrip::legCount)
+                .extracting(FlightTrip::legNumber, trip -> trip.itinerary().legCount())
                 .containsExactly(2, 2);
     }
 
@@ -75,7 +78,7 @@ class FlightTripsTest {
                 .containsOnlyKeys(ahead);
         assertThat(result.get(ahead))
                 .as("it is leg 2 of 2, so the reader knows another exists")
-                .extracting(FlightTrip::legNumber, FlightTrip::legCount)
+                .extracting(FlightTrip::legNumber, trip -> trip.itinerary().legCount())
                 .containsExactly(2, 2);
     }
 
@@ -86,11 +89,11 @@ class FlightTripsTest {
         FlightId ahead = book(10, "YOW", "ORD");
         itinerary("K3PQ9R", flown1, flown2, ahead);
 
-        FlightTrip trip = trips.forList(flights.views(TimeView.FUTURE, NOW), NOW).get(ahead);
+        ItinerarySummary itinerary = trips.forList(flights.views(TimeView.FUTURE, NOW), NOW).get(ahead).itinerary();
 
-        assertThat(trip.departedLegs())
+        assertThat(itinerary.departedLegs())
                 .isEqualTo(2);
-        assertThat(trip.canBeCancelledWhole())
+        assertThat(itinerary.canBeCancelledWhole())
                 .isFalse();
     }
 
@@ -101,9 +104,9 @@ class FlightTripsTest {
         itinerary("K3PQ9R", flown, ahead);
         append(new FlightCancelled(flown, "never flew", NOW));
 
-        FlightTrip trip = trips.forList(flights.views(TimeView.FUTURE, NOW), NOW).get(ahead);
+        ItinerarySummary itinerary = trips.forList(flights.views(TimeView.FUTURE, NOW), NOW).get(ahead).itinerary();
 
-        assertThat(trip.canBeCancelledWhole())
+        assertThat(itinerary.canBeCancelledWhole())
                 .as("the command only looks at live legs, and so must the link")
                 .isTrue();
     }
@@ -114,8 +117,96 @@ class FlightTripsTest {
         FlightId b = book(12, "ORD", "SFO");
         itinerary("MD7LKB", a, b);
 
-        assertThat(trips.forList(listed(), NOW).get(a).canBeCancelledWhole())
+        assertThat(trips.forList(listed(), NOW).get(a).itinerary().canBeCancelledWhole())
                 .isTrue();
+    }
+
+    @Test
+    void afterARebookingTheLegsAreNumberedAmongThoseStillFlying() {
+        FlightId sfoOrd = book(18, "SFO", "ORD");
+        FlightId ordYow = book(18, 13, "ORD", "YOW");
+        FlightId yowOrd = book(31, "YOW", "ORD");
+        FlightId ordSfo = book(31, 13, "ORD", "SFO");
+        FlightId yyzSfo = book(31, 15, "YYZ", "SFO");
+        FlightItineraryId md7lkb = itinerary("MD7LKB", sfoOrd, ordYow, yowOrd, ordSfo).itineraryId();
+        append(new FlightCancelled(yowOrd, "Rebooked", NOW));
+        append(new FlightCancelled(ordSfo, "Rebooked", NOW));
+        append(new FlightItineraryChanged(md7lkb, List.of(sfoOrd, ordYow, yowOrd, ordSfo, yyzSfo),
+                "Rebooked", NOW));
+
+        Map<FlightId, FlightTrip> result = trips.forList(flights.views(TimeView.ALL, CancelledView.SHOW, NOW), NOW);
+
+        assertThat(List.of(sfoOrd, ordYow, yyzSfo))
+                .as("1, 2, 3 of 3, not 1, 2, 5 of 5")
+                .extracting(id -> result.get(id).legNumber())
+                .containsExactly(1, 2, 3);
+        assertThat(result.get(yyzSfo).itinerary().legCount())
+                .isEqualTo(3);
+        assertThat(List.of(yowOrd, ordSfo))
+                .as("a dropped leg has no place among the legs still flying")
+                .extracting(id -> result.get(id).legNumber())
+                .containsExactly(0, 0);
+    }
+
+    @Test
+    void theItineraryIsDescribedByItsJourneysStillFlying() {
+        FlightId sfoOrd = book(18, "SFO", "ORD");
+        FlightId ordYow = book(18, 13, "ORD", "YOW");
+        FlightId yowOrd = book(31, "YOW", "ORD");
+        FlightId yyzSfo = book(31, 15, "YYZ", "SFO");
+        itinerary("MD7LKB", sfoOrd, ordYow, yowOrd, yyzSfo);
+        append(new FlightCancelled(yowOrd, "Rebooked", NOW));
+
+        ItinerarySummary itinerary = trips.forList(listed(), NOW).get(sfoOrd).itinerary();
+
+        assertThat(itinerary.journeys())
+                .as("the dropped YOW→ORD leg is not part of the route")
+                .extracting(journey -> journey.from().code() + "→" + journey.to().code())
+                .containsExactly("SFO→YOW", "YYZ→SFO");
+        assertThat(itinerary.departs())
+                .isEqualTo(at(18, 8));
+        assertThat(itinerary.arrives())
+                .isEqualTo(at(31, 18));
+    }
+
+    @Test
+    void aCancelledItineraryIsDescribedByAllItsLegsAndCannotBeCancelledAgain() {
+        FlightId out = book(18, "SFO", "ORD");
+        FlightId back = book(31, "ORD", "SFO");
+        FlightItineraryId md7lkb = itinerary("MD7LKB", out, back).itineraryId();
+        append(new FlightCancelled(out, "", NOW));
+        append(new FlightCancelled(back, "", NOW));
+        append(new FlightItineraryCancelled(md7lkb, "", NOW));
+
+        ItinerarySummary itinerary = trips.forList(
+                flights.views(TimeView.ALL, CancelledView.SHOW, NOW), NOW).get(out).itinerary();
+
+        assertThat(itinerary.cancelled())
+                .isTrue();
+        assertThat(itinerary.flying())
+                .isFalse();
+        assertThat(itinerary.legCount())
+                .as("with nothing flying, the band still says what the itinerary was")
+                .isEqualTo(2);
+        assertThat(itinerary.canBeCancelledWhole())
+                .isFalse();
+    }
+
+    @Test
+    void anItineraryWhoseEveryLegWasCancelledOnItsOwnCannotBeCancelledWhole() {
+        FlightId only = book(18, "SFO", "ORD");
+        itinerary("MD7LKB", only);
+        append(new FlightCancelled(only, "", NOW));
+
+        ItinerarySummary itinerary = trips.forList(
+                flights.views(TimeView.ALL, CancelledView.SHOW, NOW), NOW).get(only).itinerary();
+
+        assertThat(itinerary.cancelled())
+                .as("the itinerary itself was never cancelled")
+                .isFalse();
+        assertThat(itinerary.canBeCancelledWhole())
+                .as("but nothing is left to cancel")
+                .isFalse();
     }
 
     @Test
@@ -131,18 +222,18 @@ class FlightTripsTest {
 
         Map<FlightId, FlightTrip> result = trips.forList(listed(), NOW);
 
-        assertThat(result.get(outer1).hue())
+        assertThat(result.get(outer1).itinerary().hue())
                 .as("first trip down the list")
                 .isEqualTo(0);
-        assertThat(result.get(inner1).hue())
+        assertThat(result.get(inner1).itinerary().hue())
                 .as("second trip, nested in the first: a different hue")
                 .isEqualTo(1);
-        assertThat(result.get(outer2).hue())
+        assertThat(result.get(outer2).itinerary().hue())
                 .as("every leg of a trip wears that trip's hue")
                 .isEqualTo(0);
-        assertThat(result.get(inner2).hue())
+        assertThat(result.get(inner2).itinerary().hue())
                 .isEqualTo(1);
-        assertThat(result.get(third).hue())
+        assertThat(result.get(third).itinerary().hue())
                 .as("a third trip reuses one: the code is the identifier")
                 .isEqualTo(0);
     }
@@ -228,9 +319,14 @@ class FlightTripsTest {
     }
 
     private FlightId book(int dayOfOctober, String from, String to) {
+        return book(dayOfOctober, 8, from, to);
+    }
+
+    private FlightId book(int dayOfOctober, int departureHour, String from, String to) {
         FlightId id = FlightId.random();
         append(new FlightBooked(id, "United Airlines", "UA" + log.size(),
-                AirportCode.of(from), at(dayOfOctober, 8), AirportCode.of(to), at(dayOfOctober, 11)));
+                AirportCode.of(from), at(dayOfOctober, departureHour),
+                AirportCode.of(to), at(dayOfOctober, departureHour + 3)));
         return id;
     }
 

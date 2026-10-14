@@ -1,6 +1,6 @@
 # Flight Itinerary Rebooking Plan
 
-Status: **decisions, mockup and email wording approved; nothing built** (2026-10-13).
+Status: **decisions (D1–D10), mockup and email wording approved; nothing built** (2026-10-13).
 
 Vocabulary as agreed in `terms.md`, "Agreed: flight vocabulary": *leg*, *journey*, *itinerary*,
 *confirmation code*, *schedule change*, *rebooking*, *dropped*, *cancelled*.
@@ -44,7 +44,9 @@ work. A new enum value is additive under R7; the check at `TripOnTheBooks:79` ac
 
 ### D3. Changing an itinerary starts from the itinerary
 
-- **`/booked-flights`**: the actions cell reads `Edit flight · Cancel flight` on its first line
+- **`/booked-flights`**: *superseded by D10 below* — the itinerary's actions moved to its heading
+  band and the leg row reads `Edit · Cancel`. Originally: the actions cell reads
+  `Edit flight · Cancel flight` on its first line
   and `Change itinerary · Cancel itinerary` on its second (mockup option B, Ted 2026-10-13). The
   longer labels say which thing each action is about, now that a row carries actions for two
   things. At 820px the second line wraps "Cancel itinerary" onto a line of its own, with no
@@ -98,10 +100,97 @@ ones, a schedule change that only shifts times would say nothing about what it s
      message today, so the result has to travel back to it (e.g. a query parameter);
   3. the Book page carries the pasted email to the change page, so it is not pasted twice;
   4. "Change itinerary" stays live on a dropped or cancelled leg's row while its itinerary is.
+     *Moot since D10*: the band carries it, whatever state a leg is in.
 - **The email wording**: `src/main/resources/email/trip-changed.txt` as it stands, including
   "These are the old flights that were changed:" (Ted's line) and "Was due to arrive".
 
-## Open
+## Decided in review (Ted, 2026-10-13)
 
-- Whether the change page also offers a free-text reason, or the two fixed reasons are enough.
-  The mockup has none.
+### D6. A flown leg missing from the paste is left alone
+
+Today `ChangeFlightItineraryCommand` refuses a paste that leaves out a leg already departed
+("history is not revised", 2026-10-03). A rebooking email sent mid-trip may list only the flights
+still to come, so that rule would refuse every mid-trip rebooking. Instead, a departed leg the paste
+does not mention counts as **unchanged**, not dropped. A departed leg that *is* pasted with different
+times is still refused: history is still not revised.
+
+Example: SFO→ORD and ORD→YOW flown, the email lists only YYZ→SFO. The two flown legs stay as they
+are, YOW→ORD and ORD→SFO are dropped, YYZ→SFO is added.
+
+This is a guess, not a known fact: no real mid-trip email has been seen. Revisit when one arrives.
+
+### D7. D5 compares where and when travel starts and ends, not how journeys are counted
+
+When the number of journeys changes (a connection crosses 24 hours either way) and nothing moves by
+more than 2 hours, **no email**. Example: ORD 10:00 Monday, YOW flight 11:00 Tuesday (two journeys)
+moves to 09:30 (one journey). Nothing the family care about changed. A split that comes from a big
+move is caught by the 2-hour rule anyway (ORD→SFO moving 30 hours moves the arrival at SFO).
+
+### D8. A change emails the family whether or not they were told about the booking
+
+MD7LKB was booked before family email existed. A change that passes D5 is sent anyway: the email
+lists every flight still to come, so it stands on its own. This differs from conferences, which
+email only when the change moves something the family were told.
+
+### D9. No free-text reason
+
+The two fixed choices only. The event type already says who changed it, and a recording page
+carries nothing extra (closes the question that was open here).
+
+### D10. Each itinerary on `/booked-flights` gets a heading band, which carries its actions
+
+Ted could not see where one trip ends and the next begins: only a 4px coloured edge and the code
+chip marked it. Mockup: https://claude.ai/artifact/Xi2Li8WEQRkMzsSX6gEQff (option B of
+https://claude.ai/artifact/4sr6NRo7LTzrtMo2HYyWQi, chosen over separate cards and a heavy rule).
+
+- A band above each itinerary's legs: the code, where it goes (`SFO → YOW → SFO`), its dates, its
+  leg count, tinted in the trip's hue — a light tint, `color-mix(in srgb, var(--trip-soft) 40%, #fff)`,
+  since the full `--trip-soft` read as heavy (Ted, 2026-10-13). The leg's chip drops the code and keeps `leg 1 of 4`.
+- A run of flights booked on their own gets a quiet `Booked on its own` band, or a lone flight
+  after a trip reads as its last leg.
+- **`Change itinerary · Cancel itinerary` live on the band**, in the legs' actions column so they
+  line up, and leave every leg row. The leg row reads `Edit · Cancel` again (Ted, 2026-10-13).
+- Greyed with the reason written under it, never removed: Cancel when legs have left
+  ("2 legs already left"), Change when all have ("All legs already left"), both when the itinerary
+  is cancelled ("Itinerary cancelled").
+- The band's confirmation code is a **badge**: a solid pill in the trip's hue, white monospace
+  text (Ted, 2026-10-13).
+- **After a change, legs are numbered among the legs still flying** (Ted, 2026-10-13). MD7LKB
+  after the rebooking reads leg 1 of 3, 2 of 3, 3 of 3; the band says "3 legs" and its route
+  `SFO → YOW, YYZ → SFO`. Today `FlightTrips.tripOf` numbers by position in the membership
+  snapshot, which keeps dropped legs, so it would print "leg 5 of 5" — that changes. A dropped
+  leg, shown under "Show cancelled", reads "was leg 3" with "Dropped Oct 13 · Rebooked" under it,
+  and an added one wears "Added Oct 13" beside its route (mockup, "After the MD7LKB rebooking").
+- **Open for build**: grouping assumes an itinerary's legs are consecutive in departure order. A
+  hand-entered flight that departs *between* two legs of a trip breaks that; decide then whether it
+  sits inside the trip's group or splits it.
+- Can ship before the rest of the plan: the band's Change link is the first thing D3's change page
+  needs, and until then the band holds only Cancel itinerary in its usual slot.
+
+MD7LKB's YYZ→SFO return has **not** been recorded yet, so there is no false history to correct. Ted
+records it with the change page once it ships.
+
+## Implementation notes
+
+- **The family email needs the itinerary before the change.** `FamilyNotificationActuator` sees only
+  the appended batch, and `FlightChanged` carries only new values. Do it the conference way: the
+  actuator passes the itinerary id, and `NotifyFamily` folds the stream to the itinerary as it stood
+  before this batch and after it.
+- **One rule, two callers.** The preview's "the family will (not) be emailed, because …" (approved
+  item 1) and the actuator both call the same D5 comparison, as `ItineraryChangePlan` is shared by
+  preview and command. It needs `HomeCities` and an airport-to-city lookup, since legs carry codes
+  (OAK), not cities.
+- **`FamilyNotificationActuator.notificationsIn`** must count `FlightItineraryRebooked` members as
+  part of a trip, beside `FlightItineraryChanged` (line 156). Without it, a leg a rebooking adds
+  goes out as its own "flight booked" email as well as the trip-changed one.
+- **A new `NotifiedFact`** for an itinerary change.
+- **The Book page hands the paste over by POST** (approved item 3), a hidden field on a form, never
+  a query parameter: the email holds a booking reference and names, and a URL lands in history and
+  logs. The after-apply banner (approved item 2) carries an itinerary id and an outcome key, never
+  the sentence.
+- **"Who changed it?"** gets no browser `required`: a blank choice is a field error with its own
+  `<span class="error">`, a row in the controller's exception→field unit test, and a
+  `@WebMvcTest` proving it renders.
+- **Golden samples**: `FlightItineraryRebooked`, and `FlightCancelled` with cause `REBOOKED`.
+- **D4 rewrites existing tests**: the Book page tests that pin "a known code applies the change"
+  change meaning, they are not only added to.

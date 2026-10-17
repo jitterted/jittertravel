@@ -43,6 +43,36 @@ down when it is created does not get written down later.
 
 ## Open
 
+- [ ] **Delete `PostgresPersister.existingCommandIds` — it has no callers.** Its javadoc says it lets
+      import skip commands already written; that was the command-replay import, retired with
+      event-oriented backup (`docs/archived/EventOrientedBackupRestorePlan.md`). Dead code, not a
+      missing test: the full `-Ppit-spring` run (2026-10-14) reports its mutants as NO_COVERAGE
+      because nothing reaches it.
+- [ ] **Test the admin read queries in `PostgresPersister` against the real database.** The full
+      `-Ppit-spring` run (2026-10-14) killed every mutant on the write path (append, link, restore,
+      load) and left these:
+      - `/admin/commandlog` — `loadTimelinePage`, `statusWhereClause`, `needsStatusParam`: the
+        status filter's `WHERE` clause and the paging boundaries **survive**, so filtering by
+        PENDING or FAILED could return the wrong rows with every test green.
+      - `/admin/eventlog` — `loadEventPage`, `prettyJson`, `simpleTypeName`: no coverage at all.
+      - `/admin/database` — `tableStats`: no coverage.
+
+      One `PostgresPersisterTest` case per query, asserting on the rows that come back (and, for the
+      status filter, the rows that do *not*). Read-only views of the log; no stored data at risk.
+      Separate from the "Out of order" badge item below, which is a behaviour bug in the same method.
+- [ ] **`PostgresPersister.clip` and the `appendEvents` failure message are untested.** A failed
+      command's error is cut at 2,000 characters and nothing pins 2,000 against 2,001 (boundary
+      mutant survives). The `appendEvents` catch names the failing step — an event's type and id,
+      or "linking events to command" — and no test asserts which. Both are diagnostics only.
+- [ ] **Three mutants survive in the flights list, in code `384872e` did not change** (full
+      `-Ppit-spring`, 2026-10-14):
+      - `BookedFlightsProjector.appendHistory` — integer addition swapped for subtraction (the
+        list's initial capacity, so possibly an equivalent mutant; check before writing a test).
+      - `BookedFlightsProjector.cancelledCount` — the filter replaced with `true` survives: no test
+        has a live flight beside a cancelled one when counting, so "every flight" passes as
+        "cancelled flights".
+      - `BookedFlightsRenderer.cancelledSwitch` — a negated conditional survives: nothing asserts
+        the switch's link and title in both states.
 - [ ] **Four Change services decide existence from a read model built for their edit form
       (R3).** Found by the
       ubiquitous-language review, 2026-10-10 (`docs/terms.md`). Each asks a details projector whether

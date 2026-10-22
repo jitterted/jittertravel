@@ -77,7 +77,7 @@ class PlanConferenceCommandTest {
      * A backwards range is a typo, and the more useful thing to report — and it is reported as the
      * command is built, before "already ended" could be asked, because it needs no state to judge:
      * invalid data rather than a domain refusal, never reaching the command log
-     * ({@code docs/ValidateBeforeTheWalPlan.md}). The venue check below is the same.
+     * ({@code docs/archived/ValidateBeforeTheWalPlan.md}). The venue check below is the same.
      */
     @Test
     void aBackwardsRangeIsRefusedAsTheCommandIsBuiltEvenWhenItHasAlsoEnded() {

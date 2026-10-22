@@ -77,7 +77,7 @@ class BookHotelCommandTest {
     /**
      * Refused as the command is built, not when it runs: the stay's own dates need no state to
      * judge, so a bad range is invalid data rather than a domain refusal, and must never reach the
-     * command log ({@code docs/ValidateBeforeTheWalPlan.md}). The same goes for the cancel-by
+     * command log ({@code docs/archived/ValidateBeforeTheWalPlan.md}). The same goes for the cancel-by
      * deadline and the location below.
      */
     @Test

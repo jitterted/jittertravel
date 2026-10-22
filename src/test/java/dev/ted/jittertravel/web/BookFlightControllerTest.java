@@ -232,7 +232,7 @@ class BookFlightControllerTest {
     /**
      * The attempt that was refused retires its id. A recorded refusal has written a command row
      * under it, so a corrected resubmit wearing the same id collides with that row
-     * ({@code docs/ValidateBeforeTheWalPlan.md}). The flight form is a mutable bean, so the id is
+     * ({@code docs/archived/ValidateBeforeTheWalPlan.md}). The flight form is a mutable bean, so the id is
      * replaced on the request itself and {@code th:field} reads the new one.
      */
     @Test

@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.tuple;
  * place, an arrival before the departure — is refused <em>as the command is built</em>, so it never
  * reaches the command log. What needs state — the departure being in the future, the overlap with a
  * booked leg — is refused by {@code execute}, where the refusal is recorded
- * ({@code docs/ValidateBeforeTheWalPlan.md}).
+ * ({@code docs/archived/ValidateBeforeTheWalPlan.md}).
  */
 class BookTrainCommandTest {
 

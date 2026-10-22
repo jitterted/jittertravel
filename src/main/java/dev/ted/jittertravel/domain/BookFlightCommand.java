@@ -16,7 +16,7 @@ public record BookFlightCommand(
     /**
      * What the form alone can get wrong is refused here, before the command exists, so it never
      * reaches the command log: a command that was never valid is invalid data, not a domain
-     * refusal (Ted, 2026-10-22; {@code docs/ValidateBeforeTheWalPlan.md}). Only what needs
+     * refusal (Ted, 2026-10-22; {@code docs/archived/ValidateBeforeTheWalPlan.md}). Only what needs
      * state — the departure being in the future, the overlap with a booked leg — stays in
      * {@link #execute}, where the refusal is recorded.
      */

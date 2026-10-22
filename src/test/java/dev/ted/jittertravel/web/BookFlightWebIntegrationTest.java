@@ -181,7 +181,7 @@ class BookFlightWebIntegrationTest {
 
     /**
      * The render half of the fresh-id rule: the hidden id in the re-rendered form is a new one,
-     * not the refused one ({@code docs/ValidateBeforeTheWalPlan.md}).
+     * not the refused one ({@code docs/archived/ValidateBeforeTheWalPlan.md}).
      */
     @Test
     void aRefusedFormComesBackUnderAFreshId() {

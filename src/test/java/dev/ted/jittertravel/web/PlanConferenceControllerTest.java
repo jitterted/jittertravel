@@ -112,7 +112,7 @@ class PlanConferenceControllerTest {
     /**
      * The attempt that was refused retires its id. A recorded refusal has written a command row
      * under it, so a corrected resubmit wearing the same id collides with that row — the 500 on the
-     * iPhone of 2026-10-22 ({@code docs/ValidateBeforeTheWalPlan.md}). Everything else Ted typed
+     * iPhone of 2026-10-22 ({@code docs/archived/ValidateBeforeTheWalPlan.md}). Everything else Ted typed
      * comes back with it.
      */
     @Test

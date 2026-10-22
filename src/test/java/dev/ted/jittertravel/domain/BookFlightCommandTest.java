@@ -53,7 +53,7 @@ class BookFlightCommandTest {
     /**
      * Refused as the command is built, not when it runs: a backwards range needs no state to
      * judge, so it is invalid data rather than a domain refusal, and must never reach the command
-     * log ({@code docs/ValidateBeforeTheWalPlan.md}).
+     * log ({@code docs/archived/ValidateBeforeTheWalPlan.md}).
      */
     @Test
     void arrivalBeforeDepartureIsRefusedAsTheCommandIsBuilt() {

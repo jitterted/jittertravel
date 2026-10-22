@@ -11,7 +11,7 @@ import org.springframework.validation.BindingResult;
  * has already written a command row under it. A corrected resubmit wearing the same id collides
  * with that row on {@code command_log}'s primary key — the 500 on the iPhone of 2026-10-22. So the
  * attempt that was refused retires its id, and the corrected resubmit is a new command
- * ({@code docs/ValidateBeforeTheWalPlan.md}).
+ * ({@code docs/archived/ValidateBeforeTheWalPlan.md}).
  * <p>
  * <strong>Why it takes four lines and not one.</strong> The form-backing records are immutable, so
  * a fresh id means a new request object on the model. Two Spring details then conspire: the

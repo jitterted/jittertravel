@@ -101,7 +101,7 @@ class PlanGroundTransferCommandTest {
     /**
      * Every rule a transfer has is refused as the command is built, not when it runs: none of
      * them needs state, so each is invalid data rather than a domain refusal, and none may reach
-     * the command log ({@code docs/ValidateBeforeTheWalPlan.md}).
+     * the command log ({@code docs/archived/ValidateBeforeTheWalPlan.md}).
      */
     @Test
     void arrivalBeforeDepartureIsRefusedAsTheCommandIsBuilt() {

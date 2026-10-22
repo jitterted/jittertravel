@@ -557,7 +557,7 @@ the command back to the entity it acts on.
 a double tap. A *corrected* resubmit after a refusal is a different command,
 and wearing the refused attempt's id it collides on `command_log`'s primary
 key with the `FAILED_DOMAIN` row the refusal left (the 500 on the iPhone,
-`docs/ValidateBeforeTheWalPlan.md`). So: **a refused attempt retires its
+`docs/archived/ValidateBeforeTheWalPlan.md`). So: **a refused attempt retires its
 id.** The re-rendered form carries a fresh one, the refusal's row stays as the
 record of the refusal, and the entity is created under the id of the command
 that succeeded. What never reaches the log at all is a data-entry mistake,

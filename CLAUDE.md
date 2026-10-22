@@ -673,17 +673,17 @@ two live in different places on purpose.
 
 A booking names a building and the city it stands in, and `EnteredLocation` (domain) is the pair,
 checked from the four commands that write one — `BookTrainCommand`, `ChangeTrainCommand`,
-`BookHotelCommand`, `ChangeHotelCommand`, before their date rules. **Where in the command depends on
-which kind it is** (Ted, 2026-10-22; `docs/ValidateBeforeTheWalPlan.md`): the two creation
-commands check it in their **compact constructor**, so a refusal throws before `CommandExecutor`
-has written the write-ahead row and never reaches the command log; the two change commands still
-check it in `execute`, after their existence check, and that difference is an open decision in the
-plan. The rule generalizes to every creation command: **a check that needs nothing beyond the
+`BookHotelCommand`, `ChangeHotelCommand`, in their **compact constructor**, before their date rules
+(Ted, 2026-10-22; `docs/archived/ValidateBeforeTheWalPlan.md`). A refusal there throws before
+`CommandExecutor` has written the write-ahead row, so it never reaches the command log. The rule
+generalizes to every command, creation and change alike: **a check that needs nothing beyond the
 form's own values is data entry and belongs in the constructor; a check that needs state — `now`,
-the stream — is a domain refusal, stays in `execute`, and is recorded as `FAILED_DOMAIN`.** The
-split is what keeps a corrected resubmit from colliding with the refused attempt's row (H4), and
-the creation controllers re-render a refused form under a fresh id for the refusals that *are*
-recorded (`RefusedForm`, which also explains the Spring detail that makes it four lines).
+the stream, whether the thing exists — is a domain refusal, stays in `execute`, and is recorded as
+`FAILED_DOMAIN`.** One consequence is accepted on the change commands: a data-entry mistake is
+refused before existence is asked, which only a hand-edited URL can observe. The split is what
+keeps a corrected resubmit from colliding with the refused attempt's row (H4), and the creation
+controllers re-render a refused form under a fresh id for the refusals that *are* recorded
+(`RefusedForm`, which also explains the Spring detail that makes it four lines).
 Three rules, reported in order: the building has a name; the city is filled in; the city does not
 *look* like a building (no brackets, no digit, no whole word from a short list — `hbf`,
 `hauptbahnhof`, `bahnhof`, `bf`, `bhf`, `fernbf`, `gare`, `station(s)`, `stazione`, `estación`,

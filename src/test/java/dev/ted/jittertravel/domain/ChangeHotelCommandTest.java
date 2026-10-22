@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.domain;
 
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -71,19 +72,24 @@ class ChangeHotelCommandTest {
                 .isInstanceOf(CheckInNotInFuture.class);
     }
 
+    /**
+     * Refused as the command is built, not when it runs: the stay's own dates need no state to
+     * judge, so a bad range is invalid data rather than a domain refusal, and must never reach the
+     * command log ({@code docs/archived/ValidateBeforeTheWalPlan.md}). The cancel-by deadline and the
+     * location checks below are the same.
+     */
     @Test
-    void checkOutOnSameDayAsCheckInThrowsInvalidHotelDateRange() {
-        ChangeHotelCommand command = new ChangeHotelCommand(
+    void checkOutOnSameDayAsCheckInIsRefusedAsTheCommandIsBuilt() {
+        assertThatThrownBy(() -> new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                zt(CHECK_IN), zt(CHECK_IN.withHour(23).withMinute(59)), BookingIntent.FINAL, null, null);
-
-        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, at(NOW))))
+                zt(CHECK_IN), zt(CHECK_IN.withHour(23).withMinute(59)), BookingIntent.FINAL, null, null))
                 .isInstanceOf(InvalidHotelDateRange.class);
     }
 
     @Test
-    void existenceIsCheckedBeforeDateValidation() {
-        // A non-existent booking with otherwise-invalid dates still fails as HotelBookingNotFound first.
+    void existenceIsCheckedBeforeThePastCheckIn() {
+        // A non-existent booking with a past check-in still fails as HotelBookingNotFound first:
+        // both are recorded refusals, and "gone" is the one worth reporting.
         ChangeHotelCommand command = new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
                 zt(NOW.minusHours(1)), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
@@ -117,23 +123,20 @@ class ChangeHotelCommandTest {
     }
 
     @Test
-    void cancelByAfterCheckInThrowsInvalidCancelByDate() {
-        ChangeHotelCommand command = new ChangeHotelCommand(
+    void cancelByAfterCheckInIsRefusedAsTheCommandIsBuilt() {
+        assertThatThrownBy(() -> new ChangeHotelCommand(
                 HotelBookingId.random(), "Grand Hotel", ADDRESS,
-                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, zt(CHECK_IN.plusMinutes(1)));
-
-        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(true, at(NOW))))
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, zt(CHECK_IN.plusMinutes(1))))
                 .isInstanceOf(InvalidCancelByDate.class);
     }
 
     @Test
     void hotelNamePastedIntoTheCityIsRejectedAgainstTheCityField() {
         Address pasted = new Address("123 Main St", "Grand Hotel", "IL", "62701", "US", null);
-        ChangeHotelCommand command = new ChangeHotelCommand(
-                HotelBookingId.random(), "Grand Hotel", pasted,
-                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
 
-        assertThat(locationProblems(command))
+        assertThat(locationProblems(() -> new ChangeHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", pasted,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null)))
                 .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
                 .containsExactly(tuple(LocationRole.STAY, LocationField.CITY));
     }
@@ -145,11 +148,10 @@ class ChangeHotelCommandTest {
     @Test
     void aCountryThatIsNotACodeIsRejectedAgainstTheCountryField() {
         Address legacy = new Address("123 Main St", "Springfield", "IL", "62701", "USA", null);
-        ChangeHotelCommand command = new ChangeHotelCommand(
-                HotelBookingId.random(), "Grand Hotel", legacy,
-                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
 
-        assertThat(locationProblems(command))
+        assertThat(locationProblems(() -> new ChangeHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", legacy,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null)))
                 .extracting(InvalidLocationEntry::field, InvalidLocationEntry::getMessage)
                 .containsExactly(tuple(LocationField.COUNTRY, "Unknown country"));
     }
@@ -158,21 +160,19 @@ class ChangeHotelCommandTest {
     @Test
     void aStayWithNoNameAndNoCityReportsBothInOneAnswer() {
         Address cityless = new Address("123 Main St", "", "IL", "62701", "US", null);
-        ChangeHotelCommand command = new ChangeHotelCommand(
-                HotelBookingId.random(), "", cityless,
-                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
 
-        assertThat(locationProblems(command))
+        assertThat(locationProblems(() -> new ChangeHotelCommand(
+                HotelBookingId.random(), "", cityless,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null)))
                 .extracting(InvalidLocationEntry::field, InvalidLocationEntry::getMessage)
                 .containsExactly(
                         tuple(LocationField.VENUE_NAME, "Name is required"),
                         tuple(LocationField.CITY, "City is required"));
     }
 
-    /** Every location problem the command refused, in the order the boundary will report them. */
-    private static List<InvalidLocationEntry> locationProblems(ChangeHotelCommand command) {
-        Throwable thrown =
-                catchThrowable(() -> command.execute(new ChangeHotelContext(true, at(NOW))));
+    /** Every location problem building the command refused, in the order the boundary will report them. */
+    private static List<InvalidLocationEntry> locationProblems(ThrowingCallable building) {
+        Throwable thrown = catchThrowable(building);
 
         assertThat(thrown)
                 .as("a location problem is reported through the carrier, never a bare entry")
@@ -180,16 +180,19 @@ class ChangeHotelCommandTest {
         return ((InvalidEnteredLocation) thrown).problems();
     }
 
+    /**
+     * The reversal Ted accepted on 2026-10-22: a bad city is refused as the command is built, so
+     * existence is never asked. Until then a booking that was gone reported that first. The edit
+     * form is reached from a row that exists, so only a hand-edited URL can tell the difference.
+     */
     @Test
-    void existenceIsStillCheckedBeforeTheLocation() {
-        // A booking that is gone reports that, not the bad city it was submitted with.
+    void aDataEntryMistakeIsRefusedBeforeExistenceCouldBeAsked() {
         Address pasted = new Address("123 Main St", "Grand Hotel", "IL", "62701", "US", null);
-        ChangeHotelCommand command = new ChangeHotelCommand(
-                HotelBookingId.random(), "Grand Hotel", pasted,
-                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null);
 
-        assertThatThrownBy(() -> command.execute(new ChangeHotelContext(false, at(NOW))))
-                .isInstanceOf(HotelBookingNotFound.class);
+        assertThatThrownBy(() -> new ChangeHotelCommand(
+                HotelBookingId.random(), "Grand Hotel", pasted,
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL, null, null))
+                .isInstanceOf(InvalidEnteredLocation.class);
     }
 
     private static ChangeHotelCommand validCommand() {

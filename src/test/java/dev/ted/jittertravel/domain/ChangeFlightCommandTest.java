@@ -61,16 +61,20 @@ class ChangeFlightCommandTest {
                 .isInstanceOf(DepartureNotInFuture.class);
     }
 
+    /**
+     * Refused as the command is built, not when it runs: a backwards range needs no state to
+     * judge, so it is invalid data rather than a domain refusal, and must never reach the command
+     * log ({@code docs/archived/ValidateBeforeTheWalPlan.md}).
+     */
     @Test
-    void rejectsWhenArrivalIsNotAfterDeparture() {
+    void anArrivalNotAfterTheDepartureIsRefusedAsTheCommandIsBuilt() {
         ZonedTimestamp dep = zt(LocalDateTime.of(2026, 5, 8, 9, 0));
-        ChangeFlightCommand command = new ChangeFlightCommand(
+
+        assertThatThrownBy(() -> new ChangeFlightCommand(
                 FlightId.random(), "United", "UA59",
                 AirportCode.of("SFO"), dep,
                 AirportCode.of("FRA"), dep,
-                null);
-
-        assertThatThrownBy(() -> command.execute(new ChangeFlightContext(true, NOW, ScheduledLegs.none())))
+                null))
                 .isInstanceOf(InvalidDateRange.class);
     }
 

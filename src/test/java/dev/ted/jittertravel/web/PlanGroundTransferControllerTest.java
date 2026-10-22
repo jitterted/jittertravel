@@ -78,7 +78,7 @@ class PlanGroundTransferControllerTest {
     /**
      * The attempt that was refused retires its id. A refusal recorded in the command log has
      * written a row under it, so a corrected resubmit wearing the same id collides with that row
-     * ({@code docs/ValidateBeforeTheWalPlan.md}). Everything else Ted typed comes back with it.
+     * ({@code docs/archived/ValidateBeforeTheWalPlan.md}). Everything else Ted typed comes back with it.
      */
     @Test
     void aRefusedFormIsReRenderedUnderAFreshId() {

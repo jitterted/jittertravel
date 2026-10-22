@@ -80,7 +80,7 @@ class PlanPrivateEventControllerTest {
     /**
      * The attempt that was refused retires its id. A recorded refusal has written a command row
      * under it, so a corrected resubmit wearing the same id collides with that row
-     * ({@code docs/ValidateBeforeTheWalPlan.md}). Everything else Ted typed comes back with it.
+     * ({@code docs/archived/ValidateBeforeTheWalPlan.md}). Everything else Ted typed comes back with it.
      */
     @Test
     void aRefusedFormIsReRenderedUnderAFreshId() {

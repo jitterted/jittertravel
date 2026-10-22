@@ -71,18 +71,22 @@ class ChangeTrainCommandTest {
                 .isInstanceOf(DepartureNotInFuture.class);
     }
 
+    /**
+     * Refused as the command is built, not when it runs: a backwards range needs no state to
+     * judge, so it is invalid data rather than a domain refusal, and must never reach the command
+     * log ({@code docs/archived/ValidateBeforeTheWalPlan.md}). The station checks below are the same.
+     */
     @Test
-    void arrivalBeforeDepartureThrowsInvalidDateRange() {
-        ChangeTrainCommand command = new ChangeTrainCommand(
-                TrainTripId.random(), LONDON, zt(DEPARTURE), MANCHESTER, zt(DEPARTURE.minusMinutes(1)), "");
-
-        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW), ScheduledLegs.none())))
+    void arrivalBeforeDepartureIsRefusedAsTheCommandIsBuilt() {
+        assertThatThrownBy(() -> new ChangeTrainCommand(
+                TrainTripId.random(), LONDON, zt(DEPARTURE), MANCHESTER, zt(DEPARTURE.minusMinutes(1)), ""))
                 .isInstanceOf(InvalidDateRange.class);
     }
 
     @Test
-    void existenceIsCheckedBeforeDateValidation() {
-        // A non-existent trip with otherwise-invalid dates still fails as TrainNotFound first.
+    void existenceIsCheckedBeforeThePastDeparture() {
+        // A non-existent trip with a past departure still fails as TrainNotFound first: both are
+        // recorded refusals, and "gone" is the one worth reporting.
         ChangeTrainCommand command = new ChangeTrainCommand(
                 TrainTripId.random(), LONDON, zt(NOW.minusHours(1)), MANCHESTER, zt(ARRIVAL), "");
 
@@ -91,13 +95,12 @@ class ChangeTrainCommandTest {
     }
 
     @Test
-    void stationNamePastedIntoTheCityThrowsInvalidLocationEntryForThatEnd() {
+    void stationNamePastedIntoTheCityIsRefusedForThatEndAsTheCommandIsBuilt() {
         TrainStationAddress pasted = new TrainStationAddress(
                 "Frankfurt (Main) Hbf", "Frankfurt (Main) Hbf", "DE", "");
-        ChangeTrainCommand command = new ChangeTrainCommand(
-                TrainTripId.random(), pasted, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW), ScheduledLegs.none())))
+        assertThatThrownBy(() -> new ChangeTrainCommand(
+                TrainTripId.random(), pasted, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), ""))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
                     assertThat(invalid.locations())
                             .hasSize(1);
@@ -109,12 +112,11 @@ class ChangeTrainCommandTest {
     }
 
     @Test
-    void stationWithNoNameThrowsInvalidLocationEntryForThatEnd() {
+    void stationWithNoNameIsRefusedForThatEndAsTheCommandIsBuilt() {
         TrainStationAddress nameless = new TrainStationAddress("", "Manchester", "GB", "");
-        ChangeTrainCommand command = new ChangeTrainCommand(
-                TrainTripId.random(), LONDON, zt(DEPARTURE), nameless, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(true, at(NOW), ScheduledLegs.none())))
+        assertThatThrownBy(() -> new ChangeTrainCommand(
+                TrainTripId.random(), LONDON, zt(DEPARTURE), nameless, zt(ARRIVAL), ""))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
                     assertThat(invalid.locations())
                             .hasSize(1);
@@ -125,15 +127,18 @@ class ChangeTrainCommandTest {
                 });
     }
 
+    /**
+     * The reversal Ted accepted on 2026-10-22: a bad city is refused as the command is built, so
+     * existence is never asked. Until then a trip that was gone reported that first. The edit form
+     * is reached from a row that exists, so only a hand-edited URL can tell the difference.
+     */
     @Test
-    void existenceIsStillCheckedBeforeTheLocation() {
-        // A trip that is gone reports that, not the bad city it was submitted with.
+    void aDataEntryMistakeIsRefusedBeforeExistenceCouldBeAsked() {
         TrainStationAddress pasted = new TrainStationAddress("Frankfurt Hbf", "Frankfurt Hbf", "DE", "");
-        ChangeTrainCommand command = new ChangeTrainCommand(
-                TrainTripId.random(), pasted, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new ChangeTrainContext(false, at(NOW), ScheduledLegs.none())))
-                .isInstanceOf(TrainNotFound.class);
+        assertThatThrownBy(() -> new ChangeTrainCommand(
+                TrainTripId.random(), pasted, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), ""))
+                .isInstanceOf(InvalidTrainEntry.class);
     }
 
     private static ChangeTrainCommand validCommand() {

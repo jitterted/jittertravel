@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.domain;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
@@ -11,8 +12,11 @@ import java.util.stream.Stream;
  * decision fact rather than a form field because it is a rule, not an input: a dates change never
  * moves a conference to another zone.
  * <p>
- * Two refusals: a conference that is not live (never planned, cancelled, or declined), and an end
- * before the start. <strong>There is deliberately no time gate</strong>, unlike
+ * Two refusals: an end before the start, refused as the command is built because it needs nothing
+ * beyond the form and so never reaches the command log (Ted, 2026-10-22;
+ * {@code docs/archived/ValidateBeforeTheWalPlan.md}); and a conference that is not live (never planned,
+ * cancelled, or declined), refused in {@link #execute} and recorded.
+ * <strong>There is deliberately no time gate</strong>, unlike
  * {@link PlanConferenceCommand}: this records something the organizers did, and fixing a past
  * conference's dates is a legitimate correction — the reasoning {@link OpenCfpCommand} gives for a
  * CFP deadline that has already passed. Nor is a recorded CFP deadline compared with the new start;
@@ -24,13 +28,18 @@ public record ChangeConferenceDatesCommand(
         LocalDateTime endDate
 ) implements DomainCommand<ChangeConferenceDatesContext> {
 
+    public ChangeConferenceDatesCommand {
+        Objects.requireNonNull(startDate, "startDate");
+        Objects.requireNonNull(endDate, "endDate");
+        if (endDate.isBefore(startDate)) {
+            throw new InvalidDateRange("End date must be on or after start date");
+        }
+    }
+
     @Override
     public Stream<ConferenceDatesChanged> execute(ChangeConferenceDatesContext context) {
         if (!context.conferenceExists()) {
             throw new ConferenceNotFound("No conference found to change the dates of: " + conferenceId);
-        }
-        if (endDate.isBefore(startDate)) {
-            throw new InvalidDateRange("End date must be on or after start date");
         }
         return Stream.of(new ConferenceDatesChanged(
                 conferenceId,

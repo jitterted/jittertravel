@@ -123,7 +123,7 @@ class PlanGatheringWebIntegrationTest {
      * not the refused one. {@code th:field} reads it through the binding result's target, so this
      * only holds while {@code RefusedForm} carries the errors onto a binding result whose target is
      * the fresh request — a claim only a real render can prove
-     * ({@code docs/ValidateBeforeTheWalPlan.md}).
+     * ({@code docs/archived/ValidateBeforeTheWalPlan.md}).
      */
     @Test
     void aRefusedFormComesBackUnderAFreshId() {

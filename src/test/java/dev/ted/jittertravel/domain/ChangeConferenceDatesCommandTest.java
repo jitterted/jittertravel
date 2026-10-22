@@ -40,12 +40,15 @@ class ChangeConferenceDatesCommandTest {
                         .toList());
     }
 
+    /**
+     * Refused as the command is built, not when it runs: a backwards range needs no state to
+     * judge, so it is invalid data rather than a domain refusal, and must never reach the command
+     * log ({@code docs/archived/ValidateBeforeTheWalPlan.md}).
+     */
     @Test
-    void anEndBeforeTheStartIsRejected() {
+    void anEndBeforeTheStartIsRefusedAsTheCommandIsBuilt() {
         assertThatExceptionOfType(InvalidDateRange.class)
-                .isThrownBy(() -> new ChangeConferenceDatesCommand(conferenceId, MOVED_END, MOVED_START)
-                        .execute(new ChangeConferenceDatesContext(true, NEW_YORK))
-                        .toList())
+                .isThrownBy(() -> new ChangeConferenceDatesCommand(conferenceId, MOVED_END, MOVED_START))
                 .withMessage("End date must be on or after start date");
     }
 
@@ -61,14 +64,16 @@ class ChangeConferenceDatesCommandTest {
                 .hasSize(1);
     }
 
+    /**
+     * The reversal Ted accepted on 2026-10-22: a backwards range is refused as the command is
+     * built, so existence is never asked. Until then a conference that was gone reported that
+     * first. The edit form is reached from a row that exists, so only a hand-edited URL can tell
+     * the difference.
+     */
     @Test
-    void existenceIsCheckedBeforeTheRange() {
-        // A conference that is gone must report "gone", not "fix the end date", because fixing it
-        // would not help.
-        assertThatExceptionOfType(ConferenceNotFound.class)
-                .isThrownBy(() -> new ChangeConferenceDatesCommand(conferenceId, MOVED_END, MOVED_START)
-                        .execute(new ChangeConferenceDatesContext(false, null))
-                        .toList());
+    void aDataEntryMistakeIsRefusedBeforeExistenceCouldBeAsked() {
+        assertThatExceptionOfType(InvalidDateRange.class)
+                .isThrownBy(() -> new ChangeConferenceDatesCommand(conferenceId, MOVED_END, MOVED_START));
     }
 
     // No "a past conference can still be moved" case, for the reason

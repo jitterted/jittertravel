@@ -1,8 +1,8 @@
 # Validate before the WAL: data entry is refused before the command exists
 
-**Status:** shipped 2026-10-22 for the seven creation forms. One decision still open, below
-(the five change commands). Paused since 2026-08-22 with nothing written; reopened the day the
-bug reached production.
+**Status:** shipped 2026-10-22, the seven creation commands first and the five change commands
+the same day once Ted settled the one open question (below). Paused since 2026-08-22 with
+nothing written; reopened the day the bug reached production. Owns no remaining work.
 
 ## The bug
 
@@ -96,7 +96,7 @@ service, so nothing was written, and the attempt was never a command.
   into one `FlightItineraryRefused` and the form reports every leg at once. It never writes a row
   for a refusal anyway: `FlightItineraryBooking` dry-runs `execute` and only calls the executor on a
   clean evaluation. Its controller already replaces a malformed id with a fresh one.
-- The `Change*` commands — see the open decision.
+- The `Change*` commands, in the first commit — see the decision below, taken the same day.
 
 ## Tests, by tier
 
@@ -114,24 +114,30 @@ service, so nothing was written, and the attempt was never a command.
   command's own country check now refuses that at construction, so they use Brazil: a real country
   the zone table does not know.
 
-## Open: the five change commands
+## D3. The five change commands follow the same rule (Ted, 2026-10-22)
 
 `ChangeTrainCommand`, `ChangeHotelCommand`, `ChangeGatheringCommand`, `ChangeFlightCommand` and
-`ChangeConferenceDatesCommand` still run their structural checks inside `execute`, after their
-existence check, so a station pasted into a city box on an edit is still recorded as
-`FAILED_DOMAIN`. **They do not 500**: every change controller mints a fresh command id per POST, so
-there is no collision. The only cost is a typo in the log, against D1.
+`ChangeConferenceDatesCommand` ran their structural checks inside `execute`, after their existence
+check, so a station pasted into a city box on an edit was recorded as `FAILED_DOMAIN`. They never
+500'd, because every change controller mints a fresh command id per POST; the only cost was a typo
+in the log, against D1.
 
-Moving them is not free: their tests pin *existence before location* and *existence before dates*
-(`existenceIsCheckedBeforeDateValidation`, `aMissingGatheringIsReportedBeforeItsVenue`), and a
-constructor check would run first. That only matters for a hand-edited URL, since the edit form is
-reached from a row that exists. Ted's call: either accept the reordering and move them, or leave
-them and note that D1 holds for creation only.
+**Moved, accepting the reordering.** Their structural checks now sit in the compact constructor
+like the creation commands'. The price is that a data-entry mistake is refused before existence is
+asked: a hand-edited URL for a booking that does not exist, submitted with a bad city, now reports
+the city rather than "not found". The edit form is only reached from a row that exists, so no real
+session sees it. The five tests that pinned *existence before location* and *existence before
+dates* were rewritten as `aDataEntryMistakeIsRefusedBeforeExistenceCouldBeAsked`, each saying what
+was reversed and why. *Existence before the past date* still holds and is still pinned, because
+both of those are recorded refusals and "gone" is the one worth reporting.
+
+The alternative — leaving them and noting that D1 held for creation only — was offered and
+declined: one rule for every command.
 
 ## Related
 
 - `EventSourcingRulesHeuristics.md` R4 (write-ahead, unchanged) and H4 (revised).
 - CLAUDE.md, "A city that is really a station is rejected on the write path, never in the record" —
-  updated to say *in the command's constructor*, and why the change commands differ.
-- `ActiveReadModelsPlan.md` — the change services' existence checks, which is where any
-  reordering of the change commands would be decided.
+  updated to say *in the command's constructor*.
+- `../ActiveReadModelsPlan.md` — the change services' existence checks, which this plan did not
+  touch: existence is still asked in `execute`, from the context.

@@ -114,25 +114,27 @@ class ChangeGatheringCommandTest {
                 .isInstanceOf(GatheringDateNotInFuture.class);
     }
 
+    /**
+     * Refused as the command is built, not when it runs: the times need no state to judge, so a
+     * bad range is invalid data rather than a domain refusal, and must never reach the command
+     * log ({@code docs/archived/ValidateBeforeTheWalPlan.md}). The venue check below is the same.
+     */
     @Test
-    void endTimeBeforeStartTimeThrowsInvalidGatheringTimeRange() {
-        ChangeGatheringCommand command = commandFor(londonTime(NEXT_WEEK, END), londonTime(NEXT_WEEK, START));
-
-        assertThatThrownBy(() -> command.execute(new ChangeGatheringContext(true, NOW)))
+    void endTimeBeforeStartTimeIsRefusedAsTheCommandIsBuilt() {
+        assertThatThrownBy(() -> commandFor(londonTime(NEXT_WEEK, END), londonTime(NEXT_WEEK, START)))
                 .isInstanceOf(InvalidGatheringTimeRange.class);
     }
 
     @Test
-    void endTimeEqualToStartTimeThrowsInvalidGatheringTimeRange() {
-        ChangeGatheringCommand command = commandFor(londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, START));
-
-        assertThatThrownBy(() -> command.execute(new ChangeGatheringContext(true, NOW)))
+    void endTimeEqualToStartTimeIsRefusedAsTheCommandIsBuilt() {
+        assertThatThrownBy(() -> commandFor(londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, START)))
                 .isInstanceOf(InvalidGatheringTimeRange.class);
     }
 
     @Test
-    void existenceIsCheckedBeforeDateValidation() {
-        // A non-existent gathering with an otherwise-invalid date still fails as GatheringNotFound first.
+    void existenceIsCheckedBeforeThePastDate() {
+        // A non-existent gathering with a past date still fails as GatheringNotFound first: both
+        // are recorded refusals, and "gone" is the one worth reporting.
         ChangeGatheringCommand command = commandFor(
                 londonTime(TODAY.minusDays(1), START), londonTime(TODAY.minusDays(1), END));
 
@@ -154,26 +156,29 @@ class ChangeGatheringCommandTest {
     @Test
     void aVenueCountryThatIsNotACodeIsRefusedOnTheCountry() {
         Address legacy = new Address("2 New St", "Manchester", "", "M1 1AA", "UK", null);
-        ChangeGatheringCommand command = new ChangeGatheringCommand(
-                GatheringId.random(), "LJC", "Venue", legacy,
-                londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, END), false, "");
 
-        assertThatThrownBy(() -> command.execute(new ChangeGatheringContext(true, NOW)))
+        assertThatThrownBy(() -> new ChangeGatheringCommand(
+                GatheringId.random(), "LJC", "Venue", legacy,
+                londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, END), false, ""))
                 .isInstanceOfSatisfying(InvalidEnteredLocation.class, invalid ->
                         assertThat(invalid.problems())
                                 .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
                                 .containsExactly(tuple(LocationRole.VENUE, LocationField.COUNTRY)));
     }
 
+    /**
+     * The reversal Ted accepted on 2026-10-22: a bad venue is refused as the command is built, so
+     * existence is never asked. Until then a gathering that was gone reported that first. The edit
+     * form is reached from a row that exists, so only a hand-edited URL can tell the difference.
+     */
     @Test
-    void aMissingGatheringIsReportedBeforeItsVenue() {
+    void aDataEntryMistakeIsRefusedBeforeExistenceCouldBeAsked() {
         Address legacy = new Address("2 New St", "Manchester", "", "M1 1AA", "UK", null);
-        ChangeGatheringCommand command = new ChangeGatheringCommand(
-                GatheringId.random(), "LJC", "Venue", legacy,
-                londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, END), false, "");
 
-        assertThatThrownBy(() -> command.execute(new ChangeGatheringContext(false, NOW)))
-                .isInstanceOf(GatheringNotFound.class);
+        assertThatThrownBy(() -> new ChangeGatheringCommand(
+                GatheringId.random(), "LJC", "Venue", legacy,
+                londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, END), false, ""))
+                .isInstanceOf(InvalidEnteredLocation.class);
     }
 
     private static ZonedTimestamp londonTime(LocalDate date, LocalTime time) {

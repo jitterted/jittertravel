@@ -44,7 +44,7 @@ public record PlanGroundTransferCommand(
     /**
      * Every rule a transfer has is refused here, before the command exists, so none of them
      * reaches the command log: a command that was never valid is invalid data, not a domain
-     * refusal (Ted, 2026-10-22; {@code docs/ValidateBeforeTheWalPlan.md}). Nothing is left for
+     * refusal (Ted, 2026-10-22; {@code docs/archived/ValidateBeforeTheWalPlan.md}). Nothing is left for
      * {@link #execute} to refuse, because nothing here needs state.
      * <p>
      * No future-date check (D6): a transfer is normally entered mid-trip, for a day that has

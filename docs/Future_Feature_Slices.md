@@ -178,3 +178,88 @@ duplicates in the log today because Ted has been checking by hand).
    decision, not a chore — same as `EnteredLocation`, which is deliberately wired to trains and
    hotels only.
 
+---
+
+## "CFP not open yet" on the calendar
+
+**Requested by Ted, 2026-10-18.** When he knows a conference's CFP has not opened yet, he wants that
+visible on the calendar entry itself, **alongside** whatever chip it already wears (the "Maybe" chip,
+typically). Today the entry says nothing about the CFP at all; the only place the state shows is the
+`/conferences` dashboard, as the **CFP date unknown** group.
+
+**The fact does not exist yet, and that is the first decision.** `CfpOpened` carries `closesOn` and
+`submissionUrl` and is recorded when the CFP *is* open. Its absence is what
+`ConferenceDashboard` reads as `CFP_DATE_UNKNOWN` — which conflates two different things: *"I have
+not looked"* and *"I looked, and it is not open yet"*. Two ways to get the badge, with different
+costs:
+
+- **Cheap:** the badge means "no CFP recorded" and is derived from the absence of `CfpOpened` on a
+  `CALL_FOR_PAPERS` or `ACCEPTANCE_REQUIRED` conference. No new event, no form. But it then shows on
+  every conference Ted has not got round to, which is not what he asked for, and it cannot say
+  *when* to look again.
+- **A new fact:** something like `CfpAnnounced(conferenceId, opensOn)` (name TBD — the event names
+  what happened, a date was announced), recorded from the existing `/conferences/{id}/cfp` surface
+  or beside it. The dashboard then gains a group between "CFP date unknown" and "CFP closes soon"
+  (*"CFP opens on …"*), and the calendar chip reads from the same state. `CfpOpened` later supersedes
+  it. This is the one that answers the request as worded.
+
+**Redaction — owner and family only, never public.** CLAUDE.md lists CFP window dates and the
+whole submission pipeline as private, and `PublicCalendarProjector` does not read `CfpOpened` for
+exactly that reason. A "CFP not open" chip on the anonymous `/calendar` would tell a stranger Ted
+intends to submit there, which is one bit of the pipeline. So the chip is a component of
+`EntryDetails.Conference` and never of `EntryDetails.PublicConference`, and it ships with both tiers
+of redaction test (`PublicCalendarProjectorTest` absence + `CalendarRedactionSecurityTest`
+`doesNotContain`). Whether FAMILY sees it is a question for Ted; the "Maybe" chip is visible to them.
+
+**Where it is meaningless, it is absent** (state-machine rule, CLAUDE.md): an `OPEN_SPACE`
+conference has no CFP, a conference with `CfpOpened` recorded has an open one, and a committed
+conference does not need it. Note the standing comment in `CalendarViewBuilder` that a conference
+*"wears at most one chip, and never both"*: this slice makes that two, deliberately, and the comment
+and the test behind it change with it.
+
+**When to build:** when the next conference whose CFP is months away gets planned — the moment the
+calendar entry would otherwise sit there saying only "Maybe".
+
+---
+
+## Plan this conference again next year — prefilled from an existing one
+
+**Requested by Ted, 2026-10-18.** The recurring case: a conference he attends every year is
+announced for next year, and planning it means re-typing the name, the venue, its address, the
+format and the `infoUrl` — none of which changed. He wants a way to say *"this conference, but next
+year on these dates"* and land on `/plan-conference` with everything but the dates already filled.
+
+**Shape: a link, a query parameter, a prefilled form, and nothing else recorded.**
+
+- A **"Plan next year's"** link (wording TBD) from the conference's own surfaces — the detail page
+  `/conferences/{id}` is the natural home; whether the `/conferences` row also carries it is a
+  question, since that row's action cell is a state machine over the *talk* and this is a property
+  of the conference, like the CFP-deadline line that hangs off the name rather than sitting in the
+  cell.
+- It goes to **`/plan-conference?from=<conferenceId>`**, and the GET handler seeds
+  `PlanConferenceRequest` from that conference's details read model instead of the blank defaults
+  it builds today for `?date=`. Composing a form from a read model in the controller is fine (R12 is
+  about read models built from read models; a form is neither).
+- **Prefilled:** name, venue name, full venue address (so the place picker arrives set), format,
+  `infoUrl`. **Not prefilled:** anything about the CFP (`closesOn` and `submissionUrl` change every
+  year), the talk, the commitment. A new `ConferenceId` and a plain `ConferencePlanned` — **no
+  "series" or "recurrence" event**, and no link between the two streams. Two years of the same
+  conference are two conferences, which is what they are today.
+- **Dates:** prefill a guess and let Ted correct it — he said *"on these dates"*, meaning he types
+  them. The guess is a decision: **+1 calendar year** (same dates) or **same weekday in the same
+  week of the year** (which is how most conferences actually recur, DevNexus moving a week being the
+  counter-example). Ask before building; the second is probably right and slightly more work.
+
+**Interplay with the near-name check above.** Planning the same conference a year later is the one
+case that slice explicitly says must *not* be flagged as a mistake — and a form reached via `?from=`
+is where Ted has *told* the app which conference this repeats. If the near-name check ships first,
+the `from` id is exactly the "acknowledged match" its open question 3 is looking for.
+
+**Still OWNER-only.** `/plan-conference` already is; `?from=` adds nothing a stranger can reach, but
+the prefilled page prints a venue address, so keep the route where it is and add the new case to
+`AuthorizationMatrixTest` only if the path changes.
+
+**When to build:** the next time Ted plans a conference he already has in the log. Small slice —
+one link, one query parameter, one read in a controller, and a `@WebMvcTest` that the fields arrive
+filled.
+

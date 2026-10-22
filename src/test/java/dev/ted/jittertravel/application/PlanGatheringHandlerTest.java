@@ -64,7 +64,9 @@ class PlanGatheringHandlerTest {
 
     @Test
     void unresolvableLocationIsAcceptedOnceAZoneIsPicked() {
-        PlanGatheringCommand command = handler.handle(requestIn("Springfield", "Freedonia", "US_CENTRAL"));
+        // Brazil is a real country with no zone in the table: the command's own country check
+        // would refuse a made-up one before the zone is ever read.
+        PlanGatheringCommand command = handler.handle(requestIn("Manaus", "BR", "US_CENTRAL"));
 
         assertThat(command.startsAt().zone())
                 .isEqualTo(ZoneId.of("America/Chicago"));

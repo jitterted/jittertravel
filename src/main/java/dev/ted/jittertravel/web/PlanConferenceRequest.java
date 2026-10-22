@@ -36,6 +36,17 @@ public record PlanConferenceRequest(
 ) {
 
     /**
+     * The same form under a new id, for re-rendering after a refusal: the attempt that was refused
+     * retires its id (H4), so the corrected resubmit is a new command rather than a collision with
+     * the row the refusal may have left.
+     */
+    public PlanConferenceRequest withConferenceId(String conferenceId) {
+        return new PlanConferenceRequest(conferenceId, name, startDate, endDate, venueName,
+                venueStreet, venueCity, venueState, venueCountry, venuePostalCode, zone, format,
+                infoUrl, cfpClosesOn, cfpSubmissionUrl);
+    }
+
+    /**
      * What the field initializer used to say. A record has no initializers, so the default lands
      * here — and only for an <em>absent</em> value, which is the case the initializer covered: a
      * submitted-but-empty {@code format} stayed {@code ""} before and still does.

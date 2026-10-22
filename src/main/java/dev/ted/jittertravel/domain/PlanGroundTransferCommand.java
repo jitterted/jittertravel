@@ -41,17 +41,27 @@ public record PlanGroundTransferCommand(
                 departsAt, arrivesAt, mode, null, null);
     }
 
-    @Override
-    public Stream<GroundTransferPlanned> execute(PlanGroundTransferContext context) {
-        // No future-date check (D6): a transfer is normally entered mid-trip, for a day that has
-        // already started or even already passed, to close a gap the trip has already raised.
-        // Copying the gathering/private-event date rule here would break exactly the case the
-        // feature exists for. The rules below constrain the date *relative to the endpoints*, never
-        // relative to now.
+    /**
+     * Every rule a transfer has is refused here, before the command exists, so none of them
+     * reaches the command log: a command that was never valid is invalid data, not a domain
+     * refusal (Ted, 2026-10-22; {@code docs/ValidateBeforeTheWalPlan.md}). Nothing is left for
+     * {@link #execute} to refuse, because nothing here needs state.
+     * <p>
+     * No future-date check (D6): a transfer is normally entered mid-trip, for a day that has
+     * already started or even already passed, to close a gap the trip has already raised.
+     * Copying the gathering/private-event date rule here would break exactly the case the
+     * feature exists for. The rules below constrain the date <em>relative to the endpoints</em>,
+     * never relative to now.
+     */
+    public PlanGroundTransferCommand {
         if (departsAt == null || arrivesAt == null || !arrivesAt.utc().isAfter(departsAt.utc())) {
             throw new InvalidGroundTransferTimeRange("Arrival time must be after departure time");
         }
-        requireDateToFitTheEndpoints();
+        requireDateToFitTheEndpoints(departsAt, originWindow, destinationWindow);
+    }
+
+    @Override
+    public Stream<GroundTransferPlanned> execute(PlanGroundTransferContext context) {
         return Stream.of(new GroundTransferPlanned(
                 groundTransferId,
                 originAirportCode, originName, origin,
@@ -64,8 +74,13 @@ public record PlanGroundTransferCommand(
      * day apart (overlapping counts as zero apart); with at least one, the typed date must be one
      * of that window's days in its own zone. A stay is a window, check-in through check-out, so a
      * mid-stay ride to a gathering is accepted (Ted, 2026-10-06).
+     * <p>
+     * Static, and handed the components, because it runs from the compact constructor, where the
+     * record's own fields are not assigned yet.
      */
-    private void requireDateToFitTheEndpoints() {
+    private static void requireDateToFitTheEndpoints(ZonedTimestamp departsAt,
+                                                     TransferEndpointWindow originWindow,
+                                                     TransferEndpointWindow destinationWindow) {
         var known = Stream.of(originWindow, destinationWindow)
                 .filter(Objects::nonNull)
                 .toList();

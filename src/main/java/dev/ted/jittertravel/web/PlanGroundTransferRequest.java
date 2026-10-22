@@ -34,4 +34,14 @@ public record PlanGroundTransferRequest(
         @DateTimeFormat(pattern = "HH:mm") LocalTime departureTime,
         @DateTimeFormat(pattern = "HH:mm") LocalTime arrivalTime
 ) {
+
+    /**
+     * The same form under a new id, for re-rendering after a refusal: the attempt that was refused
+     * retires its id (H4), so the corrected resubmit is a new command rather than a collision with
+     * the row the refusal may have left.
+     */
+    public PlanGroundTransferRequest withGroundTransferId(String groundTransferId) {
+        return new PlanGroundTransferRequest(groundTransferId, origin, destination, mode, date,
+                departureTime, arrivalTime);
+    }
 }

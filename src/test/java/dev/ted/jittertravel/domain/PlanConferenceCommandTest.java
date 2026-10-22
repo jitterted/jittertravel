@@ -73,25 +73,24 @@ class PlanConferenceCommandTest {
                 .hasSize(1);
     }
 
+    /**
+     * A backwards range is a typo, and the more useful thing to report — and it is reported as the
+     * command is built, before "already ended" could be asked, because it needs no state to judge:
+     * invalid data rather than a domain refusal, never reaching the command log
+     * ({@code docs/ValidateBeforeTheWalPlan.md}). The venue check below is the same.
+     */
     @Test
-    void aBackwardsRangeIsReportedEvenWhenItHasAlsoEnded() {
-        Instant now = instantAt(LocalDateTime.of(2026, 9, 26, 10, 0));
-
+    void aBackwardsRangeIsRefusedAsTheCommandIsBuiltEvenWhenItHasAlsoEnded() {
         assertThatExceptionOfType(InvalidDateRange.class)
-                .as("a backwards range is a typo, and the more useful thing to report")
                 .isThrownBy(() -> conference(LocalDateTime.of(2026, 9, 21, 9, 0),
-                                             LocalDateTime.of(2026, 9, 20, 17, 0))
-                        .execute(new PlanConferenceContext(now)).toList());
+                                             LocalDateTime.of(2026, 9, 20, 17, 0)));
     }
 
     @Test
-    void endBeforeStartFails() {
-        Instant now = instantAt(LocalDateTime.of(2026, 5, 16, 10, 0));
-
+    void endBeforeStartIsRefusedAsTheCommandIsBuilt() {
         assertThatExceptionOfType(InvalidDateRange.class)
                 .isThrownBy(() -> conference(LocalDateTime.of(2026, 5, 20, 9, 0),
-                                             LocalDateTime.of(2026, 5, 20, 8, 0))
-                        .execute(new PlanConferenceContext(now)).toList());
+                                             LocalDateTime.of(2026, 5, 20, 8, 0)));
     }
 
     @Test
@@ -171,14 +170,12 @@ class PlanConferenceCommandTest {
     @Test
     void aUsVenueWithNoStateIsRefusedOnTheRegion() {
         Address atlanta = new Address("", "Atlanta", "", "", "US", null);
-        PlanConferenceCommand command = new PlanConferenceCommand(
-                ConferenceId.random(), "Devnexus 2027",
-                zt(LocalDateTime.of(2027, 4, 5, 9, 0)), zt(LocalDateTime.of(2027, 4, 7, 17, 0)),
-                "Georgia World Congress Center", atlanta, ConferenceFormat.CALL_FOR_PAPERS);
 
         InvalidEnteredLocation invalid = catchThrowableOfType(InvalidEnteredLocation.class,
-                () -> command.execute(
-                        new PlanConferenceContext(instantAt(LocalDateTime.of(2026, 10, 7, 9, 0)))));
+                () -> new PlanConferenceCommand(
+                        ConferenceId.random(), "Devnexus 2027",
+                        zt(LocalDateTime.of(2027, 4, 5, 9, 0)), zt(LocalDateTime.of(2027, 4, 7, 17, 0)),
+                        "Georgia World Congress Center", atlanta, ConferenceFormat.CALL_FOR_PAPERS));
 
         assertThat(invalid)
                 .as("refused for its venue")

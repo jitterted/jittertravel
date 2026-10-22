@@ -28,4 +28,17 @@ public record BookTrainRequest(
         String arrivalZone,
         @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm") LocalDateTime arrivalDateTime
 ) {
+
+    /**
+     * The same form under a new id, for re-rendering after a refusal: the attempt that was refused
+     * retires its id (H4), so the corrected resubmit is a new command rather than a collision with
+     * the row the refusal may have left.
+     */
+    public BookTrainRequest withTrainTripId(String trainTripId) {
+        return new BookTrainRequest(trainTripId, serviceId,
+                departureStationName, departureCityName, departureCountry, departureMapsUrl,
+                departureZone, departureDateTime,
+                arrivalStationName, arrivalCityName, arrivalCountry, arrivalMapsUrl,
+                arrivalZone, arrivalDateTime);
+    }
 }

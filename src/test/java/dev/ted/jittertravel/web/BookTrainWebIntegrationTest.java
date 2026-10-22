@@ -102,6 +102,35 @@ class BookTrainWebIntegrationTest {
                 .contains("<span class=\"error\">Departure must be in the future</span>");
     }
 
+    /**
+     * The render half of the fresh-id rule: the hidden id in the re-rendered form is a new one,
+     * not the refused one. {@code th:field} reads it through the binding result's target, so this
+     * only holds while {@code RefusedForm} carries the errors onto a binding result whose target is
+     * the fresh request — a claim only a real render can prove
+     * ({@code docs/ValidateBeforeTheWalPlan.md}).
+     */
+    @Test
+    void aRefusedFormComesBackUnderAFreshId() {
+        willThrow(new DepartureNotInFuture("Departure must be in the future"))
+                .given(trainBooking).bookTrain(any(), any());
+
+        assertThat(mockMvc.post().uri("/book-train")
+                .with(csrf())
+                .param("trainTripId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("departureStationName", "London Euston")
+                .param("departureCityName", "London")
+                .param("departureCountry", "UK")
+                .param("departureDateTime", "2025-01-01T09:00")
+                .param("arrivalStationName", "Manchester Piccadilly")
+                .param("arrivalCityName", "Manchester")
+                .param("arrivalCountry", "UK")
+                .param("arrivalDateTime", "2025-01-01T13:00"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("name=\"trainTripId\" value=\"550e8400-e29b-41d4-a716-446655440000\"")
+                .containsPattern("<input type=\"hidden\" id=\"trainTripId\" name=\"trainTripId\" value=\"[0-9a-f-]{36}\"/>");
+    }
+
     @Test
     void postWithArrivalBeforeDepartureRendersFormAgain() {
         willThrow(new InvalidDateRange("Arrival must be after departure"))

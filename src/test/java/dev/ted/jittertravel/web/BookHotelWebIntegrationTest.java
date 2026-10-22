@@ -95,6 +95,35 @@ class BookHotelWebIntegrationTest {
                 .contains("<span class=\"error\">Check-in must be in the future</span>");
     }
 
+    /**
+     * The render half of the fresh-id rule: the hidden id in the re-rendered form is a new one,
+     * not the refused one. {@code th:field} reads it through the binding result's target, so this
+     * only holds while {@code RefusedForm} carries the errors onto a binding result whose target is
+     * the fresh request — a claim only a real render can prove
+     * ({@code docs/ValidateBeforeTheWalPlan.md}).
+     */
+    @Test
+    void aRefusedFormComesBackUnderAFreshId() {
+        willThrow(new CheckInNotInFuture("Check-in must be in the future"))
+                .given(hotelBooking).bookHotel(any(), any());
+
+        assertThat(mockMvc.post().uri("/book-hotel")
+                .with(csrf())
+                .param("hotelBookingId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("hotelName", "Grand Hotel")
+                .param("street", "123 Main St")
+                .param("city", "Springfield")
+                .param("country", "US")
+                .param("postalCode", "62701")
+                .param("checkIn", "2025-01-01T15:00")
+                .param("checkOut", "2025-01-02T11:00")
+                .param("bookingIntent", "TENTATIVE"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("name=\"hotelBookingId\" value=\"550e8400-e29b-41d4-a716-446655440000\"")
+                .containsPattern("<input type=\"hidden\" id=\"hotelBookingId\" name=\"hotelBookingId\" value=\"[0-9a-f-]{36}\"/>");
+    }
+
     @Test
     void postWithUnparsableDateRendersFormInsteadOfThrowing() {
         assertThat(mockMvc.post().uri("/book-hotel")

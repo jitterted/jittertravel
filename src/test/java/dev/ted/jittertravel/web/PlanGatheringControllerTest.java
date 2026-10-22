@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.GatheringPlanning;
+import dev.ted.jittertravel.domain.GatheringDateNotInFuture;
 import dev.ted.jittertravel.domain.InvalidEnteredLocation;
 import dev.ted.jittertravel.domain.InvalidLocationEntry;
 import dev.ted.jittertravel.domain.LocationField;
@@ -19,6 +20,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.UUID;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -68,7 +70,7 @@ class PlanGatheringControllerTest {
                 LocalDate.of(2026, 6, 7), LocalTime.of(18, 0), LocalTime.of(21, 0), false, "");
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planGathering");
 
-        String view = controller.planGatheringSubmit(request, bindingResult);
+        String view = controller.planGatheringSubmit(request, bindingResult, new ConcurrentModel());
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -77,6 +79,32 @@ class PlanGatheringControllerTest {
                 .extracting(FieldError::getField)
                 .as("the refusal is reported on exactly one input")
                 .containsExactly(field);
+    }
+
+    /**
+     * The attempt that was refused retires its id. A recorded refusal has written a command row
+     * under it, so a corrected resubmit wearing the same id collides with that row
+     * ({@code docs/ValidateBeforeTheWalPlan.md}). Everything else Ted typed comes back with it.
+     */
+    @Test
+    void aRefusedFormIsReRenderedUnderAFreshId() {
+        PlanGatheringController controller = new PlanGatheringController(
+                refusing(new GatheringDateNotInFuture("Gathering date must be today or later")), FIXED_CLOCK);
+        PlanGatheringRequest request = new PlanGatheringRequest(
+                UUID.randomUUID().toString(), "NY JUG", "Venue", "", "New York", "NY", "", "US", "", "",
+                LocalDate.of(2026, 6, 7), LocalTime.of(18, 0), LocalTime.of(21, 0), false, "");
+        BindingResult bindingResult = new BeanPropertyBindingResult(request, "planGathering");
+        Model model = new ConcurrentModel();
+
+        controller.planGatheringSubmit(request, bindingResult, model);
+
+        PlanGatheringRequest reRendered = (PlanGatheringRequest) model.getAttribute("planGathering");
+        assertThat(UUID.fromString(reRendered.gatheringId()))
+                .as("a corrected resubmit is a new command, never a collision with the refused one")
+                .isNotEqualTo(UUID.fromString(request.gatheringId()));
+        assertThat(reRendered.title())
+                .as("the form keeps what was typed")
+                .isEqualTo(request.title());
     }
 
     static InvalidEnteredLocation venueRefusal(LocationField field) {

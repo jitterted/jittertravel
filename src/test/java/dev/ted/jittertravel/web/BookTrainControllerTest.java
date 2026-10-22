@@ -178,6 +178,30 @@ class BookTrainControllerTest {
                           List.of("departureCountry", "arrivalZone")));
     }
 
+    /**
+     * The attempt that was refused retires its id. A recorded refusal has written a command row
+     * under it, so a corrected resubmit wearing the same id collides with that row
+     * ({@code docs/ValidateBeforeTheWalPlan.md}). Everything else Ted typed comes back with it.
+     */
+    @Test
+    void aRefusedFormIsReRenderedUnderAFreshId() {
+        BookTrainController controller = new BookTrainController(
+                refusing(new DepartureNotInFuture("Departure must be in the future")), FIXED_CLOCK);
+        BookTrainRequest request = aTrip();
+        BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookTrain");
+        Model model = new ConcurrentModel();
+
+        controller.bookTrainSubmit(request, bindingResult, null, model);
+
+        BookTrainRequest reRendered = (BookTrainRequest) model.getAttribute("bookTrain");
+        assertThat(UUID.fromString(reRendered.trainTripId()))
+                .as("a corrected resubmit is a new command, never a collision with the refused one")
+                .isNotEqualTo(UUID.fromString(request.trainTripId()));
+        assertThat(reRendered.departureStationName())
+                .as("the form keeps what was typed")
+                .isEqualTo(request.departureStationName());
+    }
+
     /** Any well-formed trip: which refusal comes back is the stub's choice, not the input's. */
     private static BookTrainRequest aTrip() {
         return new BookTrainRequest(

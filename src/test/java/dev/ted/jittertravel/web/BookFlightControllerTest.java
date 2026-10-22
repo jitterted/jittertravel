@@ -26,6 +26,7 @@ import org.springframework.validation.ObjectError;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -226,6 +227,29 @@ class BookFlightControllerTest {
                           List.of(), List.of("airportCode")),
                 arguments(new ZoneResolutionException("ZZZ"),
                           List.of(), List.of("zoneUnresolved")));
+    }
+
+    /**
+     * The attempt that was refused retires its id. A recorded refusal has written a command row
+     * under it, so a corrected resubmit wearing the same id collides with that row
+     * ({@code docs/ValidateBeforeTheWalPlan.md}). The flight form is a mutable bean, so the id is
+     * replaced on the request itself and {@code th:field} reads the new one.
+     */
+    @Test
+    void aRefusedFormIsReRenderedUnderAFreshId() {
+        BookFlightController controller = new BookFlightController(
+                refusing(new DepartureNotInFuture("Departure must be in the future")), null,
+                new StaticAirportCityResolver(), FIXED_CLOCK);
+        BookFlightRequest request = new BookFlightRequest();
+        String refusedId = UUID.randomUUID().toString();
+        request.setFlightId(refusedId);
+        BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookFlight");
+
+        controller.bookFlightSubmit(request, bindingResult, null, new ConcurrentModel());
+
+        assertThat(UUID.fromString(request.getFlightId()))
+                .as("a corrected resubmit is a new command, never a collision with the refused one")
+                .isNotEqualTo(UUID.fromString(refusedId));
     }
 
     @Test

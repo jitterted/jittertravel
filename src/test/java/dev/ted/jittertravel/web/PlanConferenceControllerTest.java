@@ -81,7 +81,7 @@ class PlanConferenceControllerTest {
         PlanConferenceRequest request = aConferenceForm();
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planConference");
 
-        String view = controller.planConferenceSubmit(request, bindingResult);
+        String view = controller.planConferenceSubmit(request, bindingResult, new ConcurrentModel());
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -109,6 +109,31 @@ class PlanConferenceControllerTest {
                 new InvalidLocationEntry(LocationRole.VENUE, field, message)));
     }
 
+    /**
+     * The attempt that was refused retires its id. A recorded refusal has written a command row
+     * under it, so a corrected resubmit wearing the same id collides with that row — the 500 on the
+     * iPhone of 2026-10-22 ({@code docs/ValidateBeforeTheWalPlan.md}). Everything else Ted typed
+     * comes back with it.
+     */
+    @Test
+    void aRefusedFormIsReRenderedUnderAFreshId() {
+        PlanConferenceController controller = new PlanConferenceController(
+                refusing(new ConferenceAlreadyEnded("Conference has already ended")), null, FIXED_CLOCK);
+        PlanConferenceRequest request = aConferenceForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(request, "planConference");
+        Model model = new ConcurrentModel();
+
+        controller.planConferenceSubmit(request, bindingResult, model);
+
+        PlanConferenceRequest reRendered = (PlanConferenceRequest) model.getAttribute("planConference");
+        assertThat(UUID.fromString(reRendered.conferenceId()))
+                .as("a corrected resubmit is a new command, never a collision with the refused one")
+                .isNotEqualTo(UUID.fromString(request.conferenceId()));
+        assertThat(reRendered.name())
+                .as("the form keeps what was typed")
+                .isEqualTo(request.name());
+    }
+
     @Test
     void readOnlyModeRedirectsRatherThanReportingAFieldError() {
         PlanConferenceController controller = new PlanConferenceController(
@@ -116,7 +141,7 @@ class PlanConferenceControllerTest {
         PlanConferenceRequest request = aConferenceForm();
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planConference");
 
-        String view = controller.planConferenceSubmit(request, bindingResult);
+        String view = controller.planConferenceSubmit(request, bindingResult, new ConcurrentModel());
 
         assertThat(view)
                 .isEqualTo("redirect:/read-only");

@@ -136,7 +136,7 @@ class BookHotelControllerTest {
         BookHotelRequest request = aStay();
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookHotel");
 
-        String view = controller.bookHotelSubmit(request, bindingResult, null);
+        String view = controller.bookHotelSubmit(request, bindingResult, null, new ConcurrentModel());
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -177,6 +177,30 @@ class BookHotelControllerTest {
 
     private static InvalidLocationEntry locationProblem(LocationField field, String message) {
         return new InvalidLocationEntry(LocationRole.STAY, field, message);
+    }
+
+    /**
+     * The attempt that was refused retires its id. A recorded refusal has written a command row
+     * under it, so a corrected resubmit wearing the same id collides with that row
+     * ({@code docs/ValidateBeforeTheWalPlan.md}). Everything else Ted typed comes back with it.
+     */
+    @Test
+    void aRefusedFormIsReRenderedUnderAFreshId() {
+        BookHotelController controller = new BookHotelController(
+                refusing(new CheckInNotInFuture("Check-in must be in the future")), FIXED_CLOCK);
+        BookHotelRequest request = aStay();
+        BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookHotel");
+        Model model = new ConcurrentModel();
+
+        controller.bookHotelSubmit(request, bindingResult, null, model);
+
+        BookHotelRequest reRendered = (BookHotelRequest) model.getAttribute("bookHotel");
+        assertThat(UUID.fromString(reRendered.hotelBookingId()))
+                .as("a corrected resubmit is a new command, never a collision with the refused one")
+                .isNotEqualTo(UUID.fromString(request.hotelBookingId()));
+        assertThat(reRendered.hotelName())
+                .as("the form keeps what was typed")
+                .isEqualTo(request.hotelName());
     }
 
     /** Any well-formed stay: which refusal comes back is the stub's choice, not the input's. */

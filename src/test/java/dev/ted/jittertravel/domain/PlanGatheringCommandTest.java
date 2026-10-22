@@ -109,30 +109,30 @@ class PlanGatheringCommandTest {
                 .isInstanceOf(GatheringDateNotInFuture.class);
     }
 
+    /**
+     * Refused as the command is built, not when it runs: the times need no state to judge, so a
+     * bad range is invalid data rather than a domain refusal, and must never reach the command
+     * log ({@code docs/ValidateBeforeTheWalPlan.md}). The venue check below is the same.
+     */
     @Test
-    void endTimeBeforeStartTimeThrowsInvalidGatheringTimeRange() {
-        PlanGatheringCommand command = commandFor(londonTime(NEXT_WEEK, END), londonTime(NEXT_WEEK, START));
-
-        assertThatThrownBy(() -> command.execute(new GatheringPlanningContext(NOW)))
+    void endTimeBeforeStartTimeIsRefusedAsTheCommandIsBuilt() {
+        assertThatThrownBy(() -> commandFor(londonTime(NEXT_WEEK, END), londonTime(NEXT_WEEK, START)))
                 .isInstanceOf(InvalidGatheringTimeRange.class);
     }
 
     @Test
-    void endTimeEqualToStartTimeThrowsInvalidGatheringTimeRange() {
-        PlanGatheringCommand command = commandFor(londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, START));
-
-        assertThatThrownBy(() -> command.execute(new GatheringPlanningContext(NOW)))
+    void endTimeEqualToStartTimeIsRefusedAsTheCommandIsBuilt() {
+        assertThatThrownBy(() -> commandFor(londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, START)))
                 .isInstanceOf(InvalidGatheringTimeRange.class);
     }
 
     @Test
     void aUsVenueWithNoStateIsRefusedOnTheRegion() {
         Address noState = new Address("", "New York", "", "", "US", null);
-        PlanGatheringCommand command = new PlanGatheringCommand(
-                GatheringId.random(), "NY JUG", "Venue", noState,
-                londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, END), false, "");
 
-        assertThatThrownBy(() -> command.execute(new GatheringPlanningContext(NOW)))
+        assertThatThrownBy(() -> new PlanGatheringCommand(
+                GatheringId.random(), "NY JUG", "Venue", noState,
+                londonTime(NEXT_WEEK, START), londonTime(NEXT_WEEK, END), false, ""))
                 .isInstanceOfSatisfying(InvalidEnteredLocation.class, invalid ->
                         assertThat(invalid.problems())
                                 .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)

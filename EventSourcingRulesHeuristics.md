@@ -547,11 +547,22 @@ Read-model / view records (`BookedFlightView`, `CalendarEntry`) live in
 `dev.ted.jittertravel.application`. View records carry pre-formatted strings
 ready for the template — no formatting logic in templates or controllers.
 
-### H4. Use the entity id as the command id.
+### H4. Use the entity id as the command id — of the command that created it.
 
 The entity id (e.g., `flightId`, `conferenceId`) is also the command id
 recorded in the WAL. This gives natural idempotency on re-submission and ties
 the command back to the entity it acts on.
+
+**Revised 2026-10-22.** "Re-submission" means the *same* command sent twice —
+a double tap. A *corrected* resubmit after a refusal is a different command,
+and wearing the refused attempt's id it collides on `command_log`'s primary
+key with the `FAILED_DOMAIN` row the refusal left (the 500 on the iPhone,
+`docs/ValidateBeforeTheWalPlan.md`). So: **a refused attempt retires its
+id.** The re-rendered form carries a fresh one, the refusal's row stays as the
+record of the refusal, and the entity is created under the id of the command
+that succeeded. What never reaches the log at all is a data-entry mistake,
+refused in the command's compact constructor before the write-ahead row —
+see R4 and the plan.
 
 ### H5. One code path runs at startup replay and at runtime append.
 

@@ -114,6 +114,37 @@ class PlanPrivateEventWebIntegrationTest {
                 .contains("Could not determine the time zone from the location");
     }
 
+    /**
+     * The render half of the fresh-id rule: the hidden id in the re-rendered form is a new one,
+     * not the refused one. {@code th:field} reads it through the binding result's target, so this
+     * only holds while {@code RefusedForm} carries the errors onto a binding result whose target is
+     * the fresh request — a claim only a real render can prove
+     * ({@code docs/ValidateBeforeTheWalPlan.md}).
+     */
+    @Test
+    void aRefusedFormComesBackUnderAFreshId() {
+        willThrow(new ZoneResolutionException("Springfield, Freedonia"))
+                .given(privateEventPlanning).planPrivateEvent(any(), any());
+
+        assertThat(mockMvc.post().uri("/plan-private-event")
+                .with(csrf())
+                .param("privateEventId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("title", "Some Dinner")
+                .param("venueName", "Some Venue")
+                .param("street", "1 Example Street")
+                .param("city", "Springfield")
+                .param("region", "")
+                .param("country", "Freedonia")
+                .param("postalCode", "")
+                .param("date", "2026-07-15")
+                .param("startTime", "19:00")
+                .param("endTime", "22:00"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("name=\"privateEventId\" value=\"550e8400-e29b-41d4-a716-446655440000\"")
+                .containsPattern("<input type=\"hidden\" id=\"privateEventId\" name=\"privateEventId\" value=\"[0-9a-f-]{36}\"/>");
+    }
+
     /** The render check for the Country and Region inputs: each one's error span exists. */
     @Test
     void aRefusedVenueCountryAndStateRenderUnderTheirInputs() {

@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.PrivateEventPlanning;
+import dev.ted.jittertravel.domain.PrivateEventDateNotInFuture;
 import dev.ted.jittertravel.domain.LocationField;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -16,6 +17,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.UUID;
 import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -64,7 +66,7 @@ class PlanPrivateEventControllerTest {
                 LocalDate.of(2026, 6, 7), LocalTime.of(18, 0), LocalTime.of(21, 0));
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planPrivateEvent");
 
-        String view = controller.planPrivateEventSubmit(request, bindingResult);
+        String view = controller.planPrivateEventSubmit(request, bindingResult, new ConcurrentModel());
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -73,6 +75,33 @@ class PlanPrivateEventControllerTest {
                 .extracting(FieldError::getField)
                 .as("the refusal is reported on exactly one input")
                 .containsExactly(field);
+    }
+
+    /**
+     * The attempt that was refused retires its id. A recorded refusal has written a command row
+     * under it, so a corrected resubmit wearing the same id collides with that row
+     * ({@code docs/ValidateBeforeTheWalPlan.md}). Everything else Ted typed comes back with it.
+     */
+    @Test
+    void aRefusedFormIsReRenderedUnderAFreshId() {
+        PlanPrivateEventController controller = new PlanPrivateEventController(
+                refusing(new PrivateEventDateNotInFuture("Private event date must be today or later")),
+                FIXED_CLOCK);
+        PlanPrivateEventRequest request = new PlanPrivateEventRequest(
+                UUID.randomUUID().toString(), "Dinner", "Alo", "", "Centennial", "CO", "", "US", "", "",
+                LocalDate.of(2026, 6, 7), LocalTime.of(18, 0), LocalTime.of(21, 0));
+        BindingResult bindingResult = new BeanPropertyBindingResult(request, "planPrivateEvent");
+        Model model = new ConcurrentModel();
+
+        controller.planPrivateEventSubmit(request, bindingResult, model);
+
+        PlanPrivateEventRequest reRendered = (PlanPrivateEventRequest) model.getAttribute("planPrivateEvent");
+        assertThat(UUID.fromString(reRendered.privateEventId()))
+                .as("a corrected resubmit is a new command, never a collision with the refused one")
+                .isNotEqualTo(UUID.fromString(request.privateEventId()));
+        assertThat(reRendered.title())
+                .as("the form keeps what was typed")
+                .isEqualTo(request.title());
     }
 
     private static PrivateEventPlanning refusing(RuntimeException refusal) {

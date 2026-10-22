@@ -1,9 +1,13 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.GroundTransferEndpointChoices;
+import dev.ted.jittertravel.application.GroundTransferPlanning;
+import dev.ted.jittertravel.application.SameTransferEndpoints;
 import org.junit.jupiter.api.Test;
 import org.springframework.ui.ConcurrentModel;
 import org.springframework.ui.Model;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.BindingResult;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -11,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -68,5 +73,43 @@ class PlanGroundTransferControllerTest {
 
         assertThat(((PlanGroundTransferRequest) first.getAttribute("planGroundTransfer")).groundTransferId())
                 .isNotEqualTo(((PlanGroundTransferRequest) second.getAttribute("planGroundTransfer")).groundTransferId());
+    }
+
+    /**
+     * The attempt that was refused retires its id. A refusal recorded in the command log has
+     * written a row under it, so a corrected resubmit wearing the same id collides with that row
+     * ({@code docs/ValidateBeforeTheWalPlan.md}). Everything else Ted typed comes back with it.
+     */
+    @Test
+    void aRefusedFormIsReRenderedUnderAFreshId() {
+        PlanGroundTransferController controller = new PlanGroundTransferController(
+                refusing(new SameTransferEndpoints("A transfer needs two different places")),
+                null, null, FIXED_CLOCK);
+        PlanGroundTransferRequest request = new PlanGroundTransferRequest(
+                UUID.randomUUID().toString(), "airport:DEN", "airport:DEN", "taxi",
+                LocalDate.of(2026, 9, 14), LocalTime.of(12, 0), LocalTime.of(12, 45));
+        BindingResult bindingResult = new BeanPropertyBindingResult(request, "planGroundTransfer");
+        Model model = new ConcurrentModel();
+
+        controller.planGroundTransferSubmit(request, bindingResult, null, model);
+
+        PlanGroundTransferRequest reRendered =
+                (PlanGroundTransferRequest) model.getAttribute("planGroundTransfer");
+        assertThat(UUID.fromString(reRendered.groundTransferId()))
+                .as("a corrected resubmit is a new command, never a collision with the refused one")
+                .isNotEqualTo(UUID.fromString(request.groundTransferId()));
+        assertThat(reRendered.mode())
+                .as("the form keeps what was typed")
+                .isEqualTo(request.mode());
+    }
+
+    /** A service whose every transfer is refused with {@code refusal}. */
+    private static GroundTransferPlanning refusing(RuntimeException refusal) {
+        return new GroundTransferPlanning(null, null) {
+            @Override
+            public void planGroundTransfer(PlanGroundTransferRequest request) {
+                throw refusal;
+            }
+        };
     }
 }

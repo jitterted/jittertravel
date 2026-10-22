@@ -98,22 +98,21 @@ class PlanGroundTransferCommandTest {
                 .hasSize(1);
     }
 
+    /**
+     * Every rule a transfer has is refused as the command is built, not when it runs: none of
+     * them needs state, so each is invalid data rather than a domain refusal, and none may reach
+     * the command log ({@code docs/ValidateBeforeTheWalPlan.md}).
+     */
     @Test
-    void arrivalBeforeDepartureThrowsInvalidGroundTransferTimeRange() {
-        PlanGroundTransferCommand command = commandFor(
-                denverTime(TODAY, ARRIVES), denverTime(TODAY, DEPARTS));
-
-        assertThatThrownBy(() -> command.execute(new PlanGroundTransferContext()))
+    void arrivalBeforeDepartureIsRefusedAsTheCommandIsBuilt() {
+        assertThatThrownBy(() -> commandFor(denverTime(TODAY, ARRIVES), denverTime(TODAY, DEPARTS)))
                 .isInstanceOf(InvalidGroundTransferTimeRange.class)
                 .hasMessage("Arrival time must be after departure time");
     }
 
     @Test
-    void arrivalEqualToDepartureThrowsInvalidGroundTransferTimeRange() {
-        PlanGroundTransferCommand command = commandFor(
-                denverTime(TODAY, DEPARTS), denverTime(TODAY, DEPARTS));
-
-        assertThatThrownBy(() -> command.execute(new PlanGroundTransferContext()))
+    void arrivalEqualToDepartureIsRefusedAsTheCommandIsBuilt() {
+        assertThatThrownBy(() -> commandFor(denverTime(TODAY, DEPARTS), denverTime(TODAY, DEPARTS)))
                 .isInstanceOf(InvalidGroundTransferTimeRange.class);
     }
 
@@ -121,11 +120,10 @@ class PlanGroundTransferCommandTest {
     void endpointsAWeekApartAreRefusedWhateverDateIsTyped() {
         LocalDate checkOut = LocalDate.of(2026, 9, 13);
         LocalDate flight = LocalDate.of(2026, 9, 20);
-        PlanGroundTransferCommand command = commandBetween(
-                denverTime(flight, DEPARTS), denverTime(flight, ARRIVES),
-                denverTime(checkOut, LocalTime.of(11, 0)), denverTime(flight, LocalTime.of(14, 0)));
 
-        assertThatThrownBy(() -> command.execute(new PlanGroundTransferContext()))
+        assertThatThrownBy(() -> commandBetween(
+                denverTime(flight, DEPARTS), denverTime(flight, ARRIVES),
+                denverTime(checkOut, LocalTime.of(11, 0)), denverTime(flight, LocalTime.of(14, 0))))
                 .isInstanceOf(InvalidGroundTransferDate.class)
                 .hasMessage("Date must be within a day of both places");
     }
@@ -134,11 +132,10 @@ class PlanGroundTransferCommandTest {
     void aDateThatIsTheDayOfNeitherEndIsRefused() {
         LocalDate day = LocalDate.of(2026, 9, 14);
         LocalDate wrongDay = LocalDate.of(2026, 9, 24);
-        PlanGroundTransferCommand command = commandBetween(
-                denverTime(wrongDay, DEPARTS), denverTime(wrongDay, ARRIVES),
-                denverTime(day, LocalTime.of(9, 0)), denverTime(day, LocalTime.of(15, 0)));
 
-        assertThatThrownBy(() -> command.execute(new PlanGroundTransferContext()))
+        assertThatThrownBy(() -> commandBetween(
+                denverTime(wrongDay, DEPARTS), denverTime(wrongDay, ARRIVES),
+                denverTime(day, LocalTime.of(9, 0)), denverTime(day, LocalTime.of(15, 0))))
                 .isInstanceOf(InvalidGroundTransferDate.class);
     }
 
@@ -168,11 +165,10 @@ class PlanGroundTransferCommandTest {
     @Test
     void aMinuteOverTwentyFourHoursApartIsRefused() {
         LocalDate day = LocalDate.of(2026, 9, 14);
-        PlanGroundTransferCommand command = commandBetween(
-                denverTime(day, DEPARTS), denverTime(day, ARRIVES),
-                denverTime(day, LocalTime.of(12, 0)), denverTime(day.plusDays(1), LocalTime.of(12, 1)));
 
-        assertThatThrownBy(() -> command.execute(new PlanGroundTransferContext()))
+        assertThatThrownBy(() -> commandBetween(
+                denverTime(day, DEPARTS), denverTime(day, ARRIVES),
+                denverTime(day, LocalTime.of(12, 0)), denverTime(day.plusDays(1), LocalTime.of(12, 1))))
                 .isInstanceOf(InvalidGroundTransferDate.class);
     }
 
@@ -183,13 +179,12 @@ class PlanGroundTransferCommandTest {
         PlanGroundTransferCommand sameDay = commandBetween(
                 denverTime(day, DEPARTS), denverTime(day, ARRIVES),
                 denverTime(day, LocalTime.of(9, 0)), null);
-        PlanGroundTransferCommand otherDay = commandBetween(
-                denverTime(day.plusDays(3), DEPARTS), denverTime(day.plusDays(3), ARRIVES),
-                denverTime(day, LocalTime.of(9, 0)), null);
 
         assertThat(sameDay.execute(new PlanGroundTransferContext()).toList())
                 .hasSize(1);
-        assertThatThrownBy(() -> otherDay.execute(new PlanGroundTransferContext()))
+        assertThatThrownBy(() -> commandBetween(
+                denverTime(day.plusDays(3), DEPARTS), denverTime(day.plusDays(3), ARRIVES),
+                denverTime(day, LocalTime.of(9, 0)), null))
                 .isInstanceOf(InvalidGroundTransferDate.class);
     }
 
@@ -253,11 +248,10 @@ class PlanGroundTransferCommandTest {
                 denverTime(gatheringDay, LocalTime.of(19, 0)),
                 denverTime(gatheringDay, LocalTime.of(22, 0)));
         LocalDate afterTheStay = LocalDate.of(2026, 9, 19);
-        PlanGroundTransferCommand command = commandBetweenWindows(
-                denverTime(afterTheStay, DEPARTS), denverTime(afterTheStay, ARRIVES),
-                stay, gathering);
 
-        assertThatThrownBy(() -> command.execute(new PlanGroundTransferContext()))
+        assertThatThrownBy(() -> commandBetweenWindows(
+                denverTime(afterTheStay, DEPARTS), denverTime(afterTheStay, ARRIVES),
+                stay, gathering))
                 .isInstanceOf(InvalidGroundTransferDate.class);
     }
 
@@ -269,10 +263,9 @@ class PlanGroundTransferCommandTest {
         var gathering = new TransferEndpointWindow(
                 denverTime(day.plusDays(3), LocalTime.of(19, 0)),
                 denverTime(day.plusDays(3), LocalTime.of(22, 0)));
-        PlanGroundTransferCommand command = commandBetweenWindows(
-                denverTime(day, DEPARTS), denverTime(day, ARRIVES), stay, gathering);
 
-        assertThatThrownBy(() -> command.execute(new PlanGroundTransferContext()))
+        assertThatThrownBy(() -> commandBetweenWindows(
+                denverTime(day, DEPARTS), denverTime(day, ARRIVES), stay, gathering))
                 .isInstanceOf(InvalidGroundTransferDate.class);
     }
 

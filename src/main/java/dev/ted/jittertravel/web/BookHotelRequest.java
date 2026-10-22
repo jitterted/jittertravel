@@ -41,4 +41,15 @@ public record BookHotelRequest(
         @OptionalEntry @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm") LocalDateTime cancelBy,
         BookingIntent bookingIntent
 ) {
+
+    /**
+     * The same form under a new id, for re-rendering after a refusal: the attempt that was refused
+     * retires its id (H4), so the corrected resubmit is a new command rather than a collision with
+     * the row the refusal may have left.
+     */
+    public BookHotelRequest withHotelBookingId(String hotelBookingId) {
+        return new BookHotelRequest(hotelBookingId, hotelName, street, city, region, country,
+                postalCode, locationForMatching, mapsUrl, zone, checkIn, checkOut, cancelBy,
+                bookingIntent);
+    }
 }

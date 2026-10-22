@@ -50,16 +50,20 @@ class BookFlightCommandTest {
                 .isInstanceOf(DepartureNotInFuture.class);
     }
 
+    /**
+     * Refused as the command is built, not when it runs: a backwards range needs no state to
+     * judge, so it is invalid data rather than a domain refusal, and must never reach the command
+     * log ({@code docs/ValidateBeforeTheWalPlan.md}).
+     */
     @Test
-    void arrivalBeforeDepartureThrowsInvalidDateRange() {
+    void arrivalBeforeDepartureIsRefusedAsTheCommandIsBuilt() {
         ZonedTimestamp departure = zt(LocalDateTime.of(2026, 5, 17, 9, 0));
         ZonedTimestamp arrival = zt(LocalDateTime.of(2026, 5, 17, 8, 0));
-        BookFlightCommand command = new BookFlightCommand(
+
+        assertThatThrownBy(() -> new BookFlightCommand(
                 FlightId.random(), "United", "UA100",
                 AirportCode.of("SFO"), departure,
-                AirportCode.of("JFK"), arrival);
-
-        assertThatThrownBy(() -> command.execute(new BookFlightContext(NOW, ScheduledLegs.none())))
+                AirportCode.of("JFK"), arrival))
                 .isInstanceOf(InvalidDateRange.class);
     }
 

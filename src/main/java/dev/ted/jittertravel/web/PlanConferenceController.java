@@ -87,7 +87,8 @@ public class PlanConferenceController {
     // field throws instead of showing the error.
     public String planConferenceSubmit(@ModelAttribute("planConference")
                                            PlanConferenceRequest command,
-                                       BindingResult bindingResult) {
+                                       BindingResult bindingResult,
+                                       Model model) {
         if (conferencePlanning.isReadOnly()) {
             return "redirect:/read-only";
         }
@@ -123,6 +124,10 @@ public class PlanConferenceController {
         }
 
         if (bindingResult.hasErrors()) {
+            // The attempt that was refused retires its id, so the corrected resubmit cannot collide
+            // with the command row a domain refusal left behind — see RefusedForm.
+            RefusedForm.reRenderUnderFreshId(model, "planConference",
+                    command.withConferenceId(UUID.randomUUID().toString()), bindingResult);
             return "plan-conference";
         }
 

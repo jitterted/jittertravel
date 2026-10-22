@@ -32,6 +32,17 @@ public record PlanGatheringRequest(
 ) {
 
     /**
+     * The same form under a new id, for re-rendering after a refusal: the attempt that was refused
+     * retires its id (H4), so the corrected resubmit is a new command rather than a collision with
+     * the row the refusal may have left.
+     */
+    public PlanGatheringRequest withGatheringId(String gatheringId) {
+        return new PlanGatheringRequest(gatheringId, title, venueName, street, city, region,
+                postalCode, country, locationForMatching, zone, date, startTime, endTime, speaking,
+                infoUrl);
+    }
+
+    /**
      * {@code speaking} is boxed, and that is load-bearing rather than style. An unchecked checkbox
      * submits <em>nothing</em>, and constructor binding cannot pass {@code null} to a primitive, so
      * a {@code boolean} component turns "Ted is not speaking" into a binding error on the field —

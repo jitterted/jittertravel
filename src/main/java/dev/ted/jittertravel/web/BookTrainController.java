@@ -96,6 +96,10 @@ public class BookTrainController {
         errors.summarize();
 
         if (bindingResult.hasErrors()) {
+            // The attempt that was refused retires its id, so the corrected resubmit cannot collide
+            // with the command row a domain refusal left behind — see RefusedForm.
+            RefusedForm.reRenderUnderFreshId(model, "bookTrain",
+                    request.withTrainTripId(UUID.randomUUID().toString()), bindingResult);
             return "book-train";
         }
 

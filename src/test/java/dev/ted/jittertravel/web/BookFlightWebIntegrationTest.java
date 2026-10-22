@@ -179,6 +179,22 @@ class BookFlightWebIntegrationTest {
                 .contains("<span class=\"error\">Departure must be in the future</span>");
     }
 
+    /**
+     * The render half of the fresh-id rule: the hidden id in the re-rendered form is a new one,
+     * not the refused one ({@code docs/ValidateBeforeTheWalPlan.md}).
+     */
+    @Test
+    void aRefusedFormComesBackUnderAFreshId() {
+        willThrow(new DepartureNotInFuture("Departure must be in the future"))
+                .given(flightBooking).bookFlight(any(), any());
+
+        assertThat(submitFlight())
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("name=\"flightId\" value=\"550e8400-e29b-41d4-a716-446655440000\"")
+                .containsPattern("name=\"flightId\" value=\"[0-9a-f-]{36}\"");
+    }
+
     @Test
     void anArrivalErrorRendersUnderTheArrivalTime() {
         willThrow(new InvalidDateRange("Arrival must be after departure"))

@@ -1,5 +1,6 @@
 package dev.ted.jittertravel.domain;
 
+import java.util.Objects;
 import java.util.stream.Stream;
 
 public record PlanConferenceCommand(
@@ -13,9 +14,26 @@ public record PlanConferenceCommand(
         String infoUrl
 ) implements DomainCommand<PlanConferenceContext> {
 
+    /**
+     * What the form alone can get wrong is refused here, before the command exists, so it never
+     * reaches the command log: a command that was never valid is invalid data, not a domain
+     * refusal (Ted, 2026-10-22; {@code docs/ValidateBeforeTheWalPlan.md}). Only what needs
+     * state — whether the conference is already over, which needs {@code now} — stays in
+     * {@link #execute}, where the refusal is recorded.
+     */
     public PlanConferenceCommand {
         if (infoUrl == null) {
             infoUrl = "";
+        }
+        EnteredCountry.of(venueAddress).check(LocationRole.VENUE);
+        Objects.requireNonNull(startDate, "startDate");
+        Objects.requireNonNull(endDate, "endDate");
+        // Both endpoints share the venue's zone, so comparing instants is the same as comparing
+        // wall-clock — and stays right if that ever stops being true. Both are present by now: a
+        // blank date is refused at the form by RequiredEntryAdvice, under its own input, and
+        // reporting it here as a range would put it under End whichever one was missing.
+        if (endDate.utc().isBefore(startDate.utc())) {
+            throw new InvalidDateRange("End date must be on or after start date");
         }
     }
 
@@ -28,15 +46,6 @@ public record PlanConferenceCommand(
 
     @Override
     public Stream<ConferencePlanned> execute(PlanConferenceContext context) {
-        EnteredCountry.of(venueAddress).check(LocationRole.VENUE);
-        // A backwards range is checked first: it is a typo, and the more useful thing to report.
-        // Both endpoints share the venue's zone, so comparing instants is the same as comparing
-        // wall-clock — and stays right if that ever stops being true. Both are present by now: a
-        // blank date is refused at the form by RequiredEntryAdvice, under its own input, and
-        // reporting it here as a range would put it under End whichever one was missing.
-        if (endDate.utc().isBefore(startDate.utc())) {
-            throw new InvalidDateRange("End date must be on or after start date");
-        }
         // Only a conference that is over is refused: Ted may go to one he only just heard about,
         // even after it has started (Ted, 2026-09-22). "Over" is a calendar-day question read in
         // the venue's own zone, so the last day itself still counts.

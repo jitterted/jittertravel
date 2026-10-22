@@ -31,6 +31,16 @@ public record PlanPrivateEventRequest(
 ) {
 
     /**
+     * The same form under a new id, for re-rendering after a refusal: the attempt that was refused
+     * retires its id (H4), so the corrected resubmit is a new command rather than a collision with
+     * the row the refusal may have left.
+     */
+    public PlanPrivateEventRequest withPrivateEventId(String privateEventId) {
+        return new PlanPrivateEventRequest(privateEventId, title, venueName, street, city, region,
+                postalCode, country, locationForMatching, zone, date, startTime, endTime);
+    }
+
+    /**
      * The address the six location fields describe. Derived rather than stored, so the form's
      * fields and the value the write path uses cannot disagree.
      */

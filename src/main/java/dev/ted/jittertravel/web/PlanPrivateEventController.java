@@ -51,7 +51,8 @@ public class PlanPrivateEventController {
 
     @PostMapping("/plan-private-event")
     public String planPrivateEventSubmit(@ModelAttribute("planPrivateEvent") PlanPrivateEventRequest request,
-                                         BindingResult bindingResult) {
+                                         BindingResult bindingResult,
+                                         Model model) {
         // A date or time left blank, or one that would not parse, is null on the request.
         if (bindingResult.hasErrors()) {
             return "plan-private-event";
@@ -71,6 +72,10 @@ public class PlanPrivateEventController {
         }
 
         if (bindingResult.hasErrors()) {
+            // The attempt that was refused retires its id, so the corrected resubmit cannot collide
+            // with the command row a domain refusal left behind — see RefusedForm.
+            RefusedForm.reRenderUnderFreshId(model, "planPrivateEvent",
+                    request.withPrivateEventId(UUID.randomUUID().toString()), bindingResult);
             return "plan-private-event";
         }
 

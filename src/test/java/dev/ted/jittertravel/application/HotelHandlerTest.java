@@ -71,7 +71,9 @@ class HotelHandlerTest {
 
     @Test
     void unresolvableAddressIsAcceptedOnceAZoneIsPicked() {
-        BookHotelCommand command = handler.bookHotel(requestIn("Springfield", "Freedonia", "US_CENTRAL", null));
+        // Brazil is a real country with no zone in the table: the command's own country check
+        // would refuse a made-up one before the zone is ever read.
+        BookHotelCommand command = handler.bookHotel(requestIn("Manaus", "BR", "US_CENTRAL", null));
 
         assertThat(command.checkIn().zone())
                 .isEqualTo(ZoneId.of("America/Chicago"));

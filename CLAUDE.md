@@ -673,7 +673,17 @@ two live in different places on purpose.
 
 A booking names a building and the city it stands in, and `EnteredLocation` (domain) is the pair,
 checked from the four commands that write one — `BookTrainCommand`, `ChangeTrainCommand`,
-`BookHotelCommand`, `ChangeHotelCommand`, before their date rules and after any existence check.
+`BookHotelCommand`, `ChangeHotelCommand`, before their date rules. **Where in the command depends on
+which kind it is** (Ted, 2026-10-22; `docs/ValidateBeforeTheWalPlan.md`): the two creation
+commands check it in their **compact constructor**, so a refusal throws before `CommandExecutor`
+has written the write-ahead row and never reaches the command log; the two change commands still
+check it in `execute`, after their existence check, and that difference is an open decision in the
+plan. The rule generalizes to every creation command: **a check that needs nothing beyond the
+form's own values is data entry and belongs in the constructor; a check that needs state — `now`,
+the stream — is a domain refusal, stays in `execute`, and is recorded as `FAILED_DOMAIN`.** The
+split is what keeps a corrected resubmit from colliding with the refused attempt's row (H4), and
+the creation controllers re-render a refused form under a fresh id for the refusals that *are*
+recorded (`RefusedForm`, which also explains the Spring detail that makes it four lines).
 Three rules, reported in order: the building has a name; the city is filled in; the city does not
 *look* like a building (no brackets, no digit, no whole word from a short list — `hbf`,
 `hauptbahnhof`, `bahnhof`, `bf`, `bhf`, `fernbf`, `gare`, `station(s)`, `stazione`, `estación`,
@@ -692,7 +702,9 @@ It reached production because the paste target looks perfectly reasonable on the
 is exactly what makes it the wrong place to reject anything: a rule there applies retroactively to
 every event in the log, and one old booking that breaks it stops a replay — and a restore — dead.
 **Normalize in the record; reject in the command.** An existing booking that trips a rule is then
-only met when Ted next edits it, which is the moment he can fix it.
+only met when Ted next edits it, which is the moment he can fix it. A *command's* compact
+constructor is a fine place to reject, because a command is built from a form and never from the
+log: commands ride through backup and restore as opaque rows and are not re-executed.
 
 **Validate a proposed rule against the production backup before shipping it.** A fourth rule was
 written and removed the same day: "the city is not the building's name again". It is the obvious way

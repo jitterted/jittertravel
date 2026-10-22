@@ -81,7 +81,8 @@ public class BookHotelController {
     @PostMapping("/book-hotel")
     public String bookHotelSubmit(@ModelAttribute("bookHotel") BookHotelRequest request,
                                   BindingResult bindingResult,
-                                  @RequestParam(value = "from", required = false) String from) {
+                                  @RequestParam(value = "from", required = false) String from,
+                                  Model model) {
         HotelFormErrors errors = new HotelFormErrors(bindingResult);
         // Binding already failed: a date left blank, or one that would not parse. Those values are
         // null on the request, so calling the service would only reach the write path with them.
@@ -110,6 +111,10 @@ public class BookHotelController {
         errors.summarize();
 
         if (bindingResult.hasErrors()) {
+            // The attempt that was refused retires its id, so the corrected resubmit cannot collide
+            // with the command row a domain refusal left behind — see RefusedForm.
+            RefusedForm.reRenderUnderFreshId(model, "bookHotel",
+                    request.withHotelBookingId(UUID.randomUUID().toString()), bindingResult);
             return "book-hotel";
         }
 

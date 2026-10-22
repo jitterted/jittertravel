@@ -127,6 +127,10 @@ public class BookFlightController {
         }
 
         if (bindingResult.hasErrors()) {
+            // The attempt that was refused retires its id, so the corrected resubmit cannot collide
+            // with the command row a domain refusal left behind — see RefusedForm. This bean is
+            // mutable, so the id is set in place and th:field reads the new one.
+            command.setFlightId(UUID.randomUUID().toString());
             return "book-flight";
         }
 

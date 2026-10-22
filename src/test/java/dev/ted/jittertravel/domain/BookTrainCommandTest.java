@@ -12,6 +12,13 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
+/**
+ * Two kinds of refusal, in two places. What the form alone can get wrong — a station that is not a
+ * place, an arrival before the departure — is refused <em>as the command is built</em>, so it never
+ * reaches the command log. What needs state — the departure being in the future, the overlap with a
+ * booked leg — is refused by {@code execute}, where the refusal is recorded
+ * ({@code docs/ValidateBeforeTheWalPlan.md}).
+ */
 class BookTrainCommandTest {
 
     private static final ZoneId ZONE = ZoneId.of("Europe/London");
@@ -65,11 +72,9 @@ class BookTrainCommandTest {
     }
 
     @Test
-    void arrivalBeforeDepartureThrowsInvalidDateRange() {
-        BookTrainCommand command = new BookTrainCommand(
-                TrainTripId.random(), LONDON, zt(DEPARTURE), MANCHESTER, zt(DEPARTURE.minusMinutes(1)), "");
-
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
+    void arrivalBeforeDepartureIsRefusedAsTheCommandIsBuilt() {
+        assertThatThrownBy(() -> new BookTrainCommand(
+                TrainTripId.random(), LONDON, zt(DEPARTURE), MANCHESTER, zt(DEPARTURE.minusMinutes(1)), ""))
                 .isInstanceOf(InvalidDateRange.class);
     }
 
@@ -84,12 +89,11 @@ class BookTrainCommandTest {
     }
 
     @Test
-    void stationWithNoNameThrowsInvalidLocationEntryForThatEnd() {
+    void stationWithNoNameIsRefusedForThatEndAsTheCommandIsBuilt() {
         TrainStationAddress nameless = new TrainStationAddress("", "London", "GB", "");
-        BookTrainCommand command = new BookTrainCommand(
-                TrainTripId.random(), nameless, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
+        assertThatThrownBy(() -> new BookTrainCommand(
+                TrainTripId.random(), nameless, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), ""))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
                     assertThat(invalid.locations())
                             .hasSize(1);
@@ -101,13 +105,12 @@ class BookTrainCommandTest {
     }
 
     @Test
-    void stationNamePastedIntoTheCityThrowsInvalidLocationEntryForThatEnd() {
+    void stationNamePastedIntoTheCityIsRefusedForThatEndAsTheCommandIsBuilt() {
         TrainStationAddress pasted = new TrainStationAddress(
                 "Frankfurt (Main) Hbf", "Frankfurt (Main) Hbf", "DE", "");
-        BookTrainCommand command = new BookTrainCommand(
-                TrainTripId.random(), LONDON, zt(DEPARTURE), pasted, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
+        assertThatThrownBy(() -> new BookTrainCommand(
+                TrainTripId.random(), LONDON, zt(DEPARTURE), pasted, zt(ARRIVAL), ""))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid -> {
                     assertThat(invalid.locations())
                             .hasSize(1);
@@ -126,10 +129,9 @@ class BookTrainCommandTest {
         TrainStationAddress nameless = new TrainStationAddress("", "London", "GB", "");
         TrainStationAddress pasted = new TrainStationAddress(
                 "Frankfurt (Main) Hbf", "Frankfurt (Main) Hbf", "DE", "");
-        BookTrainCommand command = new BookTrainCommand(
-                TrainTripId.random(), nameless, zt(DEPARTURE), pasted, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
+        assertThatThrownBy(() -> new BookTrainCommand(
+                TrainTripId.random(), nameless, zt(DEPARTURE), pasted, zt(ARRIVAL), ""))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid ->
                         assertThat(invalid.locations())
                                 .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
@@ -148,10 +150,9 @@ class BookTrainCommandTest {
     @Test
     void oneEndWithNoNameAndNoCityContributesBothProblems() {
         TrainStationAddress empty = new TrainStationAddress("", "", "GB", "");
-        BookTrainCommand command = new BookTrainCommand(
-                TrainTripId.random(), empty, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
+        assertThatThrownBy(() -> new BookTrainCommand(
+                TrainTripId.random(), empty, zt(DEPARTURE), MANCHESTER, zt(ARRIVAL), ""))
                 .isInstanceOfSatisfying(InvalidTrainEntry.class, invalid ->
                         assertThat(invalid.locations())
                                 .extracting(InvalidLocationEntry::role, InvalidLocationEntry::field)
@@ -165,10 +166,22 @@ class BookTrainCommandTest {
         // Both are wrong; the location is the one reported, because a wrong place is the mistake
         // that looks right on the page.
         TrainStationAddress pasted = new TrainStationAddress("Frankfurt Hbf", "Frankfurt Hbf", "DE", "");
-        BookTrainCommand command = new BookTrainCommand(
-                TrainTripId.random(), pasted, zt(NOW.minusHours(1)), MANCHESTER, zt(ARRIVAL), "");
 
-        assertThatThrownBy(() -> command.execute(new BookTrainContext(at(NOW), ScheduledLegs.none())))
+        assertThatThrownBy(() -> new BookTrainCommand(
+                TrainTripId.random(), pasted, zt(DEPARTURE), MANCHESTER, zt(DEPARTURE.minusMinutes(1)), ""))
+                .isInstanceOf(InvalidTrainEntry.class);
+    }
+
+    /**
+     * The recorded refusals need the command to exist, so a data-entry mistake wins over them by
+     * construction: a past departure is never judged on a trip that is not a trip.
+     */
+    @Test
+    void aDataEntryMistakeIsRefusedBeforeThePastDepartureCouldBe() {
+        TrainStationAddress pasted = new TrainStationAddress("Frankfurt Hbf", "Frankfurt Hbf", "DE", "");
+
+        assertThatThrownBy(() -> new BookTrainCommand(
+                TrainTripId.random(), pasted, zt(NOW.minusHours(1)), MANCHESTER, zt(ARRIVAL), ""))
                 .isInstanceOf(InvalidTrainEntry.class);
     }
 
@@ -213,15 +226,10 @@ class BookTrainCommandTest {
     @Test
     void theDateRulesAreCheckedBeforeTheOverlap() {
         // An overlap is only a meaningful question once the window itself is valid; reporting a
-        // collision for an inverted range would say nothing about what is actually wrong.
-        ScheduledLegs booked = new ScheduledLegs(List.of(
-                new ScheduledLeg(new ScheduledLegId.Train(TrainTripId.random()),
-                        zt(DEPARTURE), zt(DEPARTURE.plusHours(14)))));
-
-        BookTrainCommand command = command(DEPARTURE.plusHours(5), DEPARTURE.plusHours(3));
-
+        // collision for an inverted range would say nothing about what is actually wrong. The
+        // inverted range is refused as the command is built, so the overlap is never even asked.
         assertThatExceptionOfType(InvalidDateRange.class)
-                .isThrownBy(() -> command.execute(new BookTrainContext(at(NOW), booked)).toList());
+                .isThrownBy(() -> command(DEPARTURE.plusHours(5), DEPARTURE.plusHours(3)));
     }
 
     /** A valid trip in a caller-chosen window, so the overlap cases can position it. */

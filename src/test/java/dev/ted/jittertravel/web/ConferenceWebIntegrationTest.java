@@ -154,6 +154,35 @@ class ConferenceWebIntegrationTest {
                 .contains("<span class=\"error\">Conference has already ended</span>");
     }
 
+    /**
+     * The render half of the fresh-id rule: the hidden id in the re-rendered form is a new one,
+     * not the refused one. {@code th:field} reads it through the binding result's target, so this
+     * only holds while {@code RefusedForm} carries the errors onto a binding result whose target is
+     * the fresh request — a claim only a real render can prove
+     * ({@code docs/ValidateBeforeTheWalPlan.md}).
+     */
+    @Test
+    void aRefusedFormComesBackUnderAFreshId() {
+        given(conferencePlanning.isReadOnly()).willReturn(false);
+        willThrow(new ConferenceAlreadyEnded("Conference has already ended"))
+                .given(conferencePlanning).planConference(any(), any(), any());
+
+        assertThat(mockMvc.post().uri("/plan-conference")
+                .with(csrf())
+                .param("conferenceId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("name", "Last Year's Conf")
+                .param("startDate", "2026-05-11T09:00")
+                .param("endDate", "2026-05-15T17:00")
+                .param("venueName", "Moscone Center")
+                .param("venueCity", "San Francisco")
+                .param("venueCountry", "USA")
+                .exchange())
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("name=\"conferenceId\" value=\"550e8400-e29b-41d4-a716-446655440000\"")
+                .containsPattern("<input type=\"hidden\" id=\"conferenceId\" name=\"conferenceId\" value=\"[0-9a-f-]{36}\"/>");
+    }
+
     /** The render check for the venue Country and State inputs: each one's error span exists. */
     @Test
     void aRefusedVenueCountryAndStateRenderUnderTheirInputs() {

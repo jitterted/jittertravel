@@ -100,7 +100,8 @@ public class PlanGroundTransferController {
     @PostMapping("/plan-ground-transfer")
     public String planGroundTransferSubmit(@ModelAttribute("planGroundTransfer") PlanGroundTransferRequest request,
                                            BindingResult bindingResult,
-                                           @RequestParam(value = "from", required = false) String from) {
+                                           @RequestParam(value = "from", required = false) String from,
+                                           Model model) {
         // A date or time left blank, or one that would not parse, is null on the request.
         if (bindingResult.hasErrors()) {
             return "plan-ground-transfer";
@@ -126,6 +127,10 @@ public class PlanGroundTransferController {
         }
 
         if (bindingResult.hasErrors()) {
+            // The attempt that was refused retires its id, so the corrected resubmit cannot collide
+            // with a command row the refusal may have left behind — see RefusedForm.
+            RefusedForm.reRenderUnderFreshId(model, "planGroundTransfer",
+                    request.withGroundTransferId(UUID.randomUUID().toString()), bindingResult);
             return "plan-ground-transfer";
         }
 

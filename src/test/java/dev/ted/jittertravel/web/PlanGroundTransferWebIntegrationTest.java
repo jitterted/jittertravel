@@ -376,6 +376,25 @@ class PlanGroundTransferWebIntegrationTest {
                 .contains("That hotel booking is no longer available");
     }
 
+    /**
+     * The render half of the fresh-id rule: the hidden id in the re-rendered form is a new one,
+     * not the refused one. {@code th:field} reads it through the binding result's target, so this
+     * only holds while {@code RefusedForm} carries the errors onto a binding result whose target is
+     * the fresh request — a claim only a real render can prove
+     * ({@code docs/ValidateBeforeTheWalPlan.md}).
+     */
+    @Test
+    void aRefusedFormComesBackUnderAFreshId() {
+        willThrow(new SameTransferEndpoints("A transfer needs two different places"))
+                .given(groundTransferPlanning).planGroundTransfer(any());
+
+        assertThat(post("airport:DEN", "airport:DEN", "12:00", "12:45"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("name=\"groundTransferId\" value=\"" + TRANSFER_ID + "\"")
+                .containsPattern("<input type=\"hidden\" id=\"groundTransferId\" name=\"groundTransferId\" value=\"[0-9a-f-]{36}\"/>");
+    }
+
     @Test
     void identicalEndpointsRerenderTheFormWithTheReason() {
         willThrow(new SameTransferEndpoints("A transfer needs two different places"))

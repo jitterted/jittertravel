@@ -51,7 +51,8 @@ public class PlanGatheringController {
 
     @PostMapping("/plan-gathering")
     public String planGatheringSubmit(@ModelAttribute("planGathering") PlanGatheringRequest request,
-                                      BindingResult bindingResult) {
+                                      BindingResult bindingResult,
+                                      Model model) {
         // A date or time left blank, or one that would not parse, is null on the request.
         if (bindingResult.hasErrors()) {
             return "plan-gathering";
@@ -71,6 +72,10 @@ public class PlanGatheringController {
         }
 
         if (bindingResult.hasErrors()) {
+            // The attempt that was refused retires its id, so the corrected resubmit cannot collide
+            // with the command row a domain refusal left behind — see RefusedForm.
+            RefusedForm.reRenderUnderFreshId(model, "planGathering",
+                    request.withGatheringId(UUID.randomUUID().toString()), bindingResult);
             return "plan-gathering";
         }
 

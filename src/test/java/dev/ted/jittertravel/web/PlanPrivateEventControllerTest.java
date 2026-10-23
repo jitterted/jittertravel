@@ -1,11 +1,15 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.PrivateEventPlanning;
-import dev.ted.jittertravel.domain.PrivateEventDateNotInFuture;
+import dev.ted.jittertravel.domain.InvalidPrivateEventTimeRange;
 import dev.ted.jittertravel.domain.LocationField;
+import dev.ted.jittertravel.domain.PrivateEventDateNotInFuture;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.ui.ConcurrentModel;
 import org.springframework.ui.Model;
 import org.springframework.validation.BeanPropertyBindingResult;
@@ -19,8 +23,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
 import java.time.ZoneId;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 class PlanPrivateEventControllerTest {
 
@@ -75,6 +81,40 @@ class PlanPrivateEventControllerTest {
                 .extracting(FieldError::getField)
                 .as("the refusal is reported on exactly one input")
                 .containsExactly(field);
+    }
+
+    /**
+     * One row per {@code catch} in the controller, each saying which input the refusal lands on
+     * (CLAUDE.md, "Testing a form's validation: three claims, three tiers"). The venue refusals
+     * have their own table above because they carry the field inside the exception. The
+     * time-range row arrived on 2026-10-23, when mutation testing found that catch unreached.
+     */
+    @ParameterizedTest(name = "{0} → {1}")
+    @MethodSource("refusals")
+    void eachRefusalLandsOnTheInputThatFixesIt(RuntimeException refusal, String field) {
+        PlanPrivateEventController controller =
+                new PlanPrivateEventController(refusing(refusal), FIXED_CLOCK);
+        PlanPrivateEventRequest request = new PlanPrivateEventRequest(
+                "", "Dinner", "Alo", "", "Centennial", "CO", "", "US", "", "",
+                LocalDate.of(2026, 6, 7), LocalTime.of(18, 0), LocalTime.of(21, 0));
+        BindingResult bindingResult = new BeanPropertyBindingResult(request, "planPrivateEvent");
+
+        String view = controller.planPrivateEventSubmit(request, bindingResult, new ConcurrentModel());
+
+        assertThat(view)
+                .as("a refusal re-renders the form, where the error can be seen")
+                .isEqualTo("plan-private-event");
+        assertThat(bindingResult.getFieldErrors())
+                .extracting(FieldError::getField)
+                .as("the refusal is reported on exactly one input")
+                .containsExactly(field);
+    }
+
+    static Stream<Arguments> refusals() {
+        return Stream.of(
+                arguments(new PrivateEventDateNotInFuture("Private event date must be today or later"), "date"),
+                arguments(new InvalidPrivateEventTimeRange("End time must be after start time"), "endTime"),
+                arguments(new ZoneResolutionException("Springfield", "Freedonia"), "zone"));
     }
 
     /**

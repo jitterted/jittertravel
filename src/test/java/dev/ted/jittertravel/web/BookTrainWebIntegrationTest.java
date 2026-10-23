@@ -33,7 +33,9 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @Tag("spring")
@@ -129,6 +131,40 @@ class BookTrainWebIntegrationTest {
                 .bodyText()
                 .doesNotContain("name=\"trainTripId\" value=\"550e8400-e29b-41d4-a716-446655440000\"")
                 .containsPattern("<input type=\"hidden\" id=\"trainTripId\" name=\"trainTripId\" value=\"[0-9a-f-]{36}\"/>");
+    }
+
+    /**
+     * A blank date never reaches the service: the advice marks it required, and the controller
+     * returns before calling the service with a null (CLAUDE.md, rule 2 of the blank-date rules).
+     * Nothing was written, so the attempt was never a command and the form keeps its id.
+     */
+    @Test
+    void aBlankDepartureRerendersTheFormWithRequiredUnderItAndBooksNothing() {
+        MvcTestResult result = mockMvc.post().uri("/book-train")
+                .with(csrf())
+                .param("trainTripId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("departureStationName", "London Euston")
+                .param("departureCityName", "London")
+                .param("departureCountry", "UK")
+                .param("departureDateTime", "")
+                .param("arrivalStationName", "Manchester Piccadilly")
+                .param("arrivalCityName", "Manchester")
+                .param("arrivalCountry", "UK")
+                .param("arrivalDateTime", "2026-07-01T13:00")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookTrain")
+                .hasFieldErrorCode("departureDateTime", "required");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Required</span>")
+                // A blank date is a field error like any other, so it is counted like any other.
+                .contains("1 problem to fix below.")
+                .contains("<input type=\"hidden\" id=\"trainTripId\" name=\"trainTripId\" value=\"550e8400-e29b-41d4-a716-446655440000\"/>");
+        then(trainBooking).should(never()).bookTrain(any(), any());
     }
 
     @Test

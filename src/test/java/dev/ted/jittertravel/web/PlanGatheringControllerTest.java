@@ -3,12 +3,16 @@ package dev.ted.jittertravel.web;
 import dev.ted.jittertravel.application.GatheringPlanning;
 import dev.ted.jittertravel.domain.GatheringDateNotInFuture;
 import dev.ted.jittertravel.domain.InvalidEnteredLocation;
+import dev.ted.jittertravel.domain.InvalidGatheringTimeRange;
 import dev.ted.jittertravel.domain.InvalidLocationEntry;
 import dev.ted.jittertravel.domain.LocationField;
 import dev.ted.jittertravel.domain.LocationRole;
+import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.ui.ConcurrentModel;
 import org.springframework.ui.Model;
 import org.springframework.validation.BeanPropertyBindingResult;
@@ -23,8 +27,10 @@ import java.time.LocalTime;
 import java.util.UUID;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 class PlanGatheringControllerTest {
 
@@ -79,6 +85,40 @@ class PlanGatheringControllerTest {
                 .extracting(FieldError::getField)
                 .as("the refusal is reported on exactly one input")
                 .containsExactly(field);
+    }
+
+    /**
+     * One row per {@code catch} in the controller, each saying which input the refusal lands on
+     * (CLAUDE.md, "Testing a form's validation: three claims, three tiers"). The venue refusals
+     * have their own table above because they carry the field inside the exception. The
+     * time-range row arrived on 2026-10-23, when mutation testing found that catch unreached.
+     */
+    @ParameterizedTest(name = "{0} → {1}")
+    @MethodSource("refusals")
+    void eachRefusalLandsOnTheInputThatFixesIt(RuntimeException refusal, String field) {
+        PlanGatheringController controller =
+                new PlanGatheringController(refusing(refusal), FIXED_CLOCK);
+        PlanGatheringRequest request = new PlanGatheringRequest(
+                "", "NY JUG", "Venue", "", "New York", "NY", "", "US", "", "",
+                LocalDate.of(2026, 6, 7), LocalTime.of(18, 0), LocalTime.of(21, 0), false, "");
+        BindingResult bindingResult = new BeanPropertyBindingResult(request, "planGathering");
+
+        String view = controller.planGatheringSubmit(request, bindingResult, new ConcurrentModel());
+
+        assertThat(view)
+                .as("a refusal re-renders the form, where the error can be seen")
+                .isEqualTo("plan-gathering");
+        assertThat(bindingResult.getFieldErrors())
+                .extracting(FieldError::getField)
+                .as("the refusal is reported on exactly one input")
+                .containsExactly(field);
+    }
+
+    static Stream<Arguments> refusals() {
+        return Stream.of(
+                arguments(new GatheringDateNotInFuture("Gathering date must be today or later"), "date"),
+                arguments(new InvalidGatheringTimeRange("End time must be after start time"), "endTime"),
+                arguments(new ZoneResolutionException("Springfield", "Freedonia"), "zone"));
     }
 
     /**

@@ -32,7 +32,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
@@ -193,6 +195,36 @@ class BookFlightWebIntegrationTest {
                 .bodyText()
                 .doesNotContain("name=\"flightId\" value=\"550e8400-e29b-41d4-a716-446655440000\"")
                 .containsPattern("name=\"flightId\" value=\"[0-9a-f-]{36}\"");
+    }
+
+    /**
+     * A blank date never reaches the service: the advice marks it required, and the controller
+     * returns before calling the service with a null (CLAUDE.md, rule 2 of the blank-date rules).
+     * Nothing was written, so the attempt was never a command and the form keeps its id.
+     */
+    @Test
+    void aBlankDepartureRerendersTheFormWithRequiredUnderItAndBooksNothing() {
+        MvcTestResult result = mockMvc.post().uri("/book-flight")
+                .with(csrf())
+                .param("flightId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("airline", "United")
+                .param("flightNumber", "UA100")
+                .param("departureAirport", "SFO")
+                .param("departureDateTime", "")
+                .param("arrivalAirport", "JFK")
+                .param("arrivalDateTime", "2026-07-01T14:00")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("bookFlight")
+                .hasFieldErrorCode("departureDateTime", "required");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Required</span>")
+                .contains(boundField("flightId", "550e8400-e29b-41d4-a716-446655440000"));
+        then(flightBooking).should(never()).bookFlight(any(), any());
     }
 
     @Test

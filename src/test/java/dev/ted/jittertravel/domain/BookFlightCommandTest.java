@@ -9,6 +9,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 class BookFlightCommandTest {
 
@@ -65,6 +66,33 @@ class BookFlightCommandTest {
                 AirportCode.of("SFO"), departure,
                 AirportCode.of("JFK"), arrival))
                 .isInstanceOf(InvalidDateRange.class);
+    }
+
+    /**
+     * The one cross-aggregate rule, and a domain refusal: it needs every leg already on the books,
+     * so it runs in {@code execute} and is recorded. Trains have had this case since the rule
+     * arrived; flights did not, and deleting the check survived mutation testing (2026-10-23).
+     */
+    @Test
+    void aFlightOverlappingAnAlreadyBookedLegIsRefused() {
+        ScheduledLegId blocking = new ScheduledLegId.Train(TrainTripId.random());
+        LocalDateTime departure = LocalDateTime.of(2026, 5, 17, 9, 0);
+        ScheduledLegs booked = new ScheduledLegs(List.of(
+                new ScheduledLeg(blocking, zt(departure), zt(departure.plusHours(2)))));
+        BookFlightCommand command = new BookFlightCommand(
+                FlightId.random(), "United", "UA100",
+                AirportCode.of("SFO"), zt(departure.plusHours(1)),
+                AirportCode.of("JFK"), zt(departure.plusHours(6)));
+
+        OverlappingLegRefused refusal = catchThrowableOfType(OverlappingLegRefused.class,
+                () -> command.execute(new BookFlightContext(NOW, booked)).toList());
+
+        assertThat(refusal)
+                .as("a flight inside a booked leg's window is refused")
+                .isNotNull();
+        assertThat(refusal.blocking().id())
+                .as("the refusal names the leg that blocks it")
+                .isEqualTo(blocking);
     }
 
     private static ZonedTimestamp zt(LocalDateTime local) {

@@ -9,6 +9,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 class ChangeFlightCommandTest {
 
@@ -76,6 +77,44 @@ class ChangeFlightCommandTest {
                 AirportCode.of("FRA"), dep,
                 null))
                 .isInstanceOf(InvalidDateRange.class);
+    }
+
+    @Test
+    void changingAFlightDoesNotCollideWithTheVeryFlightBeingChanged() {
+        // The trap this rule would otherwise create: a change re-states the leg it replaces, so
+        // without the self-exclusion no booked flight could ever be corrected again.
+        ChangeFlightCommand command = validCommand();
+        ScheduledLegs booked = new ScheduledLegs(List.of(new ScheduledLeg(
+                new ScheduledLegId.Flight(command.flightId()),
+                command.departureDateTime(), command.arrivalDateTime())));
+
+        assertThat(command.execute(new ChangeFlightContext(true, NOW, booked)))
+                .hasSize(1);
+    }
+
+    /**
+     * A domain refusal: it needs every leg already on the books, so it runs in {@code execute}
+     * and is recorded. Deleting the check survived mutation testing until this case (2026-10-23).
+     */
+    @Test
+    void changingAFlightIntoAnotherLegsWindowIsRefused() {
+        ChangeFlightCommand command = validCommand();
+        ScheduledLegId other = new ScheduledLegId.Train(TrainTripId.random());
+        ScheduledLegs booked = new ScheduledLegs(List.of(
+                new ScheduledLeg(new ScheduledLegId.Flight(command.flightId()),
+                        command.departureDateTime(), command.arrivalDateTime()),
+                new ScheduledLeg(other,
+                        zt(LocalDateTime.of(2026, 5, 8, 10, 0)), zt(LocalDateTime.of(2026, 5, 8, 20, 0)))));
+
+        OverlappingLegRefused refusal = catchThrowableOfType(OverlappingLegRefused.class,
+                () -> command.execute(new ChangeFlightContext(true, NOW, booked)).toList());
+
+        assertThat(refusal)
+                .as("a change into another leg's window is refused")
+                .isNotNull();
+        assertThat(refusal.blocking().id())
+                .as("the refusal names the other leg, never the flight being changed")
+                .isEqualTo(other);
     }
 
     private ChangeFlightCommand validCommand() {

@@ -27,7 +27,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @Tag("spring")
@@ -181,6 +183,38 @@ class ConferenceWebIntegrationTest {
                 .bodyText()
                 .doesNotContain("name=\"conferenceId\" value=\"550e8400-e29b-41d4-a716-446655440000\"")
                 .containsPattern("<input type=\"hidden\" id=\"conferenceId\" name=\"conferenceId\" value=\"[0-9a-f-]{36}\"/>");
+    }
+
+    /**
+     * A blank date never reaches the service: the advice marks it required, and the controller
+     * returns before calling the service with a null (CLAUDE.md, rule 2 of the blank-date rules).
+     * Nothing was written, so the attempt was never a command and the form keeps its id.
+     */
+    @Test
+    void aBlankStartDateRerendersTheFormWithRequiredUnderItAndPlansNothing() {
+        given(conferencePlanning.isReadOnly()).willReturn(false);
+
+        MvcTestResult result = mockMvc.post().uri("/plan-conference")
+                .with(csrf())
+                .param("conferenceId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("name", "Next Year's Conf")
+                .param("startDate", "")
+                .param("endDate", "2026-05-15T17:00")
+                .param("venueName", "Moscone Center")
+                .param("venueCity", "San Francisco")
+                .param("venueCountry", "USA")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("planConference")
+                .hasFieldErrorCode("startDate", "required");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Required</span>")
+                .contains("<input type=\"hidden\" id=\"conferenceId\" name=\"conferenceId\" value=\"550e8400-e29b-41d4-a716-446655440000\"/>");
+        then(conferencePlanning).should(never()).planConference(any(), any(), any());
     }
 
     /** The render check for the venue Country and State inputs: each one's error span exists. */

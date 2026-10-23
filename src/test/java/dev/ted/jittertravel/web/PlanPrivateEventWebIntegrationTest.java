@@ -24,7 +24,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @Tag("spring")
@@ -143,6 +145,40 @@ class PlanPrivateEventWebIntegrationTest {
                 .bodyText()
                 .doesNotContain("name=\"privateEventId\" value=\"550e8400-e29b-41d4-a716-446655440000\"")
                 .containsPattern("<input type=\"hidden\" id=\"privateEventId\" name=\"privateEventId\" value=\"[0-9a-f-]{36}\"/>");
+    }
+
+    /**
+     * A blank date never reaches the service: the advice marks it required, and the controller
+     * returns before calling the service with a null (CLAUDE.md, rule 2 of the blank-date rules).
+     * Nothing was written, so the attempt was never a command and the form keeps its id.
+     */
+    @Test
+    void aBlankDateRerendersTheFormWithRequiredUnderItAndPlansNothing() {
+        MvcTestResult result = mockMvc.post().uri("/plan-private-event")
+                .with(csrf())
+                .param("privateEventId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("title", "Some Dinner")
+                .param("venueName", "Some Venue")
+                .param("street", "1 Example Street")
+                .param("city", "Centennial")
+                .param("region", "CO")
+                .param("country", "US")
+                .param("postalCode", "")
+                .param("date", "")
+                .param("startTime", "19:00")
+                .param("endTime", "22:00")
+                .exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .model()
+                .extractingBindingResult("planPrivateEvent")
+                .hasFieldErrorCode("date", "required");
+        assertThat(result)
+                .bodyText()
+                .contains("<span class=\"error\">Required</span>")
+                .contains("<input type=\"hidden\" id=\"privateEventId\" name=\"privateEventId\" value=\"550e8400-e29b-41d4-a716-446655440000\"/>");
+        then(privateEventPlanning).should(never()).planPrivateEvent(any(), any());
     }
 
     /** The render check for the Country and Region inputs: each one's error span exists. */

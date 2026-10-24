@@ -40,6 +40,12 @@ public record ItinerarySummary(
     public static final int HUES = 2;
 
     public ItinerarySummary {
+        // Refused here, as Journey refuses an empty leg list: departs() and arrives() read the
+        // first and last journey, and a band with nothing to say is a log naming flights the
+        // flights read model never saw, which should be loud rather than skipped.
+        if (journeys == null || journeys.isEmpty()) {
+            throw new IllegalArgumentException("An itinerary summary has at least one journey");
+        }
         journeys = List.copyOf(journeys);
     }
 

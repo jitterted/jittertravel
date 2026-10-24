@@ -101,6 +101,17 @@ class PlanGroundTransferControllerTest {
         assertThat(reRendered.mode())
                 .as("the form keeps what was typed")
                 .isEqualTo(request.mode());
+        Object carried = model.getAttribute(BindingResult.MODEL_KEY_PREFIX + "planGroundTransfer");
+        assertThat(carried)
+                .as("th:field finds the errors through the binding result Spring keys by the attribute name")
+                .isInstanceOf(BindingResult.class);
+        BindingResult carriedOver = (BindingResult) carried;
+        assertThat(carriedOver.getTarget())
+                .as("and reads every value through its target, so that must be the re-rendered request")
+                .isSameAs(reRendered);
+        assertThat(carriedOver.getFieldErrors("destination"))
+                .as("the refusal still lands under the input that fixes it")
+                .hasSize(1);
     }
 
     /** A service whose every transfer is refused with {@code refusal}. */

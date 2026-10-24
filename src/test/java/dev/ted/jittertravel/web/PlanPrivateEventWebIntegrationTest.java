@@ -144,7 +144,9 @@ class PlanPrivateEventWebIntegrationTest {
                 .hasStatusOk()
                 .bodyText()
                 .doesNotContain("name=\"privateEventId\" value=\"550e8400-e29b-41d4-a716-446655440000\"")
-                .containsPattern("<input type=\"hidden\" id=\"privateEventId\" name=\"privateEventId\" value=\"[0-9a-f-]{36}\"/>");
+                .containsPattern("<input type=\"hidden\" id=\"privateEventId\" name=\"privateEventId\" value=\"[0-9a-f-]{36}\"/>")
+                .as("the refusal still renders under its input: the fresh id is worthless if the errors were lost with it")
+                .contains("<span class=\"error\">Could not determine the time zone from the location — please choose one.</span>");
     }
 
     /**

@@ -182,7 +182,9 @@ class ConferenceWebIntegrationTest {
                 .hasStatusOk()
                 .bodyText()
                 .doesNotContain("name=\"conferenceId\" value=\"550e8400-e29b-41d4-a716-446655440000\"")
-                .containsPattern("<input type=\"hidden\" id=\"conferenceId\" name=\"conferenceId\" value=\"[0-9a-f-]{36}\"/>");
+                .containsPattern("<input type=\"hidden\" id=\"conferenceId\" name=\"conferenceId\" value=\"[0-9a-f-]{36}\"/>")
+                .as("the refusal still renders under its input: the fresh id is worthless if the errors were lost with it")
+                .contains("<span class=\"error\">Conference has already ended</span>");
     }
 
     /**

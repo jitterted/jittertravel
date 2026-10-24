@@ -624,6 +624,9 @@ Follow a link from a schedule problem to the form that resolves it. Navigation, 
   bought under its own code is not one-way in Ted's sense, but shows it.
 - **Suggestion**: show the itinerary type worked out from its journeys, or drop the word and keep
   "leg N of M".
+- **Decided (2026-10-24)**: the word is dropped. Rows read "leg N of M" where M is the legs still
+  flying and is two or more; the only leg still flying carries no place at all, since one leg is
+  no sequence. The itinerary type from its journeys stays a possible slice of its own.
 
 #### Overlap, collision, conflict and clash
 

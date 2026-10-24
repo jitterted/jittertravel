@@ -540,12 +540,18 @@ public class BookedFlightsRenderer {
 
     /**
      * This leg's place among the itinerary's legs still flying, under the flight number. The code
-     * is on the band above, so the row carries only the place. A leg no longer flying has none.
+     * is on the band above, so the row carries only the place. A leg no longer flying has none,
+     * and neither does the only leg still flying: a place says where in a sequence you are, and
+     * one leg is no sequence. It used to say "one-way" there, which is an itinerary type meaning
+     * one <em>journey</em> ({@code docs/terms.md}), so a round trip whose return was cancelled
+     * read as a one-way (Ted, 2026-10-24).
      */
     private static DomContent legPlace(FlightTrip trip) {
         int legs = trip.itinerary().legCount();
-        String place = legs == 1 ? "one-way" : "leg " + trip.legNumber() + " of " + legs;
-        return span(place).withClass("flight-trip-leg");
+        if (legs == 1) {
+            return text("");
+        }
+        return span("leg " + trip.legNumber() + " of " + legs).withClass("flight-trip-leg");
     }
 
     /**

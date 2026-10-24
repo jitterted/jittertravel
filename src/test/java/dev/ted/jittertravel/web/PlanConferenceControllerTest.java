@@ -132,6 +132,17 @@ class PlanConferenceControllerTest {
         assertThat(reRendered.name())
                 .as("the form keeps what was typed")
                 .isEqualTo(request.name());
+        Object carried = model.getAttribute(BindingResult.MODEL_KEY_PREFIX + "planConference");
+        assertThat(carried)
+                .as("th:field finds the errors through the binding result Spring keys by the attribute name")
+                .isInstanceOf(BindingResult.class);
+        BindingResult carriedOver = (BindingResult) carried;
+        assertThat(carriedOver.getTarget())
+                .as("and reads every value through its target, so that must be the re-rendered request")
+                .isSameAs(reRendered);
+        assertThat(carriedOver.getFieldErrors("endDate"))
+                .as("the refusal still lands under the input that fixes it")
+                .hasSize(1);
     }
 
     @Test

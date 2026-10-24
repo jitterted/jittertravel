@@ -142,6 +142,17 @@ class PlanPrivateEventControllerTest {
         assertThat(reRendered.title())
                 .as("the form keeps what was typed")
                 .isEqualTo(request.title());
+        Object carried = model.getAttribute(BindingResult.MODEL_KEY_PREFIX + "planPrivateEvent");
+        assertThat(carried)
+                .as("th:field finds the errors through the binding result Spring keys by the attribute name")
+                .isInstanceOf(BindingResult.class);
+        BindingResult carriedOver = (BindingResult) carried;
+        assertThat(carriedOver.getTarget())
+                .as("and reads every value through its target, so that must be the re-rendered request")
+                .isSameAs(reRendered);
+        assertThat(carriedOver.getFieldErrors("date"))
+                .as("the refusal still lands under the input that fixes it")
+                .hasSize(1);
     }
 
     private static PrivateEventPlanning refusing(RuntimeException refusal) {

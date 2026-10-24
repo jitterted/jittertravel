@@ -392,7 +392,9 @@ class PlanGroundTransferWebIntegrationTest {
                 .hasStatusOk()
                 .bodyText()
                 .doesNotContain("name=\"groundTransferId\" value=\"" + TRANSFER_ID + "\"")
-                .containsPattern("<input type=\"hidden\" id=\"groundTransferId\" name=\"groundTransferId\" value=\"[0-9a-f-]{36}\"/>");
+                .containsPattern("<input type=\"hidden\" id=\"groundTransferId\" name=\"groundTransferId\" value=\"[0-9a-f-]{36}\"/>")
+                .as("the refusal still renders under its input: the fresh id is worthless if the errors were lost with it")
+                .contains("<span class=\"error\">A transfer needs two different places</span>");
     }
 
     @Test

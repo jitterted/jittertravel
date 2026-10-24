@@ -64,6 +64,66 @@ class EmailTemplatesTest {
                         "- two");
     }
 
+    /**
+     * {@code trip-changed.txt} is approved wording ({@code docs/FlightItineraryRebookingPlan.md})
+     * that nothing sends yet: the rebooking slice that will is unbuilt. Until it lands, this is the
+     * only thing that evaluates the file's expressions, so a mistyped accessor fails here and not
+     * in the first real email.
+     */
+    @Test
+    void theTripChangedEmailListsTheNewLegsThenTheOldOnes() {
+        FamilyMessage message = templates.render("trip-changed", Map.of(
+                "chain", "SFO → ORD → YOW",
+                "calendarUrl", "https://jittertravel.com/calendar?day=2026-10-18",
+                "legs", List.of(
+                        new FamilyNotificationMessages.LegView(1, "UA2091", "SFO → ORD",
+                                "Sun Oct 18, 07:05 PDT", "Sun Oct 18, 13:10 CDT", "SFO", "ORD"),
+                        new FamilyNotificationMessages.LegView(2, "AC8201", "ORD → YOW",
+                                "Sun Oct 18, 16:05 CDT", "Sun Oct 18, 18:50 EDT", "ORD", "YOW")),
+                "oldLegs", List.of(
+                        new FamilyNotificationMessages.LegView(1, "UA2089", "SFO → ORD",
+                                "Sun Oct 18, 06:00 PDT", "Sun Oct 18, 12:05 CDT", "SFO", "ORD"))));
+
+        assertThat(message.subject())
+                .isEqualTo("(JitterTravel) Ted's trip has changed: SFO → ORD → YOW");
+        assertThat(message.textContent().lines().toList())
+                .containsExactly(
+                        "Hi, JitterTravel here. Ted's trip has changed, and he wanted you to know. These are his flights now.",
+                        "",
+                        "You can see the trip in his calendar here: https://jittertravel.com/calendar?day=2026-10-18",
+                        "",
+                        "1. UA2091",
+                        "   SFO → ORD",
+                        "   Departs  Sun Oct 18, 07:05 PDT",
+                        "   Arrives  Sun Oct 18, 13:10 CDT",
+                        "",
+                        "2. AC8201",
+                        "   ORD → YOW",
+                        "   Departs  Sun Oct 18, 16:05 CDT",
+                        "   Arrives  Sun Oct 18, 18:50 EDT",
+                        "",
+                        "These are the old flights that were changed:",
+                        "",
+                        "UA2089",
+                        "   SFO → ORD",
+                        "   Was due to depart  Sun Oct 18, 06:00 PDT",
+                        "   Was due to arrive  Sun Oct 18, 12:05 CDT");
+    }
+
+    @Test
+    void theTripChangedEmailSaysNothingAboutOldFlightsWhenThereAreNone() {
+        FamilyMessage message = templates.render("trip-changed", Map.of(
+                "chain", "SFO → ORD",
+                "legs", List.of(new FamilyNotificationMessages.LegView(1, "UA2091", "SFO → ORD",
+                        "Sun Oct 18, 07:05 PDT", "Sun Oct 18, 13:10 CDT", "SFO", "ORD")),
+                "oldLegs", List.of()));
+
+        assertThat(message.textContent())
+                .doesNotContain("These are the old flights that were changed:")
+                .doesNotContain("You can see the trip in his calendar here")
+                .endsWith("   Arrives  Sun Oct 18, 13:10 CDT");
+    }
+
     @Test
     void aFileWithNoSubjectLineIsRefusedRatherThanSentWithAnEmptySubject() {
         assertThatThrownBy(() -> templates.render("no-subject", Map.of()))

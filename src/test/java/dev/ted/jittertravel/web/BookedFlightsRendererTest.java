@@ -455,14 +455,21 @@ class BookedFlightsRendererTest {
                 .contains(".flight-band { grid-template-columns: 1fr; gap: 0.4rem; }");
     }
 
+    /**
+     * One leg is no sequence, so it has no place to state. Not "one-way" either: that is an
+     * itinerary type meaning one journey, and a round trip reduced to one flying leg is not one
+     * (Ted, 2026-10-24; {@code docs/terms.md}).
+     */
     @Test
-    void aSingleFlightBookingSaysOneWayRatherThanLegOneOfOne() {
+    void theOnlyLegStillFlyingHasNoPlaceToState() {
         FlightId flightId = FlightId.random();
         String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "HAM→MUC", "Lufthansa", "LH2093")),
                 Map.of(flightId, trip("P5C9DV", 1, 1, 0, 1)));
 
         assertThat(html)
-                .contains("<span class=\"flight-trip-leg\">one-way</span>")
+                .contains("LH2093</div>")
+                .doesNotContain("<span class=\"flight-trip-leg\">")
+                .doesNotContain("one-way")
                 .doesNotContain("leg 1 of 1");
     }
 

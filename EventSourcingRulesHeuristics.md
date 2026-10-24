@@ -99,20 +99,29 @@ is on the schedule. Fold *live* state (apply the cancellations); where two
 commands want the same facts build one shared value rather than two
 near-identical folds; keep it in `domain`.
 
-**Where the facts come from, in order of preference** (Ted, 2026-10-10):
+**Where the facts come from** (Ted, 2026-10-10; rewritten 2026-10-18):
 
-1. **A fold of the event stream, when the fold is cheap** — an existence check, one
-   entity's history, the live legs.
-2. **A dedicated synchronous read model, when the fold is costly** — one that exists
-   to serve this decision.
-3. **A dedicated asynchronous read model** — only once R1 allows it (LSN-seen and
-   conditional appends).
+- **A synchronous read model that this slice built, or one built on purpose to be
+  general** — the `Active*` read models in `docs/ActiveReadModelsPlan.md`. A read
+  model that already exists is the cheapest answer there is: it has been computed.
+- **A fold of the event stream where no such read model exists.** When a second slice
+  wants the same fold, that is the signal to build the general read model, not to
+  copy the fold (`LiveConferencePlan` collapsed five copies; fourteen more are in
+  that plan).
+- **An asynchronous read model** — only once R1 allows it (LSN-seen and conditional
+  appends).
 
-**Reusing a read model built for something else is discouraged**, at any rank: a
-details projector that prefills an edit form couples the decision to the page, and
-a change made for the page silently changes what the command decides. R1 says
-whether a read model is *safe* to decide from; this says whether it is the *right*
-one.
+**The concern is coupling, never cost.** A read model another slice built for its own
+page is off limits for a decision: a change made for that page silently changes what
+the command decides, and across slices the only coupling is through events. Within a
+slice it is natural — `ChangeTrain` reading the change-train form's details projector
+was never a violation. R1 says whether a read model is *safe* to decide from; this
+says whether it is the *right* one.
+
+Until 2026-10-18 this section ranked a stream fold *above* an existing synchronous
+read model as "cheaper". It is not — any retrieval from the log has a cost (Ted) — and
+the ranking was withdrawn; it had produced a cleanup item telling four correct
+services to stop reading their own slice's read model.
 
 ### R4. Application services orchestrate the write path in a fixed order.
 

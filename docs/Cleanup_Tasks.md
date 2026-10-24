@@ -73,40 +73,22 @@ down when it is created does not get written down later.
         "cancelled flights".
       - `BookedFlightsRenderer.cancelledSwitch` — a negated conditional survives: nothing asserts
         the switch's link and title in both states.
-- [ ] **Four Change services decide existence from a read model built for their edit form
-      (R3).** Found by the
-      ubiquitous-language review, 2026-10-10 (`docs/terms.md`). Each asks a details projector whether
-      the thing being changed exists, then builds its decision context from the answer:
-      - `ChangeFlight` → `FlightDetailsViewProjector.findById` (`ChangeFlightContext.flightExists`)
-      - `ChangeHotel` → `HotelDetailsViewProjector.findById` (`ChangeHotelContext.bookingExists`)
-      - `ChangeTrain` → `TrainDetailsViewProjector.findById` (`ChangeTrainContext.tripExists`)
-      - `ChangeGathering` → `GatheringDetailsViewProjector.findById`
-        (`ChangeGatheringContext.gatheringExists`, whose javadoc says "read from the details
-        projection")
+- [ ] **"Is it still active?" is decided fifteen ways: fourteen stream folds and four reads of a
+      form's details projector.** Found by the ubiquitous-language review, 2026-10-10 (`docs/terms.md`), as
+      a complaint about the four Change services (`ChangeFlight`, `ChangeHotel`, `ChangeTrain`,
+      `ChangeGathering`) reading their edit form's `*DetailsViewProjector` instead of folding the
+      stream like their `Cancel*` siblings. **Reframed 2026-10-18 (Ted): the Change services were
+      never wrong**, since a decision may read a read model its own slice built, and R3's fold-first
+      ranking that condemned them was itself wrong and is withdrawn (R3 is rewritten). What is
+      missing is a read model built on purpose to answer the question, one per kind, that every
+      existence decision reads ("active", not "live", which already means other things here).
+      Designed in `ActiveReadModelsPlan.md`; nothing built. Its slice 0 is
+      the "production half" of the test-isolation item below, since a decision read from a projector
+      needs that projector reset between integration tests.
 
-      Their `Cancel*` siblings fold existence from the event stream, so the two shapes sit side by
-      side; `docs/Backlog.md` records `CancelTrain` as "deliberately unlike its sibling
-      `ChangeTrain`". `GroundTransferEndpointResolver`'s window read (the ground-transfer date entry
-      above) is a fifth case of the same thing. Nothing catches it:
-      `ApplicationServicesUseCommandExecutorTest` bans an `EventStore` constructor parameter, not a
-      projector.
-
-      **R1 was relaxed the same day (Ted, 2026-10-10), so these are no longer R1 violations.** A read
-      model is wrong to decide from only when it can *lag*; a synchronous one on a single instance
-      cannot, and all four of these are synchronous. R1 now forbids only asynchronous projections, and
-      only until every read-model result carries the **last sequence number (LSN) seen** and appends
-      are **conditional** on it (the `afterPosition` in `CommandConsistencyEventStore.md` §2–3).
-      LSN-seen then goes on **every** read model.
-
-      **They still break R3's preference order, which was written the same day:** a cheap stream
-      fold first, a dedicated synchronous read model second, and reuse of a read model built for
-      something else discouraged — here a projector that prefills an edit form. An existence check is
-      the cheapest fold there is, and each `Cancel*` sibling already does it, so the fix is to fold
-      existence the way `CancelTrain` does. Low risk, no behaviour change on a single instance.
-
-      Still open beyond these four: the LSN-seen contract on read-model results, and the conditional
-      append it feeds. `GroundTransferEndpointResolver`'s window read (above) is a costlier fold, so
-      by R3 it wants a dedicated read model or a decision-context fold, not the resolver's reuse.
+      Still open beyond it: the LSN-seen contract on read-model results and the conditional append it
+      feeds. `GroundTransferEndpointResolver`'s window read (the ground-transfer date entry above) is
+      a window, not existence, and stays its own item.
 
 - [ ] **Revisit how much an email template can change without Java** (Ted, 2026-10-05: "I can see
       this being a source of pain"). The email text lives in `src/main/resources/email/` so Ted can

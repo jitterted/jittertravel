@@ -1,8 +1,22 @@
 # Schengen Day Counter Plan — 90/180 tracking on the calendar and in the planning forms
 
-> **Status: OPEN (planned 2026-08-12, amended 2026-08-12 and 2026-08-23). Nothing built.** Design
-> agreed with Ted; implementation not started. See `docs/Backlog.md` for the current status of
-> everything else.
+> **Status: OPEN (planned 2026-08-12, amended 2026-08-12 and 2026-08-23). Nothing built in the
+> app.** Design agreed with Ted; implementation not started. See `docs/Backlog.md` for the current
+> status of everything else.
+>
+> **Stopgap (2026-11-03): `scripts/schengen.sh` answers the question from a backup file until this
+> ships.** It runs `scripts/schengen_days.py` over the newest stamped `jittertravel-backup*.json`
+> in `~/Downloads` (export one from `/admin/backup` first; it nags when the newest is older than
+> today). The script follows this plan as far as a throwaway can: tier-1 envelopes from external
+> flight and train crossings paired entry → next exit, the tier-2 union of Schengen hotels,
+> conferences and gatherings for days no envelope covers, and the floor/ceiling split by
+> conference commitment. It reports the rolling count today, the peak ahead, a month-by-month
+> table, and every day a window would pass 90, and it shouts about an open envelope, an exit with
+> no entry, two entries in a row, and an airport missing from `StaticAirportCityResolver` (read
+> from the Java source, so the table is never copied). **Not modelled:** assumed stays — a gap
+> between two conferences with no travel booked counts nothing — and `datesConfirmed`. Its numbers
+> are a check on this design, not a substitute for it: on the 2026-11-03 backup the June envelopes
+> reproduce the 20 days verified by hand below.
 >
 > **Amendment 3 (2026-08-23): this plan gains `datesConfirmed`, and its one dependency is now met.**
 > `datesConfirmed` on `ConferencePlanned` moved here from `archived/ConferenceSubmissionTrackingPlan.md`,

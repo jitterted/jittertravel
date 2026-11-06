@@ -1273,7 +1273,7 @@ count is deliberately not stated here so it cannot go stale again.)
 ## Done
 
 - [x] **Event-type filtering on `/admin/eventlog` — BUILT 2026-11-05**, as several types at once
-      plus optional identifiers. It grew into a plan on 2026-11-02 and `EventLogFilterPlan.md` owns
+      plus optional identifiers. It grew into a plan on 2026-11-02 and `archived/EventLogFilterPlan.md` owns
       it. Read the plan, not this line.
 - [x] **`/planned-private-events` list view — SHIPPED 2026-08-24**, and it outgrew this list on
       the way: it is now owned by `PlannedPrivateEventsListPlan.md`, not by this bullet. Read the

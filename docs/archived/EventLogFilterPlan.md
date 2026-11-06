@@ -1,6 +1,7 @@
 # Event log filter: several event types, and optionally identifiers
 
-**Status:** `done` — **built 2026-11-05**. Asked for 2026-11-02 (Ted), mockup
+**Status:** `done` — **built 2026-11-05** (`e50dfdc`), archived 2026-11-06. Owns no remaining
+work. Asked for 2026-11-02 (Ted), mockup
 drawn the same day. **Ted chose Option B, a Web Awesome combobox** (same day) and supplied the kit
 boilerplate 2026-11-05, which settled D8.
 Mockup: <https://claude.ai/artifact/CJkwWD5E4D9AZYAvgLpaFk> (the approved option becomes the spec; the
@@ -43,9 +44,9 @@ marked, since D4 marks the payload only. The payload stays closed until opened, 
 
 `/admin/eventlog` lists every event, fifty a page, newest first, with no way to narrow it. The
 command log has had a status filter since 2026-06; this is the event log's equivalent, asked for
-then and carried as a one-line box in `Cleanup_Tasks.md` since. The question that brought it back is
+then and carried as a one-line box in `../Cleanup_Tasks.md` since. The question that brought it back is
 "which emails did family get?" — every send is a `FamilyNotified` event, so the answer is already in
-the log and only the view is missing (`FamilyEmailNotificationsPlan.md` says as much).
+the log and only the view is missing (`../FamilyEmailNotificationsPlan.md` says as much).
 
 Two filters, both optional, combined with AND:
 
@@ -180,7 +181,7 @@ log. The meta line reads "2 of 1,214 events match" under a filter and is unchang
 | `admin-eventlog.html` | the Web Awesome script and theme stylesheet in this page's head only, the form above the toolbar with the combobox, the meta line, the empty state, `<mark>` in the payload, and the filter on every paging href. |
 | `EventTypes` | exposes the registered logical names, alphabetical, for the options, and every stored spelling of one, for the query (D6). |
 | `DEPLOYMENT.md` | a paragraph under the secrets one: the Web Awesome kit code is committed on purpose, nothing restricts where it can be used, and that exposure is accepted (D8). |
-| `Cleanup_Tasks.md` | the box is moved to Done with a pointer here, and the "no coverage at all" entry for the event log page is closed by the tests below. |
+| `../Cleanup_Tasks.md` | the box is moved to Done with a pointer here, and the "no coverage at all" entry for the event log page is closed by the tests below. |
 
 ## Tests
 

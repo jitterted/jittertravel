@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 /**
  * The event log's filter as {@code admin-eventlog.html} draws it: what the form is refilled with,
  * the sentence the empty state says, the paging links that carry the filter, and where in a
- * payload a matched identifier sits. See {@code docs/EventLogFilterPlan.md}.
+ * payload a matched identifier sits. See {@code docs/archived/EventLogFilterPlan.md}.
  * <p>
  * Public, with public methods, because the template reaches them by reflection.
  */

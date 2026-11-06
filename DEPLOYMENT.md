@@ -205,7 +205,7 @@ you do not set it.
 > exposure: a Web Awesome kit cannot be limited to our domain, so anyone who copies the code from
 > GitHub can load Pro components on Ted's subscription. That is a cost to his account and not a way
 > into the app or its data, and it was weighed and accepted (Ted, 2026-11-05,
-> `docs/EventLogFilterPlan.md` D8). Do not move the code into a variable as a fix.
+> `docs/archived/EventLogFilterPlan.md` D8). Do not move the code into a variable as a fix.
 
 #### `REMEMBER_ME_KEY`: stability matters more than secrecy
 

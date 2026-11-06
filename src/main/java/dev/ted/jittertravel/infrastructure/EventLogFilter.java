@@ -7,7 +7,7 @@ import java.util.function.Predicate;
 /**
  * What {@code /admin/eventlog} is narrowed to. Both halves are optional and combine with AND:
  * a row must be one of {@code types} (none means every type) and must carry one of
- * {@code identifiers} (none means any row). See {@code docs/EventLogFilterPlan.md}.
+ * {@code identifiers} (none means any row). See {@code docs/archived/EventLogFilterPlan.md}.
  *
  * @param types       logical event names as {@link EventTypes} registers them, never a stored
  *                    {@code type}: how a type is spelled in old rows is the persister's business

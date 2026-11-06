@@ -187,7 +187,11 @@ log. The meta line reads "2 of 1,214 events match" under a filter and is unchang
 
 As built: `EventLogFilterTest` (8) and `EventLogFilterViewTest` (16) are plain unit tests, and PIT
 kills every mutant in both classes. `PostgresPersisterTest` gained 8 cases and
-`EventLogControllerTest` has 14. The SQL and the template are out of PIT's sight, so fourteen
+`EventLogControllerTest` has 15. The fifteenth came from the `-Ppit-spring` run on 2026-11-06,
+which found two paging boundaries nothing pinned: a page exactly one past the last was not shown to
+be clamped (the case used page 7), and nothing said the first page has no Previous link. Both
+lines predate the filter; with them covered that run kills all 11 mutants in the controller and
+all 14 in the persister's event log methods. The SQL and the template are out of PIT's sight, so fourteen
 mutations were made by hand and each failed a test: identifiers ANDed, types ORed with identifiers,
 `LIKE` for `strpos`, the event id and the command id each dropped from the match, oldest first, old
 type spellings not matched, the count ignoring the filter, the Next link dropping the filter, the

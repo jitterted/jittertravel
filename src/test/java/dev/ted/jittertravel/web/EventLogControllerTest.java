@@ -164,12 +164,23 @@ class EventLogControllerTest {
         given(persister.countEvents(filter)).willReturn(60);
         given(persister.loadEventPage(50, 50, filter)).willReturn(List.of(row(9L, "FlightBooked", "{}")));
 
-        assertThat(bodyOf("/admin/eventlog?page=7&type=FlightBooked"))
-                .as("60 matches are two pages, so page 7 is clamped to the second and has no next")
+        assertThat(bodyOf("/admin/eventlog?page=2&type=FlightBooked"))
+                .as("60 matches are two pages, so the page just past them is clamped to the second and has no next")
                 .contains("<span class=\"event-seq\">#9</span>")
                 .contains("page <span>2</span> of <span>2</span>")
                 .contains("<span class=\"disabled\">Next ›</span>")
                 .contains("<a href=\"/admin/eventlog?page=0&amp;type=FlightBooked\">‹ Previous</a>");
+    }
+
+    @Test
+    void theFirstPageHasNoPreviousLink() {
+        stubLog(120, EventLogFilter.none(), row(120L, "FlightBooked", "{}"));
+
+        assertThat(bodyOf("/admin/eventlog"))
+                .contains("<span class=\"disabled\">‹ Previous</span>")
+                .contains("<a href=\"/admin/eventlog?page=1\">Next ›</a>")
+                .as("there is no page before the first to link to")
+                .doesNotContain("‹ Previous</a>");
     }
 
     @Test

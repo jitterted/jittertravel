@@ -198,6 +198,14 @@ you do not set it.
 > There is no `.env` file in the repo and none should be added. (The two login passwords and
 > `REMEMBER_ME_KEY` double as a fail-fast guard — a production boot without them errors immediately
 > rather than coming up misconfigured.)
+>
+> **One credential is committed on purpose: the Web Awesome Pro kit code**, written out in the two
+> addresses in the head of `admin-eventlog.html`. A variable would hide nothing on the page, whose
+> source shows the code to anyone who can load it, and that is only the owner. The repo is the real
+> exposure: a Web Awesome kit cannot be limited to our domain, so anyone who copies the code from
+> GitHub can load Pro components on Ted's subscription. That is a cost to his account and not a way
+> into the app or its data, and it was weighed and accepted (Ted, 2026-11-05,
+> `docs/EventLogFilterPlan.md` D8). Do not move the code into a variable as a fix.
 
 #### `REMEMBER_ME_KEY`: stability matters more than secrecy
 

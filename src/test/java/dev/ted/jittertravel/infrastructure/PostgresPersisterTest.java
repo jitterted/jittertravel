@@ -1,8 +1,13 @@
 package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.domain.Address;
+import dev.ted.jittertravel.domain.ConferenceCancelled;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.ConferencePlanned;
+import dev.ted.jittertravel.domain.Event;
+import dev.ted.jittertravel.domain.OneOffTaskCompleted;
+import dev.ted.jittertravel.domain.TrainCancelled;
+import dev.ted.jittertravel.domain.TrainTripId;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.web.PlanConferenceRequest;
 import org.junit.jupiter.api.Tag;
@@ -13,6 +18,7 @@ import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
@@ -34,6 +40,9 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
 
     @Autowired
     private PostgresPersister persister;
+
+    @Autowired
+    private JdbcClient jdbcClient;
 
     @TestConfiguration
     static class TestConfig {
@@ -157,6 +166,186 @@ class PostgresPersisterTest extends AbstractTestcontainerIntegrationTest {
 
         // none are out-of-order in this happy path
         assertThat(page).allSatisfy(entry -> assertThat(entry.outOfOrder()).isFalse());
+    }
+
+    @Test
+    void anUnfilteredEventPageIsNewestFirstWithSimpleTypeNamesAndPrettyPayloads() {
+        appendEvent(1L, new ConferenceCancelled(ConferenceId.of(UUID.randomUUID()), "first"));
+        StoredEvent second = appendEvent(2L, new TrainCancelled(TrainTripId.of(UUID.randomUUID()), "second"));
+        appendEvent(3L, new ConferenceCancelled(ConferenceId.of(UUID.randomUUID()), "third"));
+
+        List<PostgresPersister.EventLogRow> page = persister.loadEventPage(0, 50, EventLogFilter.none());
+
+        assertThat(page)
+                .extracting(PostgresPersister.EventLogRow::sequence)
+                .as("newest first")
+                .containsExactly(3L, 2L, 1L);
+        PostgresPersister.EventLogRow trainRow = page.get(1);
+        assertThat(trainRow.type())
+                .isEqualTo("TrainCancelled");
+        assertThat(trainRow.eventId())
+                .isEqualTo(second.eventId());
+        assertThat(trainRow.commandId())
+                .isEqualTo(second.commandId());
+        assertThat(trainRow.payloadJson())
+                .as("pretty-printed: one field per line")
+                .contains("\n  \"reason\" : \"second\"");
+        assertThat(persister.countEvents(EventLogFilter.none()))
+                .isEqualTo(3);
+    }
+
+    @Test
+    void anEventPageHonoursItsLimitAndOffsetWithinTheFilteredRows() {
+        appendEvent(1L, new ConferenceCancelled(ConferenceId.of(UUID.randomUUID()), ""));
+        appendEvent(2L, new TrainCancelled(TrainTripId.of(UUID.randomUUID()), ""));
+        appendEvent(3L, new ConferenceCancelled(ConferenceId.of(UUID.randomUUID()), ""));
+        appendEvent(4L, new ConferenceCancelled(ConferenceId.of(UUID.randomUUID()), ""));
+        EventLogFilter conferenceCancellations = new EventLogFilter(List.of("ConferenceCancelled"), List.of());
+
+        assertThat(persister.loadEventPage(0, 2, conferenceCancellations))
+                .extracting(PostgresPersister.EventLogRow::sequence)
+                .as("the first page of two")
+                .containsExactly(4L, 3L);
+        assertThat(persister.loadEventPage(2, 2, conferenceCancellations))
+                .extracting(PostgresPersister.EventLogRow::sequence)
+                .as("the offset counts matching rows, so the train event between them is not a slot")
+                .containsExactly(1L);
+        assertThat(persister.countEvents(conferenceCancellations))
+                .as("the count is of the rows the pages hold")
+                .isEqualTo(3);
+        assertThat(persister.countEvents())
+                .as("the unfiltered total is untouched by a filter")
+                .isEqualTo(4);
+    }
+
+    @Test
+    void anEventPageFilteredByTypeHoldsOnlyRowsOfTheChosenTypes() {
+        appendEvent(1L, new ConferenceCancelled(ConferenceId.of(UUID.randomUUID()), ""));
+        appendEvent(2L, new TrainCancelled(TrainTripId.of(UUID.randomUUID()), ""));
+        appendEvent(3L, new OneOffTaskCompleted("a-task", Instant.parse("2026-11-05T10:00:00Z")));
+
+        EventLogFilter oneType = new EventLogFilter(List.of("TrainCancelled"), List.of());
+        assertThat(persister.loadEventPage(0, 50, oneType))
+                .extracting(PostgresPersister.EventLogRow::sequence)
+                .containsExactly(2L);
+        assertThat(persister.countEvents(oneType))
+                .isEqualTo(1);
+
+        EventLogFilter twoTypes = new EventLogFilter(List.of("TrainCancelled", "ConferenceCancelled"), List.of());
+        assertThat(persister.loadEventPage(0, 50, twoTypes))
+                .extracting(PostgresPersister.EventLogRow::sequence)
+                .as("several types are any-of")
+                .containsExactly(2L, 1L);
+        assertThat(persister.countEvents(twoTypes))
+                .isEqualTo(2);
+    }
+
+    @Test
+    void aTypeFilterFindsRowsStoredUnderTheClassNameFromBeforeLogicalNames() {
+        appendEvent(1L, new ConferenceCancelled(ConferenceId.of(UUID.randomUUID()), ""));
+        appendEvent(2L, new ConferenceCancelled(ConferenceId.of(UUID.randomUUID()), ""));
+        jdbcClient.sql("UPDATE event_log SET type = :className WHERE sequence = 1")
+                .param("className", ConferenceCancelled.class.getName())
+                .update();
+
+        EventLogFilter filter = new EventLogFilter(List.of("ConferenceCancelled"), List.of());
+
+        assertThat(persister.loadEventPage(0, 50, filter))
+                .extracting(PostgresPersister.EventLogRow::sequence)
+                .as("the old row is the same type under its older spelling")
+                .containsExactly(2L, 1L);
+        assertThat(persister.loadEventPage(0, 50, filter))
+                .extracting(PostgresPersister.EventLogRow::type)
+                .as("and both are shown by their simple name")
+                .containsExactly("ConferenceCancelled", "ConferenceCancelled");
+    }
+
+    @Test
+    void anIdentifierMatchesAnIdInThePayloadOrTheEventIdOrTheCommandId() {
+        UUID conferenceId = UUID.randomUUID();
+        appendEvent(1L, new ConferenceCancelled(ConferenceId.of(conferenceId), ""));
+        StoredEvent second = appendEvent(2L, new TrainCancelled(TrainTripId.of(UUID.randomUUID()), ""));
+        StoredEvent third = appendEvent(3L, new ConferenceCancelled(ConferenceId.of(UUID.randomUUID()), ""));
+
+        assertThat(sequencesMatching(conferenceId.toString()))
+                .as("an id inside the payload")
+                .containsExactly(1L);
+        assertThat(sequencesMatching(second.eventId().toString()))
+                .as("the row's own event id, which is not in its payload")
+                .containsExactly(2L);
+        assertThat(sequencesMatching(third.commandId().toString()))
+                .as("the row's command id, which is not in its payload")
+                .containsExactly(3L);
+        assertThat(sequencesMatching(UUID.randomUUID().toString()))
+                .as("an id nothing carries")
+                .isEmpty();
+    }
+
+    @Test
+    void severalIdentifiersAreAnyOf() {
+        UUID conferenceId = UUID.randomUUID();
+        UUID tripId = UUID.randomUUID();
+        appendEvent(1L, new ConferenceCancelled(ConferenceId.of(conferenceId), ""));
+        appendEvent(2L, new TrainCancelled(TrainTripId.of(tripId), ""));
+        appendEvent(3L, new ConferenceCancelled(ConferenceId.of(UUID.randomUUID()), ""));
+        EventLogFilter eitherId = new EventLogFilter(List.of(), List.of(conferenceId.toString(), tripId.toString()));
+
+        assertThat(persister.loadEventPage(0, 50, eitherId))
+                .extracting(PostgresPersister.EventLogRow::sequence)
+                .as("no row carries both ids, so all-of would be empty")
+                .containsExactly(2L, 1L);
+        assertThat(persister.countEvents(eitherId))
+                .isEqualTo(2);
+    }
+
+    @Test
+    void typesAndIdentifiersTogetherAreBothRequired() {
+        UUID conferenceId = UUID.randomUUID();
+        UUID tripId = UUID.randomUUID();
+        appendEvent(1L, new ConferenceCancelled(ConferenceId.of(conferenceId), ""));
+        appendEvent(2L, new TrainCancelled(TrainTripId.of(tripId), ""));
+        appendEvent(3L, new TrainCancelled(TrainTripId.of(UUID.randomUUID()), ""));
+        EventLogFilter trainsWithEitherId = new EventLogFilter(
+                List.of("TrainCancelled"), List.of(conferenceId.toString(), tripId.toString()));
+
+        assertThat(persister.loadEventPage(0, 50, trainsWithEitherId))
+                .extracting(PostgresPersister.EventLogRow::sequence)
+                .as("#1 has a matching id but the wrong type, #3 the right type but neither id")
+                .containsExactly(2L);
+        assertThat(persister.countEvents(trainsWithEitherId))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void anIdentifierIsLookedForAsTextAndNeverAsAPattern() {
+        appendEvent(1L, new ConferenceCancelled(ConferenceId.of(UUID.randomUUID()), "plain reason"));
+
+        assertThat(sequencesMatching("%"))
+                .as("% matches every row as a LIKE pattern; no payload here holds one")
+                .isEmpty();
+        assertThat(sequencesMatching("plain_reason"))
+                .as("_ matches the space as a LIKE pattern; the payload holds a space, not an underscore")
+                .isEmpty();
+        assertThat(sequencesMatching("lain reas"))
+                .as("part of a value is still found")
+                .containsExactly(1L);
+    }
+
+    private List<Long> sequencesMatching(String identifier) {
+        return persister.loadEventPage(0, 50, new EventLogFilter(List.of(), List.of(identifier)))
+                .stream()
+                .map(PostgresPersister.EventLogRow::sequence)
+                .toList();
+    }
+
+    /** Appends one event under a command of its own, so its command id is in no payload. */
+    private StoredEvent appendEvent(long sequence, Event payload) {
+        UUID commandId = UUID.randomUUID();
+        persister.saveCommand(commandId, newRequest(UUID.randomUUID(), "Command " + sequence));
+        StoredEvent event = new StoredEvent(
+                sequence, payload.getClass(), UUID.randomUUID(), Instant.now(), payload, commandId);
+        persister.appendEvents(List.of(event), commandId);
+        return event;
     }
 
     private PlanConferenceRequest newRequest(UUID id, String name) {

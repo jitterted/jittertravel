@@ -54,7 +54,9 @@ down when it is created does not get written down later.
       - `/admin/commandlog` — `loadTimelinePage`, `statusWhereClause`, `needsStatusParam`: the
         status filter's `WHERE` clause and the paging boundaries **survive**, so filtering by
         PENDING or FAILED could return the wrong rows with every test green.
-      - `/admin/eventlog` — `loadEventPage`, `prettyJson`, `simpleTypeName`: no coverage at all.
+      - ~~`/admin/eventlog`~~ — closed 2026-11-05 by the event log filter: eight
+        `PostgresPersisterTest` cases cover `loadEventPage` and `countEvents`, and through them
+        `prettyJson` and `simpleTypeName`.
       - `/admin/database` — `tableStats`: no coverage.
 
       One `PostgresPersisterTest` case per query, asserting on the rows that come back (and, for the
@@ -669,7 +671,6 @@ down when it is created does not get written down later.
       `ConferenceDetailView` carries no occurrence timestamps, because `ConferenceProjector` folds
       events and keeps only the result — so this is a projector change, not a renderer one, and it
       overlaps `EventOccurrenceTimestampsPlan.md`. Noticed 2026-09-06.
-- [ ] Add event-type filtering to `/admin/eventlog` (the command-log filter is already done).
 - [ ] `/admin/commandlog`'s "Out of order" badge only detects divergence *within* a page.
       `PostgresPersister.loadTimelinePage` resets `runningMaxSeq` to `Long.MIN_VALUE` on every
       call (`PostgresPersister`, `runningMaxSeq`), so a command whose event sequence numbers interleave
@@ -678,6 +679,17 @@ down when it is created does not get written down later.
       sequence of all commands before the page's window rather than starting fresh. Pre-existing
       behaviour, untouched by the newest-first paging fix (`PageWindow`), which only changed
       *which* window is fetched, not how it's scanned.
+- [ ] **`/admin/commandlog`'s Delete button has no typed word.** Every entry carries one
+      (`timeline-commands.html`, `.btn-delete`), and one click posts to
+      `TimelineController.deleteCommand`, which removes the command row and every event it wrote
+      (`PostgresPersister.deleteCommand`). That is destruction in the sense CLAUDE.md means: the
+      rows are gone, not superseded by a later event, and only a restore from backup puts them
+      back. The rule is a typed all-caps word beside a red button, as `/admin/database` (`DELETE`)
+      and `/admin/migrate-legacy-events` (`MIGRATE`) have; here the button is red and the gate is
+      missing. Fifty of them on a page is also fifty chances to mis-tap on the iPad. The fix
+      probably wants a confirmation page per command rather than fifty text inputs, which is a
+      layout question to settle with Ted first. Noticed 2026-11-05 while weighing an identifier
+      filter for this page, which would have made it one Ted clicks around on.
 - [ ] **Retire the `setState` shims on `BookHotelRequest` / `ChangeHotelRequest`.** Lifted from
       `archived/CuratedResolversToDomainPlan.md` 2026-08-23, which named it as the one thing left
       open after the `Address` alias retirement. Both are one line —
@@ -1260,6 +1272,9 @@ count is deliberately not stated here so it cannot go stale again.)
 
 ## Done
 
+- [x] **Event-type filtering on `/admin/eventlog` — BUILT 2026-11-05**, as several types at once
+      plus optional identifiers. It grew into a plan on 2026-11-02 and `EventLogFilterPlan.md` owns
+      it. Read the plan, not this line.
 - [x] **`/planned-private-events` list view — SHIPPED 2026-08-24**, and it outgrew this list on
       the way: it is now owned by `PlannedPrivateEventsListPlan.md`, not by this bullet. Read the
       plan, not this line. The reason it was worth more than "one more list": a private event's

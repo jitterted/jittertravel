@@ -4,7 +4,88 @@
     <meta charset="UTF-8"/>
     <title>Event Log</title>
     <link rel="stylesheet" href="/site.css"/>
+    <!--/* Web Awesome Pro, for the event-type combobox, on this page and no other. The kit code in
+           these two addresses is committed on purpose: see docs/EventLogFilterPlan.md D8 before
+           moving it into a variable. Only the theme and the one component are loaded; the kit's
+           native.css is a reset that would restyle the page. */-->
+    <link rel="stylesheet" href="https://ka-p.webawesome.com/kit/4c10f20c1e894bb6/webawesome@3.14.0/styles/themes/default.css"/>
+    <script type="module" src="https://ka-p.webawesome.com/kit/4c10f20c1e894bb6/webawesome@3.14.0/components/combobox/combobox.js"></script>
     <style>
+        .filter-form {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--header-bg);
+            padding: 0.7rem 0.9rem;
+            margin: 0 0 0.9rem;
+            display: grid;
+            gap: 0.6rem;
+        }
+
+        .filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem 0.75rem;
+        }
+
+        .filter-row label { font-size: 0.85rem; color: var(--muted-text); min-width: 6.5rem; }
+
+        .filter-row wa-combobox,
+        .filter-row input {
+            flex: 1 1 18rem;
+            min-width: 0;
+        }
+
+        .filter-row input {
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 0.82rem;
+            padding: 0.4rem 0.55rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        wa-combobox,
+        wa-option {
+            font-family: ui-monospace, SFMono-Regular, monospace;
+        }
+
+        wa-combobox { --tag-max-size: 40ch; }
+
+        wa-combobox:not(:defined) {
+            display: block;
+            min-height: 2.25rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-color);
+        }
+
+        wa-option:not(:defined) { display: none; }
+
+        .filter-form .hint { font-size: 0.78rem; color: var(--muted-text); margin: -0.2rem 0 0 7.25rem; }
+
+        .filter-form button {
+            background: var(--accent-color);
+            color: #fff;
+            border: 1px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 0.4rem 0.95rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        a.clear { color: var(--accent-color); text-decoration: underline; font-size: 0.9rem; }
+
+        span.clear { color: var(--muted-text); font-size: 0.9rem; cursor: not-allowed; }
+
+        .no-match { color: var(--muted-text); font-style: italic; margin: 1rem 0; }
+
+        .no-match strong { font-style: normal; color: var(--text-color); }
+
+        details pre mark { background: #fde047; color: #1f1f1f; border-radius: 2px; }
+
         .timeline-container {
             max-width: 110ch;
             margin: 1.5rem auto;
@@ -124,22 +205,65 @@
 <div class="timeline-container">
     <h1>Event Log</h1>
 
+    <form class="filter-form" method="get" action="/admin/eventlog">
+        <div class="filter-row">
+            <label for="event-types">Event types</label>
+            <!--/* The component cuts a tag at ten characters by default, which turns FlightBooked
+                   and FlightChanged into the same tag; --tag-max-size above is what lets the
+                   longest type name through. The placeholder is chosen here and not by script, so
+                   it is right on arrival and can lag behind a pick until the next Apply. */-->
+            <wa-combobox id="event-types" name="type" multiple with-clear
+                         th:placeholder="${filterView.typesChosen()} ? 'Type to filter…' : 'All types — type to filter…'">
+                <wa-option th:each="type : ${eventTypes}" th:value="${type}" th:text="${type}"
+                           th:selected="${filterView.selected(type)}">EventType</wa-option>
+            </wa-combobox>
+        </div>
+        <div class="filter-row">
+            <label for="identifiers">Identifiers</label>
+            <input id="identifiers" name="id" type="text" th:value="${filterView.identifierText()}"
+                   placeholder="flight, hotel, conference, event or command id"
+                   autocapitalize="off" autocorrect="off" spellcheck="false"/>
+        </div>
+        <p class="hint">Any number of ids, separated by spaces or commas. Matches the event id, the
+            command id, or any id inside the payload.</p>
+        <div class="filter-row">
+            <button type="submit">Apply</button>
+            <a th:if="${filterView.active()}" class="clear" href="/admin/eventlog">Clear</a>
+            <span th:unless="${filterView.active()}" class="clear" title="No filter to clear">Clear</span>
+        </div>
+    </form>
+
     <div class="timeline-toolbar">
-        <span class="meta">
-            <span th:text="${totalEvents}">0</span> events total —
+        <span class="meta" th:unless="${filterView.active()}">
+            <span th:text="${#numbers.formatInteger(totalEvents, 1, 'COMMA')}">0</span> events total —
             page <span th:text="${page + 1}">1</span> of <span th:text="${totalPages}">1</span>
             (<span th:text="${pageSize}">50</span> per page, newest first)
         </span>
+        <span class="meta" th:if="${filterView.active()}">
+            <strong th:text="${#numbers.formatInteger(matchingEvents, 1, 'COMMA')}">0</strong> of
+            <span th:text="${#numbers.formatInteger(totalEvents, 1, 'COMMA')}">0</span> events match
+            <th:block th:unless="${events.isEmpty()}">—
+                page <span th:text="${page + 1}">1</span> of <span th:text="${totalPages}">1</span>
+                (<span th:text="${pageSize}">50</span> per page, newest first)
+            </th:block>
+        </span>
         <span>
-            <a th:if="${hasPrev}" th:href="@{/admin/eventlog(page=${page - 1})}">‹ Previous</a>
+            <a th:if="${hasPrev}" th:href="${filterView.hrefForPage(page - 1)}">‹ Previous</a>
             <span th:unless="${hasPrev}" class="disabled">‹ Previous</span>
-            <a th:if="${hasNext}" th:href="@{/admin/eventlog(page=${page + 1})}">Next ›</a>
+            <a th:if="${hasNext}" th:href="${filterView.hrefForPage(page + 1)}">Next ›</a>
             <span th:unless="${hasNext}" class="disabled">Next ›</span>
         </span>
     </div>
 
-    <p th:if="${events.isEmpty()}" style="color: var(--muted-text); font-style: italic;">
+    <p th:if="${events.isEmpty() and !filterView.active()}" style="color: var(--muted-text); font-style: italic;">
         No events recorded yet.
+    </p>
+
+    <p th:if="${events.isEmpty() and filterView.active()}" class="no-match">
+        <strong>No events match.</strong>
+        <span th:text="${filterView.summary()}">1 type selected.</span>
+        <a class="clear" href="/admin/eventlog">Clear the filter</a>
+        to see all <span th:text="${#numbers.formatInteger(totalEvents, 1, 'COMMA')}">0</span>.
     </p>
 
     <article th:each="event : ${events}" class="event-row">
@@ -155,16 +279,19 @@
         </header>
         <details>
             <summary>Payload (JSON)</summary>
-            <pre th:text="${event.payloadJson()}">{}</pre>
+            <!--/* One line on purpose: inside a pre, whitespace between these tags would be drawn.
+                   Every piece goes through th:text, so the engine escapes the payload and the only
+                   markup in it is the mark this template writes. */-->
+            <pre><th:block th:each="segment : ${filterView.segmentsOf(event.payloadJson())}"><mark th:if="${segment.matched()}" th:text="${segment.text()}">id</mark><th:block th:unless="${segment.matched()}" th:text="${segment.text()}"></th:block></th:block></pre>
         </details>
     </article>
 
     <div class="timeline-toolbar" th:if="${totalPages > 1}">
         <span></span>
         <span>
-            <a th:if="${hasPrev}" th:href="@{/admin/eventlog(page=${page - 1})}">‹ Previous</a>
+            <a th:if="${hasPrev}" th:href="${filterView.hrefForPage(page - 1)}">‹ Previous</a>
             <span th:unless="${hasPrev}" class="disabled">‹ Previous</span>
-            <a th:if="${hasNext}" th:href="@{/admin/eventlog(page=${page + 1})}">Next ›</a>
+            <a th:if="${hasNext}" th:href="${filterView.hrefForPage(page + 1)}">Next ›</a>
             <span th:unless="${hasNext}" class="disabled">Next ›</span>
         </span>
     </div>

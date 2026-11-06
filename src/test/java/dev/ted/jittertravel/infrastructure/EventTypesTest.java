@@ -106,6 +106,33 @@ class EventTypesTest {
     }
 
     @Test
+    void logicalNamesAreEveryRegisteredTypeInAlphabeticalOrder() {
+        assertThat(EventTypes.logicalNames())
+                .as("registered as FlightBooked first, so registration order is not alphabetical")
+                .isSorted()
+                .startsWith("CfpOpened")
+                .contains("FlightBooked", "FamilyNotified", "TrainCancelled")
+                .doesNotContain("ConferenceTentativelyPlanned")
+                .doesNotHaveDuplicates();
+    }
+
+    @Test
+    void wireIdsForATypeAreEverySpellingItWasEverStoredUnder() {
+        assertThat(EventTypes.wireIdsFor("ConferencePlanned"))
+                .as("the logical name, its FQCN, and both retired spellings")
+                .containsExactlyInAnyOrder(
+                        "ConferencePlanned",
+                        "dev.ted.jittertravel.domain.ConferencePlanned",
+                        "ConferenceTentativelyPlanned",
+                        "dev.ted.jittertravel.domain.ConferenceTentativelyPlanned");
+        assertThat(EventTypes.wireIdsFor("TrainBooked"))
+                .as("a type never renamed has only its name and its FQCN")
+                .containsExactlyInAnyOrder("TrainBooked", "dev.ted.jittertravel.domain.TrainBooked");
+        assertThat(EventTypes.wireIdsFor("NoSuchEvent"))
+                .isEmpty();
+    }
+
+    @Test
     void typeBornAfterTheZonedTimestampChangeIsAtSchemaVersionOne() {
         // ConferenceAttendanceDeclined has only ever had one shape, so it stays at version 1.
         assertThat(EventTypes.currentSchemaVersion(ConferenceAttendanceDeclined.class))

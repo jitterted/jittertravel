@@ -137,7 +137,17 @@ public class PostgresPersister {
         return count.intValue();
     }
 
-    public List<EventLogRow> loadEventPage(int offset, int limit) {
+    /** How many rows {@link #loadEventPage} would page through for this filter. */
+    public int countEvents(EventLogFilter filter) {
+        Long count = jdbcClient.sql("SELECT COUNT(*) FROM event_log " + eventLogWhereClause(filter))
+                .params(eventLogParams(filter))
+                .query(Long.class)
+                .single();
+        return count.intValue();
+    }
+
+    /** A page of the event log, newest first, narrowed to the rows the filter matches. */
+    public List<EventLogRow> loadEventPage(int offset, int limit, EventLogFilter filter) {
         return jdbcClient.sql("""
                         SELECT sequence,
                                event_id     AS eventId,
@@ -146,9 +156,12 @@ public class PostgresPersister {
                                type,
                                payload::text AS payloadJson
                         FROM event_log
+                        """ + eventLogWhereClause(filter) + """
+
                         ORDER BY sequence DESC
                         LIMIT :limit OFFSET :offset
                         """)
+                .params(eventLogParams(filter))
                 .param("limit", limit)
                 .param("offset", offset)
                 .query((rs, _) -> new EventLogRow(
@@ -170,6 +183,45 @@ public class PostgresPersister {
             String type,
             String payloadJson
     ) {}
+
+    /**
+     * The types are ANDed with the identifiers; several identifiers are ORed with each other.
+     * <p>
+     * An identifier is looked for as text in the whole payload, because ids sit inside it under a
+     * different field name per event and no single JSON path reaches them all. {@code strpos} and
+     * not {@code LIKE}: nothing checks that an identifier is a UUID, and in a pattern a typed
+     * {@code _} or {@code %} would be a wildcard.
+     */
+    private String eventLogWhereClause(EventLogFilter filter) {
+        List<String> conditions = new ArrayList<>();
+        if (!filter.types().isEmpty()) {
+            conditions.add("type IN (:types)");
+        }
+        if (!filter.identifiers().isEmpty()) {
+            List<String> perIdentifier = new ArrayList<>();
+            for (int i = 0; i < filter.identifiers().size(); i++) {
+                perIdentifier.add("event_id::text = :id%1$d OR command_id::text = :id%1$d OR strpos(payload::text, :id%1$d) > 0"
+                                          .formatted(i));
+            }
+            conditions.add("(" + String.join(" OR ", perIdentifier) + ")");
+        }
+        return conditions.isEmpty() ? "" : "WHERE " + String.join(" AND ", conditions);
+    }
+
+    private Map<String, Object> eventLogParams(EventLogFilter filter) {
+        Map<String, Object> params = new HashMap<>();
+        if (!filter.types().isEmpty()) {
+            // every spelling a type was ever stored under, or a filter misses the rows older than a rename
+            params.put("types", filter.types().stream()
+                    .map(EventTypes::wireIdsFor)
+                    .flatMap(List::stream)
+                    .toList());
+        }
+        for (int i = 0; i < filter.identifiers().size(); i++) {
+            params.put("id" + i, filter.identifiers().get(i));
+        }
+        return params;
+    }
 
     private static String simpleTypeName(String fqn) {
         int dot = fqn.lastIndexOf('.');

@@ -36,6 +36,7 @@ import dev.ted.jittertravel.domain.TrainCancelled;
 import dev.ted.jittertravel.domain.TrainChanged;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -201,6 +202,27 @@ public final class EventTypes {
 
     public static boolean isRegistered(Class<? extends Event> type) {
         return CLASS_TO_LOGICAL.containsKey(type);
+    }
+
+    /**
+     * Every registered logical name, alphabetical. The event log's type filter is built from this,
+     * so a new event is offered there the moment it is registered.
+     */
+    public static List<String> logicalNames() {
+        return LOGICAL_TO_CLASS.keySet().stream().sorted().toList();
+    }
+
+    /**
+     * Every {@code type} an {@code event_log} row of this logical type may be stored under: the
+     * logical name, its class's FQCN (rows written before logical names) and any alias. A query for
+     * one type has to match all of them, or it silently misses the rows that predate a rename.
+     * Empty for a name that is not registered.
+     */
+    public static List<String> wireIdsFor(String logicalName) {
+        return WIRE_ID_TO_LOGICAL.entrySet().stream()
+                .filter(wireId -> wireId.getValue().equals(logicalName))
+                .map(Map.Entry::getKey)
+                .toList();
     }
 
     private static void register(String logicalName, Class<? extends Event> type) {

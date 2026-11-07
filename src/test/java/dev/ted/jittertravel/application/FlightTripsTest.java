@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 /**
@@ -305,6 +306,27 @@ class FlightTripsTest {
         assertThat(trips.staysBooked(outer, NOW))
                 .as("the span starts at the first live leg, not at the one already cancelled")
                 .isEmpty();
+    }
+
+    /**
+     * The command writes a trip's legs in the same append as the itinerary that names them, so a
+     * member the flights read model never saw is a corrupt log. Both composers say which, rather
+     * than numbering the trip's legs without it.
+     */
+    @Test
+    void anItineraryNamingAFlightNeverBookedFailsByNameInTheListAndInWhatStays() {
+        FlightId booked = book(10, "SFO", "ORD");
+        FlightId neverBooked = FlightId.random();
+        BookedItineraryView broken = itinerary("MD7LKB", booked, neverBooked);
+        String expected = "Itinerary " + broken.itineraryId().id() + " names flight " + neverBooked.id()
+                          + ", which was never booked";
+
+        assertThatThrownBy(() -> trips.forList(listed(), NOW))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage(expected);
+        assertThatThrownBy(() -> trips.staysBooked(broken, NOW))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage(expected);
     }
 
     @Test

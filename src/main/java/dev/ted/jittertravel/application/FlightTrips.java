@@ -65,8 +65,7 @@ public class FlightTrips {
      */
     public List<StayingFlight> staysBooked(BookedItineraryView itinerary, Instant now) {
         List<Instant> departures = itinerary.flightIds().stream()
-                .map(flights::find)
-                .flatMap(Optional::stream)
+                .map(flightId -> memberOf(itinerary, flightId))
                 .filter(view -> !view.cancelled())
                 .map(view -> view.departureDateTime().utc())
                 .sorted()
@@ -89,10 +88,21 @@ public class FlightTrips {
     /** The itinerary's legs in departure order, cancelled ones included. */
     private List<BookedFlightView> membersOf(BookedItineraryView itinerary) {
         return itinerary.flightIds().stream()
-                .map(flights::find)
-                .flatMap(Optional::stream)
+                .map(flightId -> memberOf(itinerary, flightId))
                 .sorted(Comparator.comparing(view -> view.departureDateTime().utc()))
                 .toList();
+    }
+
+    /**
+     * An itinerary's legs are written in the same append as the itinerary event that names them, so
+     * a member the flights read model does not know is a corrupt log, not a leg to leave out: left
+     * out, the list would number and count a trip's legs wrongly and say nothing.
+     */
+    private BookedFlightView memberOf(BookedItineraryView itinerary, FlightId flightId) {
+        return flights.find(flightId)
+                .orElseThrow(() -> new IllegalStateException("Itinerary " + itinerary.itineraryId().id()
+                                                             + " names flight " + flightId.id()
+                                                             + ", which was never booked"));
     }
 
     private ItinerarySummary summaryOf(BookedItineraryView itinerary, List<BookedFlightView> members,

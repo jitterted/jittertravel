@@ -32,6 +32,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * A paste whose confirmation code is already a live itinerary is a schedule change. The real
@@ -212,6 +213,23 @@ class FlightItineraryChangeTest {
                 .isFalse();
         assertThat(evaluation.bookable())
                 .isTrue();
+    }
+
+    /**
+     * The command writes a trip's legs in the same append as the itinerary that names them, so a
+     * member with no booking in the log is a corrupt log. The fold says which, rather than diffing
+     * the paste against a trip missing a leg.
+     */
+    @Test
+    void anItineraryNamingAFlightTheLogNeverBookedFailsByName() {
+        FlightId neverBooked = FlightId.random();
+        SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo,
+                new FlightItineraryBooked(TRIP, "United Airlines", "MD7LKB", List.of(first, neverBooked)));
+
+        assertThatThrownBy(() -> booking(executor).evaluate(UNCHANGED_PASTE, Map.of(), FORM, NEW_FLIGHT_ID, NOW))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Itinerary " + TRIP.id() + " names flight " + neverBooked.id()
+                            + ", which was never booked");
     }
 
     @Test

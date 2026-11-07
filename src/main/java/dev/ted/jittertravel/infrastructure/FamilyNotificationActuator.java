@@ -28,9 +28,9 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -74,7 +74,7 @@ public class FamilyNotificationActuator implements EventReactor {
         for (Notification notification : notificationsIn(events)) {
             try {
                 notifyFamily.notifyFamily(UUID.randomUUID(), notification.subject(), notification.fact(),
-                        notification.legs(), now);
+                        notification.legs().get(), now);
             } catch (RuntimeException failed) {
                 countFailure(notification.subject(), failed);
             }
@@ -162,23 +162,38 @@ public class FamilyNotificationActuator implements EventReactor {
                 .filter(FlightItineraryBooked.class::isInstance)
                 .map(FlightItineraryBooked.class::cast)
                 .map(trip -> new Notification(NotifiedSubject.itinerary(trip.itineraryId()),
-                        NotifiedFact.ITINERARY_BOOKED, legsOf(trip, booked)))
-                .filter(notification -> !notification.legs().isEmpty());
+                        NotifiedFact.ITINERARY_BOOKED, () -> legsOf(trip, booked)));
         Stream<Notification> singles = booked.values().stream()
                 .filter(flight -> !partOfATrip.contains(flight.flightId()))
                 .map(flight -> new Notification(NotifiedSubject.flight(flight.flightId()),
-                        NotifiedFact.FLIGHT_BOOKED, List.of(flight)));
+                        NotifiedFact.FLIGHT_BOOKED, () -> List.of(flight)));
         return Stream.concat(trips, singles).toList();
     }
 
+    /**
+     * The command appends a trip's legs with the itinerary event that names them, so a member that
+     * is not in this batch is a broken append, not a leg to leave out. It fails by name, inside the
+     * trip's own failure boundary: counted and logged like a refused send, and the batch's other
+     * notifications still go.
+     */
     private List<FlightBooked> legsOf(FlightItineraryBooked trip, Map<FlightId, FlightBooked> booked) {
         return trip.flightIds().stream()
-                .map(booked::get)
-                .filter(Objects::nonNull)
+                .map(flightId -> memberOf(trip, flightId, booked))
                 .sorted(Comparator.comparing(leg -> leg.departureDateTime().utc()))
                 .toList();
     }
 
-    private record Notification(NotifiedSubject subject, NotifiedFact fact, List<FlightBooked> legs) {
+    private static FlightBooked memberOf(FlightItineraryBooked trip, FlightId flightId,
+                                         Map<FlightId, FlightBooked> booked) {
+        FlightBooked leg = booked.get(flightId);
+        if (leg == null) {
+            throw new IllegalStateException("Itinerary " + trip.itineraryId().id() + " names flight "
+                                            + flightId.id() + ", which is not in its append");
+        }
+        return leg;
+    }
+
+    /** {@code legs} is resolved when sent, so a trip whose legs cannot be found fails inside its own boundary. */
+    private record Notification(NotifiedSubject subject, NotifiedFact fact, Supplier<List<FlightBooked>> legs) {
     }
 }

@@ -19,7 +19,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -88,14 +87,28 @@ final class TripOnTheBooks {
             return new TripOnTheBooks(null, false, !named.isEmpty(), List.of(), List.of(), List.of());
         }
         List<ItineraryLeg> members = membersByItinerary.get(liveOne).stream()
-                .map(legs::get)
-                .filter(Objects::nonNull)
+                .map(flightId -> memberOf(liveOne, flightId, legs))
                 .toList();
         return new TripOnTheBooks(liveOne, true, false,
                 members.stream().filter(leg -> !cancelledFlights.contains(leg.flightId())).toList(),
                 members.stream().filter(leg -> cancelledFlights.contains(leg.flightId())
                                                && !droppedFlights.contains(leg.flightId())).toList(),
                 members.stream().filter(leg -> droppedFlights.contains(leg.flightId())).toList());
+    }
+
+    /**
+     * An itinerary's members are written in the same append as the itinerary event that names them,
+     * so a member with no booking in the log is a corrupt log, not a leg to leave out. Dropping it
+     * quietly would show a trip with the wrong legs and let a paste be diffed against them.
+     */
+    private static ItineraryLeg memberOf(FlightItineraryId itineraryId, FlightId flightId,
+                                         Map<FlightId, ItineraryLeg> legs) {
+        ItineraryLeg leg = legs.get(flightId);
+        if (leg == null) {
+            throw new IllegalStateException("Itinerary " + itineraryId.id() + " names flight "
+                                            + flightId.id() + ", which was never booked");
+        }
+        return leg;
     }
 
     boolean live() {

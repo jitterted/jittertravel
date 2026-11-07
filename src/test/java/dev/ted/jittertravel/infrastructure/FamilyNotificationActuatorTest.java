@@ -45,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -93,16 +94,26 @@ class FamilyNotificationActuatorTest {
                 eq(NotifiedFact.ITINERARY_BOOKED), eq(List.of(first, second, third)), eq(NOW));
     }
 
+    /**
+     * Not reachable from the real command, which appends the legs with the itinerary: a member that
+     * is not in the batch is a broken append. It fails by name rather than being left out of the
+     * email, and it fails inside the trip's own boundary, so the flight booked beside it is still told.
+     */
     @Test
-    void anItineraryWhoseLegsAreNotInTheBatchHasNothingToSayAndNotifiesNobody() {
-        // Not reachable from the real command, which appends the legs with the itinerary, but a
-        // trip email with no flights in it would be worse than none.
+    void anItineraryNamingAFlightNotInTheBatchIsCountedAsAFailureAndStopsNothingElse() {
         FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
+        FlightId missing = FlightId.of(UUID.randomUUID());
 
-        actuatorFor().react(batch(new FlightItineraryBooked(trip, "United Airlines", "MD7LKB",
-                List.of(first.flightId()))));
+        actuatorFor().react(batch(first, third,
+                new FlightItineraryBooked(trip, "United Airlines", "MD7LKB",
+                        List.of(first.flightId(), missing))));
 
-        verifyNoInteractions(notifyFamily);
+        verify(notifyFamily, never()).notifyFamily(any(), eq(NotifiedSubject.itinerary(trip)), any(), any(), any());
+        verify(notifyFamily).notifyFamily(any(), eq(NotifiedSubject.flight(third.flightId())),
+                eq(NotifiedFact.FLIGHT_BOOKED), eq(List.of(third)), eq(NOW));
+        assertThat(meters.counter("family.notification.failed").count())
+                .as("the broken trip is counted like a refused send")
+                .isEqualTo(1.0);
     }
 
     @Test

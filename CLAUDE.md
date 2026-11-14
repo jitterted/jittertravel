@@ -1248,3 +1248,11 @@ So the two runs are two gates: the default run **before a commit**, this one **b
 
 Narrow it to the classes and tests the change touched; unnarrowed it is the slowest thing in the
 build. It mutates bytecode, so it says nothing about a template or a stylesheet.
+
+**A mutant inside a `@Bean` method always survives this run, however good the test** (2026-11-14).
+A `@Bean` method runs once, when the context is built, and the minion's Spring test-context cache
+hands every mutant the context built from the unmutated code — so the mutated method never runs.
+`TrailingSlashConfig` scored 0 of 2, and both mutants (dropping `setOrder`, returning `null`) fail
+the test when made by hand in source. So a survivor in a `@Bean` method reads as **"verify by
+hand"**, never "the test is weak" — and never as a reason to add `@DirtiesContext` to make PIT see
+it.

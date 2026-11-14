@@ -147,15 +147,83 @@ class ChangeFlightItineraryCommandTest {
     }
 
     @Test
-    void aFlownLegMissingFromThePasteRefusesTheWholeChange() {
-        Instant afterTakeoff = Instant.parse("2026-10-18T20:00:00Z");
+    void aFlownLegMissingFromThePasteIsLeftAloneNotDropped() {
+        // D6: SFO->ORD and ORD->YOW have flown; a mid-trip email lists only the leg still to come.
+        Instant afterBothFlew = Instant.parse("2026-10-18T23:00:00Z");
+        ItineraryLeg later = pasted("UA1100", "YOW", "SFO", 25, 10, 25, 16);
 
-        ItineraryChangePlan plan = command(copyOf(ordYow), copyOf(yowSfo)).plan(context(afterTakeoff));
+        ChangeFlightItineraryCommand onlyTheReturn = command(later);
+        ItineraryChangePlan plan = onlyTheReturn.plan(context(afterBothFlew));
 
         assertThat(plan.diffs())
-                .filteredOn(ItineraryChangePlan.LegDiff::refused)
-                .extracting(ItineraryChangePlan.LegDiff::kind, diff -> ((FlownLegContradicted) diff.refusal()).how())
-                .containsExactly(tuple(Kind.REMOVED, FlownLegContradicted.How.MISSING_FROM_PASTE));
+                .extracting(ItineraryChangePlan.LegDiff::kind, diff -> diff.effective().flightNumber())
+                .as("the flown legs are unchanged, not removed, and nothing is refused")
+                .containsExactly(
+                        tuple(Kind.UNCHANGED, "UA2091"),
+                        tuple(Kind.UNCHANGED, "UA3509"),
+                        tuple(Kind.CHANGED, "UA1100"));
+        assertThat(onlyTheReturn.execute(context(afterBothFlew)).toList())
+                .as("only the moved leg and the membership are written; no flown leg is cancelled")
+                .containsExactly(
+                        new FlightChanged(yowSfo.flightId(), "United Airlines", "UA1100",
+                                yowSfo.departureAirport(), later.departureDateTime(),
+                                yowSfo.arrivalAirport(), later.arrivalDateTime(), "Airline schedule change"),
+                        new FlightItineraryChanged(ITINERARY,
+                                List.of(sfoOrd.flightId(), ordYow.flightId(), yowSfo.flightId()),
+                                "Airline schedule change", afterBothFlew));
+    }
+
+    @Test
+    void aLegNotYetFlownMissingFromThePasteIsStillDropped() {
+        // Leg 1 has flown; leg 2 departs later today and the paste leaves it out.
+        Instant afterLegOne = Instant.parse("2026-10-18T18:00:00Z");
+
+        ItineraryChangePlan plan = command(copyOf(yowSfo)).plan(context(afterLegOne));
+
+        assertThat(plan.diffs())
+                .extracting(ItineraryChangePlan.LegDiff::kind, diff -> diff.effective().flightNumber())
+                .containsExactly(
+                        tuple(Kind.UNCHANGED, "UA2091"),
+                        tuple(Kind.REMOVED, "UA3509"),
+                        tuple(Kind.UNCHANGED, "UA1100"));
+    }
+
+    @Test
+    void aRebookingIsRecordedAsTedsOwnChangeNotTheAirlines() {
+        // HE80PP's shape: the trip now ends without ORD->YOW, and YOW->SFO moves.
+        ItineraryLeg later = pasted("UA1100", "YOW", "SFO", 25, 10, 25, 16);
+
+        List<Event> events = rebooking(copyOf(sfoOrd), later).execute(context()).toList();
+
+        assertThat(events)
+                .containsExactly(
+                        new FlightCancelled(ordYow.flightId(), "Rebooked", NOW, FlightCancellationCause.REBOOKED),
+                        new FlightChanged(yowSfo.flightId(), "United Airlines", "UA1100",
+                                yowSfo.departureAirport(), later.departureDateTime(),
+                                yowSfo.arrivalAirport(), later.arrivalDateTime(), "Rebooked"),
+                        new FlightItineraryRebooked(ITINERARY,
+                                List.of(sfoOrd.flightId(), ordYow.flightId(), yowSfo.flightId()),
+                                "Rebooked", NOW));
+    }
+
+    @Test
+    void aRebookingStillRefusesALegCancelledOnItsOwnEarlier() {
+        // D12: a hand-cancelled leg never comes back through a paste, whoever made the change.
+        ChangeFlightItineraryContext context = new ChangeFlightItineraryContext(true,
+                List.of(sfoOrd, yowSfo), List.of(ordYow), scheduled(sfoOrd, yowSfo), NOW);
+        ItineraryLeg relisted = pasted("UA3509", "ORD", "YOW", 18, 15, 18, 18);
+
+        assertThatExceptionOfType(FlightItineraryRefused.class)
+                .isThrownBy(() -> rebooking(copyOf(sfoOrd), relisted, copyOf(yowSfo)).execute(context).toList())
+                .extracting(FlightItineraryRefused::refusals, list(LegRefusal.class))
+                .extracting(LegRefusal::legNumber, refusal -> refusal.reason().getClass())
+                .containsExactly(tuple(2, LegCancelledEarlier.class));
+    }
+
+    @Test
+    void aChangeMustSayWhoMadeIt() {
+        assertThatExceptionOfType(IllegalArgumentException.class)
+                .isThrownBy(() -> new ChangeFlightItineraryCommand(ITINERARY, null, List.of(copyOf(sfoOrd))));
     }
 
     @Test
@@ -279,7 +347,11 @@ class ChangeFlightItineraryCommandTest {
     }
 
     private ChangeFlightItineraryCommand command(ItineraryLeg... pasted) {
-        return new ChangeFlightItineraryCommand(ITINERARY, List.of(pasted));
+        return new ChangeFlightItineraryCommand(ITINERARY, ItineraryChangeKind.SCHEDULE_CHANGE, List.of(pasted));
+    }
+
+    private ChangeFlightItineraryCommand rebooking(ItineraryLeg... pasted) {
+        return new ChangeFlightItineraryCommand(ITINERARY, ItineraryChangeKind.REBOOKING, List.of(pasted));
     }
 
     private ChangeFlightItineraryContext context() {

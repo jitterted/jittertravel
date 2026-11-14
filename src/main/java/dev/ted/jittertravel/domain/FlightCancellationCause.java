@@ -12,5 +12,16 @@ public enum FlightCancellationCause {
     /** Cancelled by Ted, alone or as part of cancelling a whole trip. Also what every older event reads as. */
     MANUAL,
     /** Dropped by applying an airline's schedule change to its itinerary. */
-    AIRLINE_SCHEDULE_CHANGE
+    AIRLINE_SCHEDULE_CHANGE,
+    /**
+     * Dropped by Ted's own rebooking of its itinerary. Still <em>dropped</em>, not cancelled: a
+     * later paste listing it books it again, so changing back to the original works
+     * ({@code docs/FlightItineraryRebookingPlan.md} D2).
+     */
+    REBOOKED;
+
+    /** Whether a later paste listing the leg books it again, rather than being refused. */
+    public boolean dropped() {
+        return this != MANUAL;
+    }
 }

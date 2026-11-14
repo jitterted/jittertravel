@@ -6,6 +6,7 @@ import dev.ted.jittertravel.domain.BookFlightContext;
 import dev.ted.jittertravel.domain.BookFlightItineraryCommand;
 import dev.ted.jittertravel.domain.ChangeFlightItineraryCommand;
 import dev.ted.jittertravel.domain.ChangeFlightItineraryContext;
+import dev.ted.jittertravel.domain.ItineraryChangeKind;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryId;
@@ -151,7 +152,8 @@ public class FlightItineraryBooking {
                                                            + " was cancelled; it cannot be changed"));
         }
         if (booked.live()) {
-            ChangeFlightItineraryCommand change = new ChangeFlightItineraryCommand(booked.itineraryId(), pastedLegs);
+            ChangeFlightItineraryCommand change = new ChangeFlightItineraryCommand(booked.itineraryId(),
+                    ItineraryChangeKind.SCHEDULE_CHANGE, pastedLegs);
             ChangeFlightItineraryContext changeContext = booked.contextFor(context);
             return ItineraryEvaluation.scheduleChange(itinerary.confirmationCode(),
                     new ItineraryEvaluation.ScheduleChange(change, changeContext, change.plan(changeContext)));

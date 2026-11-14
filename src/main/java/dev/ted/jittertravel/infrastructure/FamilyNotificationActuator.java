@@ -11,6 +11,7 @@ import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryChanged;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
 import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.NotifiedFact;
 import dev.ted.jittertravel.domain.NotifiedSubject;
@@ -154,6 +155,8 @@ public class FamilyNotificationActuator implements EventReactor {
                 case FlightBooked flight -> booked.put(flight.flightId(), flight);
                 case FlightItineraryBooked trip -> partOfATrip.addAll(trip.flightIds());
                 case FlightItineraryChanged change -> partOfATrip.addAll(change.flightIds());
+                // without it, a leg a rebooking adds would go out as its own "flight booked" email
+                case FlightItineraryRebooked rebooking -> partOfATrip.addAll(rebooking.flightIds());
                 default -> { /* not a new trip */ }
             }
         }

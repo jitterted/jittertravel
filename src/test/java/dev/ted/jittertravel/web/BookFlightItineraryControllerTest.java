@@ -8,6 +8,7 @@ import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.BookFlightItineraryCommand;
 import dev.ted.jittertravel.domain.ChangeFlightItineraryCommand;
 import dev.ted.jittertravel.domain.ChangeFlightItineraryContext;
+import dev.ted.jittertravel.domain.ItineraryChangeKind;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.ScheduledLegs;
 import dev.ted.jittertravel.domain.FlightId;
@@ -355,7 +356,7 @@ class BookFlightItineraryControllerTest {
                 AirportCode.of("SFO"), ZonedTimestamp.fromLocal(newDeparture, pacific),
                 AirportCode.of("ORD"), ZonedTimestamp.fromLocal(LEG.arrivalLocal(), chicago));
         ChangeFlightItineraryCommand command = new ChangeFlightItineraryCommand(
-                FlightItineraryId.of(UUID.randomUUID()), List.of(pasted));
+                FlightItineraryId.of(UUID.randomUUID()), ItineraryChangeKind.SCHEDULE_CHANGE, List.of(pasted));
         ChangeFlightItineraryContext context = new ChangeFlightItineraryContext(true, List.of(booked), List.of(),
                 ScheduledLegs.none(), Instant.parse("2026-10-03T12:00:00Z"));
         return new ItineraryEvaluation(List.of(), "MD7LKB", List.of(), List.of(), null, false,

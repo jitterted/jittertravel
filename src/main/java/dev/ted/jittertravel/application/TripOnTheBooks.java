@@ -3,13 +3,13 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.BookFlightContext;
 import dev.ted.jittertravel.domain.ChangeFlightItineraryContext;
 import dev.ted.jittertravel.domain.FlightBooked;
-import dev.ted.jittertravel.domain.FlightCancellationCause;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryChanged;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
 import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.ItineraryLeg;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -66,6 +66,7 @@ final class TripOnTheBooks {
                     }
                 }
                 case FlightItineraryChanged e -> membersByItinerary.put(e.itineraryId(), e.flightIds());
+                case FlightItineraryRebooked e -> membersByItinerary.put(e.itineraryId(), e.flightIds());
                 case FlightItineraryCancelled e -> cancelled.add(e.itineraryId());
                 case FlightBooked e -> legs.put(e.flightId(), new ItineraryLeg(e.flightId(), e.airline(),
                         e.flightNumber(), e.departureAirport(), e.departureDateTime(),
@@ -75,7 +76,7 @@ final class TripOnTheBooks {
                         e.arrivalAirport(), e.arrivalDateTime()));
                 case FlightCancelled e -> {
                     cancelledFlights.add(e.flightId());
-                    if (e.cause() == FlightCancellationCause.AIRLINE_SCHEDULE_CHANGE) {
+                    if (e.cause().dropped()) {
                         droppedFlights.add(e.flightId());
                     }
                 }

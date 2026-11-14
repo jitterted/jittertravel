@@ -6,6 +6,7 @@ import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
 
@@ -103,6 +104,25 @@ class BookedItinerariesProjectorTest {
                 .as("Flight the change added")
                 .map(BookedItineraryView::confirmationCode)
                 .hasValue("MD7LKB");
+    }
+
+    @Test
+    void aRebookingReplacesTheMembershipAndEveryFlightStillBelongsToTheTrip() {
+        FlightId added = FlightId.random();
+
+        projector.handle(Stream.of(
+                stored(1, new FlightItineraryBooked(itinerary, "United Airlines", "HE80PP", List.of(out, back))),
+                stored(2, new FlightItineraryRebooked(itinerary, List.of(out, back, added),
+                        "Rebooked", Instant.parse("2026-11-14T12:00:00Z")))));
+
+        assertThat(projector.findLive(itinerary))
+                .as("Itinerary after the rebooking")
+                .map(BookedItineraryView::flightIds)
+                .hasValue(List.of(out, back, added));
+        assertThat(projector.findContaining(added))
+                .as("Flight the rebooking added")
+                .map(BookedItineraryView::confirmationCode)
+                .hasValue("HE80PP");
     }
 
     private static StoredEvent stored(long sequence, Event payload) {

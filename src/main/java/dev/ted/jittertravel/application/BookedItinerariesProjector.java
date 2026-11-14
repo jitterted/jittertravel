@@ -5,9 +5,11 @@ import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,16 +35,19 @@ public class BookedItinerariesProjector implements EventStreamConsumer {
                                     event.confirmationCode(), event.flightIds(), false));
                     event.flightIds().forEach(flightId -> itineraryByFlight.put(flightId, event.itineraryId()));
                 }
-                case FlightItineraryChanged event -> {
-                    viewsByItinerary.computeIfPresent(event.itineraryId(),
-                            (id, view) -> view.withFlights(event.flightIds()));
-                    event.flightIds().forEach(flightId -> itineraryByFlight.put(flightId, event.itineraryId()));
-                }
+                case FlightItineraryChanged event -> membershipChanged(event.itineraryId(), event.flightIds());
+                case FlightItineraryRebooked event -> membershipChanged(event.itineraryId(), event.flightIds());
                 case FlightItineraryCancelled event -> viewsByItinerary.computeIfPresent(event.itineraryId(),
                         (id, view) -> view.cancelledNow());
                 default -> { /* not an itinerary event */ }
             }
         });
+    }
+
+    /** A schedule change and a rebooking both replace the membership snapshot. */
+    private void membershipChanged(FlightItineraryId itineraryId, List<FlightId> flightIds) {
+        viewsByItinerary.computeIfPresent(itineraryId, (id, view) -> view.withFlights(flightIds));
+        flightIds.forEach(flightId -> itineraryByFlight.put(flightId, itineraryId));
     }
 
     /**

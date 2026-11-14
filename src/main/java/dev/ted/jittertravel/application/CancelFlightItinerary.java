@@ -6,6 +6,7 @@ import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryChanged;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
 import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.ScheduledLeg;
 import dev.ted.jittertravel.domain.ScheduledLegId;
@@ -56,6 +57,7 @@ public class CancelFlightItinerary {
                     members = e.flightIds();
                 }
                 case FlightItineraryChanged e when e.itineraryId().equals(itineraryId) -> members = e.flightIds();
+                case FlightItineraryRebooked e when e.itineraryId().equals(itineraryId) -> members = e.flightIds();
                 case FlightItineraryCancelled e when e.itineraryId().equals(itineraryId) -> live = false;
                 default -> { /* not this itinerary's */ }
             }

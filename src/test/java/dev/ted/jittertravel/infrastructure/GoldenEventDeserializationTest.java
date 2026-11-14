@@ -17,6 +17,7 @@ import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryChanged;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringPlanned;
@@ -1271,6 +1272,26 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
+    void flightCancelledDroppedByARebookingDeserializesWithItsCause() {
+        // Additive enum value, 2026-11-14 (FlightItineraryRebookingPlan D2).
+        String json = """
+                {
+                  "flightId": {"id": "88888888-8888-8888-8888-888888888888"},
+                  "reason": "Rebooked",
+                  "cancelledOn": "2026-11-14T17:00:00Z",
+                  "cause": "REBOOKED"
+                }
+                """;
+
+        FlightCancelled event = deserialize(json, FlightCancelled.class);
+
+        assertThat(event.cause())
+                .isEqualTo(FlightCancellationCause.REBOOKED);
+        assertThat(event.reason())
+                .isEqualTo("Rebooked");
+    }
+
+    @Test
     void flightCancelledWithNoReasonDeserializesToTheEmptyString() {
         String json = """
                 {
@@ -1376,6 +1397,35 @@ class GoldenEventDeserializationTest {
                 .isEqualTo("Airline schedule change");
         assertThat(event.changedOn())
                 .isEqualTo(Instant.parse("2026-10-03T12:00:00Z"));
+    }
+
+    @Test
+    void flightItineraryRebookedDeserializesWithItsMembership() {
+        // New event, schema_version 1, 2026-11-14 (FlightItineraryRebookingPlan D1).
+        String json = """
+                {
+                  "itineraryId": {"id": "99999999-9999-9999-9999-999999999999"},
+                  "flightIds": [
+                    {"id": "11111111-1111-1111-1111-111111111111"},
+                    {"id": "22222222-2222-2222-2222-222222222222"}
+                  ],
+                  "reason": "Rebooked",
+                  "rebookedOn": "2026-11-14T12:00:00Z"
+                }
+                """;
+
+        FlightItineraryRebooked event = deserialize(json, FlightItineraryRebooked.class);
+
+        assertThat(event.itineraryId().id())
+                .isEqualTo(UUID.fromString("99999999-9999-9999-9999-999999999999"));
+        assertThat(event.flightIds())
+                .extracting(FlightId::id)
+                .containsExactly(UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                        UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        assertThat(event.reason())
+                .isEqualTo("Rebooked");
+        assertThat(event.rebookedOn())
+                .isEqualTo(Instant.parse("2026-11-14T12:00:00Z"));
     }
 
     // The shapes retired by LocationCodesUpcaster, copied from production (backup 2026-10-08): a

@@ -16,6 +16,7 @@ import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
 import dev.ted.jittertravel.domain.InvitedToSpeak;
 import dev.ted.jittertravel.domain.NotifiedFact;
 import dev.ted.jittertravel.domain.NotifiedSubject;
@@ -138,6 +139,18 @@ class FamilyNotificationActuatorTest {
         actuatorFor().react(batch(second,
                 new FlightItineraryChanged(trip, List.of(first.flightId(), second.flightId()),
                         "Airline schedule change", NOW)));
+
+        verifyNoInteractions(notifyFamily);
+    }
+
+    /** The same for Ted's own rebooking: the leg it adds is part of a trip, not a flight of its own. */
+    @Test
+    void aFlightBookedByARebookingIsNotSentAsAFlightOfItsOwn() {
+        FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
+
+        actuatorFor().react(batch(second,
+                new FlightItineraryRebooked(trip, List.of(first.flightId(), second.flightId()),
+                        "Rebooked", NOW)));
 
         verifyNoInteractions(notifyFamily);
     }

@@ -5,6 +5,7 @@ import dev.ted.jittertravel.application.PastedItinerary;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.ChangeFlightItineraryCommand;
 import dev.ted.jittertravel.domain.ChangeFlightItineraryContext;
+import dev.ted.jittertravel.domain.ItineraryChangeKind;
 import dev.ted.jittertravel.domain.DepartureNotInFuture;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryId;
@@ -233,7 +234,7 @@ class ItineraryPreviewTest {
 
     private static ItineraryEvaluation scheduleChange(List<ItineraryLeg> booked, List<ItineraryLeg> pasted) {
         ChangeFlightItineraryCommand command = new ChangeFlightItineraryCommand(
-                FlightItineraryId.of(UUID.randomUUID()), pasted);
+                FlightItineraryId.of(UUID.randomUUID()), ItineraryChangeKind.SCHEDULE_CHANGE, pasted);
         ChangeFlightItineraryContext context = new ChangeFlightItineraryContext(true, booked, List.of(),
                 ScheduledLegs.none(), Instant.parse("2026-10-03T12:00:00Z"));
         return new ItineraryEvaluation(List.of(), "MD7LKB", List.of(), List.of(), null, false,

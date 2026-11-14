@@ -1,6 +1,9 @@
 # Flight Itinerary Rebooking Plan
 
 Status: **decisions (D1–D10), mockup and email wording approved; D10's heading band built, the rest not** (2026-10-14).
+**2026-11-14: building the rest as one change (Ted), with HE80PP waiting for it.** Its BER→FRA leg
+(UA8786, Thu Nov 26) is to be recorded through the new page as "I rebooked". If the build is not
+live before then, cancel the leg by hand instead.
 
 Vocabulary as agreed in `terms.md`, "Agreed: flight vocabulary": *leg*, *journey*, *itinerary*,
 *confirmation code*, *schedule change*, *rebooking*, *dropped*, *cancelled*.
@@ -51,7 +54,7 @@ work. A new enum value is additive under R7; the check at `TripOnTheBooks:79` ac
   longer labels say which thing each action is about, now that a row carries actions for two
   things. At 820px the second line wraps "Cancel itinerary" onto a line of its own, with no
   horizontal scroll, which is as wanted. Change is always present so nothing moves; greyed with
-  the reason when it cannot apply ("Itinerary cancelled", "All legs already left"). An itinerary
+  the reason when it cannot apply ("Itinerary cancelled", "All legs already flown"). An itinerary
   with some legs flown can still be changed — only its future legs move.
 - **`/booked-itineraries/{id}/change`**, OWNER-only (`SecurityConfig` and the `policy()` matrix in
   `AuthorizationMatrixTest`, same change). A recording surface: the itinerary's current legs (which
@@ -119,6 +122,15 @@ are, YOW→ORD and ORD→SFO are dropped, YYZ→SFO is added.
 
 This is a guess, not a known fact: no real mid-trip email has been seen. Revisit when one arrives.
 
+**One arrived, 2026-11-14 (HE80PP), and it lists the flown legs.** Ted rebooked mid-trip to fly
+home from FRA directly. United's email after the rebooking lists all three remaining flights,
+flown ones included: "Flight 1 of 3 UA1642 SFO→EWR" and "Flight 2 of 3 UA962 EWR→BER", both
+already flown, plus "Flight 3 of 3 UA59 FRA→SFO". BER→FRA is missing. So D6's leniency was not
+needed for United. D6 stays: it costs nothing when the flown legs are there, and another airline
+may leave them out. The email numbers its legs among the *new* set ("1 of 3"), and its seat block
+still names `BER-FRA` with no seat. The parser has to ignore that line rather than read it as a
+leg; check this against the real paste, which is the first fixture for the change page.
+
 ### D7. D5 compares where and when travel starts and ends, not how journeys are counted
 
 When the number of journeys changes (a connection crosses 24 hours either way) and nothing moves by
@@ -151,7 +163,7 @@ https://claude.ai/artifact/4sr6NRo7LTzrtMo2HYyWQi, chosen over separate cards an
 - **`Change itinerary · Cancel itinerary` live on the band**, in the legs' actions column so they
   line up, and leave every leg row. The leg row reads `Edit · Cancel` again (Ted, 2026-10-13).
 - Greyed with the reason written under it, never removed: Cancel when legs have left
-  ("2 legs already left"), Change when all have ("All legs already left"), both when the itinerary
+  ("2 legs already flown"), Change when all have ("All legs already flown"), both when the itinerary
   is cancelled ("Itinerary cancelled").
 - The band's confirmation code is a **badge**: a solid pill in the trip's hue, white monospace
   text (Ted, 2026-10-13).
@@ -165,7 +177,8 @@ https://claude.ai/artifact/4sr6NRo7LTzrtMo2HYyWQi, chosen over separate cards an
   hand-entered flight that departs *between* two legs of a trip breaks that; decide then whether it
   sits inside the trip's group or splits it.
 - **Built 2026-10-13**: the band, the badge, Cancel itinerary on
-  the band with its three greyed reasons ("N legs already left", "Itinerary cancelled", "Every leg
+  the band with its three greyed reasons ("N legs already flown" — "left" until 2026-11-14, when Ted
+  found it read as "remaining" — "Itinerary cancelled", "Every leg
   cancelled"), `Booked on its own`, split runs, `Edit · Cancel` on the legs, and numbering among
   flying legs (`ItinerarySummary`, `FlightTrips.forList`). Journeys are worked out by
   `domain/Journey`, its first user. **Not yet built:** the band's Change itinerary link (waits for
@@ -176,6 +189,32 @@ https://claude.ai/artifact/4sr6NRo7LTzrtMo2HYyWQi, chosen over separate cards an
 
 MD7LKB's YYZ→SFO return has **not** been recorded yet, so there is no false history to correct. Ted
 records it with the change page once it ships.
+
+## Decided before the build (Ted, 2026-11-14)
+
+### D11. Book never changes an itinerary, and the old paste-to-change path is removed entirely
+
+"Pasting a changed itinerary into Book flight is a completely non-intuitive experience" (Ted). D4
+stands as the replacement: a paste whose confirmation code is already booked is refused, with the
+mockup's `BookAlreadyBooked` hand-off. That is the sentence naming the itinerary, plus a
+**Change itinerary <code>** button that carries the email to the change page by POST. Nothing on
+the Book page ever records a change, and `FlightItineraryBooking`'s schedule-change branch goes.
+The rule generalizes to any kind: a create surface creates, and an edit starts from the thing being
+edited.
+
+### D12. A hand-cancelled leg is refused for a rebooking too
+
+`LegCancelledEarlier` holds whichever choice is picked. Example: Ted cancels UA8786 BER→FRA by hand,
+then a pasted rebooking lists it again. That paste is refused, and getting back onto that flight is
+done with Book flight. Only a leg *dropped* by a change (cause `AIRLINE_SCHEDULE_CHANGE` or
+`REBOOKED`) can come back through a paste (D2).
+
+### D13. A flight departing between two legs of a trip splits the trip's group
+
+This settles D10's "open for build". `/booked-flights` stays in strict departure order. HE80PP with a
+lone TXL→MUC on Nov 15 reads: the HE80PP band with legs 1–2, a `Booked on its own` band with the
+Nov 15 flight, then HE80PP's band again with leg 3. D10's "split runs" may already do this; check
+it against a test and pin it if it does.
 
 ## Implementation notes
 

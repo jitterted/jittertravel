@@ -14,6 +14,7 @@ import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightItineraryHasDeparted;
 import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.FlightItineraryNotFound;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import dev.ted.jittertravel.web.CancelFlightItineraryRequest;
@@ -118,6 +119,23 @@ class CancelFlightItineraryTest {
                 stored(2, itineraryBooked(out)),
                 stored(3, booked(back, 20)),
                 stored(4, new FlightItineraryChanged(itinerary, List.of(out, back), "Airline schedule change", NOW))));
+
+        service(executor).cancelItinerary(UUID.randomUUID(),
+                new CancelFlightItineraryRequest(itinerary.id(), ""), NOW);
+
+        assertThat(executor.emittedEvents)
+                .containsExactly(new FlightCancelled(out, "", NOW),
+                        new FlightCancelled(back, "", NOW),
+                        new FlightItineraryCancelled(itinerary, "", NOW));
+    }
+
+    @Test
+    void aLegAddedByARebookingIsCancelledWithTheRest() {
+        RecordingCommandExecutor executor = new RecordingCommandExecutor(Stream.of(
+                stored(1, booked(out, 10)),
+                stored(2, itineraryBooked(out)),
+                stored(3, booked(back, 20)),
+                stored(4, new FlightItineraryRebooked(itinerary, List.of(out, back), "Rebooked", NOW))));
 
         service(executor).cancelItinerary(UUID.randomUUID(),
                 new CancelFlightItineraryRequest(itinerary.id(), ""), NOW);

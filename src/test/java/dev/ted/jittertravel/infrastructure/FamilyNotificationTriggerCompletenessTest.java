@@ -15,6 +15,7 @@ import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryChanged;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringPlanned;
 import dev.ted.jittertravel.domain.GroundTransferCancelled;
@@ -120,6 +121,10 @@ class FamilyNotificationTriggerCompletenessTest {
         because("a schedule change is not a new trip; the FlightBooked it writes for an added or "
                 + "reinstated leg is suppressed by FlightItineraryChanged being in the same batch",
                 silent, FlightItineraryChanged.class);
+        because("a rebooking is not a new trip; the FlightBooked it writes for an added leg is suppressed "
+                + "by FlightItineraryRebooked being in the same batch. Family email on a change is "
+                + "FlightItineraryRebookingPlan D5, not built yet",
+                silent, FlightItineraryRebooked.class);
         because("moves only the speaking axis, never the commitment, so it changes nothing family "
                 + "were told (Q1, 2026-09-10)",
                 silent, TalkSubmitted.class, TalkWithdrawn.class, InvitedToSpeak.class);

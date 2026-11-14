@@ -4,6 +4,7 @@ import dev.ted.jittertravel.domain.FlightItineraryRefused.LegRefusal;
 import dev.ted.jittertravel.domain.ItineraryChangePlan.Kind;
 import dev.ted.jittertravel.domain.ItineraryChangePlan.LegDiff;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -17,8 +18,12 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
- * Applies an airline's schedule change to an itinerary: the pasted legs are what the airline now
- * says, and the booked legs are made to agree. One command, several events, in one append — a
+ * Applies a change to an itinerary, either the airline's schedule change or Ted's own rebooking
+ * ({@link ItineraryChangeKind}, picked on the change page because the email cannot tell). The
+ * pasted legs are what the itinerary now holds, and the booked legs are made to agree. The rules
+ * are the same for both kinds; what differs is the fact recorded ({@link FlightItineraryChanged} or
+ * {@link FlightItineraryRebooked}), the reason on each leg's event, and the cause on a dropped leg.
+ * One command, several events, in one append — a
  * half-applied reroute (the new leg booked, the old one not cancelled) is exactly the overlapping
  * state the entry-time check exists to refuse.
  * <p>
@@ -30,7 +35,9 @@ import java.util.stream.Stream;
  * airline putting it back, and is added as a new booking.
  * <p>
  * <strong>History is not revised</strong> (Ted, 2026-10-03): a booked leg that has already departed
- * must be in the paste with the same times, or the change is refused. Any other leg that moves or is
+ * and is in the paste must have the same times, or the change is refused. A departed leg the paste
+ * leaves out is left alone, counted unchanged rather than dropped: an email sent mid-trip may list
+ * only what is still to come (D6, 2026-10-13). Any other leg that moves or is
  * added meets the rules a single booking meets, except that the itinerary's own legs do not count
  * as collisions — they are the thing being rewritten — and the pasted legs must not overlap each
  * other. Every refusal is collected and reported together, as in {@link BookFlightItineraryCommand}.
@@ -40,12 +47,17 @@ import java.util.stream.Stream;
  */
 public record ChangeFlightItineraryCommand(
         FlightItineraryId itineraryId,
+        ItineraryChangeKind kind,
         List<ItineraryLeg> pastedLegs
 ) implements DomainCommand<ChangeFlightItineraryContext> {
 
-    static final String REASON = "Airline schedule change";
+    static final String SCHEDULE_CHANGE_REASON = "Airline schedule change";
+    static final String REBOOKING_REASON = "Rebooked";
 
     public ChangeFlightItineraryCommand {
+        if (kind == null) {
+            throw new IllegalArgumentException("A change says who made it");
+        }
         if (pastedLegs == null || pastedLegs.isEmpty()) {
             throw new IllegalArgumentException("A schedule change has at least one leg");
         }
@@ -82,7 +94,9 @@ public record ChangeFlightItineraryCommand(
         }
         context.liveMembers().stream()
                 .filter(member -> !claimed.contains(member.flightId()))
-                .forEach(member -> diffs.add(new LegDiff(Kind.REMOVED, 0, member, null, null)));
+                .forEach(member -> diffs.add(member.departureDateTime().hasPassed(context.now())
+                        ? new LegDiff(Kind.UNCHANGED, 0, member, member, null)
+                        : new LegDiff(Kind.REMOVED, 0, member, null, null)));
 
         List<LegDiff> judged = diffs.stream().map(diff -> judge(diff, diffs, others, context)).toList();
         return new ItineraryChangePlan(judged.stream()
@@ -110,17 +124,36 @@ public record ChangeFlightItineraryCommand(
             case CHANGED -> Stream.<Event>of(changed(diff.after()));
             case ADDED -> Stream.<Event>of(diff.after().booked());
             case REMOVED -> Stream.<Event>of(
-                    new FlightCancelled(diff.before().flightId(), REASON, context.now(),
-                            FlightCancellationCause.AIRLINE_SCHEDULE_CHANGE));
+                    new FlightCancelled(diff.before().flightId(), reason(), context.now(), dropCause()));
         });
-        return Stream.concat(legEvents,
-                Stream.of(new FlightItineraryChanged(itineraryId, membership(plan, context), REASON, context.now())));
+        return Stream.concat(legEvents, Stream.of(itineraryEvent(membership(plan, context), context.now())));
     }
 
-    private static FlightChanged changed(ItineraryLeg leg) {
+    private String reason() {
+        return switch (kind) {
+            case SCHEDULE_CHANGE -> SCHEDULE_CHANGE_REASON;
+            case REBOOKING -> REBOOKING_REASON;
+        };
+    }
+
+    private FlightCancellationCause dropCause() {
+        return switch (kind) {
+            case SCHEDULE_CHANGE -> FlightCancellationCause.AIRLINE_SCHEDULE_CHANGE;
+            case REBOOKING -> FlightCancellationCause.REBOOKED;
+        };
+    }
+
+    private Event itineraryEvent(List<FlightId> membership, Instant now) {
+        return switch (kind) {
+            case SCHEDULE_CHANGE -> new FlightItineraryChanged(itineraryId, membership, reason(), now);
+            case REBOOKING -> new FlightItineraryRebooked(itineraryId, membership, reason(), now);
+        };
+    }
+
+    private FlightChanged changed(ItineraryLeg leg) {
         return new FlightChanged(leg.flightId(), leg.airline(), leg.flightNumber(),
                 leg.departureAirport(), leg.departureDateTime(),
-                leg.arrivalAirport(), leg.arrivalDateTime(), REASON);
+                leg.arrivalAirport(), leg.arrivalDateTime(), reason());
     }
 
     /** Everyone who belongs to the trip afterwards, cancelled legs included, in departure order. */
@@ -180,9 +213,8 @@ public record ChangeFlightItineraryCommand(
             return diff;
         }
         if (diff.before() != null && diff.before().departureDateTime().hasPassed(context.now())) {
-            return diff.refusedWith(new FlownLegContradicted(diff.kind() == Kind.REMOVED
-                    ? FlownLegContradicted.How.MISSING_FROM_PASTE
-                    : FlownLegContradicted.How.TIMES_DIFFER));
+            // Only a CHANGED leg reaches here: a departed leg the paste leaves out is UNCHANGED (D6).
+            return diff.refusedWith(new FlownLegContradicted());
         }
         if (diff.kind() == Kind.REMOVED) {
             return diff;

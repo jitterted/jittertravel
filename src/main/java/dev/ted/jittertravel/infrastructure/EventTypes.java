@@ -14,6 +14,7 @@ import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryChanged;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.GatheringChanged;
 import dev.ted.jittertravel.domain.GatheringPlanned;
@@ -116,6 +117,7 @@ public final class EventTypes {
         register("FlightItineraryBooked", FlightItineraryBooked.class);
         register("FlightItineraryCancelled", FlightItineraryCancelled.class);
         register("FlightItineraryChanged", FlightItineraryChanged.class);
+        register("FlightItineraryRebooked", FlightItineraryRebooked.class);
         register("FamilyNotified", FamilyNotified.class);
         register("TrainBooked", TrainBooked.class, LOCATION_CODES_SCHEMA_VERSION);
         register("TrainChanged", TrainChanged.class, LOCATION_CODES_SCHEMA_VERSION);

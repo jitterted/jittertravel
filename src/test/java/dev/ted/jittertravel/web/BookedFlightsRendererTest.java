@@ -4,11 +4,13 @@ import dev.ted.jittertravel.application.BookedFlightView;
 import dev.ted.jittertravel.application.CancelledView;
 import dev.ted.jittertravel.application.ChangeEntry;
 import dev.ted.jittertravel.application.FlightTrip;
+import dev.ted.jittertravel.application.ItineraryChangeOutcomesProjector;
 import dev.ted.jittertravel.application.ItinerarySummary;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.ItineraryChangeKind;
 import dev.ted.jittertravel.domain.ItineraryLeg;
 import dev.ted.jittertravel.domain.Journey;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -21,6 +23,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -500,34 +503,102 @@ class BookedFlightsRendererTest {
         String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "SFO→ORD", "United", "UA1")),
                 Map.of(flightId, new FlightTrip(md7lkb, 1)));
 
+        String path = "/booked-itineraries/" + md7lkb.itineraryId().id();
         assertThat(html)
-                .contains("<div class=\"flight-band-actions\"><a class=\"flight-itinerary-cancel-link\" "
-                          + "href=\"/booked-itineraries/" + md7lkb.itineraryId().id() + "/cancel\">"
-                          + "Cancel itinerary</a></div>")
-                .contains(".flight-itinerary-cancel-link { font-size: 0.85rem; color: #b00;");
+                .as("Change first and Cancel second, both live (D10)")
+                .contains("<div class=\"flight-band-actions\"><div class=\"flight-itinerary-actions\">"
+                          + "<a class=\"flight-itinerary-change-link\" href=\"" + path + "/change\">Change itinerary</a>"
+                          + "<a class=\"flight-itinerary-cancel-link\" href=\"" + path + "/cancel\">Cancel itinerary</a>"
+                          + "</div></div>")
+                .contains(".flight-itinerary-cancel-link { font-size: 0.85rem; color: #b00;")
+                .as("the change link declares its colour: the underline on hover is never the affordance")
+                .contains(".flight-itinerary-change-link { font-size: 0.85rem; color: var(--accent-color);")
+                .as("both live, so there is no reason to give")
+                .doesNotContain("<span class=\"flight-itinerary-why\">");
     }
 
+    /**
+     * Whatever stops an action, both stay in their slots, greyed with the reason written out. Where
+     * both are greyed, the reason is said once.
+     */
     @ParameterizedTest(name = "{0}")
     @CsvSource(delimiter = '|', textBlock = """
-            two legs flown   | 2 | false | true  | 2 legs already flown
-            one leg flown    | 1 | false | true  | 1 leg already flown
-            itinerary gone   | 0 | true  | false | Itinerary cancelled
-            nothing flying   | 0 | false | false | Every leg cancelled
+            two legs flown   | 2 | false | true  | true  | false | 2 legs already flown
+            one leg flown    | 1 | false | true  | true  | false | 1 leg already flown
+            every leg flown  | 4 | false | true  | false | false | All legs already flown
+            itinerary gone   | 0 | true  | false | false | false | Itinerary cancelled
+            nothing flying   | 0 | false | false | true  | false | Every leg cancelled
             """)
-    void anItineraryThatCannotBeCancelledWholeShowsItDisabledWithTheReasonWrittenOut(
-            String state, int departed, boolean cancelled, boolean flying, String reason) {
+    void anItineraryActionThatCannotBeDoneIsGreyedWithTheReasonWrittenOut(
+            String state, int departed, boolean cancelled, boolean flying,
+            boolean changeLive, boolean cancelLive, String reason) {
         FlightId flightId = FlightId.random();
         ItinerarySummary k3pq9r = summary("K3PQ9R", 4, departed, 0, cancelled, flying,
                 journey("YOW", "ORD", 18, 18));
         String html = renderWithTrips(List.of(viewWithoutChanges(flightId, "", "YOW→ORD", "United", "UA3510")),
                 Map.of(flightId, new FlightTrip(k3pq9r, 3)));
 
+        String path = "/booked-itineraries/" + k3pq9r.itineraryId().id();
+        String change = changeLive
+                ? "<a class=\"flight-itinerary-change-link\" href=\"" + path + "/change\">Change itinerary</a>"
+                : "<span class=\"flight-action-disabled\">Change itinerary</span>";
+        String cancel = cancelLive
+                ? "<a class=\"flight-itinerary-cancel-link\" href=\"" + path + "/cancel\">Cancel itinerary</a>"
+                : "<span class=\"flight-action-disabled\">Cancel itinerary</span>";
         assertThat(html)
-                .contains("<div class=\"flight-band-actions\"><div class=\"flight-itinerary-disabled\">"
-                          + "<span class=\"flight-action-disabled\">Cancel itinerary</span>"
-                          + "<span class=\"flight-itinerary-why\">" + reason + "</span></div></div>")
                 .as("the reason is text, because the iPad has no hover for a tooltip")
-                .doesNotContain("href=\"/booked-itineraries/");
+                .contains("<div class=\"flight-band-actions\"><div class=\"flight-itinerary-actions\">"
+                          + change + cancel
+                          + "<span class=\"flight-itinerary-why\">" + reason + "</span></div></div>")
+                .doesNotContain("href=\"" + path + "/cancel\"");
+    }
+
+    @Test
+    void aLegAChangeAddedSaysWhenBesideItsRoute() {
+        FlightId flightId = FlightId.random();
+        BookedFlightView added = viewWithoutChanges(flightId, "", "YYZ→SFO", "Air Canada", "AC757")
+                .addedBy(Instant.parse("2026-10-13T16:00:00Z"));
+
+        assertThat(renderWithTrips(List.of(added), Map.of()))
+                .contains("<span class=\"flight-added\">Added Oct 13</span>");
+        assertThat(renderWithTrips(List.of(viewWithoutChanges(flightId, "", "YYZ→SFO", "Air Canada", "AC757")),
+                Map.of()))
+                .as("a leg booked any other way says nothing")
+                .doesNotContain("<span class=\"flight-added\">");
+    }
+
+    @Test
+    void aLegAChangeDroppedSaysDroppedWithItsReasonNotCancelled() {
+        FlightId flightId = FlightId.random();
+        BookedFlightView dropped = viewWithoutChanges(flightId, "", "BER→FRA", "United", "UA8786")
+                .cancelledWith("Rebooked", Instant.parse("2026-11-14T15:00:00Z"), true);
+        BookedFlightView cancelled = viewWithoutChanges(flightId, "", "BER→FRA", "United", "UA8786")
+                .cancelledWith("", Instant.parse("2026-11-14T15:00:00Z"), false);
+
+        assertThat(BookedFlightsRenderer.render(List.of(dropped), TimeView.FUTURE, CancelledView.SHOW, 1))
+                .contains("<span class=\"flight-cancelled-badge\">Dropped Nov 14, 2026</span>"
+                          + "<span class=\"flight-cancelled-reason\">Rebooked</span>");
+        assertThat(BookedFlightsRenderer.render(List.of(cancelled), TimeView.FUTURE, CancelledView.SHOW, 1))
+                .contains("<span class=\"flight-cancelled-badge\">Cancelled Nov 14, 2026</span>");
+    }
+
+    @Test
+    void theBannerAfterAChangeSaysWhoMadeItAndWhatItDid() {
+        String rebooked = BookedFlightsRenderer.render(List.of(), TimeView.FUTURE, CancelledView.HIDE, 0, Map.of(),
+                Optional.of(new ChangeRecorded("HE80PP",
+                        new ItineraryChangeOutcomesProjector.Outcome(ItineraryChangeKind.REBOOKING, 0, 0, 1))));
+        String scheduleChange = BookedFlightsRenderer.render(List.of(), TimeView.FUTURE, CancelledView.HIDE, 0,
+                Map.of(), Optional.of(new ChangeRecorded("MD7LKB",
+                        new ItineraryChangeOutcomesProjector.Outcome(ItineraryChangeKind.SCHEDULE_CHANGE, 1, 2, 0))));
+
+        assertThat(rebooked)
+                .contains("<h1>Booked Flights</h1><div class=\"flight-change-recorded\">"
+                          + "<strong>Rebooking of HE80PP recorded:</strong> 1 leg dropped.</div>");
+        assertThat(scheduleChange)
+                .contains("<strong>Schedule change to MD7LKB recorded:</strong> 1 leg added, 2 moved.</div>");
+        assertThat(BookedFlightsRenderer.render(List.of(), TimeView.FUTURE))
+                .as("no banner on an ordinary visit")
+                .doesNotContain("<div class=\"flight-change-recorded\">");
     }
 
     @Test

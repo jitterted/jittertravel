@@ -2,6 +2,11 @@ package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedFlightsProjector;
 import dev.ted.jittertravel.application.BookedFlightView;
+import dev.ted.jittertravel.application.BookedItinerariesProjector;
+import dev.ted.jittertravel.application.BookedItineraryView;
+import dev.ted.jittertravel.application.ItineraryChangeOutcomesProjector;
+import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.ItineraryChangeKind;
 import dev.ted.jittertravel.application.CancelledView;
 import dev.ted.jittertravel.application.FlightTrip;
 import dev.ted.jittertravel.application.FlightTrips;
@@ -26,6 +31,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,6 +53,45 @@ class BookedFlightsWebIntegrationTest {
 
     @MockitoBean
     FlightTrips flightTrips;
+
+    @MockitoBean
+    BookedItinerariesProjector itinerariesProjector;
+
+    @MockitoBean
+    ItineraryChangeOutcomesProjector changeOutcomes;
+
+    private static final FlightItineraryId HE80PP = FlightItineraryId.of(UUID.fromString("55555555-5555-5555-5555-555555555555"));
+
+    @Test
+    void theBannerAfterARecordedChangeIsBuiltFromTheReadModelsNotTheAddress() {
+        given(projector.views(any(), any(), any())).willReturn(List.of());
+        given(itinerariesProjector.findLive(HE80PP)).willReturn(Optional.of(
+                new BookedItineraryView(HE80PP, "United Airlines", "HE80PP", List.of(), false)));
+        given(changeOutcomes.lastChange(HE80PP)).willReturn(Optional.of(
+                new ItineraryChangeOutcomesProjector.Outcome(ItineraryChangeKind.REBOOKING, 0, 0, 1)));
+
+        assertThat(mockMvc.get().uri("/booked-flights?changed=" + HE80PP.id() + "&how=rebooked"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<strong>Rebooking of HE80PP recorded:</strong> 1 leg dropped.</div>");
+    }
+
+    @Test
+    void anOutcomeKeyThatIsNotTheLastChangesShowsNoBanner() {
+        given(projector.views(any(), any(), any())).willReturn(List.of());
+        given(itinerariesProjector.findLive(HE80PP)).willReturn(Optional.of(
+                new BookedItineraryView(HE80PP, "United Airlines", "HE80PP", List.of(), false)));
+        given(changeOutcomes.lastChange(HE80PP)).willReturn(Optional.of(
+                new ItineraryChangeOutcomesProjector.Outcome(ItineraryChangeKind.REBOOKING, 0, 0, 1)));
+
+        assertThat(mockMvc.get().uri("/booked-flights?changed=" + HE80PP.id() + "&how=schedule-change"))
+                .hasStatusOk()
+                .bodyText()
+                .doesNotContain("<div class=\"flight-change-recorded\">");
+        assertThat(mockMvc.get().uri("/booked-flights?changed=not-a-uuid&how=rebooked"))
+                .as("a malformed id is ignored, not refused")
+                .hasStatusOk();
+    }
 
     @Test
     void bookedFlightsPageRendersOk() {

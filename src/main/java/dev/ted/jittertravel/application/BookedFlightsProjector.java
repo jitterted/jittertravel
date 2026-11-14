@@ -5,6 +5,8 @@ import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightCancelled;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.FlightItineraryChanged;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.EventStreamConsumer;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
@@ -31,6 +33,8 @@ public class BookedFlightsProjector implements EventStreamConsumer {
             DateTimeFormatter.ofPattern("uuuu-MM-dd h:mma", Locale.ENGLISH);
 
     private final Map<FlightId, BookedFlightView> viewsByFlight = new ConcurrentHashMap<>();
+    /** Which flights each command booked, so a change's membership can say which legs it added. */
+    private final Map<UUID, Set<FlightId>> bookedByCommand = new ConcurrentHashMap<>();
 
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
@@ -49,10 +53,28 @@ public class BookedFlightsProjector implements EventStreamConsumer {
                 // Kept as a record, not removed: the one flight read model that does, so a
                 // cancelled flight can be looked up behind ?cancelled=show (see FlightCancelled).
                 case FlightCancelled event -> viewsByFlight.computeIfPresent(event.flightId(),
-                        (id, view) -> view.cancelledWith(event.reason(), event.cancelledOn()));
+                        (id, view) -> view.cancelledWith(event.reason(), event.cancelledOn(),
+                                event.cause().dropped()));
+                // A leg a change added is booked in the change's own append, so the command id
+                // is what ties the FlightBooked to it; the date is the change's payload (R11).
+                case FlightItineraryChanged event ->
+                        markAddedBy(storedEvent.commandId(), event.flightIds(), event.changedOn());
+                case FlightItineraryRebooked event ->
+                        markAddedBy(storedEvent.commandId(), event.flightIds(), event.rebookedOn());
                 default -> { /* not a flight event */ }
             }
+            if (storedEvent.payload() instanceof FlightBooked booked) {
+                bookedByCommand.computeIfAbsent(storedEvent.commandId(), command -> new HashSet<>())
+                        .add(booked.flightId());
+            }
         });
+    }
+
+    private void markAddedBy(UUID commandId, List<FlightId> members, Instant on) {
+        Set<FlightId> bookedHere = bookedByCommand.getOrDefault(commandId, Set.of());
+        members.stream()
+                .filter(bookedHere::contains)
+                .forEach(flightId -> viewsByFlight.computeIfPresent(flightId, (id, view) -> view.addedBy(on)));
     }
 
     private void apply(FlightId flightId,
@@ -67,7 +89,7 @@ public class BookedFlightsProjector implements EventStreamConsumer {
             List<ChangeEntry> history = previous == null
                     ? List.of(newEntry)
                     : appendHistory(previous.history(), newEntry);
-            return new BookedFlightView(
+            BookedFlightView live = new BookedFlightView(
                     flightId,
                     airline,
                     flightNumber,
@@ -77,6 +99,8 @@ public class BookedFlightsProjector implements EventStreamConsumer {
                     arrivalDateTime,
                     history
             );
+            // A leg a change added stays "added" when it is later edited.
+            return previous != null && previous.addedByAChange() ? live.addedBy(previous.addedOn()) : live;
         });
     }
 

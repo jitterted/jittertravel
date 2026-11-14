@@ -3,7 +3,13 @@ package dev.ted.jittertravel.application;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancellationCause;
+import dev.ted.jittertravel.domain.FlightCancelled;
+import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.FlightItineraryChanged;
+import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 import org.junit.jupiter.api.Test;
@@ -95,6 +101,94 @@ class BookedFlightsProjectorTest {
         assertThat(projector.views(TimeView.ALL, NOW_INSTANT))
                 .extracting(BookedFlightView::flightNumber)
                 .containsExactly("UA1", "UA2");
+    }
+
+    /** A leg a change books arrives in the change's own append, so it shares the change's command id. */
+    @Test
+    void aLegARebookingAddedIsMarkedAddedOnTheRebookingsDate() {
+        BookedFlightsProjector projector = new BookedFlightsProjector();
+        FlightBooked original = sampleFlight("UA1", LocalDateTime.of(2026, 11, 26, 10, 0));
+        FlightBooked added = sampleFlight("UA59", LocalDateTime.of(2026, 11, 26, 13, 30));
+        FlightBooked unrelated = sampleFlight("UA7", LocalDateTime.of(2026, 11, 27, 9, 0));
+        FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
+        UUID rebooking = UUID.randomUUID();
+        Instant rebookedOn = Instant.parse("2026-11-14T15:00:00Z");
+
+        projector.handle(Stream.of(
+                stored(original, NOW_INSTANT),
+                stored(unrelated, NOW_INSTANT),
+                stored(added, rebooking),
+                stored(new FlightItineraryRebooked(trip, List.of(original.flightId(), added.flightId()),
+                        "Rebooked", rebookedOn), rebooking)));
+
+        assertThat(projector.find(added.flightId()))
+                .as("Leg the rebooking added")
+                .isPresent()
+                .map(BookedFlightView::addedOn)
+                .as("added on the rebooking's own date")
+                .hasValue(rebookedOn);
+        assertThat(projector.find(original.flightId()))
+                .as("Leg booked with the trip")
+                .isPresent()
+                .map(BookedFlightView::addedByAChange)
+                .as("not added by a change")
+                .hasValue(false);
+        assertThat(projector.find(unrelated.flightId()))
+                .as("Flight outside the change")
+                .isPresent()
+                .map(BookedFlightView::addedByAChange)
+                .hasValue(false);
+    }
+
+    @Test
+    void aLegAScheduleChangeAddedIsMarkedAddedAndStaysSoWhenLaterEdited() {
+        BookedFlightsProjector projector = new BookedFlightsProjector();
+        FlightBooked added = sampleFlight("UA59", LocalDateTime.of(2026, 11, 26, 13, 30));
+        UUID change = UUID.randomUUID();
+        Instant changedOn = Instant.parse("2026-11-14T15:00:00Z");
+
+        projector.handle(Stream.of(
+                stored(added, change),
+                stored(new FlightItineraryChanged(FlightItineraryId.of(UUID.randomUUID()), List.of(added.flightId()),
+                        "Airline schedule change", changedOn), change),
+                stored(new FlightChanged(added.flightId(), "United", "UA59", AirportCode.of("SFO"),
+                        zt(LocalDateTime.of(2026, 11, 26, 14, 0)), AirportCode.of("LAX"),
+                        zt(LocalDateTime.of(2026, 11, 26, 16, 0)), "Edited"), UUID.randomUUID())));
+
+        assertThat(projector.find(added.flightId()))
+                .as("Leg the schedule change added, edited by hand since")
+                .isPresent()
+                .map(BookedFlightView::addedOn)
+                .hasValue(changedOn);
+    }
+
+    @Test
+    void aCancellationRecordsWhetherItWasADrop() {
+        BookedFlightsProjector projector = new BookedFlightsProjector();
+        FlightBooked dropped = sampleFlight("UA8786", LocalDateTime.of(2026, 11, 26, 10, 40));
+        FlightBooked cancelled = sampleFlight("UA1", LocalDateTime.of(2026, 11, 27, 10, 40));
+
+        projector.handle(Stream.of(
+                stored(dropped, NOW_INSTANT),
+                stored(cancelled, NOW_INSTANT),
+                stored(new FlightCancelled(dropped.flightId(), "Rebooked", NOW_INSTANT,
+                        FlightCancellationCause.REBOOKED), NOW_INSTANT),
+                stored(new FlightCancelled(cancelled.flightId(), "", NOW_INSTANT), NOW_INSTANT)));
+
+        assertThat(projector.find(dropped.flightId()))
+                .as("Leg a rebooking dropped")
+                .isPresent()
+                .map(BookedFlightView::dropped)
+                .hasValue(true);
+        assertThat(projector.find(cancelled.flightId()))
+                .as("Flight cancelled by hand")
+                .isPresent()
+                .map(BookedFlightView::dropped)
+                .hasValue(false);
+    }
+
+    private static StoredEvent stored(Event event, UUID commandId) {
+        return new StoredEvent(1, event.getClass(), UUID.randomUUID(), NOW_INSTANT, event, commandId);
     }
 
     private static FlightBooked sampleFlight(String number, LocalDateTime departure) {

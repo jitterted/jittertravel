@@ -34,13 +34,29 @@ public record BookedFlightView(
         List<ChangeEntry> history,
         boolean cancelled,
         String cancellationReason,
-        Instant cancelledOn
+        Instant cancelledOn,
+        boolean dropped,
+        Instant addedOn
 ) implements TemporalView {
 
     public BookedFlightView {
         if (cancellationReason == null) {
             cancellationReason = "";
         }
+    }
+
+    /**
+     * Without the two facts a change to an itinerary adds: whether a cancellation was a
+     * <em>drop</em> by a schedule change or a rebooking ({@code dropped}), and when a change added
+     * this leg ({@code addedOn}, null for a leg booked any other way).
+     */
+    public BookedFlightView(FlightId flightId, String airline, String flightNumber,
+                            AirportCode departureAirport, AirportCode arrivalAirport,
+                            ZonedTimestamp departureDateTime, ZonedTimestamp arrivalDateTime,
+                            List<ChangeEntry> history, boolean cancelled, String cancellationReason,
+                            Instant cancelledOn) {
+        this(flightId, airline, flightNumber, departureAirport, arrivalAirport, departureDateTime,
+             arrivalDateTime, history, cancelled, cancellationReason, cancelledOn, false, null);
     }
 
     /** A live flight: not cancelled. */
@@ -78,9 +94,20 @@ public record BookedFlightView(
         return history.getLast().displayText();
     }
 
-    /** A copy marked cancelled, carrying what the cancellation recorded. */
-    BookedFlightView cancelledWith(String reason, Instant on) {
+    /** A copy marked cancelled, carrying what the cancellation recorded, and whether it was a drop. */
+    public BookedFlightView cancelledWith(String reason, Instant on, boolean wasDropped) {
         return new BookedFlightView(flightId, airline, flightNumber, departureAirport, arrivalAirport,
-                departureDateTime, arrivalDateTime, history, true, reason, on);
+                departureDateTime, arrivalDateTime, history, true, reason, on, wasDropped, addedOn);
+    }
+
+    /** A copy marked as added to its itinerary by a change on {@code on}. */
+    public BookedFlightView addedBy(Instant on) {
+        return new BookedFlightView(flightId, airline, flightNumber, departureAirport, arrivalAirport,
+                departureDateTime, arrivalDateTime, history, cancelled, cancellationReason, cancelledOn,
+                dropped, on);
+    }
+
+    public boolean addedByAChange() {
+        return addedOn != null;
     }
 }

@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -123,6 +124,10 @@ class TimeFilterToggleConventionTest {
         // Rows' extra facts, keyed by row (the flights list's trips): none for an empty list.
         if (type == Map.class) {
             return Map.of();
+        }
+        // A one-off banner a view may carry (the flights list after a change): none.
+        if (type == Optional.class) {
+            return Optional.empty();
         }
         return List.of();
     }

@@ -27,6 +27,7 @@ public class BookedFlightsRenderer {
     private static final String TIME_PATTERN = "h:mm a";
     private static final DateTimeFormatter CANCELLED_ON =
             DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH);
+    private static final DateTimeFormatter ADDED_ON = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
     private static final DateTimeFormatter BAND_DATE =
             DateTimeFormatter.ofPattern(DATE_PATTERN, Locale.ENGLISH);
 
@@ -154,9 +155,22 @@ public class BookedFlightsRenderer {
             /* Red like Cancel Flight, and for the same reason: nothing puts the itinerary back. */
             .flight-itinerary-cancel-link { font-size: 0.85rem; color: #b00; text-decoration: none; }
             .flight-itinerary-cancel-link:hover { text-decoration: underline; }
-            .flight-itinerary-disabled { display: grid; gap: 1px; justify-items: start; }
-            /* The reason is text on the page, never a title: the iPad has no hover. */
-            .flight-itinerary-why { font-size: 0.7rem; line-height: 1.3; color: var(--muted-text); max-width: 15ch; }
+            /* Change always first and Cancel always second, live or greyed, so neither moves. */
+            .flight-itinerary-change-link { font-size: 0.85rem; color: var(--accent-color); text-decoration: none; }
+            .flight-itinerary-change-link:hover { text-decoration: underline; }
+            .flight-itinerary-actions { display: flex; flex-wrap: wrap; gap: 1px 0.75rem; align-items: baseline; }
+            /* The reason is text on the page, never a title: the iPad has no hover. It takes a line
+               of its own under the pair. */
+            .flight-itinerary-why { flex-basis: 100%; font-size: 0.7rem; line-height: 1.3; color: var(--muted-text); }
+            /* A leg a change added, beside its route; and the banner after a change is recorded. */
+            .flight-added {
+                display: inline-block; margin-left: 0.4rem; padding: 0 6px; border-radius: 4px;
+                font-size: 0.7rem; background: #eaf5ea; color: #2e7d32; white-space: nowrap;
+            }
+            .flight-change-recorded {
+                margin-top: 1rem; padding: 0.7rem 0.9rem; border: 1px solid #2e7d32; border-left-width: 4px;
+                background: #eaf5ea; border-radius: 6px; font-size: 0.95rem;
+            }
             /* A cancelled flight is a record, muted so it reads as inactive. */
             .flight-card--cancelled .flight-card-cell { color: var(--muted-text); }
             /* When and why, on a line of its own under the row and spanning all of it. contain:
@@ -293,11 +307,19 @@ public class BookedFlightsRenderer {
     public static String render(List<BookedFlightView> flights, TimeView activeFilter,
                                 CancelledView activeCancelled, int cancelledCount,
                                 Map<FlightId, FlightTrip> trips) {
+        return render(flights, activeFilter, activeCancelled, cancelledCount, trips, Optional.empty());
+    }
+
+    /** @param changeRecorded the banner after a change to an itinerary is recorded, when there is one */
+    public static String render(List<BookedFlightView> flights, TimeView activeFilter,
+                                CancelledView activeCancelled, int cancelledCount,
+                                Map<FlightId, FlightTrip> trips, Optional<ChangeRecorded> changeRecorded) {
         return "<!DOCTYPE html>\n" + html(
                 Page.head("Booked Flights", CSS + ListToolbar.CSS),
                 body(
                         Page.viewNav(Page.NavAudience.OWNER, "/booked-flights"),
                         h1("Booked Flights"),
+                        changeRecorded.<DomContent>map(BookedFlightsRenderer::changeRecordedBanner).orElse(text("")),
                         div().withClass("conference-container").with(
                                 ListToolbar.render("Book another flight", "/book-flight",
                                         TimeFilterToggle.render("/booked-flights", activeFilter,
@@ -415,7 +437,38 @@ public class BookedFlightsRenderer {
                         span(datesOf(itinerary)).withClass("flight-band-dates"),
                         span(itinerary.legCount() + (itinerary.legCount() == 1 ? " leg" : " legs"))
                                 .withClass("flight-band-count")),
-                div().withClass("flight-band-actions").with(cancelItinerary(itinerary)));
+                div().withClass("flight-band-actions").with(itineraryActions(itinerary)));
+    }
+
+    /**
+     * {@code Change itinerary · Cancel itinerary}, each greyed with its reason when it cannot be
+     * done, never removed (D10). Where both are greyed, the reason that stops Change also stops
+     * Cancel and says more, so it is written once: an itinerary cancelled, or every leg flown.
+     */
+    private static DomContent itineraryActions(ItinerarySummary itinerary) {
+        String changeBlocked = changeBlocked(itinerary);
+        String cancelBlocked = cancelBlocked(itinerary);
+        String why = !changeBlocked.isEmpty() ? changeBlocked : cancelBlocked;
+        String path = "/booked-itineraries/" + itinerary.itineraryId().id();
+        return div().withClass("flight-itinerary-actions").with(
+                changeBlocked.isEmpty()
+                        ? a("Change itinerary").withClass("flight-itinerary-change-link").withHref(path + "/change")
+                        : span("Change itinerary").withClass("flight-action-disabled"),
+                cancelBlocked.isEmpty()
+                        ? a("Cancel itinerary").withClass("flight-itinerary-cancel-link").withHref(path + "/cancel")
+                        : span("Cancel itinerary").withClass("flight-action-disabled"),
+                why.isEmpty() ? text("") : span(why).withClass("flight-itinerary-why"));
+    }
+
+    /** Why the itinerary cannot be changed, or {@code ""}: only legs still to fly can move. */
+    private static String changeBlocked(ItinerarySummary itinerary) {
+        if (itinerary.cancelled()) {
+            return "Itinerary cancelled";
+        }
+        if (itinerary.flying() && itinerary.departedLegs() == itinerary.legCount()) {
+            return "All legs already flown";
+        }
+        return "";
     }
 
     /**
@@ -452,26 +505,17 @@ public class BookedFlightsRenderer {
      * "Flown", not "left" (Ted, 2026-11-14): "2 legs left" also reads as "2 legs remaining", the
      * opposite meaning. A leg in the air right now counts too, since the count is of departures.
      */
-    private static DomContent cancelItinerary(ItinerarySummary itinerary) {
+    private static String cancelBlocked(ItinerarySummary itinerary) {
         if (itinerary.cancelled()) {
-            return disabledItineraryAction("Itinerary cancelled");
+            return "Itinerary cancelled";
         }
         if (!itinerary.flying()) {
-            return disabledItineraryAction("Every leg cancelled");
+            return "Every leg cancelled";
         }
         if (!itinerary.canBeCancelledWhole()) {
-            return disabledItineraryAction(itinerary.departedLegs()
-                                           + (itinerary.departedLegs() == 1 ? " leg" : " legs")
-                                           + " already flown");
+            return itinerary.departedLegs() + (itinerary.departedLegs() == 1 ? " leg" : " legs") + " already flown";
         }
-        return a("Cancel itinerary").withClass("flight-itinerary-cancel-link")
-                .withHref("/booked-itineraries/" + itinerary.itineraryId().id() + "/cancel");
-    }
-
-    private static DomContent disabledItineraryAction(String why) {
-        return div().withClass("flight-itinerary-disabled").with(
-                span("Cancel itinerary").withClass("flight-action-disabled"),
-                span(why).withClass("flight-itinerary-why"));
+        return "";
     }
 
     private static DomContent renderFlightCard(BookedFlightView flight, FlightTrip trip) {
@@ -507,7 +551,8 @@ public class BookedFlightsRenderer {
                 div().withClass("flight-card-cell flight-route").with(
                         legLabel("Route"), text(flight.route()),
                         flight.cancelled() ? text("") : googleCalendarIcon(flight),
-                        flight.hasChanges() ? span("Changed").withClass("flight-changed") : text("")),
+                        flight.hasChanges() ? span("Changed").withClass("flight-changed") : text(""),
+                        flight.addedByAChange() && !flight.cancelled() ? addedLabel(flight) : text("")),
                 div().withClass("flight-card-cell").with(
                         legLabel("Airline"), text(flight.airline())),
                 div().withClass("flight-card-cell flight-number").with(
@@ -580,11 +625,24 @@ public class BookedFlightsRenderer {
      */
     private static DomContent cancelledLine(BookedFlightView flight) {
         String on = CANCELLED_ON.format(flight.cancelledOn().atZone(flight.departureDateTime().zone()));
-        var line = div(span("Cancelled " + on).withClass("flight-cancelled-badge"))
+        // A leg a schedule change or a rebooking took off its trip was dropped, not cancelled by
+        // hand (terms.md); the reason beside it says which ("Rebooked", "Airline schedule change").
+        var line = div(span((flight.dropped() ? "Dropped " : "Cancelled ") + on).withClass("flight-cancelled-badge"))
                 .withClass("flight-cancelled-line");
         return flight.cancellationReason().isBlank()
                 ? line
                 : line.with(span(flight.cancellationReason()).withClass("flight-cancelled-reason"));
+    }
+
+    private static DomContent changeRecordedBanner(ChangeRecorded recorded) {
+        return div().withClass("flight-change-recorded").with(
+                strong(recorded.headline()), text(" " + recorded.counts()));
+    }
+
+    /** "Added Nov 14" beside the route of a leg a change added, dated in the leg's own zone. */
+    private static DomContent addedLabel(BookedFlightView flight) {
+        return span("Added " + ADDED_ON.format(flight.addedOn().atZone(flight.departureDateTime().zone())))
+                .withClass("flight-added");
     }
 
     // Shown only once the grid stacks (see the container query); on a wide list the column header

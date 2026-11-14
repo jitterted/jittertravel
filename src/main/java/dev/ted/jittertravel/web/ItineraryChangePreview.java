@@ -74,13 +74,22 @@ public record ItineraryChangePreview(
 
     /** "Recorded as your rebooking: 1 leg added, 2 dropped, 2 unchanged." Only the kinds present. */
     private static String summary(ItineraryChangePlan plan, ItineraryChangeKind kind) {
-        List<String> parts = new ArrayList<>();
-        addCount(parts, plan.count(Kind.ADDED), "added");
-        addCount(parts, plan.count(Kind.CHANGED), "moved");
-        addCount(parts, plan.count(Kind.REMOVED), "dropped");
-        addCount(parts, plan.count(Kind.UNCHANGED), "unchanged");
-        String counted = String.join(", ", parts) + ".";
+        String counted = counted(plan.count(Kind.ADDED), plan.count(Kind.CHANGED), plan.count(Kind.REMOVED),
+                plan.count(Kind.UNCHANGED)) + ".";
         return kind == null ? counted : "Recorded as " + recordedAs(kind) + ": " + counted;
+    }
+
+    /**
+     * "1 leg added, 2 dropped": only the counts that are not zero. Shared with the banner on
+     * {@code /booked-flights} ({@link ChangeRecorded}), so a change reads the same before and after.
+     */
+    static String counted(int added, int moved, int dropped, int unchanged) {
+        List<String> parts = new ArrayList<>();
+        addCount(parts, added, "added");
+        addCount(parts, moved, "moved");
+        addCount(parts, dropped, "dropped");
+        addCount(parts, unchanged, "unchanged");
+        return String.join(", ", parts);
     }
 
     /** "1 leg added", then "2 dropped": the noun is said once, on the first count. */

@@ -588,6 +588,11 @@ public class EventSourcingConfig {
         return bootstrapper.register(new BookedItinerariesProjector());
     }
 
+    @Bean
+    public ItineraryChangeOutcomesProjector itineraryChangeOutcomesProjector(ProjectorBootstrapper bootstrapper) {
+        return bootstrapper.register(new ItineraryChangeOutcomesProjector());
+    }
+
     /** Composes two read models, so it lives a layer above both rather than inside either (R12). */
     @Bean
     public FlightTrips flightTrips(BookedFlightsProjector bookedFlightsProjector,

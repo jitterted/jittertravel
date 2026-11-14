@@ -206,6 +206,8 @@ you do not set it.
 > GitHub can load Pro components on Ted's subscription. That is a cost to his account and not a way
 > into the app or its data, and it was weighed and accepted (Ted, 2026-11-05,
 > `docs/archived/EventLogFilterPlan.md` D8). Do not move the code into a variable as a fix.
+> The script the kit serves is a separate exposure, also accepted (Ted, 2026-11-14, same D8): it
+> runs with the owner's session, so a compromised CDN could do anything Ted can on the admin pages.
 
 #### `REMEMBER_ME_KEY`: stability matters more than secrecy
 

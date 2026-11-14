@@ -157,6 +157,17 @@ would have closed it was weighed and declined as not worth a setting for this. W
 there is no blank state to render for: the filter is never "off", and the only failure is the CDN
 being unreachable, which the combobox shows as an empty box.
 
+**A compromised CDN is a second exposure, and it is accepted too (Ted, 2026-11-14).** The paragraph
+above is about someone *using* the kit code; this one is about the bundle the code fetches. The
+combobox script runs on an OWNER page with Ted's session, so whatever the kit serves can do anything
+he can: read the `XSRF-TOKEN` cookie (readable by script, by design of the cookie CSRF setup) and
+POST to any admin endpoint, `/admin/database` truncate included. The typed `DELETE` is no defence
+here, because a script types it as easily as a person. It was raised in the pre-push review and
+weighed against the likelihood of a vendor CDN being compromised, and accepted for one admin page.
+Two consequences follow. The "not a way into the app" above holds for the kit code and not for the
+bundle. And this is why the script stays on this one template: a second page that loads it is a
+second place that bundle runs, and adding one is a new decision, not a reuse of this one.
+
 `DEPLOYMENT.md`'s secrets paragraph gets one sentence naming this exception and why, so the next
 reader does not move the code into a variable as a fix. Nothing in `Pre-Push-Tasks.md`: there is no
 environment to prepare.

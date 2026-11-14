@@ -509,8 +509,8 @@ class BookedFlightsRendererTest {
 
     @ParameterizedTest(name = "{0}")
     @CsvSource(delimiter = '|', textBlock = """
-            two legs left    | 2 | false | true  | 2 legs already left
-            one leg left     | 1 | false | true  | 1 leg already left
+            two legs flown   | 2 | false | true  | 2 legs already flown
+            one leg flown    | 1 | false | true  | 1 leg already flown
             itinerary gone   | 0 | true  | false | Itinerary cancelled
             nothing flying   | 0 | false | false | Every leg cancelled
             """)

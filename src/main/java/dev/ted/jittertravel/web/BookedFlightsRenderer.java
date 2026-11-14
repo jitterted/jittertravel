@@ -447,7 +447,10 @@ public class BookedFlightsRenderer {
     /**
      * Shown disabled with its reason written out where the itinerary cannot be cancelled whole: the
      * iPad has no hover, so a tooltip would explain nothing. The reason has to be there even when
-     * the date filter hides the legs that already left.
+     * the date filter hides the legs already flown.
+     * <p>
+     * "Flown", not "left" (Ted, 2026-11-14): "2 legs left" also reads as "2 legs remaining", the
+     * opposite meaning. A leg in the air right now counts too, since the count is of departures.
      */
     private static DomContent cancelItinerary(ItinerarySummary itinerary) {
         if (itinerary.cancelled()) {
@@ -459,7 +462,7 @@ public class BookedFlightsRenderer {
         if (!itinerary.canBeCancelledWhole()) {
             return disabledItineraryAction(itinerary.departedLegs()
                                            + (itinerary.departedLegs() == 1 ? " leg" : " legs")
-                                           + " already left");
+                                           + " already flown");
         }
         return a("Cancel itinerary").withClass("flight-itinerary-cancel-link")
                 .withHref("/booked-itineraries/" + itinerary.itineraryId().id() + "/cancel");

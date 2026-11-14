@@ -1108,8 +1108,14 @@ that has started: the form then carries a token whose cookie never existed, and 
 because that was the first large page after a fresh login; every older form worked only because a
 smaller page had already minted the cookie. The fix is the filter, not a Thymeleaf setting: it makes
 the outcome independent of page size and of which page was opened first. MockMvc cannot show this
-failure (it never commits a response early), so after adding a form, check the **first page after a
-fresh login** against the running app for `Set-Cookie: XSRF-TOKEN`.
+failure (it never commits a response early), so after adding or moving a POST form, or touching
+`SecurityConfig`, `CsrfCookieFilter` or response buffering, run **`./mvnw test -Preal-server`**
+(2026-11-14). `CsrfCookieOnARealServerTest` logs in fresh against a real Tomcat, commits the form
+page's response before its view runs, and asserts the cookie was written and the form's POST
+succeeds. It is excluded from the default build, the pre-push hook and both PIT runs, so nothing
+runs it for you. Committing early is deliberate: no page is reliably large (`/admin`, where this was
+found, has no form now), and Tomcat's `setBufferSize` only grows the buffer, so it cannot make a small
+page behave like a large one.
 
 **`.with(csrf())` replaces the shared `CsrfFilter`'s token repository with one that writes no cookie,
 and never puts it back.** In a cached context that is shared with a `csrf()` user, a cookie assertion

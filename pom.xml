@@ -191,6 +191,7 @@
             <param>js</param>
             <param>replay-preflight</param>
             <param>performance</param>
+            <param>real-server</param>
           </excludedGroups>
           <!-- Same JVM zone as surefire's argLine, or zone-dependent tests fail under PIT
                for reasons that have nothing to do with the mutant. -->
@@ -226,7 +227,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
-          <excludedGroups>js,replay-preflight</excludedGroups>
+          <excludedGroups>js,replay-preflight,real-server</excludedGroups>
           <!-- Pin the test JVM to UTC so timezone-dependent tests behave the same
                on every machine and on CI, regardless of the host's default zone.
                The logging config exists for one line of output and src/test/resources/
@@ -349,6 +350,7 @@
                 <param>js</param>
                 <param>replay-preflight</param>
                 <param>performance</param>
+                <param>real-server</param>
               </excludedGroups>
               <reportsDirectory>${project.build.directory}/pit-reports-spring</reportsDirectory>
               <!-- A mutant that breaks context start-up must not be mistaken for a hang, and a
@@ -374,6 +376,26 @@
             <configuration>
               <excludedGroups combine.self="override"></excludedGroups>
               <groups>replay-preflight</groups>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <!-- Runs ONLY the tests that need a real Tomcat on a random port (Testcontainers, so Docker
+           too): `mvn test -Preal-server`. Today that is CsrfCookieOnARealServerTest, which checks
+           the CSRF cookie survives a page larger than the response buffer, a failure MockMvc cannot
+           show. Run it when that can have changed: a new or moved POST form, or a change to
+           SecurityConfig, CsrfCookieFilter or response buffering. -->
+      <id>real-server</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <excludedGroups combine.self="override"></excludedGroups>
+              <groups>real-server</groups>
             </configuration>
           </plugin>
         </plugins>

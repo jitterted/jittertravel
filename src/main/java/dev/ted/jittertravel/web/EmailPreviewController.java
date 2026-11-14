@@ -136,7 +136,8 @@ public class EmailPreviewController {
             case FLIGHTS -> List.of(
                     messages.messageFor(NotifiedFact.FLIGHT_BOOKED, samples.singleFlight()),
                     messages.messageFor(NotifiedFact.ITINERARY_BOOKED, samples.trip()),
-                    messages.messageFor(NotifiedFact.ITINERARY_CANCELLED, samples.trip()));
+                    messages.messageFor(NotifiedFact.ITINERARY_CANCELLED, samples.trip()),
+                    messages.tripChanged(samples.changedTrip(), samples.changedFrom()));
             case CONFERENCES -> {
                 ConferenceNews conference = samples.conference();
                 yield List.of(
@@ -155,7 +156,8 @@ public class EmailPreviewController {
             case FLIGHTS -> List.of(
                     preview("Flight booked", "flight-booked.txt", sent.get(0)),
                     preview("Trip booked", "trip-booked.txt", sent.get(1)),
-                    preview("Trip cancelled", "trip-cancelled.txt", sent.get(2)));
+                    preview("Trip cancelled", "trip-cancelled.txt", sent.get(2)),
+                    preview("Trip changed", "trip-changed.txt", sent.get(3)));
             case CONFERENCES -> List.of(
                     preview("Conference going", "conference-going.txt", sent.get(0)),
                     preview("Conference declined", "conference-not-going.txt", sent.get(1)),

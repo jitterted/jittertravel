@@ -12,14 +12,15 @@ Book refusing a booked code with the POST hand-off, and its schedule-change bran
 D5–D8 as `ItineraryChangeNews`, one rule for the preview and the email; D6; D12; Change itinerary on
 the band, "Added"/"Dropped" labels and the after-apply banner (D10, approved item 2).
 
-**Open, each needing Ted's word before it is built:**
-- D10's **"was leg 3"** on a dropped row. It needs the leg's place before the change, which no read
-  model keeps; the dropped row says "Dropped <date> · Rebooked" without it.
-- The banner's **"Your family was emailed."** The send runs in a reactor after the redirect, so the
-  banner cannot know the outcome; it says what was recorded and nothing about mail. The change
-  page's preview already says whether family will be emailed.
-- **`/admin/email-preview` does not show `trip-changed.txt` yet.** CLAUDE.md says that page shows
-  every email exactly as sent, so either add a sample change to it or narrow that sentence.
+**Settled 2026-11-14 (Ted), so nothing is open:**
+- D10's **"was leg 3"** on a dropped row is **dropped**, not deferred. It needs the leg's place before
+  the change, which no read model keeps; the dropped row says "Dropped <date> · Rebooked" without it.
+- The banner's **"Your family was emailed."** is **dropped**. The send runs in a reactor after the
+  redirect, so the banner cannot know the outcome; it says what was recorded and nothing about mail.
+  The change page's preview already says whether family will be emailed.
+- **`/admin/email-preview` shows `trip-changed.txt`** as a fourth flight email, "Trip changed": the
+  sample trip with its Ottawa departure moved earlier (UA3510 became UA3508), which the flight
+  group's button now sends with the other three.
 
 D13 needed no code: the list already split a trip around an interleaved flight, and
 `BookedFlightsRendererTest.flightsBookedOnTheirOwnGetAQuietBandAndAnInterleavedItineraryIsTwoRuns`

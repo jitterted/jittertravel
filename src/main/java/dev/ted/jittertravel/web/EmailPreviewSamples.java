@@ -38,6 +38,22 @@ final class EmailPreviewSamples {
                 leg(4, "UA2092", "ORD", at(CHICAGO, 25, 13, 0), "SFO", at(PACIFIC, 25, 15, 55)));
     }
 
+    /**
+     * The same trip after the airline moved its return: UA3510 out of Ottawa became an earlier
+     * UA3508, so the journey home now starts more than 2 hours sooner and family are told (D5).
+     */
+    List<FlightBooked> changedTrip() {
+        List<FlightBooked> trip = trip();
+        return List.of(trip.get(0), trip.get(1),
+                leg(5, "UA3508", "YOW", at(OTTAWA, 25, 6, 30), "ORD", at(CHICAGO, 25, 7, 55)),
+                trip.get(3));
+    }
+
+    /** What {@link #changedTrip()} changed: the old return leg, at its old times. */
+    List<FlightBooked> changedFrom() {
+        return List.of(trip().get(2));
+    }
+
     /** A conference with every optional line present: a venue, a talk and a link. */
     ConferenceNews conference() {
         // "Germany", not "DE": a stored country is a code now, and the email names it, as

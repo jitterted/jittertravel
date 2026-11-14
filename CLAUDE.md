@@ -1075,7 +1075,7 @@ absent, not a guess, so wrap the line:
 airport chain); a field it does not pass cannot appear in a message.
 
 **`/admin/email-preview`** (linked from Settings) shows every email exactly as sent, from fixed sample
-flights, and sends the three flight emails to `TED_REPLY_EMAIL` and nowhere else
+flights, and sends the four flight emails (a schedule change among them) to `TED_REPLY_EMAIL` and nowhere else
 (`BrevoEmailClient.sendTo`; nothing on that page can name the family address). It is how Ted checks
 how a link and the line breaks look in his own mail client.
 

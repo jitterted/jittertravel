@@ -34,7 +34,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 /**
  * The email preview page (mockup https://claude.ai/artifact/C7mjK5bUm6yY5nDVX1JgWu): every family
- * email as it would be sent, and a button that sends three of them to Ted and to no one else.
+ * email as it would be sent, and a button that sends the flight emails to Ted and to no one else.
  */
 @Tag("spring")
 @WebMvcTest(EmailPreviewController.class)
@@ -81,10 +81,12 @@ class EmailPreviewControllerTest {
                 .contains("<b>Flight booked</b><span>email/flight-booked.txt</span>")
                 .contains("<b>Trip booked</b><span>email/trip-booked.txt</span>")
                 .contains("<b>Trip cancelled</b><span>email/trip-cancelled.txt</span>")
+                .contains("<b>Trip changed</b><span>email/trip-changed.txt</span>")
                 .contains("<b>Test email</b><span>email/test-email.txt</span>")
                 .contains("<span>(JitterTravel) Ted booked a new flight: SFO → ORD</span>")
                 .contains("<span>(JitterTravel) Ted booked a new trip: SFO → ORD → YOW → ORD → SFO</span>")
                 .contains("<span>(JitterTravel) Ted cancelled a trip: SFO → ORD → YOW → ORD → SFO</span>")
+                .contains("<span>(JitterTravel) Ted&#39;s trip has changed: SFO → ORD → YOW → ORD → SFO</span>")
                 .contains("<span>JitterTravel test email</span>");
     }
 
@@ -103,7 +105,7 @@ class EmailPreviewControllerTest {
                 .contains("<b>Conference talk rejected</b><span>email/conference-not-going.txt</span>")
                 .contains("<span>(JitterTravel) Ted is going to a conference: SoCraTes 2026</span>")
                 .contains("<span>(JitterTravel) Ted is no longer going to SoCraTes 2026</span>")
-                .contains("Send all three to ted@example.com");
+                .contains("Send all four to ted@example.com");
     }
 
     @Test
@@ -161,8 +163,8 @@ class EmailPreviewControllerTest {
         assertThat(mockMvc.get().uri("/admin/email-preview"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("<div class=\"send-what\">Send these three emails to yourself</div>")
-                .contains("<button type=\"submit\" class=\"send-button\">Send all three to ted@example.com</button>")
+                .contains("<div class=\"send-what\">Send these four emails to yourself</div>")
+                .contains("<button type=\"submit\" class=\"send-button\">Send all four to ted@example.com</button>")
                 .containsPattern("<form action=\"/admin/email-preview/send\" method=\"post\">\\s*<input type=\"hidden\" name=\"_csrf\"");
     }
 
@@ -201,14 +203,19 @@ class EmailPreviewControllerTest {
                 .hasRedirectedUrl("/admin/email-preview");
 
         ArgumentCaptor<FamilyMessage> sent = ArgumentCaptor.forClass(FamilyMessage.class);
-        verify(brevo, times(3)).sendTo(eq("ted@example.com"), sent.capture());
+        verify(brevo, times(4)).sendTo(eq("ted@example.com"), sent.capture());
         verify(brevo, never()).send(any());
         assertThat(sent.getAllValues())
                 .extracting(FamilyMessage::subject)
                 .containsExactly(
                         "(JitterTravel) Ted booked a new flight: SFO → ORD",
                         "(JitterTravel) Ted booked a new trip: SFO → ORD → YOW → ORD → SFO",
-                        "(JitterTravel) Ted cancelled a trip: SFO → ORD → YOW → ORD → SFO");
+                        "(JitterTravel) Ted cancelled a trip: SFO → ORD → YOW → ORD → SFO",
+                        "(JitterTravel) Ted's trip has changed: SFO → ORD → YOW → ORD → SFO");
+        assertThat(sent.getAllValues().get(3).textContent())
+                .contains("3. UA3508")
+                .contains("These are the old flights that were changed:")
+                .contains("UA3510");
     }
 
     @Test
@@ -220,7 +227,7 @@ class EmailPreviewControllerTest {
                 .flash()
                 .containsEntry("justSentFLIGHTS", true);
 
-        verify(memory).remember(EmailGroup.FLIGHTS, new EmailPreviewMemory.Result(NOW, 3, 3, "ted@example.com", ""));
+        verify(memory).remember(EmailGroup.FLIGHTS, new EmailPreviewMemory.Result(NOW, 4, 4, "ted@example.com", ""));
     }
 
     @Test
@@ -229,17 +236,17 @@ class EmailPreviewControllerTest {
         willDoNothing().willThrow(new IllegalStateException("401 Unauthorized"))
                 .given(brevo).sendTo(any(), any());
         given(memory.last(EmailGroup.FLIGHTS)).willReturn(Optional.of(new EmailPreviewMemory.Result(
-                NOW, 1, 3, "ted@example.com", "The send failed: 401 Unauthorized")));
+                NOW, 1, 4, "ted@example.com", "The send failed: 401 Unauthorized")));
 
         assertThat(mockMvc.post().uri("/admin/email-preview/send").with(csrf()))
                 .hasStatusOk()
                 .bodyText()
                 .contains("class=\"send warn flash\"")
-                .contains("<div class=\"send-what\">Sending failed after 1 of 3</div>")
+                .contains("<div class=\"send-what\">Sending failed after 1 of 4</div>")
                 .contains("<button type=\"submit\" class=\"send-button\">Try again</button>");
 
         verify(memory).remember(EmailGroup.FLIGHTS, new EmailPreviewMemory.Result(
-                NOW, 1, 3, "ted@example.com", "The send failed: 401 Unauthorized"));
+                NOW, 1, 4, "ted@example.com", "The send failed: 401 Unauthorized"));
         verify(brevo, never()).send(any());
     }
 

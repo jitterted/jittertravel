@@ -2,9 +2,8 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.BookFlightItineraryCommand;
-import dev.ted.jittertravel.domain.ChangeFlightItineraryCommand;
-import dev.ted.jittertravel.domain.ChangeFlightItineraryContext;
-import dev.ted.jittertravel.domain.ItineraryChangePlan;
+import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 
 import java.util.List;
 
@@ -15,9 +14,11 @@ import java.util.List;
  * each leg ({@link Leg#refusal}). {@code command} is present only when every one of those is clear,
  * and is exactly what booking would execute.
  * <p>
- * A paste whose confirmation code is already a live itinerary is a schedule change, not a booking:
- * {@code scheduleChange} is then present, {@code legs} and {@code command} are empty, and the diff
- * stands in for both.
+ * <strong>A paste whose confirmation code is already a live itinerary is refused, never applied</strong>
+ * ({@code docs/FlightItineraryRebookingPlan.md} D4, D11): {@code onTheBooks} is then present and
+ * names it, so the page can send Ted to that itinerary's change page with the email. Book only ever
+ * books. Until 2026-11-14 such a paste quietly became a schedule change here, which Ted found
+ * "completely non-intuitive".
  */
 public record ItineraryEvaluation(
         List<String> parseProblems,
@@ -26,19 +27,13 @@ public record ItineraryEvaluation(
         List<AirportCode> unresolvedAirports,
         BookFlightItineraryCommand command,
         boolean alreadyBooked,
-        ScheduleChange scheduleChange
+        OnTheBooks onTheBooks
 ) {
 
     /** Every evaluation but "this form was already booked" — the common shape. */
     public ItineraryEvaluation(List<String> parseProblems, String confirmationCode, List<Leg> legs,
                                List<AirportCode> unresolvedAirports, BookFlightItineraryCommand command) {
         this(parseProblems, confirmationCode, legs, unresolvedAirports, command, false, null);
-    }
-
-    public ItineraryEvaluation(List<String> parseProblems, String confirmationCode, List<Leg> legs,
-                               List<AirportCode> unresolvedAirports, BookFlightItineraryCommand command,
-                               boolean alreadyBooked) {
-        this(parseProblems, confirmationCode, legs, unresolvedAirports, command, alreadyBooked, null);
     }
 
     public ItineraryEvaluation {
@@ -58,23 +53,20 @@ public record ItineraryEvaluation(
     }
 
     /**
-     * What applying the paste to the itinerary it matched would do. {@code command} is what
-     * applying would execute; {@code plan} is the same computation, shown as a diff.
+     * The live itinerary a pasted code already names: enough to say which one it is ("4 legs, Nov 7
+     * to Nov 26") and where to change it. {@code legCount} counts the legs still flying, from the
+     * first one's departure to the last one's arrival.
      */
-    public record ScheduleChange(ChangeFlightItineraryCommand command, ChangeFlightItineraryContext context,
-                                 ItineraryChangePlan plan) {
-        /** Nothing is refused and something differs: the only state worth a button. */
-        public boolean applicable() {
-            return plan.clean() && plan.hasChanges();
-        }
+    public record OnTheBooks(FlightItineraryId itineraryId, int legCount,
+                             ZonedTimestamp departs, ZonedTimestamp arrives) {
     }
 
     static ItineraryEvaluation unparseable(List<String> problems) {
         return new ItineraryEvaluation(problems, "", List.of(), List.of(), null);
     }
 
-    static ItineraryEvaluation scheduleChange(String confirmationCode, ScheduleChange change) {
-        return new ItineraryEvaluation(List.of(), confirmationCode, List.of(), List.of(), null, false, change);
+    static ItineraryEvaluation alreadyOnTheBooks(String confirmationCode, OnTheBooks onTheBooks) {
+        return new ItineraryEvaluation(List.of(), confirmationCode, List.of(), List.of(), null, false, onTheBooks);
     }
 
     /**
@@ -90,13 +82,8 @@ public record ItineraryEvaluation(
         return command != null;
     }
 
-    /** The paste named an itinerary that is already booked, so it is a change to it. */
-    public boolean isScheduleChange() {
-        return scheduleChange != null;
-    }
-
-    /** The paste is a change that can be applied. */
-    public boolean changeable() {
-        return scheduleChange != null && scheduleChange.applicable();
+    /** The paste's code names an itinerary already booked, so Book refuses it and points at its change page. */
+    public boolean isOnTheBooks() {
+        return onTheBooks != null;
     }
 }

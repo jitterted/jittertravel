@@ -14,6 +14,8 @@ import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
+import dev.ted.jittertravel.domain.ItineraryChangeKind;
 import dev.ted.jittertravel.domain.ItineraryChangePlan.Kind;
 import dev.ted.jittertravel.domain.ItineraryChangePlan.LegDiff;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -33,15 +35,16 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 /**
- * A paste whose confirmation code is already a live itinerary is a schedule change. The real
- * parser, zone table, fold and command, behind a spy executor that records what would be written.
+ * Changing a booked itinerary from its own page: the real parser, zone table, fold and plan, behind
+ * a spy executor that records what would be written.
  */
 class FlightItineraryChangeTest {
 
     private static final Instant NOW = Instant.parse("2026-10-03T12:00:00Z");
-    private static final FlightItineraryId FORM = FlightItineraryId.of(UUID.randomUUID());
+    private static final UUID COMMAND = UUID.randomUUID();
     private static final FlightItineraryId TRIP = FlightItineraryId.of(UUID.randomUUID());
     private static final Supplier<FlightId> NEW_FLIGHT_ID = () -> FlightId.of(UUID.randomUUID());
     private static final ZoneId PACIFIC = ZoneId.of("America/Los_Angeles");
@@ -70,22 +73,18 @@ class FlightItineraryChangeTest {
             Chicago, IL, US (ORD)        San Francisco, CA, US (SFO)
             """;
 
+    private static final String MOVED_PASTE = UNCHANGED_PASTE.replace("06:10 AM", "07:10 AM");
+
     @Test
-    void aMovedLegIsShownAsMovedWithTheTimeItWasAndNothingIsWrittenByEvaluate() {
+    void aMovedLegIsShownAsMovedAndNothingIsWrittenByEvaluate() {
         SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip);
 
-        ItineraryEvaluation evaluation = booking(executor).evaluate(
-                UNCHANGED_PASTE.replace("06:10 AM", "07:10 AM"), Map.of(), FORM, NEW_FLIGHT_ID, NOW);
+        ItineraryChangeEvaluation evaluation = change(executor).evaluate(TRIP, ItineraryChangeKind.SCHEDULE_CHANGE,
+                MOVED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
 
-        assertThat(evaluation.isScheduleChange())
-                .as("the code names a live itinerary")
+        assertThat(evaluation.applicable())
                 .isTrue();
-        assertThat(evaluation.bookable())
-                .as("a change is not a booking")
-                .isFalse();
-        assertThat(evaluation.changeable())
-                .isTrue();
-        assertThat(evaluation.scheduleChange().plan().diffs())
+        assertThat(evaluation.plan().diffs())
                 .extracting(LegDiff::kind)
                 .containsExactly(Kind.CHANGED, Kind.UNCHANGED);
         assertThat(executor.emitted)
@@ -93,15 +92,15 @@ class FlightItineraryChangeTest {
     }
 
     @Test
-    void applyingTheChangeWritesTheLegsAndTheItineraryInOneCommand() {
+    void applyingAScheduleChangeWritesTheLegsAndTheItineraryInOneCommand() {
         SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip);
 
-        booking(executor).book("request", UNCHANGED_PASTE.replace("06:10 AM", "07:10 AM"), Map.of(),
-                FORM, NEW_FLIGHT_ID, NOW);
+        change(executor).apply(COMMAND, "request", TRIP, ItineraryChangeKind.SCHEDULE_CHANGE,
+                MOVED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
 
         assertThat(executor.commandId)
-                .as("the form's id is the command id, as for a booking")
-                .isEqualTo(FORM.id());
+                .as("the id minted at the boundary is the command id")
+                .isEqualTo(COMMAND);
         assertThat(executor.emitted)
                 .hasSize(2);
         assertThat(executor.emitted.get(0))
@@ -114,15 +113,60 @@ class FlightItineraryChangeTest {
     }
 
     @Test
-    void aPasteMatchingWhatIsBookedOffersNothingToApplyAndWritesNothing() {
+    void applyingARebookingRecordsItAsTedsOwn() {
         SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip);
 
-        ItineraryEvaluation evaluation = booking(executor)
-                .book("request", UNCHANGED_PASTE, Map.of(), FORM, NEW_FLIGHT_ID, NOW);
+        change(executor).apply(COMMAND, "request", TRIP, ItineraryChangeKind.REBOOKING,
+                MOVED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
 
-        assertThat(evaluation.isScheduleChange())
+        assertThat(executor.emitted.get(1))
+                .isEqualTo(new FlightItineraryRebooked(TRIP, List.of(first, second), "Rebooked", NOW));
+    }
+
+    @Test
+    void withoutSayingWhoChangedItTheDiffIsShownButNothingCanBeApplied() {
+        SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip);
+
+        ItineraryChangeEvaluation evaluation = change(executor).apply(COMMAND, "request", TRIP, null,
+                MOVED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
+
+        assertThat(evaluation.kindMissing())
                 .isTrue();
-        assertThat(evaluation.changeable())
+        assertThat(evaluation.plan().diffs())
+                .as("the diff does not depend on who made the change")
+                .extracting(LegDiff::kind)
+                .containsExactly(Kind.CHANGED, Kind.UNCHANGED);
+        assertThat(evaluation.applicable())
+                .isFalse();
+        assertThat(executor.emitted)
+                .isEmpty();
+    }
+
+    @Test
+    void anEmailForAnotherConfirmationCodeIsRefusedAndNotAppliedToThatOne() {
+        SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip);
+
+        ItineraryChangeEvaluation evaluation = change(executor).apply(COMMAND, "request", TRIP,
+                ItineraryChangeKind.REBOOKING, MOVED_PASTE.replace("MD7LKB", "HE80PP"), Map.of(), NEW_FLIGHT_ID, NOW);
+
+        assertThat(evaluation.parseProblems())
+                .containsExactly("This email is for HE80PP, not MD7LKB");
+        assertThat(evaluation.planned())
+                .isFalse();
+        assertThat(executor.emitted)
+                .isEmpty();
+    }
+
+    @Test
+    void aPasteMatchingWhatIsBookedHasNothingToChangeAndWritesNothing() {
+        SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip);
+
+        ItineraryChangeEvaluation evaluation = change(executor).apply(COMMAND, "request", TRIP,
+                ItineraryChangeKind.SCHEDULE_CHANGE, UNCHANGED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
+
+        assertThat(evaluation.nothingToChange())
+                .isTrue();
+        assertThat(evaluation.applicable())
                 .isFalse();
         assertThat(executor.emitted)
                 .isEmpty();
@@ -133,10 +177,10 @@ class FlightItineraryChangeTest {
         SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip,
                 new FlightCancelled(second, "", NOW));
 
-        ItineraryEvaluation evaluation = booking(executor)
-                .book("request", UNCHANGED_PASTE, Map.of(), FORM, NEW_FLIGHT_ID, NOW);
+        ItineraryChangeEvaluation evaluation = change(executor).apply(COMMAND, "request", TRIP,
+                ItineraryChangeKind.REBOOKING, UNCHANGED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
 
-        assertThat(evaluation.scheduleChange().plan().diffs())
+        assertThat(evaluation.plan().diffs())
                 .filteredOn(LegDiff::refused)
                 .extracting(LegDiff::pasteNumber)
                 .containsExactly(2);
@@ -151,10 +195,10 @@ class FlightItineraryChangeTest {
                 "Edited");
         SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip, movedByHand);
 
-        ItineraryEvaluation evaluation = booking(executor).evaluate(
-                UNCHANGED_PASTE.replace("06:10 AM", "07:10 AM"), Map.of(), FORM, NEW_FLIGHT_ID, NOW);
+        ItineraryChangeEvaluation evaluation = change(executor).evaluate(TRIP, ItineraryChangeKind.SCHEDULE_CHANGE,
+                MOVED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
 
-        assertThat(evaluation.scheduleChange().plan().diffs())
+        assertThat(evaluation.plan().diffs())
                 .as("the paste agrees with the edited leg, so nothing differs")
                 .extracting(LegDiff::kind)
                 .containsExactly(Kind.UNCHANGED, Kind.UNCHANGED);
@@ -166,12 +210,9 @@ class FlightItineraryChangeTest {
                 new FlightCancelled(second, "Airline schedule change", NOW,
                         FlightCancellationCause.AIRLINE_SCHEDULE_CHANGE));
 
-        ItineraryEvaluation evaluation = booking(executor)
-                .book("request", UNCHANGED_PASTE, Map.of(), FORM, NEW_FLIGHT_ID, NOW);
+        change(executor).apply(COMMAND, "request", TRIP, ItineraryChangeKind.SCHEDULE_CHANGE,
+                UNCHANGED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
 
-        assertThat(evaluation.scheduleChange().plan().diffs())
-                .extracting(LegDiff::kind)
-                .containsExactly(Kind.UNCHANGED, Kind.ADDED);
         assertThat(executor.emitted)
                 .hasSize(2);
         assertThat(executor.emitted.get(0))
@@ -187,32 +228,66 @@ class FlightItineraryChangeTest {
                 .containsExactlyInAnyOrder(first, second, reinstated.flightId());
     }
 
+    /** D2: Ted's own rebooking drops a leg too, so changing back to the original works. */
     @Test
-    void aPasteOfACancelledItineraryIsRefusedWithTheReasonAndBooksNothing() {
+    void aLegAnEarlierRebookingDroppedIsBookedAgainWhenAPasteListsIt() {
+        SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip,
+                new FlightCancelled(second, "Rebooked", NOW, FlightCancellationCause.REBOOKED));
+
+        ItineraryChangeEvaluation evaluation = change(executor).evaluate(TRIP, ItineraryChangeKind.REBOOKING,
+                UNCHANGED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
+
+        assertThat(evaluation.plan().diffs())
+                .extracting(LegDiff::kind, LegDiff::refused)
+                .as("added again, not refused as cancelled earlier")
+                .containsExactly(tuple(Kind.UNCHANGED, false), tuple(Kind.ADDED, false));
+    }
+
+    @Test
+    void aSecondChangeSeesTheMembershipARebookingLeft() {
+        FlightId added = FlightId.random();
+        SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip,
+                new FlightBooked(added, "United Airlines", "UA55", AirportCode.of("SFO"),
+                        at(PACIFIC, 19, 0), AirportCode.of("LAX"), at(PACIFIC, 20, 0)),
+                new FlightItineraryRebooked(TRIP, List.of(first, second, added), "Rebooked", NOW));
+
+        ItineraryChangeEvaluation evaluation = change(executor).evaluate(TRIP, ItineraryChangeKind.REBOOKING,
+                UNCHANGED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
+
+        assertThat(evaluation.plan().diffs())
+                .extracting(LegDiff::kind)
+                .as("the leg the rebooking added is now booked, and this paste does not list it")
+                .containsExactly(Kind.UNCHANGED, Kind.UNCHANGED, Kind.REMOVED);
+    }
+
+    @Test
+    void aSecondChangeSeesTheMembershipAScheduleChangeLeft() {
+        FlightId added = FlightId.random();
+        SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip,
+                new FlightBooked(added, "United Airlines", "UA55", AirportCode.of("SFO"),
+                        at(PACIFIC, 19, 0), AirportCode.of("LAX"), at(PACIFIC, 20, 0)),
+                new FlightItineraryChanged(TRIP, List.of(first, second, added), "", NOW));
+
+        ItineraryChangeEvaluation evaluation = change(executor).evaluate(TRIP, ItineraryChangeKind.SCHEDULE_CHANGE,
+                UNCHANGED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
+
+        assertThat(evaluation.plan().diffs())
+                .extracting(LegDiff::kind)
+                .containsExactly(Kind.UNCHANGED, Kind.UNCHANGED, Kind.REMOVED);
+    }
+
+    @Test
+    void aCancelledItineraryCannotBeChanged() {
         SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip,
                 new FlightItineraryCancelled(TRIP, "", NOW));
 
-        ItineraryEvaluation evaluation = booking(executor)
-                .book("request", UNCHANGED_PASTE, Map.of(), FORM, NEW_FLIGHT_ID, NOW);
+        ItineraryChangeEvaluation evaluation = change(executor).apply(COMMAND, "request", TRIP,
+                ItineraryChangeKind.REBOOKING, MOVED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
 
         assertThat(evaluation.parseProblems())
                 .containsExactly("Itinerary MD7LKB was cancelled; it cannot be changed");
         assertThat(executor.emitted)
                 .isEmpty();
-    }
-
-    @Test
-    void aCodeNoItineraryHasIsStillANewBooking() {
-        SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip);
-
-        ItineraryEvaluation evaluation = booking(executor).evaluate(
-                UNCHANGED_PASTE.replace("MD7LKB", "ZZZZZZ").replace("Sun, Oct 18", "Tue, Oct 20"),
-                Map.of(), FORM, NEW_FLIGHT_ID, NOW);
-
-        assertThat(evaluation.isScheduleChange())
-                .isFalse();
-        assertThat(evaluation.bookable())
-                .isTrue();
     }
 
     /**
@@ -226,48 +301,134 @@ class FlightItineraryChangeTest {
         SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo,
                 new FlightItineraryBooked(TRIP, "United Airlines", "MD7LKB", List.of(first, neverBooked)));
 
-        assertThatThrownBy(() -> booking(executor).evaluate(UNCHANGED_PASTE, Map.of(), FORM, NEW_FLIGHT_ID, NOW))
+        assertThatThrownBy(() -> change(executor).evaluate(TRIP, ItineraryChangeKind.REBOOKING,
+                UNCHANGED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Itinerary " + TRIP.id() + " names flight " + neverBooked.id()
                             + ", which was never booked");
     }
 
     @Test
-    void aSecondChangeSeesTheMembershipTheFirstLeft() {
-        FlightId added = FlightId.random();
-        SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip,
-                new FlightBooked(added, "United Airlines", "UA55", AirportCode.of("SFO"),
-                        at(PACIFIC, 19, 0), AirportCode.of("LAX"), at(PACIFIC, 20, 0)),
-                new FlightItineraryChanged(TRIP, List.of(first, second, added), "", NOW));
-
-        ItineraryEvaluation evaluation = booking(executor)
-                .evaluate(UNCHANGED_PASTE, Map.of(), FORM, NEW_FLIGHT_ID, NOW);
-
-        assertThat(evaluation.scheduleChange().plan().diffs())
-                .extracting(LegDiff::kind)
-                .as("the leg the first change added is now booked, and this paste does not list it")
-                .containsExactly(Kind.UNCHANGED, Kind.UNCHANGED, Kind.REMOVED);
-    }
-
-    @Test
     void theStoredChangeCommandCarriesNoPrivateLineOfTheEmail() throws Exception {
         SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip);
-        String withPrivateLines = UNCHANGED_PASTE.replace("06:10 AM", "07:10 AM")
-                + "eTicket number: 0000000000000\nFrequent Flyer: UA-XXXXX000\n";
+        String withPrivateLines = MOVED_PASTE + "eTicket number: 0000000000000\nFrequent Flyer: UA-XXXXX000\n";
 
-        booking(executor).book("request", withPrivateLines, Map.of(), FORM, NEW_FLIGHT_ID, NOW);
+        change(executor).apply(COMMAND, "request", TRIP, ItineraryChangeKind.REBOOKING,
+                withPrivateLines, Map.of(), NEW_FLIGHT_ID, NOW);
 
         assertThat(EventJsonMapperFactory.create().writeValueAsString(executor.command))
                 .doesNotContain("0000000000000")
                 .doesNotContain("UA-XXXXX000");
     }
 
+    /**
+     * The first real mid-trip email (Ted, 2026-11-14): HE80PP rebooked to fly home from FRA, so
+     * BER->FRA goes. It lists both flown legs, and its seat block still names BER-FRA with no seat,
+     * which must not be read as a leg. The private lines are replaced with placeholders.
+     */
+    @Test
+    void theHe80ppRebookingDropsBerFraAndLeavesTheFlownLegsAlone() {
+        ZoneId newYork = ZoneId.of("America/New_York");
+        ZoneId berlin = ZoneId.of("Europe/Berlin");
+        FlightId sfoEwr = FlightId.random();
+        FlightId ewrBer = FlightId.random();
+        FlightId berFra = FlightId.random();
+        FlightId fraSfo = FlightId.random();
+        FlightItineraryId he80pp = FlightItineraryId.of(UUID.randomUUID());
+        SpyCommandExecutor executor = new SpyCommandExecutor(
+                new FlightBooked(sfoEwr, "United Airlines", "UA1642", AirportCode.of("SFO"),
+                        on(11, 7, 8, 15, PACIFIC), AirportCode.of("EWR"), on(11, 7, 16, 38, newYork)),
+                new FlightBooked(ewrBer, "United Airlines", "UA962", AirportCode.of("EWR"),
+                        on(11, 7, 17, 50, newYork), AirportCode.of("BER"), on(11, 8, 7, 55, berlin)),
+                new FlightBooked(berFra, "United Airlines", "UA8786", AirportCode.of("BER"),
+                        on(11, 26, 10, 40, berlin), AirportCode.of("FRA"), on(11, 26, 11, 50, berlin)),
+                new FlightBooked(fraSfo, "United Airlines", "UA59", AirportCode.of("FRA"),
+                        on(11, 26, 13, 30, berlin), AirportCode.of("SFO"), on(11, 26, 16, 5, PACIFIC)),
+                new FlightItineraryBooked(he80pp, "United Airlines", "HE80PP",
+                        List.of(sfoEwr, ewrBer, berFra, fraSfo)));
+        String email = """
+                Confirmation Number:
+                HE80PP
+                Flight 1 of 3 UA1642        Class: United Economy (B)
+                Sat, Nov 07, 2026        Sat, Nov 07, 2026
+                08:15 AM        04:38 PM
+                San Francisco, CA, US (SFO)        Newark, NJ/New York, NY, US (EWR)
+                Flight 2 of 3 UA962        Class: United Premium Plus (A)
+                Sat, Nov 07, 2026        Sun, Nov 08, 2026
+                05:50 PM        07:55 AM
+                Newark, NJ/New York, NY, US (EWR)        Berlin, DE (BER)
+                Flight 3 of 3 UA59        Class: United Premium Plus (R)
+                Thu, Nov 26, 2026        Thu, Nov 26, 2026
+                01:30 PM        04:05 PM
+                Frankfurt, DE (FRA)        San Francisco, CA, US (SFO)
+                Traveler Details
+                TRAVELER/NAME
+                eTicket number: 0000000000000    Seats: SFO-EWR 30C
+                Frequent Flyer: UA-XXXXX000 Premier Platinum    EWR-BER 21A
+                FRA-SFO 21K
+                Preferred Zone seat (0000000000000)    BER-FRA
+                """;
+
+        change(executor).apply(COMMAND, "request", he80pp, ItineraryChangeKind.REBOOKING, email, Map.of(),
+                NEW_FLIGHT_ID, Instant.parse("2026-11-14T15:00:00Z"));
+
+        assertThat(executor.emitted)
+                .containsExactly(
+                        new FlightCancelled(berFra, "Rebooked", Instant.parse("2026-11-14T15:00:00Z"),
+                                FlightCancellationCause.REBOOKED),
+                        new FlightItineraryRebooked(he80pp, List.of(sfoEwr, ewrBer, berFra, fraSfo), "Rebooked",
+                                Instant.parse("2026-11-14T15:00:00Z")));
+    }
+
+    @Test
+    void theItineraryThePageNamesDecidesTheCodeNotTheFirstOneInTheLog() {
+        FlightItineraryBooked earlierTrip = new FlightItineraryBooked(FlightItineraryId.of(UUID.randomUUID()),
+                "United Airlines", "HE80PP", List.of());
+        SpyCommandExecutor executor = new SpyCommandExecutor(earlierTrip, sfoOrd, ordSfo, trip);
+
+        ItineraryChangeEvaluation evaluation = change(executor).evaluate(TRIP, ItineraryChangeKind.SCHEDULE_CHANGE,
+                MOVED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
+
+        assertThat(evaluation.parseProblems())
+                .as("an MD7LKB email is right for the MD7LKB itinerary")
+                .isEmpty();
+    }
+
+    @Test
+    void anItineraryThatWasNeverBookedFailsByName() {
+        FlightItineraryId unknown = FlightItineraryId.of(UUID.randomUUID());
+        SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip);
+
+        assertThatThrownBy(() -> change(executor).evaluate(unknown, ItineraryChangeKind.REBOOKING,
+                MOVED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("No itinerary " + unknown.id() + " was booked");
+    }
+
+    @Test
+    void itReportsWhateverModeTheExecutorIsIn() {
+        SpyCommandExecutor writable = new SpyCommandExecutor();
+        SpyCommandExecutor readOnly = new SpyCommandExecutor();
+        readOnly.readOnly = true;
+
+        assertThat(change(writable).isReadOnly())
+                .as("writable executor")
+                .isFalse();
+        assertThat(change(readOnly).isReadOnly())
+                .as("read-only executor")
+                .isTrue();
+    }
+
     private static ZonedTimestamp at(ZoneId zone, int hour, int minute) {
         return ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 18, hour, minute), zone);
     }
 
-    private static FlightItineraryBooking booking(SpyCommandExecutor executor) {
-        return new FlightItineraryBooking(executor, new AirportZoneResolver(), new LiveScheduledLegs(executor));
+    private static ZonedTimestamp on(int month, int day, int hour, int minute, ZoneId zone) {
+        return ZonedTimestamp.fromLocal(LocalDateTime.of(2026, month, day, hour, minute), zone);
+    }
+
+    private static FlightItineraryChange change(SpyCommandExecutor executor) {
+        return new FlightItineraryChange(executor, new AirportZoneResolver(), new LiveScheduledLegs(executor));
     }
 
     /** A spy: serves a fixed log for decisions, and records what it was asked to write. */
@@ -276,6 +437,12 @@ class FlightItineraryChangeTest {
         private final List<Event> emitted = new ArrayList<>();
         private UUID commandId;
         private Object command;
+        private boolean readOnly;
+
+        @Override
+        public boolean isReadOnly() {
+            return readOnly;
+        }
 
         SpyCommandExecutor(Event... existing) {
             super(null, null);

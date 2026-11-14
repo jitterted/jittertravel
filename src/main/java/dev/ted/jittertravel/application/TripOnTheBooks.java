@@ -14,6 +14,7 @@ import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.ItineraryLeg;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -128,5 +129,18 @@ final class TripOnTheBooks {
     ChangeFlightItineraryContext contextFor(BookFlightContext context) {
         return new ChangeFlightItineraryContext(live, liveMembers, cancelledMembers,
                 droppedMembers, context.scheduledLegs(), context.now());
+    }
+
+    /**
+     * Which live itinerary this is, for the Book page's refusal. Counts the legs still flying; a
+     * trip whose every leg was cancelled one by one is still described by them.
+     */
+    ItineraryEvaluation.OnTheBooks onTheBooks() {
+        List<ItineraryLeg> described = liveMembers.isEmpty() ? cancelledMembers : liveMembers;
+        List<ItineraryLeg> byDeparture = described.stream()
+                .sorted(Comparator.comparing(leg -> leg.departureDateTime().utc()))
+                .toList();
+        return new ItineraryEvaluation.OnTheBooks(itineraryId, liveMembers.size(),
+                byDeparture.getFirst().departureDateTime(), byDeparture.getLast().arrivalDateTime());
     }
 }

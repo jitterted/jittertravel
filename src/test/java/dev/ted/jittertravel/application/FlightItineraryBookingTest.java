@@ -7,6 +7,8 @@ import dev.ted.jittertravel.domain.DecisionContext;
 import dev.ted.jittertravel.domain.DomainCommand;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancelled;
+import dev.ted.jittertravel.domain.FlightItineraryCancelled;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryId;
@@ -208,6 +210,93 @@ class FlightItineraryBookingTest {
                 .isFalse();
         assertThat(evaluation.bookable())
                 .isTrue();
+    }
+
+    /** D4, D11: a code already on the books is refused by name, and never applied as a change. */
+    @Test
+    void aCodeAlreadyBookedIsRefusedWithWhichItineraryItIsAndWritesNothing() {
+        SpyCommandExecutor executor = new SpyCommandExecutor(md7lkbBooked());
+
+        ItineraryEvaluation evaluation = booking(executor)
+                .book("request", SAMPLE.replace("06:10 AM", "07:10 AM"), Map.of(), ITINERARY, NEW_FLIGHT_ID, NOW);
+
+        assertThat(evaluation.isOnTheBooks())
+                .isTrue();
+        assertThat(evaluation.onTheBooks())
+                .isEqualTo(new ItineraryEvaluation.OnTheBooks(BOOKED_TRIP, 2,
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 18, 6, 10), ZoneId.of("America/Los_Angeles")),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 18, 17, 16), ZoneId.of("America/Toronto"))));
+        assertThat(evaluation.bookable())
+                .isFalse();
+        assertThat(executor.emitted)
+                .as("Book never records a change: that is the itinerary's own page")
+                .isEmpty();
+    }
+
+    @Test
+    void aCodeAlreadyBookedIsRefusedBeforeAnyZoneIsAskedFor() {
+        SpyCommandExecutor executor = new SpyCommandExecutor(md7lkbBooked());
+
+        ItineraryEvaluation evaluation = booking(executor)
+                .evaluate(SAMPLE.replace("(YOW)", "(YQB)"), Map.of(), ITINERARY, NEW_FLIGHT_ID, NOW);
+
+        assertThat(evaluation.isOnTheBooks())
+                .isTrue();
+        assertThat(evaluation.unresolvedAirports())
+                .as("no zone pick could make a booked code bookable")
+                .isEmpty();
+    }
+
+    @Test
+    void aCodeWhoseEveryItineraryWasCancelledIsRefusedWithTheReason() {
+        List<Event> cancelled = new ArrayList<>(List.of(md7lkbBooked()));
+        cancelled.add(new FlightItineraryCancelled(BOOKED_TRIP, "", NOW));
+        SpyCommandExecutor executor = new SpyCommandExecutor(cancelled.toArray(Event[]::new));
+
+        ItineraryEvaluation evaluation = booking(executor)
+                .book("request", SAMPLE, Map.of(), ITINERARY, NEW_FLIGHT_ID, NOW);
+
+        assertThat(evaluation.parseProblems())
+                .containsExactly("Itinerary MD7LKB was cancelled; it cannot be changed");
+        assertThat(evaluation.isOnTheBooks())
+                .isFalse();
+        assertThat(executor.emitted)
+                .isEmpty();
+    }
+
+    @Test
+    void aTripWhoseEveryLegWasCancelledOneByOneIsStillDescribedByThem() {
+        List<Event> events = new ArrayList<>(List.of(md7lkbBooked()));
+        events.add(new FlightCancelled(FIRST_LEG, "", NOW));
+        events.add(new FlightCancelled(SECOND_LEG, "", NOW));
+        SpyCommandExecutor executor = new SpyCommandExecutor(events.toArray(Event[]::new));
+
+        ItineraryEvaluation evaluation = booking(executor)
+                .evaluate(SAMPLE, Map.of(), ITINERARY, NEW_FLIGHT_ID, NOW);
+
+        assertThat(evaluation.onTheBooks())
+                .as("no legs flying, but the dates still come from the trip")
+                .isEqualTo(new ItineraryEvaluation.OnTheBooks(BOOKED_TRIP, 0,
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 18, 6, 10), ZoneId.of("America/Los_Angeles")),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 18, 17, 16), ZoneId.of("America/Toronto"))));
+    }
+
+    private static final FlightItineraryId BOOKED_TRIP = FlightItineraryId.of(UUID.randomUUID());
+    private static final FlightId FIRST_LEG = FlightId.of(UUID.randomUUID());
+    private static final FlightId SECOND_LEG = FlightId.of(UUID.randomUUID());
+
+    /** SAMPLE as already booked: MD7LKB, its two legs at the times the email gives. */
+    private static Event[] md7lkbBooked() {
+        return new Event[]{
+                new FlightBooked(FIRST_LEG, "United Airlines", "UA2091", AirportCode.of("SFO"),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 18, 6, 10), ZoneId.of("America/Los_Angeles")),
+                        AirportCode.of("ORD"),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 18, 12, 45), ZoneId.of("America/Chicago"))),
+                new FlightBooked(SECOND_LEG, "United Airlines", "UA3509", AirportCode.of("ORD"),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 18, 13, 55), ZoneId.of("America/Chicago")),
+                        AirportCode.of("YOW"),
+                        ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 10, 18, 17, 16), ZoneId.of("America/Toronto"))),
+                new FlightItineraryBooked(BOOKED_TRIP, "United Airlines", "MD7LKB", List.of(FIRST_LEG, SECOND_LEG))};
     }
 
     @Test

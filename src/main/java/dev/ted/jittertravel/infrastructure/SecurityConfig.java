@@ -79,6 +79,8 @@ public class SecurityConfig {
                                 "/booked-flights/*/lookup/select", "/booked-flights/*/cancel",
                                 // A whole itinerary's cancel page prints its booking reference.
                                 "/booked-itineraries/*/cancel",
+                                // ...and its change page, which prints the legs and the pasted email.
+                                "/booked-itineraries/*/change",
                                 "/booked-trains/*", "/booked-trains/*/cancel",
                                 "/booked-hotels/*",
                                 "/booked-hotels/*/cancel",

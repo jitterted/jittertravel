@@ -235,6 +235,14 @@ public class EventSourcingConfig {
         return new FlightItineraryBooking(commandExecutor, airportZoneResolver, liveScheduledLegs);
     }
 
+    /** Same collaborators again: a change to an itinerary is read and judged the way a booking is. */
+    @Bean
+    public FlightItineraryChange flightItineraryChange(CommandExecutor commandExecutor,
+                                                       AirportZoneResolver airportZoneResolver,
+                                                       LiveScheduledLegs liveScheduledLegs) {
+        return new FlightItineraryChange(commandExecutor, airportZoneResolver, liveScheduledLegs);
+    }
+
     @Bean
     public RestClient.Builder restClientBuilder() {
         return RestClient.builder();

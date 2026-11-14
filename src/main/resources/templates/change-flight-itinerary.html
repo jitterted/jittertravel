@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Change Itinerary</title>
+    <link rel="stylesheet" href="../static/site.css" th:href="@{/site.css}">
+    <style>
+        .ident { font-size: 0.95rem; color: var(--muted-text); margin: 0; }
+        .code {
+            display: inline-block; padding: 0 6px; border-radius: 4px; border: 1px solid #4f46e5;
+            background: #e0e7ff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.85rem; letter-spacing: 0.04em; color: var(--text-color);
+        }
+        h2 { font-size: 1rem; margin: 1.25rem 0 0.25rem; }
+        .error { display: block; margin-top: 2px; font-size: 0.8rem; color: #b00; }
+        .error-summary {
+            background: #fdecec; border-left: 3px solid #b00; padding: 0.45rem 0.6rem;
+            margin: 1rem 0 0; font-size: 0.85rem; font-weight: 600;
+        }
+        fieldset { border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem 0.9rem 0.75rem; margin: 1.25rem 0 0; }
+        legend { font-weight: 600; padding: 0 0.3rem; }
+        .radio { display: flex; gap: 0.5rem; align-items: center; padding: 0.45rem 0; font-size: 0.95rem; }
+        .radio input { width: 20px; height: 20px; margin: 0; }
+        .field { margin-top: 1.25rem; }
+        .field > label { font-weight: 600; }
+        .paste-box {
+            display: block; width: 100%; box-sizing: border-box; min-height: 12rem; margin-top: 0.3rem;
+            padding: 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem;
+            border: 1px solid var(--border-color); border-radius: 6px;
+        }
+        .hint { font-size: 0.85rem; color: var(--muted-text); margin: 0.3rem 0 0; }
+        .zone-pick { margin: 0.75rem 0; }
+        .legs { width: 100%; border-collapse: collapse; margin: 0.25rem 0 0; font-size: 0.9rem; }
+        .legs th {
+            text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--muted-text); border-bottom: 1px solid var(--border-color); padding: 6px 8px;
+        }
+        .legs td { padding: 8px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+        .legs .when { white-space: nowrap; }
+        /*
+           A diff row is tinted and wears a 4px left edge: yellow moved, green added, peach dropped.
+           A refused row keeps the red wash and takes a red edge, so a refusal always wins.
+           The old value of a moved leg is struck through above the new one in its own cell.
+        */
+        .legs td:first-child { border-left: 4px solid transparent; }
+        .leg-status {
+            display: block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .leg-was { display: block; font-size: 0.8rem; color: var(--muted-text); text-decoration: line-through; }
+        .legs tr.leg-unchanged td { color: var(--muted-text); }
+        .legs tr.leg-unchanged .leg-status { display: none; }
+        .legs tr.leg-moved td { background: #fff8d6; }
+        .legs tr.leg-moved td:first-child { border-left-color: #e0b100; }
+        .legs tr.leg-moved .leg-status { color: #8a6d00; }
+        .legs tr.leg-added td { background: #eaf5ea; }
+        .legs tr.leg-added td:first-child { border-left-color: #2e7d32; }
+        .legs tr.leg-added .leg-status { color: #2e7d32; }
+        .legs tr.leg-dropped td { background: #ffe9dc; color: #7a3b1d; }
+        .legs tr.leg-dropped td:first-child { border-left-color: #e8895a; }
+        .legs tr.leg-dropped .flight, .legs tr.leg-dropped .route, .legs tr.leg-dropped .when { text-decoration: line-through; }
+        .legs tr.leg-dropped .leg-status { color: #7a3b1d; }
+        .legs tr.refused td { background: #fdecec; }
+        .legs tr.refused td:first-child { border-left-color: #b00; }
+        .records { margin: 0.5rem 0 0; font-size: 0.95rem; }
+        .actions { display: flex; gap: 1rem; align-items: center; margin-top: 1.25rem; flex-wrap: wrap; }
+        .actions button {
+            font: inherit; font-size: 0.95rem; font-weight: 600; padding: 0.6rem 1.2rem; min-height: 44px;
+            border-radius: 6px;
+        }
+        .actions .primary { border: none; background: #4f46e5; color: #fff; }
+        .actions .secondary { border: 2px solid #4f46e5; background: #fff; color: #4f46e5; }
+    </style>
+</head>
+<body>
+<div class="page booking-form">
+
+    <nav>
+        <a href="/">JitterTravel</a>
+        <span class="sep">·</span>
+        <a href="/booked-flights">Flights</a>
+    </nav>
+
+    <h1>Change Itinerary</h1>
+    <p class="ident"><span class="code" th:text="${itinerary.confirmationCode()}">HE80PP</span>
+        · <span th:text="${identity}">United Airlines · 4 legs, Nov 7 to Nov 26</span></p>
+
+    <div class="error error-summary" th:if="${preview.problemCount() > 0}"
+         th:text="${preview.problemSummary()}">2 problems to fix below.</div>
+
+    <!--/* Which itinerary this is, until a preview replaces it with what applying would record. */-->
+    <th:block th:if="${!preview.planned()}">
+        <h2>Booked now</h2>
+        <table class="legs">
+            <thead>
+            <tr><th>#</th><th>Flight</th><th>Route</th><th>Departs</th><th>Arrives</th></tr>
+            </thead>
+            <tbody>
+            <tr th:each="leg, stat : ${bookedLegs}">
+                <td th:text="${stat.count}">1</td>
+                <td th:text="${leg.flightNumber()}">UA1642</td>
+                <td th:text="${leg.route()}">SFO → EWR</td>
+                <td class="when" th:text="${leg.departs()}">Sat, Nov 7, 8:15 AM PST</td>
+                <td class="when" th:text="${leg.arrives()}">Sat, Nov 7, 4:38 PM EST</td>
+            </tr>
+            </tbody>
+        </table>
+    </th:block>
+
+    <form th:action="@{|/booked-itineraries/${itinerary.itineraryId().id()}/change|}" th:object="${change}" method="post">
+        <!--/* No default and no browser `required`: the email cannot tell who changed it, and a
+               blank choice is reported with everything else (CLAUDE.md, rejected forms). */-->
+        <fieldset>
+            <legend>Who changed it?</legend>
+            <label class="radio"><input type="radio" th:field="*{kind}" value="SCHEDULE_CHANGE"/><span>The airline changed the schedule</span></label>
+            <label class="radio"><input type="radio" th:field="*{kind}" value="REBOOKING"/><span>I rebooked it</span></label>
+            <span class="error" th:if="${!preview.kindProblem().isEmpty()}" th:text="${preview.kindProblem()}">Pick who changed it</span>
+        </fieldset>
+
+        <div class="field">
+            <label for="pasted">Confirmation email after the change</label>
+            <textarea id="pasted" class="paste-box" th:field="*{pasted}"></textarea>
+            <p class="hint">Paste the whole email: every leg, including any already flown. Nothing is recorded until you apply it.</p>
+            <span class="error" th:if="${!preview.parseProblem().isEmpty()}"
+                  th:text="${preview.parseProblem()}">This email is for MD7LKB, not HE80PP</span>
+        </div>
+
+        <th:block th:replace="~{fragments/airport-zone-picker :: zonePicker(${preview.unresolvedAirports()}, ${change.airportZones})}"></th:block>
+
+        <th:block th:if="${preview.planned()}">
+            <h2 th:text="${preview.applicable()} ? 'What applying this records' : 'What applying this would record'">What applying this records</h2>
+            <p class="records" th:if="${preview.nothingToChange()}">
+                <strong>Nothing to change:</strong> every flight in this email matches what is booked.
+            </p>
+            <table class="legs">
+                <thead>
+                <tr><th>#</th><th>Flight</th><th>Route</th><th>Departs</th><th>Arrives</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="row : ${preview.rows()}"
+                    th:classappend="${row.hasProblem()} ? 'refused' : ('leg-' + ${row.statusClass()})">
+                    <td th:text="${row.number() > 0 ? row.number() : '–'}">1</td>
+                    <td>
+                        <span class="leg-was" th:if="${row.before().hasFlightNumber()}"
+                              th:text="${row.before().flightNumber()}">UA2090</span>
+                        <span class="flight" th:text="${row.flightNumber()}">UA8786</span>
+                        <span class="leg-status" th:text="${row.status()}">Dropped</span>
+                    </td>
+                    <td class="route">
+                        <span class="leg-was" th:if="${row.before().hasRoute()}"
+                              th:text="${row.before().route()}">SFO→ORD</span>
+                        <span th:text="${row.route()}">BER→FRA</span>
+                    </td>
+                    <td class="when">
+                        <span class="leg-was" th:if="${row.before().hasDeparts()}"
+                              th:text="${row.before().departs()}">Thu, Nov 26, 9:40 AM</span>
+                        <span th:text="${row.departs()}">Thu, Nov 26, 10:40 AM</span>
+                    </td>
+                    <td class="when">
+                        <span class="leg-was" th:if="${row.before().hasArrives()}"
+                              th:text="${row.before().arrives()}">Thu, Nov 26, 10:50 AM</span>
+                        <span th:text="${row.arrives()}">Thu, Nov 26, 11:50 AM</span>
+                        <span class="error" th:if="${row.hasProblem()}" th:text="${row.problem()}">Already departed</span>
+                        <a class="overlap-link" th:if="${row.hasLink()}" th:href="${row.linkPath()}"
+                           th:text="${row.linkLabel()}">Open that train</a>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            <p class="records" th:if="${!preview.summary().isEmpty()}" th:text="${preview.summary()}">
+                Recorded as your rebooking: 1 leg dropped, 3 unchanged.</p>
+        </th:block>
+
+        <div class="actions">
+            <!--/* Only once a preview is clean and says who changed it; the server re-evaluates on apply. */-->
+            <button type="submit" class="primary" name="action" value="apply"
+                    th:if="${preview.applicable()}" th:text="${preview.applyLabel()}">Record rebooking</button>
+            <button type="submit" name="action" value="preview"
+                    th:class="${preview.applicable()} ? 'secondary' : 'primary'"
+                    th:text="${preview.planned()} ? 'Preview again' : 'Preview'">Preview</button>
+            <a href="/booked-flights">Back to flights</a>
+        </div>
+    </form>
+
+</div>
+</body>
+</html>

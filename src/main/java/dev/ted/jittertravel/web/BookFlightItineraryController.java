@@ -26,7 +26,9 @@ import java.util.function.Supplier;
  * One page and one POST, told apart by which button was pressed: {@code action=preview} evaluates
  * and writes nothing; {@code action=book} runs the same evaluation and writes only if it is clean.
  * Booking always re-reads the text box, so what is booked is what is validated, even if the text
- * changed after the preview.
+ * changed after the preview. A paste whose code is already booked is never applied here: the
+ * preview says so and hands the email to that itinerary's change page
+ * ({@link ChangeFlightItineraryController}).
  * <p>
  * I/O only: ids and {@code now} are minted here, and everything else is
  * {@link FlightItineraryBooking}'s. Under {@code /book-flight/**}, so OWNER-only in
@@ -84,7 +86,7 @@ public class BookFlightItineraryController {
                 log.warn("Attempted to book a flight itinerary while in read-only mode", e);
                 return "redirect:/read-only";
             }
-            if (evaluation.bookable() || evaluation.changeable() || evaluation.alreadyBooked()) {
+            if (evaluation.bookable() || evaluation.alreadyBooked()) {
                 return "redirect:/booked-flights";
             }
         } else {

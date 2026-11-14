@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+<!--/* Shared by book-flight-itinerary.html and change-flight-itinerary.html, which read a pasted email
+       the same way. `unresolved` is the airport codes the curated table does not know; `picks` is
+       the form's airportZones map. Needs `commonZones` in the model. */-->
+<th:block th:fragment="zonePicker(unresolved, picks)">
+    <!--/* One picker per airport the curated table does not know — keyed by the code, so one
+           pick covers the flight in and the flight out. */-->
+    <div class="zone-pick" th:each="code : ${unresolved}">
+        <label>
+            Time zone for <span th:text="${code}">YOW</span>
+            <select th:name="|airportZones[${code}]|">
+                <option value="">Pick a zone</option>
+                <option th:each="zone : ${commonZones}" th:value="${zone.name()}"
+                        th:text="${zone.label()}">US Eastern</option>
+            </select>
+        </label>
+        <span class="error">Unknown airport — pick its zone</span>
+    </div>
+
+    <!--/* A pick whose picker is gone (the airport resolved) must still be posted: the next submit
+           re-reads the form and re-evaluates, and without the pick it would find the airport
+           unknown again and send Ted back to the picker he had just used. */-->
+    <th:block th:each="pick : ${picks}">
+        <input type="hidden" th:if="${!pick.value.isBlank() and !unresolved.contains(pick.key)}"
+               th:name="|airportZones[${pick.key}]|" th:value="${pick.value}"/>
+    </th:block>
+</th:block>
+</body>
+</html>

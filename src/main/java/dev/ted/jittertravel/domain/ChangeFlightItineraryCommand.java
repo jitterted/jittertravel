@@ -1,46 +1,25 @@
 package dev.ted.jittertravel.domain;
 
 import dev.ted.jittertravel.domain.FlightItineraryRefused.LegRefusal;
-import dev.ted.jittertravel.domain.ItineraryChangePlan.Kind;
 import dev.ted.jittertravel.domain.ItineraryChangePlan.LegDiff;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
  * Applies a change to an itinerary, either the airline's schedule change or Ted's own rebooking
  * ({@link ItineraryChangeKind}, picked on the change page because the email cannot tell). The
- * pasted legs are what the itinerary now holds, and the booked legs are made to agree. The rules
- * are the same for both kinds; what differs is the fact recorded ({@link FlightItineraryChanged} or
- * {@link FlightItineraryRebooked}), the reason on each leg's event, and the cause on a dropped leg.
- * One command, several events, in one append — a
- * half-applied reroute (the new leg booked, the old one not cancelled) is exactly the overlapping
- * state the entry-time check exists to refuse.
+ * pasted legs are what the itinerary now holds, and the booked legs are made to agree. One command,
+ * several events, in one append — a half-applied reroute (the new leg booked, the old one not
+ * cancelled) is exactly the overlapping state the entry-time check exists to refuse.
  * <p>
- * <strong>Matching</strong> happens within the itinerary only. Each pasted leg is paired with a live
- * booked leg first by flight number and departure day, then by route; the earliest unpaired booked
- * leg wins a tie. A pasted leg with no partner is added, a booked leg with no partner is cancelled.
- * A pasted leg that only matches a leg Ted <em>cancelled</em> earlier is refused ({@link
- * LegCancelledEarlier}); one that matches a leg an earlier schedule change <em>dropped</em> is the
- * airline putting it back, and is added as a new booking.
- * <p>
- * <strong>History is not revised</strong> (Ted, 2026-10-03): a booked leg that has already departed
- * and is in the paste must have the same times, or the change is refused. A departed leg the paste
- * leaves out is left alone, counted unchanged rather than dropped: an email sent mid-trip may list
- * only what is still to come (D6, 2026-10-13). Any other leg that moves or is
- * added meets the rules a single booking meets, except that the itinerary's own legs do not count
- * as collisions — they are the thing being rewritten — and the pasted legs must not overlap each
- * other. Every refusal is collected and reported together, as in {@link BookFlightItineraryCommand}.
+ * The rules live in {@link ItineraryChangePlan}, and are the same for both kinds. What the kind
+ * decides is the fact recorded ({@link FlightItineraryChanged} or {@link FlightItineraryRebooked}),
+ * the reason on each leg's event, and the cause on a dropped leg
+ * ({@code docs/FlightItineraryRebookingPlan.md} D1, D2).
  * <p>
  * A paste that matches what is booked leg for leg is refused with {@link FlightItineraryUnchanged}
  * rather than recorded.
@@ -66,42 +45,7 @@ public record ChangeFlightItineraryCommand(
 
     /** The diff and every refusal against it, writing nothing; what the preview shows. */
     public ItineraryChangePlan plan(ChangeFlightItineraryContext context) {
-        Map<Integer, ItineraryLeg> liveMatch = new LinkedHashMap<>();
-        Set<FlightId> claimed = new HashSet<>();
-        List<Integer> pasteIndexes = indexes();
-        match(pasteIndexes, context.liveMembers(), claimed, liveMatch);
-
-        Map<Integer, ItineraryLeg> cancelledMatch = new LinkedHashMap<>();
-        match(pasteIndexes, context.cancelledMembers(), new HashSet<>(), cancelledMatch);
-
-        ScheduledLegs others = new ScheduledLegs(context.scheduledLegs().legs().stream()
-                .filter(leg -> context.liveMembers().stream().noneMatch(member ->
-                        leg.id().equals(new ScheduledLegId.Flight(member.flightId()))))
-                .toList());
-
-        List<LegDiff> diffs = new ArrayList<>();
-        for (int i = 0; i < pastedLegs.size(); i++) {
-            ItineraryLeg pasted = pastedLegs.get(i);
-            ItineraryLeg booked = liveMatch.get(i);
-            if (booked != null) {
-                ItineraryLeg after = withId(pasted, booked.flightId());
-                diffs.add(new LegDiff(sameJourney(booked, after) ? Kind.UNCHANGED : Kind.CHANGED,
-                        i + 1, booked, after, null));
-            } else {
-                RuntimeException refusal = cancelledMatch.containsKey(i) ? new LegCancelledEarlier() : null;
-                diffs.add(new LegDiff(Kind.ADDED, i + 1, null, pasted, refusal));
-            }
-        }
-        context.liveMembers().stream()
-                .filter(member -> !claimed.contains(member.flightId()))
-                .forEach(member -> diffs.add(member.departureDateTime().hasPassed(context.now())
-                        ? new LegDiff(Kind.UNCHANGED, 0, member, member, null)
-                        : new LegDiff(Kind.REMOVED, 0, member, null, null)));
-
-        List<LegDiff> judged = diffs.stream().map(diff -> judge(diff, diffs, others, context)).toList();
-        return new ItineraryChangePlan(judged.stream()
-                .sorted(Comparator.comparing(diff -> diff.effective().departureDateTime().utc()))
-                .toList());
+        return ItineraryChangePlan.of(pastedLegs, context);
     }
 
     @Override
@@ -165,94 +109,5 @@ public record ChangeFlightItineraryCommand(
                 .sorted(Comparator.comparing(leg -> leg.departureDateTime().utc()))
                 .map(ItineraryLeg::flightId)
                 .toList();
-    }
-
-    private List<Integer> indexes() {
-        return IntStream.range(0, pastedLegs.size()).boxed().toList();
-    }
-
-    /** Pairs pasted legs with the pool: same flight number and day first, then same route. */
-    private void match(List<Integer> pasted, List<ItineraryLeg> pool, Set<FlightId> claimed,
-                       Map<Integer, ItineraryLeg> matches) {
-        List<ItineraryLeg> byDeparture = pool.stream()
-                .sorted(Comparator.comparing(leg -> leg.departureDateTime().utc()))
-                .toList();
-        for (int i : pasted) {
-            ItineraryLeg leg = pastedLegs.get(i);
-            pairWith(byDeparture, claimed, candidate ->
-                    candidate.flightNumber().equals(leg.flightNumber())
-                    && candidate.departureDateTime().localDateTime().toLocalDate()
-                            .equals(leg.departureDateTime().localDateTime().toLocalDate()))
-                    .ifPresent(booked -> matches.put(i, booked));
-        }
-        for (int i : pasted) {
-            if (matches.containsKey(i)) {
-                continue;
-            }
-            ItineraryLeg leg = pastedLegs.get(i);
-            pairWith(byDeparture, claimed, candidate ->
-                    candidate.departureAirport().equals(leg.departureAirport())
-                    && candidate.arrivalAirport().equals(leg.arrivalAirport()))
-                    .ifPresent(booked -> matches.put(i, booked));
-        }
-    }
-
-    private static Optional<ItineraryLeg> pairWith(List<ItineraryLeg> pool, Set<FlightId> claimed,
-                                                   Predicate<ItineraryLeg> fits) {
-        Optional<ItineraryLeg> found = pool.stream()
-                .filter(candidate -> !claimed.contains(candidate.flightId()))
-                .filter(fits)
-                .findFirst();
-        found.ifPresent(leg -> claimed.add(leg.flightId()));
-        return found;
-    }
-
-    private LegDiff judge(LegDiff diff, List<LegDiff> all, ScheduledLegs others,
-                          ChangeFlightItineraryContext context) {
-        if (diff.refused() || diff.kind() == Kind.UNCHANGED) {
-            return diff;
-        }
-        if (diff.before() != null && diff.before().departureDateTime().hasPassed(context.now())) {
-            // Only a CHANGED leg reaches here: a departed leg the paste leaves out is UNCHANGED (D6).
-            return diff.refusedWith(new FlownLegContradicted());
-        }
-        if (diff.kind() == Kind.REMOVED) {
-            return diff;
-        }
-        ItineraryLeg leg = diff.after();
-        if (!leg.departureDateTime().utc().isAfter(context.now())) {
-            return diff.refusedWith(new DepartureNotInFuture("Departure date/time must be in the future"));
-        }
-        if (!leg.arrivalDateTime().utc().isAfter(leg.departureDateTime().utc())) {
-            return diff.refusedWith(new InvalidDateRange("Arrival date/time must be after departure date/time"));
-        }
-        Optional<ScheduledLeg> booked = others.overlapping(null, leg.departureDateTime(), leg.arrivalDateTime());
-        if (booked.isPresent()) {
-            return diff.refusedWith(new OverlappingLegRefused(booked.get()));
-        }
-        return all.stream()
-                .filter(other -> other != diff && other.kind() != Kind.REMOVED)
-                .filter(other -> new ScheduledLeg(new ScheduledLegId.Flight(other.after().flightId()),
-                        other.after().departureDateTime(), other.after().arrivalDateTime())
-                        .overlaps(leg.departureDateTime(), leg.arrivalDateTime()))
-                .findFirst()
-                .map(other -> diff.refusedWith(new OverlapsAnotherItineraryLeg(other.pasteNumber())))
-                .orElse(diff);
-    }
-
-    private static ItineraryLeg withId(ItineraryLeg leg, FlightId flightId) {
-        return new ItineraryLeg(flightId, leg.airline(), leg.flightNumber(),
-                leg.departureAirport(), leg.departureDateTime(),
-                leg.arrivalAirport(), leg.arrivalDateTime());
-    }
-
-    /** The same journey: what an airline would call "no change", whatever zone the instant is shown in. */
-    private static boolean sameJourney(ItineraryLeg booked, ItineraryLeg pasted) {
-        return booked.airline().equals(pasted.airline())
-               && booked.flightNumber().equals(pasted.flightNumber())
-               && booked.departureAirport().equals(pasted.departureAirport())
-               && booked.arrivalAirport().equals(pasted.arrivalAirport())
-               && booked.departureDateTime().utc().equals(pasted.departureDateTime().utc())
-               && booked.arrivalDateTime().utc().equals(pasted.arrivalDateTime().utc());
     }
 }

@@ -45,7 +45,7 @@ separate itineraries, each with its own type, and never add up to an open jaw or
 | Term | Means |
 |------|-------|
 | **Schedule change** | The airline changed the itinerary: times, flight numbers or legs. |
-| **Rebooking** | Ted changed the itinerary himself, under the same confirmation code. A different fact from a schedule change, so a different event (`FlightItineraryRebooked`, not built yet). |
+| **Rebooking** | Ted changed the itinerary himself, under the same confirmation code. A different fact from a schedule change, so a different event (`FlightItineraryRebooked`). Ted says which on the change page ("Who changed it?"), because the email cannot. |
 | **Dropped** (leg) | Removed from its itinerary by a schedule change or a rebooking. A later email that lists it again books it again. Close to the conference meaning: removed as a consequence, not by Ted cancelling it directly. |
 | **Cancelled** (leg) | Ted cancelled that leg on its own. A later email listing it again is refused. |
 
@@ -83,11 +83,13 @@ id and never replaces them; a hand-booked flight never joins one. Both models ar
 |------|------|------|
 | `FlightItineraryId` | `domain/FlightItineraryId.java:10` | Identity |
 | `FlightItineraryBooked` | `domain/FlightItineraryBooked.java:16` | Event — `airline`, `confirmationCode`, `flightIds` |
-| `FlightItineraryChanged` | `domain/FlightItineraryChanged.java:19` | Event — membership snapshot |
+| `FlightItineraryChanged` | `domain/FlightItineraryChanged.java:19` | Event — membership snapshot after the airline's schedule change |
+| `FlightItineraryRebooked` | `domain/FlightItineraryRebooked.java:20` | Event — membership snapshot after Ted's own rebooking |
+| `ItineraryChangeKind` | `domain/ItineraryChangeKind.java:8` | `SCHEDULE_CHANGE` or `REBOOKING`: which of the two facts a change records |
 | `FlightItineraryCancelled` | `domain/FlightItineraryCancelled.java:17` | Event |
 | `FlightItineraryHasDeparted` / `NotFound` / `Unchanged` / `Refused` | `domain/` | Refusals |
 | `ChangeFlightItineraryContext` / `CancelFlightItineraryContext` | `domain/` | Decision contexts (`liveMembers` vs `liveLegs`) |
-| `ItineraryChangePlan` | `domain/ItineraryChangePlan.java:10` | Diff for a schedule change: `UNCHANGED`, `CHANGED`, `ADDED`, `REMOVED` |
+| `ItineraryChangePlan` | `domain/ItineraryChangePlan.java:38` | Diff for a change of either kind: `UNCHANGED`, `CHANGED`, `ADDED`, `REMOVED` (the page says "Moved" and "Dropped") |
 | `PastedItinerary` | `application/PastedItinerary.java:13` | Parser output, before zones |
 | `ItineraryEvaluation` | `application/ItineraryEvaluation.java:22` | Preview outcome |
 | `ItineraryPreview` | `web/ItineraryPreview.java:32` | Preview rows |
@@ -482,7 +484,7 @@ Correct a recorded booking or plan.
 | Expression | Event | Notes |
 |------------|-------|-------|
 | `ChangeFlightCommand` | `FlightChanged` | Edit by hand, `/booked-flights/{id}` |
-| `ChangeFlightItineraryCommand` | `FlightChanged`/`FlightBooked`/`FlightCancelled` + `FlightItineraryChanged` | "Apply schedule change" — reached by re-pasting a booked code; no route of its own |
+| `ChangeFlightItineraryCommand` | `FlightChanged`/`FlightBooked`/`FlightCancelled` + `FlightItineraryChanged` or `FlightItineraryRebooked` | "Record schedule change" / "Record rebooking", `/booked-itineraries/{id}/change`. Re-pasting a booked code on Book no longer applies it (2026-11-14, `FlightItineraryRebookingPlan.md` D11) |
 | `ChangeHotelCommand` | `HotelChanged` | `/booked-hotels/{id}` |
 | `ChangeTrainCommand` | `TrainChanged` | `/booked-trains/{id}` |
 | `ChangeGatheringCommand` | `GatheringChanged` | `/planned-gatherings/{id}` |

@@ -31,6 +31,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -219,6 +220,42 @@ class ChangeFlightItineraryControllerTest {
                 .hasStatusOk()
                 .bodyText()
                 .contains("<span class=\"error\">Pick who changed it</span>");
+    }
+
+    @Test
+    void anUnknownAirportGetsAZonePickerWithItsOwnError() {
+        given(flightItineraryChange.evaluate(eq(HE80PP), eq(ItineraryChangeKind.REBOOKING), anyString(), any(), any(), any()))
+                .willReturn(new ItineraryChangeEvaluation(List.of(), List.of(AirportCode.of("YQB")),
+                        ItineraryChangeKind.REBOOKING, null, null, null));
+
+        assertThat(mockMvc.post().uri(PATH)
+                           .param("action", "preview")
+                           .param("kind", "REBOOKING")
+                           .param("pasted", "Confirmation Number: HE80PP")
+                           .with(csrf()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<select name=\"airportZones[YQB]\">")
+                .contains("<option value=\"CANADA_EASTERN\">Canada Eastern</option>")
+                .contains("<span class=\"error\">Unknown airport — pick its zone</span>");
+    }
+
+    @Test
+    void aPickedZoneReachesTheServiceKeyedByItsAirport() {
+        given(flightItineraryChange.evaluate(any(), any(), anyString(), any(), any(), any()))
+                .willReturn(dropsBerFra(ItineraryChangeKind.REBOOKING));
+
+        mockMvc.post().uri(PATH)
+                .param("action", "preview")
+                .param("kind", "REBOOKING")
+                .param("pasted", "Confirmation Number: HE80PP")
+                .param("airportZones[YQB]", "CANADA_EASTERN")
+                .with(csrf())
+                .exchange();
+
+        then(flightItineraryChange).should().evaluate(eq(HE80PP), eq(ItineraryChangeKind.REBOOKING),
+                eq("Confirmation Number: HE80PP"), eq(Map.of("YQB", "CANADA_EASTERN")), any(),
+                eq(WebTodayTestConfig.FIXED_INSTANT));
     }
 
     @Test

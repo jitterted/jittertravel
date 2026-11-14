@@ -9,6 +9,8 @@ import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryId;
 import dev.ted.jittertravel.domain.ItineraryChangeKind;
 import dev.ted.jittertravel.domain.ItineraryChangePlan;
+import dev.ted.jittertravel.domain.ItineraryLeg;
+import dev.ted.jittertravel.domain.StaticAirportCityResolver;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
 
 import java.time.Instant;
@@ -34,12 +36,21 @@ public class FlightItineraryChange {
     private final CommandExecutor commandExecutor;
     private final LiveScheduledLegs liveScheduledLegs;
     private final ItineraryPasteReader pasteReader;
+    private final ItineraryChangeNews changeNews;
 
+    /** With no home cities configured, so any two different airports are different places. */
     public FlightItineraryChange(CommandExecutor commandExecutor, AirportZoneResolver airportZoneResolver,
                                  LiveScheduledLegs liveScheduledLegs) {
+        this(commandExecutor, airportZoneResolver, liveScheduledLegs,
+                new ItineraryChangeNews(new StaticAirportCityResolver(), new HomeCities(List.of())));
+    }
+
+    public FlightItineraryChange(CommandExecutor commandExecutor, AirportZoneResolver airportZoneResolver,
+                                 LiveScheduledLegs liveScheduledLegs, ItineraryChangeNews changeNews) {
         this.commandExecutor = commandExecutor;
         this.liveScheduledLegs = liveScheduledLegs;
         this.pasteReader = new ItineraryPasteReader(airportZoneResolver);
+        this.changeNews = changeNews;
     }
 
     /**
@@ -72,8 +83,9 @@ public class FlightItineraryChange {
                 ChangeFlightItineraryCommand command = kind == null
                         ? null
                         : new ChangeFlightItineraryCommand(itineraryId, kind, read.legs());
-                yield new ItineraryChangeEvaluation(List.of(), List.of(), kind,
-                        ItineraryChangePlan.of(read.legs(), context), context, command);
+                ItineraryChangePlan plan = ItineraryChangePlan.of(read.legs(), context);
+                yield new ItineraryChangeEvaluation(List.of(), List.of(), kind, plan, context, command,
+                        changeNews.between(context.liveMembers(), legsAfter(plan)));
             }
         };
     }
@@ -96,6 +108,14 @@ public class FlightItineraryChange {
 
     public boolean isReadOnly() {
         return commandExecutor.isReadOnly();
+    }
+
+    /** The legs still on the books once the plan is applied: everything but what it drops. */
+    private List<ItineraryLeg> legsAfter(ItineraryChangePlan plan) {
+        return plan.diffs().stream()
+                .filter(diff -> diff.kind() != ItineraryChangePlan.Kind.REMOVED)
+                .map(ItineraryChangePlan.LegDiff::effective)
+                .toList();
     }
 
     /** One sentence under the paste box, naming both codes, so a mix-up between two emails is plain. */

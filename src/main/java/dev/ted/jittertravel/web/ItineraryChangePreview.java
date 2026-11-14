@@ -1,17 +1,22 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ItineraryChangeEvaluation;
+import dev.ted.jittertravel.application.ItineraryChangeNews;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.ItineraryChangeKind;
 import dev.ted.jittertravel.domain.ItineraryChangePlan;
 import dev.ted.jittertravel.domain.ItineraryChangePlan.Kind;
 import dev.ted.jittertravel.domain.ItineraryChangePlan.LegDiff;
 import dev.ted.jittertravel.domain.ItineraryLeg;
+import dev.ted.jittertravel.domain.ZonedTimestamp;
 import dev.ted.jittertravel.web.ItineraryPreview.Before;
 import dev.ted.jittertravel.web.ItineraryPreview.Row;
 
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 
 /**
  * An {@link ItineraryChangeEvaluation} in the change page's words, as the approved mockup draws it
@@ -34,14 +39,18 @@ public record ItineraryChangePreview(
         String summary,
         boolean nothingToChange,
         boolean applicable,
-        String applyLabel
+        String applyLabel,
+        String familyLine
 ) {
 
     static final String PICK_WHO = "Pick who changed it";
+    static final String FAMILY_NOT_EMAILED = "Your family will not be emailed: no journey starts or ends "
+                                             + "somewhere else, or more than 2 hours from when it did.";
+    private static final DateTimeFormatter WHEN = DateTimeFormatter.ofPattern("EEE, MMM d, h:mm a", Locale.ENGLISH);
 
     /** Before any preview: nothing to say yet, and no problem to count. */
     static final ItineraryChangePreview NONE =
-            new ItineraryChangePreview("", "", List.of(), List.of(), "", false, false, "");
+            new ItineraryChangePreview("", "", List.of(), List.of(), "", false, false, "", "");
 
     public static ItineraryChangePreview from(ItineraryChangeEvaluation evaluation) {
         ItineraryChangePlan plan = evaluation.plan();
@@ -53,7 +62,46 @@ public record ItineraryChangePreview(
                 plan == null || !plan.hasChanges() ? "" : summary(plan, evaluation.kind()),
                 evaluation.nothingToChange(),
                 evaluation.applicable(),
-                evaluation.kindMissing() ? "" : applyLabel(evaluation.kind()));
+                evaluation.kindMissing() ? "" : applyLabel(evaluation.kind()),
+                plan == null || !plan.clean() || !plan.hasChanges() ? "" : familyLine(evaluation.familyNews()));
+    }
+
+    /**
+     * Whether family will be emailed, and why, from the rule the email itself uses (approved item 1):
+     * a consequence of recording, so it belongs on this page. Said only once there is something
+     * clean to record.
+     */
+    private static String familyLine(Optional<ItineraryChangeNews.Difference> news) {
+        return news.map(difference -> "Your family will be emailed: " + reason(difference) + ".")
+                .orElse(FAMILY_NOT_EMAILED);
+    }
+
+    private static String reason(ItineraryChangeNews.Difference difference) {
+        String journey = journeyName(difference.journey(), difference.journeys());
+        return switch (difference.kind()) {
+            case STARTS -> journey + " now starts at " + difference.now().code() + ", was " + difference.was().code();
+            case ENDS -> journey + " now ends at " + difference.now().code() + ", was " + difference.was().code();
+            case DEPARTS -> journey + " now leaves " + when(difference.nowAt()) + ", was " + when(difference.wasAt());
+            case ARRIVES -> journey + " now arrives " + when(difference.nowAt()) + ", was " + when(difference.wasAt());
+            case ADDED -> "there is a new journey, " + difference.was().code() + " to " + difference.now().code();
+            case DROPPED -> "the journey from " + difference.was().code() + " to " + difference.now().code()
+                            + " is no longer on the trip";
+        };
+    }
+
+    /** A round trip's two journeys are its outbound and its return; otherwise they are counted. */
+    private static String journeyName(int journey, int journeys) {
+        if (journeys == 1) {
+            return "the trip";
+        }
+        if (journeys == 2) {
+            return journey == 1 ? "the outbound journey" : "the return journey";
+        }
+        return "journey " + journey;
+    }
+
+    private static String when(ZonedTimestamp timestamp) {
+        return WHEN.format(timestamp.atEntryZone());
     }
 
     public boolean planned() {

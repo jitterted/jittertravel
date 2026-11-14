@@ -239,8 +239,10 @@ public class EventSourcingConfig {
     @Bean
     public FlightItineraryChange flightItineraryChange(CommandExecutor commandExecutor,
                                                        AirportZoneResolver airportZoneResolver,
-                                                       LiveScheduledLegs liveScheduledLegs) {
-        return new FlightItineraryChange(commandExecutor, airportZoneResolver, liveScheduledLegs);
+                                                       LiveScheduledLegs liveScheduledLegs,
+                                                       ItineraryChangeNews itineraryChangeNews) {
+        return new FlightItineraryChange(commandExecutor, airportZoneResolver, liveScheduledLegs,
+                itineraryChangeNews);
     }
 
     @Bean
@@ -554,8 +556,17 @@ public class EventSourcingConfig {
     public NotifyFamily notifyFamily(CommandExecutor commandExecutor,
                                      BrevoEmailClient brevoEmailClient,
                                      FamilyNotificationMessages familyNotificationMessages,
+                                     ItineraryChangeNews itineraryChangeNews,
                                      @Value("${jittertravel.family-notify.enabled:false}") boolean enabled) {
-        return new NotifyFamily(commandExecutor, brevoEmailClient, familyNotificationMessages, enabled);
+        return new NotifyFamily(commandExecutor, brevoEmailClient, familyNotificationMessages,
+                itineraryChangeNews, enabled);
+    }
+
+    /** One rule, two callers: the change page's preview and the family email (FlightItineraryRebookingPlan D5). */
+    @Bean
+    public ItineraryChangeNews itineraryChangeNews(AirportCityResolver airportCityResolver,
+                                                   @Value("${jittertravel.home-cities:}") List<String> homeCityNames) {
+        return new ItineraryChangeNews(airportCityResolver, new HomeCities(homeCityNames));
     }
 
     /**

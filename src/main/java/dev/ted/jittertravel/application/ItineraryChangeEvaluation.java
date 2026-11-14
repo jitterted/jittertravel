@@ -7,6 +7,7 @@ import dev.ted.jittertravel.domain.ItineraryChangeKind;
 import dev.ted.jittertravel.domain.ItineraryChangePlan;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Everything the change-itinerary page needs to say about one submit, in the order it is decided:
@@ -17,6 +18,8 @@ import java.util.List;
  * <p>
  * The diff does not depend on {@code kind}, so it is shown even while "Who changed it?" is
  * unanswered; {@code command} needs both and is exactly what applying would execute.
+ * {@code familyNews} is why family will be emailed, from the same rule {@link NotifyFamily} uses
+ * (approved item 1), or empty when they will not be.
  */
 public record ItineraryChangeEvaluation(
         List<String> parseProblems,
@@ -24,12 +27,23 @@ public record ItineraryChangeEvaluation(
         ItineraryChangeKind kind,
         ItineraryChangePlan plan,
         ChangeFlightItineraryContext context,
-        ChangeFlightItineraryCommand command
+        ChangeFlightItineraryCommand command,
+        Optional<ItineraryChangeNews.Difference> familyNews
 ) {
 
     public ItineraryChangeEvaluation {
         parseProblems = List.copyOf(parseProblems);
         unresolvedAirports = List.copyOf(unresolvedAirports);
+        if (familyNews == null) {
+            familyNews = Optional.empty();
+        }
+    }
+
+    /** Without the family-email answer: nothing to compare until a plan exists. */
+    public ItineraryChangeEvaluation(List<String> parseProblems, List<AirportCode> unresolvedAirports,
+                                     ItineraryChangeKind kind, ItineraryChangePlan plan,
+                                     ChangeFlightItineraryContext context, ChangeFlightItineraryCommand command) {
+        this(parseProblems, unresolvedAirports, kind, plan, context, command, Optional.empty());
     }
 
     static ItineraryChangeEvaluation unread(List<String> problems, List<AirportCode> unresolved,

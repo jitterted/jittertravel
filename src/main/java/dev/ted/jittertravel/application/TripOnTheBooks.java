@@ -126,6 +126,11 @@ final class TripOnTheBooks {
         return itineraryId;
     }
 
+    /** The itinerary's legs still on the books, as last written. */
+    List<ItineraryLeg> liveLegs() {
+        return liveMembers;
+    }
+
     ChangeFlightItineraryContext contextFor(BookFlightContext context) {
         return new ChangeFlightItineraryContext(live, liveMembers, cancelledMembers,
                 droppedMembers, context.scheduledLegs(), context.now());

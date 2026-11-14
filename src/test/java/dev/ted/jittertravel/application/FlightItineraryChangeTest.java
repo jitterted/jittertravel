@@ -380,6 +380,33 @@ class FlightItineraryChangeTest {
                                 Instant.parse("2026-11-14T15:00:00Z")));
     }
 
+    /** The preview's family line comes from the plan's result, so a dropped leg is gone from it. */
+    @Test
+    void theEvaluationSaysWhetherFamilyWillBeEmailedFromTheLegsLeftAfterTheChange() {
+        SpyCommandExecutor executor = new SpyCommandExecutor(sfoOrd, ordSfo, trip);
+        String withoutTheReturn = """
+                Confirmation Number:
+                MD7LKB
+                Flight 1 of 1 UA2091        Class: United First (Z)
+                Sun, Oct 18, 2026        Sun, Oct 18, 2026
+                06:10 AM        12:45 PM
+                San Francisco, CA, US (SFO)        Chicago, IL, US (ORD)
+                """;
+
+        ItineraryChangeEvaluation dropped = change(executor).evaluate(TRIP, ItineraryChangeKind.REBOOKING,
+                withoutTheReturn, Map.of(), NEW_FLIGHT_ID, NOW);
+        ItineraryChangeEvaluation movedAnHour = change(executor).evaluate(TRIP, ItineraryChangeKind.REBOOKING,
+                MOVED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
+
+        assertThat(dropped.familyNews())
+                .as("the trip now ends at ORD, not SFO")
+                .map(ItineraryChangeNews.Difference::kind)
+                .hasValue(ItineraryChangeNews.Kind.ENDS);
+        assertThat(movedAnHour.familyNews())
+                .as("an hour earlier is not news")
+                .isEmpty();
+    }
+
     @Test
     void theItineraryThePageNamesDecidesTheCodeNotTheFirstOneInTheLog() {
         FlightItineraryBooked earlierTrip = new FlightItineraryBooked(FlightItineraryId.of(UUID.randomUUID()),

@@ -5,9 +5,12 @@ import dev.ted.jittertravel.domain.FamilyNotified;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
+import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.ItineraryLeg;
 import dev.ted.jittertravel.domain.NotifiedFact;
 import dev.ted.jittertravel.domain.NotifiedSubject;
+import dev.ted.jittertravel.domain.StaticAirportCityResolver;
 import dev.ted.jittertravel.infrastructure.BrevoEmailClient;
 import dev.ted.jittertravel.infrastructure.FamilyMessage;
 import dev.ted.jittertravel.infrastructure.FamilyNotificationMessages;
@@ -59,13 +62,22 @@ public class NotifyFamily {
     private final CommandExecutor commandExecutor;
     private final BrevoEmailClient brevo;
     private final FamilyNotificationMessages messages;
+    private final ItineraryChangeNews changeNews;
     private final boolean enabled;
 
+    /** With no home cities configured, for the callers that never tell family about a change. */
     public NotifyFamily(CommandExecutor commandExecutor, BrevoEmailClient brevo,
                         FamilyNotificationMessages messages, boolean enabled) {
+        this(commandExecutor, brevo, messages,
+                new ItineraryChangeNews(new StaticAirportCityResolver(), new HomeCities(List.of())), enabled);
+    }
+
+    public NotifyFamily(CommandExecutor commandExecutor, BrevoEmailClient brevo,
+                        FamilyNotificationMessages messages, ItineraryChangeNews changeNews, boolean enabled) {
         this.commandExecutor = commandExecutor;
         this.brevo = brevo;
         this.messages = messages;
+        this.changeNews = changeNews;
         this.enabled = enabled;
     }
 
@@ -117,6 +129,68 @@ public class NotifyFamily {
         send(commandId, subject, NotifiedFact.ITINERARY_CANCELLED,
                 messages.messageFor(NotifiedFact.ITINERARY_CANCELLED, legs), now);
         return Outcome.SENT;
+    }
+
+    /**
+     * An itinerary was changed, by the airline or by Ted, in the append whose command id is
+     * {@code changeCommand} ({@code docs/FlightItineraryRebookingPlan.md} D5, D7, D8).
+     * <p>
+     * The batch carries only new values, so the itinerary is folded twice: as it stood before that
+     * append, and as it stands now. {@link ItineraryChangeNews} decides from the two whether where or
+     * when a journey starts or ends changed; a change that moved only a connection is no news.
+     * <strong>Told whether or not family were told it was booked</strong> (D8), which is why there is
+     * no positive-first check here: the email lists every flight still to come, so it stands on its
+     * own. And never "already told": each change is news of its own.
+     */
+    public Outcome notifyOfChangedItinerary(UUID commandId, FlightItineraryId itinerary, UUID changeCommand,
+                                            Instant now) {
+        Optional<Outcome> blocked = blocked();
+        if (blocked.isPresent()) {
+            return blocked.get();
+        }
+        List<StoredEvent> history = history();
+        Optional<String> code = confirmationCodeOf(history, itinerary);
+        if (code.isEmpty()) {
+            return Outcome.NO_LEGS;
+        }
+        List<StoredEvent> beforeTheChange = history.stream()
+                .filter(stored -> !stored.commandId().equals(changeCommand))
+                .toList();
+        List<ItineraryLeg> before = TripOnTheBooks.fold(beforeTheChange, code.get()).liveLegs();
+        List<ItineraryLeg> after = TripOnTheBooks.fold(history, code.get()).liveLegs();
+        if (changeNews.between(before, after).isEmpty()) {
+            return Outcome.NOTHING_TO_SAY;
+        }
+        List<FlightBooked> stillToCome = after.stream()
+                .filter(leg -> leg.departureDateTime().utc().isAfter(now))
+                .sorted(Comparator.comparing(leg -> leg.departureDateTime().utc()))
+                .map(ItineraryLeg::booked)
+                .toList();
+        if (stillToCome.isEmpty()) {
+            return Outcome.NO_LEGS;
+        }
+        send(commandId, NotifiedSubject.itinerary(itinerary), NotifiedFact.ITINERARY_CHANGED,
+                messages.tripChanged(stillToCome, oldFlights(before, after)), now);
+        return Outcome.SENT;
+    }
+
+    /** Every leg the change dropped, and every one it moved at its old times, in departure order. */
+    private List<FlightBooked> oldFlights(List<ItineraryLeg> before, List<ItineraryLeg> after) {
+        return before.stream()
+                .filter(was -> after.stream().noneMatch(was::equals))
+                .sorted(Comparator.comparing(leg -> leg.departureDateTime().utc()))
+                .map(ItineraryLeg::booked)
+                .toList();
+    }
+
+    private Optional<String> confirmationCodeOf(List<StoredEvent> history, FlightItineraryId itinerary) {
+        return history.stream()
+                .map(StoredEvent::payload)
+                .filter(FlightItineraryBooked.class::isInstance)
+                .map(FlightItineraryBooked.class::cast)
+                .filter(booked -> booked.itineraryId().equals(itinerary))
+                .map(FlightItineraryBooked::confirmationCode)
+                .findFirst();
     }
 
     /**

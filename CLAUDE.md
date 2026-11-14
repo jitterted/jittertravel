@@ -1061,8 +1061,9 @@ too — and the test that catches it may be years away.
 
 Every email the app sends is a plain text file there (`flight-booked.txt`, `trip-booked.txt`,
 `trip-cancelled.txt`, `conference-going.txt`, `conference-not-going.txt`, `test-email.txt`; and
-`trip-changed.txt`, approved 2026-10-13 for the unbuilt rebooking slice, which nothing sends yet and
-only `EmailTemplatesTest` renders), written as the email itself: a `Subject:` line, a blank line,
+`trip-changed.txt`, approved 2026-10-13 and sent since 2026-11-14 when a schedule change or a
+rebooking moves where or when a journey starts or ends, `FlightItineraryRebookingPlan.md` D5), written
+as the email itself: a `Subject:` line, a blank line,
 then the body, with values as `[[${name}]]` and a repeated part as `[# th:each ...] ... [/]`.
 `EmailTemplates` renders them with Thymeleaf's plain-text mode (no extra dependency), and a run of
 blank lines is sent as one. **A template can link to the calendar**: when `JITTERTRAVEL_BASE_URL` is

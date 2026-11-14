@@ -68,10 +68,24 @@ public class FamilyNotificationMessages {
             case FLIGHT_BOOKED -> templates.render("flight-booked", flightValues(legs));
             case ITINERARY_BOOKED -> templates.render("trip-booked", tripValues(legs));
             case ITINERARY_CANCELLED -> templates.render("trip-cancelled", tripValues(legs));
+            case ITINERARY_CHANGED -> throw new IllegalArgumentException(
+                    fact + " needs the old flights as well as the new: see tripChanged");
             case CONFERENCE_GOING, CONFERENCE_NOT_GOING -> throw new IllegalArgumentException(
                     fact + " is told from a conference, not from flights: see conferenceGoing and "
                     + "conferenceNotGoing");
         };
+    }
+
+    /**
+     * A trip changed (D5): the flights still to come, numbered, then "the old flights that were
+     * changed", every dropped leg and every moved one at its old times, so a change that only shifts
+     * times still says what it shifted from (Ted, 2026-10-13). Approved wording, {@code trip-changed.txt}.
+     */
+    public FamilyMessage tripChanged(List<FlightBooked> legs, List<FlightBooked> oldLegs) {
+        Map<String, Object> values = tripValues(legs);
+        // The old flights are not numbered in the email, so they carry no number here.
+        values.put("oldLegs", oldLegs.stream().map(leg -> view(0, leg)).toList());
+        return templates.render("trip-changed", values);
     }
 
     /** Ted is going: the conference as planned. */

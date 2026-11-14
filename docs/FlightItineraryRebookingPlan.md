@@ -1,9 +1,29 @@
 # Flight Itinerary Rebooking Plan
 
 Status: **decisions (D1–D10), mockup and email wording approved; D10's heading band built, the rest not** (2026-10-14).
-**2026-11-14: building the rest as one change (Ted), with HE80PP waiting for it.** Its BER→FRA leg
-(UA8786, Thu Nov 26) is to be recorded through the new page as "I rebooked". If the build is not
-live before then, cancel the leg by hand instead.
+**2026-11-14: D1–D9 and D11–D13 built as one change, unpushed** (`a251944`, `751ce56`, `b3b0c38`
+and the family-email commit after them). HE80PP's BER→FRA leg (UA8786, Thu Nov 26) is to be
+recorded through the new page as "I rebooked" once it is live. If it is not live before then,
+cancel the leg by hand instead.
+
+**Built:** `FlightItineraryRebooked` and cause `REBOOKED` (D1, D2); `/booked-itineraries/{id}/change`
+with "Who changed it?", the diff, the counting line and the family line (D3, approved item 1);
+Book refusing a booked code with the POST hand-off, and its schedule-change branch gone (D4, D11);
+D5–D8 as `ItineraryChangeNews`, one rule for the preview and the email; D6; D12; Change itinerary on
+the band, "Added"/"Dropped" labels and the after-apply banner (D10, approved item 2).
+
+**Open, each needing Ted's word before it is built:**
+- D10's **"was leg 3"** on a dropped row. It needs the leg's place before the change, which no read
+  model keeps; the dropped row says "Dropped <date> · Rebooked" without it.
+- The banner's **"Your family was emailed."** The send runs in a reactor after the redirect, so the
+  banner cannot know the outcome; it says what was recorded and nothing about mail. The change
+  page's preview already says whether family will be emailed.
+- **`/admin/email-preview` does not show `trip-changed.txt` yet.** CLAUDE.md says that page shows
+  every email exactly as sent, so either add a sample change to it or narrow that sentence.
+
+D13 needed no code: the list already split a trip around an interleaved flight, and
+`BookedFlightsRendererTest.flightsBookedOnTheirOwnGetAQuietBandAndAnInterleavedItineraryIsTwoRuns`
+already pins it.
 
 Vocabulary as agreed in `terms.md`, "Agreed: flight vocabulary": *leg*, *journey*, *itinerary*,
 *confirmation code*, *schedule change*, *rebooking*, *dropped*, *cancelled*.

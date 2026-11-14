@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ItineraryChangeEvaluation;
+import dev.ted.jittertravel.application.ItineraryChangeNews;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.ChangeFlightItineraryCommand;
 import dev.ted.jittertravel.domain.ChangeFlightItineraryContext;
@@ -17,6 +18,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -228,6 +230,70 @@ class ItineraryChangePreviewTest {
                 .isTrue();
         assertThat(bookRow.hasStatus())
                 .isFalse();
+    }
+
+    @Test
+    void aChangeFamilyWillHearAboutSaysSoAndWhy() {
+        ItineraryChangePreview preview = ItineraryChangePreview.from(withNews(Optional.of(
+                new ItineraryChangeNews.Difference(ItineraryChangeNews.Kind.STARTS, 2, 2,
+                        AirportCode.of("BER"), AirportCode.of("FRA"), null, null))));
+
+        assertThat(preview.familyLine())
+                .isEqualTo("Your family will be emailed: the return journey now starts at FRA, was BER.");
+    }
+
+    @Test
+    void eachKindOfNewsIsSaidInItsOwnWords() {
+        ZonedTimestamp was = ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 26, 10, 40), ZoneId.of("Europe/Berlin"));
+        ZonedTimestamp now = ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, 26, 13, 30), ZoneId.of("Europe/Berlin"));
+
+        assertThat(List.of(
+                lineFor(ItineraryChangeNews.Kind.ENDS, 1, 1, "YOW", "YYZ", was, now),
+                lineFor(ItineraryChangeNews.Kind.DEPARTS, 1, 2, "BER", "BER", was, now),
+                lineFor(ItineraryChangeNews.Kind.ARRIVES, 3, 3, "SFO", "SFO", was, now),
+                lineFor(ItineraryChangeNews.Kind.ADDED, 2, 2, "SFO", "SEA", was, now),
+                lineFor(ItineraryChangeNews.Kind.DROPPED, 2, 2, "YOW", "SFO", was, now)))
+                .containsExactly(
+                        "Your family will be emailed: the trip now ends at YYZ, was YOW.",
+                        "Your family will be emailed: the outbound journey now leaves Thu, Nov 26, 1:30 PM, was Thu, Nov 26, 10:40 AM.",
+                        "Your family will be emailed: journey 3 now arrives Thu, Nov 26, 1:30 PM, was Thu, Nov 26, 10:40 AM.",
+                        "Your family will be emailed: there is a new journey, SFO to SEA.",
+                        "Your family will be emailed: the journey from YOW to SFO is no longer on the trip.");
+    }
+
+    @Test
+    void aChangeFamilyWillNotHearAboutSaysThatToo() {
+        assertThat(ItineraryChangePreview.from(withNews(Optional.empty())).familyLine())
+                .isEqualTo(ItineraryChangePreview.FAMILY_NOT_EMAILED);
+    }
+
+    @Test
+    void aRefusedChangeSaysNothingAboutFamily() {
+        ItineraryChangePreview preview = preview(ItineraryChangeKind.REBOOKING,
+                List.of(leg("UA2091", "SFO", "ORD", 6, 10, 12, 45)),
+                List.of(leg("UA2091", "SFO", "ORD", 12, 45, 6, 10)));
+
+        assertThat(preview.familyLine())
+                .as("nothing will be recorded, so nobody will be emailed about it")
+                .isEmpty();
+    }
+
+    private static String lineFor(ItineraryChangeNews.Kind kind, int journey, int journeys, String was, String now,
+                                  ZonedTimestamp wasAt, ZonedTimestamp nowAt) {
+        return ItineraryChangePreview.from(withNews(Optional.of(new ItineraryChangeNews.Difference(kind, journey,
+                journeys, AirportCode.of(was), AirportCode.of(now), wasAt, nowAt)))).familyLine();
+    }
+
+    /** A clean, applicable rebooking (one leg moved), carrying whatever the rule said about family. */
+    private static ItineraryChangeEvaluation withNews(Optional<ItineraryChangeNews.Difference> news) {
+        List<ItineraryLeg> booked = List.of(leg("UA2091", "SFO", "ORD", 6, 10, 12, 45));
+        List<ItineraryLeg> pasted = List.of(leg("UA2091", "SFO", "ORD", 7, 10, 12, 45));
+        ChangeFlightItineraryContext context = new ChangeFlightItineraryContext(true, booked, List.of(),
+                ScheduledLegs.none(), NOW);
+        return new ItineraryChangeEvaluation(List.of(), List.of(), ItineraryChangeKind.REBOOKING,
+                ItineraryChangePlan.of(pasted, context), context,
+                new ChangeFlightItineraryCommand(FlightItineraryId.of(UUID.randomUUID()), ItineraryChangeKind.REBOOKING,
+                        pasted), news);
     }
 
     @Test

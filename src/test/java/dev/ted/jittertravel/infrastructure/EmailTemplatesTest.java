@@ -65,10 +65,9 @@ class EmailTemplatesTest {
     }
 
     /**
-     * {@code trip-changed.txt} is approved wording ({@code docs/FlightItineraryRebookingPlan.md})
-     * that nothing sends yet: the rebooking slice that will is unbuilt. Until it lands, this is the
-     * only thing that evaluates the file's expressions, so a mistyped accessor fails here and not
-     * in the first real email.
+     * {@code trip-changed.txt} is approved wording ({@code docs/FlightItineraryRebookingPlan.md}),
+     * sent by {@code NotifyFamily.notifyOfChangedItinerary} since 2026-11-14. This pins the file's
+     * layout with fixed values; {@code NotifyFamilyItineraryChangeTest} pins what is passed to it.
      */
     @Test
     void theTripChangedEmailListsTheNewLegsThenTheOldOnes() {

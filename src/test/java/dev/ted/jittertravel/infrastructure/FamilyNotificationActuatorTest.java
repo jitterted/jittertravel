@@ -130,29 +130,51 @@ class FamilyNotificationActuatorTest {
 
     /**
      * A schedule change that adds a leg, or reinstates one the airline dropped, writes a new
-     * FlightBooked — but family want to hear about new trips and cancelled ones, and this is neither.
+     * FlightBooked. That leg is part of a trip, so it is never sent as a flight of its own: the
+     * change is told as a change, and the service decides from the fold whether it is news (D5).
      */
     @Test
-    void aFlightBookedByAScheduleChangeNotifiesNobody() {
+    void aScheduleChangeIsToldAsAChangeAndItsNewLegIsNotAFlightOfItsOwn() {
         FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
-
-        actuatorFor().react(batch(second,
+        List<StoredEvent> batch = batch(second,
                 new FlightItineraryChanged(trip, List.of(first.flightId(), second.flightId()),
-                        "Airline schedule change", NOW)));
+                        "Airline schedule change", NOW));
 
-        verifyNoInteractions(notifyFamily);
+        actuatorFor().react(batch);
+
+        verify(notifyFamily).notifyOfChangedItinerary(any(), eq(trip), eq(batch.get(1).commandId()), eq(NOW));
+        verify(notifyFamily, never()).notifyFamily(any(), any(), any(), any(), any());
     }
 
-    /** The same for Ted's own rebooking: the leg it adds is part of a trip, not a flight of its own. */
+    /** The same for Ted's own rebooking. */
     @Test
-    void aFlightBookedByARebookingIsNotSentAsAFlightOfItsOwn() {
+    void aRebookingIsToldAsAChangeAndItsNewLegIsNotAFlightOfItsOwn() {
         FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
-
-        actuatorFor().react(batch(second,
+        List<StoredEvent> batch = batch(second,
                 new FlightItineraryRebooked(trip, List.of(first.flightId(), second.flightId()),
-                        "Rebooked", NOW)));
+                        "Rebooked", NOW));
 
-        verifyNoInteractions(notifyFamily);
+        actuatorFor().react(batch);
+
+        verify(notifyFamily).notifyOfChangedItinerary(any(), eq(trip), eq(batch.get(1).commandId()), eq(NOW));
+        verify(notifyFamily, never()).notifyFamily(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aChangeThatFailsToSendIsCountedAndTheBatchsOtherNotificationsStillGo() {
+        FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
+        given(notifyFamily.notifyOfChangedItinerary(any(), eq(trip), any(), any()))
+                .willThrow(new IllegalStateException("Brevo refused"));
+
+        // first is booked on its own in the same batch; it is not one of the rebooked trip's legs
+        actuatorFor().react(batch(
+                new FlightItineraryRebooked(trip, List.of(second.flightId()), "Rebooked", NOW),
+                first));
+
+        assertThat(meters.counter("family.notification.failed").count())
+                .as("the refused change is counted")
+                .isEqualTo(1.0);
+        verify(notifyFamily).notifyFamily(any(), any(), eq(NotifiedFact.FLIGHT_BOOKED), any(), any());
     }
 
     @Test

@@ -63,6 +63,11 @@
         .legs tr.refused td { background: #fdecec; }
         .legs tr.refused td:first-child { border-left-color: #b00; }
         .records { margin: 0.5rem 0 0; font-size: 0.95rem; }
+        .mail {
+            display: flex; gap: 0.6rem; align-items: flex-start; margin: 0.75rem 0 0; padding: 0.6rem 0.8rem;
+            border: 1px solid #c7d2fe; background: #eef2ff; border-radius: 6px; font-size: 0.95rem;
+        }
+        .mail svg { flex: none; margin-top: 3px; }
         .actions { display: flex; gap: 1rem; align-items: center; margin-top: 1.25rem; flex-wrap: wrap; }
         .actions button {
             font: inherit; font-size: 0.95rem; font-weight: 600; padding: 0.6rem 1.2rem; min-height: 44px;
@@ -169,6 +174,13 @@
             </table>
             <p class="records" th:if="${!preview.summary().isEmpty()}" th:text="${preview.summary()}">
                 Recorded as your rebooking: 1 leg dropped, 3 unchanged.</p>
+            <p class="mail" th:if="${!preview.familyLine().isEmpty()}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path>
+                </svg>
+                <span th:text="${preview.familyLine()}">Your family will be emailed: the return journey now starts at FRA, was BER.</span>
+            </p>
         </th:block>
 
         <div class="actions">

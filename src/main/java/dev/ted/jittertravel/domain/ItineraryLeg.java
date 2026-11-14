@@ -14,7 +14,8 @@ public record ItineraryLeg(
         ZonedTimestamp arrivalDateTime
 ) {
 
-    FlightBooked booked() {
+    /** This leg as a booking of its own: what is written when it is booked, and what an email describes. */
+    public FlightBooked booked() {
         return new FlightBooked(flightId, airline, flightNumber,
                 departureAirport, departureDateTime, arrivalAirport, arrivalDateTime);
     }

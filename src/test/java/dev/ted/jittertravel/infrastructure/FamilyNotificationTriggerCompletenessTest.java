@@ -67,6 +67,9 @@ class FamilyNotificationTriggerCompletenessTest {
             FlightBooked.class,
             FlightItineraryBooked.class,
             FlightItineraryCancelled.class,
+            // A change that moves where or when a journey starts or ends (FlightItineraryRebookingPlan D5).
+            FlightItineraryChanged.class,
+            FlightItineraryRebooked.class,
             ConferenceAttendanceConfirmed.class,
             ConferenceAttendanceDeclined.class,
             ConferenceCancelled.class,
@@ -118,13 +121,6 @@ class FamilyNotificationTriggerCompletenessTest {
                 + "that is off, so cancelling one flight on its own tells family nothing. (Cancelling "
                 + "a whole itinerary does, via FlightItineraryCancelled, which is in TELLS_FAMILY.)",
                 silent, FlightCancelled.class);
-        because("a schedule change is not a new trip; the FlightBooked it writes for an added or "
-                + "reinstated leg is suppressed by FlightItineraryChanged being in the same batch",
-                silent, FlightItineraryChanged.class);
-        because("a rebooking is not a new trip; the FlightBooked it writes for an added leg is suppressed "
-                + "by FlightItineraryRebooked being in the same batch. Family email on a change is "
-                + "FlightItineraryRebookingPlan D5, not built yet",
-                silent, FlightItineraryRebooked.class);
         because("moves only the speaking axis, never the commitment, so it changes nothing family "
                 + "were told (Q1, 2026-09-10)",
                 silent, TalkSubmitted.class, TalkWithdrawn.class, InvitedToSpeak.class);

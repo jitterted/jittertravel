@@ -88,6 +88,18 @@ public class FamilyNotificationActuator implements EventReactor {
                 countFailure(NotifiedSubject.itinerary(cancellation.itinerary()), failed);
             }
         }
+        for (StoredEvent change : itineraryChangesIn(events)) {
+            FlightItineraryId itinerary = switch (change.payload()) {
+                case FlightItineraryChanged changed -> changed.itineraryId();
+                case FlightItineraryRebooked rebooked -> rebooked.itineraryId();
+                default -> throw new IllegalStateException("not an itinerary change: " + change.payload());
+            };
+            try {
+                notifyFamily.notifyOfChangedItinerary(UUID.randomUUID(), itinerary, change.commandId(), now);
+            } catch (RuntimeException failed) {
+                countFailure(NotifiedSubject.itinerary(itinerary), failed);
+            }
+        }
         for (ConferenceId conference : conferencesMovedIn(events)) {
             try {
                 notifyFamily.notifyOfConference(UUID.randomUUID(), conference, now);
@@ -95,6 +107,17 @@ public class FamilyNotificationActuator implements EventReactor {
                 countFailure(NotifiedSubject.conference(conference), failed);
             }
         }
+    }
+
+    /**
+     * A schedule change or a rebooking: its membership event, whose command id names the append
+     * that holds its legs' events, so the service can fold the itinerary as it stood before it.
+     */
+    private List<StoredEvent> itineraryChangesIn(List<StoredEvent> events) {
+        return events.stream()
+                .filter(stored -> stored.payload() instanceof FlightItineraryChanged
+                                  || stored.payload() instanceof FlightItineraryRebooked)
+                .toList();
     }
 
     /**

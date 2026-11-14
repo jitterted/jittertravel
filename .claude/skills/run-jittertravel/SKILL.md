@@ -99,8 +99,9 @@ Same thing the driver does. Log in at `/login` with `ted` / `preview`.
 - **The compose container name follows the checkout directory**, e.g.
   `jittertravel-gathering-postgres-1` in a worktree named `jittertravel-gathering`. `driver.sh
   sql` matches on the `-postgres-1` suffix to avoid grabbing the test container.
-- **Both Postgres instances want port 5432 / their own mapping.** The compose one binds 5432;
-  the Testcontainers one gets a random high port. Running the app and the suite together is fine.
+- **The compose Postgres is on host port 15432, bound to 127.0.0.1** — not 5432, which other
+  projects' containers claim. The Testcontainers one gets a random high port. Running the app and
+  the suite together is fine. A database GUI connects to `localhost:15432`.
 - **spring-boot-devtools is on the classpath**, so the app auto-restarts when classes change
   (the main thread is `restartedMain`). Recompiling under a running app restarts it — harmless,
   but it explains "why did my session log out."
@@ -108,6 +109,12 @@ Same thing the driver does. Log in at `/login` with `ted` / `preview`.
   matches, so it under-reports badly. Use `grep -o … | wc -l`.
 
 ## Troubleshooting
+
+- **`Bind for 127.0.0.1:15432 failed: port is already allocated`** (buried in a
+  `ProcessExitException` from `docker compose … up`): something else holds the port. Find it
+  with `docker ps --format '{{.Names}}\t{{.Ports}}' | grep 15432` or
+  `lsof -nP -iTCP:15432 -sTCP:LISTEN`, and stop it. Deleting JitterTravel's own container does
+  not help — it is the *other* holder that blocks the bind.
 
 - **`login FAILED for ted (status 302)`**: wrong password, or the app was restarted by devtools
   mid-session. Re-run `./driver.sh login`.

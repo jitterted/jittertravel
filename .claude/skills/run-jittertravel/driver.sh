@@ -40,7 +40,8 @@ csrf() {
 # Compose names the container <dir>-postgres-1, so the project name follows the
 # checkout directory (a git worktree gets its own). The trailing "-1" is what
 # distinguishes it from the testcontainers instance, jittertravel-test-postgres.
-pg_container() { docker ps -qf "name=postgres-1" | head -1; }
+# Anchored on "jittertravel" so another project's <dir>-postgres-1 is never picked.
+pg_container() { docker ps -qf "name=^/?jittertravel.*-postgres-1$" | head -1; }
 
 case "${1:-}" in
 

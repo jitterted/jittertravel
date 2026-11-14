@@ -6,7 +6,12 @@ services:
       POSTGRES_USER: jitter
       POSTGRES_PASSWORD: travel
     ports:
-      - "5432:5432"
+      # Host port 15432, not 5432: any other project's Postgres claims 5432 by default, and the
+      # collision fails the app's boot with "port is already allocated" (2026-11-14). The app
+      # needs no setting for it — spring-boot-docker-compose reads the mapped port.
+      # 127.0.0.1 so the dev database is not reachable from the network (hotel Wi-Fi); the iPad
+      # talks to the app, never to Postgres.
+      - "127.0.0.1:15432:5432"
     volumes:
       # The image's own VOLUME, and the parent of PGDATA (/var/lib/postgresql/18/docker).
       # Named rather than anonymous so `docker compose down` leaves the dev data behind

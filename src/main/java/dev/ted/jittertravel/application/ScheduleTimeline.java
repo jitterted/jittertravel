@@ -27,12 +27,14 @@ import java.util.TreeMap;
  * travel gap and never required a bed for the following night. See
  * {@code docs/archived/ScheduleProblemsRewritePlan.md}.
  * <p>
- * <strong>Ordering is by local day, then by role — never by stored clock time alone.</strong> A
- * single day routinely holds a checkout, two legs, and a check-in, and hotel check-in times are
- * whatever was typed into the form: sorting those four by instant would let a check-in recorded at
- * midnight sort ahead of the flight that gets you there, and invent a gap. Within a day the legs,
- * whose times are real, establish the sequence: you leave a stay, you travel, you enter the next
- * one.
+ * <strong>Ordering is by local day, then by clock time — except a hotel check-in, which waits for
+ * the evening.</strong> Legs, events and checkouts carry real times, so a 12:10 tour before a
+ * 16:00 transfer sorts before it. A check-in is typed as the hotel's official time, not when Ted
+ * walks in, and sorting it by instant would put a 15:00 check-in ahead of the 17:16 flight that
+ * gets him there and invent a gap; see {@link Slot}. (Until 2026-11-14 every stay <em>and event</em>
+ * ended in a morning slot and began in an evening one, which is what made the tour sort after the
+ * transfer.) An event he reaches late — the train lands after it has begun, but before it ends —
+ * is not a gap either; see {@link #reachedLate}.
  */
 class ScheduleTimeline {
 
@@ -302,7 +304,8 @@ class ScheduleTimeline {
             switch (point.role()) {
                 case LEAVE -> {
                     // A stay or event ending never opens a gap; it only records that he was still
-                    // there that morning, which is what a later gap reports as its start.
+                    // there until then, which is what a later gap reports as its start. One in a
+                    // city he has already left — an 11:00 checkout after a 09:43 train — is moot.
                     if (homeCities.sameLocation(point.city(), currentCity)) {
                         lastMoment = point.moment();
                     }
@@ -313,7 +316,14 @@ class ScheduleTimeline {
                     lastMoment = point.moment();
                 }
                 case REQUIRE -> {
-                    if (!homeCities.sameLocation(point.city(), currentCity)) {
+                    boolean elsewhere = !homeCities.sameLocation(point.city(), currentCity);
+                    if (elsewhere && reachedLate(point)) {
+                        // Not here yet, but a booked leg lands before the event is over. The
+                        // leg's own arrival is what moves him; taking the event's city now would
+                        // strand the departure that leg still has to make from where he is.
+                        continue;
+                    }
+                    if (elsewhere) {
                         gaps.addAll(gapsLeaving(currentCity, lastMoment, point, tripEnded));
                     }
                     currentCity = point.city();
@@ -367,10 +377,20 @@ class ScheduleTimeline {
      * The last point of a day wins, and the ordering makes that the right one: the day he flies
      * home holds a checkout and a departure from the away city before the arrival that lands him,
      * and it is the landing that says where he sleeps.
+     * <p>
+     * A {@code LEAVE} somewhere he no longer is says nothing, and is skipped. Checkouts sort by
+     * their clock time, so the form's 11:00 can land after an early hop home, and read as a fact it
+     * would put him back in the city he just flew out of.
      */
     NavigableMap<LocalDate, Boolean> homeByLastFactOfDay() {
         TreeMap<LocalDate, Boolean> homeByDay = new TreeMap<>();
+        String currentCity = null;
         for (Point point : points) {
+            if (point.role() == Role.LEAVE && currentCity != null
+                && !homeCities.sameLocation(point.city(), currentCity)) {
+                continue;
+            }
+            currentCity = point.city();
             homeByDay.put(point.day(), homeCities.includes(point.city()));
         }
         return homeByDay;
@@ -450,16 +470,38 @@ class ScheduleTimeline {
         return ChronoUnit.DAYS.between(from, until) > TRIP_BREAK_NIGHTS;
     }
 
+    /**
+     * Whether an event that has started without him is still reached by a booked leg — the
+     * conference opens at 09:00 and his train lands at 11:30. That is a <em>late arrival</em>, not
+     * missing travel: the journey is booked, and this report is about journeys (Ted, 2026-11-14).
+     * Points sort by clock time, so the start is met before the leg that lands him.
+     * <p>
+     * The leg must land <strong>before the event ends</strong>. One landing after it reaches the
+     * city but not the event — a lunch 12:10-14:00 with the transfer landing at 17:00 — and that
+     * is still a gap. Whether the leg has left yet does not matter, and nor does how many
+     * connections it takes. Reporting the lateness itself is a separate slice (late-arrival in
+     * {@code docs/Backlog.md}); until then it is silent, as it was under the old ordering.
+     */
+    private boolean reachedLate(Point start) {
+        if (start.eventEndsAt() == null) {
+            return false;
+        }
+        return movements.stream().anyMatch(movement ->
+                homeCities.sameLocation(movement.toCity(), start.city())
+                && movement.arrival().utc().isAfter(start.moment().utc())
+                && movement.arrival().utc().isBefore(start.eventEndsAt().utc()));
+    }
+
     private static List<Point> orderedPoints(List<Stay> stays,
                                              List<Occupancy> occupancies,
                                              List<Movement> movements) {
         List<Point> points = new ArrayList<>();
         for (Stay stay : stays) {
-            points.add(Point.enters(stay.city(), stay.checkIn()));
+            points.add(Point.checksIn(stay.city(), stay.checkIn()));
             points.add(Point.leaves(stay.city(), stay.checkOut()));
         }
         for (Occupancy occupancy : occupancies) {
-            points.add(Point.enters(occupancy.city(), occupancy.startsAt(), occupancy.conferenceName()));
+            points.add(Point.starts(occupancy));
             points.add(Point.leaves(occupancy.city(), occupancy.endsAt(), occupancy.conferenceName()));
         }
         for (Movement movement : movements) {
@@ -467,8 +509,9 @@ class ScheduleTimeline {
             points.add(Point.arrives(movement.toCity(), movement.arrival()));
         }
         points.sort(Comparator.comparing((Point point) -> point.day())
-                .thenComparingInt(Point::rank)
+                .thenComparing(Point::slot)
                 .thenComparing(point -> point.moment().utc())
+                .thenComparing(Point::role)
                 .thenComparing(Point::city));
         return List.copyOf(points);
     }
@@ -478,35 +521,36 @@ class ScheduleTimeline {
     private record CityNight(String city, LocalDate night) {}
 
     /**
-     * What happens at one moment on the timeline. {@code rank} orders the roles within a day: a
-     * stay or event ends in the morning, legs run during the day in their own real order, and the
-     * next stay or event begins in the evening.
+     * What happens at one moment on the timeline. Within a day, everything sorts by its clock time
+     * except a hotel check-in, which goes in the {@link Slot#EVENING} — see {@link Slot}.
+     * {@code eventEndsAt} is set only on an event's start, for {@link #reachedLate}.
      */
-    private record Point(LocalDate day, int rank, Role role, String city,
-                         ZonedTimestamp moment, String conferenceName) {
+    private record Point(LocalDate day, Slot slot, Role role, String city,
+                         ZonedTimestamp moment, String conferenceName, ZonedTimestamp eventEndsAt) {
 
         static Point leaves(String city, ZonedTimestamp moment) {
             return leaves(city, moment, null);
         }
 
         static Point leaves(String city, ZonedTimestamp moment, String conferenceName) {
-            return new Point(day(moment), 0, Role.LEAVE, city, moment, conferenceName);
+            return new Point(day(moment), Slot.BY_CLOCK, Role.LEAVE, city, moment, conferenceName, null);
         }
 
         static Point departs(String city, ZonedTimestamp moment) {
-            return new Point(day(moment), 1, Role.REQUIRE, city, moment, null);
+            return new Point(day(moment), Slot.BY_CLOCK, Role.REQUIRE, city, moment, null, null);
         }
 
         static Point arrives(String city, ZonedTimestamp moment) {
-            return new Point(day(moment), 1, Role.ARRIVE, city, moment, null);
+            return new Point(day(moment), Slot.BY_CLOCK, Role.ARRIVE, city, moment, null, null);
         }
 
-        static Point enters(String city, ZonedTimestamp moment) {
-            return enters(city, moment, null);
+        static Point starts(Occupancy occupancy) {
+            return new Point(day(occupancy.startsAt()), Slot.BY_CLOCK, Role.REQUIRE, occupancy.city(),
+                    occupancy.startsAt(), occupancy.conferenceName(), occupancy.endsAt());
         }
 
-        static Point enters(String city, ZonedTimestamp moment, String conferenceName) {
-            return new Point(day(moment), 2, Role.REQUIRE, city, moment, conferenceName);
+        static Point checksIn(String city, ZonedTimestamp moment) {
+            return new Point(day(moment), Slot.EVENING, Role.REQUIRE, city, moment, null, null);
         }
 
         private static LocalDate day(ZonedTimestamp moment) {
@@ -514,13 +558,35 @@ class ScheduleTimeline {
         }
     }
 
+    /**
+     * Where in its day a point sorts. Legs, events and checkouts carry real clock times and sort by
+     * them. A <strong>check-in does not</strong>: it is typed as the hotel's official time ("from
+     * 15:00"), not when Ted walks in, so a 15:00 check-in before a flight landing at 17:16 is
+     * ordinary and must not sort ahead of the flight that gets him there — the production log held
+     * four such stays when this was decided (Ted, 2026-11-14). So every check-in waits for the
+     * day's travel.
+     * <p>
+     * Checkouts used to wait in a morning slot for the same reason, and that is no longer needed: a
+     * checkout stamped after he has left is a {@code LEAVE} in a city he is not in, which the walk
+     * ignores. What the morning slot also did was pin an event's <em>start</em> to the evening, so
+     * a tour at 12:10 sorted after the 16:00 transfer that followed it and invented two gaps.
+     */
+    private enum Slot {
+        BY_CLOCK,
+        EVENING
+    }
+
+    /**
+     * Declared in the order points at the same instant are taken: an arrival before anything it
+     * is required for, so a dinner starting the minute the train lands is not a gap.
+     */
     private enum Role {
-        /** A stay or event ends: he was still here this morning. */
+        /** A stay or event ends: he was still here until now. */
         LEAVE,
-        /** He must already be here — a leg departs, or a stay or event begins. */
-        REQUIRE,
         /** A booked leg has just put him here. */
-        ARRIVE
+        ARRIVE,
+        /** He must already be here — a leg departs, or a stay or event begins. */
+        REQUIRE
     }
 
     /**

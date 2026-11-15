@@ -47,6 +47,95 @@ class ScheduleTimelineTest {
         }
 
         @Test
+        void anEventBeforeTheDaysTransferSortsByItsClockTimeNotAfterTheTravel() {
+            // Production, Nov 20: a palace tour in Potsdam 12:10-16:00, then a 16:00 transfer to
+            // Berlin and a Motel One check-in at 18:00. Ordered by role, the tour's start went to
+            // the evening slot after the transfer, and the walk reported Berlin -> Potsdam and
+            // Potsdam -> Berlin around a day that is fully connected.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(stay("Holiday Inn", "Potsdam", "2026-11-18 15:00", "2026-11-20 11:00"),
+                            stay("Motel One", "Berlin", "2026-11-20 18:00", "2026-11-22 11:00")),
+                    List.of(occupancy("Palace tour", "Potsdam", "2026-11-20 12:10", "2026-11-20 16:00")),
+                    List.of(movement("Potsdam", "2026-11-20 16:00", "Berlin", "2026-11-20 17:00")),
+                    NO_HOME);
+
+            assertThat(timeline.missingTravel()).isEmpty();
+        }
+
+        @Test
+        void anArrivalAndAnEventStartingThereAtTheSameMinuteIsNotAGap() {
+            // Clock order alone leaves a tie, and the event's requirement must not be asked before
+            // the leg that satisfies it has landed.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(),
+                    List.of(occupancy("Dinner", "Berlin", "2026-11-20 17:00", "2026-11-20 20:00")),
+                    List.of(movement("Potsdam", "2026-11-20 16:00", "Berlin", "2026-11-20 17:00")),
+                    NO_HOME);
+
+            assertThat(timeline.missingTravel()).isEmpty();
+        }
+
+        @Test
+        void arrivingAfterAnEventStartsThroughAConnectionIsALateArrivalNotAGap() {
+            // The conference opens at 09:00 while he is still over the Atlantic; two legs, landing
+            // in Cologne at 13:00, are booked. Late, not missing.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(),
+                    List.of(occupancy("Conf", "Cologne", "2026-06-07 09:00", "2026-06-08 17:00")),
+                    List.of(movement("San Francisco", "2026-06-06 13:55", "Frankfurt", "2026-06-07 09:45"),
+                            movement("Frankfurt", "2026-06-07 11:30", "Cologne", "2026-06-07 13:00")),
+                    NO_HOME);
+
+            assertThat(timeline.missingTravel()).isEmpty();
+        }
+
+        @Test
+        void aLegLeavingAfterTheEventStartsStillReachesItIfItLandsBeforeTheEnd() {
+            // DDD Europe opens at 09:00; the train out of Gembloux only leaves at 10:00 and lands
+            // at 11:30. He misses the first morning, which is lateness, not a missing journey —
+            // and the 10:00 departure must still be made from Gembloux, not from Antwerp.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(stay("Les 3 Cles", "Gembloux", "2026-06-08 15:00", "2026-06-10 09:30")),
+                    List.of(occupancy("DDD Europe", "Antwerp", "2026-06-10 09:00", "2026-06-12 17:00")),
+                    List.of(movement("Gembloux", "2026-06-10 10:00", "Antwerp", "2026-06-10 11:30")),
+                    NO_HOME);
+
+            assertThat(timeline.missingTravel()).isEmpty();
+        }
+
+        @Test
+        void aLegLandingAfterTheEventHasEndedDoesNotReachIt() {
+            // Still in Potsdam for a 12:10-14:00 lunch in Berlin; the transfer lands at 17:00, when
+            // the lunch is over. The leg reaches the city but not the event: a journey is missing.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(stay("Holiday Inn", "Potsdam", "2026-11-18 15:00", "2026-11-20 11:00")),
+                    List.of(occupancy("Lunch", "Berlin", "2026-11-20 12:10", "2026-11-20 14:00")),
+                    List.of(movement("Potsdam", "2026-11-20 16:00", "Berlin", "2026-11-20 17:00")),
+                    NO_HOME);
+
+            assertThat(timeline.missingTravel())
+                    .extracting(ScheduleProblem.MissingTravel::fromCity,
+                                ScheduleProblem.MissingTravel::toCity)
+                    .contains(tuple("Potsdam", "Berlin"));
+        }
+
+        @Test
+        void aCheckoutStampedAfterTheFlightHomeLandsDoesNotMakeTheDayAway() {
+            // The form's 11:00 default outlasts an early hop home. The checkout now sorts by its
+            // clock time, so it is the day's last point — but it is in a city he has already
+            // left, and it must not be what decides that he spent the day away.
+            ScheduleTimeline timeline = new ScheduleTimeline(
+                    List.of(stay("Hotel", "Los Angeles", "2026-06-20 15:00", "2026-06-22 11:00")),
+                    List.of(),
+                    List.of(movement("Los Angeles", "2026-06-22 08:00", "San Francisco", "2026-06-22 09:30")),
+                    HOME_IN_SF);
+
+            assertThat(timeline.homeByLastFactOfDay())
+                    .as("Home on the day he flew back")
+                    .containsEntry(date("2026-06-22"), true);
+        }
+
+        @Test
         void twoStaysHandingOverOnTheSameDayInDifferentCitiesIsAGap() {
             // The same shape with no leg between them: checking out of Hamburg and into Soltau on
             // the 26th is exactly one missing journey, and the day-ordering must still see it.

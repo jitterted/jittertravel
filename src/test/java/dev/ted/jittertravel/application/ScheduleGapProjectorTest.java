@@ -860,7 +860,7 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            LON, zt(trainArrival), "Steventon", zt(SEP_16.atStartOfDay())));
+                            LON, zt(trainArrival), "Steventon", zt(SEP_16.atTime(9, 0))));
         }
 
         @Test
@@ -886,7 +886,7 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            "Steventon", zt(SEP_17.atStartOfDay()), LON, zt(flightDeparture)));
+                            "Steventon", zt(SEP_17.atTime(17, 0)), LON, zt(flightDeparture)));
         }
 
         @Test
@@ -956,8 +956,8 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactlyInAnyOrder(
-                            new ScheduleProblem.MissingTravel(LON, zt(trainArrival), "Steventon", zt(SEP_16.atStartOfDay())),
-                            new ScheduleProblem.MissingTravel("Steventon", zt(SEP_17.atStartOfDay()), LON, zt(flightDeparture)));
+                            new ScheduleProblem.MissingTravel(LON, zt(trainArrival), "Steventon", zt(SEP_16.atTime(9, 0))),
+                            new ScheduleProblem.MissingTravel("Steventon", zt(SEP_17.atTime(17, 0)), LON, zt(flightDeparture)));
         }
     }
 
@@ -976,7 +976,7 @@ class ScheduleGapProjectorTest {
             // → should produce exactly ONE problem with earliest nextDepartureAt
             ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
             LocalDateTime arrival = SEP_15.atTime(19, 18);
-            LocalDateTime confStart = SEP_16.atStartOfDay();
+            LocalDateTime confStart = SEP_16.atTime(9, 0);
             LocalDateTime legDep = SEP_18.atTime(11, 0);
             projector.handle(Stream.of(
                     stored(train("BRU", SEP_15.atTime(10, 0), LON, arrival)),
@@ -1707,9 +1707,14 @@ class ScheduleGapProjectorTest {
         return conferenceNamed("Conf", city, start, end);
     }
 
+    /**
+     * A conference by its days, open 09:00-17:00 as every one in the production log is. Not
+     * midnight: points sort by clock time, so a 00:00 start would put him at the venue before the
+     * morning flight that takes him there — a time no conference form has ever been given.
+     */
     private static ConferencePlanned conferenceNamed(String name, String city, LocalDate start, LocalDate end) {
         return new ConferencePlanned(ConferenceId.random(), name,
-                zt(start.atStartOfDay()), zt(end.atStartOfDay()), "Venue",
+                zt(start.atTime(9, 0)), zt(end.atTime(17, 0)), "Venue",
                 new Address("1 Street", city, "", "00000", "XX", null));
     }
 

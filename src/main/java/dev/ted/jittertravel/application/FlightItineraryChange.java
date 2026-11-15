@@ -76,7 +76,7 @@ public class FlightItineraryChange {
                 TripOnTheBooks trip = TripOnTheBooks.fold(events, code);
                 if (!trip.live() || !trip.itineraryId().equals(itineraryId)) {
                     yield ItineraryChangeEvaluation.unread(
-                            List.of("Itinerary " + code + " was cancelled; it cannot be changed"), List.of(), kind);
+                            List.of("Itinerary " + code + " was canceled; it cannot be changed"), List.of(), kind);
                 }
                 ChangeFlightItineraryContext context =
                         trip.contextFor(new BookFlightContext(now, liveScheduledLegs.fold()));

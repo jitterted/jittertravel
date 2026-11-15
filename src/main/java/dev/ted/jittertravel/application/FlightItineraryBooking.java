@@ -118,7 +118,7 @@ public class FlightItineraryBooking {
                 itinerary.confirmationCode());
         if (booked.cancelledOnly()) {
             return Optional.of(ItineraryEvaluation.unparseable(List.of("Itinerary " + itinerary.confirmationCode()
-                                                                       + " was cancelled; it cannot be changed")));
+                                                                       + " was canceled; it cannot be changed")));
         }
         if (booked.live()) {
             return Optional.of(ItineraryEvaluation.alreadyOnTheBooks(itinerary.confirmationCode(), booked.onTheBooks()));

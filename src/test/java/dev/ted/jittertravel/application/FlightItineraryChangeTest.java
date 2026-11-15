@@ -285,7 +285,7 @@ class FlightItineraryChangeTest {
                 ItineraryChangeKind.REBOOKING, MOVED_PASTE, Map.of(), NEW_FLIGHT_ID, NOW);
 
         assertThat(evaluation.parseProblems())
-                .containsExactly("Itinerary MD7LKB was cancelled; it cannot be changed");
+                .containsExactly("Itinerary MD7LKB was canceled; it cannot be changed");
         assertThat(executor.emitted)
                 .isEmpty();
     }

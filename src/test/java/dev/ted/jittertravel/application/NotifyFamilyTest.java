@@ -217,7 +217,7 @@ class NotifyFamilyTest {
         ArgumentCaptor<Stream<? extends Event>> appended = ArgumentCaptor.forClass(Stream.class);
         inOrder.verify(eventStore).append(appended.capture(), eq(COMMAND_ID));
 
-        assertThat(sent.getValue().subject()).isEqualTo("(JitterTravel) Ted cancelled a trip: SFO → ORD → SFO");
+        assertThat(sent.getValue().subject()).isEqualTo("(JitterTravel) Ted canceled a trip: SFO → ORD → SFO");
         assertThat(appended.getValue().map(Event.class::cast).toList())
                 .containsExactly(new FamilyNotified(NotifiedSubject.itinerary(trip),
                         NotifiedFact.ITINERARY_CANCELLED, NOW));
@@ -262,7 +262,7 @@ class NotifyFamilyTest {
 
         ArgumentCaptor<FamilyMessage> sent = ArgumentCaptor.forClass(FamilyMessage.class);
         verify(brevo).send(sent.capture());
-        assertThat(sent.getValue().subject()).isEqualTo("(JitterTravel) Ted cancelled a trip: SFO → ORD");
+        assertThat(sent.getValue().subject()).isEqualTo("(JitterTravel) Ted canceled a trip: SFO → ORD");
         assertThat(sent.getValue().textContent())
                 .contains("Sun 18 Oct 2026, 7:10 AM (SFO)")
                 .doesNotContain("6:10 AM")

@@ -1,4 +1,4 @@
-Subject: (JitterTravel) Ted cancelled a trip: [[${chain}]]
+Subject: (JitterTravel) Ted canceled a trip: [[${chain}]]
 
 Hi, JitterTravel here. Ted canceled the trip below, and he wanted to let you know.
 

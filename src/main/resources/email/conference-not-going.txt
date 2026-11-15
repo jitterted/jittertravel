@@ -4,7 +4,7 @@ Subject: (JitterTravel) Ted is no longer going to [[${name}]]
 Hi, JitterTravel here. Ted is no longer going to the conference below, and he wanted to let you know.
 [/]
 [# th:if="${exit == 'CANCELLED'}"]
-Hi, JitterTravel here. The organizers cancelled the conference below, so Ted is no longer going, and he wanted to let you know.
+Hi, JitterTravel here. The organizers canceled the conference below, so Ted is no longer going, and he wanted to let you know.
 [/]
 
 

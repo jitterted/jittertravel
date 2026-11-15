@@ -80,12 +80,12 @@ class EmailPreviewControllerTest {
                 .bodyText()
                 .contains("<b>Flight booked</b><span>email/flight-booked.txt</span>")
                 .contains("<b>Trip booked</b><span>email/trip-booked.txt</span>")
-                .contains("<b>Trip cancelled</b><span>email/trip-cancelled.txt</span>")
+                .contains("<b>Trip canceled</b><span>email/trip-cancelled.txt</span>")
                 .contains("<b>Trip changed</b><span>email/trip-changed.txt</span>")
                 .contains("<b>Test email</b><span>email/test-email.txt</span>")
                 .contains("<span>(JitterTravel) Ted booked a new flight: SFO → ORD</span>")
                 .contains("<span>(JitterTravel) Ted booked a new trip: SFO → ORD → YOW → ORD → SFO</span>")
-                .contains("<span>(JitterTravel) Ted cancelled a trip: SFO → ORD → YOW → ORD → SFO</span>")
+                .contains("<span>(JitterTravel) Ted canceled a trip: SFO → ORD → YOW → ORD → SFO</span>")
                 .contains("<span>(JitterTravel) Ted&#39;s trip has changed: SFO → ORD → YOW → ORD → SFO</span>")
                 .contains("<span>JitterTravel test email</span>");
     }
@@ -101,7 +101,7 @@ class EmailPreviewControllerTest {
                 .contains("<h2 class=\"group-title\">Conference emails</h2>")
                 .contains("<b>Conference going</b><span>email/conference-going.txt</span>")
                 .contains("<b>Conference declined</b><span>email/conference-not-going.txt</span>")
-                .contains("<b>Conference cancelled</b><span>email/conference-not-going.txt</span>")
+                .contains("<b>Conference canceled</b><span>email/conference-not-going.txt</span>")
                 .contains("<b>Conference talk rejected</b><span>email/conference-not-going.txt</span>")
                 .contains("<span>(JitterTravel) Ted is going to a conference: SoCraTes 2026</span>")
                 .contains("<span>(JitterTravel) Ted is no longer going to SoCraTes 2026</span>")
@@ -210,7 +210,7 @@ class EmailPreviewControllerTest {
                 .containsExactly(
                         "(JitterTravel) Ted booked a new flight: SFO → ORD",
                         "(JitterTravel) Ted booked a new trip: SFO → ORD → YOW → ORD → SFO",
-                        "(JitterTravel) Ted cancelled a trip: SFO → ORD → YOW → ORD → SFO",
+                        "(JitterTravel) Ted canceled a trip: SFO → ORD → YOW → ORD → SFO",
                         "(JitterTravel) Ted's trip has changed: SFO → ORD → YOW → ORD → SFO");
         assertThat(sent.getAllValues().get(3).textContent())
                 .contains("3. UA3508")

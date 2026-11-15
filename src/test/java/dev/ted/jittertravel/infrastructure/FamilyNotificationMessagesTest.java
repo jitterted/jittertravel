@@ -103,7 +103,7 @@ class FamilyNotificationMessagesTest {
                 List.of(sfoOrd, ordYow, yowOrd, ordSfo));
 
         assertThat(message.subject())
-                .isEqualTo("(JitterTravel) Ted cancelled a trip: SFO → ORD → YOW → ORD → SFO");
+                .isEqualTo("(JitterTravel) Ted canceled a trip: SFO → ORD → YOW → ORD → SFO");
     }
 
     @Test
@@ -313,7 +313,7 @@ class FamilyNotificationMessagesTest {
                 .isEqualTo("(JitterTravel) Ted is no longer going to SoCraTes 2026");
         assertThat(cancelled.textContent().lines().toList())
                 .containsExactly(
-                        "Hi, JitterTravel here. The organizers cancelled the conference below, so Ted is no longer going, and he wanted to let you know.",
+                        "Hi, JitterTravel here. The organizers canceled the conference below, so Ted is no longer going, and he wanted to let you know.",
                         "",
                         "SoCraTes 2026",
                         "Seminarzentrum Rückersbach, Johannesberg, DE",

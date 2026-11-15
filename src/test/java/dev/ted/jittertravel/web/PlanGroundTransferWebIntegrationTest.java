@@ -366,7 +366,7 @@ class PlanGroundTransferWebIntegrationTest {
     @Test
     void anEndpointThatNoLongerResolvesRerendersTheFormWithTheReason() {
         willThrow(new UnknownTransferEndpoint(
-                "That hotel booking is no longer available — it may have been cancelled"))
+                "That hotel booking is no longer available — it may have been canceled"))
                 .given(groundTransferPlanning).planGroundTransfer(any());
 
         assertThat(post("airport:DEN", HOTEL_TOKEN, "12:00", "12:45"))

@@ -7,6 +7,6 @@ package dev.ted.jittertravel.domain;
  */
 public class LegCancelledEarlier extends RuntimeException {
     public LegCancelledEarlier() {
-        super("Cancelled earlier; it cannot be added back here");
+        super("Canceled earlier; it cannot be added back here");
     }
 }

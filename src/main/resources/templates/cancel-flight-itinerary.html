@@ -153,7 +153,7 @@
     </div>
 
     <div class="refused" th:if="${departed}">
-        <strong>This itinerary cannot be cancelled as a whole: a flight on it has already departed.</strong>
+        <strong>This itinerary cannot be canceled as a whole: a flight on it has already departed.</strong>
         Cancel the flights that are left one at a time instead:
         <ul>
             <li th:each="leg : ${legs}">
@@ -178,7 +178,7 @@
             <label>
                 Reason (optional)
                 <input type="text" name="reason" th:value="${reason}"
-                       placeholder="Trip cancelled, rebooked…"/>
+                       placeholder="Trip canceled, rebooked…"/>
             </label>
         </div>
 

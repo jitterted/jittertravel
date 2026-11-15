@@ -99,7 +99,7 @@ public class ChangeConferenceDatesController {
         } catch (ConferenceNotFound e) {
             // Cancelled or declined in another tab between the lookup above and the write. Said on
             // the form, with the typed dates still in it: a redirect here reads as a save.
-            bindingResult.reject("conferenceGone", "Not saved: this conference was cancelled or declined");
+            bindingResult.reject("conferenceGone", "Not saved: this conference was canceled or declined");
             return "change-conference-dates";
         } catch (ReadOnlyModeException e) {
             log.warn("Attempted to change a conference's dates while in read-only mode", e);

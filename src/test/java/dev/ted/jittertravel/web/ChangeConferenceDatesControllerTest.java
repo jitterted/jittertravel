@@ -178,7 +178,7 @@ class ChangeConferenceDatesControllerTest {
                 .with(csrf()))
                 .hasStatusOk()
                 .bodyText()
-                .contains("<p class=\"error\">Not saved: this conference was cancelled or declined</p>")
+                .contains("<p class=\"error\">Not saved: this conference was canceled or declined</p>")
                 .as("the typed dates come back, so nothing reads as saved")
                 .contains("value=\"2027-03-29T09:00\"")
                 .contains("value=\"2027-03-31T17:00\"");

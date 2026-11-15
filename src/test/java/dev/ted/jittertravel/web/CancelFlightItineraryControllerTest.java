@@ -247,7 +247,7 @@ class CancelFlightItineraryControllerTest {
                            .with(csrf()))
                 .hasStatusOk()
                 .bodyText()
-                .contains("This itinerary cannot be cancelled as a whole: a flight on it has already departed.")
+                .contains("This itinerary cannot be canceled as a whole: a flight on it has already departed.")
                 .contains("href=\"/booked-flights/" + out.id() + "/cancel\"")
                 .contains("href=\"/booked-flights/" + back.id() + "/cancel\"")
                 .doesNotContain("<button type=\"submit\" class=\"danger\">");

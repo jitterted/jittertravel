@@ -308,7 +308,7 @@ public class GroundTransferEndpointResolver {
         HotelBookingId bookingId = parseBookingId(rawBookingId);
         HotelDetailsView hotel = hotelDetails.findById(bookingId)
                 .orElseThrow(() -> new UnknownTransferEndpoint(
-                        "That hotel booking is no longer available — it may have been cancelled"));
+                        "That hotel booking is no longer available — it may have been canceled"));
         // The address is copied verbatim, locationForMatching included: that field is what the
         // schedule timeline matches the transfer against, so re-deriving it here could silently
         // disagree with the stay it is meant to connect to.

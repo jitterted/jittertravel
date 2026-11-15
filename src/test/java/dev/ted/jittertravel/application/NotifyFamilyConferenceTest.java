@@ -351,7 +351,7 @@ class NotifyFamilyConferenceTest {
 
         FamilyMessage message = sent();
         assertThat(message.textContent())
-                .contains("Hi, JitterTravel here. The organizers cancelled the conference below, so Ted is no longer going, and he wanted to let you know.")
+                .contains("Hi, JitterTravel here. The organizers canceled the conference below, so Ted is no longer going, and he wanted to let you know.")
                 .doesNotContain("sponsors")
                 .doesNotContain("rejected");
     }

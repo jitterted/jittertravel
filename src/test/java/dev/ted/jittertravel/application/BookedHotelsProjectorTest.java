@@ -193,6 +193,28 @@ class BookedHotelsProjectorTest {
     }
 
     @Test
+    void anEnteredMapsLinkIsKeptAndABlankOneIsBuiltFromTheNameAndAddress() {
+        BookedHotelsProjector projector = new BookedHotelsProjector();
+        HotelBooked entered = new HotelBooked(HotelBookingId.random(), "Hotel Moxy",
+                new Address("123 Main St", "Springfield", "IL", "62701", "US", null),
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.FINAL,
+                "https://maps.app.goo.gl/moxy", null);
+        HotelBooked blank = new HotelBooked(HotelBookingId.random(), "Hotel Adlon",
+                new Address("Unter den Linden 77", "Berlin", "", "10117", "DE", null),
+                zt(CHECK_IN.plusDays(1)), zt(CHECK_OUT.plusDays(1)), BookingIntent.FINAL,
+                "", null);
+
+        projector.handle(Stream.of(stored(entered), stored(blank)));
+
+        assertThat(projector.views(TimeView.ALL, NOW))
+                .extracting(BookedHotelView::mapsUrl)
+                .as("the link Ted pasted, then a search for the hotel at its address")
+                .containsExactly(
+                        "https://maps.app.goo.gl/moxy",
+                        "https://www.google.com/maps/search/Hotel+Adlon+Unter+den+Linden+77+Berlin+Germany");
+    }
+
+    @Test
     void cancellingAnUnknownBookingAddsNoRow() {
         BookedHotelsProjector projector = new BookedHotelsProjector();
 

@@ -511,7 +511,7 @@ public class BookedFlightsRenderer {
                         legLabel("Airline"), text(flight.airline())),
                 div().withClass("flight-card-cell flight-number").with(
                         legLabel("Flight Number"), text(flight.flightNumber()),
-                        trip == null || !trip.flying() ? text("") : legPlace(trip)),
+                        hasAPlace(trip) ? legPlace(trip) : text("")),
                 div().withClass("flight-actions-cell").with(
                         flight.cancelled() ? disabledActions() : actions(changeUrl)),
                 // A ternary, not iff(): iff evaluates its argument eagerly, and a live flight has
@@ -548,12 +548,14 @@ public class BookedFlightsRenderer {
      * one <em>journey</em> ({@code docs/terms.md}), so a round trip whose return was cancelled
      * read as a one-way (Ted, 2026-10-24).
      */
+    private static boolean hasAPlace(FlightTrip trip) {
+        return trip != null && trip.flying() && trip.itinerary().legCount() > 1;
+    }
+
+    /** "leg 2 of 3", for a leg {@link #hasAPlace} admits. */
     private static DomContent legPlace(FlightTrip trip) {
-        int legs = trip.itinerary().legCount();
-        if (legs == 1) {
-            return text("");
-        }
-        return span("leg " + trip.legNumber() + " of " + legs).withClass("flight-trip-leg");
+        return span("leg " + trip.legNumber() + " of " + trip.itinerary().legCount())
+                .withClass("flight-trip-leg");
     }
 
     /**

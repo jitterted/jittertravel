@@ -2,6 +2,7 @@ package dev.ted.jittertravel.application;
 
 import dev.ted.jittertravel.domain.*;
 import dev.ted.jittertravel.infrastructure.StoredEvent;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -760,6 +761,206 @@ class ItineraryProjectorTest {
                 .containsExactly(
                         tuple(EntryKind.GROUND_TRANSFER, DATE.atTime(12, 0)),
                         tuple(EntryKind.FLIGHT, DATE.atTime(15, 55)));
+    }
+
+    // --- A check-out sits no later than the first leg leaving its city that day ---
+    //
+    // docs/mockups/ItineraryCheckOutOrder.html. Every fixture checks out of the same San Francisco
+    // hotel at 11:00 on DATE, and checked in two days earlier, so DATE holds only its check-out.
+
+    @Nested
+    class CheckOutOrder {
+
+        private final ItineraryProjector projector = new ItineraryProjector();
+        private final TrainStationAddress sanFrancisco =
+                new TrainStationAddress("4th & King", "San Francisco", "US", "");
+        private final TrainStationAddress sanJose =
+                new TrainStationAddress("Diridon", "San Jose", "US", "");
+        private final TrainStationAddress oakland =
+                new TrainStationAddress("Jack London Square", "Oakland", "US", "");
+
+        @Test
+        void aTrainLeavingTheHotelsCityBeforeCheckOutTimeComesAfterTheCheckOut() {
+            projector.handle(Stream.of(stored(checkingOutAtEleven()),
+                    stored(trainFrom(sanFrancisco, TrainTripId.random(), 9, 45))));
+
+            assertThat(kindsOnDate())
+                    .as("Checked out before taking the 9:45")
+                    .containsExactly(EntryKind.LODGING, EntryKind.TRAIN);
+        }
+
+        @Test
+        void aFlightLeavingTheHotelsCityBeforeCheckOutTimeComesAfterTheCheckOut() {
+            // SFO is matched to its city through the curated table, as /schedule-problems does.
+            projector.handle(Stream.of(stored(checkingOutAtEleven()),
+                    stored(flightFromSfo(FlightId.random(), 10, 40))));
+
+            assertThat(kindsOnDate())
+                    .as("Checked out before the 10:40 flight")
+                    .containsExactly(EntryKind.LODGING, EntryKind.FLIGHT);
+        }
+
+        @Test
+        void aGroundTransferLeavingTheHotelsCityBeforeCheckOutTimeComesAfterTheCheckOut() {
+            projector.handle(Stream.of(stored(checkingOutAtEleven()),
+                    stored(transferFromSanFrancisco(GroundTransferId.random(), 10, 30))));
+
+            assertThat(kindsOnDate())
+                    .as("Checked out before the 10:30 transfer")
+                    .containsExactly(EntryKind.LODGING, EntryKind.GROUND_TRANSFER);
+        }
+
+        @Test
+        void anEarlyEventKeepsItsPlaceAndTheCheckOutLandsJustAboveTheTrain() {
+            projector.handle(Stream.of(stored(checkingOutAtEleven()),
+                    stored(trainFrom(sanFrancisco, TrainTripId.random(), 10, 15)),
+                    stored(breakfastAt(8, 0))));
+
+            assertThat(kindsOnDate())
+                    .as("Breakfast at 8:00, then check-out, then the 10:15 train")
+                    .containsExactly(EntryKind.PRIVATE_EVENT, EntryKind.LODGING, EntryKind.TRAIN);
+        }
+
+        @Test
+        void anEventInTheSameCityDoesNotMoveTheCheckOut() {
+            // He may go back to the room after breakfast; only a leg out of town says he left.
+            projector.handle(Stream.of(stored(checkingOutAtEleven()),
+                    stored(new GatheringPlanned(GatheringId.random(), "Crafters Breakfast", "Cafe",
+                            sanFranciscoAddress(), zt(DATE.atTime(8, 30)), zt(DATE.atTime(10, 0)),
+                            false, ""))));
+
+            assertThat(kindsOnDate())
+                    .as("Clock order: breakfast at 8:30, check-out at 11:00")
+                    .containsExactly(EntryKind.GATHERING, EntryKind.LODGING);
+        }
+
+        @Test
+        void aLegLeavingAnotherCityDoesNotMoveTheCheckOut() {
+            projector.handle(Stream.of(stored(checkingOutAtEleven()),
+                    stored(breakfastAt(10, 0)),
+                    stored(trainFrom(oakland, TrainTripId.random(), 9, 45))));
+
+            assertThat(kindsOnDate())
+                    .as("The Oakland train says nothing about leaving San Francisco")
+                    .containsExactly(EntryKind.TRAIN, EntryKind.PRIVATE_EVENT, EntryKind.LODGING);
+        }
+
+        @Test
+        void aLegLeavingTheDayBeforeDoesNotMoveTheCheckOut() {
+            projector.handle(Stream.of(stored(checkingOutAtEleven()),
+                    stored(breakfastAt(10, 0)),
+                    stored(new FlightBooked(FlightId.random(), "UA", "UA1",
+                            AirportCode.of("SFO"), zt(DATE.minusDays(1).atTime(23, 0)),
+                            AirportCode.of("JFK"), zt(DATE.atTime(7, 30))))));
+
+            assertThat(kindsOnDate())
+                    .as("Last night's red-eye is not today's departure")
+                    .containsExactly(EntryKind.FLIGHT, EntryKind.PRIVATE_EVENT, EntryKind.LODGING);
+        }
+
+        @Test
+        void aLegLeavingAfterCheckOutTimeNeverPullsTheCheckOutLater() {
+            // Check-out at 11:00, lunch at 12:00, the train at 15:00: the check-out stays first.
+            projector.handle(Stream.of(stored(checkingOutAtEleven()),
+                    stored(breakfastAt(12, 0)),
+                    stored(trainFrom(sanFrancisco, TrainTripId.random(), 15, 0))));
+
+            assertThat(kindsOnDate())
+                    .as("A later departure only ever moves the check-out up, never down")
+                    .containsExactly(EntryKind.LODGING, EntryKind.PRIVATE_EVENT, EntryKind.TRAIN);
+        }
+
+        @Test
+        void aCheckOutTiedWithTheTrainOutComesFirst() {
+            projector.handle(Stream.of(stored(checkingOutAtEleven()),
+                    stored(trainFrom(sanFrancisco, TrainTripId.random(), 11, 0))));
+
+            assertThat(kindsOnDate())
+                    .as("Same minute: he leaves the room, then the town")
+                    .containsExactly(EntryKind.LODGING, EntryKind.TRAIN);
+        }
+
+        @Test
+        void aTrainChangedToLaterStopsMovingTheCheckOut() {
+            TrainTripId tripId = TrainTripId.random();
+            projector.handle(Stream.of(stored(checkingOutAtEleven()),
+                    stored(breakfastAt(10, 0)),
+                    stored(trainFrom(sanFrancisco, tripId, 9, 45)),
+                    stored(new TrainChanged(tripId, sanFrancisco, zt(DATE.atTime(13, 0)),
+                            sanJose, zt(DATE.atTime(14, 0)), ""))));
+
+            assertThat(kindsOnDate())
+                    .as("The train now leaves at 13:00, after check-out")
+                    .containsExactly(EntryKind.PRIVATE_EVENT, EntryKind.LODGING, EntryKind.TRAIN);
+        }
+
+        @Test
+        void aFlightChangedToLaterStopsMovingTheCheckOut() {
+            FlightId flightId = FlightId.random();
+            projector.handle(Stream.of(stored(checkingOutAtEleven()),
+                    stored(breakfastAt(10, 0)),
+                    stored(flightFromSfo(flightId, 9, 0)),
+                    stored(new FlightChanged(flightId, "UA", "UA1",
+                            AirportCode.of("SFO"), zt(DATE.atTime(13, 0)),
+                            AirportCode.of("JFK"), zt(DATE.atTime(21, 0)), ""))));
+
+            assertThat(kindsOnDate())
+                    .as("The flight now leaves at 13:00, after check-out")
+                    .containsExactly(EntryKind.PRIVATE_EVENT, EntryKind.LODGING, EntryKind.FLIGHT);
+        }
+
+        @Test
+        void aCancelledLegStopsMovingTheCheckOut() {
+            TrainTripId tripId = TrainTripId.random();
+            FlightId flightId = FlightId.random();
+            GroundTransferId transferId = GroundTransferId.random();
+            projector.handle(Stream.of(stored(checkingOutAtEleven()),
+                    stored(breakfastAt(10, 0)),
+                    stored(trainFrom(sanFrancisco, tripId, 9, 45)),
+                    stored(new TrainCancelled(tripId, "")),
+                    stored(flightFromSfo(flightId, 9, 15)),
+                    stored(new FlightCancelled(flightId, "", Instant.now(), null)),
+                    stored(transferFromSanFrancisco(transferId, 9, 30)),
+                    stored(new GroundTransferCancelled(transferId))));
+
+            assertThat(kindsOnDate())
+                    .as("Nothing leaves any more, so clock order")
+                    .containsExactly(EntryKind.PRIVATE_EVENT, EntryKind.LODGING);
+        }
+
+        private List<EntryKind> kindsOnDate() {
+            return projector.entriesForDate(DATE).stream().map(ItineraryEntry::kind).toList();
+        }
+
+        private static HotelBooked checkingOutAtEleven() {
+            return hotelBooked(HotelBookingId.random(), "Hotel Zetta", DATE.minusDays(2), DATE);
+        }
+
+        private TrainBooked trainFrom(TrainStationAddress from, TrainTripId tripId, int hour, int minute) {
+            return new TrainBooked(tripId, from, zt(DATE.atTime(hour, minute)),
+                    sanJose, zt(DATE.atTime(hour + 1, minute)), "");
+        }
+
+        private static FlightBooked flightFromSfo(FlightId flightId, int hour, int minute) {
+            return new FlightBooked(flightId, "UA", "UA1",
+                    AirportCode.of("SFO"), zt(DATE.atTime(hour, minute)),
+                    AirportCode.of("JFK"), zt(DATE.atTime(hour + 8, minute)));
+        }
+
+        private static GroundTransferPlanned transferFromSanFrancisco(GroundTransferId id, int hour, int minute) {
+            return new GroundTransferPlanned(id, "", "Hotel Zetta", sanFranciscoAddress(),
+                    "", "Strathmere", new Address("", "San Jose", "CA", "", "US", null),
+                    zt(DATE.atTime(hour, minute)), zt(DATE.atTime(hour + 1, minute)), "Rental car");
+        }
+
+        private static PrivateEventPlanned breakfastAt(int hour, int minute) {
+            return new PrivateEventPlanned(PrivateEventId.random(), "Breakfast", "Cafe",
+                    sanFranciscoAddress(), zt(DATE.atTime(hour, minute)), zt(DATE.atTime(hour + 1, minute)));
+        }
+
+        private static Address sanFranciscoAddress() {
+            return new Address("1 Market St", "San Francisco", "CA", "94105", "US", null);
+        }
     }
 
     private static HotelBooked hotelBooked(HotelBookingId id, String hotelName,

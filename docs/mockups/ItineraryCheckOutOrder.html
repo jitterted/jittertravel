@@ -1,0 +1,321 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Approved by Ted 2026-11-15, wording option A. The spec for ItineraryProjector's check-out ordering. -->
+<title>Itinerary Check-Out Order</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: one section per day shape; each shows Today and Proposed as two real-width itinerary day columns side by side. */
+:root {
+  --bg: #f6f7f9;
+  --fg: #1c2230;
+  --muted: #5b6475;
+  --rule: #dde1e8;
+  --panel: #ffffff;
+  --accent: #2554c7;
+  --moved: #c2410c;
+  --moved-bg: #fff4ec;
+  --same: #4b5563;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* The itinerary preview is a picture of the real (light-only) page, so its colours are fixed. */
+  --app-bg: #ffffff;
+  --app-text: #111827;
+  --app-muted: #6b7280;
+  --app-border: #e5e7eb;
+  --app-detail: #374151;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151c; --fg: #e6e9ef; --muted: #9aa3b4; --rule: #2a313d; --panel: #181d26;
+    --accent: #7ea2ff; --moved: #fb923c; --moved-bg: #2b1a10; --same: #a3acba;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151c; --fg: #e6e9ef; --muted: #9aa3b4; --rule: #2a313d; --panel: #181d26;
+  --accent: #7ea2ff; --moved: #fb923c; --moved-bg: #2b1a10; --same: #a3acba;
+  color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 64px;
+}
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+h1 { font-size: 1.9rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.25rem; }
+p { margin: 0; max-width: 68ch; }
+.intro { display: grid; gap: 12px; }
+.rule-box { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; display: grid; gap: 8px; }
+.rule-box strong { font-weight: 700; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px 20px; font-size: 0.85rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.swatch { width: 18px; height: 12px; border-radius: 3px; border: 2px dashed var(--moved); background: var(--moved-bg); }
+
+.scenario { background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 18px; display: grid; gap: 14px; }
+.scenario-head { display: grid; gap: 6px; }
+.scenario-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tag { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--muted); }
+.tag--moves { color: var(--moved); border-color: var(--moved); }
+.tag--same { color: var(--same); }
+.why { color: var(--muted); font-size: 0.92rem; }
+.compare { display: flex; flex-wrap: wrap; gap: 18px; }
+.side { display: grid; gap: 6px; flex: 0 1 290px; min-width: 0; }
+.side-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+/* ---- The itinerary day column, copied from ItineraryRenderer.CSS ---- */
+.app { background: var(--app-bg); color: var(--app-text); border: 1px solid var(--rule); border-radius: 8px; padding: 12px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 16px; }
+.day-header { font-weight: 700; font-size: 1rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--app-border); margin-bottom: 0.6rem; color: var(--app-text); }
+.entry-card { border-left: 4px solid transparent; border-radius: 0 6px 6px 0; padding: 0.55rem 0.75rem; margin-bottom: 0.6rem; position: relative; }
+.entry-card:last-child { margin-bottom: 0; }
+.entry-card--conference { border-left-color: #4f46e5; background: #e0e7ff; }
+.entry-card--flight { border-left-color: #075985; background: #cfeafd; }
+.entry-card--train { border-left-color: #9a3412; background: #ffedd5; }
+.entry-card--lodging { border-left-color: #166534; background: #dcfce7; }
+.entry-card--gathering { border-left-color: #7c3aed; background: #f5f3ff; }
+.entry-card--private-event { border-left-color: #475569; background: #f1f5f9; }
+.entry-card--ground-transfer { border-left-color: #854d0e; background: #fef9c3; }
+.entry-header { display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.2rem; }
+.entry-header svg { width: 13px; height: 13px; flex-shrink: 0; }
+.entry-kind { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.entry-kind--flight { color: #075985; } .entry-kind--train { color: #9a3412; } .entry-kind--lodging { color: #166534; }
+.entry-kind--gathering { color: #7c3aed; } .entry-kind--private-event { color: #475569; } .entry-kind--ground-transfer { color: #854d0e; }
+.entry-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; line-height: 1.3; }
+.entry-title a { color: inherit; text-decoration: underline; }
+.entry-detail { font-size: 0.82rem; color: var(--app-detail); line-height: 1.4; }
+.entry-location { font-weight: 700; }
+.by { font-weight: 600; }
+
+/* Mockup-only marker: not part of the page being designed. */
+.moved { outline: 2px dashed #c2410c; outline-offset: 2px; }
+.moved::after { content: "moved up"; position: absolute; top: 6px; right: 8px; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #c2410c; }
+
+.wording { display: flex; flex-wrap: wrap; gap: 18px; }
+.wording .side { flex-basis: 220px; }
+.notes { display: grid; gap: 10px; }
+.notes ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 6px; max-width: 72ch; }
+code { font-size: 0.88em; background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; padding: 0 4px; }
+@media (max-width: 640px) { .side { flex-basis: 100%; } }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <h1>Itinerary Check-Out Order</h1>
+    <p>Mockup for <code>/itinerary</code>. A check-out time means the latest you can leave. When a train, flight or ground transfer leaves that city earlier the same day, the Check-Out card moves up to sit just above it. Everything else keeps its clock order.</p>
+    <div class="rule-box">
+      <div><strong>Rule:</strong> a Check-Out sorts at its own time, or at the departure of the first leg leaving that city that day, whichever is earlier. On a tie it goes first.</div>
+      <div><strong>Label:</strong> the time line always reads <span class="by">by 11:00 AM</span>, so a card above a 9:45 AM train doesn't look out of order.</div>
+      <div><strong>Events don't move it.</strong> A breakfast or a meetup in the same city might come before you check out, or you might go back to the room after it. The page can't tell, so it uses clock order.</div>
+    </div>
+    <div class="legend">
+      <span><i class="swatch"></i> Dashed outline: the card that changed position (mockup marker only, not on the real page)</span>
+      <span>Edit and cancel icons are left out of these cards.</span>
+    </div>
+  </header>
+
+  <!-- 1. Train -->
+  <section class="scenario">
+    <div class="scenario-head">
+      <div class="scenario-meta"><span class="tag tag--moves">Check-Out moves</span><span class="tag">Your data · Sep 7</span></div>
+      <h2>A train leaves before check-out time</h2>
+      <p class="why">Adina Hamburg, check-out 11:00. ICE 519 leaves Hamburg Hbf at 9:45.</p>
+    </div>
+    <div class="compare">
+      <div class="side"><div class="side-label">Today</div>
+        <div class="app"><div class="day-header">Mon, Sep 7</div>
+          <div class="entry-card entry-card--train"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#9a3412" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 3v8M16 3v8M7 17l-2 4M17 17l2 4"/></svg><span class="entry-kind entry-kind--train">Train</span></div><div class="entry-title">Hamburg Hbf&nbsp;&rarr;&nbsp;Aachen Hbf</div><div class="entry-detail">DB - ICE 519 (toward Munich) then RE1 (26818)</div><div class="entry-detail">9:45 AM&nbsp;&rarr;&nbsp;3:07 PM</div></div>
+          <div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Adina Apartment Hotel Hamburg Michel</a></div><div class="entry-detail">26 Neuer Steinweg</div><div class="entry-detail entry-location">Hamburg 20459</div><div class="entry-detail entry-location">Germany</div><div class="entry-detail">11:00 AM</div></div>
+        </div>
+      </div>
+      <div class="side"><div class="side-label">Proposed</div>
+        <div class="app"><div class="day-header">Mon, Sep 7</div>
+          <div class="entry-card entry-card--lodging moved"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Adina Apartment Hotel Hamburg Michel</a></div><div class="entry-detail">26 Neuer Steinweg</div><div class="entry-detail entry-location">Hamburg 20459</div><div class="entry-detail entry-location">Germany</div><div class="entry-detail">by 11:00 AM</div></div>
+          <div class="entry-card entry-card--train"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#9a3412" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 3v8M16 3v8M7 17l-2 4M17 17l2 4"/></svg><span class="entry-kind entry-kind--train">Train</span></div><div class="entry-title">Hamburg Hbf&nbsp;&rarr;&nbsp;Aachen Hbf</div><div class="entry-detail">DB - ICE 519 (toward Munich) then RE1 (26818)</div><div class="entry-detail">9:45 AM&nbsp;&rarr;&nbsp;3:07 PM</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Flight -->
+  <section class="scenario">
+    <div class="scenario-head">
+      <div class="scenario-meta"><span class="tag tag--moves">Check-Out moves</span><span class="tag">Your data · Nov 26</span></div>
+      <h2>A flight leaves before check-out time</h2>
+      <p class="why">Motel One Berlin-Bellevue, check-out 11:00. UA8786 leaves BER at 10:40. The airport code is matched to its city (BER is Berlin), which is how <code>/schedule-problems</code> already matches it.</p>
+    </div>
+    <div class="compare">
+      <div class="side"><div class="side-label">Today</div>
+        <div class="app"><div class="day-header">Thu, Nov 26</div>
+          <div class="entry-card entry-card--flight"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#075985" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16l20-7-9 13-2-6-9 0z"/></svg><span class="entry-kind entry-kind--flight">Flight</span></div><div class="entry-title">United Airlines UA8786</div><div class="entry-detail"><strong>BER</strong> 10:40 AM&nbsp;&rarr;&nbsp;<strong>FRA</strong> 11:50 AM</div></div>
+          <div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Motel One Berlin-Bellevue</a></div><div class="entry-detail">21 Paulstraße</div><div class="entry-detail entry-location">Berlin 10557</div><div class="entry-detail entry-location">Germany</div><div class="entry-detail">11:00 AM</div></div>
+        </div>
+      </div>
+      <div class="side"><div class="side-label">Proposed</div>
+        <div class="app"><div class="day-header">Thu, Nov 26</div>
+          <div class="entry-card entry-card--lodging moved"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Motel One Berlin-Bellevue</a></div><div class="entry-detail">21 Paulstraße</div><div class="entry-detail entry-location">Berlin 10557</div><div class="entry-detail entry-location">Germany</div><div class="entry-detail">by 11:00 AM</div></div>
+          <div class="entry-card entry-card--flight"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#075985" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16l20-7-9 13-2-6-9 0z"/></svg><span class="entry-kind entry-kind--flight">Flight</span></div><div class="entry-title">United Airlines UA8786</div><div class="entry-detail"><strong>BER</strong> 10:40 AM&nbsp;&rarr;&nbsp;<strong>FRA</strong> 11:50 AM</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Ground transfer -->
+  <section class="scenario">
+    <div class="scenario-head">
+      <div class="scenario-meta"><span class="tag tag--moves">Check-Out moves</span><span class="tag">Your data · Oct 19</span></div>
+      <h2>A ground transfer leaves before check-out time</h2>
+      <p class="why">Hampton Inn Ottawa West, check-out 11:00. You drive the rental car to Strathmere at 10:30.</p>
+    </div>
+    <div class="compare">
+      <div class="side"><div class="side-label">Today</div>
+        <div class="app"><div class="day-header">Mon, Oct 19</div>
+          <div class="entry-card entry-card--ground-transfer"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#854d0e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><path d="M3 11h18v5H3zM6 16v2M18 16v2M9 5.5V3.5h6v2"/></svg><span class="entry-kind entry-kind--ground-transfer">Ground transfer</span></div><div class="entry-title">Driving rental car</div><div class="entry-detail">10:30 AM&nbsp;&rarr;&nbsp;11:00 AM</div><div class="entry-detail">Hampton Inn &amp; Suites Ottawa West (Airport)&nbsp;&rarr;&nbsp;Strathmere Country Retreat (Conference Hotel)</div></div>
+          <div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Hampton Inn &amp; Suites Ottawa West (Airport)</a></div><div class="entry-detail">125 Lusk Street</div><div class="entry-detail entry-location">Ottawa, ON K2J 6E5</div><div class="entry-detail entry-location">Canada</div><div class="entry-detail">11:00 AM</div></div>
+        </div>
+      </div>
+      <div class="side"><div class="side-label">Proposed</div>
+        <div class="app"><div class="day-header">Mon, Oct 19</div>
+          <div class="entry-card entry-card--lodging moved"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Hampton Inn &amp; Suites Ottawa West (Airport)</a></div><div class="entry-detail">125 Lusk Street</div><div class="entry-detail entry-location">Ottawa, ON K2J 6E5</div><div class="entry-detail entry-location">Canada</div><div class="entry-detail">by 11:00 AM</div></div>
+          <div class="entry-card entry-card--ground-transfer"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#854d0e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><path d="M3 11h18v5H3zM6 16v2M18 16v2M9 5.5V3.5h6v2"/></svg><span class="entry-kind entry-kind--ground-transfer">Ground transfer</span></div><div class="entry-title">Driving rental car</div><div class="entry-detail">10:30 AM&nbsp;&rarr;&nbsp;11:00 AM</div><div class="entry-detail">Hampton Inn &amp; Suites Ottawa West (Airport)&nbsp;&rarr;&nbsp;Strathmere Country Retreat (Conference Hotel)</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Private breakfast then train -->
+  <section class="scenario">
+    <div class="scenario-head">
+      <div class="scenario-meta"><span class="tag tag--moves">Check-Out moves</span><span class="tag">Example</span></div>
+      <h2>An early private event, then a train</h2>
+      <p class="why">Breakfast 8:00–9:00 in Hamburg, check-out 11:00, train at 10:15. The breakfast stays first, at its own time. The Check-Out moves up to just above the train, not above the breakfast.</p>
+    </div>
+    <div class="compare">
+      <div class="side"><div class="side-label">Today</div>
+        <div class="app"><div class="day-header">Tue, Mar 9</div>
+          <div class="entry-card entry-card--private-event"><div class="entry-kind entry-kind--private-event">Private</div><div class="entry-title">Breakfast</div><div class="entry-detail">Café Paris · Hamburg, Germany</div><div class="entry-detail">8:00 AM &ndash; 9:00 AM</div></div>
+          <div class="entry-card entry-card--train"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#9a3412" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 3v8M16 3v8M7 17l-2 4M17 17l2 4"/></svg><span class="entry-kind entry-kind--train">Train</span></div><div class="entry-title">Hamburg Hbf&nbsp;&rarr;&nbsp;Berlin Hbf</div><div class="entry-detail">ICE 1003</div><div class="entry-detail">10:15 AM&nbsp;&rarr;&nbsp;12:02 PM</div></div>
+          <div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Adina Apartment Hotel Hamburg Michel</a></div><div class="entry-detail">26 Neuer Steinweg</div><div class="entry-detail entry-location">Hamburg 20459</div><div class="entry-detail entry-location">Germany</div><div class="entry-detail">11:00 AM</div></div>
+        </div>
+      </div>
+      <div class="side"><div class="side-label">Proposed</div>
+        <div class="app"><div class="day-header">Tue, Mar 9</div>
+          <div class="entry-card entry-card--private-event"><div class="entry-kind entry-kind--private-event">Private</div><div class="entry-title">Breakfast</div><div class="entry-detail">Café Paris · Hamburg, Germany</div><div class="entry-detail">8:00 AM &ndash; 9:00 AM</div></div>
+          <div class="entry-card entry-card--lodging moved"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Adina Apartment Hotel Hamburg Michel</a></div><div class="entry-detail">26 Neuer Steinweg</div><div class="entry-detail entry-location">Hamburg 20459</div><div class="entry-detail entry-location">Germany</div><div class="entry-detail">by 11:00 AM</div></div>
+          <div class="entry-card entry-card--train"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#9a3412" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 3v8M16 3v8M7 17l-2 4M17 17l2 4"/></svg><span class="entry-kind entry-kind--train">Train</span></div><div class="entry-title">Hamburg Hbf&nbsp;&rarr;&nbsp;Berlin Hbf</div><div class="entry-detail">ICE 1003</div><div class="entry-detail">10:15 AM&nbsp;&rarr;&nbsp;12:02 PM</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Breakfast gathering then flight -->
+  <section class="scenario">
+    <div class="scenario-head">
+      <div class="scenario-meta"><span class="tag tag--moves">Check-Out moves</span><span class="tag">Example</span></div>
+      <h2>A breakfast gathering, then a flight</h2>
+      <p class="why">Meetup breakfast 7:30–9:00 in Berlin, check-out 11:00, flight from BER at 10:40. Same as above: the gathering keeps its place and the Check-Out moves up to just above the flight.</p>
+    </div>
+    <div class="compare">
+      <div class="side"><div class="side-label">Today</div>
+        <div class="app"><div class="day-header">Thu, Nov 26</div>
+          <div class="entry-card entry-card--gathering"><div class="entry-kind entry-kind--gathering">Gathering</div><div class="entry-title"><a>Software Crafters Breakfast</a></div><div class="entry-detail">Betahaus · Berlin, Germany</div><div class="entry-detail">7:30 AM &ndash; 9:00 AM</div></div>
+          <div class="entry-card entry-card--flight"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#075985" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16l20-7-9 13-2-6-9 0z"/></svg><span class="entry-kind entry-kind--flight">Flight</span></div><div class="entry-title">United Airlines UA8786</div><div class="entry-detail"><strong>BER</strong> 10:40 AM&nbsp;&rarr;&nbsp;<strong>FRA</strong> 11:50 AM</div></div>
+          <div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Motel One Berlin-Bellevue</a></div><div class="entry-detail">21 Paulstraße</div><div class="entry-detail entry-location">Berlin 10557</div><div class="entry-detail entry-location">Germany</div><div class="entry-detail">11:00 AM</div></div>
+        </div>
+      </div>
+      <div class="side"><div class="side-label">Proposed</div>
+        <div class="app"><div class="day-header">Thu, Nov 26</div>
+          <div class="entry-card entry-card--gathering"><div class="entry-kind entry-kind--gathering">Gathering</div><div class="entry-title"><a>Software Crafters Breakfast</a></div><div class="entry-detail">Betahaus · Berlin, Germany</div><div class="entry-detail">7:30 AM &ndash; 9:00 AM</div></div>
+          <div class="entry-card entry-card--lodging moved"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Motel One Berlin-Bellevue</a></div><div class="entry-detail">21 Paulstraße</div><div class="entry-detail entry-location">Berlin 10557</div><div class="entry-detail entry-location">Germany</div><div class="entry-detail">by 11:00 AM</div></div>
+          <div class="entry-card entry-card--flight"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#075985" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16l20-7-9 13-2-6-9 0z"/></svg><span class="entry-kind entry-kind--flight">Flight</span></div><div class="entry-title">United Airlines UA8786</div><div class="entry-detail"><strong>BER</strong> 10:40 AM&nbsp;&rarr;&nbsp;<strong>FRA</strong> 11:50 AM</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Breakfast gathering, nothing leaves -->
+  <section class="scenario">
+    <div class="scenario-head">
+      <div class="scenario-meta"><span class="tag tag--same">No change</span><span class="tag">Example</span></div>
+      <h2>A breakfast gathering, and nothing leaves town</h2>
+      <p class="why">You're moving between two Hamburg hotels. Breakfast 8:30–10:00, check-out 11:00, the next check-in at 3:00. No leg leaves Hamburg, so everything stays in clock order. If you check out before the breakfast, editing the check-out time is still how you say so.</p>
+    </div>
+    <div class="compare">
+      <div class="side"><div class="side-label">Today and proposed</div>
+        <div class="app"><div class="day-header">Wed, Mar 10</div>
+          <div class="entry-card entry-card--gathering"><div class="entry-kind entry-kind--gathering">Gathering</div><div class="entry-title"><a>Hamburg Crafters Breakfast</a></div><div class="entry-detail">Mutterland · Hamburg, Germany</div><div class="entry-detail">8:30 AM &ndash; 10:00 AM</div></div>
+          <div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Adina Apartment Hotel Hamburg Michel</a></div><div class="entry-detail">26 Neuer Steinweg</div><div class="entry-detail entry-location">Hamburg 20459</div><div class="entry-detail entry-location">Germany</div><div class="entry-detail">by 11:00 AM</div></div>
+          <div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-In</span></div><div class="entry-title"><a>Best Western Plus Hotel St. Raphael</a></div><div class="entry-detail">Adenauerallee 41</div><div class="entry-detail entry-location">Hamburg, St. Georg 20097</div><div class="entry-detail entry-location">Germany</div><div class="entry-detail">3:00 PM</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. Nov 20 -->
+  <section class="scenario">
+    <div class="scenario-head">
+      <div class="scenario-meta"><span class="tag tag--same">No change</span><span class="tag">Your data · Nov 20</span></div>
+      <h2>Everything leaves after check-out</h2>
+      <p class="why">Holiday Inn Potsdam, check-out 11:00. The palace tour starts at 12:10 and the transfer to Berlin leaves at 4:00. Nothing leaves Potsdam before 11:00, so nothing moves. Only the label changes.</p>
+    </div>
+    <div class="compare">
+      <div class="side"><div class="side-label">Today and proposed</div>
+        <div class="app"><div class="day-header">Fri, Nov 20</div>
+          <div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Holiday Inn - the niu</a></div><div class="entry-detail">1 Leipziger Straße</div><div class="entry-detail entry-location">Potsdam, Brandenburg 14473</div><div class="entry-detail entry-location">Germany</div><div class="entry-detail">by 11:00 AM</div></div>
+          <div class="entry-card entry-card--private-event"><div class="entry-kind entry-kind--private-event">Private</div><div class="entry-title">Audioguide (12:10pm) and Grand Tour (2:40 PM)</div><div class="entry-detail">Schloss Sanssouci Audioguide and Neues Palais Führung Grand Tour · Potsdam, Germany</div><div class="entry-detail">12:10 PM &ndash; 4:00 PM</div></div>
+          <div class="entry-card entry-card--ground-transfer"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#854d0e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><path d="M3 11h18v5H3zM6 16v2M18 16v2M9 5.5V3.5h6v2"/></svg><span class="entry-kind entry-kind--ground-transfer">Ground transfer</span></div><div class="entry-title">Schloss Sanssouci Audioguide and Neues Palais Führung Grand Tour&nbsp;&rarr;&nbsp;Motel One Berlin-Potsdamer Platz</div><div class="entry-detail">4:00 PM&nbsp;&rarr;&nbsp;5:00 PM</div></div>
+          <div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-In</span></div><div class="entry-title"><a>Motel One Berlin-Potsdamer Platz</a></div><div class="entry-detail">12 Leipziger Platz</div><div class="entry-detail entry-location">Berlin 10117</div><div class="entry-detail entry-location">Germany</div><div class="entry-detail">6:00 PM</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. Already edited -->
+  <section class="scenario">
+    <div class="scenario-head">
+      <div class="scenario-meta"><span class="tag tag--same">No change</span><span class="tag">Example</span></div>
+      <h2>A check-out you've already moved earlier</h2>
+      <p class="why">Bookings where you typed an earlier time, like 7:30 before the 7:51 IC to Antwerp, already sort above the train and stay there. The card now reads "by 7:30 AM". You can leave these as they are, or set them back to the hotel's real deadline.</p>
+    </div>
+    <div class="compare">
+      <div class="side"><div class="side-label">Today and proposed</div>
+        <div class="app"><div class="day-header">Wed, Jun 10</div>
+          <div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Hotel Les 3 Clés</a></div><div class="entry-detail">Chaussee De Namur 17</div><div class="entry-detail entry-location">Gembloux 5030</div><div class="entry-detail entry-location">Belgium</div><div class="entry-detail">by 7:30 AM</div></div>
+          <div class="entry-card entry-card--train"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#9a3412" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 3v8M16 3v8M7 17l-2 4M17 17l2 4"/></svg><span class="entry-kind entry-kind--train">Train</span></div><div class="entry-title">Gembloux&nbsp;&rarr;&nbsp;Anvers Central</div><div class="entry-detail">SNCB - IC 7602</div><div class="entry-detail">7:51 AM&nbsp;&rarr;&nbsp;9:36 AM</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Wording -->
+  <section class="scenario">
+    <div class="scenario-head">
+      <h2>Wording for the time line</h2>
+      <p class="why"><strong>Decided: A</strong> (Ted, 2026-11-15). "by 11:00 AM" on every check-out, moved or not, so the card always says the same thing. B and C are kept for the record.</p>
+    </div>
+    <div class="wording">
+      <div class="side"><div class="side-label">A · Chosen</div>
+        <div class="app"><div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Motel One Berlin-Bellevue</a></div><div class="entry-detail entry-location">Berlin 10557</div><div class="entry-detail">by 11:00 AM</div></div></div>
+      </div>
+      <div class="side"><div class="side-label">B · Spelled out</div>
+        <div class="app"><div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Motel One Berlin-Bellevue</a></div><div class="entry-detail entry-location">Berlin 10557</div><div class="entry-detail">Leave by 11:00 AM</div></div></div>
+      </div>
+      <div class="side"><div class="side-label">C · Only when moved</div>
+        <div class="app"><div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-Out</span></div><div class="entry-title"><a>Motel One Berlin-Bellevue</a></div><div class="entry-detail entry-location">Berlin 10557</div><div class="entry-detail">by 11:00 AM <span style="color:#6b7280">(only on a moved card; others read "11:00 AM")</span></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="notes">
+    <h2>Not shown, and how they'd behave</h2>
+    <ul>
+      <li><strong>An arriving leg</strong> into the hotel's city doesn't move the check-out. Only a leg <em>leaving</em> that city does.</li>
+      <li><strong>A conference day</strong> in the hotel's city behaves like the gathering above. It keeps clock order and doesn't move the check-out.</li>
+      <li><strong>Family view</strong> gets the same order and label. Nothing here is owner-only.</li>
+      <li><strong>The calendar and <code>/schedule-problems</code></strong> are unaffected. This is <code>/itinerary</code> only.</li>
+    </ul>
+  </section>
+</div>

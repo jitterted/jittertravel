@@ -320,8 +320,22 @@ public class ItineraryRenderer {
                 div(addr.street()).withClass("entry-detail"),
                 div(cityLine).withClass("entry-detail entry-location"),
                 div(new CityLabel().countryName(addr.country())).withClass("entry-detail entry-location"),
-                div().withClass("entry-detail").with(ZonedTimeTag.render(e.anchorDateTime(), TIME_FORMAT))
+                checkOutOrCheckInTime(e)
         );
+    }
+
+    /**
+     * A check-out reads "by 11:00 AM" — on every check-out, moved or not (Ted, 2026-11-15, option A
+     * of {@code docs/mockups/ItineraryCheckOutOrder.html}). The time is the latest he may leave,
+     * and the projector sorts a check-out above an earlier train out of town, so a bare "11:00 AM"
+     * there would read as the day being out of order.
+     */
+    private static DivTag checkOutOrCheckInTime(HotelItineraryEntry e) {
+        DivTag line = div().withClass("entry-detail");
+        if (e.dayRole() == HotelDayRole.CHECK_OUT) {
+            line.with(text("by "));
+        }
+        return line.with(ZonedTimeTag.render(e.anchorDateTime(), TIME_FORMAT));
     }
 
     private static DivTag renderGathering(GatheringItineraryEntry e, boolean isOwner) {

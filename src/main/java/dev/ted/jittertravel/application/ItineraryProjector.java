@@ -23,19 +23,48 @@ public class ItineraryProjector implements EventStreamConsumer {
     private final Map<PrivateEventId, PrivateEventItineraryEntry> privateEventEntries = new ConcurrentHashMap<>();
     private final Map<GroundTransferId, GroundTransferItineraryEntry> groundTransferEntries = new ConcurrentHashMap<>();
 
+    // Where and when each leg leaves, for check-out ordering only (see entriesForDate). Held apart
+    // from the entries because a flight or transfer entry names its endpoint, not its city.
+    private final Map<FlightId, Departure> flightDepartures = new ConcurrentHashMap<>();
+    private final Map<TrainTripId, Departure> trainDepartures = new ConcurrentHashMap<>();
+    private final Map<GroundTransferId, Departure> transferDepartures = new ConcurrentHashMap<>();
+
     private final TransferEndpointLabel transferLabel = new TransferEndpointLabel();
     private final CityLabel cityLabel = new CityLabel();
+    private final AirportCityResolver airportCities = new StaticAirportCityResolver();
 
     @Override
     public void handle(Stream<StoredEvent> eventStream) {
         eventStream.forEach(stored -> {
             switch (stored.payload()) {
-                case FlightBooked e -> flightEntries.put(e.flightId(), toFlightEntries(e));
-                case FlightChanged e -> flightEntries.put(e.flightId(), toFlightEntries(e));
-                case FlightCancelled e -> flightEntries.remove(e.flightId());
-                case TrainBooked e -> trainEntries.put(e.tripId(), toTrainEntries(e));
-                case TrainChanged e -> trainEntries.put(e.tripId(), toTrainEntries(e));
-                case TrainCancelled e -> trainEntries.remove(e.tripId());
+                case FlightBooked e -> {
+                    flightEntries.put(e.flightId(), toFlightEntries(e));
+                    flightDepartures.put(e.flightId(), new Departure(
+                            Place.of(e.departureAirport(), airportCities), e.departureDateTime()));
+                }
+                case FlightChanged e -> {
+                    flightEntries.put(e.flightId(), toFlightEntries(e));
+                    flightDepartures.put(e.flightId(), new Departure(
+                            Place.of(e.departureAirport(), airportCities), e.departureDateTime()));
+                }
+                case FlightCancelled e -> {
+                    flightEntries.remove(e.flightId());
+                    flightDepartures.remove(e.flightId());
+                }
+                case TrainBooked e -> {
+                    trainEntries.put(e.tripId(), toTrainEntries(e));
+                    trainDepartures.put(e.tripId(),
+                            new Departure(Place.of(e.departureStation()), e.departureDateTime()));
+                }
+                case TrainChanged e -> {
+                    trainEntries.put(e.tripId(), toTrainEntries(e));
+                    trainDepartures.put(e.tripId(),
+                            new Departure(Place.of(e.departureStation()), e.departureDateTime()));
+                }
+                case TrainCancelled e -> {
+                    trainEntries.remove(e.tripId());
+                    trainDepartures.remove(e.tripId());
+                }
                 case HotelBooked e -> hotelEntries.put(e.hotelBookingId(), toHotelEntries(e));
                 case HotelChanged e -> hotelEntries.put(e.hotelBookingId(), toHotelEntries(e));
                 case HotelBookingCancelled(HotelBookingId hotelBookingId, String _) -> hotelEntries.remove(hotelBookingId);
@@ -61,8 +90,15 @@ public class ItineraryProjector implements EventStreamConsumer {
                         e.speaking(), e.infoUrl(), e.startsAt(), e.endsAt()));
                 case PrivateEventPlanned e -> privateEventEntries.put(e.privateEventId(), toPrivateEventEntry(e));
                 case PrivateEventCancelled(PrivateEventId privateEventId, String _) -> privateEventEntries.remove(privateEventId);
-                case GroundTransferPlanned e -> groundTransferEntries.put(e.groundTransferId(), toGroundTransferEntry(e));
-                case GroundTransferCancelled e -> groundTransferEntries.remove(e.groundTransferId());
+                case GroundTransferPlanned e -> {
+                    groundTransferEntries.put(e.groundTransferId(), toGroundTransferEntry(e));
+                    transferDepartures.put(e.groundTransferId(),
+                            new Departure(Place.of(e.origin()), e.departsAt()));
+                }
+                case GroundTransferCancelled e -> {
+                    groundTransferEntries.remove(e.groundTransferId());
+                    transferDepartures.remove(e.groundTransferId());
+                }
                 default -> {}
             }
         });
@@ -142,9 +178,43 @@ public class ItineraryProjector implements EventStreamConsumer {
         groundTransferEntries.values().stream()
                 .filter(e -> e.anchorTime().toLocalDate().equals(date))
                 .forEach(result::add);
-        result.sort(Comparator.comparing(ItineraryEntry::anchorTime));
+        result.sort(Comparator.comparing(this::sortTime)
+                .thenComparing(entry -> isCheckOut(entry) ? 0 : 1));
         return Collections.unmodifiableList(result);
     }
+
+    /**
+     * Where an entry sits in its day: its own time, except that a <strong>check-out sits no later
+     * than the first leg leaving its city that day</strong> (Ted, 2026-11-15;
+     * {@code docs/mockups/ItineraryCheckOutOrder.html}). A check-out time is the latest he may
+     * leave, so an 11:00 check-out belongs above the 09:45 train he is obviously not taking from
+     * the room. On a tie the check-out goes first.
+     * <p>
+     * Only a <em>departing</em> flight, train or ground transfer moves it. An event in the same
+     * city does not: he may go back to the room after breakfast, and nothing here can tell, so a
+     * check-out he made before one is still said by editing its time.
+     */
+    private LocalDateTime sortTime(ItineraryEntry entry) {
+        if (!(entry instanceof HotelItineraryEntry checkOut) || !isCheckOut(entry)) {
+            return entry.anchorTime();
+        }
+        Place hotel = Place.of(checkOut.address());
+        LocalDateTime checkOutTime = checkOut.anchorTime();
+        return Stream.of(flightDepartures.values(), trainDepartures.values(), transferDepartures.values())
+                .flatMap(Collection::stream)
+                .filter(departure -> !hotel.value().isBlank() && departure.from().matches(hotel))
+                .map(departure -> departure.at().localDateTime())
+                .filter(leaves -> leaves.toLocalDate().equals(checkOutTime.toLocalDate()))
+                .filter(leaves -> leaves.isBefore(checkOutTime))
+                .min(Comparator.naturalOrder())
+                .orElse(checkOutTime);
+    }
+
+    private static boolean isCheckOut(ItineraryEntry entry) {
+        return entry instanceof HotelItineraryEntry hotel && hotel.dayRole() == HotelDayRole.CHECK_OUT;
+    }
+
+    private record Departure(Place from, ZonedTimestamp at) {}
 
     private static List<FlightItineraryEntry> toFlightEntries(FlightBooked e) {
         return toFlightEntries(e.flightId(), e.airline(), e.flightNumber(),

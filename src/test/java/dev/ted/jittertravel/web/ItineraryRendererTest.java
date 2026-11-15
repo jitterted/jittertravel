@@ -551,6 +551,26 @@ class ItineraryRendererTest {
     }
 
     @Test
+    void hotelCheckOutTimeReadsAsTheLatestHeMayLeave() {
+        // Option A of docs/mockups/ItineraryCheckOutOrder.html: "by" on every check-out, because
+        // the card may sit above an earlier train out of town. Frankfurt 11:00 CEST is 09:00Z.
+        String html = renderWithEntry(hotel(HotelDayRole.CHECK_OUT, ""));
+
+        assertThat(html)
+                .contains("<div class=\"entry-detail\">by <time datetime=\"2026-06-01T09:00:00Z\" "
+                          + "data-fmt=\"h:mm a\">11:00 AM</time></div>");
+    }
+
+    @Test
+    void hotelCheckInTimeHasNoDeadlineWording() {
+        String html = renderWithEntry(hotel(HotelDayRole.CHECK_IN, ""));
+
+        assertThat(html)
+                .contains("<div class=\"entry-detail\"><time datetime=\"2026-06-01T13:00:00Z\" "
+                          + "data-fmt=\"h:mm a\">3:00 PM</time></div>");
+    }
+
+    @Test
     void hotelCheckInTimeRendersAsTimeElementCarryingTheUtcInstant() {
         // Frankfurt 3:00 PM CEST is 13:00Z.
         String html = renderWithEntry(hotel(HotelDayRole.CHECK_IN, ""));

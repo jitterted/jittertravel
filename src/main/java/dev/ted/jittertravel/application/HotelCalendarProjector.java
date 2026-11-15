@@ -52,7 +52,7 @@ public class HotelCalendarProjector implements EventStreamConsumer {
                 locationLines,
                 hotelName + " cont'd",
                 locationLines,
-                new EntryDetails.Lodging(mapsUrl, editPath)
+                new EntryDetails.Lodging(mapsUrl, editPath, editPath + "/cancel")
         ));
     }
 

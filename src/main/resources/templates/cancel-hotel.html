@@ -27,8 +27,6 @@
         .summary .name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; }
         .summary .line { font-size: 0.9rem; color: var(--muted-text); margin-top: 0.15rem; }
 
-        p.warning { font-size: 0.9rem; color: var(--text-color); margin: 0 0 1rem; }
-
         .field { margin-bottom: 1rem; }
         .field label {
             display: flex;
@@ -93,13 +91,6 @@
             Check-out: <span th:text="${#temporals.format(booking.checkOut(), 'EEE, MMM d, yyyy, h:mm a')}">date</span>
         </div>
     </div>
-
-    <p class="warning">
-        Cancelling removes the stay from the calendar, the itinerary and the schedule-problems
-        report. It stays on the booked-hotels list, greyed out and marked Canceled, and the event
-        log keeps the record. This cannot be undone from the app yet — you would have to book the
-        stay again.
-    </p>
 
     <form th:action="@{|/booked-hotels/${booking.hotelBookingId().id()}/cancel|}" method="post">
 

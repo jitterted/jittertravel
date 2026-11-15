@@ -65,12 +65,13 @@ public sealed interface EntryDetails {
     }
 
     /**
-     * A private social event. It carries nothing kind-specific today: there is no edit flow yet
-     * (see {@code docs/Cleanup_Tasks.md}, "Change Private Event"), and everything an anonymous
-     * viewer may see — "Busy", the zone-labelled time, the city — is decided when the entry is
-     * redacted, not stored here.
+     * A private social event. {@code cancelPath} is OWNER-only and points at its cancel
+     * confirmation page; there is no edit path because there is no edit flow yet (see
+     * {@code docs/Cleanup_Tasks.md}, "Change Private Event"), so like a {@link GroundTransfer} it
+     * shows a bin and no pencil. Everything an anonymous viewer may see — "Busy", the
+     * zone-labelled time, the city — is decided when the entry is redacted, not stored here.
      */
-    record PrivateEvent() implements EntryDetails {
+    record PrivateEvent(String cancelPath) implements EntryDetails {
         @Override
         public EntryKind kind() {
             return EntryKind.PRIVATE_EVENT;
@@ -118,10 +119,11 @@ public sealed interface EntryDetails {
     }
 
     /**
-     * A hotel stay. {@code mapsUrl} points at the hotel and {@code editPath} at its booking page —
-     * both private, both dropped for anonymous viewers.
+     * A hotel stay. {@code mapsUrl} points at the hotel, {@code editPath} at its booking page and
+     * {@code cancelPath} at its cancel confirmation page — all private, none of them on
+     * {@link PublicLodging}.
      */
-    record Lodging(String mapsUrl, String editPath) implements EntryDetails {
+    record Lodging(String mapsUrl, String editPath, String cancelPath) implements EntryDetails {
         @Override
         public EntryKind kind() {
             return EntryKind.LODGING;

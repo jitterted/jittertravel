@@ -595,6 +595,21 @@ class ItineraryRendererTest {
     }
 
     @Test
+    void hotelShowsCancelBinAfterTheEditPencilForOwner() {
+        HotelItineraryEntry entry = hotel(HotelDayRole.CHECK_IN, "Hessen");
+
+        String html = render(
+                threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains("<a class=\"cancel-bin\" href=\"/booked-hotels/" + entry.hotelBookingId().id()
+                          + "/cancel\" title=\"Cancel hotel\">");
+        assertThat(html.indexOf("edit-pencil\" href="))
+                .as("the pencil keeps the position it had before the bin existed")
+                .isLessThan(html.indexOf("cancel-bin\" href="));
+    }
+
+    @Test
     void hotelHasNoEditPencilForNonOwner() {
         String html = renderWithEntry(hotel(HotelDayRole.CHECK_IN, "Hessen"));
 

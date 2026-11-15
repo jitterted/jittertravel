@@ -29,8 +29,9 @@ class PrivateEventCalendarProjectorTest {
     @Test
     void buildsOwnerCalendarEntryFromPrivateEventPlanned() {
         PrivateEventCalendarProjector projector = new PrivateEventCalendarProjector();
+        PrivateEventId privateEventId = PrivateEventId.random();
         PrivateEventPlanned event = new PrivateEventPlanned(
-                PrivateEventId.random(),
+                privateEventId,
                 "Dinner with the Smiths",
                 "Alo",
                 new Address("163 Spadina Ave", "Toronto", "ON", "M5V 2L6", "Canada", null),
@@ -53,8 +54,11 @@ class PrivateEventCalendarProjectorTest {
         assertThat(entry.continuationTitle()).isNull();
         assertThat(entry.continuationSubTitle()).isNull();
         // A private event has no maps URL and no owner edit link on the calendar — and cannot
-        // acquire one by accident, because its details record has nowhere to put either.
-        assertThat(entry.details()).isEqualTo(new EntryDetails.PrivateEvent());
+        // acquire one by accident, because its details record has nowhere to put either. It does
+        // carry the owner's cancel path, which the bin points at.
+        assertThat(entry.details())
+                .isEqualTo(new EntryDetails.PrivateEvent(
+                        "/planned-private-events/" + privateEventId.id() + "/cancel"));
     }
 
     @Test

@@ -63,6 +63,7 @@ Legend: `open` · `partial` · `done` · `shipped` (built; kept in **Open featur
 
 | Item | Owning doc | What's left |
 |---|---|---|
+| **Cancel bin on every cancelable entry (hotel missing on calendar + itinerary)** | `CancelBinEverywherePlan.md` | `shipped` — built 2026-11-15: hotel bin on calendar + itinerary, private event bin on the calendar, and `EveryCancelableKindShowsItsBinTest`, which discovers every `/cancel` route so a cancel can't ship without its bin. |
 | **Railway: `railway.json` → Infrastructure as Code — DEADLINE 2026-12-01** | `RailwayIacMigrationPlan.md` | `open` — planned 2026-11-14, nothing applied. Railway stops reading `railway.json` on 2026-12-01; the CLI's draft `railway.ts` drops the restart policy and makes variables file-managed, so Q1–Q5 come before any apply. From 2026-12-01 the pre-push hook blocks until it is done. |
 | **Late arrival — report arriving after an event has begun** | `LateArrivalProblemPlan.md` | `open` — filed 2026-11-14, nothing designed; silent today by `ScheduleTimeline.reachedLate`. Q1 (can it be dismissed?) comes first. |
 | **Correlation tracing (event → command → page it came from)** | `CorrelationTracingPlan.md` | `decision` — plan only (2026-10-24), replay-based; replay (slices 4–5) blocked on D6 (in-place event rewrites), slice 1 buildable now, slice 2 waits on D7. |

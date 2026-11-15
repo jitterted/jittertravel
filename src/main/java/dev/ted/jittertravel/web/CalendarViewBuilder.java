@@ -487,18 +487,19 @@ public class CalendarViewBuilder {
      */
     private static List<DomContent> ownerActions(EntryDetails details) {
         return switch (details) {
-            case EntryDetails.Lodging d -> pencil(d.editPath());
+            // A gathering cannot be canceled yet: there is no GatheringCancelled.
             case EntryDetails.Gathering d -> pencil(d.editPath());
             // Both icons, in a fixed order: edit then cancel, so the pencil stays exactly where
             // it is on every other row.
+            case EntryDetails.Lodging d -> pencilAndBin(d.editPath(), d.cancelPath(), "Cancel hotel");
             case EntryDetails.Flight d -> pencilAndBin(d.editPath(), d.cancelPath(), "Cancel flight");
             case EntryDetails.Train d -> pencilAndBin(d.editPath(), d.cancelPath(), "Cancel train");
-            case EntryDetails.GroundTransfer d -> d.cancelPath() == null
-                    ? List.of()
-                    : List.of(cancelBin(d.cancelPath(), "Cancel"));
-            // A conference is declined or cancelled from its own pages, and a private event has no
-            // edit flow yet (docs/Cleanup_Tasks.md, "Change Private Event").
-            case EntryDetails.Conference _, EntryDetails.PrivateEvent _ -> List.of();
+            // A bin alone: neither has an edit page (a private event's edit flow is unbuilt,
+            // docs/Cleanup_Tasks.md "Change Private Event").
+            case EntryDetails.GroundTransfer d -> bin(d.cancelPath(), "Cancel");
+            case EntryDetails.PrivateEvent d -> bin(d.cancelPath(), "Cancel private event");
+            // A conference is declined from its own pages — a state-machine move, not a cancel.
+            case EntryDetails.Conference _ -> List.of();
             // No publishable details type can carry an owner action, so these arms are not a
             // policy decision the renderer makes — there is nothing there to render. An anonymous
             // viewer never reaches this method anyway (it is gated on isOwner), and a viewer who
@@ -517,6 +518,10 @@ public class CalendarViewBuilder {
             actions.add(cancelBin(cancelPath, cancelLabel));
         }
         return List.copyOf(actions);
+    }
+
+    private static List<DomContent> bin(String cancelPath, String cancelLabel) {
+        return cancelPath == null ? List.of() : List.of(cancelBin(cancelPath, cancelLabel));
     }
 
     private static List<DomContent> pencil(String editPath) {

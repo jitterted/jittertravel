@@ -310,6 +310,7 @@ public class ItineraryRenderer {
                 a(e.hotelName()).withHref(e.mapsUrl()).withTarget("_blank").withRel("noopener"));
         if (isOwner) {
             title.with(editPencil("/booked-hotels/" + e.hotelBookingId().id(), "Edit hotel"));
+            title.with(cancelBin("/booked-hotels/" + e.hotelBookingId().id() + "/cancel", "Cancel hotel"));
         }
         return div().withClass("entry-card entry-card--lodging").with(
                 div().withClass("entry-header").with(

@@ -49,11 +49,11 @@ class YearOverviewTest {
         return switch (kind) {
             case CONFERENCE -> new EntryDetails.Conference(null, false, null, null);
             case GATHERING -> new EntryDetails.Gathering(null, false, null);
-            case PRIVATE_EVENT -> new EntryDetails.PrivateEvent();
+            case PRIVATE_EVENT -> new EntryDetails.PrivateEvent(null);
             case FLIGHT -> new EntryDetails.Flight(null, null);
             case TRAIN -> new EntryDetails.Train(null, null);
             case GROUND_TRANSFER -> new EntryDetails.GroundTransfer(null);
-            case LODGING -> new EntryDetails.Lodging(null, null);
+            case LODGING -> new EntryDetails.Lodging(null, null, null);
         };
     }
 
@@ -202,7 +202,7 @@ class YearOverviewTest {
                 List.of(new CalendarEntry(LocalDate.of(2026, 9, 14).atTime(15, 0),
                                           LocalDate.of(2026, 9, 17).atTime(11, 0),
                                           EntryKind.LODGING.name(), List.of(),
-                                          new EntryDetails.Lodging(null, null))),
+                                          new EntryDetails.Lodging(null, null, null))),
                 GRID_START, GRID_END, TODAY, Set.of(), false).render();
 
         assertThat(html.split("yo-lodging", -1).length - 1)

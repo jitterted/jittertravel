@@ -44,7 +44,7 @@ public class PrivateEventCalendarProjector implements EventStreamConsumer {
                 e.endsAt().localDateTime(),
                 e.title(),
                 subtitle.venueLocationAndTime(e.venueName(), e.location(), e.startsAt(), e.endsAt()),
-                new EntryDetails.PrivateEvent()
+                new EntryDetails.PrivateEvent("/planned-private-events/" + e.privateEventId().id() + "/cancel")
         );
     }
 

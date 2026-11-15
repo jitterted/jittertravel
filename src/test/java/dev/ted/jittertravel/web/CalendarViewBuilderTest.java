@@ -386,7 +386,7 @@ class CalendarViewBuilderTest {
                 lines("Berlin, DE"),
                 "Grand Hotel Berlin cont'd",
                 lines("Berlin, DE"),
-                new EntryDetails.Lodging("https://maps.google.com/?q=Grand+Hotel+Berlin", null)
+                new EntryDetails.Lodging("https://maps.google.com/?q=Grand+Hotel+Berlin", null, null)
         );
 
         String html = CalendarViewBuilder.render(
@@ -1033,7 +1033,7 @@ class CalendarViewBuilderTest {
                 LocalDateTime.of(2026, 6, 10, 22, 0),
                 "Dinner with the Smiths",
                 lines("Toronto, CA"),
-                new EntryDetails.PrivateEvent()
+                new EntryDetails.PrivateEvent(null)
         );
 
         String html = CalendarViewBuilder.render(

@@ -86,6 +86,20 @@ class HotelCalendarProjectorTest {
                 .isEqualTo("/booked-hotels/" + id.id());
     }
 
+    @Test
+    void calendarEntryCarriesOwnerCancelPath() {
+        HotelCalendarProjector projector = new HotelCalendarProjector();
+        HotelBookingId id = HotelBookingId.random();
+        HotelBooked event = new HotelBooked(id, "Grand Hotel",
+                new Address("123 Main St", "Springfield", "IL", "62701", "US", null),
+                zt(CHECK_IN), zt(CHECK_OUT), BookingIntent.TENTATIVE, null, null);
+
+        projector.handle(Stream.of(stored(event)));
+
+        assertThat(((EntryDetails.Lodging) projector.entries().getFirst().details()).cancelPath())
+                .isEqualTo("/booked-hotels/" + id.id() + "/cancel");
+    }
+
     private static ZonedTimestamp zt(LocalDateTime local) {
         return ZonedTimestamp.fromLocal(local, ZONE);
     }

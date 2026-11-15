@@ -452,8 +452,9 @@ down when it is created does not get written down later.
       front of the edit as slice 1, because a private event has no booking (so the common
       correction is removing a wrong entry) and a wrong one is a false presence fact in
       `ScheduleGapProjector`. **Slice 1 shipped 2026-08-24** — cancel is live, linked from the
-      **itinerary**, OWNER-only; the edit flow itself (slice 2) is what is still open here, and it
-      brings the pencil *and* the calendar's bin with it. Read the plan, not this bullet.
+      **itinerary**, OWNER-only, and since 2026-11-15 from the **calendar** too (a bin alone,
+      `CancelBinEverywherePlan.md`); the edit flow itself (slice 2) is what is still open here,
+      and it brings the pencil. Read the plan, not this bullet.
       **One field has since been peeled off and shipped on its own (2026-09-18)**: a private
       event's `locationForMatching` is changeable at
       `/planned-private-events/{id}/matching-location`, via a field-specific

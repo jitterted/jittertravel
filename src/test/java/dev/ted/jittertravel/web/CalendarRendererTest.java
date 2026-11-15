@@ -177,7 +177,7 @@ class CalendarRendererTest {
                 LocalDateTime.of(2026, 7, 5, 11, 0),
                 "Grand Hotel", lines("Berlin, Germany"),
                 "Grand Hotel cont'd", lines("Berlin, Germany"),
-                new EntryDetails.Lodging("https://maps.google.com/grand", null)
+                new EntryDetails.Lodging("https://maps.google.com/grand", null, null)
         );
 
         String anonymous = CalendarRenderer.render(List.of(hotel), LocalDate.of(2026, 6, 11), true);

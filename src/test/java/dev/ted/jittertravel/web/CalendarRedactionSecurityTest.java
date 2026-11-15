@@ -122,7 +122,7 @@ class CalendarRedactionSecurityTest {
                 CHECK_IN, CHECK_OUT,
                 "Grand Hotel", List.of(new SubtitleLine.Text("Berlin, Germany")),
                 "Grand Hotel cont'd", List.of(new SubtitleLine.Text("Berlin, Germany")),
-                new EntryDetails.Lodging("https://maps.google.com/grand-hotel", null)
+                new EntryDetails.Lodging("https://maps.google.com/grand-hotel", null, null)
         )));
         anonymousSees(grandHotelBooked(CHECK_IN, CHECK_OUT));
     }
@@ -335,6 +335,8 @@ class CalendarRedactionSecurityTest {
                 // the words cannot appear however the entry is rendered.
                 .doesNotContain("Dinner with the Smiths")
                 .doesNotContain("Alo")
+                // The owner's cancel bin points here; EntryDetails.Busy has no slot for a path.
+                .doesNotContain("/planned-private-events/")
                 // And private for the same reason: a fork and knife says the block is a MEAL,
                 // which is the kind of evening — a fifth thing beyond the four allowed above.
                 // The class rule itself is in every page's stylesheet, so assert on the element
@@ -352,7 +354,7 @@ class CalendarRedactionSecurityTest {
                         new SubtitleLine.Range(
                                 ZonedTimestamp.fromLocal(PE_DATE, TORONTO),
                                 ZonedTimestamp.fromLocal(PE_DATE.plusHours(3), TORONTO))),
-                new EntryDetails.PrivateEvent());
+                new EntryDetails.PrivateEvent("/planned-private-events/pe-1/cancel"));
     }
 
     private static final ZoneId DENVER = ZoneId.of("America/Denver");
@@ -965,7 +967,7 @@ class CalendarRedactionSecurityTest {
                 FUTURE_CHECK_IN, FUTURE_CHECK_OUT,
                 "Grand Hotel", List.of(new SubtitleLine.Text("Berlin, Germany")),
                 "Grand Hotel cont'd", List.of(new SubtitleLine.Text("Berlin, Germany")),
-                new EntryDetails.Lodging("https://maps.google.com/grand-hotel", null)
+                new EntryDetails.Lodging("https://maps.google.com/grand-hotel", null, null)
         )));
 
         assertThat(mockMvc.get().uri("/calendar"))
@@ -997,7 +999,7 @@ class CalendarRedactionSecurityTest {
                 FUTURE_CHECK_IN, FUTURE_CHECK_OUT,
                 "Grand Hotel", List.of(new SubtitleLine.Text("Berlin, Germany")),
                 "Grand Hotel cont'd", List.of(new SubtitleLine.Text("Berlin, Germany")),
-                new EntryDetails.Lodging("https://maps.google.com/grand-hotel", null)
+                new EntryDetails.Lodging("https://maps.google.com/grand-hotel", null, null)
         )));
 
         assertThat(mockMvc.get().uri("/calendar"))

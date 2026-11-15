@@ -64,6 +64,15 @@ class BookTrainWebIntegrationTest {
                 .hasStatusOk();
     }
 
+    /** Both ends' time-zone pickers list the common zones, so a station that will not resolve has a way out. */
+    @Test
+    void theFormOffersTheCommonZones() {
+        assertThat(mockMvc.get().uri("/book-train"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<option value=\"UK\">United Kingdom</option>");
+    }
+
     @Test
     void postValidTrainRedirectsToBookedTrains() {
         assertThat(mockMvc.post().uri("/book-train")

@@ -27,7 +27,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @Tag("spring")
@@ -124,6 +126,38 @@ class BookHotelWebIntegrationTest {
                 .containsPattern("<input type=\"hidden\" id=\"hotelBookingId\" name=\"hotelBookingId\" value=\"[0-9a-f-]{36}\"/>")
                 .as("the refusal still renders under its input: the fresh id is worthless if the errors were lost with it")
                 .contains("<span class=\"error\">Check-in must be in the future</span>");
+    }
+
+    /** The time-zone picker lists the common zones, so a location that will not resolve has a way out. */
+    @Test
+    void theFormOffersTheCommonZones() {
+        assertThat(mockMvc.get().uri("/book-hotel"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<option value=\"UK\">United Kingdom</option>");
+    }
+
+    /**
+     * A blank date fails at binding, before the service, and that early return still counts it —
+     * the banner is not only for refusals the service raises.
+     */
+    @Test
+    void aBlankCheckInIsCountedLikeAnyOtherProblemAndBooksNothing() {
+        assertThat(mockMvc.post().uri("/book-hotel")
+                .with(csrf())
+                .param("hotelBookingId", "550e8400-e29b-41d4-a716-446655440000")
+                .param("hotelName", "Grand Hotel")
+                .param("street", "123 Main St")
+                .param("city", "Springfield")
+                .param("country", "US")
+                .param("postalCode", "62701")
+                .param("checkIn", "")
+                .param("checkOut", "2026-07-02T11:00")
+                .param("bookingIntent", "TENTATIVE"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("1 problem to fix below.");
+        then(hotelBooking).should(never()).bookHotel(any(), any());
     }
 
     @Test

@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedHotelView;
+import dev.ted.jittertravel.application.CancelledView;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -66,15 +67,31 @@ public class BookedHotelsRenderer {
             .deadline-passed { color: var(--muted-text); text-decoration: line-through; }
             """;
 
+    /** The default view, canceled stays hidden and none to count. */
     public static String render(List<BookedHotelView> hotels, TimeView activeFilter) {
+        return render(hotels, activeFilter, CancelledView.HIDE, 0);
+    }
+
+    /**
+     * The page under both of its filters, each control carrying the other's value through so
+     * changing one never resets the other.
+     *
+     * @param cancelledCount how many canceled stays the time filter admits, which the switch
+     *                       reports even while they are hidden.
+     */
+    public static String render(List<BookedHotelView> hotels, TimeView activeFilter,
+                                CancelledView activeCancelled, int cancelledCount) {
         return "<!DOCTYPE html>\n" + html(
-                Page.head("Booked Hotels", CSS + ListToolbar.CSS),
+                Page.head("Booked Hotels", CSS + ListToolbar.CSS + CanceledSwitch.CSS),
                 body(
                         div().withClass("page").with(
                                 Page.viewNav(Page.NavAudience.OWNER, "/booked-hotels"),
                                 h1("Booked Hotels"),
                                 ListToolbar.render("Book another hotel", "/book-hotel",
-                                        TimeFilterToggle.render("/booked-hotels", activeFilter)),
+                                        TimeFilterToggle.render("/booked-hotels", activeFilter,
+                                                CanceledSwitch.keptQuery(activeCancelled)),
+                                        CanceledSwitch.render("/booked-hotels", "Hotels", activeFilter,
+                                                activeCancelled, cancelledCount)),
                                 hotels.isEmpty()
                                         ? renderEmptyState(activeFilter)
                                         : renderTable(hotels)

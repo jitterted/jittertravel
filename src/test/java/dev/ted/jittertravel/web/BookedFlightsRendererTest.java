@@ -110,13 +110,25 @@ class BookedFlightsRendererTest {
     }
 
     @Test
-    void theCancelledSwitchWhileHiddenCountsWhatItLeavesOutAndLinksToShowingThem() {
+    void theCanceledSwitchWhileHiddenCountsWhatItLeavesOutAndLinksToShowingThem() {
         String html = BookedFlightsRenderer.render(List.of(), TimeView.FUTURE, CancelledView.HIDE, 2);
 
         assertThat(html)
-                .contains("<a class=\"flight-cancelled-toggle\" role=\"button\" aria-pressed=\"false\"")
+                .contains("<a class=\"canceled-toggle\" role=\"button\" aria-pressed=\"false\"")
                 .contains("href=\"/booked-flights?filter=future&amp;cancelled=show\"")
-                .contains("Show cancelled<b>2</b>");
+                .contains("Show Canceled Flights<b>2</b>");
+    }
+
+    @Test
+    void theCanceledSwitchSitsInTheToolbarRowAfterTheTimeToggleAndBeforeTheCreateLink() {
+        String html = BookedFlightsRenderer.render(List.of(), TimeView.FUTURE, CancelledView.HIDE, 0);
+
+        assertThat(html)
+                .as("one row of filters: the time toggle, then the switch, then the create link")
+                .containsPattern("<div class=\"list-toolbar\"><div class=\"time-toggle\">.*?</div>"
+                        + "<a class=\"canceled-toggle\"[^>]*>.*?</a><a class=\"create-link\"")
+                .as("no second bar under the toolbar")
+                .doesNotContain("flight-cancelled-bar");
     }
 
     @Test
@@ -142,10 +154,10 @@ class BookedFlightsRendererTest {
                 .contains("class=\"flight-card flight-card-row flight-card--cancelled\"")
                 .as("when and why, on one line of its own")
                 .contains("<div class=\"flight-cancelled-line\">"
-                        + "<span class=\"flight-cancelled-badge\">Cancelled May 20, 2026</span>"
+                        + "<span class=\"flight-cancelled-badge\">Canceled May 20, 2026</span>"
                         + "<span class=\"flight-cancelled-reason\">Credit on file</span></div>")
-                .contains("<span class=\"flight-action-disabled\" title=\"This flight was cancelled\">Edit</span>")
-                .contains("<span class=\"flight-action-disabled\" title=\"This flight was cancelled\">Cancel</span>")
+                .contains("<span class=\"flight-action-disabled\" title=\"This flight was canceled\">Edit</span>")
+                .contains("<span class=\"flight-action-disabled\" title=\"This flight was canceled\">Cancel</span>")
                 .as("nothing left to follow on a cancelled flight")
                 .doesNotContain("href=\"/booked-flights/" + flightId.id());
     }
@@ -199,7 +211,7 @@ class BookedFlightsRendererTest {
 
         assertThat(html)
                 .contains("<div class=\"flight-cancelled-line\">"
-                        + "<span class=\"flight-cancelled-badge\">Cancelled May 20, 2026</span></div>")
+                        + "<span class=\"flight-cancelled-badge\">Canceled May 20, 2026</span></div>")
                 .as("no reason given, so no empty reason line")
                 .doesNotContain("<span class=\"flight-cancelled-reason\">");
     }
@@ -526,8 +538,8 @@ class BookedFlightsRendererTest {
             two legs flown   | 2 | false | true  | true  | false | 2 legs already flown
             one leg flown    | 1 | false | true  | true  | false | 1 leg already flown
             every leg flown  | 4 | false | true  | false | false | All legs already flown
-            itinerary gone   | 0 | true  | false | false | false | Itinerary cancelled
-            nothing flying   | 0 | false | false | true  | false | Every leg cancelled
+            itinerary gone   | 0 | true  | false | false | false | Itinerary canceled
+            nothing flying   | 0 | false | false | true  | false | Every leg canceled
             """)
     void anItineraryActionThatCannotBeDoneIsGreyedWithTheReasonWrittenOut(
             String state, int departed, boolean cancelled, boolean flying,
@@ -579,7 +591,7 @@ class BookedFlightsRendererTest {
                 .contains("<span class=\"flight-cancelled-badge\">Dropped Nov 14, 2026</span>"
                           + "<span class=\"flight-cancelled-reason\">Rebooked</span>");
         assertThat(BookedFlightsRenderer.render(List.of(cancelled), TimeView.FUTURE, CancelledView.SHOW, 1))
-                .contains("<span class=\"flight-cancelled-badge\">Cancelled Nov 14, 2026</span>");
+                .contains("<span class=\"flight-cancelled-badge\">Canceled Nov 14, 2026</span>");
     }
 
     @Test

@@ -1,6 +1,7 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.BookedHotelView;
+import dev.ted.jittertravel.application.CancelledView;
 import dev.ted.jittertravel.application.TimeView;
 import dev.ted.jittertravel.domain.BookingIntent;
 import dev.ted.jittertravel.domain.HotelBookingId;
@@ -270,6 +271,41 @@ class BookedHotelsRendererTest {
                 false,
                 ""
         );
+    }
+
+    @Test
+    void theCanceledSwitchWhileHiddenCountsWhatItLeavesOutAndLinksToShowingThem() {
+        String html = BookedHotelsRenderer.render(List.of(), TimeView.FUTURE, CancelledView.HIDE, 2);
+
+        assertThat(html)
+                .contains("<a class=\"canceled-toggle\" role=\"button\" aria-pressed=\"false\" "
+                        + "title=\"Canceled hotels are hidden. Click to show them.\" "
+                        + "href=\"/booked-hotels?filter=future&amp;cancelled=show\">"
+                        + "<span class=\"canceled-box\"></span>Show Canceled Hotels<b>2</b></a>");
+    }
+
+    @Test
+    void theCanceledSwitchWhileShownLinksBackToHidingAndTheTimeToggleKeepsIt() {
+        String html = BookedHotelsRenderer.render(List.of(), TimeView.ALL, CancelledView.SHOW, 2);
+
+        assertThat(html)
+                .contains("aria-pressed=\"true\"")
+                .contains("<span class=\"canceled-box\">&#10003;</span>Show Canceled Hotels<b>2</b>")
+                .contains("href=\"/booked-hotels?filter=all\">")
+                .as("changing the time filter must not silently drop the canceled switch")
+                .contains("<a href=\"/booked-hotels?filter=future&amp;cancelled=show\">Upcoming</a>");
+    }
+
+    @Test
+    void theCanceledSwitchSitsInTheToolbarRowAfterTheTimeToggleAndBeforeTheCreateLink() {
+        String html = BookedHotelsRenderer.render(List.of(), TimeView.FUTURE, CancelledView.HIDE, 0);
+
+        assertThat(html)
+                .as("one row of filters: the time toggle, then the switch, then the create link")
+                .containsPattern("<div class=\"list-toolbar\"><div class=\"time-toggle\">.*?</div>"
+                        + "<a class=\"canceled-toggle\"[^>]*>.*?</a><a class=\"create-link\"")
+                .as("the switch's stylesheet is inlined with the page")
+                .contains(".canceled-toggle {");
     }
 
     private static BookedHotelView cancelledView(String name, String reason) {

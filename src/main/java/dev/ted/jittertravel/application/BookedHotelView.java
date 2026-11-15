@@ -40,7 +40,7 @@ public record BookedHotelView(
         boolean cancelDeadlinePassed,
         boolean cancelled,
         String cancellationReason
-) implements TemporalView {
+) implements TemporalView, CancellableView {
 
     public BookedHotelView {
         if (cancellationReason == null) {

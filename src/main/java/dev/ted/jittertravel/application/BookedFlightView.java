@@ -37,7 +37,7 @@ public record BookedFlightView(
         Instant cancelledOn,
         boolean dropped,
         Instant addedOn
-) implements TemporalView {
+) implements TemporalView, CancellableView {
 
     public BookedFlightView {
         if (cancellationReason == null) {

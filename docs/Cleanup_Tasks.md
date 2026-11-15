@@ -884,6 +884,25 @@ error lands. A UI item that is waiting on a trigger stays in **Deferred**.
 **Use the `modern-web-guidance` skill before writing CSS for any of these.** `/booked-flights` was
 redone with it on 2026-10-08 (`ed28779`, `eb0c47f`), and it is the worked example for the first item.
 
+- [ ] **Spell it "Canceled" everywhere a reader sees it** (Ted, 2026-11-14: one l). `/booked-flights`
+      and `/booked-hotels` were converted when they got the shared `CanceledSwitch`. Other pages
+      still say "cancelled", for example:
+      - `ChangeConferenceDatesController`: "this conference was cancelled or declined".
+      - `cancel-flight-itinerary.html`: "cannot be cancelled as a whole", and the reason placeholder
+        "Trip cancelled, rebooked…".
+      - `cancel-hotel.html`: the reason placeholder "Trip cancelled, found somewhere better…".
+      - Domain refusal messages that reach a form, e.g. "Itinerary MD7LKB was cancelled; it cannot be
+        changed" (`FlightItineraryBookingTest` pins it).
+      - The email files `trip-cancelled.txt` and `conference-not-going.txt`, and the preview labels
+        in `EmailPreviewController`.
+
+      **Visible text only.** Class and method names, CSS classes, the `?cancelled=show` parameter
+      and event type names keep "cancelled". An event's name is contract (R7): renaming
+      `HotelBookingCancelled` breaks every stored row and every backup file. **The email wording
+      needs Ted's approval of the exact text before the commit**, like any outbound text. Find the
+      rest by grepping string literals and template text for `[Cc]ancelled`; the comments don't
+      matter.
+
 - [ ] **Give the other list pages the `/booked-flights` layout.** Ted saw `/booked-flights` on a
       laptop after it was redone on 2026-10-08 and wanted the same for the rest. Those lists still
       have what flights had: `fr` columns that stretch across a wide screen, a viewport media query

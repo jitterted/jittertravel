@@ -184,29 +184,6 @@ public class BookedFlightsRenderer {
                 display: inline-block; margin-right: 0.5rem; padding: 0 7px; border-radius: 4px;
                 font-size: 0.75rem; background: #f1f1f1; color: #6b7280; white-space: nowrap;
             }
-            /* Its own row under the toolbar, as the conferences' jump bar, so the toolbar keeps the
-               time toggle and the create link on one row. The switch copies the conferences' "Show
-               dropped": the label never changes, only the box, so it says what the page shows. */
-            .flight-cancelled-bar { margin-top: 0.75rem; }
-            .flight-cancelled-toggle {
-                display: inline-flex; align-items: center; gap: 7px;
-                padding: 3px 9px; border-radius: 5px; font-size: 0.875rem;
-                color: var(--text-color); text-decoration: none;
-                border: 1px solid var(--border-color); background: var(--surface, #fff);
-            }
-            .flight-cancelled-toggle:hover { border-color: var(--accent-color); }
-            .flight-cancelled-toggle[aria-pressed="true"] {
-                border-color: var(--accent-color); background: #eef2ff;
-            }
-            .flight-cancelled-box {
-                width: 14px; height: 14px; border-radius: 3px;
-                display: inline-flex; align-items: center; justify-content: center;
-                font-size: 10px; line-height: 1; color: #fff;
-                border: 1px solid #adb5bd; background: var(--surface, #fff);
-            }
-            .flight-cancelled-toggle[aria-pressed="true"] .flight-cancelled-box {
-                border-color: var(--accent-color); background: var(--accent-color);
-            }
             .flight-card-header {
                 padding-block: 10px;
                 background-color: var(--header-bg); color: var(--muted-text);
@@ -315,7 +292,7 @@ public class BookedFlightsRenderer {
                                 CancelledView activeCancelled, int cancelledCount,
                                 Map<FlightId, FlightTrip> trips, Optional<ChangeRecorded> changeRecorded) {
         return "<!DOCTYPE html>\n" + html(
-                Page.head("Booked Flights", CSS + ListToolbar.CSS),
+                Page.head("Booked Flights", CSS + ListToolbar.CSS + CanceledSwitch.CSS),
                 body(
                         Page.viewNav(Page.NavAudience.OWNER, "/booked-flights"),
                         h1("Booked Flights"),
@@ -323,38 +300,15 @@ public class BookedFlightsRenderer {
                         div().withClass("conference-container").with(
                                 ListToolbar.render("Book another flight", "/book-flight",
                                         TimeFilterToggle.render("/booked-flights", activeFilter,
-                                                activeCancelled == CancelledView.SHOW ? "&cancelled=show" : "")),
-                                cancelledSwitch(activeFilter, activeCancelled, cancelledCount),
+                                                CanceledSwitch.keptQuery(activeCancelled)),
+                                        CanceledSwitch.render("/booked-flights", "Flights", activeFilter,
+                                                activeCancelled, cancelledCount)),
                                 flights.isEmpty()
                                         ? renderEmptyState(activeFilter)
                                         : renderFlightList(flights, trips)
                         )
                 )
         ).withLang("en").render();
-    }
-
-    /**
-     * The same control as the conferences' "Show dropped": the label never changes, only the box
-     * does, so it reports what the page is showing rather than what a click would do. A link, so
-     * the view stays server-rendered and shareable; {@code aria-pressed} carries the state for both
-     * the screen reader and the CSS.
-     */
-    private static DomContent cancelledSwitch(TimeView activeFilter, CancelledView activeCancelled,
-                                              int cancelledCount) {
-        boolean shown = activeCancelled == CancelledView.SHOW;
-        String filterQuery = "?filter=" + activeFilter.name().toLowerCase(Locale.ENGLISH);
-        return div().withClass("flight-cancelled-bar").with(
-                a().withClass("flight-cancelled-toggle")
-                   .attr("role", "button")
-                   .attr("aria-pressed", String.valueOf(shown))
-                   .withTitle(shown
-                           ? "Cancelled flights are shown. Click to hide them."
-                           : "Cancelled flights are hidden. Click to show them.")
-                   .withHref("/booked-flights" + filterQuery + (shown ? "" : "&cancelled=show"))
-                   .with(shown ? span(rawHtml("&#10003;")).withClass("flight-cancelled-box")
-                               : span().withClass("flight-cancelled-box"),
-                         text("Show cancelled"),
-                         b(String.valueOf(cancelledCount))));
     }
 
     private static DomContent renderEmptyState(TimeView activeFilter) {
@@ -463,7 +417,7 @@ public class BookedFlightsRenderer {
     /** Why the itinerary cannot be changed, or {@code ""}: only legs still to fly can move. */
     private static String changeBlocked(ItinerarySummary itinerary) {
         if (itinerary.cancelled()) {
-            return "Itinerary cancelled";
+            return "Itinerary canceled";
         }
         if (itinerary.flying() && itinerary.departedLegs() == itinerary.legCount()) {
             return "All legs already flown";
@@ -507,10 +461,10 @@ public class BookedFlightsRenderer {
      */
     private static String cancelBlocked(ItinerarySummary itinerary) {
         if (itinerary.cancelled()) {
-            return "Itinerary cancelled";
+            return "Itinerary canceled";
         }
         if (!itinerary.flying()) {
-            return "Every leg cancelled";
+            return "Every leg canceled";
         }
         if (!itinerary.canBeCancelledWhole()) {
             return itinerary.departedLegs() + (itinerary.departedLegs() == 1 ? " leg" : " legs") + " already flown";
@@ -609,7 +563,7 @@ public class BookedFlightsRenderer {
      * rows leave the cell empty; that predates the rule.
      */
     private static DomContent disabledActions() {
-        String why = "This flight was cancelled";
+        String why = "This flight was canceled";
         return div().withClass("flight-actions").with(
                 span("Edit").withClass("flight-action-disabled").withTitle(why),
                 span("Cancel").withClass("flight-action-disabled").withTitle(why));
@@ -627,7 +581,7 @@ public class BookedFlightsRenderer {
         String on = CANCELLED_ON.format(flight.cancelledOn().atZone(flight.departureDateTime().zone()));
         // A leg a schedule change or a rebooking took off its trip was dropped, not cancelled by
         // hand (terms.md); the reason beside it says which ("Rebooked", "Airline schedule change").
-        var line = div(span((flight.dropped() ? "Dropped " : "Cancelled ") + on).withClass("flight-cancelled-badge"))
+        var line = div(span((flight.dropped() ? "Dropped " : "Canceled ") + on).withClass("flight-cancelled-badge"))
                 .withClass("flight-cancelled-line");
         return flight.cancellationReason().isBlank()
                 ? line

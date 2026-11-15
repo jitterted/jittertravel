@@ -153,6 +153,46 @@ class BookedHotelsProjectorTest {
     }
 
     @Test
+    void hideLeavesCanceledStaysOutWhileShowKeepsThemAndTheCountSeesThemEitherWay() {
+        BookedHotelsProjector projector = new BookedHotelsProjector();
+        HotelBooked live = hotelBooked("Live Hotel", CHECK_IN, CHECK_OUT);
+        HotelBooked canceled = hotelBooked("Canceled Hotel", CHECK_IN.plusDays(2), CHECK_OUT.plusDays(2));
+
+        projector.handle(Stream.of(stored(live), stored(canceled),
+                stored(new HotelBookingCancelled(canceled.hotelBookingId(), ""))));
+
+        assertThat(projector.views(TimeView.ALL, CancelledView.HIDE, NOW))
+                .as("hidden: only the live stay")
+                .extracting(BookedHotelView::hotelName)
+                .containsExactly("Live Hotel");
+        assertThat(projector.views(TimeView.ALL, CancelledView.SHOW, NOW))
+                .as("shown: both, in check-in order")
+                .extracting(BookedHotelView::hotelName)
+                .containsExactly("Live Hotel", "Canceled Hotel");
+        assertThat(projector.cancelledCount(TimeView.ALL, NOW))
+                .as("the switch counts the canceled stay even while it is hidden")
+                .isEqualTo(1);
+    }
+
+    @Test
+    void theCanceledCountHonoursTheTimeFilter() {
+        BookedHotelsProjector projector = new BookedHotelsProjector();
+        HotelBooked past = hotelBooked("Past Hotel", CHECK_IN, CHECK_OUT);
+        HotelBooked upcoming = hotelBooked("Upcoming Hotel", CHECK_IN.plusDays(30), CHECK_OUT.plusDays(30));
+        projector.handle(Stream.of(stored(past), stored(upcoming),
+                stored(new HotelBookingCancelled(past.hotelBookingId(), "")),
+                stored(new HotelBookingCancelled(upcoming.hotelBookingId(), ""))));
+        Instant betweenTheStays = zt(CHECK_OUT.plusDays(1)).utc();
+
+        assertThat(projector.cancelledCount(TimeView.FUTURE, betweenTheStays))
+                .as("Upcoming counts only the canceled stay still ahead")
+                .isEqualTo(1);
+        assertThat(projector.cancelledCount(TimeView.ALL, betweenTheStays))
+                .as("All counts both")
+                .isEqualTo(2);
+    }
+
+    @Test
     void cancellingAnUnknownBookingAddsNoRow() {
         BookedHotelsProjector projector = new BookedHotelsProjector();
 

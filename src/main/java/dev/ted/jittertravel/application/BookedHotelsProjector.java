@@ -66,11 +66,28 @@ public class BookedHotelsProjector implements EventStreamConsumer {
         ));
     }
 
+    /** Every stay the time filter admits, canceled ones included and marked. */
     public List<BookedHotelView> views(TimeView timeView, Instant now) {
+        return views(timeView, CancelledView.SHOW, now);
+    }
+
+    public List<BookedHotelView> views(TimeView timeView, CancelledView cancelledView, Instant now) {
         return viewsById.values().stream()
                 .filter(view -> timeView.includes(view, now))
+                .filter(cancelledView::includes)
                 .map(view -> view.withDeadlineEvaluatedAt(now))
                 .sorted(Comparator.comparing((BookedHotelView view) -> view.checkIn().utc()))
                 .toList();
+    }
+
+    /**
+     * How many canceled stays the time filter admits — what the list's switch counts, needed even
+     * while they are hidden, since the switch reports what the page is leaving out.
+     */
+    public int cancelledCount(TimeView timeView, Instant now) {
+        return (int) viewsById.values().stream()
+                .filter(view -> timeView.includes(view, now))
+                .filter(BookedHotelView::cancelled)
+                .count();
     }
 }

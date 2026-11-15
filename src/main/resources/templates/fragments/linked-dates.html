@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<!--/*
+  The second date of a pair follows the first: change check-in and check-out moves by the same
+  amount, so a one-night stay stays one night (Ted, 2026-11-15; the approved mockup is
+  docs/mockups/LinkedDateFields.html, variant B). Its reason is planning a year ahead: every date
+  on a form starts in this year, and the year had to be changed twice.
+
+  A page opts in with two things:
+  - data-follows="<name of the first input>" and data-follows-note="Moved with <its label>" on the
+    second input;
+  - this fragment, once, after the form: a div replaced by ~{fragments/linked-dates :: linkedDates}.
+
+  The rules, each a decision from the mockup:
+  - It moves when the first date's year is finished (a plausible four-digit year that differs
+    from the last one), or when focus leaves the first date. A browser does not say which segment
+    of a date input has focus, so "finished the year" is read from the value: typing 2027 passes
+    through 0002, 0020 and 0202, and those are ignored.
+  - By the same amount, in wall-clock time, so a daylight-saving change in between cannot shift
+    the second date's time of day.
+  - Until Ted edits the second date himself; after that it stays where he put it.
+  - The starting point is taken when the first date gains focus, not when the page loads, so a
+    value written by script in between (the Sessionize prefill on /plan-conference) is not
+    mistaken for a change Ted made.
+  - It looks the first input up inside the second's own form, among datetime-local inputs only:
+    /book-flight also has hidden inputs called departureDateTime in its leg chooser.
+
+  A moved field flashes once and says so in a muted line under it, which goes when Ted edits it.
+
+  The comments in the script and style below ship to the browser (only the parser-level comment
+  you are reading is stripped), so they name nothing private. Every form here is OWNER-only.
+
+  Enforced by LinkedDatesFragmentConventionTest; behaviour covered by LinkedDatesJsTest.
+*/-->
+<body>
+<th:block th:fragment="linkedDates">
+    <style>
+        .follows-note { display: block; font-size: 0.8rem; color: #0f766e; margin-top: 0.2rem; }
+        .follows-note[hidden] { display: none; }
+        input.just-moved { background-color: #e3f4f2; }
+        input.fading { transition: background-color 1.6s ease-out; }
+        @media (prefers-reduced-motion: reduce) { input.fading { transition: none; } }
+    </style>
+    <script>
+        (function () {
+            function parse(value) {
+                const m = /^(\d{4,})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value || '');
+                if (!m) return null;
+                const d = new Date(Date.UTC(2000, +m[2] - 1, +m[3], +m[4], +m[5]));
+                d.setUTCFullYear(+m[1]);
+                return d;
+            }
+            function pad(n, width) { return String(n).padStart(width || 2, '0'); }
+            function toValue(d) {
+                return pad(d.getUTCFullYear(), 4) + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate())
+                    + 'T' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
+            }
+            function yearOf(value) { const d = parse(value); return d ? d.getUTCFullYear() : null; }
+            function plausible(value) { const y = yearOf(value); return y !== null && y >= 1900; }
+
+            function link(second) {
+                const form = second.form || document;
+                const first = form.querySelector('input[type="datetime-local"][name="' + second.dataset.follows + '"]');
+                if (!first) return;
+                let last = first.value;
+                let following = true;
+                const note = document.createElement('span');
+                note.className = 'follows-note';
+                note.textContent = second.dataset.followsNote || 'Moved';
+                note.hidden = true;
+                const label = second.closest('label');
+                (label || second).insertAdjacentElement('afterend', note);
+
+                function follow() {
+                    const now = first.value;
+                    if (now === last || !plausible(now)) return;
+                    const from = parse(last), to = parse(now), current = parse(second.value);
+                    last = now;
+                    if (!following || !from || !to || !current) return;
+                    second.value = toValue(new Date(current.getTime() + (to - from)));
+                    note.hidden = false;
+                    second.classList.remove('fading');
+                    second.classList.add('just-moved');
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(function () {
+                            second.classList.add('fading');
+                            second.classList.remove('just-moved');
+                        });
+                    });
+                }
+
+                first.addEventListener('focus', function () { last = first.value; });
+                first.addEventListener('input', function () {
+                    if (plausible(first.value) && yearOf(first.value) !== yearOf(last)) follow();
+                });
+                first.addEventListener('blur', follow);
+                second.addEventListener('input', function () {
+                    following = false;
+                    note.hidden = true;
+                });
+            }
+
+            document.querySelectorAll('input[data-follows]').forEach(link);
+        })();
+    </script>
+</th:block>
+</body>
+</html>

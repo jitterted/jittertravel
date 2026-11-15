@@ -111,7 +111,8 @@
         <div class="field">
             <label>
                 Ends
-                <input type="datetime-local" th:field="*{endDate}"/>
+                <input type="datetime-local" th:field="*{endDate}"
+                       data-follows="startDate" data-follows-note="Moved with start date"/>
             </label>
             <span class="error"
                   th:if="${#fields.hasErrors('endDate')}"
@@ -129,6 +130,7 @@
             <a class="back-link" th:href="@{|/conferences/${conference.conferenceId().id()}|}">Back to the conference</a>
         </div>
     </form>
+    <div th:replace="~{fragments/linked-dates :: linkedDates}"></div>
 
 </div>
 </body>

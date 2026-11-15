@@ -112,7 +112,8 @@
                 <div class="field">
                     <label>
                         Date / Time
-                        <input type="datetime-local" th:field="*{arrivalDateTime}"/>
+                        <input type="datetime-local" th:field="*{arrivalDateTime}"
+                               data-follows="departureDateTime" data-follows-note="Moved with departure"/>
                     </label>
                     <span class="error"
                           th:if="${#fields.hasErrors('arrivalDateTime')}"
@@ -145,6 +146,7 @@
 
         <button type="submit">Save changes</button>
     </form>
+    <div th:replace="~{fragments/linked-dates :: linkedDates}"></div>
 
 </div>
 </body>

@@ -219,7 +219,8 @@
             <div class="field">
                 <label>
                     Check-out
-                    <input type="datetime-local" th:field="*{checkOut}"/>
+                    <input type="datetime-local" th:field="*{checkOut}"
+                           data-follows="checkIn" data-follows-note="Moved with check-in"/>
                 </label>
                 <span class="error"
                       th:if="${#fields.hasErrors('checkOut')}"
@@ -269,6 +270,7 @@
     </form>
 
     <div th:replace="~{fragments/place-picker :: placePickerScript}"></div>
+    <div th:replace="~{fragments/linked-dates :: linkedDates}"></div>
 
 </div>
 </body>

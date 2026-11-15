@@ -154,7 +154,8 @@
             <div class="field">
                 <label>
                     End Date
-                    <input type="datetime-local" th:field="*{endDate}"/>
+                    <input type="datetime-local" th:field="*{endDate}"
+                           data-follows="startDate" data-follows-note="Moved with start date"/>
                 </label>
                 <span class="error"
                       th:if="${#fields.hasErrors('endDate')}"
@@ -263,6 +264,7 @@
     </form>
 
     <div th:replace="~{fragments/place-picker :: placePickerScript}"></div>
+    <div th:replace="~{fragments/linked-dates :: linkedDates}"></div>
 
 </div>
 </body>

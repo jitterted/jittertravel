@@ -1,0 +1,304 @@
+<!-- Approved by Ted 2026-11-15, variant B (the moved field flashes once and says "Moved with ..."). The spec for templates/fragments/linked-dates.html. -->
+<title>Linked Date Fields</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: a single reading column; the two variants sit side by side when there is room, stacked on a phone. */
+:root {
+  --bg: #f6f7fb; --surface: #ffffff; --fg: #1f2330; --muted: #5d6475;
+  --border: #d9dce6; --accent: #4f46e5; --accent-soft: #eef2ff;
+  --moved: #0f766e; --moved-soft: #e3f4f2; --log-bg: #f1f2f7;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #14161d; --surface: #1d2029; --fg: #e6e8ef; --muted: #a0a6b6;
+  --border: #343846; --accent: #8b85ff; --accent-soft: #262748;
+  --moved: #5eead4; --moved-soft: #15302d; --log-bg: #191b23; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #14161d; --surface: #1d2029; --fg: #e6e8ef; --muted: #a0a6b6;
+  --border: #343846; --accent: #8b85ff; --accent-soft: #262748;
+  --moved: #5eead4; --moved-soft: #15302d; --log-bg: #191b23; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-block: 24px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 28px; }
+h1 { font-size: 1.6rem; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.15rem; margin: 0 0 4px; text-wrap: balance; }
+h3 { font-size: 1rem; margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); margin-top: 6px; }
+code { font-family: var(--mono); font-size: 0.88em; }
+
+.rules { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; }
+.rules ul { margin: 8px 0 0; padding-left: 1.2rem; display: grid; gap: 6px; }
+
+.variants { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 20px; }
+.variant { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; display: grid; gap: 14px; min-width: 0; }
+.variant-head p { color: var(--muted); font-size: 0.9rem; }
+.tag { display: inline-block; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;
+  padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); margin-right: 6px; }
+
+form { display: grid; gap: 12px; }
+.field { display: grid; gap: 4px; }
+label { font-weight: 600; font-size: 0.9rem; }
+input[type="datetime-local"] { font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: var(--fg); max-width: 100%; }
+input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hint { font-size: 0.82rem; color: var(--muted); }
+.moved-note { font-size: 0.82rem; color: var(--moved); }
+input.just-moved { background: var(--moved-soft); transition: background 1.6s ease-out; }
+@media (prefers-reduced-motion: reduce) { input.just-moved { transition: none; } }
+
+.log { background: var(--log-bg); border-radius: 6px; padding: 10px 12px; font-family: var(--mono); font-size: 0.78rem;
+  color: var(--muted); min-height: 4.5em; display: grid; gap: 2px; overflow-wrap: anywhere; }
+.log b { color: var(--fg); font-weight: 600; }
+.reset { justify-self: start; font: inherit; font-size: 0.85rem; padding: 4px 12px; border-radius: 6px;
+  border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+
+.states { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 14px; }
+.state { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.state .step { font-size: 0.8rem; color: var(--muted); }
+.row { display: grid; grid-template-columns: 6.5rem 1fr; gap: 2px 8px; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+.row dt { color: var(--muted); }
+.row dd { margin: 0; }
+.row dd.changed { color: var(--moved); font-weight: 600; }
+.row dd .note { display: block; font-weight: 400; font-size: 0.78rem; }
+
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+tr:last-child td { border-bottom: none; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Linked date fields</h1>
+    <p class="lede">Mockup for the hotel, train, flight and conference forms. Change the first date and the second one moves by the same amount, so a one-night stay stays one night. Try it below; it uses the browser's own date inputs, so it behaves as it will on the iPad.</p>
+  </header>
+
+  <section class="rules" aria-labelledby="rules-h">
+    <h2 id="rules-h">When the second date moves</h2>
+    <ul>
+      <li><b>When you finish the year</b>: typing <code>2027</code> moves it as soon as the fourth digit lands. The half-typed years in between (<code>0002</code>, <code>0020</code>, <code>0202</code>) are ignored.</li>
+      <li><b>When you leave the field</b>: tab out, tap elsewhere, or close the iPad picker. This covers a changed day or month, which on its own does not move anything while you are still typing.</li>
+      <li><b>By the same amount</b>: check-in moves 98 days later, so check-out moves 98 days later. Its time of day stays the same.</li>
+      <li><b>Until you edit the second date yourself</b>: after that it stays where you put it, so fixing a typo in check-in cannot undo the checkout you chose.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="try-h">
+    <h2 id="try-h">Try it: two ways to show that it moved</h2>
+    <p class="lede">The same behaviour in both. The only question is whether the second field says it moved.</p>
+    <div class="variants" style="margin-top:14px">
+      <article class="variant" data-variant="A">
+        <div class="variant-head">
+          <h3><span class="tag">A</span>Silent</h3>
+          <p>Check-out just changes. Nothing on the page says so.</p>
+        </div>
+        <form>
+          <div class="field">
+            <label for="a-in">Check-in</label>
+            <input type="datetime-local" id="a-in" value="2026-11-28T15:00">
+          </div>
+          <div class="field">
+            <label for="a-out">Check-out</label>
+            <input type="datetime-local" id="a-out" value="2026-11-29T11:00">
+          </div>
+          <div class="field">
+            <label for="a-cancel">Cancel by <span class="hint">(optional, never moves)</span></label>
+            <input type="datetime-local" id="a-cancel" value="">
+          </div>
+        </form>
+        <div class="log" id="a-log" aria-live="polite"><span>Waiting for a change to check-in…</span></div>
+        <button type="button" class="reset" id="a-reset">Reset</button>
+      </article>
+
+      <article class="variant" data-variant="B">
+        <div class="variant-head">
+          <h3><span class="tag">B</span>Says so (recommended)</h3>
+          <p>Check-out flashes once and gets a muted line underneath. The line goes away when you edit check-out.</p>
+        </div>
+        <form>
+          <div class="field">
+            <label for="b-in">Check-in</label>
+            <input type="datetime-local" id="b-in" value="2026-11-28T15:00">
+          </div>
+          <div class="field">
+            <label for="b-out">Check-out</label>
+            <input type="datetime-local" id="b-out" value="2026-11-29T11:00">
+            <span class="moved-note" id="b-note" hidden></span>
+          </div>
+          <div class="field">
+            <label for="b-cancel">Cancel by <span class="hint">(optional, never moves)</span></label>
+            <input type="datetime-local" id="b-cancel" value="">
+          </div>
+        </form>
+        <div class="log" id="b-log" aria-live="polite"><span>Waiting for a change to check-in…</span></div>
+        <button type="button" class="reset" id="b-reset">Reset</button>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="states-h">
+    <h2 id="states-h">Every state, on Book Hotel</h2>
+    <p class="lede">The form opens on Sat, Nov 28, 2026 (two weeks out), one night. Shown as variant B.</p>
+    <div class="states" style="margin-top:14px">
+      <div class="state">
+        <span class="step">1 · Form opens</span>
+        <dl class="row">
+          <dt>Check-in</dt><dd>Sat, Nov 28, 2026 3:00 PM</dd>
+          <dt>Check-out</dt><dd>Sun, Nov 29, 2026 11:00 AM</dd>
+        </dl>
+      </div>
+      <div class="state">
+        <span class="step">2 · Typing the year: <code>2</code>, <code>20</code>, <code>202</code></span>
+        <dl class="row">
+          <dt>Check-in</dt><dd>Sat, Nov 28, 0202 3:00 PM</dd>
+          <dt>Check-out</dt><dd>Sun, Nov 29, 2026 11:00 AM</dd>
+        </dl>
+        <p class="hint">Not a real year yet, so nothing moves.</p>
+      </div>
+      <div class="state">
+        <span class="step">3 · Fourth digit: <code>2027</code></span>
+        <dl class="row">
+          <dt>Check-in</dt><dd>Sun, Nov 28, 2027 3:00 PM</dd>
+          <dt>Check-out</dt><dd class="changed">Mon, Nov 29, 2027 11:00 AM<span class="note">Moved with check-in</span></dd>
+        </dl>
+      </div>
+      <div class="state">
+        <span class="step">4 · Change the day to Mar 8, then tab out</span>
+        <dl class="row">
+          <dt>Check-in</dt><dd>Mon, Mar 8, 2027 3:00 PM</dd>
+          <dt>Check-out</dt><dd class="changed">Tue, Mar 9, 2027 11:00 AM<span class="note">Moved with check-in</span></dd>
+        </dl>
+        <p class="hint">Moves when you leave check-in, not on each keystroke.</p>
+      </div>
+      <div class="state">
+        <span class="step">5 · You set check-out to Thu, Mar 11 (three nights)</span>
+        <dl class="row">
+          <dt>Check-in</dt><dd>Mon, Mar 8, 2027 3:00 PM</dd>
+          <dt>Check-out</dt><dd>Thu, Mar 11, 2027 11:00 AM</dd>
+        </dl>
+        <p class="hint">The line goes; check-out no longer follows.</p>
+      </div>
+      <div class="state">
+        <span class="step">6 · Then fix check-in to Tue, Mar 9</span>
+        <dl class="row">
+          <dt>Check-in</dt><dd>Tue, Mar 9, 2027 3:00 PM</dd>
+          <dt>Check-out</dt><dd>Thu, Mar 11, 2027 11:00 AM</dd>
+        </dl>
+        <p class="hint">Stays where you put it.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="where-h">
+    <h2 id="where-h">Where it applies</h2>
+    <div class="table-scroll" style="margin-top:10px">
+      <table>
+        <thead><tr><th>Forms</th><th>First date</th><th>Follows it</th><th>Left alone</th></tr></thead>
+        <tbody>
+          <tr><td>Book Hotel, Change Hotel</td><td>Check-in</td><td>Check-out</td><td>Cancel by</td></tr>
+          <tr><td>Book Train, Change Train</td><td>Departure</td><td>Arrival</td><td>—</td></tr>
+          <tr><td>Book Flight, Change Flight</td><td>Departure</td><td>Arrival</td><td>Lookup date</td></tr>
+          <tr><td>Plan Conference, Change Conference Dates</td><td>Start</td><td>End</td><td>CFP closes</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lede" style="margin-top:10px">On a Change form the second date follows too, until you edit it: moving a stay a week later keeps its nights. A form shown again after an error starts following afresh.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  // Wall-clock arithmetic in UTC, so a daylight-saving change between the two dates cannot shift the time of day.
+  function parse(value) {
+    const m = /^(\d{4,})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value);
+    if (!m) return null;
+    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
+    d.setUTCFullYear(+m[1]);
+    return d;
+  }
+  function pad(n, w) { return String(n).padStart(w || 2, "0"); }
+  function toValue(d) {
+    return pad(d.getUTCFullYear(), 4) + "-" + pad(d.getUTCMonth() + 1) + "-" + pad(d.getUTCDate()) +
+      "T" + pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes());
+  }
+  function show(d) {
+    let h = d.getUTCHours(); const ap = h < 12 ? "AM" : "PM"; h = h % 12 || 12;
+    return DAYS[d.getUTCDay()] + ", " + MONTHS[d.getUTCMonth()] + " " + d.getUTCDate() + ", " + d.getUTCFullYear() +
+      " " + h + ":" + pad(d.getUTCMinutes()) + " " + ap;
+  }
+  function yearOf(value) { const d = parse(value); return d ? d.getUTCFullYear() : null; }
+  function plausible(value) { const y = yearOf(value); return y !== null && y >= 1900 && y <= 2999; }
+
+  function link(prefix, announce) {
+    const start = document.getElementById(prefix + "-in");
+    const end = document.getElementById(prefix + "-out");
+    const note = document.getElementById(prefix + "-note");
+    const log = document.getElementById(prefix + "-log");
+    const initial = { start: start.value, end: end.value };
+    let last = start.value;
+    let following = true;
+
+    function write(html) {
+      const line = document.createElement("span");
+      line.innerHTML = html;
+      if (log.dataset.started !== "yes") { log.textContent = ""; log.dataset.started = "yes"; }
+      log.appendChild(line);
+      while (log.children.length > 5) log.removeChild(log.firstChild);
+    }
+
+    function apply(trigger) {
+      const now = start.value;
+      if (now === last || !plausible(now)) return;
+      if (!following) {
+        write(trigger + ": check-out <b>not moved</b>, you set it yourself");
+        last = now;
+        return;
+      }
+      const from = parse(last), to = parse(now), out = parse(end.value);
+      if (!from || !to || !out) { last = now; return; }
+      const delta = to - from;
+      const moved = new Date(out.getTime() + delta);
+      end.value = toValue(moved);
+      last = now;
+      const days = Math.round(delta / 86400000);
+      write(trigger + ": check-out moved <b>" + (days >= 0 ? "+" : "") + days + " days</b> → " + show(moved));
+      if (announce) {
+        note.textContent = "Moved with check-in";
+        note.hidden = false;
+        end.classList.remove("just-moved");
+        void end.offsetWidth;
+        end.classList.add("just-moved");
+        setTimeout(function () { end.classList.remove("just-moved"); }, 50);
+      }
+    }
+
+    start.addEventListener("input", function () {
+      if (plausible(start.value) && yearOf(start.value) !== yearOf(last)) apply("Finished the year");
+    });
+    start.addEventListener("blur", function () { apply("Left check-in"); });
+    end.addEventListener("input", function () {
+      if (following) write("You edited check-out: it <b>stops following</b> check-in");
+      following = false;
+      if (note) note.hidden = true;
+    });
+
+    document.getElementById(prefix + "-reset").addEventListener("click", function () {
+      start.value = initial.start; end.value = initial.end; last = initial.start; following = true;
+      if (note) note.hidden = true;
+      log.textContent = ""; log.dataset.started = "";
+      const s = document.createElement("span"); s.textContent = "Waiting for a change to check-in…"; log.appendChild(s);
+    });
+  }
+
+  link("a", false);
+  link("b", true);
+})();
+</script>

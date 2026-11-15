@@ -27,7 +27,7 @@ class ProblemContextLookupTest {
     private static final Instant NOW = Instant.parse("2026-09-01T12:00:00Z");
 
     private static final ScheduleProblem.MissingHotel MISSING_BED = new ScheduleProblem.MissingHotel(
-            "Denver", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18), "dev2next");
+            "Denver", "", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18), "dev2next");
 
     @Mock
     ScheduleGapProjector scheduleGapProjector;

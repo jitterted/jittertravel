@@ -193,11 +193,11 @@ class ProblemContextFragmentConventionTest {
     private static List<ScheduleProblem> oneOfEveryProblem() {
         ZoneId denver = ZoneId.of("America/Denver");
         return List.of(
-                new ScheduleProblem.MissingHotel("Denver",
+                new ScheduleProblem.MissingHotel("Denver", "",
                         LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18), "dev2next"),
-                new ScheduleProblem.MissingTravel("Denver",
+                new ScheduleProblem.MissingTravel("Denver", "",
                         zoned(LocalDateTime.of(2026, 9, 14, 11, 30), denver),
-                        "Lone Tree", zoned(LocalDateTime.of(2026, 9, 15, 9, 0), denver)),
+                        "Lone Tree", "", zoned(LocalDateTime.of(2026, 9, 15, 9, 0), denver)),
                 new ScheduleProblem.DuplicateHotel(LocalDate.of(2026, 8, 26), LocalDate.of(2026, 8, 28),
                         List.of(new ScheduleProblem.DuplicateStay(HotelBookingId.random(),
                                         "Reichshof", "Hamburg", BookingIntent.FINAL),

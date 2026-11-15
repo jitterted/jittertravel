@@ -44,7 +44,7 @@ class ProblemKeyTest {
     @Test
     void aMissingHotelKeyIgnoresTheConferenceThatExplainsIt() {
         ScheduleProblem.MissingHotel withConference = new ScheduleProblem.MissingHotel(
-                "Denver", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18), "dev2next");
+                "Denver", "", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18), "dev2next");
 
         assertThat(ProblemKey.of(withConference).value())
                 .isEqualTo(ProblemKey.of(missingHotel("Denver", 14, 18)).value());
@@ -57,8 +57,8 @@ class ProblemKeyTest {
     @Test
     void aMissingTravelGapIsNamedByBothCitiesAndBothInstants() {
         ScheduleProblem.MissingTravel gap = new ScheduleProblem.MissingTravel(
-                "Denver", zoned(2026, 9, 14, 11, 30, DENVER),
-                "Tokyo", zoned(2026, 9, 16, 9, 0, TOKYO));
+                "Denver", "", zoned(2026, 9, 14, 11, 30, DENVER),
+                "Tokyo", "", zoned(2026, 9, 16, 9, 0, TOKYO));
 
         assertThat(ProblemKey.of(gap).value())
                 .isEqualTo("travel|Denver|2026-09-14T17:30:00Z|Tokyo|2026-09-16T00:00:00Z");
@@ -129,7 +129,7 @@ class ProblemKeyTest {
     }
 
     private static ScheduleProblem.MissingHotel missingHotel(String city, int checkIn, int checkOut) {
-        return new ScheduleProblem.MissingHotel(city,
+        return new ScheduleProblem.MissingHotel(city, "",
                 LocalDate.of(2026, 9, checkIn), LocalDate.of(2026, 9, checkOut), "");
     }
 

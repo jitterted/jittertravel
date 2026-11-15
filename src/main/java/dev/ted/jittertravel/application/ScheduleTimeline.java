@@ -82,18 +82,18 @@ class ScheduleTimeline {
      * would not split the booking either.
      */
     List<ScheduleProblem.MissingHotel> missingHotels() {
-        Map<LocalDate, String> locationByNight = walk().locationByNight();
+        Map<LocalDate, Whereabouts> locationByNight = walk().locationByNight();
         List<CityNight> uncovered = new ArrayList<>();
-        for (Map.Entry<LocalDate, String> night : locationByNight.entrySet()) {
-            String city = night.getValue();
-            if (homeCities.includes(city) || inTransitOvernight(night.getKey())) {
+        for (Map.Entry<LocalDate, Whereabouts> night : locationByNight.entrySet()) {
+            Whereabouts whereabouts = night.getValue();
+            if (homeCities.includes(whereabouts.city()) || inTransitOvernight(night.getKey())) {
                 continue;
             }
             boolean covered = stays.stream()
-                    .anyMatch(stay -> homeCities.sameLocation(stay.city(), city)
+                    .anyMatch(stay -> homeCities.sameLocation(stay.city(), whereabouts.city())
                                       && stay.coversNight(night.getKey()));
             if (!covered) {
-                uncovered.add(new CityNight(city, night.getKey()));
+                uncovered.add(new CityNight(whereabouts.city(), whereabouts.country(), night.getKey()));
             }
         }
         uncovered.sort(Comparator.comparing(CityNight::night));
@@ -109,7 +109,7 @@ class ScheduleTimeline {
                 index++;
                 lastNight = uncovered.get(index).night();
             }
-            runs.add(new ScheduleProblem.MissingHotel(first.city(), first.night(),
+            runs.add(new ScheduleProblem.MissingHotel(first.city(), first.country(), first.night(),
                     lastNight.plusDays(1), conferenceNameFor(first.city(), first.night(), lastNight)));
             index++;
         }
@@ -152,8 +152,8 @@ class ScheduleTimeline {
             return Set.of();
         }
         Set<LocalDate> days = new LinkedHashSet<>();
-        for (Map.Entry<LocalDate, String> night : walk().locationByNight().entrySet()) {
-            if (homeCities.includes(night.getValue()) && !inTransitOvernight(night.getKey())) {
+        for (Map.Entry<LocalDate, Whereabouts> night : walk().locationByNight().entrySet()) {
+            if (homeCities.includes(night.getValue().city()) && !inTransitOvernight(night.getKey())) {
                 continue;
             }
             days.add(night.getKey());
@@ -288,17 +288,17 @@ class ScheduleTimeline {
      */
     private Walk walk() {
         List<ScheduleProblem.MissingTravel> gaps = new ArrayList<>();
-        Map<LocalDate, String> locationByNight = new LinkedHashMap<>();
+        Map<LocalDate, Whereabouts> locationByNight = new LinkedHashMap<>();
         if (points.isEmpty()) {
             return new Walk(gaps, locationByNight);
         }
 
-        String currentCity = points.getFirst().city();
+        Whereabouts current = points.getFirst().whereabouts();
         ZonedTimestamp lastMoment = points.getFirst().moment();
         LocalDate currentDay = points.getFirst().day();
 
         for (Point point : points) {
-            fillNights(locationByNight, currentDay, point.day(), currentCity);
+            fillNights(locationByNight, currentDay, point.day(), current);
             boolean tripEnded = wentQuiet(currentDay, point.day());
             currentDay = point.day();
             switch (point.role()) {
@@ -306,17 +306,17 @@ class ScheduleTimeline {
                     // A stay or event ending never opens a gap; it only records that he was still
                     // there until then, which is what a later gap reports as its start. One in a
                     // city he has already left — an 11:00 checkout after a 09:43 train — is moot.
-                    if (homeCities.sameLocation(point.city(), currentCity)) {
+                    if (homeCities.sameLocation(point.city(), current.city())) {
                         lastMoment = point.moment();
                     }
                 }
                 case ARRIVE -> {
                     // A booked leg put him here, so there is nothing missing.
-                    currentCity = point.city();
+                    current = point.whereabouts();
                     lastMoment = point.moment();
                 }
                 case REQUIRE -> {
-                    boolean elsewhere = !homeCities.sameLocation(point.city(), currentCity);
+                    boolean elsewhere = !homeCities.sameLocation(point.city(), current.city());
                     if (elsewhere && reachedLate(point)) {
                         // Not here yet, but a booked leg lands before the event is over. The
                         // leg's own arrival is what moves him; taking the event's city now would
@@ -324,9 +324,9 @@ class ScheduleTimeline {
                         continue;
                     }
                     if (elsewhere) {
-                        gaps.addAll(gapsLeaving(currentCity, lastMoment, point, tripEnded));
+                        gaps.addAll(gapsLeaving(current, lastMoment, point, tripEnded));
                     }
-                    currentCity = point.city();
+                    current = point.whereabouts();
                     lastMoment = point.moment();
                 }
             }
@@ -420,21 +420,24 @@ class ScheduleTimeline {
      * that is the single gap {@code gapLeaving} handles, and splitting it would report a journey
      * from home to home.
      */
-    private List<ScheduleProblem.MissingTravel> gapsLeaving(String fromCity, ZonedTimestamp lastMoment,
+    private List<ScheduleProblem.MissingTravel> gapsLeaving(Whereabouts from, ZonedTimestamp lastMoment,
                                                             Point arrival, boolean tripEnded) {
         if (!tripEnded || homeCities.isEmpty()
-            || homeCities.includes(fromCity) || homeCities.includes(arrival.city())) {
-            return List.of(gapLeaving(fromCity, lastMoment, arrival));
+            || homeCities.includes(from.city()) || homeCities.includes(arrival.city())) {
+            return List.of(gapLeaving(from, lastMoment, arrival));
         }
-        String home = homeCities.primaryCity();
+        // Home is configured as a city name alone, so this end has no country to carry.
+        Whereabouts home = new Whereabouts(homeCities.primaryCity(), "");
         return List.of(
-                new ScheduleProblem.MissingTravel(fromCity, lastMoment, home, lastMoment),
+                new ScheduleProblem.MissingTravel(from.city(), from.country(), lastMoment,
+                        home.city(), home.country(), lastMoment),
                 gapLeaving(home, lastMoment, arrival));
     }
 
-    private ScheduleProblem.MissingTravel gapLeaving(String fromCity, ZonedTimestamp lastMoment, Point arrival) {
-        ZonedTimestamp windowStart = homeCities.includes(fromCity) ? arrival.moment() : lastMoment;
-        return new ScheduleProblem.MissingTravel(fromCity, windowStart, arrival.city(), arrival.moment());
+    private ScheduleProblem.MissingTravel gapLeaving(Whereabouts from, ZonedTimestamp lastMoment, Point arrival) {
+        ZonedTimestamp windowStart = homeCities.includes(from.city()) ? arrival.moment() : lastMoment;
+        return new ScheduleProblem.MissingTravel(from.city(), from.country(), windowStart,
+                arrival.city(), arrival.country(), arrival.moment());
     }
 
     /**
@@ -448,14 +451,14 @@ class ScheduleTimeline {
      * progress; it is the gap before the next trip, spent at home. The travel between the two is
      * still reported, as the two journeys that reading implies — see {@link #gapsLeaving}.
      */
-    private static void fillNights(Map<LocalDate, String> locationByNight,
-                                   LocalDate from, LocalDate until, String city) {
+    private static void fillNights(Map<LocalDate, Whereabouts> locationByNight,
+                                   LocalDate from, LocalDate until, Whereabouts whereabouts) {
         if (wentQuiet(from, until)) {
-            locationByNight.put(from, city);
+            locationByNight.put(from, whereabouts);
             return;
         }
         for (LocalDate night = from; night.isBefore(until); night = night.plusDays(1)) {
-            locationByNight.put(night, city);
+            locationByNight.put(night, whereabouts);
         }
     }
 
@@ -497,16 +500,20 @@ class ScheduleTimeline {
                                              List<Movement> movements) {
         List<Point> points = new ArrayList<>();
         for (Stay stay : stays) {
-            points.add(Point.checksIn(stay.city(), stay.checkIn()));
-            points.add(Point.leaves(stay.city(), stay.checkOut()));
+            Whereabouts hotel = new Whereabouts(stay.city(), stay.country());
+            points.add(Point.checksIn(hotel, stay.checkIn()));
+            points.add(Point.leaves(hotel, stay.checkOut()));
         }
         for (Occupancy occupancy : occupancies) {
             points.add(Point.starts(occupancy));
-            points.add(Point.leaves(occupancy.city(), occupancy.endsAt(), occupancy.conferenceName()));
+            points.add(Point.leaves(new Whereabouts(occupancy.city(), occupancy.country()),
+                    occupancy.endsAt(), occupancy.conferenceName()));
         }
         for (Movement movement : movements) {
-            points.add(Point.departs(movement.fromCity(), movement.departure()));
-            points.add(Point.arrives(movement.toCity(), movement.arrival()));
+            points.add(Point.departs(new Whereabouts(movement.fromCity(), movement.fromCountry()),
+                    movement.departure()));
+            points.add(Point.arrives(new Whereabouts(movement.toCity(), movement.toCountry()),
+                    movement.arrival()));
         }
         points.sort(Comparator.comparing((Point point) -> point.day())
                 .thenComparing(Point::slot)
@@ -516,41 +523,58 @@ class ScheduleTimeline {
         return List.copyOf(points);
     }
 
-    private record Walk(List<ScheduleProblem.MissingTravel> gaps, Map<LocalDate, String> locationByNight) {}
+    private record Walk(List<ScheduleProblem.MissingTravel> gaps, Map<LocalDate, Whereabouts> locationByNight) {}
 
-    private record CityNight(String city, LocalDate night) {}
+    private record CityNight(String city, String country, LocalDate night) {}
+
+    /**
+     * A city, and the country of whatever put Ted there. Only the city is ever compared — the
+     * walk's every "is this the same place?" is {@link HomeCities#sameLocation} over cities, as it
+     * was before the country rode along. The country is carried so a problem can hand it to a fix
+     * link's prefill, and it is {@code ""} where nothing supplied one (the configured home).
+     */
+    private record Whereabouts(String city, String country) {}
 
     /**
      * What happens at one moment on the timeline. Within a day, everything sorts by its clock time
      * except a hotel check-in, which goes in the {@link Slot#EVENING} — see {@link Slot}.
      * {@code eventEndsAt} is set only on an event's start, for {@link #reachedLate}.
      */
-    private record Point(LocalDate day, Slot slot, Role role, String city,
+    private record Point(LocalDate day, Slot slot, Role role, Whereabouts whereabouts,
                          ZonedTimestamp moment, String conferenceName, ZonedTimestamp eventEndsAt) {
 
-        static Point leaves(String city, ZonedTimestamp moment) {
-            return leaves(city, moment, null);
+        String city() {
+            return whereabouts.city();
         }
 
-        static Point leaves(String city, ZonedTimestamp moment, String conferenceName) {
-            return new Point(day(moment), Slot.BY_CLOCK, Role.LEAVE, city, moment, conferenceName, null);
+        String country() {
+            return whereabouts.country();
         }
 
-        static Point departs(String city, ZonedTimestamp moment) {
-            return new Point(day(moment), Slot.BY_CLOCK, Role.REQUIRE, city, moment, null, null);
+        static Point leaves(Whereabouts whereabouts, ZonedTimestamp moment) {
+            return leaves(whereabouts, moment, null);
         }
 
-        static Point arrives(String city, ZonedTimestamp moment) {
-            return new Point(day(moment), Slot.BY_CLOCK, Role.ARRIVE, city, moment, null, null);
+        static Point leaves(Whereabouts whereabouts, ZonedTimestamp moment, String conferenceName) {
+            return new Point(day(moment), Slot.BY_CLOCK, Role.LEAVE, whereabouts, moment, conferenceName, null);
+        }
+
+        static Point departs(Whereabouts whereabouts, ZonedTimestamp moment) {
+            return new Point(day(moment), Slot.BY_CLOCK, Role.REQUIRE, whereabouts, moment, null, null);
+        }
+
+        static Point arrives(Whereabouts whereabouts, ZonedTimestamp moment) {
+            return new Point(day(moment), Slot.BY_CLOCK, Role.ARRIVE, whereabouts, moment, null, null);
         }
 
         static Point starts(Occupancy occupancy) {
-            return new Point(day(occupancy.startsAt()), Slot.BY_CLOCK, Role.REQUIRE, occupancy.city(),
+            return new Point(day(occupancy.startsAt()), Slot.BY_CLOCK, Role.REQUIRE,
+                    new Whereabouts(occupancy.city(), occupancy.country()),
                     occupancy.startsAt(), occupancy.conferenceName(), occupancy.endsAt());
         }
 
-        static Point checksIn(String city, ZonedTimestamp moment) {
-            return new Point(day(moment), Slot.EVENING, Role.REQUIRE, city, moment, null, null);
+        static Point checksIn(Whereabouts whereabouts, ZonedTimestamp moment) {
+            return new Point(day(moment), Slot.EVENING, Role.REQUIRE, whereabouts, moment, null, null);
         }
 
         private static LocalDate day(ZonedTimestamp moment) {
@@ -596,8 +620,8 @@ class ScheduleTimeline {
      * two legs it reports and link each to its page. Every other detector here reports cities and
      * dates, which the walk already has; this is the first that reports the bookings themselves.
      */
-    record Movement(TravelLeg leg, String fromCity, ZonedTimestamp departure,
-                    String toCity, ZonedTimestamp arrival) {
+    record Movement(TravelLeg leg, String fromCity, String fromCountry, ZonedTimestamp departure,
+                    String toCity, String toCountry, ZonedTimestamp arrival) {
         LocalDate departureDay() {
             return departure.localDateTime().toLocalDate();
         }
@@ -619,7 +643,7 @@ class ScheduleTimeline {
     }
 
     /** A booked hotel stay: a presence fact <em>and</em> the coverage a missing-bed night wants. */
-    record Stay(HotelBookingId bookingId, String hotelName, String city,
+    record Stay(HotelBookingId bookingId, String hotelName, String city, String country,
                 ZonedTimestamp checkIn, ZonedTimestamp checkOut, BookingIntent bookingIntent) {
 
         LocalDate checkInDay() {
@@ -644,23 +668,27 @@ class ScheduleTimeline {
      * event. Private events are gatherings as far as the schedule is concerned — the difference is
      * who may see them, which is the redactor's problem, not this one's.
      */
-    record Occupancy(String name, String city, ZonedTimestamp startsAt, ZonedTimestamp endsAt, Kind kind) {
+    record Occupancy(String name, String city, String country,
+                     ZonedTimestamp startsAt, ZonedTimestamp endsAt, Kind kind) {
 
         enum Kind { CONFERENCE, GATHERING, PRIVATE_EVENT }
 
         /**
          * The same occupancy, reasoned about in a different city — what a
-         * {@code PrivateEventMatchingLocationChanged} does to one. A copy-with rather than five
-         * positional arguments at the call site: two of the five components are
+         * {@code PrivateEventMatchingLocationChanged} does to one. A copy-with rather than six
+         * positional arguments at the call site: two of the six components are
          * {@link ZonedTimestamp}s, and transposed they would compile and be wrong.
+         * <p>
+         * The country is kept: the event carries only a city to match on, and it names a town
+         * near the dinner (the one the hotel is in), not one across a border.
          */
         Occupancy inCity(String otherCity) {
-            return new Occupancy(name, otherCity, startsAt, endsAt, kind);
+            return new Occupancy(name, otherCity, country, startsAt, endsAt, kind);
         }
 
         /** The same occupancy on other days — what a {@code ConferenceDatesChanged} does to one. */
         Occupancy during(ZonedTimestamp newStart, ZonedTimestamp newEnd) {
-            return new Occupancy(name, city, newStart, newEnd, kind);
+            return new Occupancy(name, city, country, newStart, newEnd, kind);
         }
 
         /** Only a conference lends its name to a missing-hotel row. */

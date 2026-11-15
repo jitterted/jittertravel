@@ -99,7 +99,7 @@ class ItineraryControllerTest {
         LocalDate requested = LocalDate.of(2026, 6, 1);
         given(projector.entriesForDate(requested)).willReturn(List.of());
         given(gapProjector.missingHotelOn(requested)).willReturn(Optional.of(
-                new ScheduleProblem.MissingHotel("Denver", requested, requested.plusDays(4), "ExploreDDD")));
+                new ScheduleProblem.MissingHotel("Denver", "", requested, requested.plusDays(4), "ExploreDDD")));
 
         assertThat(mockMvc.get().uri("/itinerary?date=2026-06-01"))
                 .hasStatusOk()
@@ -114,7 +114,7 @@ class ItineraryControllerTest {
         LocalDate requested = LocalDate.of(2026, 6, 1);
         given(projector.entriesForDate(requested)).willReturn(List.of());
         given(gapProjector.missingHotelOn(requested)).willReturn(Optional.of(
-                new ScheduleProblem.MissingHotel("Denver", requested, requested.plusDays(4), "ExploreDDD")));
+                new ScheduleProblem.MissingHotel("Denver", "", requested, requested.plusDays(4), "ExploreDDD")));
 
         assertThat(mockMvc.get().uri("/itinerary?date=2026-06-01"))
                 .hasStatusOk()

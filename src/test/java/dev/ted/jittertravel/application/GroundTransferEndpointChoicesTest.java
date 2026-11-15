@@ -319,8 +319,8 @@ class GroundTransferEndpointChoicesTest {
 
     private static ScheduleProblem.MissingTravel hamburgToFrankfurt() {
         return new ScheduleProblem.MissingTravel(
-                "Hamburg", at("2026-09-13T09:00"),
-                "Frankfurt", at("2026-09-13T18:00"));
+                "Hamburg", "", at("2026-09-13T09:00"),
+                "Frankfurt", "", at("2026-09-13T18:00"));
     }
 
     /**
@@ -339,14 +339,14 @@ class GroundTransferEndpointChoicesTest {
 
     private static ScheduleProblem.MissingTravel johannesbergToFrankfurt() {
         return new ScheduleProblem.MissingTravel(
-                "Johannesberg", at("2026-09-09T17:00"),
-                "Frankfurt", at("2026-09-13T15:00"));
+                "Johannesberg", "", at("2026-09-09T17:00"),
+                "Frankfurt", "", at("2026-09-13T15:00"));
     }
 
     private static ScheduleProblem.MissingTravel frankfurtToJohannesberg() {
         return new ScheduleProblem.MissingTravel(
-                "Frankfurt", at("2026-09-13T09:00"),
-                "Johannesberg", at("2026-09-13T14:00"));
+                "Frankfurt", "", at("2026-09-13T09:00"),
+                "Johannesberg", "", at("2026-09-13T14:00"));
     }
 
     private static TransferEndpointOption stay(String token, String name, String city,

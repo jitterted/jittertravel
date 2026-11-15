@@ -49,7 +49,7 @@ class ProblemContextBannerWebIntegrationTest {
     private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
 
     private static final ScheduleProblem.MissingHotel MISSING_BED = new ScheduleProblem.MissingHotel(
-            "Denver", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18), "dev2next");
+            "Denver", "", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18), "dev2next");
 
     @Autowired
     private MockMvcTester mockMvc;
@@ -122,8 +122,8 @@ class ProblemContextBannerWebIntegrationTest {
     @Test
     void aTravelGapOpensTheTransferFormOnBothOfItsEnds() {
         ScheduleProblem.MissingTravel gap = new ScheduleProblem.MissingTravel(
-                "Johannesberg", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-09T17:00"), BERLIN),
-                "Frankfurt", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-13T15:00"), BERLIN));
+                "Johannesberg", "", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-09T17:00"), BERLIN),
+                "Frankfurt", "", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-13T15:00"), BERLIN));
         given(scheduleGapProjector.problems(NOW)).willReturn(List.of(gap));
         given(scheduleGapProjector.context()).willReturn(List.of());
 

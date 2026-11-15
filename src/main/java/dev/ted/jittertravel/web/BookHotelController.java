@@ -37,18 +37,20 @@ public class BookHotelController {
     }
 
     /**
-     * {@code ?date=} comes from the calendar day-menu; {@code ?city=&checkIn=&checkOut=} come from
-     * a "Book hotel" fix link on {@code /schedule-problems}, which knows exactly which city and
-     * which nights are uncovered. Every parameter is optional and every absent-value default is
-     * unchanged, so the index nav card and the day-menu link behave exactly as before.
+     * {@code ?date=} comes from the calendar day-menu; {@code ?city=&country=&checkIn=&checkOut=}
+     * come from a "Book hotel" fix link on {@code /schedule-problems}, which knows exactly which
+     * city and which nights are uncovered, and the country of whatever placed Ted there. Every
+     * parameter is optional and every absent-value default is unchanged, so the index nav card and
+     * the day-menu link behave exactly as before.
      * <p>
-     * No zone is prefilled: the night sweep's location map is keyed city-only, so there is none to
-     * carry (F5 in {@code docs/archived/ProblemCalendarPlan.md}).
+     * No zone is prefilled: the night sweep carries a city and a country, never a zone (F5 in
+     * {@code docs/archived/ProblemCalendarPlan.md}) — the command derives one from the country.
      */
     @GetMapping("/book-hotel")
     public String bookHotelForm(Model model,
                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
                                 @RequestParam(required = false) String city,
+                                @RequestParam(required = false) String country,
                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut) {
         // checkIn wins over date when both are present: it is the more specific statement of the
@@ -60,7 +62,7 @@ public class BookHotelController {
                 : arrival.plusDays(1);
         BookHotelRequest request = new BookHotelRequest(
                 UUID.randomUUID().toString(), null,
-                null, blankToNull(city), null, null, null, null, null, null,
+                null, blankToNull(city), null, blankToNull(country), null, null, null, null,
                 arrival.atTime(15, 0), departure.atTime(11, 0), null, null);
         model.addAttribute("bookHotel", request);
         return "book-hotel";

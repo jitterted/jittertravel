@@ -45,7 +45,7 @@ class BookHotelControllerTest {
         BookHotelController controller = new BookHotelController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookHotelForm(model, null, null, null, null);
+        controller.bookHotelForm(model, null, null, null, null, null);
 
         BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
         assertThat(request.checkIn()).isEqualTo(LocalDateTime.of(2026, 6, 14, 15, 0));
@@ -57,7 +57,7 @@ class BookHotelControllerTest {
         BookHotelController controller = new BookHotelController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookHotelForm(model, LocalDate.of(2026, 7, 20), null, null, null);
+        controller.bookHotelForm(model, LocalDate.of(2026, 7, 20), null, null, null, null);
 
         BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
         assertThat(request.checkIn()).isEqualTo(LocalDateTime.of(2026, 7, 20, 15, 0));
@@ -66,19 +66,21 @@ class BookHotelControllerTest {
 
     /**
      * The "Book hotel" fix link on /schedule-problems knows exactly which city and which nights are
-     * uncovered, so the form opens on them instead of on a default fortnight away. The clock times
-     * stay the form's own (15:00 / 11:00): the night sweep carries dates, not times.
+     * uncovered, and the country of whatever placed Ted there, so the form opens on them instead of
+     * on a default fortnight away. The clock times stay the form's own (15:00 / 11:00): the night
+     * sweep carries dates, not times.
      */
     @Test
-    void getBookHotelFormWithAFixLinksCityAndNightsOpensOnThatStay() {
+    void getBookHotelFormWithAFixLinksCityCountryAndNightsOpensOnThatStay() {
         BookHotelController controller = new BookHotelController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookHotelForm(model, null, "Johannesberg",
+        controller.bookHotelForm(model, null, "Johannesberg", "DE",
                 LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 14));
 
         BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
         assertThat(request.city()).isEqualTo("Johannesberg");
+        assertThat(request.country()).isEqualTo("DE");
         assertThat(request.checkIn()).isEqualTo(LocalDateTime.of(2026, 9, 10, 15, 0));
         assertThat(request.checkOut())
                 .as("the gap's own checkout, not a single night")
@@ -90,7 +92,7 @@ class BookHotelControllerTest {
         BookHotelController controller = new BookHotelController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookHotelForm(model, null, "Aachen",
+        controller.bookHotelForm(model, null, "Aachen", null,
                 LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 10));
 
         BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
@@ -98,14 +100,15 @@ class BookHotelControllerTest {
     }
 
     @Test
-    void aBlankCityIsLeftAloneRatherThanWrittenIn() {
+    void aBlankCityAndCountryAreLeftAloneRatherThanWrittenIn() {
         BookHotelController controller = new BookHotelController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookHotelForm(model, null, "  ", null, null);
+        controller.bookHotelForm(model, null, "  ", " ", null, null);
 
         BookHotelRequest request = (BookHotelRequest) model.getAttribute("bookHotel");
         assertThat(request.city()).isNull();
+        assertThat(request.country()).isNull();
     }
 
     @Test
@@ -114,8 +117,8 @@ class BookHotelControllerTest {
 
         Model model1 = new ConcurrentModel();
         Model model2 = new ConcurrentModel();
-        controller.bookHotelForm(model1, null, null, null, null);
-        controller.bookHotelForm(model2, null, null, null, null);
+        controller.bookHotelForm(model1, null, null, null, null, null);
+        controller.bookHotelForm(model2, null, null, null, null, null);
 
         BookHotelRequest request1 = (BookHotelRequest) model1.getAttribute("bookHotel");
         BookHotelRequest request2 = (BookHotelRequest) model2.getAttribute("bookHotel");

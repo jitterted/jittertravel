@@ -137,7 +137,7 @@ class ConferenceDatesPropagationTest {
                 .filteredOn(ScheduleProblem.MissingHotel.class::isInstance)
                 .as("the nights to cover are the moved ones")
                 .containsExactly(new ScheduleProblem.MissingHotel(
-                        "Atlanta", MOVED_FIRST_DAY, MOVED_LAST_DAY, "DevNexus"));
+                        "Atlanta", "US", MOVED_FIRST_DAY, MOVED_LAST_DAY, "DevNexus"));
     }
 
     @Test

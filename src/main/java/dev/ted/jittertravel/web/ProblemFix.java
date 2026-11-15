@@ -90,10 +90,11 @@ public record ProblemFix(String label, String href) {
     }
 
     private static ProblemFix bookHotel(ScheduleProblem.MissingHotel missingHotel) {
-        // No zone: the night sweep's location map is keyed city-only, so there is none to carry.
-        // The form's own default clock times (15:00 / 11:00) fill the rest. See F5 in the plan.
+        // No zone: the night sweep carries a city and its country, never a zone. The form's own
+        // default clock times (15:00 / 11:00) fill the rest. See F5 in the plan.
         return new ProblemFix("Book hotel",
                 "/book-hotel?city=" + encode(missingHotel.city())
+                + optional("country", missingHotel.country())
                 + "&checkIn=" + missingHotel.checkIn()
                 + "&checkOut=" + missingHotel.checkOut());
     }
@@ -109,9 +110,13 @@ public record ProblemFix(String label, String href) {
                         + "&toCity=" + encode(missingTravel.toCity());
         // The day the traveller has to have moved by, read in the departure's own zone.
         String date = missingTravel.nextDepartureAt().localDateTime().toLocalDate().toString();
+        // Only the train form has country inputs; the flight form names airports, whose table
+        // already knows the country. Blank (the configured home end) sends nothing.
+        String countries = optional("fromCountry", missingTravel.fromCountry())
+                           + optional("toCountry", missingTravel.toCountry());
         return List.of(
                 new ProblemFix("Book flight", "/book-flight?" + cities + "&date=" + date),
-                new ProblemFix("Book train", "/book-train?" + cities + "&date=" + date),
+                new ProblemFix("Book train", "/book-train?" + cities + countries + "&date=" + date),
                 // Only the date and, appended by explaining() below, the problem reference: the
                 // transfer form takes no typed cities, and its endpoint options are flight legs and
                 // booked hotels that the date itself brings into range. The two ends *are*
@@ -191,6 +196,11 @@ public record ProblemFix(String label, String href) {
                 + "&conferenceName=" + encode(conflict.conferenceName())
                 + "&conferenceCity=" + encode(conflict.conferenceCity())
                 + "&date=" + conflict.date());
+    }
+
+    /** {@code &name=value}, or nothing when the value is blank — a prefill with nothing to say. */
+    private static String optional(String name, String value) {
+        return value.isBlank() ? "" : "&" + name + "=" + encode(value);
     }
 
     private static String encode(String value) {

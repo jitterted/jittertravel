@@ -110,7 +110,7 @@ class ScheduleGapProjectorTest {
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
-                    .containsExactly(new ScheduleProblem.MissingTravel("AMS", zt(flightArrival), "BRU", zt(nextDeparture)));
+                    .containsExactly(new ScheduleProblem.MissingTravel("AMS", "", zt(flightArrival), "BRU", "", zt(nextDeparture)));
         }
 
         @Test
@@ -273,7 +273,7 @@ class ScheduleGapProjectorTest {
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
-                    .containsExactly(new ScheduleProblem.MissingHotel("AMS", SEP_15, SEP_16, ""));
+                    .containsExactly(new ScheduleProblem.MissingHotel("AMS", "", SEP_15, SEP_16, ""));
         }
 
         @Test
@@ -321,7 +321,7 @@ class ScheduleGapProjectorTest {
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
-                    .containsExactly(new ScheduleProblem.MissingHotel("AMS", SEP_15, SEP_18, ""));
+                    .containsExactly(new ScheduleProblem.MissingHotel("AMS", "", SEP_15, SEP_18, ""));
         }
 
         @Test
@@ -336,7 +336,7 @@ class ScheduleGapProjectorTest {
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
-                    .containsExactly(new ScheduleProblem.MissingHotel("AMS", SEP_15, SEP_16, ""));
+                    .containsExactly(new ScheduleProblem.MissingHotel("AMS", "", SEP_15, SEP_16, ""));
         }
 
         @Test
@@ -363,7 +363,7 @@ class ScheduleGapProjectorTest {
             // Conference Sep 15–17 → nights Sep 15, 16 → one consolidated entry with conference name
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
-                    .containsExactly(new ScheduleProblem.MissingHotel("Amsterdam", SEP_15, SEP_17, "Conf"));
+                    .containsExactly(new ScheduleProblem.MissingHotel("Amsterdam", "XX", SEP_15, SEP_17, "Conf"));
         }
 
         @Test
@@ -390,7 +390,7 @@ class ScheduleGapProjectorTest {
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
-                    .containsExactly(new ScheduleProblem.MissingHotel("AMS", SEP_15, SEP_17, "Conf"));
+                    .containsExactly(new ScheduleProblem.MissingHotel("AMS", "XX", SEP_15, SEP_17, "Conf"));
         }
 
         @Test
@@ -518,7 +518,7 @@ class ScheduleGapProjectorTest {
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
-                    .containsExactly(new ScheduleProblem.MissingHotel("Steventon", SEP_15, SEP_18, "Conf"));
+                    .containsExactly(new ScheduleProblem.MissingHotel("Steventon", "XX", SEP_15, SEP_18, "Conf"));
         }
 
         @Test
@@ -534,7 +534,7 @@ class ScheduleGapProjectorTest {
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
-                    .containsExactly(new ScheduleProblem.MissingHotel("Steventon", SEP_15, SEP_17, "Conf"));
+                    .containsExactly(new ScheduleProblem.MissingHotel("Steventon", "XX", SEP_15, SEP_17, "Conf"));
         }
 
         @Test
@@ -570,8 +570,8 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
                     .containsExactly(
-                            new ScheduleProblem.MissingHotel(LON, SEP_15, SEP_16, ""),
-                            new ScheduleProblem.MissingHotel("Steventon", SEP_16, SEP_19, "Conf"));
+                            new ScheduleProblem.MissingHotel(LON, "", SEP_15, SEP_16, ""),
+                            new ScheduleProblem.MissingHotel("Steventon", "XX", SEP_16, SEP_19, "Conf"));
         }
     }
 
@@ -860,7 +860,7 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            LON, zt(trainArrival), "Steventon", zt(SEP_16.atTime(9, 0))));
+                            LON, "XX", zt(trainArrival), "Steventon", "XX", zt(SEP_16.atTime(9, 0))));
         }
 
         @Test
@@ -886,7 +886,7 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            "Steventon", zt(SEP_17.atTime(17, 0)), LON, zt(flightDeparture)));
+                            "Steventon", "XX", zt(SEP_17.atTime(17, 0)), LON, "", zt(flightDeparture)));
         }
 
         @Test
@@ -956,8 +956,8 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactlyInAnyOrder(
-                            new ScheduleProblem.MissingTravel(LON, zt(trainArrival), "Steventon", zt(SEP_16.atTime(9, 0))),
-                            new ScheduleProblem.MissingTravel("Steventon", zt(SEP_17.atTime(17, 0)), LON, zt(flightDeparture)));
+                            new ScheduleProblem.MissingTravel(LON, "XX", zt(trainArrival), "Steventon", "XX", zt(SEP_16.atTime(9, 0))),
+                            new ScheduleProblem.MissingTravel("Steventon", "XX", zt(SEP_17.atTime(17, 0)), LON, "", zt(flightDeparture)));
         }
     }
 
@@ -986,7 +986,7 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            LON, zt(arrival), AMS, zt(confStart)));
+                            LON, "XX", zt(arrival), AMS, "XX", zt(confStart)));
         }
 
         @Test
@@ -1007,7 +1007,77 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            LON, zt(end2), AMS, zt(nextDep)));
+                            LON, "XX", zt(end2), AMS, "", zt(nextDep)));
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Countries ride along for the fix links' prefill
+    // -------------------------------------------------------------------------
+
+    /**
+     * The fixtures above all say {@code "XX"}, so they cannot tell one end's country from the
+     * other's. These use a different country at every place involved, so a swapped end, or a
+     * country taken from the wrong event, fails by name.
+     */
+    @Nested
+    class CountriesRideAlong {
+
+        @Test
+        void aMissingJourneyCarriesTheCountryOfEachEndsOwnEvent() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(
+                    stored(new TrainBooked(TrainTripId.random(),
+                            new TrainStationAddress("Wien Hbf", "Wien", "AT", ""), zt(SEP_15.atTime(8, 0)),
+                            new TrainStationAddress("Hamburg Hbf", "Hamburg", "DE", ""), zt(SEP_15.atTime(16, 0)),
+                            "")),
+                    stored(conferenceIn("Amsterdam", "NL", SEP_16, SEP_17))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
+                    .containsExactly(new ScheduleProblem.MissingTravel(
+                            "Hamburg", "DE", zt(SEP_15.atTime(16, 0)),
+                            "Amsterdam", "NL", zt(SEP_16.atTime(9, 0))));
+        }
+
+        @Test
+        void aMissingHotelCarriesTheCountryOfWhatPlacedHimThere() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY);
+            projector.handle(Stream.of(stored(conferenceIn("Amsterdam", "NL", SEP_15, SEP_17))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
+                    .containsExactly(new ScheduleProblem.MissingHotel(
+                            "Amsterdam", "NL", SEP_15, SEP_17, "Conf"));
+        }
+
+        /**
+         * Across a trip break the gap splits at home, and home is configured as a city name alone —
+         * so that end has no country, and the away ends keep their own.
+         */
+        @Test
+        void theHomeEndOfASplitGapHasNoCountry() {
+            ScheduleGapProjector projector = new ScheduleGapProjector(IDENTITY,
+                    new HomeCities(List.of("San Francisco")));
+            projector.handle(Stream.of(
+                    stored(conferenceIn("Potsdam", "DE", SEP_15, SEP_17)),
+                    stored(conferenceIn("Stockholm", "SE", SEP_15.plusDays(40), SEP_15.plusDays(42)))));
+
+            assertThat(projector.problems())
+                    .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
+                    .extracting(p -> ((ScheduleProblem.MissingTravel) p).fromCity(),
+                                p -> ((ScheduleProblem.MissingTravel) p).fromCountry(),
+                                p -> ((ScheduleProblem.MissingTravel) p).toCity(),
+                                p -> ((ScheduleProblem.MissingTravel) p).toCountry())
+                    .containsExactly(tuple("Potsdam", "DE", "San Francisco", ""),
+                                     tuple("San Francisco", "", "Stockholm", "SE"));
+        }
+
+        private static ConferencePlanned conferenceIn(String city, String country,
+                                                      LocalDate start, LocalDate end) {
+            return new ConferencePlanned(ConferenceId.random(), "Conf",
+                    zt(start.atTime(9, 0)), zt(end.atTime(17, 0)), "Venue",
+                    new Address("1 Street", city, "", "00000", country, null));
         }
     }
 
@@ -1051,7 +1121,7 @@ class ScheduleGapProjectorTest {
                     .hasSize(1)
                     .first()
                     .isEqualTo(new ScheduleProblem.MissingTravel(
-                            "London", zt(SEP_16.atTime(7, 0)), "Amsterdam", zt(SEP_19.atTime(10, 0))));
+                            "London", "GB", zt(SEP_16.atTime(7, 0)), "Amsterdam", "NL", zt(SEP_19.atTime(10, 0))));
         }
     }
 
@@ -1081,7 +1151,7 @@ class ScheduleGapProjectorTest {
                 .hasSize(1)
                 .first()
                 .isEqualTo(new ScheduleProblem.MissingTravel(
-                        "AMS", zt(SEP_15.atTime(11, 0)), "PRG", zt(SEP_15.atTime(13, 0))));
+                        "AMS", "", zt(SEP_15.atTime(11, 0)), "PRG", "XX", zt(SEP_15.atTime(13, 0))));
     }
 
     // -------------------------------------------------------------------------
@@ -1146,7 +1216,7 @@ class ScheduleGapProjectorTest {
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
-                    .containsExactly(new ScheduleProblem.MissingHotel("Amsterdam", SEP_15, SEP_18, ""));
+                    .containsExactly(new ScheduleProblem.MissingHotel("Amsterdam", "NL", SEP_15, SEP_18, ""));
         }
 
         @Test
@@ -1166,7 +1236,7 @@ class ScheduleGapProjectorTest {
 
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingHotel)
-                    .containsExactly(new ScheduleProblem.MissingHotel("Amsterdam", SEP_15, SEP_17, "Conf"));
+                    .containsExactly(new ScheduleProblem.MissingHotel("Amsterdam", "XX", SEP_15, SEP_17, "Conf"));
         }
 
         @Test
@@ -1195,8 +1265,8 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            "San Francisco", zt(SEP_18.atTime(10, 0)),
-                            "Los Angeles", zt(SEP_18.atTime(10, 0))));
+                            "San Francisco", "US", zt(SEP_18.atTime(10, 0)),
+                            "Los Angeles", "US", zt(SEP_18.atTime(10, 0))));
         }
 
         @Test
@@ -1209,8 +1279,8 @@ class ScheduleGapProjectorTest {
             assertThat(projector.problems())
                     .filteredOn(p -> p instanceof ScheduleProblem.MissingTravel)
                     .containsExactly(new ScheduleProblem.MissingTravel(
-                            "Amsterdam", zt(SEP_15.atTime(11, 0)),
-                            "Brussels", zt(SEP_18.atTime(10, 0))));
+                            "Amsterdam", "NL", zt(SEP_15.atTime(11, 0)),
+                            "Brussels", "BE", zt(SEP_18.atTime(10, 0))));
         }
     }
 
@@ -1302,7 +1372,7 @@ class ScheduleGapProjectorTest {
             ScheduleGapProjector projector = projectorWithAConferenceTripAndNoHotel();
 
             assertThat(projector.missingHotelOn(SEP_26))
-                    .contains(new ScheduleProblem.MissingHotel("Denver", SEP_21, SEP_28, "ExploreDDD"));
+                    .contains(new ScheduleProblem.MissingHotel("Denver", "US", SEP_21, SEP_28, "ExploreDDD"));
         }
 
         @Test

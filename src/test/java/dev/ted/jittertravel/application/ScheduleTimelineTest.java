@@ -584,12 +584,12 @@ class ScheduleTimelineTest {
 
     private static ScheduleTimeline.Stay stay(String name, String city, String checkIn, String checkOut,
                                               BookingIntent intent) {
-        return new ScheduleTimeline.Stay(HotelBookingId.random(), name, city,
+        return new ScheduleTimeline.Stay(HotelBookingId.random(), name, city, "",
                 at(checkIn), at(checkOut), intent);
     }
 
     private static ScheduleTimeline.Occupancy occupancy(String name, String city, String start, String end) {
-        return new ScheduleTimeline.Occupancy(name, city, at(start), at(end),
+        return new ScheduleTimeline.Occupancy(name, city, "", at(start), at(end),
                 ScheduleTimeline.Occupancy.Kind.CONFERENCE);
     }
 
@@ -604,7 +604,7 @@ class ScheduleTimelineTest {
                                                       String arrival) {
         return new ScheduleTimeline.Movement(
                 new TravelLeg.Train(tripId, fromCity + " \u2192 " + toCity),
-                fromCity, at(departure), toCity, at(arrival));
+                fromCity, "", at(departure), toCity, "", at(arrival));
     }
 
     private static ZonedTimestamp at(String dayAndTime) {

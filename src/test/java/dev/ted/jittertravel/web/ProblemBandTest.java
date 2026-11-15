@@ -24,7 +24,7 @@ class ProblemBandTest {
         // Check in on the 3rd, out on the 6th: three uncovered nights (3rd, 4th, 5th). The 6th is
         // a day the traveller has already left, so painting it would claim a bed was needed then.
         ScheduleProblem problem = new ScheduleProblem.MissingHotel(
-                "London", LocalDate.of(2026, 7, 3), LocalDate.of(2026, 7, 6), "");
+                "London", "", LocalDate.of(2026, 7, 3), LocalDate.of(2026, 7, 6), "");
 
         ProblemBand band = ProblemBand.from(problem);
 
@@ -41,7 +41,7 @@ class ProblemBandTest {
     @Test
     void singleNightGapIsOneDayLongAndSaysNightSingular() {
         ScheduleProblem problem = new ScheduleProblem.MissingHotel(
-                "Berlin", LocalDate.of(2026, 7, 3), LocalDate.of(2026, 7, 4), "");
+                "Berlin", "", LocalDate.of(2026, 7, 3), LocalDate.of(2026, 7, 4), "");
 
         ProblemBand band = ProblemBand.from(problem);
 
@@ -53,7 +53,7 @@ class ProblemBandTest {
     @Test
     void conferenceNameRidesAlongInTheDetail() {
         ScheduleProblem problem = new ScheduleProblem.MissingHotel(
-                "Chicago", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 16), "dev2next");
+                "Chicago", "", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 16), "dev2next");
 
         ProblemBand band = ProblemBand.from(problem);
 
@@ -65,8 +65,8 @@ class ProblemBandTest {
     @Test
     void missingTravelBecomesATravelBandFromArrivalToNextDeparture() {
         ScheduleProblem problem = new ScheduleProblem.MissingTravel(
-                "London", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 14, 30), ZoneId.of("Europe/London")),
-                "Berlin", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 9, 0), ZoneId.of("Europe/Berlin")));
+                "London", "", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 14, 30), ZoneId.of("Europe/London")),
+                "Berlin", "", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 9, 0), ZoneId.of("Europe/Berlin")));
 
         ProblemBand band = ProblemBand.from(problem);
 
@@ -84,8 +84,8 @@ class ProblemBandTest {
         // The two ends are eight hours apart in wall-clock terms and one hour apart in real time;
         // without the zone names the detail line invites the reader to subtract the wrong numbers.
         ScheduleProblem problem = new ScheduleProblem.MissingTravel(
-                "Tokyo", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 9, 0), ZoneId.of("Asia/Tokyo")),
-                "Seoul", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 10, 0), ZoneId.of("Asia/Seoul")));
+                "Tokyo", "", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 9, 0), ZoneId.of("Asia/Tokyo")),
+                "Seoul", "", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 10, 0), ZoneId.of("Asia/Seoul")));
 
         assertThat(ProblemBand.from(problem))
                 .extracting(ProblemBand::detail)
@@ -98,8 +98,8 @@ class ProblemBandTest {
         // follows it is local the 2nd. Placed arrival-to-departure the band would be empty, so it
         // covers the span of both ends instead.
         ScheduleProblem problem = new ScheduleProblem.MissingTravel(
-                "Tokyo", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 9, 0), ZoneId.of("Asia/Tokyo")),
-                "San Francisco", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 2, 20, 0), ZoneId.of("America/Los_Angeles")));
+                "Tokyo", "", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 9, 0), ZoneId.of("Asia/Tokyo")),
+                "San Francisco", "", ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 2, 20, 0), ZoneId.of("America/Los_Angeles")));
 
         assertThat(ProblemBand.from(problem))
                 .extracting(ProblemBand::firstDay, ProblemBand::lastDay)
@@ -111,7 +111,7 @@ class ProblemBandTest {
         ZonedTimestamp needed = ZonedTimestamp.fromLocal(
                 LocalDateTime.of(2026, 11, 11, 9, 0), ZoneId.of("Europe/Amsterdam"));
         ScheduleProblem problem = new ScheduleProblem.MissingTravel(
-                "San Francisco", needed, "Ede", needed);
+                "San Francisco", "", needed, "Ede", "", needed);
 
         assertThat(ProblemBand.from(problem))
                 .extracting(ProblemBand::firstDay, ProblemBand::lastDay, ProblemBand::detail)
@@ -203,7 +203,7 @@ class ProblemBandTest {
     @Test
     void aBandCarriesTheSameFixesTheListCardWouldOffer() {
         ScheduleProblem problem = new ScheduleProblem.MissingHotel(
-                "London", LocalDate.of(2026, 7, 3), LocalDate.of(2026, 7, 6), "");
+                "London", "", LocalDate.of(2026, 7, 3), LocalDate.of(2026, 7, 6), "");
 
         assertThat(ProblemBand.from(problem))
                 .extracting(ProblemBand::fixes)

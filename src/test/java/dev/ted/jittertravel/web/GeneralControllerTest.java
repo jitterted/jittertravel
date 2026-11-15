@@ -206,7 +206,7 @@ class GeneralControllerTest {
 
     private static List<ScheduleProblem> problems(int count) {
         return Stream.<ScheduleProblem>generate(() ->
-                        new ScheduleProblem.MissingHotel("Berlin", LocalDate.now(), LocalDate.now().plusDays(1), ""))
+                        new ScheduleProblem.MissingHotel("Berlin", "", LocalDate.now(), LocalDate.now().plusDays(1), ""))
                 .limit(count)
                 .toList();
     }

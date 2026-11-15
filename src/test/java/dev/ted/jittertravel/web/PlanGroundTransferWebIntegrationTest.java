@@ -279,8 +279,8 @@ class PlanGroundTransferWebIntegrationTest {
         given(endpointOptions.choicesAt(any()))
                 .willReturn(new GroundTransferEndpointOptions(endpoints).choicesAt(NOW));
         ScheduleProblem.MissingTravel gap = new ScheduleProblem.MissingTravel(
-                "Estes Park", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-28T11:00"), DENVER),
-                "Denver", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-28T17:45"), DENVER));
+                "Estes Park", "", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-28T11:00"), DENVER),
+                "Denver", "", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-28T17:45"), DENVER));
         given(scheduleGapProjector.problems(any())).willReturn(List.of(gap));
         given(scheduleGapProjector.context()).willReturn(List.of());
 

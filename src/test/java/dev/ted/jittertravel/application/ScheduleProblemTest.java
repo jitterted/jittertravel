@@ -42,7 +42,7 @@ class ScheduleProblemTest {
         // checkOut Aug 16 => stay's last night is Aug 15 -> Aug 16; the boundary is the start of
         // Aug 16 at UTC-12, i.e. Aug 16 12:00 UTC.
         private final ScheduleProblem.MissingHotel problem =
-                new ScheduleProblem.MissingHotel("San Francisco", LocalDate.of(2026, 8, 14), AUG_16, "");
+                new ScheduleProblem.MissingHotel("San Francisco", "", LocalDate.of(2026, 8, 14), AUG_16, "");
 
         @Test
         void anchorsAtStartOfCheckoutDayAnywhereOnEarth() {
@@ -175,8 +175,8 @@ class ScheduleProblemTest {
         void missingTravelIsRelevantUntilTheNextDeparture() {
             Instant nextDeparture = Instant.parse("2026-08-16T09:30:00Z");
             ScheduleProblem.MissingTravel problem = new ScheduleProblem.MissingTravel(
-                    "Lisbon", at("2026-08-16T04:00:00Z"),
-                    "Casablanca", new ZonedTimestamp(nextDeparture, ZoneId.of("Africa/Casablanca")));
+                    "Lisbon", "", at("2026-08-16T04:00:00Z"),
+                    "Casablanca", "", new ZonedTimestamp(nextDeparture, ZoneId.of("Africa/Casablanca")));
 
             assertThat(problem.relevantUntil())
                     .isEqualTo(nextDeparture);

@@ -122,7 +122,7 @@ class ProblemFixMenuJsTest extends JsBehaviorTest {
      */
     private static ScheduleProblem missingTravel(String fromCity) {
         return new ScheduleProblem.MissingTravel(
-                fromCity, zoned(2026, 7, 15, 11, 30), "Lone Tree", zoned(2026, 7, 16, 9, 0));
+                fromCity, "", zoned(2026, 7, 15, 11, 30), "Lone Tree", "", zoned(2026, 7, 16, 9, 0));
     }
 
     private static ZonedTimestamp zoned(int year, int month, int day, int hour, int minute) {

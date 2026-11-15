@@ -41,18 +41,19 @@ class ProblemFixTest {
     @Test
     void aMissingHotelOffersBookingOneForItsCityAndItsExactNights() {
         List<ProblemFix> fixes = ProblemFix.forProblem(new ScheduleProblem.MissingHotel(
-                "Johannesberg", LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 14), "JCON"),
+                "Johannesberg", "DE", LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 14), "JCON"),
                 FixOrigin.PROBLEM_LIST);
 
         assertThat(fixes).containsExactly(new ProblemFix("Book hotel",
-                "/book-hotel?city=Johannesberg&checkIn=2026-09-10&checkOut=2026-09-14"
+                "/book-hotel?city=Johannesberg&country=DE&checkIn=2026-09-10&checkOut=2026-09-14"
                 + "&problem=hotel%7CJohannesberg%7C2026-09-10%7C2026-09-14&from=list"));
     }
 
+    /** Also: a hotel row with no country sends no {@code country=} rather than an empty one. */
     @Test
     void aCityWithASpaceIsPercentEncodedSoTheFormReceivesItWhole() {
         List<ProblemFix> fixes = ProblemFix.forProblem(new ScheduleProblem.MissingHotel(
-                "Lone Tree", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18), ""),
+                "Lone Tree", "", LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18), ""),
                 FixOrigin.PROBLEM_LIST);
 
         assertThat(fixes.getFirst().href())
@@ -73,9 +74,30 @@ class ProblemFixTest {
                 new ProblemFix("Book flight",
                         "/book-flight?fromCity=Denver&toCity=Lone+Tree&date=2026-09-15" + TRAVEL_REFERENCE),
                 new ProblemFix("Book train",
-                        "/book-train?fromCity=Denver&toCity=Lone+Tree&date=2026-09-15" + TRAVEL_REFERENCE),
+                        "/book-train?fromCity=Denver&toCity=Lone+Tree&fromCountry=US&toCountry=US"
+                        + "&date=2026-09-15" + TRAVEL_REFERENCE),
                 new ProblemFix("Ground transfer",
                         "/plan-ground-transfer?date=2026-09-15" + TRAVEL_REFERENCE));
+    }
+
+    /**
+     * Each end's country goes to its own parameter, and an end with none — the configured home,
+     * which is a city name alone — sends nothing rather than an empty value.
+     */
+    @Test
+    void theTrainFixCarriesEachEndsCountryAndOmitsABlankOne() {
+        ScheduleProblem.MissingTravel fromHome = new ScheduleProblem.MissingTravel(
+                "San Francisco", "",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 18, 0),
+                        ZoneId.of("America/Los_Angeles")),
+                "Basel", "CH",
+                ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 16, 9, 0), ZoneId.of("Europe/Zurich")));
+
+        ProblemFix train = ProblemFix.forProblem(fromHome, FixOrigin.PROBLEM_LIST).get(1);
+
+        assertThat(train.href())
+                .startsWith("/book-train?fromCity=San+Francisco&toCity=Basel&toCountry=CH&date=2026-09-16")
+                .doesNotContain("fromCountry");
     }
 
     /**
@@ -103,10 +125,10 @@ class ProblemFixTest {
     @Test
     void theTravelDateIsTheDepartureDayInTheDeparturesOwnZone() {
         ScheduleProblem.MissingTravel crossesTheDateLine = new ScheduleProblem.MissingTravel(
-                "San Francisco",
+                "San Francisco", "US",
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 18, 0),
                         ZoneId.of("America/Los_Angeles")),
-                "Tokyo",
+                "Tokyo", "JP",
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 16, 9, 0), TOKYO));
 
         assertThat(ProblemFix.forProblem(crossesTheDateLine, FixOrigin.PROBLEM_LIST).getFirst().href())
@@ -187,7 +209,7 @@ class ProblemFixTest {
     @Test
     void aFixClickedOnTheItineraryComesBackToTheItinerary() {
         List<ProblemFix> fixes = ProblemFix.forProblem(new ScheduleProblem.MissingHotel(
-                "Denver", LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 5), ""),
+                "Denver", "US", LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 5), ""),
                 FixOrigin.ITINERARY);
 
         assertThat(fixes.getFirst().href()).endsWith("&from=itinerary");
@@ -326,10 +348,10 @@ class ProblemFixTest {
 
     private static ScheduleProblem.MissingTravel missingTravel() {
         return new ScheduleProblem.MissingTravel(
-                "Denver",
+                "Denver", "US",
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 14, 11, 30),
                         ZoneId.of("America/Denver")),
-                "Lone Tree",
+                "Lone Tree", "US",
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 9, 15, 9, 0),
                         ZoneId.of("America/Denver")));
     }

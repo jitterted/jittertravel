@@ -117,7 +117,7 @@ class GroundTransferPreselectionTest {
 
     private static ScheduleProblem.MissingTravel johannesbergToFrankfurt() {
         return new ScheduleProblem.MissingTravel(
-                "Johannesberg", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-09T17:00"), BERLIN),
-                "Frankfurt", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-13T15:00"), BERLIN));
+                "Johannesberg", "", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-09T17:00"), BERLIN),
+                "Frankfurt", "", ZonedTimestamp.fromLocal(LocalDateTime.parse("2026-09-13T15:00"), BERLIN));
     }
 }

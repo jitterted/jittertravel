@@ -39,9 +39,9 @@ class ScheduleProblemsRendererTest {
     @Test
     void missingTravelShowsCitiesAndTimes() {
         ScheduleProblem problem = new ScheduleProblem.MissingTravel(
-                "London",
+                "London", "",
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 14, 30), ZoneId.of("Europe/London")),
-                "Berlin",
+                "Berlin", "",
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 9, 0), ZoneId.of("Europe/Berlin"))
         );
 
@@ -59,9 +59,9 @@ class ScheduleProblemsRendererTest {
         // Each end is in its own zone: the text is that end's wall-clock, the datetime attribute
         // its instant (London BST 14:30 -> 13:30Z, Berlin CEST 09:00 -> 07:00Z).
         ScheduleProblem problem = new ScheduleProblem.MissingTravel(
-                "London",
+                "London", "",
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 1, 14, 30), ZoneId.of("Europe/London")),
-                "Berlin",
+                "Berlin", "",
                 ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 7, 3, 9, 0), ZoneId.of("Europe/Berlin"))
         );
 
@@ -77,7 +77,7 @@ class ScheduleProblemsRendererTest {
     @Test
     void missingHotelShowsCityAndDates() {
         ScheduleProblem problem = new ScheduleProblem.MissingHotel(
-                "Berlin",
+                "Berlin", "",
                 LocalDate.of(2026, 7, 1),
                 LocalDate.of(2026, 7, 5),
                 "JavaOne"
@@ -94,7 +94,7 @@ class ScheduleProblemsRendererTest {
     @Test
     void missingHotelWithNoConferenceNameOmitsConferencePart() {
         ScheduleProblem problem = new ScheduleProblem.MissingHotel(
-                "Paris",
+                "Paris", "",
                 LocalDate.of(2026, 8, 10),
                 LocalDate.of(2026, 8, 14),
                 ""
@@ -188,7 +188,7 @@ class ScheduleProblemsRendererTest {
     @Test
     void aMissingHotelCardOffersItsOneFixAsADirectLink() {
         String html = ScheduleProblemsRenderer.render(List.of(new ScheduleProblem.MissingHotel(
-                "Johannesberg", LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 14), "JCON")));
+                "Johannesberg", "", LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 14), "JCON")));
 
         assertThat(html)
                 // The whole anchor, with & escaped as the markup really has it.
@@ -215,8 +215,8 @@ class ScheduleProblemsRendererTest {
     @Test
     void aTravelCardOffersFlightTrainAndGroundTransferInThatOrder() {
         String html = ScheduleProblemsRenderer.render(List.of(new ScheduleProblem.MissingTravel(
-                "Denver", zonedDenver(2026, 9, 14, 11, 30),
-                "Lone Tree", zonedDenver(2026, 9, 15, 9, 0))));
+                "Denver", "", zonedDenver(2026, 9, 14, 11, 30),
+                "Lone Tree", "", zonedDenver(2026, 9, 15, 9, 0))));
 
         // Three answers is not more than three, so they are links rather than a menu.
         assertThat(html)
@@ -282,8 +282,8 @@ class ScheduleProblemsRendererTest {
     void theMenuDismissalScriptShipsWithThePage() {
         // A travel gap, because that is a card that actually has a menu to dismiss.
         String html = ScheduleProblemsRenderer.render(List.of(new ScheduleProblem.MissingTravel(
-                "Denver", zonedDenver(2026, 9, 14, 11, 30),
-                "Lone Tree", zonedDenver(2026, 9, 15, 9, 0))));
+                "Denver", "", zonedDenver(2026, 9, 14, 11, 30),
+                "Lone Tree", "", zonedDenver(2026, 9, 15, 9, 0))));
 
         assertThat(html)
                 .as("without it the menus open and never close")
@@ -298,7 +298,7 @@ class ScheduleProblemsRendererTest {
     @Test
     void emptyTravelColumnShowsNone() {
         ScheduleProblem hotelOnly = new ScheduleProblem.MissingHotel(
-                "Paris", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 5), "");
+                "Paris", "", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 5), "");
 
         String html = ScheduleProblemsRenderer.render(List.of(hotelOnly));
 
@@ -312,7 +312,7 @@ class ScheduleProblemsRendererTest {
         ZonedTimestamp needed = ZonedTimestamp.fromLocal(
                 LocalDateTime.of(2026, 11, 11, 9, 0), ZoneId.of("Europe/Amsterdam"));
         ScheduleProblem gap = new ScheduleProblem.MissingTravel(
-                "San Francisco", needed, "Ede", needed);
+                "San Francisco", "", needed, "Ede", "", needed);
 
         String html = ScheduleProblemsRenderer.render(List.of(gap));
 

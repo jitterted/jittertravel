@@ -1024,7 +1024,7 @@ class ItineraryRendererTest {
     }
 
     private static ScheduleProblem.MissingHotel missingHotel() {
-        return new ScheduleProblem.MissingHotel("Denver", JUN_1, LocalDate.of(2026, 6, 5), "ExploreDDD");
+        return new ScheduleProblem.MissingHotel("Denver", "", JUN_1, LocalDate.of(2026, 6, 5), "ExploreDDD");
     }
 
     private static OngoingStay ongoingStay() {

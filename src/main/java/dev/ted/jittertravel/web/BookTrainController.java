@@ -38,25 +38,29 @@ public class BookTrainController {
     }
 
     /**
-     * {@code ?date=} comes from the calendar day-menu; {@code ?fromCity=&toCity=} come from a
-     * "Book train" fix link on {@code /schedule-problems}. This is the cleanest prefill in the
-     * slice: {@link BookTrainRequest} already carries city names, so the gap's own cities go
-     * straight in with no resolution step. Every parameter is optional and every absent-value
+     * {@code ?date=} comes from the calendar day-menu; {@code ?fromCity=&toCity=} and
+     * {@code ?fromCountry=&toCountry=} come from a "Book train" fix link on
+     * {@code /schedule-problems}. This is the cleanest prefill in the slice:
+     * {@link BookTrainRequest} already carries city names and country codes, so the gap's own
+     * values go straight in with no resolution step — and a prefilled country is what lets the
+     * command derive each station's zone. Every parameter is optional and every absent-value
      * default is unchanged.
      */
     @GetMapping("/book-train")
     public String bookTrainForm(Model model,
                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
                                 @RequestParam(required = false) String fromCity,
-                                @RequestParam(required = false) String toCity) {
+                                @RequestParam(required = false) String fromCountry,
+                                @RequestParam(required = false) String toCity,
+                                @RequestParam(required = false) String toCountry) {
         // ?date= from the calendar day-menu seeds the departure day; the default (one week
         // out) stands when absent so the index nav card is unaffected.
         LocalDate day = date != null ? date : LocalDate.now(clock).plusWeeks(1);
         LocalDateTime departure = day.atStartOfDay().plusHours(9);
         BookTrainRequest request = new BookTrainRequest(
                 UUID.randomUUID().toString(), null,
-                null, blankToNull(fromCity), null, null, null, departure,
-                null, blankToNull(toCity), null, null, null, departure.plusHours(4));
+                null, blankToNull(fromCity), blankToNull(fromCountry), null, null, departure,
+                null, blankToNull(toCity), blankToNull(toCountry), null, null, departure.plusHours(4));
         model.addAttribute("bookTrain", request);
         return "book-train";
     }

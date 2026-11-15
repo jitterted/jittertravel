@@ -303,15 +303,15 @@ class ProblemCalendarRendererTest {
     }
 
     private static ScheduleProblem missingHotel(String city, int checkInDayOfJuly, int checkOutDayOfJuly) {
-        return new ScheduleProblem.MissingHotel(city,
+        return new ScheduleProblem.MissingHotel(city, "",
                 LocalDate.of(2026, 7, checkInDayOfJuly), LocalDate.of(2026, 7, checkOutDayOfJuly), "");
     }
 
     private static ScheduleProblem missingTravel(String fromCity, int arrivalDayOfJuly,
                                                  String toCity, int departureDayOfJuly) {
         return new ScheduleProblem.MissingTravel(
-                fromCity, at(arrivalDayOfJuly, 14, 30),
-                toCity, at(departureDayOfJuly, 9, 0));
+                fromCity, "", at(arrivalDayOfJuly, 14, 30),
+                toCity, "", at(departureDayOfJuly, 9, 0));
     }
 
     private static ZonedTimestamp at(int dayOfJuly, int hour, int minute) {

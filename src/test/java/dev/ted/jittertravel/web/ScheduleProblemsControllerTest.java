@@ -114,7 +114,7 @@ class ScheduleProblemsControllerTest {
 
     private ScheduleProblemsController controller() {
         given(scheduleGapProjector.problems(FIXED_INSTANT)).willReturn(List.of(
-                new ScheduleProblem.MissingHotel("London", LocalDate.of(2026, 7, 15), LocalDate.of(2026, 7, 17), "")));
+                new ScheduleProblem.MissingHotel("London", "", LocalDate.of(2026, 7, 15), LocalDate.of(2026, 7, 17), "")));
         return new ScheduleProblemsController(
                 scheduleGapProjector,
                 Clock.fixed(FIXED_INSTANT, ZoneId.of("UTC")),

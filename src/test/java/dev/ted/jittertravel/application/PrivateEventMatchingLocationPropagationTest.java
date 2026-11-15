@@ -132,9 +132,9 @@ class PrivateEventMatchingLocationPropagationTest {
                 .as("the dinner's city interrupts the run of nights at the conference")
                 .containsExactly(
                         new ScheduleProblem.MissingHotel(
-                                "Lone Tree", CONFERENCE_START, DINNER_DAY, "Rocky Mountain Java"),
+                                "Lone Tree", "US", CONFERENCE_START, DINNER_DAY, "Rocky Mountain Java"),
                         new ScheduleProblem.MissingHotel(
-                                "Centennial", DINNER_DAY, CONFERENCE_END, ""));
+                                "Centennial", "US", DINNER_DAY, CONFERENCE_END, ""));
     }
 
     @Test
@@ -149,7 +149,7 @@ class PrivateEventMatchingLocationPropagationTest {
                 .filteredOn(ScheduleProblem.MissingHotel.class::isInstance)
                 .as("one run of nights, in the city Ted is actually sleeping in")
                 .containsExactly(new ScheduleProblem.MissingHotel(
-                        "Lone Tree", CONFERENCE_START, CONFERENCE_END, "Rocky Mountain Java"));
+                        "Lone Tree", "US", CONFERENCE_START, CONFERENCE_END, "Rocky Mountain Java"));
     }
 
     /**

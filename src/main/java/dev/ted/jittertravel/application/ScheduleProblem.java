@@ -41,11 +41,18 @@ public sealed interface ScheduleProblem extends TemporalView
      * The two endpoints are in different cities and therefore usually different zones, so they are
      * {@link ZonedTimestamp}s: the gap between them is only meaningful as a comparison of instants.
      * Renderers show {@code localDateTime()} — the wall-clock at each end.
+     * <p>
+     * Each end also carries the country (an ISO code) of the event that put it there, so a fix
+     * link can prefill it alongside the city. It is <em>not</em> a detection input — cities are
+     * compared, countries are only carried — and it is {@code ""} where nothing supplied one: the
+     * configured home, which is a city name and nothing more.
      */
     record MissingTravel(
             String fromCity,
+            String fromCountry,
             ZonedTimestamp arrivedAt,
             String toCity,
+            String toCountry,
             ZonedTimestamp nextDepartureAt
     ) implements ScheduleProblem {
         // The window to insert the missing leg closes when the next leg departs.
@@ -55,8 +62,13 @@ public sealed interface ScheduleProblem extends TemporalView
         }
     }
 
+    /**
+     * {@code country} is carried for the fix link's prefill, as on {@link MissingTravel}: the
+     * country of whatever placed Ted in {@code city} on the first uncovered night.
+     */
     record MissingHotel(
             String city,
+            String country,
             LocalDate checkIn,
             LocalDate checkOut,
             String conferenceName

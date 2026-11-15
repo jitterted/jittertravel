@@ -48,7 +48,7 @@ class BookTrainControllerTest {
         BookTrainController controller = new BookTrainController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookTrainForm(model, null, null, null);
+        controller.bookTrainForm(model, null, null, null, null, null);
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
         assertThat(request.departureDateTime())
@@ -60,7 +60,7 @@ class BookTrainControllerTest {
         BookTrainController controller = new BookTrainController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookTrainForm(model, LocalDate.of(2026, 7, 15), null, null);
+        controller.bookTrainForm(model, LocalDate.of(2026, 7, 15), null, null, null, null);
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
         assertThat(request.departureDateTime())
@@ -74,7 +74,7 @@ class BookTrainControllerTest {
         BookTrainController controller = new BookTrainController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookTrainForm(model, null, null, null);
+        controller.bookTrainForm(model, null, null, null, null, null);
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
         assertThat(request.arrivalDateTime().toLocalDate())
@@ -87,8 +87,8 @@ class BookTrainControllerTest {
 
         Model model1 = new ConcurrentModel();
         Model model2 = new ConcurrentModel();
-        controller.bookTrainForm(model1, null, null, null);
-        controller.bookTrainForm(model2, null, null, null);
+        controller.bookTrainForm(model1, null, null, null, null, null);
+        controller.bookTrainForm(model2, null, null, null, null, null);
 
         BookTrainRequest r1 = (BookTrainRequest) model1.getAttribute("bookTrain");
         BookTrainRequest r2 = (BookTrainRequest) model2.getAttribute("bookTrain");
@@ -98,32 +98,37 @@ class BookTrainControllerTest {
                 .isNotEqualTo(r2.trainTripId());
     }
     /**
-     * The cleanest prefill in the slice: {@link BookTrainRequest} already carries city names, so a
-     * travel gap's own cities go straight in with no resolution step and no ambiguity.
+     * The cleanest prefill in the slice: {@link BookTrainRequest} already carries city names and
+     * country codes, so a travel gap's own values go straight in with no resolution step and no
+     * ambiguity. Distinct countries at the two ends, so a swap would show.
      */
     @Test
-    void aFixLinksCitiesSeedTheStationCityFields() {
+    void aFixLinksCitiesAndCountriesSeedTheStationFields() {
         BookTrainController controller = new BookTrainController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookTrainForm(model, LocalDate.of(2026, 6, 22), "Frankfurt", "Leipzig");
+        controller.bookTrainForm(model, LocalDate.of(2026, 6, 22), "Frankfurt", "DE", "Basel", "CH");
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
         assertThat(request.departureCityName()).isEqualTo("Frankfurt");
-        assertThat(request.arrivalCityName()).isEqualTo("Leipzig");
+        assertThat(request.departureCountry()).isEqualTo("DE");
+        assertThat(request.arrivalCityName()).isEqualTo("Basel");
+        assertThat(request.arrivalCountry()).isEqualTo("CH");
         assertThat(request.departureDateTime()).isEqualTo(LocalDateTime.of(2026, 6, 22, 9, 0));
     }
 
     @Test
-    void blankCitiesAreLeftAloneRatherThanWrittenIn() {
+    void blankCitiesAndCountriesAreLeftAloneRatherThanWrittenIn() {
         BookTrainController controller = new BookTrainController(null, FIXED_CLOCK);
         Model model = new ConcurrentModel();
 
-        controller.bookTrainForm(model, null, "  ", null);
+        controller.bookTrainForm(model, null, "  ", " ", null, "");
 
         BookTrainRequest request = (BookTrainRequest) model.getAttribute("bookTrain");
         assertThat(request.departureCityName()).isNull();
+        assertThat(request.departureCountry()).isNull();
         assertThat(request.arrivalCityName()).isNull();
+        assertThat(request.arrivalCountry()).isNull();
     }
 
     /**

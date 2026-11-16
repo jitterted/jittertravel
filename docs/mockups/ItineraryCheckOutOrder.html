@@ -2,6 +2,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- Approved by Ted 2026-11-15, wording option A. The spec for ItineraryProjector's check-out ordering. -->
+<!-- Extended 2026-11-16 (Ted), no mockup of its own: the mirror rule for check-in. A check-in sits no
+     earlier than the last flight, train or ground transfer ARRIVING in its city that day (the latest
+     such arrival after the check-in time, same local day). An event in the same city does not move it,
+     and neither does a leg into another city or one landing before check-in time. The time shown on
+     the card is unchanged; only the order moves. Ties need no rule of their own: a leg's entry sits at
+     its departure, so the leg that moves a check-in is always above it already. Found on Nov 20:
+     the 15:00 Berlin check-in sorted above the 16:00 transfer from Potsdam that lands at 17:00. -->
+
 <title>Itinerary Check-Out Order</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">

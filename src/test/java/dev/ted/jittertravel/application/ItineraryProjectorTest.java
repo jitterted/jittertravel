@@ -963,6 +963,187 @@ class ItineraryProjectorTest {
         }
     }
 
+    // --- A check-in sits no earlier than the last leg arriving in its city that day ---
+    //
+    // The mirror of CheckOutOrder (Ted, 2026-11-16, from the Nov 20 Potsdam → Berlin itinerary).
+    // Every fixture checks in to the same San Francisco hotel at 15:00 on DATE and checks out two
+    // days later, so DATE holds only its check-in.
+
+    @Nested
+    class CheckInOrder {
+
+        private final ItineraryProjector projector = new ItineraryProjector();
+        private final TrainStationAddress sanFrancisco =
+                new TrainStationAddress("4th & King", "San Francisco", "US", "");
+        private final TrainStationAddress sanJose =
+                new TrainStationAddress("Diridon", "San Jose", "US", "");
+        private final TrainStationAddress oakland =
+                new TrainStationAddress("Jack London Square", "Oakland", "US", "");
+
+        @Test
+        void aTransferArrivingInTheHotelsCityAfterCheckInTimeComesBeforeTheCheckIn() {
+            // Nov 20: the tour ends at 16:00, the transfer lands at 17:00, check-in opened at 15:00.
+            projector.handle(Stream.of(stored(checkingInAtThree()),
+                    stored(tourFrom(12, 10, 16, 0)),
+                    stored(transferIntoSanFrancisco(GroundTransferId.random(), 16, 0))));
+
+            assertThat(kindsOnDate())
+                    .as("Tour, then the transfer into town, then check-in")
+                    .containsExactly(EntryKind.PRIVATE_EVENT, EntryKind.GROUND_TRANSFER, EntryKind.LODGING);
+        }
+
+        @Test
+        void aTrainArrivingInTheHotelsCityAfterCheckInTimeComesBeforeTheCheckIn() {
+            projector.handle(Stream.of(stored(checkingInAtThree()),
+                    stored(trainTo(sanFrancisco, TrainTripId.random(), 16, 30))));
+
+            assertThat(kindsOnDate())
+                    .as("Arrives at 16:30, then checks in")
+                    .containsExactly(EntryKind.TRAIN, EntryKind.LODGING);
+        }
+
+        @Test
+        void aFlightArrivingInTheHotelsCityAfterCheckInTimeComesBeforeTheCheckIn() {
+            // SFO is matched to its city through the curated table, as for check-out.
+            projector.handle(Stream.of(stored(checkingInAtThree()),
+                    stored(flightIntoSfo(FlightId.random(), 17, 16))));
+
+            assertThat(kindsOnDate())
+                    .as("Lands at 17:16, then checks in")
+                    .containsExactly(EntryKind.FLIGHT, EntryKind.LODGING);
+        }
+
+        @Test
+        void theCheckInFollowsTheLastLegIntoTheCityNotTheFirst() {
+            // Lands at SFO at 16:00, then the 17:00 transfer from the airport into town.
+            projector.handle(Stream.of(stored(checkingInAtThree()),
+                    stored(flightIntoSfo(FlightId.random(), 16, 0)),
+                    stored(transferIntoSanFrancisco(GroundTransferId.random(), 17, 0))));
+
+            assertThat(kindsOnDate())
+                    .as("Flight, transfer, then check-in")
+                    .containsExactly(EntryKind.FLIGHT, EntryKind.GROUND_TRANSFER, EntryKind.LODGING);
+        }
+
+        @Test
+        void anEventInTheSameCityDoesNotMoveTheCheckIn() {
+            // He may drop his bags before dinner; only a leg into town says he was not there yet.
+            projector.handle(Stream.of(stored(checkingInAtThree()),
+                    stored(new GatheringPlanned(GatheringId.random(), "Meetup", "Cafe",
+                            new Address("1 Market St", "San Francisco", "CA", "94105", "US", null),
+                            zt(DATE.atTime(18, 0)), zt(DATE.atTime(20, 0)), false, ""))));
+
+            assertThat(kindsOnDate())
+                    .as("Clock order: check-in at 15:00, meetup at 18:00")
+                    .containsExactly(EntryKind.LODGING, EntryKind.GATHERING);
+        }
+
+        @Test
+        void aLegArrivingInAnotherCityDoesNotMoveTheCheckIn() {
+            projector.handle(Stream.of(stored(checkingInAtThree()),
+                    stored(trainTo(oakland, TrainTripId.random(), 16, 30))));
+
+            assertThat(kindsOnDate())
+                    .as("The Oakland train says nothing about reaching San Francisco")
+                    .containsExactly(EntryKind.LODGING, EntryKind.TRAIN);
+        }
+
+        @Test
+        void aLegArrivingBeforeCheckInTimeNeverPullsTheCheckInEarlier() {
+            projector.handle(Stream.of(stored(checkingInAtThree()),
+                    stored(tourFrom(13, 0, 14, 0)),
+                    stored(trainTo(sanFrancisco, TrainTripId.random(), 11, 0))));
+
+            assertThat(kindsOnDate())
+                    .as("An earlier arrival only ever moves the check-in down, never up")
+                    .containsExactly(EntryKind.TRAIN, EntryKind.PRIVATE_EVENT, EntryKind.LODGING);
+        }
+
+        @Test
+        void aLegArrivingTheNextDayDoesNotMoveTheCheckIn() {
+            projector.handle(Stream.of(stored(checkingInAtThree()),
+                    stored(new FlightBooked(FlightId.random(), "UA", "UA1",
+                            AirportCode.of("JFK"), zt(DATE.atTime(23, 0)),
+                            AirportCode.of("SFO"), zt(DATE.plusDays(1).atTime(2, 0))))));
+
+            assertThat(kindsOnDate())
+                    .as("Tomorrow's landing is not today's arrival")
+                    .containsExactly(EntryKind.LODGING, EntryKind.FLIGHT);
+        }
+
+        @Test
+        void aHotelWithNoCityIsNotMovedByALegIntoAnAirportTheTableDoesNotKnow() {
+            // Both places are blank, and a blank place matches a blank place.
+            projector.handle(Stream.of(
+                    stored(new HotelBooked(HotelBookingId.random(), "Nowhere Inn",
+                            new Address("1 Main St", "", "", "", "US", null),
+                            zt(DATE.atTime(15, 0)), zt(DATE.plusDays(2).atTime(11, 0)),
+                            BookingIntent.FINAL, null, null)),
+                    stored(new FlightBooked(FlightId.random(), "UA", "UA1",
+                            AirportCode.of("JFK"), zt(DATE.atTime(9, 0)),
+                            AirportCode.of("XQZ"), zt(DATE.atTime(17, 0)))),
+                    stored(tourFrom(16, 0, 17, 0))));
+
+            assertThat(kindsOnDate())
+                    .as("No city to match, so check-in stays at 15:00, above the 16:00 tour")
+                    .containsExactly(EntryKind.FLIGHT, EntryKind.LODGING, EntryKind.PRIVATE_EVENT);
+        }
+
+        @Test
+        void aCancelledLegStopsMovingTheCheckIn() {
+            TrainTripId tripId = TrainTripId.random();
+            FlightId flightId = FlightId.random();
+            GroundTransferId transferId = GroundTransferId.random();
+            projector.handle(Stream.of(stored(checkingInAtThree()),
+                    stored(tourFrom(16, 0, 17, 0)),
+                    stored(trainTo(sanFrancisco, tripId, 18, 0)),
+                    stored(new TrainCancelled(tripId, "")),
+                    stored(flightIntoSfo(flightId, 18, 0)),
+                    stored(new FlightCancelled(flightId, "", Instant.now(), null)),
+                    stored(transferIntoSanFrancisco(transferId, 18, 0)),
+                    stored(new GroundTransferCancelled(transferId))));
+
+            assertThat(kindsOnDate())
+                    .as("Nothing arrives any more, so clock order")
+                    .containsExactly(EntryKind.LODGING, EntryKind.PRIVATE_EVENT);
+        }
+
+        private List<EntryKind> kindsOnDate() {
+            return projector.entriesForDate(DATE).stream().map(ItineraryEntry::kind).toList();
+        }
+
+        private static HotelBooked checkingInAtThree() {
+            return hotelBooked(HotelBookingId.random(), "Hotel Zetta", DATE, DATE.plusDays(2));
+        }
+
+        /** Departs an hour before it arrives, at {@code hour:minute}. */
+        private TrainBooked trainTo(TrainStationAddress to, TrainTripId tripId, int hour, int minute) {
+            return new TrainBooked(tripId, sanJose, zt(DATE.atTime(hour - 1, minute)),
+                    to, zt(DATE.atTime(hour, minute)), "");
+        }
+
+        /** Lands at {@code hour:minute}, having left JFK six hours earlier on the clock. */
+        private static FlightBooked flightIntoSfo(FlightId flightId, int hour, int minute) {
+            return new FlightBooked(flightId, "UA", "UA1",
+                    AirportCode.of("JFK"), zt(DATE.atTime(hour - 6, minute)),
+                    AirportCode.of("SFO"), zt(DATE.atTime(hour, minute)));
+        }
+
+        /** Departs at {@code hour:minute} and lands an hour later. */
+        private static GroundTransferPlanned transferIntoSanFrancisco(GroundTransferId id, int hour, int minute) {
+            return new GroundTransferPlanned(id, "", "Strathmere",
+                    new Address("", "San Jose", "CA", "", "US", null),
+                    "", "Hotel Zetta", new Address("1 Market St", "San Francisco", "CA", "94105", "US", null),
+                    zt(DATE.atTime(hour, minute)), zt(DATE.atTime(hour + 1, minute)), "Rental car");
+        }
+
+        private static PrivateEventPlanned tourFrom(int startHour, int startMinute, int endHour, int endMinute) {
+            return new PrivateEventPlanned(PrivateEventId.random(), "Palace tour", "Sanssouci",
+                    new Address("", "San Jose", "CA", "", "US", null),
+                    zt(DATE.atTime(startHour, startMinute)), zt(DATE.atTime(endHour, endMinute)));
+        }
+    }
+
     private static HotelBooked hotelBooked(HotelBookingId id, String hotelName,
                                            LocalDate checkIn, LocalDate checkOut) {
         return new HotelBooked(id, hotelName,

@@ -23,11 +23,11 @@ public class ItineraryProjector implements EventStreamConsumer {
     private final Map<PrivateEventId, PrivateEventItineraryEntry> privateEventEntries = new ConcurrentHashMap<>();
     private final Map<GroundTransferId, GroundTransferItineraryEntry> groundTransferEntries = new ConcurrentHashMap<>();
 
-    // Where and when each leg leaves, for check-out ordering only (see entriesForDate). Held apart
+    // Where and when each leg leaves and lands, for hotel ordering only (see sortTime). Held apart
     // from the entries because a flight or transfer entry names its endpoint, not its city.
-    private final Map<FlightId, Departure> flightDepartures = new ConcurrentHashMap<>();
-    private final Map<TrainTripId, Departure> trainDepartures = new ConcurrentHashMap<>();
-    private final Map<GroundTransferId, Departure> transferDepartures = new ConcurrentHashMap<>();
+    private final Map<FlightId, Leg> flightLegs = new ConcurrentHashMap<>();
+    private final Map<TrainTripId, Leg> trainLegs = new ConcurrentHashMap<>();
+    private final Map<GroundTransferId, Leg> transferLegs = new ConcurrentHashMap<>();
 
     private final TransferEndpointLabel transferLabel = new TransferEndpointLabel();
     private final CityLabel cityLabel = new CityLabel();
@@ -39,31 +39,35 @@ public class ItineraryProjector implements EventStreamConsumer {
             switch (stored.payload()) {
                 case FlightBooked e -> {
                     flightEntries.put(e.flightId(), toFlightEntries(e));
-                    flightDepartures.put(e.flightId(), new Departure(
-                            Place.of(e.departureAirport(), airportCities), e.departureDateTime()));
+                    flightLegs.put(e.flightId(), new Leg(
+                            Place.of(e.departureAirport(), airportCities), e.departureDateTime(),
+                            Place.of(e.arrivalAirport(), airportCities), e.arrivalDateTime()));
                 }
                 case FlightChanged e -> {
                     flightEntries.put(e.flightId(), toFlightEntries(e));
-                    flightDepartures.put(e.flightId(), new Departure(
-                            Place.of(e.departureAirport(), airportCities), e.departureDateTime()));
+                    flightLegs.put(e.flightId(), new Leg(
+                            Place.of(e.departureAirport(), airportCities), e.departureDateTime(),
+                            Place.of(e.arrivalAirport(), airportCities), e.arrivalDateTime()));
                 }
                 case FlightCancelled e -> {
                     flightEntries.remove(e.flightId());
-                    flightDepartures.remove(e.flightId());
+                    flightLegs.remove(e.flightId());
                 }
                 case TrainBooked e -> {
                     trainEntries.put(e.tripId(), toTrainEntries(e));
-                    trainDepartures.put(e.tripId(),
-                            new Departure(Place.of(e.departureStation()), e.departureDateTime()));
+                    trainLegs.put(e.tripId(), new Leg(
+                            Place.of(e.departureStation()), e.departureDateTime(),
+                            Place.of(e.arrivalStation()), e.arrivalDateTime()));
                 }
                 case TrainChanged e -> {
                     trainEntries.put(e.tripId(), toTrainEntries(e));
-                    trainDepartures.put(e.tripId(),
-                            new Departure(Place.of(e.departureStation()), e.departureDateTime()));
+                    trainLegs.put(e.tripId(), new Leg(
+                            Place.of(e.departureStation()), e.departureDateTime(),
+                            Place.of(e.arrivalStation()), e.arrivalDateTime()));
                 }
                 case TrainCancelled e -> {
                     trainEntries.remove(e.tripId());
-                    trainDepartures.remove(e.tripId());
+                    trainLegs.remove(e.tripId());
                 }
                 case HotelBooked e -> hotelEntries.put(e.hotelBookingId(), toHotelEntries(e));
                 case HotelChanged e -> hotelEntries.put(e.hotelBookingId(), toHotelEntries(e));
@@ -92,12 +96,13 @@ public class ItineraryProjector implements EventStreamConsumer {
                 case PrivateEventCancelled(PrivateEventId privateEventId, String _) -> privateEventEntries.remove(privateEventId);
                 case GroundTransferPlanned e -> {
                     groundTransferEntries.put(e.groundTransferId(), toGroundTransferEntry(e));
-                    transferDepartures.put(e.groundTransferId(),
-                            new Departure(Place.of(e.origin()), e.departsAt()));
+                    transferLegs.put(e.groundTransferId(), new Leg(
+                            Place.of(e.origin()), e.departsAt(),
+                            Place.of(e.destination()), e.arrivesAt()));
                 }
                 case GroundTransferCancelled e -> {
                     groundTransferEntries.remove(e.groundTransferId());
-                    transferDepartures.remove(e.groundTransferId());
+                    transferLegs.remove(e.groundTransferId());
                 }
                 default -> {}
             }
@@ -184,37 +189,60 @@ public class ItineraryProjector implements EventStreamConsumer {
     }
 
     /**
-     * Where an entry sits in its day: its own time, except that a <strong>check-out sits no later
-     * than the first leg leaving its city that day</strong> (Ted, 2026-11-15;
-     * {@code docs/mockups/ItineraryCheckOutOrder.html}). A check-out time is the latest he may
-     * leave, so an 11:00 check-out belongs above the 09:45 train he is obviously not taking from
-     * the room. On a tie the check-out goes first.
+     * Where an entry sits in its day: its own time, except that a hotel's time is the hotel's
+     * official one, not Ted's, and the legs say when he is really there.
+     * <ul>
+     * <li>A <strong>check-out sits no later than the first leg leaving its city that day</strong>
+     * (Ted, 2026-11-15; {@code docs/mockups/ItineraryCheckOutOrder.html}). A check-out time is the
+     * latest he may leave, so an 11:00 check-out belongs above the 09:45 train he is obviously not
+     * taking from the room.</li>
+     * <li>A <strong>check-in sits no earlier than the last leg arriving in its city that
+     * day</strong> (Ted, 2026-11-16). A check-in time is the earliest he may arrive, so a 15:00
+     * check-in in Berlin belongs below the transfer from Potsdam that lands him there at 17:00 —
+     * the same reason {@code ScheduleTimeline} keeps check-ins in the evening.</li>
+     * </ul>
+     * On a tie the check-out goes first: he leaves the room, then the town. A check-in needs no
+     * tie-break of its own — a leg's entry sits at its departure, so the leg that moves a check-in
+     * is always above it already.
      * <p>
-     * Only a <em>departing</em> flight, train or ground transfer moves it. An event in the same
-     * city does not: he may go back to the room after breakfast, and nothing here can tell, so a
-     * check-out he made before one is still said by editing its time.
+     * Only a flight, train or ground transfer moves a hotel entry. An event in the same city does
+     * not: he may go back to the room after breakfast, or drop his bags before the tour, and
+     * nothing here can tell, so either is still said by editing the hotel's time.
      */
     private LocalDateTime sortTime(ItineraryEntry entry) {
-        if (!(entry instanceof HotelItineraryEntry checkOut) || !isCheckOut(entry)) {
+        if (!(entry instanceof HotelItineraryEntry hotelEntry)) {
             return entry.anchorTime();
         }
-        Place hotel = Place.of(checkOut.address());
-        LocalDateTime checkOutTime = checkOut.anchorTime();
-        return Stream.of(flightDepartures.values(), trainDepartures.values(), transferDepartures.values())
-                .flatMap(Collection::stream)
-                .filter(departure -> !hotel.value().isBlank() && departure.from().matches(hotel))
-                .map(departure -> departure.at().localDateTime())
-                .filter(leaves -> leaves.toLocalDate().equals(checkOutTime.toLocalDate()))
-                .filter(leaves -> leaves.isBefore(checkOutTime))
-                .min(Comparator.naturalOrder())
-                .orElse(checkOutTime);
+        Place hotel = Place.of(hotelEntry.address());
+        LocalDateTime hotelTime = hotelEntry.anchorTime();
+        if (hotel.value().isBlank()) {
+            return hotelTime;
+        }
+        Stream<Leg> legs = Stream.of(flightLegs.values(), trainLegs.values(), transferLegs.values())
+                .flatMap(Collection::stream);
+        return switch (hotelEntry.dayRole()) {
+            case CHECK_OUT -> legs
+                    .filter(leg -> leg.from().matches(hotel))
+                    .map(leg -> leg.leaves().localDateTime())
+                    .filter(leaves -> leaves.toLocalDate().equals(hotelTime.toLocalDate()))
+                    .filter(leaves -> leaves.isBefore(hotelTime))
+                    .min(Comparator.naturalOrder())
+                    .orElse(hotelTime);
+            case CHECK_IN -> legs
+                    .filter(leg -> leg.to().matches(hotel))
+                    .map(leg -> leg.arrives().localDateTime())
+                    .filter(arrives -> arrives.toLocalDate().equals(hotelTime.toLocalDate()))
+                    .filter(arrives -> arrives.isAfter(hotelTime))
+                    .max(Comparator.naturalOrder())
+                    .orElse(hotelTime);
+        };
     }
 
     private static boolean isCheckOut(ItineraryEntry entry) {
         return entry instanceof HotelItineraryEntry hotel && hotel.dayRole() == HotelDayRole.CHECK_OUT;
     }
 
-    private record Departure(Place from, ZonedTimestamp at) {}
+    private record Leg(Place from, ZonedTimestamp leaves, Place to, ZonedTimestamp arrives) {}
 
     private static List<FlightItineraryEntry> toFlightEntries(FlightBooked e) {
         return toFlightEntries(e.flightId(), e.airline(), e.flightNumber(),

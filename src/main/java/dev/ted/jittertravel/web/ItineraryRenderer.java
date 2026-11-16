@@ -109,7 +109,9 @@ public class ItineraryRenderer {
                                 ZoneToggle.render(zoneDisplay),
                                 renderDateNav(days, prevDate, nextDate, today, nextEntryDate),
                                 div().withClass("itinerary-grid").with(
-                                        days.stream().map(day -> renderDay(day, isOwner)).toList()
+                                        days.stream()
+                                                .map(day -> renderDay(day, isOwner, windowStart(days)))
+                                                .toList()
                                 )
                         ),
                         BrowserZoneScript.render(zoneDisplay)
@@ -143,7 +145,17 @@ public class ItineraryRenderer {
         return dateNav;
     }
 
-    private static DivTag renderDay(ItineraryDay day, boolean isOwner) {
+    /**
+     * The page's first column, which is what {@code ?date=} names. Every bin carries it, whichever
+     * column it sits in, so coming back from a cancel page redraws the same three days rather than
+     * a window starting at the bin's own day (Ted, 2026-11-16: the columns moved though nothing had
+     * changed).
+     */
+    private static LocalDate windowStart(List<ItineraryDay> days) {
+        return days.getFirst().date();
+    }
+
+    private static DivTag renderDay(ItineraryDay day, boolean isOwner, LocalDate windowStart) {
         DivTag dayDiv = div(
                 div(day.date().format(DAY_HEADER_FMT)).withClass("day-header")
         );
@@ -153,7 +165,7 @@ public class ItineraryRenderer {
             dayDiv.with(renderWhereabouts(day, isOwner));
         } else {
             day.entries().stream()
-                    .map(entry -> renderEntry(entry, isOwner, day.date()))
+                    .map(entry -> renderEntry(entry, isOwner, windowStart))
                     .forEach(dayDiv::with);
         }
         return dayDiv;
@@ -218,8 +230,8 @@ public class ItineraryRenderer {
     }
 
     /**
-     * {@code day} is the itinerary day the entry is drawn on, which each bin carries so the cancel
-     * page comes back to it — the check-out day for a check-out card, not the stay's first night.
+     * {@code day} is the window's first day ({@link #windowStart}), which each bin carries so the
+     * cancel page comes back to the same three columns.
      */
     private static DomContent renderEntry(ItineraryEntry entry, boolean isOwner, LocalDate day) {
         return switch (entry) {

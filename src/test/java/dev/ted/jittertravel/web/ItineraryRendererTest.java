@@ -612,11 +612,13 @@ class ItineraryRendererTest {
     }
 
     /**
-     * The bin carries the day it is drawn on, not the stay's check-in: cancelling from the
-     * check-out card comes back to the check-out day.
+     * Every bin carries the page's <em>first</em> column, whichever column it sits in, because
+     * {@code /itinerary?date=} names the window's first day. Carrying the bin's own day would
+     * rebuild the page starting there: "Keep it" from the third column would shift all three
+     * columns left, a page that moved although nothing changed.
      */
     @Test
-    void aBinCarriesTheItineraryDayItIsDrawnOn() {
+    void aBinInTheThirdColumnCarriesTheFirstColumnsDateSoTheWayBackRedrawsTheSameDays() {
         HotelItineraryEntry checkOut = hotel(HotelDayRole.CHECK_OUT, "Hessen");
 
         String html = render(
@@ -624,7 +626,7 @@ class ItineraryRendererTest {
 
         assertThat(html)
                 .contains("<a class=\"cancel-bin\" href=\"/booked-hotels/" + checkOut.hotelBookingId().id()
-                          + "/cancel?from=itinerary&amp;day=2026-06-03\" title=\"Cancel hotel\">");
+                          + "/cancel?from=itinerary&amp;day=2026-06-01\" title=\"Cancel hotel\">");
     }
 
     @Test

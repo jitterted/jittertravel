@@ -17,8 +17,17 @@ failing before any production change.
   `ProblemContextFragmentConventionTest`), and it gained a sibling, `originDay`. That is
   `LinkOrigin.validDay(day)`, so a value that is not a date never reaches a hidden input.
 - **The calendar bin's day is the entry's start day.** Owner actions are drawn only on an entry's
-  own first segment, so that is the day the bin sits on. On the itinerary it is the
-  `ItineraryDay` being drawn, so a check-out card's bin returns to the check-out day.
+  own first segment, so that is the day the bin sits on; `/calendar?day=` scrolls to and
+  highlights it without changing the grid.
+- **The itinerary bin's day is the page's first column, not the bin's own day** (corrected
+  2026-11-16, after Ted saw it). `/itinerary?date=` names the window's *first* day, so a
+  third-column bin carrying its own day rebuilt the page starting there. "Keep it" then shifted
+  all three columns left: the page moved although nothing had changed. Every bin now carries
+  `ItineraryRenderer.windowStart`, and both ways out redraw the same three days. Pinned by
+  `ItineraryRendererTest.aBinInTheThirdColumnCarriesTheFirstColumnsDateSoTheWayBackRedrawsTheSameDays`,
+  which was seen failing first. **Not carried: `?tz=`** (the itinerary's time-zone toggle), so
+  coming back from a non-default zone shows the default one. Left out on purpose (Ted,
+  2026-11-16).
 - **The private event's no-origin redirect changed**: it went to `/itinerary?date=<day>` while
   "Keep it" went to `/planned-private-events`. Now both go to the list (D2). The itinerary-day
   landing survives for the case it existed for: a bin clicked on the itinerary carries
@@ -37,7 +46,7 @@ failing before any production change.
   dropped `day` input in `cancel-private-event.html` (convention test, both named); `backHref`
   ignoring the day (`LinkOriginTest`); the calendar bin without `linkFrom`
   (`CalendarViewBuilderTest` ×4 and `EveryCancelableKindShowsItsBinTest`); the itinerary hotel
-  bin drawn with a fixed day (`ItineraryRendererTest.aBinCarriesTheItineraryDayItIsDrawnOn`); the
+  bin drawn with a fixed day (`ItineraryRendererTest`, the window-start case); the
   hotel redirect ignoring the origin; the ground-transfer GET ignoring it; the flight-itinerary
   refusal dropping it; and `validDay` echoing its input. Each was caught by its slice or unit
   test. A default PIT run on `LinkOrigin` killed 46 mutants with no survivors. The one with no
@@ -90,7 +99,7 @@ page.**
 
 Calendar and itinerary bins append `&day=<the day they were drawn on>`. That is the day of the
 column or itinerary day, not the entry's start, so a check-out-day bin returns to the check-out
-day.
+day. *(Superseded for the itinerary: see "As built". There it is the window's first day.)*
 
 - The renderer adds both parameters to the projector's `cancelPath`. The projector's path stays
   bare, because where a link is drawn is the renderer's business.

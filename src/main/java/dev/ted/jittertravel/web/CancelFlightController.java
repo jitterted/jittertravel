@@ -46,21 +46,29 @@ public class CancelFlightController {
         this.clock = clock;
     }
 
+    /** With no origin — reached from {@code /booked-flights} or a typed URL — both ways out lead there. */
+    private static final WayBack TO_THE_LIST = new WayBack("/booked-flights", "the list");
+
     @GetMapping("/booked-flights/{flightId}/cancel")
-    public String cancelFlightForm(@PathVariable("flightId") String flightIdString, Model model) {
+    public String cancelFlightForm(@PathVariable("flightId") String flightIdString,
+                                   @RequestParam(value = "from", required = false) String from,
+                                   @RequestParam(value = "day", required = false) String day,
+                                   Model model) {
         Optional<FlightDetailsView> maybe = lookup(flightIdString);
         if (maybe.isEmpty()) {
             return "redirect:/booked-flights";
         }
         model.addAttribute("flight", maybe.get());
         model.addAttribute("reason", "");
+        model.addAttribute("wayBack", LinkOrigin.wayBack(from, day, TO_THE_LIST));
         return "cancel-flight";
     }
 
     @PostMapping("/booked-flights/{flightId}/cancel")
     public String cancelFlight(@PathVariable("flightId") String flightIdString,
                                @RequestParam(value = "reason", required = false) String reason,
-                               @RequestParam(value = "from", required = false) String from) {
+                               @RequestParam(value = "from", required = false) String from,
+                               @RequestParam(value = "day", required = false) String day) {
         Optional<FlightDetailsView> maybe = lookup(flightIdString);
         if (maybe.isEmpty()) {
             return "redirect:/booked-flights";
@@ -80,7 +88,7 @@ public class CancelFlightController {
             return "redirect:/read-only";
         }
 
-        return "redirect:" + FixOrigin.returnTo(from).orElse("/booked-flights");
+        return "redirect:" + LinkOrigin.wayBack(from, day, TO_THE_LIST).href();
     }
 
     private Optional<FlightDetailsView> lookup(String flightIdString) {

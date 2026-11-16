@@ -41,6 +41,8 @@ public class CancelGroundTransferController {
 
     @GetMapping("/ground-transfers/{groundTransferId}/cancel")
     public String cancelGroundTransferForm(@PathVariable("groundTransferId") String groundTransferIdString,
+                                           @RequestParam(value = "from", required = false) String from,
+                                           @RequestParam(value = "day", required = false) String day,
                                            Model model) {
         Optional<GroundTransferDetailsView> maybe = lookup(groundTransferIdString);
         if (maybe.isEmpty()) {
@@ -49,19 +51,20 @@ public class CancelGroundTransferController {
             return "redirect:/itinerary";
         }
         model.addAttribute("transfer", maybe.get());
+        model.addAttribute("wayBack", LinkOrigin.wayBack(from, day, toItsDay(maybe.get())));
         return "cancel-ground-transfer";
     }
 
     @PostMapping("/ground-transfers/{groundTransferId}/cancel")
     public String cancelGroundTransfer(@PathVariable("groundTransferId") String groundTransferIdString,
-                                       @RequestParam(value = "from", required = false) String from) {
+                                       @RequestParam(value = "from", required = false) String from,
+                                       @RequestParam(value = "day", required = false) String day) {
         Optional<GroundTransferDetailsView> maybe = lookup(groundTransferIdString);
         if (maybe.isEmpty()) {
             return "redirect:/itinerary";
         }
-        // The day the transfer was on, captured before it is cancelled: landing back on the
-        // itinerary day it left is what shows that the hop is gone from that day.
-        String day = maybe.get().departsAt().toLocalDate().toString();
+        // Resolved before the transfer is cancelled, while its day is still known.
+        WayBack wayBack = LinkOrigin.wayBack(from, day, toItsDay(maybe.get()));
 
         try {
             // The commandId, the one nondeterministic input, is captured here at the boundary.
@@ -73,7 +76,17 @@ public class CancelGroundTransferController {
             return "redirect:/itinerary";
         }
 
-        return returnTo(from, "/itinerary?date=" + day);
+        // Only the success path goes back where the link was clicked: a stale link or an
+        // already-cancelled miss has fixed nothing.
+        return "redirect:" + wayBack.href();
+    }
+
+    /**
+     * A transfer has no list of its own, so with no origin both ways out land on the itinerary day
+     * it leaves — which is what shows the hop gone from that day.
+     */
+    private static WayBack toItsDay(GroundTransferDetailsView transfer) {
+        return new WayBack("/itinerary?date=" + transfer.departsAt().toLocalDate(), "the itinerary");
     }
 
     private Optional<GroundTransferDetailsView> lookup(String groundTransferIdString) {
@@ -82,15 +95,6 @@ public class CancelGroundTransferController {
         } catch (IllegalArgumentException malformedUuid) {
             return Optional.empty();
         }
-    }
-
-    /**
-     * Where to land after a successful cancellation: back at the report when Ted arrived from a fix
-     * link, otherwise this controller's own default. Only the <em>success</em> path takes it — a
-     * stale link or an already-cancelled miss has fixed nothing, so it still goes where it did.
-     */
-    private static String returnTo(String from, String fallback) {
-        return "redirect:" + FixOrigin.returnTo(from).orElse(fallback);
     }
 
 }

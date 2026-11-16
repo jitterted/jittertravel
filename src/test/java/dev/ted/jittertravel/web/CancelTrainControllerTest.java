@@ -177,7 +177,7 @@ class CancelTrainControllerTest {
 
         assertThat(mockMvc.post().uri("/booked-trains/{id}/cancel", tripId)
                            .with(csrf())
-                           .param("from", "list"))
+                           .param("from", "problems-list"))
                 .hasRedirectedUrl("/read-only");
     }
 
@@ -211,7 +211,7 @@ class CancelTrainControllerTest {
                 .willReturn(Optional.of(viewFor(tripId)));
 
         assertThat(mockMvc.post().uri("/booked-trains/{id}/cancel", tripId)
-                           .param("from", "list")
+                           .param("from", "problems-list")
                            .with(csrf()))
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/schedule-problems?view=list");
@@ -220,13 +220,13 @@ class CancelTrainControllerTest {
     @Test
     void cancellingFromTheProblemCalendarReturnsToTheProblemCalendar() {
         // The view matters: landing in the list after clicking a calendar band reads as the app
-        // losing your place, which is the whole reason FixOrigin distinguishes them.
+        // losing your place, which is the whole reason LinkOrigin distinguishes them.
         UUID tripId = UUID.randomUUID();
         given(detailsProjector.findById(TrainTripId.of(tripId)))
                 .willReturn(Optional.of(viewFor(tripId)));
 
         assertThat(mockMvc.post().uri("/booked-trains/{id}/cancel", tripId)
-                           .param("from", "calendar")
+                           .param("from", "problems-calendar")
                            .with(csrf()))
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/schedule-problems?view=calendar");
@@ -234,7 +234,7 @@ class CancelTrainControllerTest {
 
     @Test
     void cancellingWithoutAnOriginStillLandsOnTheTrainsList() {
-        // Absent is not "calendar": an ordinary cancel from /booked-trains must not be sent to a
+        // Absent is not "problems-calendar": an ordinary cancel from /booked-trains must not be sent to a
         // report it never came from.
         UUID tripId = UUID.randomUUID();
         given(detailsProjector.findById(TrainTripId.of(tripId)))
@@ -266,7 +266,7 @@ class CancelTrainControllerTest {
         given(detailsProjector.findById(TrainTripId.of(tripId))).willReturn(Optional.empty());
 
         assertThat(mockMvc.post().uri("/booked-trains/{id}/cancel", tripId)
-                           .param("from", "list")
+                           .param("from", "problems-list")
                            .with(csrf()))
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/booked-trains");
@@ -278,10 +278,48 @@ class CancelTrainControllerTest {
         given(detailsProjector.findById(TrainTripId.of(tripId)))
                 .willReturn(Optional.of(viewFor(tripId)));
 
-        assertThat(mockMvc.get().uri("/booked-trains/{id}/cancel?from=list", tripId))
+        assertThat(mockMvc.get().uri("/booked-trains/{id}/cancel?from=problems-list", tripId))
                 .hasStatusOk()
                 .bodyText()
-                .contains("<input type=\"hidden\" name=\"from\" value=\"list\"");
+                .contains("<input type=\"hidden\" name=\"from\" value=\"problems-list\"");
+    }
+
+    @Test
+    void cancellingFromACalendarBinReturnsToTheDayItWasOn() {
+        UUID tripId = UUID.randomUUID();
+        given(detailsProjector.findById(TrainTripId.of(tripId)))
+                .willReturn(Optional.of(viewFor(tripId)));
+
+        assertThat(mockMvc.post().uri("/booked-trains/{id}/cancel", tripId)
+                           .param("from", "calendar")
+                           .param("day", "2026-07-03")
+                           .with(csrf()))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/calendar?day=2026-07-03");
+    }
+
+    @Test
+    void keepItFromTheProblemListLeadsBackToTheReport() {
+        UUID tripId = UUID.randomUUID();
+        given(detailsProjector.findById(TrainTripId.of(tripId)))
+                .willReturn(Optional.of(viewFor(tripId)));
+
+        assertThat(mockMvc.get().uri("/booked-trains/{id}/cancel?from=problems-list", tripId))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"keep-link\" href=\"/schedule-problems?view=list\">Keep it — back to schedule problems</a>");
+    }
+
+    @Test
+    void keepItWithNoOriginLeadsToTheList() {
+        UUID tripId = UUID.randomUUID();
+        given(detailsProjector.findById(TrainTripId.of(tripId)))
+                .willReturn(Optional.of(viewFor(tripId)));
+
+        assertThat(mockMvc.get().uri("/booked-trains/{id}/cancel", tripId))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"keep-link\" href=\"/booked-trains\">Keep it — back to the list</a>");
     }
 
     @Test

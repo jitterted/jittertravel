@@ -140,7 +140,7 @@ class BookFlightControllerTest {
         BookFlightRequest request = new BookFlightRequest();
         BindingResult noErrors = new BeanPropertyBindingResult(request, "bookFlight");
 
-        String view = controller.bookFlightSubmit(request, noErrors, "list", new ConcurrentModel());
+        String view = controller.bookFlightSubmit(request, noErrors, "problems-list", new ConcurrentModel());
 
         assertThat(view).isEqualTo("redirect:/schedule-problems?view=list");
     }

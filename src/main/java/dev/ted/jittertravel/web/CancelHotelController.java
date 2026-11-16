@@ -18,8 +18,12 @@ import java.util.UUID;
 /**
  * Cancels a booked hotel stay on its own dedicated page: GET renders the confirmation, POST
  * performs it. It is deliberately separate from the edit page — a dedicated page makes the action
- * discoverable (reached by a "Cancel" link on {@code /booked-hotels} and on the edit page) and
- * gives the confirmation somewhere to explain what cancelling does.
+ * discoverable (reached by a "Cancel" link on {@code /booked-hotels}, the bin on {@code /calendar}
+ * and {@code /itinerary}, and a duplicate-hotel fix link) and gives the confirmation somewhere to
+ * explain what cancelling does.
+ * <p>
+ * Both ways out — "Keep it" and a successful cancel — go where the link was clicked, through one
+ * {@link WayBack} ({@link LinkOrigin}); with no origin, to the list.
  * <p>
  * Its own controller rather than a branch of {@link ChangeHotelController}: one slice per
  * controller, and cancelling has nothing to do with the edit form's binding and validation.
@@ -36,8 +40,13 @@ public class CancelHotelController {
         this.detailsProjector = detailsProjector;
     }
 
+    /** With no origin — reached from {@code /booked-hotels} or a typed URL — both ways out lead there. */
+    private static final WayBack TO_THE_LIST = new WayBack("/booked-hotels", "the list");
+
     @GetMapping("/booked-hotels/{hotelBookingId}/cancel")
     public String cancelHotelForm(@PathVariable("hotelBookingId") String hotelBookingIdString,
+                                  @RequestParam(value = "from", required = false) String from,
+                                  @RequestParam(value = "day", required = false) String day,
                                   Model model) {
         Optional<HotelDetailsView> maybe = lookup(hotelBookingIdString);
         if (maybe.isEmpty()) {
@@ -47,13 +56,15 @@ public class CancelHotelController {
         }
         model.addAttribute("booking", maybe.get());
         model.addAttribute("reason", "");
+        model.addAttribute("wayBack", LinkOrigin.wayBack(from, day, TO_THE_LIST));
         return "cancel-hotel";
     }
 
     @PostMapping("/booked-hotels/{hotelBookingId}/cancel")
     public String cancelHotel(@PathVariable("hotelBookingId") String hotelBookingIdString,
                               @RequestParam(value = "reason", required = false) String reason,
-                              @RequestParam(value = "from", required = false) String from) {
+                              @RequestParam(value = "from", required = false) String from,
+                              @RequestParam(value = "day", required = false) String day) {
         UUID hotelBookingId;
         try {
             hotelBookingId = UUID.fromString(hotelBookingIdString);
@@ -73,7 +84,9 @@ public class CancelHotelController {
             return "redirect:/booked-hotels";
         }
 
-        return returnTo(from, "/booked-hotels");
+        // Only the success path goes back where the link was clicked: a stale link or an
+        // already-cancelled miss has fixed nothing, so it still goes to the list.
+        return "redirect:" + LinkOrigin.wayBack(from, day, TO_THE_LIST).href();
     }
 
     private Optional<HotelDetailsView> lookup(String hotelBookingIdString) {
@@ -82,15 +95,6 @@ public class CancelHotelController {
         } catch (IllegalArgumentException malformedUuid) {
             return Optional.empty();
         }
-    }
-
-    /**
-     * Where to land after a successful cancellation: back at the report when Ted arrived from a fix
-     * link, otherwise this controller's own default. Only the <em>success</em> path takes it — a
-     * stale link or an already-cancelled miss has fixed nothing, so it still goes where it did.
-     */
-    private static String returnTo(String from, String fallback) {
-        return "redirect:" + FixOrigin.returnTo(from).orElse(fallback);
     }
 
 }

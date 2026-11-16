@@ -339,7 +339,7 @@ public class ScheduleProblemsRenderer {
      * control row to row; across columns the widths now differ, which is the accepted trade.
      */
     private static DomContent fixSlot(ScheduleProblem problem) {
-        List<ProblemFix> fixes = ProblemFix.forProblem(problem, FixOrigin.PROBLEM_LIST);
+        List<ProblemFix> fixes = ProblemFix.forProblem(problem, LinkOrigin.PROBLEM_LIST);
         if (fixes.isEmpty()) {
             return div().withClass("fix-slot").with(
                     span("Fix").withClass("fix-summary fix-summary--disabled")

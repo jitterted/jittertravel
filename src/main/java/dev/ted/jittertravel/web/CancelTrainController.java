@@ -45,21 +45,29 @@ public class CancelTrainController {
         this.detailsProjector = detailsProjector;
     }
 
+    /** With no origin — reached from {@code /booked-trains} or a typed URL — both ways out lead there. */
+    private static final WayBack TO_THE_LIST = new WayBack("/booked-trains", "the list");
+
     @GetMapping("/booked-trains/{tripId}/cancel")
-    public String cancelTrainForm(@PathVariable("tripId") String tripIdString, Model model) {
+    public String cancelTrainForm(@PathVariable("tripId") String tripIdString,
+                                  @RequestParam(value = "from", required = false) String from,
+                                  @RequestParam(value = "day", required = false) String day,
+                                  Model model) {
         Optional<TrainDetailsView> maybe = lookup(tripIdString);
         if (maybe.isEmpty()) {
             return "redirect:/booked-trains";
         }
         model.addAttribute("train", maybe.get());
         model.addAttribute("reason", "");
+        model.addAttribute("wayBack", LinkOrigin.wayBack(from, day, TO_THE_LIST));
         return "cancel-train";
     }
 
     @PostMapping("/booked-trains/{tripId}/cancel")
     public String cancelTrain(@PathVariable("tripId") String tripIdString,
                               @RequestParam(value = "reason", required = false) String reason,
-                              @RequestParam(value = "from", required = false) String from) {
+                              @RequestParam(value = "from", required = false) String from,
+                              @RequestParam(value = "day", required = false) String day) {
         Optional<TrainDetailsView> maybe = lookup(tripIdString);
         if (maybe.isEmpty()) {
             return "redirect:/booked-trains";
@@ -80,7 +88,9 @@ public class CancelTrainController {
             return "redirect:/read-only";
         }
 
-        return returnTo(from, "/booked-trains");
+        // Only the success path goes back where the link was clicked: a stale link or an
+        // already-cancelled miss has fixed nothing, so it still goes to the list.
+        return "redirect:" + LinkOrigin.wayBack(from, day, TO_THE_LIST).href();
     }
 
     private Optional<TrainDetailsView> lookup(String tripIdString) {
@@ -89,15 +99,6 @@ public class CancelTrainController {
         } catch (IllegalArgumentException malformedUuid) {
             return Optional.empty();
         }
-    }
-
-    /**
-     * Where to land after a successful cancellation: back at the report when Ted arrived from a fix
-     * link, otherwise this controller's own default. Only the <em>success</em> path takes it — a
-     * stale link or an already-cancelled miss has fixed nothing, so it still goes where it did.
-     */
-    private static String returnTo(String from, String fallback) {
-        return "redirect:" + FixOrigin.returnTo(from).orElse(fallback);
     }
 
 }

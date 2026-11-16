@@ -398,7 +398,9 @@ public class CalendarViewBuilder {
                     : span().with(titleParts);
             DivTag titleDiv = div().withClass("entry-title").with(kindIcon(entry.details())).with(titleText);
             if (isOwner && !isContinuation) {
-                titleDiv.with(ownerActions(entry.details()));
+                // Actions sit on the entry's own first segment only, so the day the bin is drawn
+                // on is the entry's start day.
+                titleDiv.with(ownerActions(entry.details(), entry.start().toLocalDate()));
             }
             div.with(titleDiv);
         }
@@ -485,19 +487,19 @@ public class CalendarViewBuilder {
      * and family viewers get nothing at all here rather than a greyed control: the link itself
      * would disclose that the surface exists (CLAUDE.md, affordances vs authorization).
      */
-    private static List<DomContent> ownerActions(EntryDetails details) {
+    private static List<DomContent> ownerActions(EntryDetails details, LocalDate day) {
         return switch (details) {
             // A gathering cannot be canceled yet: there is no GatheringCancelled.
             case EntryDetails.Gathering d -> pencil(d.editPath());
             // Both icons, in a fixed order: edit then cancel, so the pencil stays exactly where
             // it is on every other row.
-            case EntryDetails.Lodging d -> pencilAndBin(d.editPath(), d.cancelPath(), "Cancel hotel");
-            case EntryDetails.Flight d -> pencilAndBin(d.editPath(), d.cancelPath(), "Cancel flight");
-            case EntryDetails.Train d -> pencilAndBin(d.editPath(), d.cancelPath(), "Cancel train");
+            case EntryDetails.Lodging d -> pencilAndBin(d.editPath(), d.cancelPath(), "Cancel hotel", day);
+            case EntryDetails.Flight d -> pencilAndBin(d.editPath(), d.cancelPath(), "Cancel flight", day);
+            case EntryDetails.Train d -> pencilAndBin(d.editPath(), d.cancelPath(), "Cancel train", day);
             // A bin alone: neither has an edit page (a private event's edit flow is unbuilt,
             // docs/Cleanup_Tasks.md "Change Private Event").
-            case EntryDetails.GroundTransfer d -> bin(d.cancelPath(), "Cancel");
-            case EntryDetails.PrivateEvent d -> bin(d.cancelPath(), "Cancel private event");
+            case EntryDetails.GroundTransfer d -> bin(d.cancelPath(), "Cancel", day);
+            case EntryDetails.PrivateEvent d -> bin(d.cancelPath(), "Cancel private event", day);
             // A conference is declined from its own pages — a state-machine move, not a cancel.
             case EntryDetails.Conference _ -> List.of();
             // No publishable details type can carry an owner action, so these arms are not a
@@ -512,16 +514,22 @@ public class CalendarViewBuilder {
      * Edit then cancel, each independently optional so a missing path drops its icon without
      * shifting the other — the pencil's position is the same whether or not a bin follows it.
      */
-    private static List<DomContent> pencilAndBin(String editPath, String cancelPath, String cancelLabel) {
+    private static List<DomContent> pencilAndBin(String editPath, String cancelPath, String cancelLabel,
+                                                 LocalDate day) {
         List<DomContent> actions = new ArrayList<>(pencil(editPath));
-        if (cancelPath != null) {
-            actions.add(cancelBin(cancelPath, cancelLabel));
-        }
+        actions.addAll(bin(cancelPath, cancelLabel, day));
         return List.copyOf(actions);
     }
 
-    private static List<DomContent> bin(String cancelPath, String cancelLabel) {
-        return cancelPath == null ? List.of() : List.of(cancelBin(cancelPath, cancelLabel));
+    /**
+     * The projector's path is bare; where it is drawn is this renderer's business, so the origin and
+     * the day are added here. The cancel page reads them back to send both its ways out to this day
+     * of the calendar.
+     */
+    private static List<DomContent> bin(String cancelPath, String cancelLabel, LocalDate day) {
+        return cancelPath == null
+                ? List.of()
+                : List.of(cancelBin(LinkOrigin.CALENDAR.linkFrom(cancelPath, day), cancelLabel));
     }
 
     private static List<DomContent> pencil(String editPath) {

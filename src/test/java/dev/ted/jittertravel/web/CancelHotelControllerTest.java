@@ -83,6 +83,45 @@ class CancelHotelControllerTest {
                 .hasRedirectedUrl("/booked-hotels");
     }
 
+    // -------------------------------------------------------------------------
+    // Both ways out go where the link was clicked (docs/CancelReturnsWhereYouCameFromPlan.md)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void cancellingFromACalendarBinReturnsToTheDayItWasOn() {
+        assertThat(mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID() + "/cancel")
+                .with(csrf())
+                .param("from", "calendar")
+                .param("day", "2026-07-03"))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/calendar?day=2026-07-03");
+    }
+
+    @Test
+    void keepItFromACalendarBinLeadsBackToThatDayAndTheFormCarriesBoth() {
+        UUID bookingId = UUID.randomUUID();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(viewFor(bookingId)));
+
+        assertThat(mockMvc.get().uri("/booked-hotels/" + bookingId + "/cancel?from=calendar&day=2026-07-03"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"keep-link\" href=\"/calendar?day=2026-07-03\">Keep it — back to the calendar</a>")
+                .contains("<input type=\"hidden\" name=\"from\" value=\"calendar\"")
+                .contains("<input type=\"hidden\" name=\"day\" value=\"2026-07-03\"");
+    }
+
+    @Test
+    void keepItWithNoOriginLeadsToTheListNotTheEditPage() {
+        UUID bookingId = UUID.randomUUID();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(viewFor(bookingId)));
+
+        assertThat(mockMvc.get().uri("/booked-hotels/" + bookingId + "/cancel"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"keep-link\" href=\"/booked-hotels\">Keep it — back to the list</a>")
+                .doesNotContain("name=\"day\"");
+    }
+
     @Test
     void requestCarriesThePathIdAndTheReason() {
         UUID bookingId = UUID.randomUUID();

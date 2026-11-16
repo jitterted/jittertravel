@@ -91,7 +91,7 @@ class ProblemContextBannerWebIntegrationTest {
                 new ScheduleContext.Conference("dev2next", "Denver",
                         LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 18))));
 
-        assertThat(fixLink("/book-hotel", FixOrigin.PROBLEM_CALENDAR).param("city", "Denver"))
+        assertThat(fixLink("/book-hotel", LinkOrigin.PROBLEM_CALENDAR).param("city", "Denver"))
                 .hasStatusOk()
                 .bodyText()
                 .contains("<div class=\"problem-context problem-context--bed\">")
@@ -107,7 +107,7 @@ class ProblemContextBannerWebIntegrationTest {
         given(scheduleGapProjector.problems(NOW)).willReturn(List.of(MISSING_BED));
         given(scheduleGapProjector.context()).willReturn(List.of());
 
-        assertThat(fixLink("/plan-ground-transfer", FixOrigin.ITINERARY).param("date", "2026-09-14"))
+        assertThat(fixLink("/plan-ground-transfer", LinkOrigin.ITINERARY).param("date", "2026-09-14"))
                 .hasStatusOk()
                 .bodyText()
                 .contains("<div class=\"problem-context-title\">No hotel — Denver</div>")
@@ -129,7 +129,7 @@ class ProblemContextBannerWebIntegrationTest {
 
         assertThat(mockMvc.get().uri("/plan-ground-transfer")
                 .param("problem", ProblemKey.of(gap).value())
-                .param("from", "calendar"))
+                .param("from", "problems-calendar"))
                 .hasStatusOk()
                 .bodyText()
                 // The opening tag sits on the line above in the template, so each assertion pins
@@ -155,7 +155,7 @@ class ProblemContextBannerWebIntegrationTest {
         assertThat(mockMvc.get().uri("/book-hotel")
                 .param("city", "Denver")
                 .param("problem", "hotel|Atlantis|2026-09-14|2026-09-18")
-                .param("from", "list"))
+                .param("from", "problems-list"))
                 .hasStatusOk()
                 .bodyText()
                 .doesNotContain("class=\"problem-context")
@@ -171,9 +171,9 @@ class ProblemContextBannerWebIntegrationTest {
     void theHrefTheReportRendersResolvesToItsOwnBanner() {
         given(scheduleGapProjector.problems(NOW)).willReturn(List.of(MISSING_BED));
         given(scheduleGapProjector.context()).willReturn(List.of());
-        String href = ProblemFix.forProblem(MISSING_BED, FixOrigin.PROBLEM_LIST).getFirst().href();
+        String href = ProblemFix.forProblem(MISSING_BED, LinkOrigin.PROBLEM_LIST).getFirst().href();
 
-        assertThat(href).contains("&problem=hotel%7CDenver%7C2026-09-14%7C2026-09-18&from=list");
+        assertThat(href).contains("&problem=hotel%7CDenver%7C2026-09-14%7C2026-09-18&from=problems-list");
         assertThat(mockMvc.get().uri(URI.create(href)))
                 .hasStatusOk()
                 .bodyText()
@@ -196,7 +196,7 @@ class ProblemContextBannerWebIntegrationTest {
      * values rather than as a hand-encoded query string: percent-encoding is
      * {@link ProblemFixTest}'s claim, and what is under test here is that the reference resolves.
      */
-    private MockMvcRequestBuilder fixLink(String path, FixOrigin origin) {
+    private MockMvcRequestBuilder fixLink(String path, LinkOrigin origin) {
         return mockMvc.get().uri(path)
                 .param("problem", ProblemKey.of(MISSING_BED).value())
                 .param("from", origin.param());

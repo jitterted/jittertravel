@@ -134,15 +134,47 @@ class CancelPrivateEventControllerTest {
                 .hasRedirectedUrl("/itinerary");
     }
 
+    /**
+     * With no origin, a successful cancel goes where "Keep it" does: the list. It used to land on
+     * the itinerary day while "Keep it" went to the list; the two now agree (D2 in
+     * {@code docs/CancelReturnsWhereYouCameFromPlan.md}), and the itinerary-day landing survives
+     * for the case it was for, a bin clicked on the itinerary.
+     */
     @Test
-    void cancellingLandsBackOnTheItineraryDayTheEventLeft() {
+    void cancellingWithNoOriginLandsOnTheListLikeKeepIt() {
         UUID privateEventId = UUID.randomUUID();
         given(detailsProjector.findById(any())).willReturn(Optional.of(viewFor(privateEventId)));
 
         assertThat(mockMvc.post().uri("/planned-private-events/" + privateEventId + "/cancel")
                 .with(csrf()))
                 .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/planned-private-events");
+    }
+
+    @Test
+    void cancellingFromAnItineraryBinLandsBackOnTheDayItWasOn() {
+        UUID privateEventId = UUID.randomUUID();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(viewFor(privateEventId)));
+
+        assertThat(mockMvc.post().uri("/planned-private-events/" + privateEventId + "/cancel")
+                .with(csrf())
+                .param("from", "itinerary")
+                .param("day", "2026-06-01"))
+                .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/itinerary?date=2026-06-01");
+    }
+
+    @Test
+    void keepItFromACalendarBinLeadsBackToThatDayAndTheFormCarriesBoth() {
+        UUID privateEventId = UUID.randomUUID();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(viewFor(privateEventId)));
+
+        assertThat(mockMvc.get().uri("/planned-private-events/" + privateEventId + "/cancel?from=calendar&day=2026-06-01"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"keep-link\" href=\"/calendar?day=2026-06-01\">Keep it — back to the calendar</a>")
+                .contains("<input type=\"hidden\" name=\"from\" value=\"calendar\"")
+                .contains("<input type=\"hidden\" name=\"day\" value=\"2026-06-01\"");
     }
 
     @Test

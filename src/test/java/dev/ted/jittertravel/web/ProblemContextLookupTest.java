@@ -37,7 +37,7 @@ class ProblemContextLookupTest {
         given(scheduleGapProjector.problems(NOW)).willReturn(List.of(MISSING_BED));
         given(scheduleGapProjector.context()).willReturn(List.of());
 
-        ProblemContextView banner = bannerFor(MISSING_BED, FixOrigin.PROBLEM_CALENDAR).orElseThrow();
+        ProblemContextView banner = bannerFor(MISSING_BED, LinkOrigin.PROBLEM_CALENDAR).orElseThrow();
 
         assertThat(banner.title()).isEqualTo("No hotel — Denver");
         assertThat(banner.detail()).isEqualTo("4 nights — dev2next");
@@ -51,7 +51,7 @@ class ProblemContextLookupTest {
         given(scheduleGapProjector.problems(NOW)).willReturn(List.of(MISSING_BED));
         given(scheduleGapProjector.context()).willReturn(List.of());
 
-        assertThat(bannerFor(MISSING_BED, FixOrigin.ITINERARY).orElseThrow())
+        assertThat(bannerFor(MISSING_BED, LinkOrigin.ITINERARY).orElseThrow())
                 .extracting(ProblemContextView::backLabel, ProblemContextView::backHref)
                 .containsExactly("Back to itinerary", "/itinerary");
     }
@@ -69,7 +69,7 @@ class ProblemContextLookupTest {
                 new ScheduleContext.Travel("San Francisco", "Denver",
                         LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 14))));
 
-        assertThat(bannerFor(MISSING_BED, FixOrigin.PROBLEM_LIST).orElseThrow().contextLines())
+        assertThat(bannerFor(MISSING_BED, LinkOrigin.PROBLEM_LIST).orElseThrow().contextLines())
                 .containsExactly("San Francisco → Denver · Sep 14",
                                  "dev2next, Denver · Sep 14–18");
     }
@@ -89,7 +89,7 @@ class ProblemContextLookupTest {
                 new ScheduleContext.Conference("JCON", "Cologne",
                         LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 8))));
 
-        assertThat(bannerFor(MISSING_BED, FixOrigin.PROBLEM_LIST).orElseThrow().contextLines())
+        assertThat(bannerFor(MISSING_BED, LinkOrigin.PROBLEM_LIST).orElseThrow().contextLines())
                 .containsExactly("Reichshof, Denver · Sep 13");
     }
 
@@ -100,7 +100,7 @@ class ProblemContextLookupTest {
         given(scheduleGapProjector.context()).willReturn(List.of(
                 gatheringOn(14), gatheringOn(15), gatheringOn(16), gatheringOn(17), gatheringOn(18)));
 
-        assertThat(bannerFor(MISSING_BED, FixOrigin.PROBLEM_LIST).orElseThrow().contextLines())
+        assertThat(bannerFor(MISSING_BED, LinkOrigin.PROBLEM_LIST).orElseThrow().contextLines())
                 .hasSize(4);
     }
 
@@ -109,7 +109,7 @@ class ProblemContextLookupTest {
         given(scheduleGapProjector.problems(NOW)).willReturn(List.of(MISSING_BED));
 
         assertThat(lookup().forKey("hotel|Atlantis|2026-09-14|2026-09-18",
-                FixOrigin.PROBLEM_CALENDAR, NOW))
+                LinkOrigin.PROBLEM_CALENDAR, NOW))
                 .isEmpty();
     }
 
@@ -121,16 +121,16 @@ class ProblemContextLookupTest {
     void aProblemThatHasSinceBeenFixedExplainsNothing() {
         given(scheduleGapProjector.problems(NOW)).willReturn(List.of());
 
-        assertThat(bannerFor(MISSING_BED, FixOrigin.PROBLEM_CALENDAR)).isEmpty();
+        assertThat(bannerFor(MISSING_BED, LinkOrigin.PROBLEM_CALENDAR)).isEmpty();
     }
 
     @Test
     void noKeyAtAllExplainsNothingAndAsksTheReportNothing() {
-        assertThat(lookup().forKey(null, FixOrigin.PROBLEM_CALENDAR, NOW)).isEmpty();
-        assertThat(lookup().forKey("  ", FixOrigin.PROBLEM_CALENDAR, NOW)).isEmpty();
+        assertThat(lookup().forKey(null, LinkOrigin.PROBLEM_CALENDAR, NOW)).isEmpty();
+        assertThat(lookup().forKey("  ", LinkOrigin.PROBLEM_CALENDAR, NOW)).isEmpty();
     }
 
-    private Optional<ProblemContextView> bannerFor(ScheduleProblem problem, FixOrigin origin) {
+    private Optional<ProblemContextView> bannerFor(ScheduleProblem problem, LinkOrigin origin) {
         return lookup().forKey(ProblemKey.of(problem).value(), origin, NOW);
     }
 

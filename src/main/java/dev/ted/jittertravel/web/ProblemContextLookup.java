@@ -53,7 +53,7 @@ public class ProblemContextLookup {
      * explained on a page you can still reach: the link is stale in exactly the way the report says
      * it is.
      */
-    public Optional<ProblemContextView> forKey(String key, FixOrigin origin, Instant now) {
+    public Optional<ProblemContextView> forKey(String key, LinkOrigin origin, Instant now) {
         if (key == null || key.isBlank()) {
             return Optional.empty();
         }
@@ -61,7 +61,7 @@ public class ProblemContextLookup {
                 .map(problem -> banner(problem, origin));
     }
 
-    private ProblemContextView banner(ScheduleProblem problem, FixOrigin origin) {
+    private ProblemContextView banner(ScheduleProblem problem, LinkOrigin origin) {
         ProblemBand band = ProblemBand.from(problem);
         return new ProblemContextView(
                 band.marker().cssModifier(),

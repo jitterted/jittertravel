@@ -64,23 +64,37 @@ public class CancelFlightItineraryController {
         this.clock = clock;
     }
 
+    /**
+     * With no origin — reached from {@code /booked-flights}, today its only entry point — both ways
+     * out lead there. It reads an origin all the same, so every cancel page answers the same way.
+     */
+    private static final WayBack TO_THE_LIST = new WayBack("/booked-flights", "the list");
+
     @GetMapping("/booked-itineraries/{itineraryId}/cancel")
-    public String cancelItineraryForm(@PathVariable("itineraryId") String itineraryIdString, Model model) {
+    public String cancelItineraryForm(@PathVariable("itineraryId") String itineraryIdString,
+                                      @RequestParam(value = "from", required = false) String from,
+                                      @RequestParam(value = "day", required = false) String day,
+                                      Model model) {
         Optional<BookedItineraryView> maybe = lookup(itineraryIdString);
         if (maybe.isEmpty()) {
             return "redirect:/booked-flights";
         }
+        model.addAttribute("wayBack", LinkOrigin.wayBack(from, day, TO_THE_LIST));
         return render(model, maybe.get(), "", false);
     }
 
     @PostMapping("/booked-itineraries/{itineraryId}/cancel")
     public String cancelItinerary(@PathVariable("itineraryId") String itineraryIdString,
                                   @RequestParam(value = "reason", required = false) String reason,
+                                  @RequestParam(value = "from", required = false) String from,
+                                  @RequestParam(value = "day", required = false) String day,
                                   Model model) {
         Optional<BookedItineraryView> maybe = lookup(itineraryIdString);
         if (maybe.isEmpty()) {
             return "redirect:/booked-flights";
         }
+        WayBack wayBack = LinkOrigin.wayBack(from, day, TO_THE_LIST);
+        model.addAttribute("wayBack", wayBack);
 
         try {
             // The nondeterministic inputs, the commandId and the time, are captured here at the
@@ -98,7 +112,7 @@ public class CancelFlightItineraryController {
             return "redirect:/read-only";
         }
 
-        return "redirect:/booked-flights";
+        return "redirect:" + wayBack.href();
     }
 
     private String render(Model model, BookedItineraryView itinerary, String reason, boolean departed) {

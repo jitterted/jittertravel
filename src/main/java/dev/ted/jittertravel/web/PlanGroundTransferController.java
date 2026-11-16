@@ -144,7 +144,7 @@ public class PlanGroundTransferController {
      * always did.
      */
     private static String returnTo(String from, String fallback) {
-        return "redirect:" + FixOrigin.returnTo(from).orElse(fallback);
+        return "redirect:" + LinkOrigin.returnTo(from).orElse(fallback);
     }
 
 }

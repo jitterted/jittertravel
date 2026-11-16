@@ -841,8 +841,34 @@ class CalendarViewBuilderTest {
         );
 
         assertThat(html)
-                .contains("class=\"cancel-bin\" href=\"/ground-transfers/gt-123/cancel\"")
+                .contains("class=\"cancel-bin\" href=\"/ground-transfers/gt-123/cancel?from=calendar&amp;day=2026-06-10\"")
                 .doesNotContain("class=\"edit-pencil\"");
+    }
+
+    /**
+     * The bin says where it was clicked, so the cancel page's "Keep it" and its redirect come back
+     * to this day of the calendar rather than to a list. The day is the one the bin is drawn on:
+     * the entry's own first segment, which for a stay is its check-in day.
+     */
+    @Test
+    void aMultiDayEntrysBinCarriesTheCalendarAndTheDayItIsDrawnOn() {
+        CalendarEntry stay = new CalendarEntry(
+                LocalDateTime.of(2026, 6, 9, 15, 0),
+                LocalDateTime.of(2026, 6, 12, 11, 0),
+                "Grand Hotel", List.of(),
+                new EntryDetails.Lodging(null, "/booked-hotels/hb-1", "/booked-hotels/hb-1/cancel"));
+
+        String html = CalendarViewBuilder.render(
+                List.of(stay),
+                LocalDate.of(2026, 6, 7),
+                LocalDate.of(2026, 6, 14),
+                TODAY,
+                false,   // isPublicUser
+                true     // isOwner
+        );
+
+        assertThat(html)
+                .contains("<a class=\"cancel-bin\" href=\"/booked-hotels/hb-1/cancel?from=calendar&amp;day=2026-06-09\" title=\"Cancel hotel\">");
     }
 
     @Test
@@ -1116,7 +1142,7 @@ class CalendarViewBuilderTest {
 
         assertThat(html)
                 .contains("class=\"edit-pencil\" href=\"/booked-trains/trip-9\"")
-                .contains("class=\"cancel-bin\" href=\"/booked-trains/trip-9/cancel\"");
+                .contains("class=\"cancel-bin\" href=\"/booked-trains/trip-9/cancel?from=calendar&amp;day=2026-06-01\"");
         assertThat(html.indexOf("edit-pencil\" href=\"/booked-trains/trip-9\""))
                 .as("edit keeps its position; cancel is appended after it")
                 .isLessThan(html.indexOf("cancel-bin\" href="));
@@ -1140,7 +1166,7 @@ class CalendarViewBuilderTest {
 
         assertThat(html)
                 .contains("class=\"edit-pencil\" href=\"/booked-flights/flight-9\"")
-                .contains("class=\"cancel-bin\" href=\"/booked-flights/flight-9/cancel\" title=\"Cancel flight\"");
+                .contains("class=\"cancel-bin\" href=\"/booked-flights/flight-9/cancel?from=calendar&amp;day=2026-06-01\" title=\"Cancel flight\"");
         assertThat(html.indexOf("edit-pencil\" href=\"/booked-flights/flight-9\""))
                 .as("edit keeps its position; cancel is appended after it")
                 .isLessThan(html.indexOf("cancel-bin\" href="));

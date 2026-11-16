@@ -436,7 +436,8 @@ class ItineraryRendererTest {
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
 
         assertThat(html)
-                .contains("class=\"cancel-bin\" href=\"/booked-trains/" + tripId.id() + "/cancel\"");
+                .contains("class=\"cancel-bin\" href=\"/booked-trains/" + tripId.id()
+                          + "/cancel?from=itinerary&amp;day=2026-06-01\"");
         assertThat(html.indexOf("edit-pencil"))
                 .as("the pencil keeps the position it had before the bin existed")
                 .isLessThan(html.indexOf("cancel-bin"));
@@ -488,7 +489,8 @@ class ItineraryRendererTest {
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
 
         assertThat(html)
-                .contains("class=\"cancel-bin\" href=\"/booked-flights/" + flightId.id() + "/cancel\"");
+                .contains("class=\"cancel-bin\" href=\"/booked-flights/" + flightId.id()
+                          + "/cancel?from=itinerary&amp;day=2026-06-01\"");
         assertThat(html.indexOf("edit-pencil\" href="))
                 .as("the pencil keeps the position it had before the bin existed")
                 .isLessThan(html.indexOf("cancel-bin\" href="));
@@ -603,10 +605,26 @@ class ItineraryRendererTest {
 
         assertThat(html)
                 .contains("<a class=\"cancel-bin\" href=\"/booked-hotels/" + entry.hotelBookingId().id()
-                          + "/cancel\" title=\"Cancel hotel\">");
+                          + "/cancel?from=itinerary&amp;day=2026-06-01\" title=\"Cancel hotel\">");
         assertThat(html.indexOf("edit-pencil\" href="))
                 .as("the pencil keeps the position it had before the bin existed")
                 .isLessThan(html.indexOf("cancel-bin\" href="));
+    }
+
+    /**
+     * The bin carries the day it is drawn on, not the stay's check-in: cancelling from the
+     * check-out card comes back to the check-out day.
+     */
+    @Test
+    void aBinCarriesTheItineraryDayItIsDrawnOn() {
+        HotelItineraryEntry checkOut = hotel(HotelDayRole.CHECK_OUT, "Hessen");
+
+        String html = render(
+                threeDays(List.of(), List.of(), List.of(checkOut)), MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .contains("<a class=\"cancel-bin\" href=\"/booked-hotels/" + checkOut.hotelBookingId().id()
+                          + "/cancel?from=itinerary&amp;day=2026-06-03\" title=\"Cancel hotel\">");
     }
 
     @Test
@@ -891,7 +909,8 @@ class ItineraryRendererTest {
 
         assertThat(html)
                 .contains("<a class=\"cancel-bin\""
-                          + " href=\"/planned-private-events/66666666-7777-8888-9999-aaaaaaaaaaaa/cancel\""
+                          + " href=\"/planned-private-events/66666666-7777-8888-9999-aaaaaaaaaaaa/cancel"
+                          + "?from=itinerary&amp;day=2026-06-01\""
                           + " title=\"Cancel private event\">");
     }
 
@@ -952,7 +971,8 @@ class ItineraryRendererTest {
 
         assertThat(html)
                 .contains("<a class=\"cancel-bin\""
-                          + " href=\"/ground-transfers/11111111-2222-3333-4444-555555555555/cancel\""
+                          + " href=\"/ground-transfers/11111111-2222-3333-4444-555555555555/cancel"
+                          + "?from=itinerary&amp;day=2026-06-01\""
                           + " title=\"Cancel ground transfer\">");
     }
 

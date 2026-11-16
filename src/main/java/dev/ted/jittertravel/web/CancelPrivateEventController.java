@@ -40,8 +40,17 @@ public class CancelPrivateEventController {
         this.detailsProjector = detailsProjector;
     }
 
+    /**
+     * With no origin — reached from {@code /planned-private-events} or a typed URL — both ways out
+     * lead there. A bin on the itinerary carries its own origin and day, which is how a cancel from
+     * the itinerary still lands back on the evening's day.
+     */
+    private static final WayBack TO_THE_LIST = new WayBack("/planned-private-events", "the list");
+
     @GetMapping("/planned-private-events/{privateEventId}/cancel")
     public String cancelPrivateEventForm(@PathVariable("privateEventId") String privateEventIdString,
+                                         @RequestParam(value = "from", required = false) String from,
+                                         @RequestParam(value = "day", required = false) String day,
                                          Model model) {
         Optional<PrivateEventDetailsView> maybe = lookup(privateEventIdString);
         if (maybe.isEmpty()) {
@@ -51,19 +60,19 @@ public class CancelPrivateEventController {
         }
         model.addAttribute("privateEvent", maybe.get());
         model.addAttribute("reason", "");
+        model.addAttribute("wayBack", LinkOrigin.wayBack(from, day, TO_THE_LIST));
         return "cancel-private-event";
     }
 
     @PostMapping("/planned-private-events/{privateEventId}/cancel")
     public String cancelPrivateEvent(@PathVariable("privateEventId") String privateEventIdString,
-                                     @RequestParam(value = "reason", required = false) String reason) {
+                                     @RequestParam(value = "reason", required = false) String reason,
+                                     @RequestParam(value = "from", required = false) String from,
+                                     @RequestParam(value = "day", required = false) String day) {
         Optional<PrivateEventDetailsView> maybe = lookup(privateEventIdString);
         if (maybe.isEmpty()) {
             return "redirect:/itinerary";
         }
-        // The day the event was on, captured before it is cancelled: landing back on the itinerary
-        // day it left is what shows the evening is gone from that day.
-        String day = maybe.get().startsAt().toLocalDate().toString();
 
         try {
             // The commandId, the one nondeterministic input, is captured here at the boundary.
@@ -75,7 +84,7 @@ public class CancelPrivateEventController {
             return "redirect:/itinerary";
         }
 
-        return "redirect:/itinerary?date=" + day;
+        return "redirect:" + LinkOrigin.wayBack(from, day, TO_THE_LIST).href();
     }
 
     private Optional<PrivateEventDetailsView> lookup(String privateEventIdString) {

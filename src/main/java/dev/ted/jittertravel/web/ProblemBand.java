@@ -115,7 +115,7 @@ public record ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, 
         return new ProblemBand(Marker.BED, checkIn, lastNight,
                 "No hotel — " + missingHotel.city(),
                 detail(nightsBetween(checkIn, lastNight), missingHotel.conferenceName()),
-                ProblemFix.forProblem(missingHotel, FixOrigin.PROBLEM_CALENDAR));
+                ProblemFix.forProblem(missingHotel, LinkOrigin.PROBLEM_CALENDAR));
     }
 
     /**
@@ -130,7 +130,7 @@ public record ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, 
                 duplicateHotel.stays().size() + " hotels — " + hotels,
                 nightsBetween(duplicateHotel.firstNight(), duplicateHotel.lastNight())
                 + " nights booked twice",
-                ProblemFix.forProblem(duplicateHotel, FixOrigin.PROBLEM_CALENDAR));
+                ProblemFix.forProblem(duplicateHotel, LinkOrigin.PROBLEM_CALENDAR));
     }
 
     /**
@@ -158,7 +158,7 @@ public record ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, 
         return new ProblemBand(Marker.TRAVEL, firstDay, lastDay,
                 "No travel — " + missingTravel.fromCity() + " → " + missingTravel.toCity(),
                 detail,
-                ProblemFix.forProblem(missingTravel, FixOrigin.PROBLEM_CALENDAR));
+                ProblemFix.forProblem(missingTravel, LinkOrigin.PROBLEM_CALENDAR));
     }
 
     /**
@@ -182,7 +182,7 @@ public record ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, 
                 + " \u00b7 " + overlap.second().leg().label(),
                 zonedTime(overlap.first().departure())
                 + " \u00b7 " + zonedTime(overlap.second().departure()),
-                ProblemFix.forProblem(overlap, FixOrigin.PROBLEM_CALENDAR));
+                ProblemFix.forProblem(overlap, LinkOrigin.PROBLEM_CALENDAR));
     }
 
     /**
@@ -194,7 +194,7 @@ public record ProblemBand(Marker marker, LocalDate firstDay, LocalDate lastDay, 
         return new ProblemBand(Marker.CLASH_CITY, conflict.date(), conflict.date(),
                 "City clash — " + conflict.gatheringName() + " · " + conflict.conferenceName(),
                 conflict.gatheringCity() + " vs " + conflict.conferenceCity(),
-                ProblemFix.forProblem(conflict, FixOrigin.PROBLEM_CALENDAR));
+                ProblemFix.forProblem(conflict, LinkOrigin.PROBLEM_CALENDAR));
     }
 
     /**

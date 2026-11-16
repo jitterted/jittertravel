@@ -340,7 +340,7 @@ class ProblemCalendarRendererTest {
 
         assertThat(html)
                 .contains("<a href=\"/book-hotel?city=London&amp;checkIn=2026-07-15&amp;checkOut=2026-07-18"
-                          + "&amp;problem=hotel%7CLondon%7C2026-07-15%7C2026-07-18&amp;from=calendar\" "
+                          + "&amp;problem=hotel%7CLondon%7C2026-07-15%7C2026-07-18&amp;from=problems-calendar\" "
                           + "class=\"pc-band-link\">")
                 .contains("<span class=\"pc-band-fix\">Book hotel &rarr;</span>")
                 .as("one answer needs no menu, and a band that only looks clickable is a hidden affordance")
@@ -380,14 +380,14 @@ class ProblemCalendarRendererTest {
 
         // A travel gap has three answers, so the band keeps a menu while the card lists its links:
         // different controls, deliberately, but the same destinations.
-        List<ProblemFix> fromCalendar = ProblemFix.forProblem(problem, FixOrigin.PROBLEM_CALENDAR);
-        List<ProblemFix> fromList = ProblemFix.forProblem(problem, FixOrigin.PROBLEM_LIST);
+        List<ProblemFix> fromCalendar = ProblemFix.forProblem(problem, LinkOrigin.PROBLEM_CALENDAR);
+        List<ProblemFix> fromList = ProblemFix.forProblem(problem, LinkOrigin.PROBLEM_LIST);
         for (int fix = 0; fix < fromCalendar.size(); fix++) {
             ProblemFix bandFix = fromCalendar.get(fix);
             ProblemFix cardFix = fromList.get(fix);
-            assertThat(bandFix.href().replace("&from=calendar", ""))
+            assertThat(bandFix.href().replace("&from=problems-calendar", ""))
                     .as("the two views must not build two different URLs for one fix")
-                    .isEqualTo(cardFix.href().replace("&from=list", ""));
+                    .isEqualTo(cardFix.href().replace("&from=problems-list", ""));
             assertThat(calendar).contains("<a href=\"" + bandFix.href().replace("&", "&amp;") + "\" "
                                           + "class=\"disclosure-menu-item\">" + bandFix.label() + "</a>");
             assertThat(list).contains("<a href=\"" + cardFix.href().replace("&", "&amp;") + "\" "

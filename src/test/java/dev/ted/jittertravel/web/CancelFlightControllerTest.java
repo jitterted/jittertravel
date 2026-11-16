@@ -187,7 +187,7 @@ class CancelFlightControllerTest {
                 .willReturn(Optional.of(viewFor(flightId)));
 
         assertThat(mockMvc.post().uri("/booked-flights/{id}/cancel", flightId)
-                           .param("from", "list")
+                           .param("from", "problems-list")
                            .with(csrf()))
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/schedule-problems?view=list");
@@ -212,7 +212,7 @@ class CancelFlightControllerTest {
         given(detailsProjector.findById(FlightId.of(flightId))).willReturn(Optional.empty());
 
         assertThat(mockMvc.post().uri("/booked-flights/{id}/cancel", flightId)
-                           .param("from", "list")
+                           .param("from", "problems-list")
                            .with(csrf()))
                 .hasStatus3xxRedirection()
                 .hasRedirectedUrl("/booked-flights");
@@ -224,10 +224,48 @@ class CancelFlightControllerTest {
         given(detailsProjector.findById(FlightId.of(flightId)))
                 .willReturn(Optional.of(viewFor(flightId)));
 
-        assertThat(mockMvc.get().uri("/booked-flights/{id}/cancel?from=list", flightId))
+        assertThat(mockMvc.get().uri("/booked-flights/{id}/cancel?from=problems-list", flightId))
                 .hasStatusOk()
                 .bodyText()
-                .contains("<input type=\"hidden\" name=\"from\" value=\"list\"");
+                .contains("<input type=\"hidden\" name=\"from\" value=\"problems-list\"");
+    }
+
+    @Test
+    void cancellingFromAnItineraryBinReturnsToTheDayItWasOn() {
+        UUID flightId = UUID.randomUUID();
+        given(detailsProjector.findById(FlightId.of(flightId)))
+                .willReturn(Optional.of(viewFor(flightId)));
+
+        assertThat(mockMvc.post().uri("/booked-flights/{id}/cancel", flightId)
+                           .param("from", "itinerary")
+                           .param("day", "2026-07-03")
+                           .with(csrf()))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/itinerary?date=2026-07-03");
+    }
+
+    @Test
+    void keepItFromAnItineraryBinLeadsBackToThatDay() {
+        UUID flightId = UUID.randomUUID();
+        given(detailsProjector.findById(FlightId.of(flightId)))
+                .willReturn(Optional.of(viewFor(flightId)));
+
+        assertThat(mockMvc.get().uri("/booked-flights/{id}/cancel?from=itinerary&day=2026-07-03", flightId))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"keep-link\" href=\"/itinerary?date=2026-07-03\">Keep it — back to the itinerary</a>");
+    }
+
+    @Test
+    void keepItWithNoOriginLeadsToTheList() {
+        UUID flightId = UUID.randomUUID();
+        given(detailsProjector.findById(FlightId.of(flightId)))
+                .willReturn(Optional.of(viewFor(flightId)));
+
+        assertThat(mockMvc.get().uri("/booked-flights/{id}/cancel", flightId))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"keep-link\" href=\"/booked-flights\">Keep it — back to the list</a>");
     }
 
     @Test

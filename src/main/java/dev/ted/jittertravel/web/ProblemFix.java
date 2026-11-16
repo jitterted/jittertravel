@@ -47,7 +47,7 @@ public record ProblemFix(String label, String href) {
      * rather than dropping it (CLAUDE.md: an action that cannot be triggered is disabled, not
      * removed).
      */
-    public static List<ProblemFix> forProblem(ScheduleProblem problem, FixOrigin origin) {
+    public static List<ProblemFix> forProblem(ScheduleProblem problem, LinkOrigin origin) {
         return fixesFor(problem).stream()
                 .map(fix -> fix.explaining(problem, origin))
                 .toList();
@@ -62,7 +62,7 @@ public record ProblemFix(String label, String href) {
      * page, and a query parameter cannot escape a path matcher — so this still adds no
      * {@code SecurityConfig} matcher and no {@code AuthorizationMatrixTest} row.
      */
-    private ProblemFix explaining(ScheduleProblem problem, FixOrigin origin) {
+    private ProblemFix explaining(ScheduleProblem problem, LinkOrigin origin) {
         String separator = href.contains("?") ? "&" : "?";
         return new ProblemFix(label, href + separator
                                      + "problem=" + encode(ProblemKey.of(problem).value())

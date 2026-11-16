@@ -117,6 +117,42 @@ class CancelGroundTransferControllerTest {
     }
 
     @Test
+    void cancellingFromACalendarBinReturnsToTheDayItWasOn() {
+        UUID transferId = UUID.randomUUID();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(viewFor(transferId)));
+
+        assertThat(mockMvc.post().uri("/ground-transfers/" + transferId + "/cancel")
+                .with(csrf())
+                .param("from", "calendar")
+                .param("day", "2026-09-14"))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/calendar?day=2026-09-14");
+    }
+
+    @Test
+    void keepItFromACalendarBinLeadsBackToThatDay() {
+        UUID transferId = UUID.randomUUID();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(viewFor(transferId)));
+
+        assertThat(mockMvc.get().uri("/ground-transfers/" + transferId + "/cancel?from=calendar&day=2026-09-14"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"keep-link\" href=\"/calendar?day=2026-09-14\">Keep it — back to the calendar</a>");
+    }
+
+    /** A transfer has no list of its own, so with no origin both ways out land on its day. */
+    @Test
+    void keepItWithNoOriginLeadsToTheItineraryDayTheTransferLeaves() {
+        UUID transferId = UUID.randomUUID();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(viewFor(transferId)));
+
+        assertThat(mockMvc.get().uri("/ground-transfers/" + transferId + "/cancel"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"keep-link\" href=\"/itinerary?date=2026-09-14\">Keep it — back to the itinerary</a>");
+    }
+
+    @Test
     void requestCarriesThePathId() {
         UUID transferId = UUID.randomUUID();
         given(detailsProjector.findById(any())).willReturn(Optional.of(viewFor(transferId)));

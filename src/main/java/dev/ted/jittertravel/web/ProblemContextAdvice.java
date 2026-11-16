@@ -60,27 +60,37 @@ public class ProblemContextAdvice {
         }
         // now is captured here, at the boundary, and passed inward — the lookup never asks what
         // time it is.
-        return problemContextLookup.forKey(problem, FixOrigin.fromParam(from), clock.instant())
+        return problemContextLookup.forKey(problem, LinkOrigin.fromParam(from), clock.instant())
                 .orElse(null);
     }
 
     /**
-     * The raw {@code ?from=} value, so a fix target's form can carry it through its own POST — and
-     * through a validation re-render, which is the case that would otherwise lose the way back one
-     * submit later.
+     * The raw {@code ?from=} value, so a form reached from a fix link or a cancel bin can carry it
+     * through its own POST — and through a validation re-render, which is the case that would
+     * otherwise lose the way back one submit later.
      * <p>
-     * <strong>Raw, and {@code null} when absent.</strong> Not a resolved {@link FixOrigin}: absent
-     * has to stay distinguishable from {@code calendar}, or every ordinary booking would round-trip
-     * through the report. The controller resolves it on the way out, via
-     * {@link FixOrigin#returnTo}, which is also what keeps a hand-edited value from becoming a path.
+     * <strong>Raw, and {@code null} when absent.</strong> Not a resolved {@link LinkOrigin}: absent
+     * has to stay distinguishable from {@code problems-calendar}, or every ordinary booking would
+     * round-trip through the report. The controller resolves it on the way out, via
+     * {@link LinkOrigin#returnTo} or {@link LinkOrigin#wayBack}, which is also what keeps a
+     * hand-edited value from becoming a path.
      * <p>
-     * Exposed here rather than through eight controller signatures for the same reason
+     * Exposed here rather than through a dozen controller signatures for the same reason
      * {@code problemContext} is (D6): the trigger is a query parameter, not anything about booking
      * a hotel. Unlike the banner this needs no projector and no clock, so it is present even in a
      * slice that has neither.
      */
-    @ModelAttribute("fixOrigin")
-    public String fixOrigin(@RequestParam(required = false) String from) {
+    @ModelAttribute("linkOrigin")
+    public String linkOrigin(@RequestParam(required = false) String from) {
         return from == null || from.isBlank() ? null : from;
+    }
+
+    /**
+     * The {@code &day=} a cancel bin carries — the day it was drawn on — passed on only when it is a
+     * date, so the form echoes nothing that was typed into the URL. {@code null} when absent.
+     */
+    @ModelAttribute("originDay")
+    public String originDay(@RequestParam(required = false) String day) {
+        return LinkOrigin.validDay(day);
     }
 }

@@ -236,6 +236,45 @@ class CancelFlightItineraryControllerTest {
     }
 
     @Test
+    void confirmingWithAnOriginReturnsThere() {
+        givenALiveItinerary();
+
+        assertThat(mockMvc.post().uri("/booked-itineraries/{id}/cancel", itineraryId)
+                           .param("from", "calendar")
+                           .param("day", "2026-10-18")
+                           .with(csrf()))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/calendar?day=2026-10-18");
+    }
+
+    @Test
+    void keepItWithNoOriginLeadsToTheList() {
+        givenALiveItinerary();
+
+        assertThat(mockMvc.get().uri("/booked-itineraries/{id}/cancel", itineraryId))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"keep-link\" href=\"/booked-flights\">Keep it — back to the list</a>");
+    }
+
+    /** The refusal re-renders the page from the POST, so the way back has to survive it. */
+    @Test
+    void aDepartedRefusalKeepsTheWayBackItArrivedWith() {
+        givenALiveItinerary();
+        willThrow(new FlightItineraryHasDeparted("left"))
+                .given(cancelFlightItinerary)
+                .cancelItinerary(any(UUID.class), any(CancelFlightItineraryRequest.class), any(Instant.class));
+
+        assertThat(mockMvc.post().uri("/booked-itineraries/{id}/cancel", itineraryId)
+                           .param("from", "calendar")
+                           .param("day", "2026-10-18")
+                           .with(csrf()))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<a class=\"keep-link\" href=\"/calendar?day=2026-10-18\">Back to the calendar</a>");
+    }
+
+    @Test
     void aDepartedLegIsAnsweredOnThePageWithALinkToCancelEachRemainingFlight() {
         givenALiveItinerary();
         willThrow(new FlightItineraryHasDeparted("left"))

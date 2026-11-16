@@ -153,7 +153,7 @@ public class ItineraryRenderer {
             dayDiv.with(renderWhereabouts(day, isOwner));
         } else {
             day.entries().stream()
-                    .map(entry -> renderEntry(entry, isOwner))
+                    .map(entry -> renderEntry(entry, isOwner, day.date()))
                     .forEach(dayDiv::with);
         }
         return dayDiv;
@@ -197,7 +197,7 @@ public class ItineraryRenderer {
                 div("No hotel booked").withClass("whereabouts-detail")
         );
         if (isOwner) {
-            ProblemFix.forProblem(gap, FixOrigin.ITINERARY).forEach(fix -> row.with(
+            ProblemFix.forProblem(gap, LinkOrigin.ITINERARY).forEach(fix -> row.with(
                     div().withClass("whereabouts-fix").with(
                             a().withHref(fix.href()).with(text(fix.label()), rawHtml(" &rarr;")))));
         }
@@ -217,24 +217,32 @@ public class ItineraryRenderer {
         return row;
     }
 
-    private static DomContent renderEntry(ItineraryEntry entry, boolean isOwner) {
+    /**
+     * {@code day} is the itinerary day the entry is drawn on, which each bin carries so the cancel
+     * page comes back to it — the check-out day for a check-out card, not the stay's first night.
+     */
+    private static DomContent renderEntry(ItineraryEntry entry, boolean isOwner, LocalDate day) {
         return switch (entry) {
-            case FlightItineraryEntry e -> renderFlight(e, isOwner);
-            case TrainItineraryEntry e -> renderTrain(e, isOwner);
-            case HotelItineraryEntry e -> renderHotel(e, isOwner);
+            case FlightItineraryEntry e -> renderFlight(e, isOwner, day);
+            case TrainItineraryEntry e -> renderTrain(e, isOwner, day);
+            case HotelItineraryEntry e -> renderHotel(e, isOwner, day);
             case GatheringItineraryEntry e -> renderGathering(e, isOwner);
             case ConferenceItineraryEntry e -> renderConference(e, isOwner);
-            case PrivateEventItineraryEntry e -> renderPrivateEvent(e, isOwner);
-            case GroundTransferItineraryEntry e -> renderGroundTransfer(e, isOwner);
+            case PrivateEventItineraryEntry e -> renderPrivateEvent(e, isOwner, day);
+            case GroundTransferItineraryEntry e -> renderGroundTransfer(e, isOwner, day);
         };
     }
 
-    private static DivTag renderFlight(FlightItineraryEntry e, boolean isOwner) {
+    private static DomContent bin(String cancelPath, String label, LocalDate day) {
+        return cancelBin(LinkOrigin.ITINERARY.linkFrom(cancelPath, day), label);
+    }
+
+    private static DivTag renderFlight(FlightItineraryEntry e, boolean isOwner, LocalDate day) {
         String kindLabel = e.role() == FlightDayRole.ARRIVAL ? "Arriving" : "Flight";
         DivTag title = div().withClass("entry-title").with(span(e.airline() + " " + e.flightNumber()));
         if (isOwner) {
             title.with(editPencil("/booked-flights/" + e.flightId().id(), "Edit flight"));
-            title.with(cancelBin("/booked-flights/" + e.flightId().id() + "/cancel", "Cancel flight"));
+            title.with(bin("/booked-flights/" + e.flightId().id() + "/cancel", "Cancel flight", day));
         }
         return div().withClass("entry-card entry-card--flight").with(
                 div().withClass("entry-header").with(
@@ -254,7 +262,7 @@ public class ItineraryRenderer {
         );
     }
 
-    private static DivTag renderTrain(TrainItineraryEntry e, boolean isOwner) {
+    private static DivTag renderTrain(TrainItineraryEntry e, boolean isOwner, LocalDate day) {
         String kindLabel = e.role() == TrainDayRole.ARRIVAL ? "Arriving" : "Train";
         DivTag card = div().withClass("entry-card entry-card--train").with(
                 div().withClass("entry-header").with(
@@ -278,8 +286,8 @@ public class ItineraryRenderer {
             }
             if (isOwner) {
                 serviceLine.with(editPencil("/booked-trains/" + e.tripId().id(), "Edit train"));
-                serviceLine.with(cancelBin("/booked-trains/" + e.tripId().id() + "/cancel",
-                        "Cancel train"));
+                serviceLine.with(bin("/booked-trains/" + e.tripId().id() + "/cancel",
+                        "Cancel train", day));
             }
             card.with(serviceLine);
         }
@@ -300,7 +308,7 @@ public class ItineraryRenderer {
         return a(name).withHref(mapsUrl).withTarget("_blank").withRel("noopener");
     }
 
-    private static DivTag renderHotel(HotelItineraryEntry e, boolean isOwner) {
+    private static DivTag renderHotel(HotelItineraryEntry e, boolean isOwner, LocalDate day) {
         String kindLabel = e.dayRole() == HotelDayRole.CHECK_IN ? "Check-In" : "Check-Out";
         Address addr = e.address();
         String cityLine = addr.city()
@@ -310,7 +318,7 @@ public class ItineraryRenderer {
                 a(e.hotelName()).withHref(e.mapsUrl()).withTarget("_blank").withRel("noopener"));
         if (isOwner) {
             title.with(editPencil("/booked-hotels/" + e.hotelBookingId().id(), "Edit hotel"));
-            title.with(cancelBin("/booked-hotels/" + e.hotelBookingId().id() + "/cancel", "Cancel hotel"));
+            title.with(bin("/booked-hotels/" + e.hotelBookingId().id() + "/cancel", "Cancel hotel", day));
         }
         return div().withClass("entry-card entry-card--lodging").with(
                 div().withClass("entry-header").with(
@@ -434,7 +442,7 @@ public class ItineraryRenderer {
      * a wrong transfer is corrected by removing it and entering it again — and left in place it
      * keeps asserting a hop that never happened, masking a real gap on /schedule-problems.
      */
-    private static DivTag renderGroundTransfer(GroundTransferItineraryEntry e, boolean isOwner) {
+    private static DivTag renderGroundTransfer(GroundTransferItineraryEntry e, boolean isOwner, LocalDate day) {
         boolean hasMode = !e.mode().isBlank();
         DivTag route = div().with(
                 span(e.origin()),
@@ -445,8 +453,8 @@ public class ItineraryRenderer {
                 ? div().withClass("entry-title").with(span(e.mode()))
                 : route.withClass("entry-title");
         if (isOwner) {
-            title.with(cancelBin("/ground-transfers/" + e.groundTransferId().id() + "/cancel",
-                    "Cancel ground transfer"));
+            title.with(bin("/ground-transfers/" + e.groundTransferId().id() + "/cancel",
+                    "Cancel ground transfer", day));
         }
         DivTag card = div().withClass("entry-card entry-card--ground-transfer").with(
                 div().withClass("entry-header").with(
@@ -474,13 +482,13 @@ public class ItineraryRenderer {
      * The bin is OWNER-only, and for a family viewer it is <em>absent</em> rather than greyed:
      * greying says "this exists but not for you now", and family will never cancel Ted's dinner.
      */
-    private static DivTag renderPrivateEvent(PrivateEventItineraryEntry e, boolean isOwner) {
+    private static DivTag renderPrivateEvent(PrivateEventItineraryEntry e, boolean isOwner, LocalDate day) {
         // Itinerary is OWNER/FAMILY only, so full detail is fine here — redaction is an
         // anonymous-calendar concern. No title link: a private event has no public info URL.
         DivTag title = div().withClass("entry-title").with(span(e.title()));
         if (isOwner) {
-            title.with(cancelBin("/planned-private-events/" + e.privateEventId().id() + "/cancel",
-                    "Cancel private event"));
+            title.with(bin("/planned-private-events/" + e.privateEventId().id() + "/cancel",
+                    "Cancel private event", day));
         }
         return div().withClass("entry-card entry-card--private-event").with(
                 div("Private").withClass("entry-kind entry-kind--private-event"),

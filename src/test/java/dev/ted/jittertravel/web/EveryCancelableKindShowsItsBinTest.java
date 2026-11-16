@@ -164,9 +164,11 @@ class EveryCancelableKindShowsItsBinTest {
                 false,  // isPublicUser
                 true);  // isOwner
 
+        // The path only: the query string saying where the bin was clicked is the renderer's own
+        // claim, pinned in CalendarViewBuilderTest. One claim per test.
         assertThat(html)
                 .as(kind + " on /calendar")
-                .contains("class=\"cancel-bin\" href=\"" + cancelable.get().href() + "\"");
+                .contains("class=\"cancel-bin\" href=\"" + cancelable.get().href() + "?");
     }
 
     @ParameterizedTest
@@ -184,9 +186,10 @@ class EveryCancelableKindShowsItsBinTest {
                 DAY.minusDays(1), DAY.plusDays(1), TODAY,
                 Optional.empty(), true, ZoneDisplay.entryOnly());
 
+        // The path only, as on the calendar; ItineraryRendererTest pins the query string.
         assertThat(html)
                 .as(kind + " on /itinerary")
-                .contains("class=\"cancel-bin\" href=\"" + cancelable.get().href() + "\"");
+                .contains("class=\"cancel-bin\" href=\"" + cancelable.get().href() + "?");
     }
 
     // --- Route discovery ---

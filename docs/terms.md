@@ -353,7 +353,8 @@ a content-derived `ProblemKey`.
 Supporting: `ScheduleContext` (the facts a problem came from: `Conference`, `Gathering`,
 `PrivateEvent`, `Travel`, `Stay`), `ScheduleTimeline` (where Ted is, in order: `Movement`,
 `Stay`, `Occupancy`, `CityNight`), `ScheduleGapProjector`, and in `web/`: `ProblemBand`,
-`ContextBand`, `ProblemFix`, `ProblemKey`, `FixOrigin`, `ProblemView`, `ProblemContextView`.
+`ContextBand`, `ProblemFix`, `ProblemKey`, `LinkOrigin` (where a fix link *or a cancel bin* was
+clicked; `FixOrigin` until 2026-11-16), `ProblemView`, `ProblemContextView`.
 
 ### Away day
 
@@ -566,7 +567,7 @@ Follow a link from a schedule problem to the form that resolves it. Navigation, 
 - **Type**: Homonym
 - **Where**: `FlightItinerary*`, `ItineraryLeg`, `ItineraryChangePlan`, `PastedItinerary`,
   `ItineraryEvaluation` (a booking) vs `ItineraryDay`, `ItineraryEntry`, `ItineraryProjector`,
-  `FixOrigin.ITINERARY`, `/itinerary` (the page). Worst case: `FlightItineraryEntry` is a flight's
+  `LinkOrigin.ITINERARY`, `/itinerary` (the page). Worst case: `FlightItineraryEntry` is a flight's
   card on the page and has nothing to do with `FlightItineraryId`. `FlightCancelled`'s javadoc
   says "removed from … the itinerary", meaning the page.
 - **Problem**: `ItineraryEvaluation` (paste flow) and `ItineraryEntry` (page) sit side by side

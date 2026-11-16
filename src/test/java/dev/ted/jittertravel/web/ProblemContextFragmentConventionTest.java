@@ -116,7 +116,7 @@ class ProblemContextFragmentConventionTest {
                     .as("the form posting to %s must carry ?from= through the POST, or the action "
                         + "lands somewhere else", path)
                     .contains("name=\"from\"")
-                    .contains("th:value=\"${fixOrigin}\"");
+                    .contains("th:value=\"${linkOrigin}\"");
         });
     }
 
@@ -145,15 +145,15 @@ class ProblemContextFragmentConventionTest {
 
     /**
      * The origin decides a <strong>redirect</strong>, and it arrives in a query parameter — so it
-     * has to be resolved through {@link FixOrigin} and never used as a path. An unrecognized value
+     * has to be resolved through {@link LinkOrigin} and never used as a path. An unrecognized value
      * comes back as the calendar, which is what stops a hand-edited {@code ?from=} being an open
      * redirect.
      */
     @Test
     void anUnknownOriginCannotBecomeARedirectTarget() {
-        assertThat(FixOrigin.returnTo("https://evil.example.com"))
+        assertThat(LinkOrigin.returnTo("https://evil.example.com"))
                 .contains("/schedule-problems?view=calendar");
-        assertThat(FixOrigin.returnTo("/admin/database"))
+        assertThat(LinkOrigin.returnTo("/admin/database"))
                 .contains("/schedule-problems?view=calendar");
     }
 
@@ -164,9 +164,9 @@ class ProblemContextFragmentConventionTest {
      */
     @Test
     void noOriginLeavesTheControllersOwnDestinationAlone() {
-        assertThat(FixOrigin.returnTo(null))
+        assertThat(LinkOrigin.returnTo(null))
                 .isEmpty();
-        assertThat(FixOrigin.returnTo("  "))
+        assertThat(LinkOrigin.returnTo("  "))
                 .isEmpty();
     }
 
@@ -178,7 +178,7 @@ class ProblemContextFragmentConventionTest {
     private Set<String> fixTargetPaths() {
         Set<String> paths = new LinkedHashSet<>();
         for (ScheduleProblem problem : oneOfEveryProblem()) {
-            for (ProblemFix fix : ProblemFix.forProblem(problem, FixOrigin.PROBLEM_LIST)) {
+            for (ProblemFix fix : ProblemFix.forProblem(problem, LinkOrigin.PROBLEM_LIST)) {
                 String path = fix.href().split("\\?")[0];
                 paths.add(path
                         .replaceFirst("^/booked-hotels/[^/]+/cancel$", "/booked-hotels/{id}/cancel")

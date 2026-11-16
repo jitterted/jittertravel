@@ -1443,6 +1443,10 @@ count is deliberately not stated here so it cannot go stale again.)
       **One near-miss worth recording:** restoring a mutated template with `git checkout` silently
       reverted it to a *stale index*, losing the hidden input — caught only because the suite was
       re-run afterwards. Restore mutations from a copy, not from git, while work is staged.
+      **Since renamed (2026-11-16):** `FixOrigin` is now `LinkOrigin`, the `fixOrigin` model
+      attribute is `linkOrigin`, and `?from=list` / `?from=calendar` are `problems-list` /
+      `problems-calendar` — `calendar` now means `/calendar`, where cancel bins come from. See
+      `docs/CancelReturnsWhereYouCameFromPlan.md`. The entry above keeps the names it shipped with.
 
 - [x] **Every reading on the cookie probe carries a verdict** (2026-09-09). Ted, on being shown the
       raw values: *"showing me values without knowing if they're good or bad is useless."* The case

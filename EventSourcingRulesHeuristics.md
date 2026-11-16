@@ -447,7 +447,8 @@ is "the envelope", "the clock", or "a constant", it is an R10 violation.
 The event-store envelope's `recorded_at` is **metadata**: it exists so rows can be
 ordered, and nothing else. Any time that reaches a **view** is a domain fact and
 must be a field on the event payload, named for its purpose in the domain
-(`recordedAt`, `bookedAt`, `cancelledAt`), captured by the producer at the
+(`bookedOn`, `changedOn`, `cancelledOn` — the `*On` form every such field in the
+tree uses, Ted 2026-11-15), captured by the producer at the
 boundary from the injected `Clock`. Never defaulted to a `now()` at write time
 deep in infrastructure.
 
@@ -523,6 +524,46 @@ variable's declared type leaves no trace in bytecode), over every `*Projector` i
 comments and string literals blanked out, failing on any mention of another
 `*Projector` or `*Aggregator`. Comments may name one (`BookedHotelsProjector`
 does, deliberately); code may not.
+
+---
+
+### R13. A stored payload is opaque — nothing outside the event store queries into it.
+
+An event's payload is to the event store what a private field is to a class: the
+store owns its shape and may change it at any time — an upcaster rung rewrites it
+on read, `LegacyEventMigration` rewrites it in place, a rename moves a key (R7).
+Code outside the store reads an event only as a deserialized, upcast `Event`,
+never as stored JSON. That means no SQL reaching into `event_log.payload` (`->`,
+`->>`, `@>`, `#>`, `jsonb_path_*`), no view or report over it, and no ad-hoc
+query run against a database or a restored backup to answer a question (Ted,
+2026-11-15).
+
+**To ask a question the read models do not answer, build a read model.** A
+projector that folds the events it needs and, when the question has to be queried
+ad hoc rather than rendered, persists its result to its own table or tables. Those
+tables are the queryable surface: the projector owns their shape, it is rebuilt
+from events like any other read model (R9, H5), and it sees only upcast events,
+so it cannot be broken by a payload rewrite it never sees.
+
+**Why:** a query against stored JSON is a second reader of the payload format
+that no rung, migration, or golden sample knows about. It reads legacy and current
+shapes side by side, it breaks silently when a field moves, and the R7 migration
+discipline cannot protect it because nothing in the build sees it. It is also how
+a question ends up answered from the envelope instead of the payload (R11): the
+envelope `timestamp` is right there in the same row.
+
+**What this is not.** The store's own infrastructure reading and writing the
+payload — `PostgresPersister`, `EventPayloadUpcaster` and its rungs,
+`LegacyEventMigration`, `BackupService` writing rows verbatim — is the owner
+touching its own field. A column the *envelope* owns is not the payload either: the
+`tags` column proposed in `docs/CommandConsistencyEventStore.md` surfaces identity
+into a column the store maintains on purpose, which is the right way to make it
+queryable.
+
+**Enforcement.** None yet. Production code queries no payload today (checked
+2026-11-15: no JSONB operator against `payload` in `src/main`). A source scan for
+those operators applied to `payload` outside `infrastructure` would be the
+mechanical guard; it is cheap, but no violation has ever existed for it to catch.
 
 ---
 

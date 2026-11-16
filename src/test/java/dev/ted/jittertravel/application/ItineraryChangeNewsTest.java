@@ -140,6 +140,47 @@ class ItineraryChangeNewsTest {
                 .isEmpty();
     }
 
+    @Test
+    void he80ppsChangedJourneyIsTheReturnFromItsOldStartToItsNewOneAndTheUnchangedOutboundIsNotListed() {
+        ItineraryLeg sfoEwr = leg("SFO", 11, 7, 8, 15, PACIFIC, "EWR", 11, 7, 16, 38, NEW_YORK);
+        ItineraryLeg ewrBer = leg("EWR", 11, 7, 17, 50, NEW_YORK, "BER", 11, 8, 7, 55, BERLIN);
+        ItineraryLeg berFra = leg("BER", 11, 26, 10, 40, BERLIN, "FRA", 11, 26, 11, 50, BERLIN);
+        ItineraryLeg fraSfo = leg("FRA", 11, 26, 13, 30, BERLIN, "SFO", 11, 26, 16, 5, PACIFIC);
+
+        assertThat(news.changedJourneys(List.of(sfoEwr, ewrBer, berFra, fraSfo), List.of(sfoEwr, ewrBer, fraSfo)))
+                .containsExactly(new ItineraryChangeNews.ChangedJourney(
+                        new ItineraryChangeNews.JourneyEnds(AirportCode.of("BER"), berFra.departureDateTime(),
+                                AirportCode.of("SFO"), fraSfo.arrivalDateTime()),
+                        new ItineraryChangeNews.JourneyEnds(AirportCode.of("FRA"), fraSfo.departureDateTime(),
+                                AirportCode.of("SFO"), fraSfo.arrivalDateTime())));
+    }
+
+    @Test
+    void aJourneyWhoseEndsMovedLessThanTwoHoursIsStillListedBecauseTheEmailShowsExactTimes() {
+        ItineraryLeg later = leg("SFO", 11, 2, 8, 40, PACIFIC, "ORD", 11, 2, 14, 50, CENTRAL);
+
+        assertThat(news.changedJourneys(List.of(sfoOrd, ordYow), List.of(later, ordYow)))
+                .extracting(ItineraryChangeNews.ChangedJourney::now)
+                .extracting(ItineraryChangeNews.JourneyEnds::departs)
+                .containsExactly(later.departureDateTime());
+    }
+
+    @Test
+    void aJourneyWhoseOnlyChangeIsAConnectionIsNotListed() {
+        ItineraryLeg ordYowLater = leg("ORD", 11, 2, 16, 35, CENTRAL, "YOW", 11, 2, 19, 40, EASTERN);
+
+        assertThat(news.changedJourneys(List.of(sfoOrd, ordYow), List.of(sfoOrd, ordYowLater)))
+                .isEmpty();
+    }
+
+    @Test
+    void aJourneyNothingBeforeOverlapsHasNoOldEndsAndIsNotListed() {
+        ItineraryLeg extraTrip = leg("SFO", 12, 1, 9, 0, PACIFIC, "SEA", 12, 1, 11, 10, PACIFIC);
+
+        assertThat(news.changedJourneys(List.of(sfoOrd, ordYow), List.of(sfoOrd, ordYow, extraTrip)))
+                .isEmpty();
+    }
+
     private static ItineraryLeg leg(String from, int departMonth, int departDay, int departHour, int departMinute,
                                     ZoneId departZone, String to, int arriveMonth, int arriveDay, int arriveHour,
                                     int arriveMinute, ZoneId arriveZone) {

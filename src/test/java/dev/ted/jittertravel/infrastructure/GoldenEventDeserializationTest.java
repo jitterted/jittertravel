@@ -1211,6 +1211,23 @@ class GoldenEventDeserializationTest {
     }
 
     @Test
+    void familyNotifiedThatAFlightWasCancelledDeserializes() {
+        // Additive enum value, 2026-11-16 (one flight cancelled on its own): no schema version or upcaster.
+        String json = """
+                {
+                  "subject": {"kind": "FLIGHT", "id": "99999999-9999-9999-9999-999999999999"},
+                  "fact": "FLIGHT_CANCELLED",
+                  "notifiedAt": "2026-11-16T17:00:00Z"
+                }
+                """;
+
+        FamilyNotified event = deserialize(json, FamilyNotified.class);
+
+        assertThat(event.fact())
+                .isEqualTo(NotifiedFact.FLIGHT_CANCELLED);
+    }
+
+    @Test
     void familyNotifiedThatAnItineraryWasCancelledDeserializes() {
         // Additive: a new value of the existing NotifiedFact enum, so no schema version or upcaster.
         String json = """

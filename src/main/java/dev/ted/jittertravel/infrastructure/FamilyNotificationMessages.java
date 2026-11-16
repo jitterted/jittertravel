@@ -1,7 +1,10 @@
 package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.ConferenceNews;
+import dev.ted.jittertravel.application.ItineraryChangeNews.ChangedJourney;
+import dev.ted.jittertravel.application.ItineraryChangeNews.JourneyEnds;
 import dev.ted.jittertravel.domain.AirportCityResolver;
+import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.NotifiedFact;
 import dev.ted.jittertravel.domain.ZonedTimestamp;
@@ -66,6 +69,7 @@ public class FamilyNotificationMessages {
     public FamilyMessage messageFor(NotifiedFact fact, List<FlightBooked> legs) {
         return switch (fact) {
             case FLIGHT_BOOKED -> templates.render("flight-booked", flightValues(legs));
+            case FLIGHT_CANCELLED -> templates.render("flight-cancelled", flightValues(legs));
             case ITINERARY_BOOKED -> templates.render("trip-booked", tripValues(legs));
             case ITINERARY_CANCELLED -> templates.render("trip-cancelled", tripValues(legs));
             case ITINERARY_CHANGED -> throw new IllegalArgumentException(
@@ -79,10 +83,15 @@ public class FamilyNotificationMessages {
     /**
      * A trip changed (D5): the flights still to come, numbered, then "the old flights that were
      * changed", every dropped leg and every moved one at its old times, so a change that only shifts
-     * times still says what it shifted from (Ted, 2026-10-13). Approved wording, {@code trip-changed.txt}.
+     * times still says what it shifted from (Ted, 2026-10-13). Above them, "What changed:" names
+     * each journey whose ends moved, old and new, so a new departure point reads as one sentence and
+     * an unmoved arrival says "same as before" (Ted, 2026-11-16, after HE80PP dropped BER→FRA and
+     * nothing said the SFO arrival was unchanged). Approved wording, {@code trip-changed.txt}.
      */
-    public FamilyMessage tripChanged(List<FlightBooked> legs, List<FlightBooked> oldLegs) {
+    public FamilyMessage tripChanged(List<FlightBooked> legs, List<ChangedJourney> journeys,
+                                     List<FlightBooked> oldLegs) {
         Map<String, Object> values = tripValues(legs);
+        values.put("journeys", journeys.stream().map(this::view).toList());
         // The old flights are not numbered in the email, so they carry no number here.
         values.put("oldLegs", oldLegs.stream().map(leg -> view(0, leg)).toList());
         return templates.render("trip-changed", values);
@@ -234,6 +243,43 @@ public class FamilyNotificationMessages {
             chain.append(" → ").append(leg.arrivalAirport().code());
         }
         return chain.toString();
+    }
+
+    /**
+     * One "What changed" entry. {@code leaves} and {@code arrives} are the whole text after their
+     * label: the new time, padded so the two comparisons start in one column, then either "was" and
+     * the old time or "same as before".
+     */
+    public record JourneyView(String heading, String leaves, String arrives) {
+    }
+
+    private JourneyView view(ChangedJourney journey) {
+        JourneyEnds was = journey.was();
+        JourneyEnds now = journey.now();
+        String route = city(now.from().code()) + " → " + city(now.to().code());
+        String heading = was.from().equals(now.from()) && was.to().equals(now.to())
+                ? route
+                : city(was.from().code()) + " → " + city(was.to().code()) + " is now " + route;
+        String leaves = labelled(now.departs(), now.from());
+        String arrives = labelled(now.arrives(), now.to());
+        int width = Math.max(leaves.length(), arrives.length());
+        return new JourneyView(heading,
+                padded(leaves, width) + "   " + comparedWith(was.departs(), was.from(), now.departs(), now.from()),
+                padded(arrives, width) + "   " + comparedWith(was.arrives(), was.to(), now.arrives(), now.to()));
+    }
+
+    private String comparedWith(ZonedTimestamp wasAt, AirportCode wasWhere, ZonedTimestamp nowAt, AirportCode nowWhere) {
+        return wasWhere.equals(nowWhere) && wasAt.utc().equals(nowAt.utc())
+                ? "same as before"
+                : "was " + labelled(wasAt, wasWhere);
+    }
+
+    private String labelled(ZonedTimestamp timestamp, AirportCode airport) {
+        return when(timestamp) + " (" + airport.code() + ")";
+    }
+
+    private String padded(String text, int width) {
+        return text + " ".repeat(width - text.length());
     }
 
     private String city(String airportCode) {

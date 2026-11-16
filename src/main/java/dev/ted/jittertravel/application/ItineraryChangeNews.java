@@ -49,6 +49,18 @@ public class ItineraryChangeNews {
                              ZonedTimestamp wasAt, ZonedTimestamp nowAt) {
     }
 
+    /** Where and when a journey starts and ends: its first departure and its last arrival. */
+    public record JourneyEnds(AirportCode from, ZonedTimestamp departs, AirportCode to, ZonedTimestamp arrives) {
+    }
+
+    /**
+     * A journey whose ends are not exactly what they were, for the email's "What changed" block.
+     * {@code was} is built the way {@link #between} compares: from the first of the journeys before
+     * that overlap this one, and the end from the last of them.
+     */
+    public record ChangedJourney(JourneyEnds was, JourneyEnds now) {
+    }
+
     private final AirportCityResolver cities;
     private final HomeCities homeCities;
 
@@ -83,6 +95,36 @@ public class ItineraryChangeNews {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Every journey after the change whose start or end is not <em>exactly</em> what it was, in
+     * departure order. Exactly, not by D5's rule: this is what an email that is already being sent
+     * shows, so a departure that moved 40 minutes is listed when something else made it news (Ted,
+     * 2026-11-16). A journey whose ends are untouched is not listed, and neither is one that
+     * overlaps nothing before it, which has no "was" to show.
+     */
+    public List<ChangedJourney> changedJourneys(List<ItineraryLeg> before, List<ItineraryLeg> after) {
+        List<Journey> was = journeys(before);
+        return journeys(after).stream()
+                .flatMap(journey -> changed(was, journey).stream())
+                .toList();
+    }
+
+    private Optional<ChangedJourney> changed(List<Journey> was, Journey journey) {
+        List<Journey> overlapping = was.stream().filter(earlier -> overlap(earlier, journey)).toList();
+        if (overlapping.isEmpty()) {
+            return Optional.empty();
+        }
+        JourneyEnds before = new JourneyEnds(overlapping.getFirst().from(), overlapping.getFirst().departs(),
+                overlapping.getLast().to(), overlapping.getLast().arrives());
+        JourneyEnds now = new JourneyEnds(journey.from(), journey.departs(), journey.to(), journey.arrives());
+        return sameEnds(before, now) ? Optional.empty() : Optional.of(new ChangedJourney(before, now));
+    }
+
+    private boolean sameEnds(JourneyEnds a, JourneyEnds b) {
+        return a.from().equals(b.from()) && a.to().equals(b.to())
+               && a.departs().utc().equals(b.departs().utc()) && a.arrives().utc().equals(b.arrives().utc());
     }
 
     private Optional<Difference> compared(int index, int count, Journey first, Journey last, Journey journey) {

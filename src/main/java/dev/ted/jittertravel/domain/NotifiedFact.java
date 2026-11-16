@@ -9,12 +9,18 @@ package dev.ted.jittertravel.domain;
 public enum NotifiedFact {
     /** A flight booked on its own: a new trip. */
     FLIGHT_BOOKED,
+    /**
+     * A flight booked on its own was cancelled on its own. Told whether or not family were told it
+     * was booked (Ted, 2026-11-16), unlike a whole itinerary's cancellation.
+     */
+    FLIGHT_CANCELLED,
     /** An itinerary booked as one paste: a new trip with several legs, told once. */
     ITINERARY_BOOKED,
     /**
-     * A whole itinerary was cancelled, after family were told it was booked: a trip they believe is
-     * on is off. Only ever sent after an {@link #ITINERARY_BOOKED} for the same itinerary, so a trip
-     * family never heard about stays silent (Ted, 2026-10-05).
+     * An itinerary is off. Two ways in: the whole itinerary was cancelled, which is told only after
+     * an {@link #ITINERARY_BOOKED} for it, so a trip family never heard about stays silent (Ted,
+     * 2026-10-05); or Ted cancelled the last of its legs still to come on its own, which is told
+     * always, like a change (Ted, 2026-11-16).
      */
     ITINERARY_CANCELLED,
     /**

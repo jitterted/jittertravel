@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.web;
 
 import dev.ted.jittertravel.application.ConferenceNews;
+import dev.ted.jittertravel.application.ItineraryChangeNews.ChangedJourney;
+import dev.ted.jittertravel.application.ItineraryChangeNews.JourneyEnds;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightId;
@@ -52,6 +54,18 @@ final class EmailPreviewSamples {
     /** What {@link #changedTrip()} changed: the old return leg, at its old times. */
     List<FlightBooked> changedFrom() {
         return List.of(trip().get(2));
+    }
+
+    /**
+     * The journey home of {@link #changedTrip()}, as its "What changed" entry: it leaves Ottawa
+     * earlier and still lands in San Francisco on time.
+     */
+    List<ChangedJourney> changedJourneys() {
+        List<FlightBooked> trip = trip();
+        ZonedTimestamp home = trip.get(3).arrivalDateTime();
+        return List.of(new ChangedJourney(
+                new JourneyEnds(AirportCode.of("YOW"), trip.get(2).departureDateTime(), AirportCode.of("SFO"), home),
+                new JourneyEnds(AirportCode.of("YOW"), changedTrip().get(2).departureDateTime(), AirportCode.of("SFO"), home)));
     }
 
     /** A conference with every optional line present: a venue, a talk and a link. */

@@ -10,7 +10,9 @@ import dev.ted.jittertravel.domain.ConferenceDatesChanged;
 import dev.ted.jittertravel.domain.ConferenceId;
 import dev.ted.jittertravel.domain.Event;
 import dev.ted.jittertravel.domain.FlightBooked;
+import dev.ted.jittertravel.domain.FlightCancellationCause;
 import dev.ted.jittertravel.domain.FlightCancelled;
+import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
 import dev.ted.jittertravel.domain.FlightItineraryCancelled;
@@ -177,19 +179,61 @@ class FamilyNotificationActuatorTest {
         verify(notifyFamily).notifyFamily(any(), any(), eq(NotifiedFact.FLIGHT_BOOKED), any(), any());
     }
 
+    /** Editing one flight on its own is still silent; whether it should be is open (Ted, 2026-11-16). */
     @Test
-    void eventsThatAreNotNewTripsAreIgnored() {
-        actuatorFor().react(batch(new FlightCancelled(first.flightId(), "", NOW)));
+    void aFlightEditedOnItsOwnIsIgnored() {
+        actuatorFor().react(batch(new FlightChanged(first.flightId(), "United Airlines", "UA2091",
+                first.departureAirport(), first.departureDateTime(), first.arrivalAirport(),
+                first.arrivalDateTime(), "Seat change")));
 
         verifyNoInteractions(notifyFamily);
     }
 
-    /** One dropped leg is often a rebooking, not a trip that is off (Ted, 2026-10-05). */
+    /** Cancel on one flight's row: no itinerary event beside it, so it is Ted cancelling that flight. */
     @Test
-    void cancellingOneFlightOnItsOwnTellsNobody() {
-        actuatorFor().react(batch(new FlightCancelled(first.flightId(), "Rebooked", NOW)));
+    void cancellingOneFlightOnItsOwnAsksForThatFlightWithTheAppendThatCancelledIt() {
+        List<StoredEvent> batch = batch(new FlightCancelled(first.flightId(), "Not going", NOW));
 
-        verifyNoInteractions(notifyFamily);
+        actuatorFor().react(batch);
+
+        verify(notifyFamily).notifyOfCancelledFlight(any(UUID.class), eq(first.flightId()),
+                eq(batch.getFirst().commandId()), eq(NOW));
+        verifyNoMoreInteractions(notifyFamily);
+    }
+
+    @Test
+    void aFlightDroppedByARebookingIsToldAsTheRebookingNotAsALoneCancellation() {
+        FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
+
+        actuatorFor().react(batch(
+                new FlightCancelled(first.flightId(), "Rebooked", NOW, FlightCancellationCause.REBOOKED),
+                new FlightItineraryRebooked(trip, List.of(second.flightId()), "Rebooked", NOW)));
+
+        verify(notifyFamily).notifyOfChangedItinerary(any(), eq(trip), any(), eq(NOW));
+        verify(notifyFamily, never()).notifyOfCancelledFlight(any(), any(), any(), any());
+    }
+
+    @Test
+    void aFlightDroppedByAScheduleChangeIsToldAsTheChangeNotAsALoneCancellation() {
+        FlightItineraryId trip = FlightItineraryId.of(UUID.randomUUID());
+
+        actuatorFor().react(batch(
+                new FlightCancelled(first.flightId(), "Airline schedule change", NOW,
+                        FlightCancellationCause.AIRLINE_SCHEDULE_CHANGE),
+                new FlightItineraryChanged(trip, List.of(second.flightId()), "Airline schedule change", NOW)));
+
+        verify(notifyFamily, never()).notifyOfCancelledFlight(any(), any(), any(), any());
+    }
+
+    @Test
+    void aFailureNotifyingALoneCancellationIsCountedAndDoesNotEscape() {
+        given(notifyFamily.notifyOfCancelledFlight(any(), any(), any(), any()))
+                .willThrow(new IllegalStateException("Brevo returned 502"));
+
+        actuatorFor().react(batch(new FlightCancelled(first.flightId(), "", NOW)));
+
+        assertThat(meters.counter("family.notification.failed").count())
+                .isEqualTo(1.0);
     }
 
     @Test

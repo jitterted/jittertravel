@@ -48,8 +48,8 @@ import java.util.stream.Stream;
  *       because an added or reinstated leg is not a new trip;</li>
  *   <li>any other {@code FlightBooked} is a flight on its own.</li>
  * </ul>
- * A changed or cancelled flight is silent: family want to know a trip is new, or that one they were
- * told about is off.
+ * A flight cancelled on its own is told ({@link #loneCancellationsIn}). A flight edited on its own
+ * is still silent; whether it should be is an open question (Ted, 2026-11-16).
  * <p>
  * This is a reactor, never an {@code EventStreamConsumer}, so it cannot be replayed into: a boot
  * replay reaches projectors only, and the next deploy therefore cannot mail the whole history.
@@ -86,6 +86,14 @@ public class FamilyNotificationActuator implements EventReactor {
                         cancellation.flights(), now);
             } catch (RuntimeException failed) {
                 countFailure(NotifiedSubject.itinerary(cancellation.itinerary()), failed);
+            }
+        }
+        for (StoredEvent cancelled : loneCancellationsIn(events)) {
+            FlightId flight = ((FlightCancelled) cancelled.payload()).flightId();
+            try {
+                notifyFamily.notifyOfCancelledFlight(UUID.randomUUID(), flight, cancelled.commandId(), now);
+            } catch (RuntimeException failed) {
+                countFailure(NotifiedSubject.flight(flight), failed);
             }
         }
         for (StoredEvent change : itineraryChangesIn(events)) {
@@ -148,10 +156,27 @@ public class FamilyNotificationActuator implements EventReactor {
     }
 
     /**
-     * A whole itinerary cancelled: the itinerary event, and the flights cancelled in the same append.
-     * A {@code FlightCancelled} on its own is not here, because one dropped leg is often a rebooking
-     * and not a trip that is off (Ted, 2026-10-05).
+     * Flights Ted cancelled one at a time, with Cancel on the flight's row: a {@code FlightCancelled}
+     * whose batch holds no itinerary event. A whole-itinerary cancellation, a schedule change and a
+     * rebooking each append one beside the flights they cancel or drop, and are told by their own
+     * loops. Until 2026-11-16 this was silent, because a dropped leg was often a rebooking done by
+     * hand (Ted, 2026-10-05); a rebooking has its own event now, so a lone cancellation is just that.
      */
+    private List<StoredEvent> loneCancellationsIn(List<StoredEvent> events) {
+        boolean itineraryEvent = events.stream()
+                .map(StoredEvent::payload)
+                .anyMatch(payload -> payload instanceof FlightItineraryCancelled
+                                     || payload instanceof FlightItineraryChanged
+                                     || payload instanceof FlightItineraryRebooked);
+        if (itineraryEvent) {
+            return List.of();
+        }
+        return events.stream()
+                .filter(stored -> stored.payload() instanceof FlightCancelled)
+                .toList();
+    }
+
+    /** A whole itinerary cancelled: the itinerary event, and the flights cancelled in the same append. */
     private List<Cancellation> cancellationsIn(List<StoredEvent> events) {
         Set<FlightId> cancelledFlights = events.stream()
                 .map(StoredEvent::payload)

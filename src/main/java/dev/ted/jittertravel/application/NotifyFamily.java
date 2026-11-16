@@ -6,7 +6,9 @@ import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightChanged;
 import dev.ted.jittertravel.domain.FlightId;
 import dev.ted.jittertravel.domain.FlightItineraryBooked;
+import dev.ted.jittertravel.domain.FlightItineraryChanged;
 import dev.ted.jittertravel.domain.FlightItineraryId;
+import dev.ted.jittertravel.domain.FlightItineraryRebooked;
 import dev.ted.jittertravel.domain.ItineraryLeg;
 import dev.ted.jittertravel.domain.NotifiedFact;
 import dev.ted.jittertravel.domain.NotifiedSubject;
@@ -153,25 +155,105 @@ public class NotifyFamily {
         if (code.isEmpty()) {
             return Outcome.NO_LEGS;
         }
-        List<StoredEvent> beforeTheChange = history.stream()
-                .filter(stored -> !stored.commandId().equals(changeCommand))
-                .toList();
-        List<ItineraryLeg> before = TripOnTheBooks.fold(beforeTheChange, code.get()).liveLegs();
-        List<ItineraryLeg> after = TripOnTheBooks.fold(history, code.get()).liveLegs();
-        if (changeNews.between(before, after).isEmpty()) {
+        BeforeAndAfter change = foldedAroundTheAppend(history, code.get(), changeCommand);
+        if (changeNews.between(change.before(), change.after()).isEmpty()) {
             return Outcome.NOTHING_TO_SAY;
         }
-        List<FlightBooked> stillToCome = after.stream()
+        List<FlightBooked> stillToCome = stillToCome(change.after(), now);
+        if (stillToCome.isEmpty()) {
+            return Outcome.NO_LEGS;
+        }
+        sendTripChanged(commandId, itinerary, change, stillToCome, now);
+        return Outcome.SENT;
+    }
+
+    /**
+     * Ted cancelled one flight on its own (Cancel on its row), in the append whose command id is
+     * {@code cancelCommand}. <strong>Always told</strong> (Ted, 2026-11-16): whether or not family
+     * were told it was booked, and with no D5 test, because Ted cancelling a flight is news.
+     * <ul>
+     *   <li>A flight booked on its own: "Ted canceled a flight".</li>
+     *   <li>A leg of an itinerary with flights still to come: the same email a change sends, the
+     *       cancelled leg among the old flights.</li>
+     *   <li>The last leg of an itinerary still to come: "Ted canceled a trip", naming that leg, since
+     *       a change email would have no flights to list.</li>
+     * </ul>
+     * A flight that had already departed is history, not news, and is cancelled in silence.
+     * <p>
+     * Until 2026-11-16 a lone cancellation was silent, because one dropped leg was often a
+     * rebooking done by hand (Ted, 2026-10-05). A rebooking now has its own event, so the actuator
+     * calls this only for a cancellation that arrives without one.
+     */
+    public Outcome notifyOfCancelledFlight(UUID commandId, FlightId flight, UUID cancelCommand, Instant now) {
+        Optional<Outcome> blocked = blocked();
+        if (blocked.isPresent()) {
+            return blocked.get();
+        }
+        List<StoredEvent> history = history();
+        List<FlightBooked> cancelled = legsAsTheyStood(history, Set.of(flight));
+        if (cancelled.isEmpty() || !cancelled.getFirst().departureDateTime().utc().isAfter(now)) {
+            return Outcome.NO_LEGS;
+        }
+        Optional<FlightItineraryId> itinerary = itineraryOf(history, flight);
+        Optional<String> code = itinerary.flatMap(id -> confirmationCodeOf(history, id));
+        if (itinerary.isEmpty() || code.isEmpty()) {
+            send(commandId, NotifiedSubject.flight(flight), NotifiedFact.FLIGHT_CANCELLED,
+                    messages.messageFor(NotifiedFact.FLIGHT_CANCELLED, cancelled), now);
+            return Outcome.SENT;
+        }
+        BeforeAndAfter change = foldedAroundTheAppend(history, code.get(), cancelCommand);
+        List<FlightBooked> stillToCome = stillToCome(change.after(), now);
+        if (stillToCome.isEmpty()) {
+            send(commandId, NotifiedSubject.itinerary(itinerary.get()), NotifiedFact.ITINERARY_CANCELLED,
+                    messages.messageFor(NotifiedFact.ITINERARY_CANCELLED, cancelled), now);
+            return Outcome.SENT;
+        }
+        sendTripChanged(commandId, itinerary.get(), change, stillToCome, now);
+        return Outcome.SENT;
+    }
+
+    /** The itinerary's live legs as they stood before the append {@code command} wrote, and after. */
+    private record BeforeAndAfter(List<ItineraryLeg> before, List<ItineraryLeg> after) {
+    }
+
+    private BeforeAndAfter foldedAroundTheAppend(List<StoredEvent> history, String confirmationCode, UUID command) {
+        List<StoredEvent> beforeTheAppend = history.stream()
+                .filter(stored -> !stored.commandId().equals(command))
+                .toList();
+        return new BeforeAndAfter(TripOnTheBooks.fold(beforeTheAppend, confirmationCode).liveLegs(),
+                TripOnTheBooks.fold(history, confirmationCode).liveLegs());
+    }
+
+    private List<FlightBooked> stillToCome(List<ItineraryLeg> legs, Instant now) {
+        return legs.stream()
                 .filter(leg -> leg.departureDateTime().utc().isAfter(now))
                 .sorted(Comparator.comparing(leg -> leg.departureDateTime().utc()))
                 .map(ItineraryLeg::booked)
                 .toList();
-        if (stillToCome.isEmpty()) {
-            return Outcome.NO_LEGS;
-        }
+    }
+
+    private void sendTripChanged(UUID commandId, FlightItineraryId itinerary, BeforeAndAfter change,
+                                 List<FlightBooked> stillToCome, Instant now) {
         send(commandId, NotifiedSubject.itinerary(itinerary), NotifiedFact.ITINERARY_CHANGED,
-                messages.tripChanged(stillToCome, oldFlights(before, after)), now);
-        return Outcome.SENT;
+                messages.tripChanged(stillToCome, changeNews.changedJourneys(change.before(), change.after()),
+                        oldFlights(change.before(), change.after())), now);
+    }
+
+    /**
+     * The itinerary {@code flight} last belonged to. An explicit loop: membership is rewritten by
+     * a schedule change or a rebooking, so the last event that names the flight decides.
+     */
+    private Optional<FlightItineraryId> itineraryOf(List<StoredEvent> history, FlightId flight) {
+        FlightItineraryId itinerary = null;
+        for (StoredEvent stored : history) {
+            switch (stored.payload()) {
+                case FlightItineraryBooked e when e.flightIds().contains(flight) -> itinerary = e.itineraryId();
+                case FlightItineraryChanged e when e.flightIds().contains(flight) -> itinerary = e.itineraryId();
+                case FlightItineraryRebooked e when e.flightIds().contains(flight) -> itinerary = e.itineraryId();
+                default -> { /* does not name this flight */ }
+            }
+        }
+        return Optional.ofNullable(itinerary);
     }
 
     /** Every leg the change dropped, and every one it moved at its old times, in departure order. */

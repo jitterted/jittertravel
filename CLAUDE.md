@@ -1059,25 +1059,19 @@ too — and the test that catches it may be years away.
 
 ### Email text lives in `src/main/resources/email/`, and changing it needs Ted's approval first
 
-Every email the app sends is a plain text file there (`flight-booked.txt`, `trip-booked.txt`,
-`trip-cancelled.txt`, `conference-going.txt`, `conference-not-going.txt`, `test-email.txt`; and
-`trip-changed.txt`, approved 2026-10-13 and sent since 2026-11-14 when a schedule change or a
-rebooking moves where or when a journey starts or ends, `FlightItineraryRebookingPlan.md` D5), written
-as the email itself: a `Subject:` line, a blank line,
-then the body, with values as `[[${name}]]` and a repeated part as `[# th:each ...] ... [/]`.
-`EmailTemplates` renders them with Thymeleaf's plain-text mode (no extra dependency), and a run of
-blank lines is sent as one. **A template can link to the calendar**: when `JITTERTRAVEL_BASE_URL` is
-set, `[[${calendarUrl}]]` is `<base>/calendar?day=<date>`, the day of the first flight (a booking) or of
-the first flight that was due (a cancellation), in that flight's own local date. With no base URL it is
-absent, not a guess, so wrap the line:
-`[# th:if="${calendarUrl != null}"] ...wording... [[${calendarUrl}]] [/]`.
-`FamilyNotificationMessages` only chooses the file and prepares the values (city names, times, the
-airport chain); a field it does not pass cannot appear in a message.
+Every email the app sends is a plain text file there, written as the email itself and rendered by
+`EmailTemplates` in Thymeleaf's plain-text mode. Two things the files do not tell you: **a run of
+blank lines is sent as one**, and **`calendarUrl` is absent, not a guess, when no
+`JITTERTRAVEL_BASE_URL` is set**, so any line using it is wrapped in
+`[# th:if="${calendarUrl != null}"] ... [/]`. `FamilyNotificationMessages` only chooses the file and
+prepares the values; a field it does not pass cannot appear in a message, which is what keeps
+anything else from reaching the family.
 
-**`/admin/email-preview`** (linked from Settings) shows every email exactly as sent, from fixed sample
-flights, and sends the four flight emails (a schedule change among them) to `TED_REPLY_EMAIL` and nowhere else
-(`BrevoEmailClient.sendTo`; nothing on that page can name the family address). It is how Ted checks
-how a link and the line breaks look in his own mail client.
+**`/admin/email-preview`** (linked from Settings) shows every template exactly as sent, from fixed
+samples, and sends them to `TED_REPLY_EMAIL` **and nowhere else** (`BrevoEmailClient.sendTo`; nothing
+on that page can name the family address — keep it that way). A new template needs a card there:
+`EmailPreviewControllerTest.everyEmailTemplateHasACardOnThePage` reads the folder and fails on one
+without.
 
 **Ted approves the exact wording of any text that leaves the app (email, SMS, anything added later)
 before it is committed** (2026-10-05). Show him the literal subject and body, not a description, and

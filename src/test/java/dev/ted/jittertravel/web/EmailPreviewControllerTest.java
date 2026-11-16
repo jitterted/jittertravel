@@ -17,10 +17,15 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -82,12 +87,42 @@ class EmailPreviewControllerTest {
                 .contains("<b>Trip booked</b><span>email/trip-booked.txt</span>")
                 .contains("<b>Trip canceled</b><span>email/trip-cancelled.txt</span>")
                 .contains("<b>Trip changed</b><span>email/trip-changed.txt</span>")
+                .contains("<b>Flight canceled</b><span>email/flight-cancelled.txt</span>")
                 .contains("<b>Test email</b><span>email/test-email.txt</span>")
                 .contains("<span>(JitterTravel) Ted booked a new flight: SFO → ORD</span>")
                 .contains("<span>(JitterTravel) Ted booked a new trip: SFO → ORD → YOW → ORD → SFO</span>")
                 .contains("<span>(JitterTravel) Ted canceled a trip: SFO → ORD → YOW → ORD → SFO</span>")
                 .contains("<span>(JitterTravel) Ted&#39;s trip has changed: SFO → ORD → YOW → ORD → SFO</span>")
+                .contains("<span>(JitterTravel) Ted canceled a flight: SFO → ORD</span>")
                 .contains("<span>JitterTravel test email</span>");
+    }
+
+    /**
+     * Every file in {@code src/main/resources/email/} has a card on the page, so a new email cannot
+     * ship without a preview (Ted, 2026-11-16). The list is read from the folder, not written here,
+     * so adding a template is what makes this fail.
+     */
+    @Test
+    void everyEmailTemplateHasACardOnThePage() throws IOException {
+        canSend();
+        List<String> templates;
+        try (Stream<Path> files = Files.list(Path.of("src/main/resources/email"))) {
+            templates = files.map(Path::getFileName)
+                    .map(Path::toString)
+                    .filter(name -> name.endsWith(".txt"))
+                    .toList();
+        }
+
+        assertThat(templates)
+                .as("The email folder is found and holds the templates")
+                .contains("flight-booked.txt", "test-email.txt");
+        String page = mockMvc.get().uri("/admin/email-preview").exchange().getResponse().getContentAsString();
+        List<String> withoutACard = templates.stream()
+                .filter(file -> !page.contains("<span>email/" + file + "</span>"))
+                .toList();
+        assertThat(withoutACard)
+                .as("Templates in src/main/resources/email/ with no card on /admin/email-preview")
+                .isEmpty();
     }
 
     @Test
@@ -163,8 +198,8 @@ class EmailPreviewControllerTest {
         assertThat(mockMvc.get().uri("/admin/email-preview"))
                 .hasStatusOk()
                 .bodyText()
-                .contains("<div class=\"send-what\">Send these four emails to yourself</div>")
-                .contains("<button type=\"submit\" class=\"send-button\">Send all four to ted@example.com</button>")
+                .contains("<div class=\"send-what\">Send these five emails to yourself</div>")
+                .contains("<button type=\"submit\" class=\"send-button\">Send all five to ted@example.com</button>")
                 .containsPattern("<form action=\"/admin/email-preview/send\" method=\"post\">\\s*<input type=\"hidden\" name=\"_csrf\"");
     }
 
@@ -203,7 +238,7 @@ class EmailPreviewControllerTest {
                 .hasRedirectedUrl("/admin/email-preview");
 
         ArgumentCaptor<FamilyMessage> sent = ArgumentCaptor.forClass(FamilyMessage.class);
-        verify(brevo, times(4)).sendTo(eq("ted@example.com"), sent.capture());
+        verify(brevo, times(5)).sendTo(eq("ted@example.com"), sent.capture());
         verify(brevo, never()).send(any());
         assertThat(sent.getAllValues())
                 .extracting(FamilyMessage::subject)
@@ -211,8 +246,14 @@ class EmailPreviewControllerTest {
                         "(JitterTravel) Ted booked a new flight: SFO → ORD",
                         "(JitterTravel) Ted booked a new trip: SFO → ORD → YOW → ORD → SFO",
                         "(JitterTravel) Ted canceled a trip: SFO → ORD → YOW → ORD → SFO",
-                        "(JitterTravel) Ted's trip has changed: SFO → ORD → YOW → ORD → SFO");
+                        "(JitterTravel) Ted's trip has changed: SFO → ORD → YOW → ORD → SFO",
+                        "(JitterTravel) Ted canceled a flight: SFO → ORD");
         assertThat(sent.getAllValues().get(3).textContent())
+                .contains("""
+                        Ottawa (YOW) → San Francisco (SFO)
+                           Leaves   Sun 25 Oct 2026, 6:30 AM (YOW)   was Sun 25 Oct 2026, 9:00 AM (YOW)
+                           Arrives  Sun 25 Oct 2026, 3:55 PM (SFO)   same as before
+                        """)
                 .contains("3. UA3508")
                 .contains("These are the old flights that were changed:")
                 .contains("UA3510");
@@ -227,7 +268,7 @@ class EmailPreviewControllerTest {
                 .flash()
                 .containsEntry("justSentFLIGHTS", true);
 
-        verify(memory).remember(EmailGroup.FLIGHTS, new EmailPreviewMemory.Result(NOW, 4, 4, "ted@example.com", ""));
+        verify(memory).remember(EmailGroup.FLIGHTS, new EmailPreviewMemory.Result(NOW, 5, 5, "ted@example.com", ""));
     }
 
     @Test
@@ -236,17 +277,17 @@ class EmailPreviewControllerTest {
         willDoNothing().willThrow(new IllegalStateException("401 Unauthorized"))
                 .given(brevo).sendTo(any(), any());
         given(memory.last(EmailGroup.FLIGHTS)).willReturn(Optional.of(new EmailPreviewMemory.Result(
-                NOW, 1, 4, "ted@example.com", "The send failed: 401 Unauthorized")));
+                NOW, 1, 5, "ted@example.com", "The send failed: 401 Unauthorized")));
 
         assertThat(mockMvc.post().uri("/admin/email-preview/send").with(csrf()))
                 .hasStatusOk()
                 .bodyText()
                 .contains("class=\"send warn flash\"")
-                .contains("<div class=\"send-what\">Sending failed after 1 of 4</div>")
+                .contains("<div class=\"send-what\">Sending failed after 1 of 5</div>")
                 .contains("<button type=\"submit\" class=\"send-button\">Try again</button>");
 
         verify(memory).remember(EmailGroup.FLIGHTS, new EmailPreviewMemory.Result(
-                NOW, 1, 4, "ted@example.com", "The send failed: 401 Unauthorized"));
+                NOW, 1, 5, "ted@example.com", "The send failed: 401 Unauthorized"));
         verify(brevo, never()).send(any());
     }
 

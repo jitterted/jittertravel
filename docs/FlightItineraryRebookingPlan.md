@@ -109,6 +109,19 @@ The email lists the itinerary's flights still to come, then "the old flights tha
 every dropped leg **and every moved leg, with its old times** (Ted, 2026-10-13). Without the moved
 ones, a schedule change that only shifts times would say nothing about what it shifted from.
 
+**Added 2026-11-16: "What changed:" above the flights, one entry per journey.** HE80PP's rebooking
+dropped BER→FRA, so the journey home started in Frankfurt and still landed at SFO at 16:05. The email
+went out, rightly: Ted wants the family to know a new departure point even when the arrival holds.
+But it listed legs only, so nothing said the arrival was unchanged, and the family had to work that
+out from the old-flights list. Now each journey whose ends are not *exactly* what they were gets a
+heading, "Berlin (BER) → San Francisco (SFO) is now Frankfurt (FRA) → San Francisco (SFO)" (the
+route alone when only times moved), and a Leaves and an Arrives line, each ending "was <old time>"
+or "same as before". Exactly, not by the 2-hour rule: the rule decides whether to send, and once
+sending, a 40-minute shift is shown as it is. The old ends are paired the way D5 pairs them
+(`ItineraryChangeNews.changedJourneys`). A journey that overlaps nothing before it has no "was" and
+gets no entry; its legs are in the flight list. The old-flights list stays, because it is the only
+place a dropped connection shows. Wording approved by Ted, 2026-11-16.
+
 **The wording needs Ted's approval before commit** (CLAUDE.md, outbound text): a new template in
 `src/main/resources/email/`, shown to him as the literal subject and body.
 
@@ -236,6 +249,27 @@ This settles D10's "open for build". `/booked-flights` stays in strict departure
 lone TXL→MUC on Nov 15 reads: the HE80PP band with legs 1–2, a `Booked on its own` band with the
 Nov 15 flight, then HE80PP's band again with leg 3. D10's "split runs" may already do this; check
 it against a test and pin it if it does.
+
+## Decided after shipping (Ted, 2026-11-16)
+
+### D14. A flight cancelled on its own always emails the family
+
+Until now Cancel on one flight's row told nobody, because in October a rebooking was done by
+cancelling legs by hand, so one dropped leg was ambiguous (Ted, 2026-10-05). D1 removed that
+ambiguity: a rebooking, a schedule change and a whole-itinerary cancellation each append their own
+itinerary event beside the flights they drop. So a `FlightCancelled` whose batch holds no itinerary
+event is Ted cancelling that flight, and it is always told. That means whether or not the family
+were told it was booked, and with no D5 test:
+
+- **A flight booked on its own**: a new email, `flight-cancelled.txt`, "Ted canceled a flight".
+- **A leg of an itinerary with flights still to come**: the trip-changed email, the cancelled leg
+  among the old flights.
+- **The last leg still to come**: the trip-cancelled email, naming that leg, since a change email
+  would have no flights to list.
+
+A flight that had already departed is cancelled in silence. Wording of `flight-cancelled.txt`
+approved by Ted, 2026-11-16. **Editing one flight on its own (`FlightChanged`) is still silent**,
+and whether it should email is a separate decision, not yet made.
 
 ## Implementation notes
 

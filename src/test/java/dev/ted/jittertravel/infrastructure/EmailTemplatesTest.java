@@ -70,10 +70,14 @@ class EmailTemplatesTest {
      * layout with fixed values; {@code NotifyFamilyItineraryChangeTest} pins what is passed to it.
      */
     @Test
-    void theTripChangedEmailListsTheNewLegsThenTheOldOnes() {
+    void theTripChangedEmailSaysWhatChangedThenListsTheNewLegsThenTheOldOnes() {
         FamilyMessage message = templates.render("trip-changed", Map.of(
                 "chain", "SFO → ORD → YOW",
                 "calendarUrl", "https://jittertravel.com/calendar?day=2026-10-18",
+                "journeys", List.of(new FamilyNotificationMessages.JourneyView(
+                        "San Francisco (SFO) → Ottawa (YOW)",
+                        "Sun Oct 18, 07:05 PDT   was Sun Oct 18, 06:00 PDT",
+                        "Sun Oct 18, 18:50 EDT   same as before")),
                 "legs", List.of(
                         new FamilyNotificationMessages.LegView(1, "UA2091", "SFO → ORD",
                                 "Sun Oct 18, 07:05 PDT", "Sun Oct 18, 13:10 CDT", "SFO", "ORD"),
@@ -87,9 +91,17 @@ class EmailTemplatesTest {
                 .isEqualTo("(JitterTravel) Ted's trip has changed: SFO → ORD → YOW");
         assertThat(message.textContent().lines().toList())
                 .containsExactly(
-                        "Hi, JitterTravel here. Ted's trip has changed, and he wanted you to know. These are his flights now.",
+                        "Hi, JitterTravel here. Ted's trip has changed, and he wanted you to know.",
+                        "",
+                        "What changed:",
+                        "",
+                        "San Francisco (SFO) → Ottawa (YOW)",
+                        "   Leaves   Sun Oct 18, 07:05 PDT   was Sun Oct 18, 06:00 PDT",
+                        "   Arrives  Sun Oct 18, 18:50 EDT   same as before",
                         "",
                         "You can see the trip in his calendar here: https://jittertravel.com/calendar?day=2026-10-18",
+                        "",
+                        "These are his flights now.",
                         "",
                         "1. UA2091",
                         "   SFO → ORD",
@@ -110,15 +122,17 @@ class EmailTemplatesTest {
     }
 
     @Test
-    void theTripChangedEmailSaysNothingAboutOldFlightsWhenThereAreNone() {
+    void theTripChangedEmailSaysNothingAboutOldFlightsOrChangedJourneysWhenThereAreNone() {
         FamilyMessage message = templates.render("trip-changed", Map.of(
                 "chain", "SFO → ORD",
+                "journeys", List.of(),
                 "legs", List.of(new FamilyNotificationMessages.LegView(1, "UA2091", "SFO → ORD",
                         "Sun Oct 18, 07:05 PDT", "Sun Oct 18, 13:10 CDT", "SFO", "ORD")),
                 "oldLegs", List.of()));
 
         assertThat(message.textContent())
                 .doesNotContain("These are the old flights that were changed:")
+                .doesNotContain("What changed:")
                 .doesNotContain("You can see the trip in his calendar here")
                 .endsWith("   Arrives  Sun Oct 18, 13:10 CDT");
     }

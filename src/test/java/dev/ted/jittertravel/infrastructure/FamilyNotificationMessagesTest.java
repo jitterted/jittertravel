@@ -1,6 +1,8 @@
 package dev.ted.jittertravel.infrastructure;
 
 import dev.ted.jittertravel.application.ConferenceNews;
+import dev.ted.jittertravel.application.ItineraryChangeNews.ChangedJourney;
+import dev.ted.jittertravel.application.ItineraryChangeNews.JourneyEnds;
 import dev.ted.jittertravel.domain.AirportCode;
 import dev.ted.jittertravel.domain.FlightBooked;
 import dev.ted.jittertravel.domain.FlightId;
@@ -52,6 +54,23 @@ class FamilyNotificationMessagesTest {
                         "San Francisco (SFO) → Chicago (ORD)",
                         "Departs  Sun 18 Oct 2026, 6:10 AM (SFO)",
                         "Arrives  Sun 18 Oct 2026, 12:45 PM (ORD)");
+    }
+
+    /** {@code flight-cancelled.txt}, the approved wording (Ted, 2026-11-16), line for line. */
+    @Test
+    void aCancelledFlightIsTheApprovedText() {
+        FamilyMessage message = messages.messageFor(NotifiedFact.FLIGHT_CANCELLED, List.of(sfoOrd));
+
+        assertThat(message.subject())
+                .isEqualTo("(JitterTravel) Ted canceled a flight: SFO → ORD");
+        assertThat(message.textContent().lines().toList())
+                .containsExactly(
+                        "Hi, JitterTravel here. Ted canceled the flight below, and he wanted to let you know.",
+                        "",
+                        "UA2091",
+                        "San Francisco (SFO) → Chicago (ORD)",
+                        "Was due to depart  Sun 18 Oct 2026, 6:10 AM (SFO)",
+                        "Was due to arrive  Sun 18 Oct 2026, 12:45 PM (ORD)");
     }
 
     @Test
@@ -335,6 +354,84 @@ class FamilyNotificationMessagesTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> messages.messageFor(NotifiedFact.CONFERENCE_NOT_GOING, List.of(sfoOrd)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
+     * HE80PP, 2026-11-14: BER→FRA dropped, so the journey home starts in Frankfurt and lands in San
+     * Francisco exactly as before. The approved wording (Ted, 2026-11-16), line for line.
+     */
+    @Test
+    void aJourneyThatNowStartsElsewhereSaysWhereAndThatTheArrivalIsTheSame() {
+        FlightBooked fraSfo = leg("UA59", "FRA", atNov(BERLIN, 26, 13, 30), "SFO", atNov(PACIFIC, 26, 16, 5));
+        ChangedJourney home = new ChangedJourney(
+                new JourneyEnds(AirportCode.of("BER"), atNov(BERLIN, 26, 10, 40), AirportCode.of("SFO"), fraSfo.arrivalDateTime()),
+                new JourneyEnds(AirportCode.of("FRA"), fraSfo.departureDateTime(), AirportCode.of("SFO"), fraSfo.arrivalDateTime()));
+        FlightBooked berFra = leg("UA8786", "BER", atNov(BERLIN, 26, 10, 40), "FRA", atNov(BERLIN, 26, 11, 50));
+
+        FamilyMessage message = messages.tripChanged(List.of(fraSfo), List.of(home), List.of(berFra));
+
+        assertThat(message.textContent().lines().toList())
+                .containsExactly(
+                        "Hi, JitterTravel here. Ted's trip has changed, and he wanted you to know.",
+                        "",
+                        "What changed:",
+                        "",
+                        "Berlin (BER) → San Francisco (SFO) is now Frankfurt (FRA) → San Francisco (SFO)",
+                        "   Leaves   Thu 26 Nov 2026, 1:30 PM (FRA)   was Thu 26 Nov 2026, 10:40 AM (BER)",
+                        "   Arrives  Thu 26 Nov 2026, 4:05 PM (SFO)   same as before",
+                        "",
+                        "You can see the trip in his calendar here: https://jittertravel.com/calendar?day=2026-11-26",
+                        "",
+                        "These are his flights now.",
+                        "",
+                        "1. UA59",
+                        "   Frankfurt (FRA) → San Francisco (SFO)",
+                        "   Departs  Thu 26 Nov 2026, 1:30 PM (FRA)",
+                        "   Arrives  Thu 26 Nov 2026, 4:05 PM (SFO)",
+                        "",
+                        "These are the old flights that were changed:",
+                        "",
+                        "UA8786",
+                        "   Berlin (BER) → Frankfurt (FRA)",
+                        "   Was due to depart  Thu 26 Nov 2026, 10:40 AM (BER)",
+                        "   Was due to arrive  Thu 26 Nov 2026, 11:50 AM (FRA)");
+    }
+
+    @Test
+    void aJourneyWithTheSameEndsIsHeadedByItsRouteAloneAndItsComparisonsLineUp() {
+        ChangedJourney home = new ChangedJourney(
+                new JourneyEnds(AirportCode.of("YOW"), yowOrd.departureDateTime(), AirportCode.of("SFO"), ordSfo.arrivalDateTime()),
+                new JourneyEnds(AirportCode.of("YOW"), at(OTTAWA, 25, 10, 30), AirportCode.of("SFO"), ordSfo.arrivalDateTime()));
+
+        FamilyMessage message = messages.tripChanged(List.of(ordSfo), List.of(home), List.of());
+
+        assertThat(message.textContent())
+                .as("no 'is now' when only the times moved; the shorter time is padded to the longer")
+                .contains("""
+                        Ottawa (YOW) → San Francisco (SFO)
+                           Leaves   Sun 25 Oct 2026, 10:30 AM (YOW)   was Sun 25 Oct 2026, 9:00 AM (YOW)
+                           Arrives  Sun 25 Oct 2026, 3:55 PM (SFO)    same as before
+                        """);
+    }
+
+    @Test
+    void aJourneyThatNowEndsElsewhereAtTheSameTimeSaysWasForTheOtherAirport() {
+        ChangedJourney home = new ChangedJourney(
+                new JourneyEnds(AirportCode.of("YOW"), yowOrd.departureDateTime(), AirportCode.of("SFO"), ordSfo.arrivalDateTime()),
+                new JourneyEnds(AirportCode.of("YOW"), yowOrd.departureDateTime(), AirportCode.of("OAK"), ordSfo.arrivalDateTime()));
+
+        FamilyMessage message = messages.tripChanged(List.of(ordSfo), List.of(home), List.of());
+
+        assertThat(message.textContent())
+                .contains("""
+                        Ottawa (YOW) → San Francisco (SFO) is now Ottawa (YOW) → Oakland (OAK)
+                           Leaves   Sun 25 Oct 2026, 9:00 AM (YOW)   same as before
+                           Arrives  Sun 25 Oct 2026, 3:55 PM (OAK)   was Sun 25 Oct 2026, 3:55 PM (SFO)
+                        """);
+    }
+
+    private static ZonedTimestamp atNov(ZoneId zone, int day, int hour, int minute) {
+        return ZonedTimestamp.fromLocal(LocalDateTime.of(2026, 11, day, hour, minute), zone);
     }
 
     private static FlightBooked leg(String number, String from, ZonedTimestamp departs,

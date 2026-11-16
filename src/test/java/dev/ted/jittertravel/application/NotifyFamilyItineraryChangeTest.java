@@ -96,6 +96,13 @@ class NotifyFamilyItineraryChangeTest {
                 .as("only the flights still to come")
                 .isEqualTo("(JitterTravel) Ted's trip has changed: FRA → SFO");
         assertThat(sent.getValue().textContent())
+                .as("the journey home, from its old start to its new one, landing as before")
+                .contains("""
+                        Berlin (BER) → San Francisco (SFO) is now Frankfurt (FRA) → San Francisco (SFO)
+                           Leaves   Thu 26 Nov 2026, 1:30 PM (FRA)   was Thu 26 Nov 2026, 10:40 AM (BER)
+                           Arrives  Thu 26 Nov 2026, 4:05 PM (SFO)   same as before
+                        """)
+                .doesNotContain("San Francisco (SFO) → Berlin (BER)")
                 .contains("1. UA59")
                 .contains("These are the old flights that were changed:")
                 .contains("UA8786")

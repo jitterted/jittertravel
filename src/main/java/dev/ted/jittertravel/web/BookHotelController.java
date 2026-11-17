@@ -84,6 +84,7 @@ public class BookHotelController {
     public String bookHotelSubmit(@ModelAttribute("bookHotel") BookHotelRequest request,
                                   BindingResult bindingResult,
                                   @RequestParam(value = "from", required = false) String from,
+                                  @RequestParam(value = "day", required = false) String day,
                                   Model model) {
         HotelFormErrors errors = new HotelFormErrors(bindingResult);
         // Binding already failed: a date left blank, or one that would not parse. Those values are
@@ -120,17 +121,7 @@ public class BookHotelController {
             return "book-hotel";
         }
 
-        return returnTo(from, "/booked-hotels");
-    }
-
-    /**
-     * Where to land after a successful action: back at the report when Ted arrived from a fix link,
-     * otherwise this controller's own default. Only the <em>success</em> path takes it — a
-     * read-only refusal or a stale-link miss has not fixed anything, so it still goes where it
-     * always did.
-     */
-    private static String returnTo(String from, String fallback) {
-        return "redirect:" + LinkOrigin.returnTo(from).orElse(fallback);
+        return "redirect:" + LinkOrigin.returnTo(from, day, "/booked-hotels");
     }
 
 }

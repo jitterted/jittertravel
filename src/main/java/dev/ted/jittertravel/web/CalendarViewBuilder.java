@@ -330,7 +330,8 @@ public class CalendarViewBuilder {
     /**
      * The day number rendered as a {@link DisclosureMenu}: tapping the number opens a small menu
      * with the itinerary link plus one "Add …" link per bookable kind, each carrying {@code ?date=}
-     * so the create form opens on this day. The menu's mechanics — touch-first, outside-click and
+     * so the create form opens on this day, and {@code from=calendar&day=} so a successful add comes
+     * back to this day rather than to that kind's list. The menu's mechanics — touch-first, outside-click and
      * Escape dismissal, no stacking — are shared with the fix menus on {@code /schedule-problems}.
      * <p>
      * Package-private rather than private so {@code CalendarDayMenuTest} can call it directly. It
@@ -343,14 +344,18 @@ public class CalendarViewBuilder {
         String iso = date.toString();
         return DisclosureMenu.render(text(label), dayNumberClass, List.of(
                 DisclosureMenu.item("Open itinerary", "/itinerary?date=" + iso),
-                DisclosureMenu.item("Add flight", "/book-flight?date=" + iso),
-                DisclosureMenu.item("Add train", "/book-train?date=" + iso),
-                DisclosureMenu.item("Add hotel", "/book-hotel?date=" + iso),
-                DisclosureMenu.item("Add ground transfer", "/plan-ground-transfer?date=" + iso),
-                DisclosureMenu.item("Add gathering", "/plan-gathering?date=" + iso),
-                DisclosureMenu.item("Add conference", "/plan-conference?date=" + iso),
-                DisclosureMenu.item("Add private event", "/plan-private-event?date=" + iso)
+                addItem("Add flight", "/book-flight", date),
+                addItem("Add train", "/book-train", date),
+                addItem("Add hotel", "/book-hotel", date),
+                addItem("Add ground transfer", "/plan-ground-transfer", date),
+                addItem("Add gathering", "/plan-gathering", date),
+                addItem("Add conference", "/plan-conference", date),
+                addItem("Add private event", "/plan-private-event", date)
         ));
+    }
+
+    private static DomContent addItem(String label, String formPath, LocalDate date) {
+        return DisclosureMenu.item(label, LinkOrigin.CALENDAR.linkFrom(formPath + "?date=" + date, date));
     }
 
     private static DomContent renderEntrySegment(CalendarEntry entry,
@@ -490,7 +495,7 @@ public class CalendarViewBuilder {
     private static List<DomContent> ownerActions(EntryDetails details, LocalDate day) {
         return switch (details) {
             // A gathering cannot be canceled yet: there is no GatheringCancelled.
-            case EntryDetails.Gathering d -> pencil(d.editPath());
+            case EntryDetails.Gathering d -> pencil(d.editPath(), day);
             // Both icons, in a fixed order: edit then cancel, so the pencil stays exactly where
             // it is on every other row.
             case EntryDetails.Lodging d -> pencilAndBin(d.editPath(), d.cancelPath(), "Cancel hotel", day);
@@ -516,7 +521,7 @@ public class CalendarViewBuilder {
      */
     private static List<DomContent> pencilAndBin(String editPath, String cancelPath, String cancelLabel,
                                                  LocalDate day) {
-        List<DomContent> actions = new ArrayList<>(pencil(editPath));
+        List<DomContent> actions = new ArrayList<>(pencil(editPath, day));
         actions.addAll(bin(cancelPath, cancelLabel, day));
         return List.copyOf(actions);
     }
@@ -532,8 +537,11 @@ public class CalendarViewBuilder {
                 : List.of(cancelBin(LinkOrigin.CALENDAR.linkFrom(cancelPath, day), cancelLabel));
     }
 
-    private static List<DomContent> pencil(String editPath) {
-        return editPath == null ? List.of() : List.of(editPencil(editPath, "Edit"));
+    /** Like the bin: the origin and day are added here, so a saved change comes back to this day. */
+    private static List<DomContent> pencil(String editPath, LocalDate day) {
+        return editPath == null
+                ? List.of()
+                : List.of(editPencil(LinkOrigin.CALENDAR.linkFrom(editPath, day), "Edit"));
     }
 
     /**

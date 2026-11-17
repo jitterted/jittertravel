@@ -65,7 +65,8 @@ public class ProblemContextAdvice {
     }
 
     /**
-     * The raw {@code ?from=} value, so a form reached from a fix link or a cancel bin can carry it
+     * The raw {@code ?from=} value, so a form reached from a fix link, a cancel bin, an edit pencil
+     * or the calendar's day menu can carry it ({@code fragments/link-origin.html})
      * through its own POST — and through a validation re-render, which is the case that would
      * otherwise lose the way back one submit later.
      * <p>
@@ -86,7 +87,8 @@ public class ProblemContextAdvice {
     }
 
     /**
-     * The {@code &day=} a cancel bin carries — the day it was drawn on — passed on only when it is a
+     * The {@code &day=} a cancel bin, an edit pencil or a day-menu item carries — the day it was
+     * drawn on — passed on only when it is a
      * date, so the form echoes nothing that was typed into the URL. {@code null} when absent.
      */
     @ModelAttribute("originDay")

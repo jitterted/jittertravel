@@ -32,6 +32,14 @@ class CalendarDayMenuTest {
         return "<a href=\"" + href + "\" class=\"disclosure-menu-item\">" + label + "</a>";
     }
 
+    /**
+     * An "Add …" item: {@code date} seeds the form on that day, and {@code from}/{@code day} bring a
+     * successful add back to it ({@link LinkOrigin#returnTo}). The {@code &} is escaped in markup.
+     */
+    private static String addItem(String label, String formPath, String iso) {
+        return item(label, formPath + "?date=" + iso + "&amp;from=calendar&amp;day=" + iso);
+    }
+
     /** One assertion per item, so a failure names the item rather than the whole menu. */
     @Test
     void everyBookableKindIsOfferedUnderItsOwnWordsAndItsOwnDatedLink() {
@@ -39,13 +47,13 @@ class CalendarDayMenuTest {
 
         assertThat(html)
                 .contains(item("Open itinerary", "/itinerary?date=2026-06-20"))
-                .contains(item("Add flight", "/book-flight?date=2026-06-20"))
-                .contains(item("Add train", "/book-train?date=2026-06-20"))
-                .contains(item("Add hotel", "/book-hotel?date=2026-06-20"))
-                .contains(item("Add ground transfer", "/plan-ground-transfer?date=2026-06-20"))
-                .contains(item("Add gathering", "/plan-gathering?date=2026-06-20"))
-                .contains(item("Add conference", "/plan-conference?date=2026-06-20"))
-                .contains(item("Add private event", "/plan-private-event?date=2026-06-20"));
+                .contains(addItem("Add flight", "/book-flight", "2026-06-20"))
+                .contains(addItem("Add train", "/book-train", "2026-06-20"))
+                .contains(addItem("Add hotel", "/book-hotel", "2026-06-20"))
+                .contains(addItem("Add ground transfer", "/plan-ground-transfer", "2026-06-20"))
+                .contains(addItem("Add gathering", "/plan-gathering", "2026-06-20"))
+                .contains(addItem("Add conference", "/plan-conference", "2026-06-20"))
+                .contains(addItem("Add private event", "/plan-private-event", "2026-06-20"));
     }
 
     /**
@@ -66,13 +74,13 @@ class CalendarDayMenuTest {
         assertThat(html)
                 .contains("<div class=\"disclosure-menu-list\">"
                           + item("Open itinerary", "/itinerary?date=2026-06-20")
-                          + item("Add flight", "/book-flight?date=2026-06-20")
-                          + item("Add train", "/book-train?date=2026-06-20")
-                          + item("Add hotel", "/book-hotel?date=2026-06-20")
-                          + item("Add ground transfer", "/plan-ground-transfer?date=2026-06-20")
-                          + item("Add gathering", "/plan-gathering?date=2026-06-20")
-                          + item("Add conference", "/plan-conference?date=2026-06-20")
-                          + item("Add private event", "/plan-private-event?date=2026-06-20")
+                          + addItem("Add flight", "/book-flight", "2026-06-20")
+                          + addItem("Add train", "/book-train", "2026-06-20")
+                          + addItem("Add hotel", "/book-hotel", "2026-06-20")
+                          + addItem("Add ground transfer", "/plan-ground-transfer", "2026-06-20")
+                          + addItem("Add gathering", "/plan-gathering", "2026-06-20")
+                          + addItem("Add conference", "/plan-conference", "2026-06-20")
+                          + addItem("Add private event", "/plan-private-event", "2026-06-20")
                           + "</div>");
     }
 
@@ -88,13 +96,13 @@ class CalendarDayMenuTest {
         assertThat(html)
                 .contains("<div class=\"disclosure-menu-list\">"
                           + item("Open itinerary", "/itinerary?date=2027-01-01")
-                          + item("Add flight", "/book-flight?date=2027-01-01")
-                          + item("Add train", "/book-train?date=2027-01-01")
-                          + item("Add hotel", "/book-hotel?date=2027-01-01")
-                          + item("Add ground transfer", "/plan-ground-transfer?date=2027-01-01")
-                          + item("Add gathering", "/plan-gathering?date=2027-01-01")
-                          + item("Add conference", "/plan-conference?date=2027-01-01")
-                          + item("Add private event", "/plan-private-event?date=2027-01-01")
+                          + addItem("Add flight", "/book-flight", "2027-01-01")
+                          + addItem("Add train", "/book-train", "2027-01-01")
+                          + addItem("Add hotel", "/book-hotel", "2027-01-01")
+                          + addItem("Add ground transfer", "/plan-ground-transfer", "2027-01-01")
+                          + addItem("Add gathering", "/plan-gathering", "2027-01-01")
+                          + addItem("Add conference", "/plan-conference", "2027-01-01")
+                          + addItem("Add private event", "/plan-private-event", "2027-01-01")
                           + "</div>")
                 .doesNotContain("2026-06-20");
     }
@@ -137,13 +145,13 @@ class CalendarDayMenuTest {
      */
     private static String expectedAddItem(EntryKind kind, String iso) {
         return switch (kind) {
-            case FLIGHT -> item("Add flight", "/book-flight?date=" + iso);
-            case TRAIN -> item("Add train", "/book-train?date=" + iso);
-            case LODGING -> item("Add hotel", "/book-hotel?date=" + iso);
-            case GROUND_TRANSFER -> item("Add ground transfer", "/plan-ground-transfer?date=" + iso);
-            case GATHERING -> item("Add gathering", "/plan-gathering?date=" + iso);
-            case CONFERENCE -> item("Add conference", "/plan-conference?date=" + iso);
-            case PRIVATE_EVENT -> item("Add private event", "/plan-private-event?date=" + iso);
+            case FLIGHT -> addItem("Add flight", "/book-flight", iso);
+            case TRAIN -> addItem("Add train", "/book-train", iso);
+            case LODGING -> addItem("Add hotel", "/book-hotel", iso);
+            case GROUND_TRANSFER -> addItem("Add ground transfer", "/plan-ground-transfer", iso);
+            case GATHERING -> addItem("Add gathering", "/plan-gathering", iso);
+            case CONFERENCE -> addItem("Add conference", "/plan-conference", iso);
+            case PRIVATE_EVENT -> addItem("Add private event", "/plan-private-event", iso);
         };
     }
 

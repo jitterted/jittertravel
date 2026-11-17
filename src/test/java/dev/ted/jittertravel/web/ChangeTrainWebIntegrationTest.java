@@ -93,6 +93,40 @@ class ChangeTrainWebIntegrationTest {
                 .doesNotContain("name=\"tripId\"");
     }
 
+    /** The pencil on the calendar names its day, and the form carries it through the save. */
+    @Test
+    void anEditStartedFromTheCalendarCarriesThatDayThroughTheForm() {
+        String tripId = UUID.randomUUID().toString();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(detailsFor(tripId)));
+
+        assertThat(mockMvc.get().uri("/booked-trains/" + tripId + "?from=calendar&day=2026-07-01"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<input type=\"hidden\" name=\"from\" value=\"calendar\"/>")
+                .contains("<input type=\"hidden\" name=\"day\" value=\"2026-07-01\"/>");
+    }
+
+    @Test
+    void aSavedEditStartedFromTheCalendarReturnsToThatDay() {
+        assertThat(mockMvc.post().uri("/booked-trains/" + UUID.randomUUID())
+                .with(csrf())
+                .param("from", "calendar")
+                .param("day", "2026-07-01")
+                .param("serviceId", "Avanti - 9M12")
+                .param("departureStationName", "London Kings Cross")
+                .param("departureCityName", "London")
+                .param("departureCountry", "UK")
+                .param("departureMapsUrl", "")
+                .param("departureDateTime", "2026-07-01T10:30")
+                .param("arrivalStationName", "Edinburgh Waverley")
+                .param("arrivalCityName", "Edinburgh")
+                .param("arrivalCountry", "UK")
+                .param("arrivalMapsUrl", "")
+                .param("arrivalDateTime", "2026-07-01T15:00"))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/calendar?day=2026-07-01");
+    }
+
     @Test
     void getOnUnknownTripIdRedirectsToBookedTrains() {
         given(detailsProjector.findById(any())).willReturn(Optional.empty());

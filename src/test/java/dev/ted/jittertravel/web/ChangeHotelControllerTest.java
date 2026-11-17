@@ -102,6 +102,40 @@ class ChangeHotelControllerTest {
                 .doesNotContain("name=\"hotelBookingId\"");
     }
 
+    /** The pencil on the itinerary names its day, and the form carries it through the save. */
+    @Test
+    void anEditStartedFromTheItineraryCarriesThatDayThroughTheForm() {
+        String bookingId = UUID.randomUUID().toString();
+        given(detailsProjector.findById(any())).willReturn(Optional.of(detailsFor(bookingId)));
+
+        assertThat(mockMvc.get().uri("/booked-hotels/" + bookingId + "?from=itinerary&day=2026-08-03"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("<input type=\"hidden\" name=\"from\" value=\"itinerary\"/>")
+                .contains("<input type=\"hidden\" name=\"day\" value=\"2026-08-03\"/>");
+    }
+
+    @Test
+    void aSavedEditStartedFromTheItineraryReturnsToThatDay() {
+        assertThat(mockMvc.post().uri("/booked-hotels/" + UUID.randomUUID())
+                .with(csrf())
+                .param("from", "itinerary")
+                .param("day", "2026-08-03")
+                .param("hotelName", "Bavaria Inn")
+                .param("street", "1 Marienplatz")
+                .param("city", "Munich")
+                .param("region", "")
+                .param("country", "Germany")
+                .param("postalCode", "80331")
+                .param("locationForMatching", "Munich")
+                .param("mapsUrl", "")
+                .param("checkIn", "2026-08-02T16:00")
+                .param("checkOut", "2026-08-06T10:00")
+                .param("bookingIntent", "FINAL"))
+                .hasStatus3xxRedirection()
+                .hasRedirectedUrl("/itinerary?date=2026-08-03");
+    }
+
     @Test
     void getOnUnknownBookingIdRedirectsToBookedHotels() {
         given(detailsProjector.findById(any())).willReturn(Optional.empty());

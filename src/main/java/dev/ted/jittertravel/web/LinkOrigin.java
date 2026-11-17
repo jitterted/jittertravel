@@ -2,18 +2,19 @@ package dev.ted.jittertravel.web;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
-import java.util.Optional;
 
 /**
  * Where a link was clicked from, carried on it as {@code ?from=} (and, for a surface laid out by
  * day, {@code &day=}) so the page it lands on can send Ted back to the surface he was actually
  * reading — by its Back or "Keep it" link, and after its action succeeds.
  * <p>
- * Two kinds of link carry one. A {@link ProblemFix} names its origin on every href: the two views
+ * Four kinds of link carry one. A {@link ProblemFix} names its origin on every href: the two views
  * of {@code /schedule-problems}, and the missing-hotel row on {@code /itinerary}. Every cancel bin
  * on {@code /calendar} and {@code /itinerary} names its surface and the day it is drawn on, so
  * cancelling a stay from its check-out day lands back on that day
- * ({@code docs/CancelReturnsWhereYouCameFromPlan.md}).
+ * ({@code docs/CancelReturnsWhereYouCameFromPlan.md}). Every edit pencil on those two surfaces does
+ * the same, and so does every "Add …" item in the calendar's day menu, so a saved change or a new
+ * entry lands back on the day it was started from rather than on that kind's list.
  * <p>
  * Every caller of {@link ProblemFix#forProblem} names its origin — there is no default overload, so
  * a new surface offering fixes has to decide where its links come back to.
@@ -84,14 +85,17 @@ public enum LinkOrigin {
     }
 
     /**
-     * Where a fix action should send Ted <em>after it succeeds</em> — empty when he did not arrive
-     * from a link that named an origin, in which case the controller keeps its own default.
+     * Where a create or change form should send Ted <em>after it succeeds</em>: back to the surface
+     * the link was clicked on, on the day it was drawn on — or empty when he did not arrive from a
+     * link that named an origin, in which case it is the controller's own {@code fallback} (its
+     * list). Only the <em>success</em> path takes it — a read-only refusal or a stale-link miss has
+     * not done anything, so it still goes where it always did.
      */
-    public static Optional<String> returnTo(String from) {
+    public static String returnTo(String from, String day, String fallback) {
         if (from == null || from.isBlank()) {
-            return Optional.empty();
+            return fallback;
         }
-        return Optional.of(fromParam(from).backHref());
+        return fromParam(from).backHref(parse(day));
     }
 
     /**
@@ -105,10 +109,11 @@ public enum LinkOrigin {
 
     /**
      * {@code path} as a link clicked on this surface, on {@code day}: the page it opens reads both
-     * back through {@link #wayBack}.
+     * back through {@link #wayBack} or {@link #returnTo}. A path that already has a query (the day
+     * menu's {@code ?date=}, which seeds the form) keeps it.
      */
     public String linkFrom(String path, LocalDate day) {
-        return path + "?from=" + param + "&day=" + day;
+        return path + (path.contains("?") ? "&" : "?") + "from=" + param + "&day=" + day;
     }
 
     public String param() {

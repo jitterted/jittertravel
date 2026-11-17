@@ -72,7 +72,7 @@ class PlanPrivateEventControllerTest {
                 LocalDate.of(2026, 6, 7), LocalTime.of(18, 0), LocalTime.of(21, 0));
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planPrivateEvent");
 
-        String view = controller.planPrivateEventSubmit(request, bindingResult, new ConcurrentModel());
+        String view = controller.planPrivateEventSubmit(request, bindingResult, null, null, new ConcurrentModel());
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -99,7 +99,7 @@ class PlanPrivateEventControllerTest {
                 LocalDate.of(2026, 6, 7), LocalTime.of(18, 0), LocalTime.of(21, 0));
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planPrivateEvent");
 
-        String view = controller.planPrivateEventSubmit(request, bindingResult, new ConcurrentModel());
+        String view = controller.planPrivateEventSubmit(request, bindingResult, null, null, new ConcurrentModel());
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -133,7 +133,7 @@ class PlanPrivateEventControllerTest {
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planPrivateEvent");
         Model model = new ConcurrentModel();
 
-        controller.planPrivateEventSubmit(request, bindingResult, model);
+        controller.planPrivateEventSubmit(request, bindingResult, null, null, model);
 
         PlanPrivateEventRequest reRendered = (PlanPrivateEventRequest) model.getAttribute("planPrivateEvent");
         assertThat(UUID.fromString(reRendered.privateEventId()))
@@ -153,6 +153,35 @@ class PlanPrivateEventControllerTest {
         assertThat(carriedOver.getFieldErrors("date"))
                 .as("the refusal still lands under the input that fixes it")
                 .hasSize(1);
+    }
+
+    /** From the calendar's day menu it goes back to that day; from anywhere else, to the list. */
+    @ParameterizedTest
+    @CsvSource({
+            "calendar, 2026-06-07, redirect:/calendar?day=2026-06-07",
+            ",         ,           redirect:/planned-private-events",
+    })
+    void aPlannedPrivateEventReturnsWhereItWasStartedFromOrElseToTheList(String from, String day,
+                                                                         String expected) {
+        PlanPrivateEventController controller = new PlanPrivateEventController(accepting(), FIXED_CLOCK);
+        PlanPrivateEventRequest request = new PlanPrivateEventRequest(
+                UUID.randomUUID().toString(), "Dinner", "Alo", "", "Centennial", "CO", "", "US", "", "",
+                LocalDate.of(2026, 6, 7), LocalTime.of(18, 0), LocalTime.of(21, 0));
+        BindingResult bindingResult = new BeanPropertyBindingResult(request, "planPrivateEvent");
+
+        String view = controller.planPrivateEventSubmit(request, bindingResult, from, day, new ConcurrentModel());
+
+        assertThat(view)
+                .as("where a planned private event lands")
+                .isEqualTo(expected);
+    }
+
+    private static PrivateEventPlanning accepting() {
+        return new PrivateEventPlanning(null, null) {
+            @Override
+            public void planPrivateEvent(PlanPrivateEventRequest request, Instant now) {
+            }
+        };
     }
 
     private static PrivateEventPlanning refusing(RuntimeException refusal) {

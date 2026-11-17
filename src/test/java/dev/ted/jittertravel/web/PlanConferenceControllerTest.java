@@ -14,6 +14,7 @@ import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.ui.ConcurrentModel;
 import org.springframework.ui.Model;
@@ -81,7 +82,7 @@ class PlanConferenceControllerTest {
         PlanConferenceRequest request = aConferenceForm();
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planConference");
 
-        String view = controller.planConferenceSubmit(request, bindingResult, new ConcurrentModel());
+        String view = controller.planConferenceSubmit(request, bindingResult, null, null, new ConcurrentModel());
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -123,7 +124,7 @@ class PlanConferenceControllerTest {
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planConference");
         Model model = new ConcurrentModel();
 
-        controller.planConferenceSubmit(request, bindingResult, model);
+        controller.planConferenceSubmit(request, bindingResult, null, null, model);
 
         PlanConferenceRequest reRendered = (PlanConferenceRequest) model.getAttribute("planConference");
         assertThat(UUID.fromString(reRendered.conferenceId()))
@@ -152,7 +153,7 @@ class PlanConferenceControllerTest {
         PlanConferenceRequest request = aConferenceForm();
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planConference");
 
-        String view = controller.planConferenceSubmit(request, bindingResult, new ConcurrentModel());
+        String view = controller.planConferenceSubmit(request, bindingResult, null, null, new ConcurrentModel());
 
         assertThat(view)
                 .isEqualTo("redirect:/read-only");
@@ -175,6 +176,32 @@ class PlanConferenceControllerTest {
                 LocalDateTime.of(2026, 6, 7, 9, 0), LocalDateTime.of(2026, 6, 9, 17, 0),
                 "Moscone Center", "747 Howard St", "San Francisco", "CA", "USA", "94103",
                 null, null, null, null, null);
+    }
+
+    /** From the calendar's day menu it goes back to that day; from anywhere else, to the list. */
+    @ParameterizedTest
+    @CsvSource({
+            "calendar, 2026-06-07, redirect:/calendar?day=2026-06-07",
+            ",         ,           redirect:/conferences",
+    })
+    void aPlannedConferenceReturnsWhereItWasStartedFromOrElseToTheList(String from, String day,
+                                                                      String expected) {
+        PlanConferenceController controller = new PlanConferenceController(
+                new ConferencePlanning(null, null, null) {
+                    @Override public boolean isReadOnly() { return false; }
+
+                    @Override public void planConference(PlanConferenceRequest request, Instant now,
+                                                         UUID cfpCommandId) {
+                    }
+                }, null, FIXED_CLOCK);
+        PlanConferenceRequest request = aConferenceForm();
+
+        String view = controller.planConferenceSubmit(request,
+                new BeanPropertyBindingResult(request, "planConference"), from, day, new ConcurrentModel());
+
+        assertThat(view)
+                .as("where a planned conference lands")
+                .isEqualTo(expected);
     }
 
     /** A writable service whose every plan is refused with {@code refusal}. */

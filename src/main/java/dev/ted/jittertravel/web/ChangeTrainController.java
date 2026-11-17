@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -61,6 +62,8 @@ public class ChangeTrainController {
     public String changeTrainSubmit(@PathVariable("tripId") String tripIdString,
                                     @ModelAttribute("changeTrain") ChangeTrainRequest command,
                                     BindingResult bindingResult,
+                                    @RequestParam(value = "from", required = false) String from,
+                                    @RequestParam(value = "day", required = false) String day,
                                     Model model) {
         TrainFormErrors errors = new TrainFormErrors(bindingResult);
         // Binding already failed: a date left blank, or one that would not parse. Those values are
@@ -98,7 +101,7 @@ public class ChangeTrainController {
             return "change-train";
         }
 
-        return "redirect:/booked-trains";
+        return "redirect:" + LinkOrigin.returnTo(from, day, "/booked-trains");
     }
 
     private Optional<TrainDetailsView> lookup(String tripIdString) {

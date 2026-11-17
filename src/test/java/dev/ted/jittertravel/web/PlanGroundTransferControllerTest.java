@@ -91,7 +91,7 @@ class PlanGroundTransferControllerTest {
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planGroundTransfer");
         Model model = new ConcurrentModel();
 
-        controller.planGroundTransferSubmit(request, bindingResult, null, model);
+        controller.planGroundTransferSubmit(request, bindingResult, null, null, model);
 
         PlanGroundTransferRequest reRendered =
                 (PlanGroundTransferRequest) model.getAttribute("planGroundTransfer");
@@ -112,6 +112,29 @@ class PlanGroundTransferControllerTest {
         assertThat(carriedOver.getFieldErrors("destination"))
                 .as("the refusal still lands under the input that fixes it")
                 .hasSize(1);
+    }
+
+    /** From the calendar's day menu it goes back to that day; with no origin, to the calendar. */
+    @Test
+    void aPlannedTransferReturnsToTheDayItWasStartedFrom() {
+        PlanGroundTransferController controller = new PlanGroundTransferController(
+                new GroundTransferPlanning(null, null) {
+                    @Override
+                    public void planGroundTransfer(PlanGroundTransferRequest request) {
+                    }
+                },
+                null, null, FIXED_CLOCK);
+        PlanGroundTransferRequest request = new PlanGroundTransferRequest(
+                UUID.randomUUID().toString(), "airport:DEN", "hotel:abc", "taxi",
+                LocalDate.of(2026, 9, 14), LocalTime.of(12, 0), LocalTime.of(12, 45));
+
+        String view = controller.planGroundTransferSubmit(request,
+                new BeanPropertyBindingResult(request, "planGroundTransfer"),
+                "calendar", "2026-09-14", new ConcurrentModel());
+
+        assertThat(view)
+                .as("where a planned transfer lands")
+                .isEqualTo("redirect:/calendar?day=2026-09-14");
     }
 
     /** A service whose every transfer is refused with {@code refusal}. */

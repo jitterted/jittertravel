@@ -93,6 +93,7 @@ public class BookFlightController {
     public String bookFlightSubmit(@ModelAttribute("bookFlight") BookFlightRequest command,
                                    BindingResult bindingResult,
                                    @RequestParam(value = "from", required = false) String from,
+                                   @RequestParam(value = "day", required = false) String day,
                                    Model model) {
         if (flightBooking.isReadOnly()) {
             return "redirect:/read-only";
@@ -134,7 +135,7 @@ public class BookFlightController {
             return "book-flight";
         }
 
-        return returnTo(from, "/booked-flights");
+        return "redirect:" + LinkOrigin.returnTo(from, day, "/booked-flights");
     }
 
     @PostMapping("/book-flight/lookup")
@@ -208,16 +209,6 @@ public class BookFlightController {
     /** Empty unless the city has exactly one airport — see {@link AirportCityResolver#soleAirportFor}. */
     private Optional<String> soleAirport(String city) {
         return city == null || city.isBlank() ? Optional.empty() : airportCities.soleAirportFor(city);
-    }
-
-    /**
-     * Where to land after a successful action: back at the report when Ted arrived from a fix link,
-     * otherwise this controller's own default. Only the <em>success</em> path takes it — a
-     * read-only refusal or a stale-link miss has not fixed anything, so it still goes where it
-     * always did.
-     */
-    private static String returnTo(String from, String fallback) {
-        return "redirect:" + LinkOrigin.returnTo(from).orElse(fallback);
     }
 
 }

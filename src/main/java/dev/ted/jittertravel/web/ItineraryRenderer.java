@@ -238,7 +238,7 @@ public class ItineraryRenderer {
             case FlightItineraryEntry e -> renderFlight(e, isOwner, day);
             case TrainItineraryEntry e -> renderTrain(e, isOwner, day);
             case HotelItineraryEntry e -> renderHotel(e, isOwner, day);
-            case GatheringItineraryEntry e -> renderGathering(e, isOwner);
+            case GatheringItineraryEntry e -> renderGathering(e, isOwner, day);
             case ConferenceItineraryEntry e -> renderConference(e, isOwner);
             case PrivateEventItineraryEntry e -> renderPrivateEvent(e, isOwner, day);
             case GroundTransferItineraryEntry e -> renderGroundTransfer(e, isOwner, day);
@@ -249,11 +249,16 @@ public class ItineraryRenderer {
         return cancelBin(LinkOrigin.ITINERARY.linkFrom(cancelPath, day), label);
     }
 
+    /** Like the bin, the pencil names this surface and day, so a saved change comes back here. */
+    private static DomContent pencil(String editPath, String label, LocalDate day) {
+        return editPencil(LinkOrigin.ITINERARY.linkFrom(editPath, day), label);
+    }
+
     private static DivTag renderFlight(FlightItineraryEntry e, boolean isOwner, LocalDate day) {
         String kindLabel = e.role() == FlightDayRole.ARRIVAL ? "Arriving" : "Flight";
         DivTag title = div().withClass("entry-title").with(span(e.airline() + " " + e.flightNumber()));
         if (isOwner) {
-            title.with(editPencil("/booked-flights/" + e.flightId().id(), "Edit flight"));
+            title.with(pencil("/booked-flights/" + e.flightId().id(), "Edit flight", day));
             title.with(bin("/booked-flights/" + e.flightId().id() + "/cancel", "Cancel flight", day));
         }
         return div().withClass("entry-card entry-card--flight").with(
@@ -297,7 +302,7 @@ public class ItineraryRenderer {
                 serviceLine.with(span(e.serviceId()));
             }
             if (isOwner) {
-                serviceLine.with(editPencil("/booked-trains/" + e.tripId().id(), "Edit train"));
+                serviceLine.with(pencil("/booked-trains/" + e.tripId().id(), "Edit train", day));
                 serviceLine.with(bin("/booked-trains/" + e.tripId().id() + "/cancel",
                         "Cancel train", day));
             }
@@ -329,7 +334,7 @@ public class ItineraryRenderer {
         DivTag title = div().withClass("entry-title").with(
                 a(e.hotelName()).withHref(e.mapsUrl()).withTarget("_blank").withRel("noopener"));
         if (isOwner) {
-            title.with(editPencil("/booked-hotels/" + e.hotelBookingId().id(), "Edit hotel"));
+            title.with(pencil("/booked-hotels/" + e.hotelBookingId().id(), "Edit hotel", day));
             title.with(bin("/booked-hotels/" + e.hotelBookingId().id() + "/cancel", "Cancel hotel", day));
         }
         return div().withClass("entry-card entry-card--lodging").with(
@@ -359,13 +364,13 @@ public class ItineraryRenderer {
         return line.with(ZonedTimeTag.render(e.anchorDateTime(), TIME_FORMAT));
     }
 
-    private static DivTag renderGathering(GatheringItineraryEntry e, boolean isOwner) {
+    private static DivTag renderGathering(GatheringItineraryEntry e, boolean isOwner, LocalDate day) {
         DomContent titleContent = e.infoUrl().isBlank()
                 ? new Text(e.title())
                 : a(e.title()).withHref(e.infoUrl()).withTarget("_blank").withRel("noopener");
         DivTag title = div().withClass("entry-title").with(titleContent);
         if (isOwner) {
-            title.with(editPencil("/planned-gatherings/" + e.gatheringId().id(), "Edit gathering"));
+            title.with(pencil("/planned-gatherings/" + e.gatheringId().id(), "Edit gathering", day));
         }
         DivTag card = div().withClass("entry-card entry-card--gathering").with(
                 div("Gathering").withClass("entry-kind entry-kind--gathering"),

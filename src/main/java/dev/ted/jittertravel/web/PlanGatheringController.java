@@ -52,6 +52,8 @@ public class PlanGatheringController {
     @PostMapping("/plan-gathering")
     public String planGatheringSubmit(@ModelAttribute("planGathering") PlanGatheringRequest request,
                                       BindingResult bindingResult,
+                                      @RequestParam(value = "from", required = false) String from,
+                                      @RequestParam(value = "day", required = false) String day,
                                       Model model) {
         // A date or time left blank, or one that would not parse, is null on the request.
         if (bindingResult.hasErrors()) {
@@ -79,6 +81,6 @@ public class PlanGatheringController {
             return "plan-gathering";
         }
 
-        return "redirect:/planned-gatherings";
+        return "redirect:" + LinkOrigin.returnTo(from, day, "/planned-gatherings");
     }
 }

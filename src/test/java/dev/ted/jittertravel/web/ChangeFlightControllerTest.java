@@ -15,6 +15,7 @@ import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.ui.ConcurrentModel;
 import org.springframework.validation.BeanPropertyBindingResult;
@@ -57,7 +58,7 @@ class ChangeFlightControllerTest {
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "changeFlight");
 
         String view = controller.changeFlightSubmit(
-                UUID.randomUUID().toString(), request, bindingResult, new ConcurrentModel());
+                UUID.randomUUID().toString(), request, bindingResult, null, null, new ConcurrentModel());
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -100,13 +101,38 @@ class ChangeFlightControllerTest {
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "changeFlight");
 
         String view = controller.changeFlightSubmit(
-                UUID.randomUUID().toString(), request, bindingResult, new ConcurrentModel());
+                UUID.randomUUID().toString(), request, bindingResult, null, null, new ConcurrentModel());
 
         assertThat(view)
                 .isEqualTo("redirect:/read-only");
         assertThat(bindingResult.hasErrors())
                 .as("nothing on the form was wrong")
                 .isFalse();
+    }
+
+    /** From a pencil on the calendar or itinerary it goes back to that day; otherwise, to the list. */
+    @ParameterizedTest
+    @CsvSource({
+            "calendar,  2026-06-07, redirect:/calendar?day=2026-06-07",
+            "itinerary, 2026-06-07, redirect:/itinerary?date=2026-06-07",
+            ",          ,           redirect:/booked-flights",
+    })
+    void aChangedFlightReturnsWhereItWasStartedFromOrElseToTheList(String from, String day, String expected) {
+        ChangeFlightController controller = new ChangeFlightController(
+                new ChangeFlight(null, null, null, null) {
+                    @Override public boolean isReadOnly() { return false; }
+
+                    @Override public void changeFlight(UUID commandId, ChangeFlightRequest request, Instant now) {
+                    }
+                }, null, null, FIXED_CLOCK);
+        ChangeFlightRequest request = new ChangeFlightRequest();
+
+        String view = controller.changeFlightSubmit(UUID.randomUUID().toString(), request,
+                new BeanPropertyBindingResult(request, "changeFlight"), from, day, new ConcurrentModel());
+
+        assertThat(view)
+                .as("where a changed flight lands")
+                .isEqualTo(expected);
     }
 
     /** A writable service whose every change is refused with {@code refusal}. */

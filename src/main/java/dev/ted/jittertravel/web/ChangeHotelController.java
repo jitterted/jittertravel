@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -61,7 +62,9 @@ public class ChangeHotelController {
     @PostMapping("/booked-hotels/{hotelBookingId}")
     public String changeHotelSubmit(@PathVariable("hotelBookingId") String hotelBookingIdString,
                                     @ModelAttribute("changeHotel") ChangeHotelRequest command,
-                                    BindingResult bindingResult) {
+                                    BindingResult bindingResult,
+                                    @RequestParam(value = "from", required = false) String from,
+                                    @RequestParam(value = "day", required = false) String day) {
         HotelFormErrors errors = new HotelFormErrors(bindingResult);
         // Binding already failed: a date left blank, or one that would not parse. Those values are
         // null on the request, so calling the service would only reach the write path with them.
@@ -100,7 +103,7 @@ public class ChangeHotelController {
             return "change-hotel";
         }
 
-        return "redirect:/booked-hotels";
+        return "redirect:" + LinkOrigin.returnTo(from, day, "/booked-hotels");
     }
 
     private Optional<HotelDetailsView> lookup(String hotelBookingIdString) {

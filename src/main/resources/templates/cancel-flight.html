@@ -121,11 +121,8 @@
 
     <form th:action="@{|/booked-flights/${flight.flightId().id()}/cancel|}" method="post">
 
-        <!--/* Carries where the link was clicked (?from=, and the day a calendar or itinerary
-               bin was drawn on) through the POST, so a successful cancel lands where "Keep it"
-               does. Absent for an ordinary visit, which keeps this page's own way out. */-->
-        <input type="hidden" name="from" th:if="${linkOrigin != null}" th:value="${linkOrigin}"/>
-        <input type="hidden" name="day" th:if="${originDay != null}" th:value="${originDay}"/>
+        <!--/* A successful cancel lands where "Keep it" does. */-->
+        <th:block th:replace="~{fragments/link-origin :: hiddenInputs}"></th:block>
         <div class="field">
             <label>
                 Reason (optional)

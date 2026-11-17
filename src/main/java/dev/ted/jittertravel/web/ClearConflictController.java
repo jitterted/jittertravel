@@ -81,17 +81,8 @@ public class ClearConflictController {
             return "clear-conflict";
         }
 
-        return returnTo(from, "/schedule-problems");
-    }
-
-    /**
-     * Where to land after a successful action: back at the report when Ted arrived from a fix link,
-     * otherwise this controller's own default. Only the <em>success</em> path takes it — a
-     * read-only refusal or a stale-link miss has not fixed anything, so it still goes where it
-     * always did.
-     */
-    private static String returnTo(String from, String fallback) {
-        return "redirect:" + LinkOrigin.returnTo(from).orElse(fallback);
+        // Reached only from a fix link, which never carries a day.
+        return "redirect:" + LinkOrigin.returnTo(from, null, "/schedule-problems");
     }
 
 }

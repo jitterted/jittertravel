@@ -88,6 +88,8 @@ public class PlanConferenceController {
     public String planConferenceSubmit(@ModelAttribute("planConference")
                                            PlanConferenceRequest command,
                                        BindingResult bindingResult,
+                                       @RequestParam(value = "from", required = false) String from,
+                                       @RequestParam(value = "day", required = false) String day,
                                        Model model) {
         if (conferencePlanning.isReadOnly()) {
             return "redirect:/read-only";
@@ -131,7 +133,7 @@ public class PlanConferenceController {
             return "plan-conference";
         }
 
-        return "redirect:/conferences";
+        return "redirect:" + LinkOrigin.returnTo(from, day, "/conferences");
     }
 
     /**

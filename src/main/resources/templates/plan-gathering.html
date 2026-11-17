@@ -126,6 +126,7 @@
 
     <form th:action="@{/plan-gathering}" th:object="${planGathering}" method="post">
         <input type="hidden" th:field="*{gatheringId}"/>
+        <th:block th:replace="~{fragments/link-origin :: hiddenInputs}"></th:block>
 
         <div class="field" style="margin-bottom: 0.5rem;">
             <label>

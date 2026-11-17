@@ -113,19 +113,19 @@ class CalendarViewBuilderTest {
                 .hasSize(3);
         assertThat(html)
                 .as("today offers every Add item, even the kinds that refuse a time already passed")
-                .contains("href=\"/book-flight?date=2026-06-19\"")
-                .contains("href=\"/book-hotel?date=2026-06-19\"")
-                .contains("href=\"/plan-gathering?date=2026-06-19\"")
+                .contains("href=\"/book-flight?date=2026-06-19&amp;from=calendar&amp;day=2026-06-19\"")
+                .contains("href=\"/book-hotel?date=2026-06-19&amp;from=calendar&amp;day=2026-06-19\"")
+                .contains("href=\"/plan-gathering?date=2026-06-19&amp;from=calendar&amp;day=2026-06-19\"")
                 .doesNotContain("book-flight?date=2026-06-18")
                 .doesNotContain("book-flight?date=2026-06-21");
         assertThat(html)
                 .contains("href=\"/itinerary?date=2026-06-20\"")
-                .contains("href=\"/book-flight?date=2026-06-20\"")
-                .contains("href=\"/book-train?date=2026-06-20\"")
-                .contains("href=\"/book-hotel?date=2026-06-20\"")
-                .contains("href=\"/plan-ground-transfer?date=2026-06-20\"")
-                .contains("href=\"/plan-gathering?date=2026-06-20\"")
-                .contains("href=\"/plan-conference?date=2026-06-20\"");
+                .contains("href=\"/book-flight?date=2026-06-20&amp;from=calendar&amp;day=2026-06-20\"")
+                .contains("href=\"/book-train?date=2026-06-20&amp;from=calendar&amp;day=2026-06-20\"")
+                .contains("href=\"/book-hotel?date=2026-06-20&amp;from=calendar&amp;day=2026-06-20\"")
+                .contains("href=\"/plan-ground-transfer?date=2026-06-20&amp;from=calendar&amp;day=2026-06-20\"")
+                .contains("href=\"/plan-gathering?date=2026-06-20&amp;from=calendar&amp;day=2026-06-20\"")
+                .contains("href=\"/plan-conference?date=2026-06-20&amp;from=calendar&amp;day=2026-06-20\"");
     }
 
     @Test
@@ -803,7 +803,9 @@ class CalendarViewBuilderTest {
                 true     // isOwner
         );
 
-        assertThat(html).contains("class=\"edit-pencil\" href=\"/planned-gatherings/g-123\"");
+        assertThat(html)
+                .as("the pencil names the calendar and the entry's day, so a saved change comes back to it")
+                .contains("class=\"edit-pencil\" href=\"/planned-gatherings/g-123?from=calendar&amp;day=2026-06-10\"");
     }
 
     @Test
@@ -1141,9 +1143,9 @@ class CalendarViewBuilderTest {
         );
 
         assertThat(html)
-                .contains("class=\"edit-pencil\" href=\"/booked-trains/trip-9\"")
+                .contains("class=\"edit-pencil\" href=\"/booked-trains/trip-9?from=calendar&amp;day=2026-06-01\"")
                 .contains("class=\"cancel-bin\" href=\"/booked-trains/trip-9/cancel?from=calendar&amp;day=2026-06-01\"");
-        assertThat(html.indexOf("edit-pencil\" href=\"/booked-trains/trip-9\""))
+        assertThat(html.indexOf("edit-pencil\" href=\"/booked-trains/trip-9?"))
                 .as("edit keeps its position; cancel is appended after it")
                 .isLessThan(html.indexOf("cancel-bin\" href="));
     }
@@ -1165,9 +1167,9 @@ class CalendarViewBuilderTest {
         );
 
         assertThat(html)
-                .contains("class=\"edit-pencil\" href=\"/booked-flights/flight-9\"")
+                .contains("class=\"edit-pencil\" href=\"/booked-flights/flight-9?from=calendar&amp;day=2026-06-01\"")
                 .contains("class=\"cancel-bin\" href=\"/booked-flights/flight-9/cancel?from=calendar&amp;day=2026-06-01\" title=\"Cancel flight\"");
-        assertThat(html.indexOf("edit-pencil\" href=\"/booked-flights/flight-9\""))
+        assertThat(html.indexOf("edit-pencil\" href=\"/booked-flights/flight-9?"))
                 .as("edit keeps its position; cancel is appended after it")
                 .isLessThan(html.indexOf("cancel-bin\" href="));
     }

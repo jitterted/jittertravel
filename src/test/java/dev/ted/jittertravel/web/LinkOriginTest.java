@@ -88,6 +88,30 @@ class LinkOriginTest {
                 .isEqualTo("/ground-transfers/xyz/cancel?from=itinerary&day=2026-06-10");
     }
 
+    /** The day menu's links already carry {@code ?date=} to seed the form, and keep it. */
+    @Test
+    void aLinkWithAQueryAlreadyKeepsItAndAddsTheOrigin() {
+        assertThat(LinkOrigin.CALENDAR.linkFrom("/plan-private-event?date=2026-06-10", DAY))
+                .as("calendar day-menu href")
+                .isEqualTo("/plan-private-event?date=2026-06-10&from=calendar&day=2026-06-10");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "problems-list, 2026-06-10, /schedule-problems?view=list",
+            "itinerary,     2026-06-10, /itinerary?date=2026-06-10",
+            "calendar,      2026-06-10, /calendar?day=2026-06-10",
+            "calendar,      garbage,    /calendar",
+            "calendar,      ,           /calendar",
+            "'',            2026-06-10, /planned-private-events",
+            ",              2026-06-10, /planned-private-events",
+    })
+    void aSuccessfulFormReturnsToTheDayItWasStartedFromOrElseToItsList(String from, String day, String href) {
+        assertThat(LinkOrigin.returnTo(from, day, "/planned-private-events"))
+                .as("return for from=" + from + ", day=" + day)
+                .isEqualTo(href);
+    }
+
     @ParameterizedTest
     @CsvSource({
             "2026-06-10, 2026-06-10",

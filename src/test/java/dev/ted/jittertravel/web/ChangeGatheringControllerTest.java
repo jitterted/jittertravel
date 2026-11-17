@@ -33,7 +33,7 @@ class ChangeGatheringControllerTest {
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "changeGathering");
 
         String view = controller.changeGatheringSubmit(UUID.randomUUID().toString(), request,
-                                                       bindingResult);
+                                                       bindingResult, null, null);
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -42,6 +42,34 @@ class ChangeGatheringControllerTest {
                 .extracting(FieldError::getField)
                 .as("the refusal is reported on exactly one input")
                 .containsExactly(field);
+    }
+
+    /** From a pencil on the calendar or itinerary it goes back to that day; otherwise, to the list. */
+    @ParameterizedTest
+    @CsvSource({
+            "calendar,  2026-06-07, redirect:/calendar?day=2026-06-07",
+            "itinerary, 2026-06-07, redirect:/itinerary?date=2026-06-07",
+            ",          ,           redirect:/planned-gatherings",
+    })
+    void aChangedGatheringReturnsWhereItWasStartedFromOrElseToTheList(String from, String day,
+                                                                     String expected) {
+        ChangeGatheringController controller = new ChangeGatheringController(
+                new ChangeGathering(null, null, null) {
+                    @Override
+                    public void changeGathering(UUID commandId, String gatheringId,
+                                                ChangeGatheringRequest request, Instant now) {
+                    }
+                }, null, FIXED_CLOCK);
+        ChangeGatheringRequest request = new ChangeGatheringRequest(
+                "NY JUG", "Venue", "", "New York", "NY", "", "US", "", "",
+                LocalDate.of(2026, 6, 7), LocalTime.of(18, 0), LocalTime.of(21, 0), false, "");
+
+        String view = controller.changeGatheringSubmit(UUID.randomUUID().toString(), request,
+                new BeanPropertyBindingResult(request, "changeGathering"), from, day);
+
+        assertThat(view)
+                .as("where a changed gathering lands")
+                .isEqualTo(expected);
     }
 
     private static ChangeGathering refusing(RuntimeException refusal) {

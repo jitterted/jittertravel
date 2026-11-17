@@ -13,6 +13,7 @@ import dev.ted.jittertravel.domain.ZoneResolutionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.ui.ConcurrentModel;
 import org.springframework.ui.Model;
@@ -139,7 +140,7 @@ class BookHotelControllerTest {
         BookHotelRequest request = aStay();
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookHotel");
 
-        String view = controller.bookHotelSubmit(request, bindingResult, null, new ConcurrentModel());
+        String view = controller.bookHotelSubmit(request, bindingResult, null, null, new ConcurrentModel());
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -195,7 +196,7 @@ class BookHotelControllerTest {
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookHotel");
         Model model = new ConcurrentModel();
 
-        controller.bookHotelSubmit(request, bindingResult, null, model);
+        controller.bookHotelSubmit(request, bindingResult, null, null, model);
 
         BookHotelRequest reRendered = (BookHotelRequest) model.getAttribute("bookHotel");
         assertThat(UUID.fromString(reRendered.hotelBookingId()))
@@ -215,6 +216,32 @@ class BookHotelControllerTest {
         assertThat(carriedOver.getFieldErrors("checkIn"))
                 .as("the refusal still lands under the input that fixes it")
                 .hasSize(1);
+    }
+
+    /** From the calendar's day menu it goes back to that day; from anywhere else, to the list. */
+    @ParameterizedTest
+    @CsvSource({
+            "calendar, 2026-12-03, redirect:/calendar?day=2026-12-03",
+            ",         ,           redirect:/booked-hotels",
+    })
+    void aBookedStayReturnsWhereItWasStartedFromOrElseToTheList(String from, String day, String expected) {
+        BookHotelController controller = new BookHotelController(accepting(), FIXED_CLOCK);
+        BookHotelRequest request = aStay();
+
+        String view = controller.bookHotelSubmit(request, new BeanPropertyBindingResult(request, "bookHotel"),
+                from, day, new ConcurrentModel());
+
+        assertThat(view)
+                .as("where a booked stay lands")
+                .isEqualTo(expected);
+    }
+
+    private static HotelBooking accepting() {
+        return new HotelBooking(null, null) {
+            @Override
+            public void bookHotel(BookHotelRequest request, Instant now) {
+            }
+        };
     }
 
     /** Any well-formed stay: which refusal comes back is the stub's choice, not the input's. */

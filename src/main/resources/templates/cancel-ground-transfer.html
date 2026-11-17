@@ -83,11 +83,8 @@
 
     <form th:action="@{|/ground-transfers/${transfer.groundTransferId().id()}/cancel|}" method="post">
 
-        <!--/* Carries where the link was clicked (?from=, and the day a calendar or itinerary
-               bin was drawn on) through the POST, so a successful cancel lands where "Keep it"
-               does. Absent for an ordinary visit, which keeps this page's own way out. */-->
-        <input type="hidden" name="from" th:if="${linkOrigin != null}" th:value="${linkOrigin}"/>
-        <input type="hidden" name="day" th:if="${originDay != null}" th:value="${originDay}"/>
+        <!--/* A successful cancel lands where "Keep it" does. */-->
+        <th:block th:replace="~{fragments/link-origin :: hiddenInputs}"></th:block>
         <div class="actions">
             <button type="submit" class="confirm">Cancel this transfer</button>
             <a class="keep-link" th:href="${wayBack.href()}" th:text="|Keep it — back to ${wayBack.place()}|">Keep it — back to the itinerary</a>

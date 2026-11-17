@@ -76,7 +76,7 @@ class PlanGatheringControllerTest {
                 LocalDate.of(2026, 6, 7), LocalTime.of(18, 0), LocalTime.of(21, 0), false, "");
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planGathering");
 
-        String view = controller.planGatheringSubmit(request, bindingResult, new ConcurrentModel());
+        String view = controller.planGatheringSubmit(request, bindingResult, null, null, new ConcurrentModel());
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -103,7 +103,7 @@ class PlanGatheringControllerTest {
                 LocalDate.of(2026, 6, 7), LocalTime.of(18, 0), LocalTime.of(21, 0), false, "");
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planGathering");
 
-        String view = controller.planGatheringSubmit(request, bindingResult, new ConcurrentModel());
+        String view = controller.planGatheringSubmit(request, bindingResult, null, null, new ConcurrentModel());
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -136,7 +136,7 @@ class PlanGatheringControllerTest {
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "planGathering");
         Model model = new ConcurrentModel();
 
-        controller.planGatheringSubmit(request, bindingResult, model);
+        controller.planGatheringSubmit(request, bindingResult, null, null, model);
 
         PlanGatheringRequest reRendered = (PlanGatheringRequest) model.getAttribute("planGathering");
         assertThat(UUID.fromString(reRendered.gatheringId()))
@@ -161,6 +161,32 @@ class PlanGatheringControllerTest {
     static InvalidEnteredLocation venueRefusal(LocationField field) {
         return new InvalidEnteredLocation(List.of(
                 new InvalidLocationEntry(LocationRole.VENUE, field, "refused")));
+    }
+
+    /** From the calendar's day menu it goes back to that day; from anywhere else, to the list. */
+    @ParameterizedTest
+    @CsvSource({
+            "calendar, 2026-06-07, redirect:/calendar?day=2026-06-07",
+            ",         ,           redirect:/planned-gatherings",
+    })
+    void aPlannedGatheringReturnsWhereItWasStartedFromOrElseToTheList(String from, String day,
+                                                                     String expected) {
+        PlanGatheringController controller = new PlanGatheringController(
+                new GatheringPlanning(null, null) {
+                    @Override
+                    public void planGathering(PlanGatheringRequest request, Instant now) {
+                    }
+                }, FIXED_CLOCK);
+        PlanGatheringRequest request = new PlanGatheringRequest(
+                "", "NY JUG", "Venue", "", "New York", "NY", "", "US", "", "",
+                LocalDate.of(2026, 6, 7), LocalTime.of(18, 0), LocalTime.of(21, 0), false, "");
+
+        String view = controller.planGatheringSubmit(request,
+                new BeanPropertyBindingResult(request, "planGathering"), from, day, new ConcurrentModel());
+
+        assertThat(view)
+                .as("where a planned gathering lands")
+                .isEqualTo(expected);
     }
 
     private static GatheringPlanning refusing(RuntimeException refusal) {

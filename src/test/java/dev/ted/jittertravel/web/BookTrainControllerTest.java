@@ -16,6 +16,7 @@ import dev.ted.jittertravel.domain.ZonedTimestamp;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.ui.ConcurrentModel;
 import org.springframework.ui.Model;
@@ -144,7 +145,7 @@ class BookTrainControllerTest {
         BookTrainRequest request = aTrip();
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookTrain");
 
-        String view = controller.bookTrainSubmit(request, bindingResult, null, new ConcurrentModel());
+        String view = controller.bookTrainSubmit(request, bindingResult, null, null, new ConcurrentModel());
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -196,7 +197,7 @@ class BookTrainControllerTest {
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookTrain");
         Model model = new ConcurrentModel();
 
-        controller.bookTrainSubmit(request, bindingResult, null, model);
+        controller.bookTrainSubmit(request, bindingResult, null, null, model);
 
         BookTrainRequest reRendered = (BookTrainRequest) model.getAttribute("bookTrain");
         assertThat(UUID.fromString(reRendered.trainTripId()))
@@ -216,6 +217,32 @@ class BookTrainControllerTest {
         assertThat(carriedOver.getFieldErrors("departureDateTime"))
                 .as("the refusal still lands under the input that fixes it")
                 .hasSize(1);
+    }
+
+    /** From the calendar's day menu it goes back to that day; from anywhere else, to the list. */
+    @ParameterizedTest
+    @CsvSource({
+            "calendar, 2026-12-03, redirect:/calendar?day=2026-12-03",
+            ",         ,           redirect:/booked-trains",
+    })
+    void aBookedTripReturnsWhereItWasStartedFromOrElseToTheList(String from, String day, String expected) {
+        BookTrainController controller = new BookTrainController(accepting(), FIXED_CLOCK);
+        BookTrainRequest request = aTrip();
+
+        String view = controller.bookTrainSubmit(request, new BeanPropertyBindingResult(request, "bookTrain"),
+                from, day, new ConcurrentModel());
+
+        assertThat(view)
+                .as("where a booked trip lands")
+                .isEqualTo(expected);
+    }
+
+    private static TrainBooking accepting() {
+        return new TrainBooking(null, null, null) {
+            @Override
+            public void bookTrain(BookTrainRequest request, Instant now) {
+            }
+        };
     }
 
     /** Any well-formed trip: which refusal comes back is the stub's choice, not the input's. */

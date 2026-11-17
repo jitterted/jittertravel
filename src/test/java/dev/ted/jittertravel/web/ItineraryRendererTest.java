@@ -405,7 +405,8 @@ class ItineraryRendererTest {
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
 
         assertThat(html)
-                .contains("class=\"edit-pencil\" href=\"/booked-trains/" + tripId.id() + "\"");
+                .contains("class=\"edit-pencil\" href=\"/booked-trains/" + tripId.id()
+                          + "?from=itinerary&amp;day=2026-06-01\"");
     }
 
     /**
@@ -475,7 +476,8 @@ class ItineraryRendererTest {
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
 
         assertThat(html)
-                .contains("class=\"edit-pencil\" href=\"/booked-flights/" + flightId.id() + "\"");
+                .contains("class=\"edit-pencil\" href=\"/booked-flights/" + flightId.id()
+                          + "?from=itinerary&amp;day=2026-06-01\"");
     }
 
     @Test
@@ -593,7 +595,8 @@ class ItineraryRendererTest {
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
 
         assertThat(html)
-                .contains("class=\"edit-pencil\" href=\"/booked-hotels/" + bookingId.id() + "\"");
+                .contains("class=\"edit-pencil\" href=\"/booked-hotels/" + bookingId.id()
+                          + "?from=itinerary&amp;day=2026-06-01\"");
     }
 
     @Test
@@ -806,7 +809,8 @@ class ItineraryRendererTest {
                 threeDays(List.of(entry), List.of(), List.of()), MAY_31, JUN_2, JUN_1, true);
 
         assertThat(html)
-                .contains("class=\"edit-pencil\" href=\"/planned-gatherings/" + gatheringId.id() + "\"");
+                .contains("class=\"edit-pencil\" href=\"/planned-gatherings/" + gatheringId.id()
+                          + "?from=itinerary&amp;day=2026-06-01\"");
     }
 
     @Test

@@ -140,9 +140,21 @@ class BookFlightControllerTest {
         BookFlightRequest request = new BookFlightRequest();
         BindingResult noErrors = new BeanPropertyBindingResult(request, "bookFlight");
 
-        String view = controller.bookFlightSubmit(request, noErrors, "problems-list", new ConcurrentModel());
+        String view = controller.bookFlightSubmit(request, noErrors, "problems-list", null, new ConcurrentModel());
 
         assertThat(view).isEqualTo("redirect:/schedule-problems?view=list");
+    }
+
+    @Test
+    void bookingFromTheCalendarDayMenuReturnsToThatDay() {
+        BookFlightController controller = new BookFlightController(
+                bookingService(), null, new StaticAirportCityResolver(), FIXED_CLOCK);
+        BookFlightRequest request = new BookFlightRequest();
+        BindingResult noErrors = new BeanPropertyBindingResult(request, "bookFlight");
+
+        String view = controller.bookFlightSubmit(request, noErrors, "calendar", "2026-12-03", new ConcurrentModel());
+
+        assertThat(view).isEqualTo("redirect:/calendar?day=2026-12-03");
     }
 
     @Test
@@ -152,7 +164,7 @@ class BookFlightControllerTest {
         BookFlightRequest request = new BookFlightRequest();
         BindingResult noErrors = new BeanPropertyBindingResult(request, "bookFlight");
 
-        String view = controller.bookFlightSubmit(request, noErrors, null, new ConcurrentModel());
+        String view = controller.bookFlightSubmit(request, noErrors, null, null, new ConcurrentModel());
 
         assertThat(view).isEqualTo("redirect:/booked-flights");
     }
@@ -196,7 +208,7 @@ class BookFlightControllerTest {
         BookFlightRequest request = new BookFlightRequest();
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookFlight");
 
-        String view = controller.bookFlightSubmit(request, bindingResult, null, new ConcurrentModel());
+        String view = controller.bookFlightSubmit(request, bindingResult, null, null, new ConcurrentModel());
 
         assertThat(view)
                 .as("a refusal re-renders the form, where the error can be seen")
@@ -245,7 +257,7 @@ class BookFlightControllerTest {
         request.setFlightId(refusedId);
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookFlight");
 
-        controller.bookFlightSubmit(request, bindingResult, null, new ConcurrentModel());
+        controller.bookFlightSubmit(request, bindingResult, null, null, new ConcurrentModel());
 
         assertThat(UUID.fromString(request.getFlightId()))
                 .as("a corrected resubmit is a new command, never a collision with the refused one")
@@ -260,7 +272,7 @@ class BookFlightControllerTest {
         BookFlightRequest request = new BookFlightRequest();
         BindingResult bindingResult = new BeanPropertyBindingResult(request, "bookFlight");
 
-        String view = controller.bookFlightSubmit(request, bindingResult, null, new ConcurrentModel());
+        String view = controller.bookFlightSubmit(request, bindingResult, null, null, new ConcurrentModel());
 
         assertThat(view)
                 .isEqualTo("redirect:/read-only");

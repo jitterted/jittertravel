@@ -78,6 +78,8 @@ public class ChangeFlightController {
     public String changeFlightSubmit(@PathVariable("flightId") String flightIdString,
                                      @ModelAttribute("changeFlight") ChangeFlightRequest command,
                                      BindingResult bindingResult,
+                                     @RequestParam(value = "from", required = false) String from,
+                                     @RequestParam(value = "day", required = false) String day,
                                      Model model) {
         if (changeFlight.isReadOnly()) {
             return "redirect:/read-only";
@@ -123,7 +125,7 @@ public class ChangeFlightController {
             return "change-flight";
         }
 
-        return "redirect:/booked-flights";
+        return "redirect:" + LinkOrigin.returnTo(from, day, "/booked-flights");
     }
 
     @PostMapping("/booked-flights/{flightId}/lookup")

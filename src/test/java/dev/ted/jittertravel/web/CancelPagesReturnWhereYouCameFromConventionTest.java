@@ -46,8 +46,7 @@ class CancelPagesReturnWhereYouCameFromConventionTest {
     void everyCancelFormCarriesTheOriginAndTheDayThroughThePost() {
         assertThat(cancelPages()).isNotEmpty().allSatisfy(page -> assertThat(templates.read(page))
                 .as("%s carries from and day through its POST", page.getFileName())
-                .contains("<input type=\"hidden\" name=\"from\" th:if=\"${linkOrigin != null}\" th:value=\"${linkOrigin}\"/>")
-                .contains("<input type=\"hidden\" name=\"day\" th:if=\"${originDay != null}\" th:value=\"${originDay}\"/>"));
+                .contains(LinkOriginFragmentConventionTest.FRAGMENT_REFERENCE));
     }
 
     private List<String> keepLinks(Path page) {

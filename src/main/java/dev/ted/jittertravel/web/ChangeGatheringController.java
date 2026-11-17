@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -60,7 +61,9 @@ public class ChangeGatheringController {
     @PostMapping("/planned-gatherings/{gatheringId}")
     public String changeGatheringSubmit(@PathVariable("gatheringId") String gatheringIdString,
                                         @ModelAttribute("changeGathering") ChangeGatheringRequest command,
-                                        BindingResult bindingResult) {
+                                        BindingResult bindingResult,
+                                        @RequestParam(value = "from", required = false) String from,
+                                        @RequestParam(value = "day", required = false) String day) {
         // A date or time left blank, or one that would not parse, is null on the request.
         if (bindingResult.hasErrors()) {
             return "change-gathering";
@@ -91,7 +94,7 @@ public class ChangeGatheringController {
             return "change-gathering";
         }
 
-        return "redirect:/planned-gatherings";
+        return "redirect:" + LinkOrigin.returnTo(from, day, "/planned-gatherings");
     }
 
     private Optional<GatheringDetailsView> lookup(String gatheringIdString) {

@@ -115,8 +115,7 @@ class ProblemContextFragmentConventionTest {
             assertThat(formPostingTo(templates.read(template), path))
                     .as("the form posting to %s must carry ?from= through the POST, or the action "
                         + "lands somewhere else", path)
-                    .contains("name=\"from\"")
-                    .contains("th:value=\"${linkOrigin}\"");
+                    .contains(LinkOriginFragmentConventionTest.FRAGMENT_REFERENCE);
         });
     }
 
@@ -125,7 +124,7 @@ class ProblemContextFragmentConventionTest {
      * with every {@code ${...}} expression read as an id. Fails rather than returns empty when
      * there is none: a fix target with no form posting to its own path is a broken page.
      */
-    private static String formPostingTo(String template, String path) {
+    static String formPostingTo(String template, String path) {
         Matcher form = Pattern.compile("<form\\b.*?</form>", Pattern.DOTALL).matcher(template);
         while (form.find()) {
             Matcher action = Pattern.compile("th:action=\"([^\"]*)\"").matcher(form.group());
@@ -151,23 +150,23 @@ class ProblemContextFragmentConventionTest {
      */
     @Test
     void anUnknownOriginCannotBecomeARedirectTarget() {
-        assertThat(LinkOrigin.returnTo("https://evil.example.com"))
-                .contains("/schedule-problems?view=calendar");
-        assertThat(LinkOrigin.returnTo("/admin/database"))
-                .contains("/schedule-problems?view=calendar");
+        assertThat(LinkOrigin.returnTo("https://evil.example.com", null, "/booked-hotels"))
+                .isEqualTo("/schedule-problems?view=calendar");
+        assertThat(LinkOrigin.returnTo("/admin/database", null, "/booked-hotels"))
+                .isEqualTo("/schedule-problems?view=calendar");
     }
 
     /**
      * And absent must stay distinguishable from {@code calendar}: an ordinary booking made from the
-     * nav card or a calendar day-menu has no origin, and must keep its controller's own landing
-     * place rather than being sent to a report it never came from.
+     * nav card has no origin, and must keep its controller's own landing place rather than being
+     * sent to a report it never came from.
      */
     @Test
     void noOriginLeavesTheControllersOwnDestinationAlone() {
-        assertThat(LinkOrigin.returnTo(null))
-                .isEmpty();
-        assertThat(LinkOrigin.returnTo("  "))
-                .isEmpty();
+        assertThat(LinkOrigin.returnTo(null, "2026-12-03", "/booked-hotels"))
+                .isEqualTo("/booked-hotels");
+        assertThat(LinkOrigin.returnTo("  ", "2026-12-03", "/booked-hotels"))
+                .isEqualTo("/booked-hotels");
     }
 
     /**

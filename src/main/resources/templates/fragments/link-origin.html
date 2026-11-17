@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<!--/*
+  Carries where the form was opened from (?from=, and &day= for a surface laid out by day) through
+  its POST — and through every re-render on the way, a refused submit or a flight lookup — so the
+  controller can send Ted back there once it succeeds (LinkOrigin.returnTo).
+
+  Reads linkOrigin / originDay, which ProblemContextAdvice puts on every model. Both are absent for
+  an ordinary visit (the index nav card, a list's own link), and then nothing renders here and the
+  controller keeps its own default.
+
+  Every form a calendar day-menu "Add …" item or an edit pencil opens includes this, and so does
+  every form that re-renders it (the lookup and the leg chooser on the two flight forms).
+*/-->
+<body>
+
+<th:block th:fragment="hiddenInputs">
+    <input type="hidden" name="from" th:if="${linkOrigin != null}" th:value="${linkOrigin}"/>
+    <input type="hidden" name="day" th:if="${originDay != null}" th:value="${originDay}"/>
+</th:block>
+
+</body>
+</html>

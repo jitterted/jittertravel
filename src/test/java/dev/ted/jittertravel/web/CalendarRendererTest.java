@@ -202,7 +202,7 @@ class CalendarRendererTest {
 
         String html = CalendarRenderer.render(List.of(train), LocalDate.of(2026, 6, 11), false, true);
 
-        assertThat(html).contains("href=\"/booked-trains/trip-123\"");
+        assertThat(html).contains("href=\"/booked-trains/trip-123?from=calendar&amp;day=2026-07-01\"");
     }
 
     @Test
@@ -230,7 +230,7 @@ class CalendarRendererTest {
 
         String html = CalendarRenderer.render(List.of(flight), LocalDate.of(2026, 6, 11), false, true);
 
-        assertThat(html).contains("href=\"/booked-flights/flight-123\"");
+        assertThat(html).contains("href=\"/booked-flights/flight-123?from=calendar&amp;day=2026-07-01\"");
     }
 
     @Test

@@ -174,11 +174,9 @@
     </p>
 
     <form th:unless="${departed}" th:action="@{|/booked-itineraries/${itinerary.itineraryId().id()}/cancel|}" method="post">
-        <!--/* Carries where the link was clicked through the POST, so a successful cancel — or
-               the departed refusal's re-render — leads where "Keep it" does. Absent for an
-               ordinary visit from /booked-flights, which keeps this page's own way out. */-->
-        <input type="hidden" name="from" th:if="${linkOrigin != null}" th:value="${linkOrigin}"/>
-        <input type="hidden" name="day" th:if="${originDay != null}" th:value="${originDay}"/>
+        <!--/* A successful cancel — or the departed refusal's re-render — leads where "Keep it"
+               does. */-->
+        <th:block th:replace="~{fragments/link-origin :: hiddenInputs}"></th:block>
         <div class="field">
             <label>
                 Reason (optional)

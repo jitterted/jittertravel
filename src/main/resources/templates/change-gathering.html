@@ -128,6 +128,7 @@
            Thymeleaf merges into the context on its own -- so the action names the gathering while no
            hidden input carries it, and a crafted POST has nothing to re-target with. */-->
     <form th:action="@{|/planned-gatherings/${gatheringId}|}" th:object="${changeGathering}" method="post">
+        <th:block th:replace="~{fragments/link-origin :: hiddenInputs}"></th:block>
 
         <div class="field" style="margin-bottom: 0.5rem;">
             <label>

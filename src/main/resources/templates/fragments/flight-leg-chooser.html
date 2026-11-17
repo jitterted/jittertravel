@@ -49,7 +49,7 @@
             <input type="hidden" name="arrivalZone" th:value="${leg.arrivalZoneId}"/>
             <input type="hidden" name="lookupFlightNumber" th:value="${lookupFlightNumber}"/>
             <input type="hidden" name="lookupDepartureDate" th:value="${lookupDepartureDate}"/>
-            <button type="submit" class="leg-btn">
+            <th:block th:replace="~{fragments/link-origin :: hiddenInputs}"></th:block>            <button type="submit" class="leg-btn">
                 <span class="leg-caption" th:text="${caption}">Leg 1</span>
                 <span class="leg-endpoint">
                     <span class="leg-airport" th:text="${leg.departureAirport}">RDU</span>

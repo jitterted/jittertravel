@@ -19,6 +19,7 @@
         <legend>Lookup Flight</legend>
         <p>Refresh the form from AeroDataBox using a flight number and departure date.</p>
         <form th:action="@{|/booked-flights/${changeFlight.flightId}/lookup|}" method="post">
+            <th:block th:replace="~{fragments/link-origin :: hiddenInputs}"></th:block>
             <div class="lookup-row">
                 <div class="field">
                     <label>
@@ -42,6 +43,7 @@
 
     <form th:action="@{|/booked-flights/${changeFlight.flightId}|}" th:object="${changeFlight}" method="post">
         <input type="hidden" th:field="*{flightId}"/>
+        <th:block th:replace="~{fragments/link-origin :: hiddenInputs}"></th:block>
 
         <div class="field-row service-field">
             <div class="field">

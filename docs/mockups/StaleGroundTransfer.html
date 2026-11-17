@@ -1,0 +1,407 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Mockup for docs/GroundTransferEndpointReferencesPlan.md. APPROVED by Ted 2026-11-17, all five parts:
+     M1 leads with the change, icon + kind label, fixes Change / Cancel (over replace-in-one-step and two links);
+     M2 cancel-page line, read from a new TransfersByEndpointProjector; M3 itinerary strip A (over a
+     strike-through + chip, and a whole amber card); M4 the plan form refuses a time its leg contradicts,
+     messages capitalized ("Leaves before Train arrives"); M5 the Change form, banner line "Currently:".
+     Names are the anonymized ones from docs/talks/TheFactYouDidntWriteDown.md: this repo is public. -->
+<title>Stale Ground Transfers</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: one section per surface (M1, M2, M3); each shows the real page's markup at real width. */
+:root {
+  --bg: #f6f7f9;
+  --fg: #1c2230;
+  --muted: #5b6475;
+  --rule: #dde1e8;
+  --panel: #ffffff;
+  --accent: #2554c7;
+  --pick: #b45309;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* The app previews are pictures of the real (light-only) pages, so their colours are fixed. */
+  --app-bg: #ffffff;
+  --app-text: #111827;
+  --app-muted: #6b7280;
+  --app-border: #e5e7eb;
+  --app-detail: #374151;
+  --site-muted: #495057;
+  --site-border: #dee2e6;
+  --site-accent: #4f46e5;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151c; --fg: #e6e9ef; --muted: #9aa3b4; --rule: #2a313d; --panel: #181d26;
+    --accent: #7ea2ff; --pick: #fb923c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151c; --fg: #e6e9ef; --muted: #9aa3b4; --rule: #2a313d; --panel: #181d26;
+  --accent: #7ea2ff; --pick: #fb923c;
+  color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 64px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+h1 { font-size: 1.9rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1rem; }
+p { margin: 0; max-width: 70ch; }
+.intro { display: grid; gap: 12px; }
+.status { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; display: grid; gap: 8px; }
+.status ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 6px; }
+.surface { background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.surface-head { display: grid; gap: 6px; }
+.why { color: var(--muted); font-size: 0.92rem; }
+.tag { justify-self: start; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--muted); }
+.tag--q { color: var(--pick); border-color: var(--pick); }
+.compare { display: flex; flex-wrap: wrap; gap: 18px; }
+.side { display: grid; gap: 8px; flex: 1 1 300px; min-width: 0; align-content: start; }
+.side-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.side-note { font-size: 0.85rem; color: var(--muted); }
+.side-note strong { color: var(--fg); }
+.group { display: grid; gap: 10px; }
+.group-head { display: grid; gap: 2px; }
+.group-head p { font-size: 0.88rem; color: var(--muted); }
+.variants { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.variant { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.variant-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.notes ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 6px; max-width: 74ch; }
+code { font-size: 0.88em; background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; padding: 0 4px; }
+
+/* ---- Shared app frame ---- */
+.app { background: var(--app-bg); color: var(--app-text); border: 1px solid var(--rule); border-radius: 8px; padding: 14px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 16px; min-width: 0; }
+
+/* ---- /schedule-problems, copied from ScheduleProblemsRenderer.CSS ---- */
+.column-heading { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 0.6rem; }
+.column-heading--stale { color: #92400e; }
+.problem-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.problem-card { border-left: 4px solid transparent; border-radius: 0 6px 6px 0; padding: 0.6rem 0.85rem; }
+.problem-card--stale-transfer { border-left-color: #b45309; background: #fef3c7; }
+.problem-title  { font-weight: 600; font-size: 0.9rem; color: #1f2937; }
+.problem-detail { font-size: 0.82rem; color: #374151; margin-top: 0.15rem; }
+.fix-slot { margin-top: 0.4rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.problem-kind { display: flex; align-items: center; gap: 0.3rem; margin-top: 0.3rem; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #854d0e; }
+.problem-kind svg { width: 13px; height: 13px; flex-shrink: 0; }
+a.fix-summary { display: inline-block; font-size: 0.78rem; font-weight: 600; color: #1f2937; background: rgba(255,255,255,0.75); border: 1px solid rgba(0,0,0,0.15); border-radius: 5px; padding: 0.15rem 0.5rem; text-decoration: none; }
+
+/* ---- cancel-hotel.html ---- */
+.cancel-page { max-width: 560px; }
+.cancel-page h4 { margin: 0 0 1rem; font-size: 1.4rem; font-weight: 700; }
+.summary { border: 1px solid var(--site-border); border-radius: 8px; padding: 0.9rem 1.1rem; margin-bottom: 1.25rem; }
+.summary .name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; }
+.summary .line { font-size: 0.9rem; color: var(--site-muted); margin-top: 0.15rem; }
+.field label { display: flex; flex-direction: column; gap: 3px; font-size: 0.8rem; color: var(--site-muted); margin-bottom: 1rem; }
+.field input { padding: 0.35rem 0.5rem; border: 1px solid var(--site-border); border-radius: 5px; font-size: 0.9rem; font-family: inherit; width: 100%; box-sizing: border-box; background: #fff; color: #212529; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.25rem; }
+.danger { background: #b00; color: #fff; border: 1px solid #b00; border-radius: 6px; padding: 0.45rem 1.4rem; font-size: 0.95rem; font-family: inherit; }
+.keep-link { color: var(--site-accent); text-decoration: none; font-size: 0.9rem; }
+/* New: the consequence line. Amber, not red: the transfer can be fixed afterwards. */
+.consequence { background: #fffbeb; border-left: 4px solid #b45309; border-radius: 0 6px 6px 0; padding: 0.6rem 0.85rem; margin-bottom: 1.25rem; font-size: 0.88rem; color: #78350f; }
+.consequence-title { font-weight: 700; color: #92400e; margin-bottom: 0.15rem; }
+.consequence ul { margin: 0.2rem 0 0.3rem; padding-left: 1.1rem; }
+
+/* ---- /itinerary, copied from ItineraryRenderer.CSS ---- */
+.day-header { font-weight: 700; font-size: 1rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--app-border); margin-bottom: 0.6rem; }
+.entry-card { border-left: 4px solid transparent; border-radius: 0 6px 6px 0; padding: 0.55rem 0.75rem; margin-bottom: 0.6rem; }
+.entry-card:last-child { margin-bottom: 0; }
+.entry-card--lodging { border-left-color: #166534; background: #dcfce7; }
+.entry-card--ground-transfer { border-left-color: #854d0e; background: #fef9c3; }
+.entry-header { display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.2rem; }
+.entry-header svg { width: 13px; height: 13px; flex-shrink: 0; }
+.entry-kind { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.entry-kind--lodging { color: #166534; } .entry-kind--ground-transfer { color: #854d0e; }
+.entry-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; line-height: 1.3; }
+.entry-title a { color: inherit; text-decoration: underline; }
+.entry-detail { font-size: 0.82rem; color: var(--app-detail); line-height: 1.4; }
+.entry-location { font-weight: 700; }
+/* Chosen (A): a white strip inside the card, outlined in the problem amber. */
+.stale-strip { display: flex; align-items: flex-start; gap: 0.35rem; margin-top: 0.4rem; background: #ffffff; border: 1px solid #d97706; border-radius: 5px; padding: 0.3rem 0.5rem; font-size: 0.8rem; color: #92400e; line-height: 1.35; }
+.stale-strip svg { width: 13px; height: 13px; flex-shrink: 0; margin-top: 0.1rem; }
+.stale-strip a { color: #b45309; font-weight: 600; text-decoration: underline; white-space: nowrap; }
+
+/* ---- plan-ground-transfer.html (and the change form built from it) ---- */
+.form-page { max-width: 560px; }
+.form-page h4 { margin: 0 0 1rem; font-size: 1.4rem; font-weight: 700; }
+.f-field { margin-bottom: 0.75rem; }
+.f-label { display: flex; flex-direction: column; gap: 2px; font-size: 0.8rem; color: var(--site-muted); }
+.f-input { padding: 0.3rem 0.5rem; border: 1px solid var(--site-border); border-radius: 5px; font-size: 0.9rem; color: #212529; background: #fff; min-height: 1.4rem; overflow-wrap: anywhere; }
+.f-input--select::after { content: " \25BE"; float: right; color: var(--site-muted); }
+.f-input--empty { color: #6c757d; }
+.f-input--bad { border-color: #b00; }
+.f-hint { display: block; font-size: 0.75rem; color: var(--site-muted); margin-top: 2px; }
+.f-error { display: block; margin-top: 2px; font-size: 0.8rem; color: #b00; }
+.f-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+.f-row .f-field { flex: 1 1 120px; margin-bottom: 0; min-width: 0; }
+.f-submit { display: inline-block; background: var(--site-accent); color: #fff; border-radius: 6px; padding: 0.45rem 1.4rem; font-size: 0.95rem; }
+.f-was { display: block; margin-top: 2px; font-size: 0.8rem; color: #92400e; }
+.problem-context { background: #fef3c7; color: #78350f; border-left: 4px solid #b45309; border-radius: 6px; padding: 0.6rem 0.8rem; margin-bottom: 1rem; font-size: 0.9rem; }
+.problem-context-title { font-weight: 600; }
+.problem-context-detail { margin-top: 2px; }
+.problem-context-back { display: inline-block; margin-top: 0.5rem; color: #78350f; font-weight: 600; text-decoration: none; }
+.steps { margin: 0; padding-left: 1.2rem; display: grid; gap: 4px; font-size: 0.88rem; color: var(--muted); }
+.steps strong { color: var(--fg); }
+
+@media (max-width: 640px) { .side { flex-basis: 100%; } }
+</style>
+<div class="wrap">
+  <header class="intro">
+    <h1>Stale Ground Transfers</h1>
+    <p>Mockup for <code>docs/GroundTransferEndpointReferencesPlan.md</code>. A ground transfer is stale when the hotel, flight, train or event it was planned from or to is canceled, or has moved off the transfer's day or (for a flight or train) off its time. Each surface below is drawn with the real page's CSS. The example is Nov 20: the transfer from the palace tour still goes to the Berlin hotel that was canceled and replaced.</p>
+    <div class="status">
+      <strong>Where each part stands</strong>
+      <ul>
+        <li><strong>M1, Schedule Problems:</strong> approved. Leads with the change, icon + kind label, fixes Change / Cancel.</li>
+        <li><strong>M2, cancel pages:</strong> approved. Built from a new small projector.</li>
+        <li><strong>M3, itinerary:</strong> design A and all its wording approved (Ted, 2026-11-17).</li>
+        <li><strong>M4, Plan Ground Transfer:</strong> approved.</li>
+        <li><strong>M5, Change Ground Transfer:</strong> approved, with "Currently:" in the banner.</li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- M1. /schedule-problems -->
+  <section class="surface">
+    <div class="surface-head">
+      <span class="tag">Approved</span>
+      <h2>M1. Schedule Problems: a new section</h2>
+      <p class="why">The change leads. The card's title is what happened, in the same sentence as the itinerary strip, and the transfer it affects goes underneath. The fixes are <strong>Change transfer</strong> and <strong>Cancel transfer</strong> (fix A, Ted 2026-11-17, over "replace in one step" and "two separate steps"). A taxi icon and the GROUND TRANSFER label say what the card is about at a glance.</p>
+    </div>
+    <div class="compare">
+      <div class="side">
+        <div class="side-label">Icon + kind label, as on the itinerary</div>
+        <div class="app">
+          <p class="column-heading column-heading--stale">Stale Ground Transfers</p>
+          <div class="problem-list">
+            <div class="problem-card problem-card--stale-transfer">
+              <div class="problem-title">Motel One Berlin-Alexanderplatz was canceled</div>
+              <div class="problem-kind"><svg viewBox="0 0 24 24" fill="none" stroke="#854d0e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><path d="M3 11h18v5H3zM6 16v2M18 16v2M9 5.5V3.5h6v2"/></svg><span>Ground transfer</span></div>
+              <div class="problem-detail">Palace tour &rarr; Motel One Berlin-Alexanderplatz</div>
+              <div class="problem-detail">Fri, Nov 20, 4:00&ndash;5:00 PM</div>
+              <div class="fix-slot"><a class="fix-summary">Change transfer &rarr;</a><a class="fix-summary">Cancel transfer &rarr;</a></div>
+            </div>
+            <div class="problem-card problem-card--stale-transfer">
+              <div class="problem-title">Leonardo Hotel Berlin Mitte now checks out Sun, Nov 22</div>
+              <div class="problem-kind"><svg viewBox="0 0 24 24" fill="none" stroke="#854d0e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><path d="M3 11h18v5H3zM6 16v2M18 16v2M9 5.5V3.5h6v2"/></svg><span>Ground transfer</span></div>
+              <div class="problem-detail">Leonardo Hotel Berlin Mitte &rarr; Berlin Hbf</div>
+              <div class="problem-detail">Mon, Nov 23, 10:30&ndash;11:00 AM</div>
+              <div class="fix-slot"><a class="fix-summary">Change transfer &rarr;</a><a class="fix-summary">Cancel transfer &rarr;</a></div>
+            </div>
+            <div class="problem-card problem-card--stale-transfer">
+              <div class="problem-title">Train ICE 571 now arrives 6:10 PM, after this transfer leaves</div>
+              <div class="problem-kind"><svg viewBox="0 0 24 24" fill="none" stroke="#854d0e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><path d="M3 11h18v5H3zM6 16v2M18 16v2M9 5.5V3.5h6v2"/></svg><span>Ground transfer</span></div>
+              <div class="problem-detail">Darmstadt Hbf &rarr; Hotel Darmstadt Mitte</div>
+              <div class="problem-detail">Mon, Nov 23, 4:30&ndash;4:50 PM</div>
+              <div class="fix-slot"><a class="fix-summary">Change transfer &rarr;</a><a class="fix-summary">Cancel transfer &rarr;</a></div>
+            </div>
+          </div>
+        </div>
+        <p class="side-note">Chosen over a bold "Ground transfer:" at the start of the route line (Ted, 2026-11-17). The taxi icon and the small-caps label are the same ones the transfer's card wears on the itinerary, so it's recognized as the same thing on both pages.</p>
+      </div>
+    </div>
+    <div class="notes"><ul>
+      <li><strong>Change transfer</strong> opens the Change Ground Transfer form (M5) filled in from this transfer. Saving records <code>GroundTransferChanged</code> on the same transfer, and the card goes away.</li>
+      <li><strong>Cancel transfer</strong> is for when you no longer need the ride at all.</li>
+    </ul></div>
+  </section>
+
+  <!-- M2. Cancel page -->
+  <section class="surface">
+    <div class="surface-head">
+      <span class="tag">Approved</span>
+      <h2>M2. Cancel pages: what this leaves behind</h2>
+      <p class="why">Shown only when a transfer goes to or from the thing being canceled, above the reason field. It doesn't block or change the cancel. It's amber, not red, because the transfer can be fixed afterwards. Drawn here on Cancel Hotel. Cancel Flight, Cancel Flight Itinerary, Cancel Train, Cancel Private Event and Decline Conference get the same line.</p>
+    </div>
+    <div class="app">
+      <div class="cancel-page">
+        <h4>Cancel Hotel Booking</h4>
+        <div class="summary">
+          <div class="name">Motel One Berlin-Alexanderplatz</div>
+          <div class="line">Berlin, Germany</div>
+          <div class="line">Check-in: Fri, Nov 20, 2026, 6:00 PM</div>
+          <div class="line">Check-out: Mon, Nov 23, 2026, 11:00 AM</div>
+        </div>
+        <div class="consequence">
+          <div class="consequence-title">1 ground transfer goes to this hotel</div>
+          <ul><li>Palace tour &rarr; Motel One Berlin-Alexanderplatz, Fri, Nov 20, 4:00 PM</li></ul>
+          It stays planned. Schedule Problems will list it until you change or cancel it.
+        </div>
+        <div class="field"><label>Reason (optional)<input id="reason" type="text" placeholder="Trip canceled, found somewhere better…"></label></div>
+        <div class="actions"><span class="danger">Cancel this booking</span><a class="keep-link">Keep it &mdash; back to the list</a></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- M3. Itinerary -->
+  <section class="surface">
+    <div class="surface-head">
+      <span class="tag tag--q">Design A chosen &middot; wording to approve</span>
+      <h2>M3. Itinerary: the transfer's card</h2>
+      <p class="why">A white strip inside the card, outlined in the problem amber, holding one sentence. Family sees this page too, so the sentence never says "you", and it's the same sentence for both. Only the owner gets the link, which opens Change Ground Transfer (M5); family gets no greyed control in its place. The owner's cancel bin on the card is left out of these drawings.</p>
+    </div>
+
+    <div class="compare">
+      <div class="side">
+        <div class="side-label">Owner</div>
+        <div class="app"><div class="day-header">Fri, Nov 20</div>
+          <div class="entry-card entry-card--ground-transfer">
+            <div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#854d0e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><path d="M3 11h18v5H3zM6 16v2M18 16v2M9 5.5V3.5h6v2"/></svg><span class="entry-kind entry-kind--ground-transfer">Ground transfer</span></div>
+            <div class="entry-title">Palace tour&nbsp;&rarr;&nbsp;Motel One Berlin-Alexanderplatz</div>
+            <div class="entry-detail">4:00 PM&nbsp;&rarr;&nbsp;5:00 PM</div>
+            <div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Motel One Berlin-Alexanderplatz was canceled. <a>Change transfer &rarr;</a></span></div>
+          </div>
+          <div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-In</span></div><div class="entry-title"><a>Leonardo Hotel Berlin Mitte</a></div><div class="entry-detail entry-location">Berlin</div><div class="entry-detail">3:00 PM</div></div>
+        </div>
+      </div>
+      <div class="side">
+        <div class="side-label">Family</div>
+        <div class="app"><div class="day-header">Fri, Nov 20</div>
+          <div class="entry-card entry-card--ground-transfer">
+            <div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#854d0e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><path d="M3 11h18v5H3zM6 16v2M18 16v2M9 5.5V3.5h6v2"/></svg><span class="entry-kind entry-kind--ground-transfer">Ground transfer</span></div>
+            <div class="entry-title">Palace tour&nbsp;&rarr;&nbsp;Motel One Berlin-Alexanderplatz</div>
+            <div class="entry-detail">4:00 PM&nbsp;&rarr;&nbsp;5:00 PM</div>
+            <div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Motel One Berlin-Alexanderplatz was canceled.</span></div>
+          </div>
+          <div class="entry-card entry-card--lodging"><div class="entry-header"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"/><path d="M6 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/></svg><span class="entry-kind entry-kind--lodging">Check-In</span></div><div class="entry-title"><a>Leonardo Hotel Berlin Mitte</a></div><div class="entry-detail entry-location">Berlin</div><div class="entry-detail">3:00 PM</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Every wording, owner view. Family sees the same sentence without the link. -->
+    <div class="group">
+      <div class="group-head"><h3>Gone</h3><p>The thing the transfer was planned from or to no longer exists. A gathering has no cancel, so it never appears here.</p></div>
+      <div class="variants">
+        <div class="variant"><div class="variant-label">Hotel canceled</div><div class="app"><div class="entry-card entry-card--ground-transfer"><div class="entry-title">Palace tour&nbsp;&rarr;&nbsp;Motel One Berlin-Alexanderplatz</div><div class="entry-detail">4:00 PM&nbsp;&rarr;&nbsp;5:00 PM</div><div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Motel One Berlin-Alexanderplatz was canceled. <a>Change transfer &rarr;</a></span></div></div></div></div>
+        <div class="variant"><div class="variant-label">Flight canceled</div><div class="app"><div class="entry-card entry-card--ground-transfer"><div class="entry-title">BER&nbsp;&rarr;&nbsp;Leonardo Hotel Berlin Mitte</div><div class="entry-detail">7:30 PM&nbsp;&rarr;&nbsp;8:15 PM</div><div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Flight LH 1234 was canceled. <a>Change transfer &rarr;</a></span></div></div></div></div>
+        <div class="variant"><div class="variant-label">Flight rebooked</div><div class="app"><div class="entry-card entry-card--ground-transfer"><div class="entry-title">BER&nbsp;&rarr;&nbsp;Leonardo Hotel Berlin Mitte</div><div class="entry-detail">7:30 PM&nbsp;&rarr;&nbsp;8:15 PM</div><div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Flight LH 1234 was rebooked onto other flights. <a>Change transfer &rarr;</a></span></div></div></div></div>
+        <div class="variant"><div class="variant-label">Train canceled</div><div class="app"><div class="entry-card entry-card--ground-transfer"><div class="entry-title">Darmstadt Hbf&nbsp;&rarr;&nbsp;Hotel Darmstadt Mitte</div><div class="entry-detail">4:30 PM&nbsp;&rarr;&nbsp;4:50 PM</div><div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Train ICE 571 was canceled. <a>Change transfer &rarr;</a></span></div></div></div></div>
+        <div class="variant"><div class="variant-label">Conference canceled</div><div class="app"><div class="entry-card entry-card--ground-transfer"><div class="entry-title">Hotel Darmstadt Mitte&nbsp;&rarr;&nbsp;Dev Summit venue</div><div class="entry-detail">8:15 AM&nbsp;&rarr;&nbsp;8:45 AM</div><div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Dev Summit was canceled. <a>Change transfer &rarr;</a></span></div></div></div></div>
+        <div class="variant"><div class="variant-label">Conference declined or dropped</div><div class="app"><div class="entry-card entry-card--ground-transfer"><div class="entry-title">Hotel Darmstadt Mitte&nbsp;&rarr;&nbsp;Dev Summit venue</div><div class="entry-detail">8:15 AM&nbsp;&rarr;&nbsp;8:45 AM</div><div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Dev Summit is no longer on the schedule. <a>Change transfer &rarr;</a></span></div></div></div></div>
+        <div class="variant"><div class="variant-label">Private event canceled</div><div class="app"><div class="entry-card entry-card--ground-transfer"><div class="entry-title">Leonardo Hotel Berlin Mitte&nbsp;&rarr;&nbsp;Dinner with friends</div><div class="entry-detail">6:30 PM&nbsp;&rarr;&nbsp;7:00 PM</div><div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Dinner with friends was canceled. <a>Change transfer &rarr;</a></span></div></div></div></div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Off its day</h3><p>The thing still exists, but the transfer's day is no longer one of its days. The sentence names whichever end moved, with its new date.</p></div>
+      <div class="variants">
+        <div class="variant"><div class="variant-label">Hotel check-in moved later</div><div class="app"><div class="entry-card entry-card--ground-transfer"><div class="entry-title">Palace tour&nbsp;&rarr;&nbsp;Leonardo Hotel Berlin Mitte</div><div class="entry-detail">4:00 PM&nbsp;&rarr;&nbsp;5:00 PM</div><div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Leonardo Hotel Berlin Mitte now checks in Sat, Nov 21. <a>Change transfer &rarr;</a></span></div></div></div></div>
+        <div class="variant"><div class="variant-label">Hotel check-out moved earlier</div><div class="app"><div class="entry-card entry-card--ground-transfer"><div class="entry-title">Leonardo Hotel Berlin Mitte&nbsp;&rarr;&nbsp;Berlin Hbf</div><div class="entry-detail">10:30 AM&nbsp;&rarr;&nbsp;11:00 AM</div><div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Leonardo Hotel Berlin Mitte now checks out Sun, Nov 22. <a>Change transfer &rarr;</a></span></div></div></div></div>
+        <div class="variant"><div class="variant-label">Conference dates changed</div><div class="app"><div class="entry-card entry-card--ground-transfer"><div class="entry-title">Hotel Darmstadt Mitte&nbsp;&rarr;&nbsp;Dev Summit venue</div><div class="entry-detail">8:15 AM&nbsp;&rarr;&nbsp;8:45 AM</div><div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Dev Summit now runs Nov 26&ndash;27. <a>Change transfer &rarr;</a></span></div></div></div></div>
+        <div class="variant"><div class="variant-label">Gathering or private event moved</div><div class="app"><div class="entry-card entry-card--ground-transfer"><div class="entry-title">Leonardo Hotel Berlin Mitte&nbsp;&rarr;&nbsp;Berlin Crafters Meetup</div><div class="entry-detail">6:30 PM&nbsp;&rarr;&nbsp;7:00 PM</div><div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Berlin Crafters Meetup now starts Sat, Nov 21. <a>Change transfer &rarr;</a></span></div></div></div></div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Off its time</h3><p>Flights and trains only. The leg is still on the same day, but at a time this transfer no longer fits.</p></div>
+      <div class="variants">
+        <div class="variant"><div class="variant-label">Arrival now later than the pickup</div><div class="app"><div class="entry-card entry-card--ground-transfer"><div class="entry-title">Darmstadt Hbf&nbsp;&rarr;&nbsp;Hotel Darmstadt Mitte</div><div class="entry-detail">4:30 PM&nbsp;&rarr;&nbsp;4:50 PM</div><div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Train ICE 571 now arrives 6:10 PM, after this transfer leaves. <a>Change transfer &rarr;</a></span></div></div></div></div>
+        <div class="variant"><div class="variant-label">Departure now earlier than the drop-off</div><div class="app"><div class="entry-card entry-card--ground-transfer"><div class="entry-title">Leonardo Hotel Berlin Mitte&nbsp;&rarr;&nbsp;BER</div><div class="entry-detail">11:00 AM&nbsp;&rarr;&nbsp;11:50 AM</div><div class="stale-strip"><svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>Flight LH 1234 now leaves 11:20 AM, before this transfer gets there. <a>Change transfer &rarr;</a></span></div></div></div></div>
+      </div>
+    </div>
+
+    <div class="notes"><ul>
+      <li>Every sentence starts with the thing that changed, by the name the itinerary already shows for it, and the strip uses the same words as Schedule Problems.</li>
+      <li>Flights and trains say "Flight" or "Train" before the number, because "LH 1234 was canceled" alone doesn't say what LH 1234 is.</li>
+      <li>"No longer on the schedule" covers a declined conference and one dropped after a rejection, without saying which (the decline wasn't the organizer's doing, so "canceled" would be wrong).</li>
+      <li>If both ends are stale, the card shows two strips, the origin's first.</li>
+    </ul></div>
+  </section>
+
+  <!-- M4. Plan Ground Transfer refuses a time the leg contradicts -->
+  <section class="surface">
+    <div class="surface-head">
+      <span class="tag">Approved</span>
+      <h2>M4. Plan Ground Transfer: a time the train or flight contradicts</h2>
+      <p class="why">Decided (Ted, 2026-11-17): the form refuses it, so a mistyped time never reaches the calendar. Each panel shows what you do and what the page shows after you press the button. Nothing is saved. The error sits under the time that's wrong, in the form's usual red. It names the kind of leg, not its description, so it stays one short line however long a train's name is (Ted, 2026-11-17).</p>
+    </div>
+    <div class="compare">
+      <div class="side">
+        <div class="side-label">From a train you arrive on</div>
+        <ol class="steps">
+          <li>Under <strong>From</strong>, pick the ICE 571 arrival. The page fills in Date Nov 23 and Departure 4:00 PM.</li>
+          <li>Change <strong>Departure time</strong> to 3:30 PM.</li>
+          <li>Press <strong>Plan Ground Transfer</strong>. The page comes back like this:</li>
+        </ol>
+        <div class="app"><div class="form-page">
+          <h4>Plan Ground Transfer</h4>
+          <div class="f-field"><div class="f-label">From<div class="f-input f-input--select">Darmstadt Hbf &mdash; Darmstadt &middot; arrive Mon Nov 23, 4:00 PM (ICE 571)</div></div></div>
+          <div class="f-field"><div class="f-label">To<div class="f-input f-input--select">Hotel Darmstadt Mitte &mdash; Darmstadt &middot; check in Mon Nov 23, 3:00 PM</div></div></div>
+          <div class="f-field"><div class="f-label">Mode<div class="f-input">Taxi</div></div></div>
+          <div class="f-row">
+            <div class="f-field"><div class="f-label">Date<div class="f-input">11/23/2026</div></div></div>
+            <div class="f-field"><div class="f-label">Departure time<div class="f-input f-input--bad">3:30 PM</div></div><span class="f-error">Leaves before Train arrives</span></div>
+            <div class="f-field"><div class="f-label">Arrival time<div class="f-input">3:50 PM</div></div></div>
+          </div>
+          <span class="f-submit">Plan Ground Transfer</span>
+        </div></div>
+      </div>
+      <div class="side">
+        <div class="side-label">To a flight you leave on</div>
+        <ol class="steps">
+          <li>Under <strong>To</strong>, pick the LH 1234 departure. The page fills in Date Nov 24 and Arrival 11:20 AM.</li>
+          <li>Change <strong>Arrival time</strong> to 11:50 AM.</li>
+          <li>Press <strong>Plan Ground Transfer</strong>. The page comes back like this:</li>
+        </ol>
+        <div class="app"><div class="form-page">
+          <h4>Plan Ground Transfer</h4>
+          <div class="f-field"><div class="f-label">From<div class="f-input f-input--select">Leonardo Hotel Berlin Mitte &mdash; Berlin &middot; check out Tue Nov 24, 11:00 AM</div></div></div>
+          <div class="f-field"><div class="f-label">To<div class="f-input f-input--select">BER &mdash; Berlin &middot; depart Tue Nov 24, 11:20 AM (LH 1234)</div></div></div>
+          <div class="f-field"><div class="f-label">Mode<div class="f-input">FEX airport express</div></div></div>
+          <div class="f-row">
+            <div class="f-field"><div class="f-label">Date<div class="f-input">11/24/2026</div></div></div>
+            <div class="f-field"><div class="f-label">Departure time<div class="f-input">11:00 AM</div></div></div>
+            <div class="f-field"><div class="f-label">Arrival time<div class="f-input f-input--bad">11:50 AM</div></div><span class="f-error">Arrives after Flight departs</span></div>
+          </div>
+          <span class="f-submit">Plan Ground Transfer</span>
+        </div></div>
+      </div>
+    </div>
+    <div class="notes"><ul>
+      <li>Leaving exactly when the train gets in (4:00 PM) is allowed, and so is arriving exactly when the flight leaves. Only a time on the wrong side is refused.</li>
+      <li>Hotels and events aren't checked this way. They keep the day check they have today.</li>
+      <li>The same rule applies on the Change Ground Transfer form (M5).</li>
+    </ul></div>
+  </section>
+
+  <!-- M5. Change Ground Transfer, reached from fix A -->
+  <section class="surface">
+    <div class="surface-head">
+      <span class="tag">Approved</span>
+      <h2>M5. Change Ground Transfer, opened from the fix link</h2>
+      <p class="why">"Change transfer" on the Schedule Problems card lands here. It's the plan form with this transfer's values filled in, under the usual "why you are here" banner. The end that went stale is left empty, because the canceled hotel is no longer one of the choices, and the line under it says what it was. Saving keeps the same transfer and records the change; the problem card goes away.</p>
+    </div>
+    <div class="app"><div class="form-page">
+      <h4>Change Ground Transfer</h4>
+      <div class="problem-context">
+        <div class="problem-context-title">Motel One Berlin-Alexanderplatz was canceled</div>
+        <div class="problem-context-detail">Currently: Palace tour &rarr; Motel One Berlin-Alexanderplatz &middot; Fri, Nov 20, 4:00&ndash;5:00 PM</div>
+        <span class="problem-context-back">&larr; Back to schedule problems</span>
+      </div>
+      <div class="f-field"><div class="f-label">From<div class="f-input f-input--select">Potsdam, Germany &middot; ends Fri Nov 20, 4:00 PM</div></div><span class="f-hint">Unchanged: the palace tour.</span></div>
+      <div class="f-field"><div class="f-label">To<div class="f-input f-input--select f-input--empty">Choose a place&hellip;</div></div><span class="f-was">Was Motel One Berlin-Alexanderplatz, which was canceled.</span></div>
+      <div class="f-field"><div class="f-label">Mode<div class="f-input f-input--empty">Piccadilly Line</div></div></div>
+      <div class="f-row">
+        <div class="f-field"><div class="f-label">Date<div class="f-input">11/20/2026</div></div></div>
+        <div class="f-field"><div class="f-label">Departure time<div class="f-input">4:00 PM</div></div></div>
+        <div class="f-field"><div class="f-label">Arrival time<div class="f-input">5:00 PM</div></div></div>
+      </div>
+      <span class="f-submit">Save changes</span>
+    </div></div>
+    <div class="notes"><ul>
+      <li>Picking "Leonardo Hotel Berlin Mitte &mdash; Berlin &middot; check in Fri Nov 20, 3:00 PM" leaves the times alone, because they're already valid. The page only fills in a time that would otherwise be wrong, as the plan form does today.</li>
+      <li>When the end <em>moved</em> rather than went away (a new check-out date, a train at a new time), it stays selected and the line reads "Now checks out Sun, Nov 22" or "Now arrives 6:10 PM". You change the date or time, not the place.</li>
+      <li>The form is also reachable without a problem, for any transfer, wherever its cancel bin is today. Without the banner it's simply an edit form.</li>
+      <li>"Save changes" matches Change Hotel and Change Train.</li>
+      <li>The banner's second line starts "Currently:" (Ted, 2026-11-17): the page title already says it's a ground transfer, so the line says what the transfer is <em>now</em>, before the change.</li>
+    </ul></div>
+  </section>
+</div>

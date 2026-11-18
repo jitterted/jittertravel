@@ -3,6 +3,11 @@
 **Status:** designed 2026-11-09 (Ted), nothing built. Decisions D1–D6 are settled and nothing is
 open. D6 widens what reaches the anonymous calendar; read it before building slice 1.
 
+**Build after `GroundTransferEndpointReferencesPlan.md`** (Ted, 2026-11-18). That plan, written on
+2026-11-17 without reference to this one, changes the same code, and this plan is written against
+the code as it stood on 2026-11-09. Once it has shipped, read "After the endpoint references plan"
+below before building slice 1.
+
 A ground transfer's destination can be a **city with no address yet**. No new event, no schema
 bump, no migration, no new route.
 
@@ -275,15 +280,41 @@ push.
 - **A city at the From end** (D3).
 - **A bare venue with an address**, the "venue endpoint" `archived/GroundTransferPlan.md` deferred.
   This plan is narrower: a city, not a building.
-- **Changing a transfer.** There is still no change flow, so once the Berlin hotel is booked the
-  transfer goes on reading `→ Berlin`. Naming the hotel means cancelling it and entering it again.
-  Nothing requires that: the schedule matches on the city.
+- **Changing a transfer** is the endpoint references plan's M5, not this plan's; see "After the
+  endpoint references plan". Nothing requires naming the hotel once it is booked: the schedule
+  matches on the city, so a transfer reading `→ Berlin` stays correct.
 - **Preselection that knows a pair is too far apart.** When a gap leaves exactly one candidate at
   each end and their windows are more than a day apart, the fix link opens on a pair that is
   certain to be refused. D4 makes that refusal useful; it does not prevent it. Worth a look once
   this has been used.
 
+## After the endpoint references plan
+
+`GroundTransferEndpointReferencesPlan.md` (planned 2026-11-17) ships first, and it moves four things
+this plan touches:
+
+- **`GroundTransferPlanned` gains `originSource` and `destinationSource`** (`EndpointSource`), so
+  "the event is unchanged" above becomes "no further change". A city-only destination's source is
+  **`EndpointSource.NONE`**: the city does not depend on the booking it was derived from, so
+  cancelling that booking must not report the transfer as stale, and a `NONE` end is never checked.
+  The source booking's id is not stored anywhere; the `city:` token carries it only between GET and
+  POST.
+- **The resolver keeps each end's id** and `TransferEndpoint` carries it. The `city:` branch resolves
+  the inner token with that code and then replaces the source with `NONE` along with dropping the
+  code, name, street and postal code. That plan's resolver test ("each of the seven token kinds
+  yields the right source") gains the eighth: `city:…` yields `NONE`.
+- **The date rule is extracted into domain methods** shared with the stale check. D4's split keeps
+  the per-end day check (does this end's window cover the day) as the shared method, and the pair
+  check (are the two windows more than a day apart) as a separate method only the commands call.
+  Staleness asks about one end and must never see the pair rule.
+- **Change Ground Transfer exists** (its M5). Its To list gets the `City only` group as well, from
+  the same `GroundTransferEndpointChoices` list, so a transfer can be changed to a city or from a
+  city to the hotel once it is booked. That replaces the "Changing a transfer" item below: the way
+  to name the hotel later is Change, not cancel and re-enter.
+
+That plan's Pre-Push box also records that the trip which raised this case has since had its Nov 20
+transfer recorded to a Berlin hotel, so there is nothing for Ted to enter for it after this ships.
+
 ## Nothing to do outside the repo
 
-No environment variable, no `/admin` run, no `Pre-Push-Tasks.md` box. After the rollout Ted records
-the Nov 19 transfer himself.
+No environment variable, no `/admin` run, no `Pre-Push-Tasks.md` box.

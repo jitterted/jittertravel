@@ -4,6 +4,16 @@
 (all five parts approved 2026-11-17; it is the spec for every word on these surfaces). Talk write-up of the bug:
 `docs/talks/TheFactYouDidntWriteDown.md`.*
 
+**Builds before `CityOnlyTransferEndpointPlan.md`** (Ted, 2026-11-18). That plan, designed
+2026-11-09, adds a `City only` destination to the same form and changes the same resolver, command
+and event readers; neither plan knew of the other until 2026-11-18. This one ships first. Four
+points of contact, each decided in that plan's "After the endpoint references plan" section: a
+city-only end's source is `EndpointSource.NONE` (so the resolver test's seven token kinds become
+eight); the extracted date rule stays a **per-end** day check, with the two-ends-too-far-apart rule
+a separate method only the commands call, because that plan splits them into two refusals; the
+Change form (M5) offers the `City only` group too; and the Nov 20 transfer in the Pre-Push box is
+the trip that raised that plan.
+
 ## The bug
 
 A ground transfer keeps pointing at something that no longer exists. On Nov 20 the transfer from

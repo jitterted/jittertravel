@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Every cancel page sends both of its ways out — "Keep it" and a successful cancel — to where the
- * link was clicked ({@link LinkOrigin}, {@code docs/CancelReturnsWhereYouCameFromPlan.md}). The
+ * link was clicked ({@link LinkOrigin}, {@code docs/archived/CancelReturnsWhereYouCameFromPlan.md}). The
  * controller's half is one {@link WayBack} it uses for the redirect; this is the template's half,
  * which nothing else would notice going missing: a cancel page with a literal "Keep it" href, or one
  * that drops {@code from} or {@code day} on its POST, still renders and still cancels.

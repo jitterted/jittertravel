@@ -1,6 +1,6 @@
 # Cancel Bin Everywhere Plan
 
-Status: **built** (2026-11-15), uncommitted at time of writing. The guard was written first and
+Status: **shipped** (`67dde49`, 2026-11-15; archived 2026-11-18). The guard was written first and
 failed on exactly the three gaps below (hotel × calendar, hotel × itinerary, private event ×
 calendar), then the fix turned it green.
 
@@ -55,7 +55,7 @@ the kind already existed; it was the *cancel* that was added (or rather, moved).
 | `GROUND_TRANSFER` | `/ground-transfers/{id}/cancel` | bin | bin |
 | `LODGING` | `/booked-hotels/{id}/cancel` | **pencil only** ✗ | **pencil only** ✗ |
 | `PRIVATE_EVENT` | `/planned-private-events/{id}/cancel` | **nothing** ✗ | bin |
-| `GATHERING` | none — no `GatheringCancelled` exists (out of scope in `archived/ChangeGatheringPlan.md`; Backlog `ConferenceCancelled` row) | pencil | pencil |
+| `GATHERING` | none — no `GatheringCancelled` exists (out of scope in `ChangeGatheringPlan.md`; Backlog `ConferenceCancelled` row) | pencil | pencil |
 | `CONFERENCE` | `/conferences/{id}/decline` — a state-machine move, done from `/conferences` by decision (`CalendarViewBuilder.ownerActions`) | nothing | — |
 
 Not tied to one entry: `/booked-itineraries/{id}/cancel` cancels a whole multi-leg itinerary and is
@@ -64,7 +64,7 @@ reached from `/booked-flights`; individual legs already carry their own bin.
 **Gatherings are not a gap** — there is nothing to cancel. When a gathering cancel is built, the
 guard below makes it bring its bin.
 
-**The private event's calendar is a second, smaller gap.** `docs/Cleanup_Tasks.md` ("Change Private
+**The private event's calendar is a second, smaller gap.** `../Cleanup_Tasks.md` ("Change Private
 Event") says the edit flow "brings the pencil *and* the calendar's bin with it" — but the bin does
 not depend on the edit flow (a ground transfer has a bin and no pencil). See Q1.
 
@@ -151,6 +151,6 @@ per-kind tests own that). One claim per test.
 ## Decisions (Ted, 2026-11-15)
 
 - **Q1 — yes.** The private event's calendar bin ships in this change, bin alone, ahead of the edit
-  flow. Update the "Change Private Event" bullet in `docs/Cleanup_Tasks.md` in the same change: the
+  flow. Update the "Change Private Event" bullet in `../Cleanup_Tasks.md` in the same change: the
   edit flow now brings only the pencil.
 - **Q2 — `"Cancel hotel"`** on both surfaces, matching "Cancel flight" / "Cancel train".

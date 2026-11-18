@@ -43,6 +43,14 @@ down when it is created does not get written down later.
 
 ## Open
 
+- [ ] **The `/itinerary` missing-hotel fix row should carry its day.** Lifted 2026-11-18 from
+      `archived/CancelReturnsWhereYouCameFromPlan.md`, which listed it as a bonus and did not build
+      it. Today the row's "Book hotel" link sends `from=itinerary` without a day, so a booking made
+      from it, and the banner's Back link, return to `/itinerary` on its default window rather
+      than the days Ted was reading. It is not one line: `ProblemFix` and the banner's Back link
+      (`ProblemContextLookup`) both have to carry the day. `LinkOrigin.returnTo` already uses a
+      day when one arrives, so the controller side is done.
+
 - [ ] **Delete `PostgresPersister.existingCommandIds` — it has no callers.** Its javadoc says it lets
       import skip commands already written; that was the command-replay import, retired with
       event-oriented backup (`docs/archived/EventOrientedBackupRestorePlan.md`). Dead code, not a
@@ -453,7 +461,7 @@ down when it is created does not get written down later.
       correction is removing a wrong entry) and a wrong one is a false presence fact in
       `ScheduleGapProjector`. **Slice 1 shipped 2026-08-24** — cancel is live, linked from the
       **itinerary**, OWNER-only, and since 2026-11-15 from the **calendar** too (a bin alone,
-      `CancelBinEverywherePlan.md`); the edit flow itself (slice 2) is what is still open here,
+      `archived/CancelBinEverywherePlan.md`); the edit flow itself (slice 2) is what is still open here,
       and it brings the pencil. Read the plan, not this bullet.
       **One field has since been peeled off and shipped on its own (2026-09-18)**: a private
       event's `locationForMatching` is changeable at
@@ -1062,6 +1070,22 @@ to **Open** when its trigger fires — do not treat this section as a backlog to
 (Said "either one" until 2026-09-08, from when the section held two; it has grown since, and the
 count is deliberately not stated here so it cannot go stale again.)
 
+- [ ] **Return to where it was started: the flows left out.** Filed 2026-11-17 with the change that
+      made every create and change form reached from a calendar or itinerary day go back to it
+      (see Done). These still redirect to a fixed place whatever `from` says. That is correct
+      today, because no calendar or itinerary link reaches them:
+      - Change Flight Itinerary (`/booked-itineraries/{id}/change`) and the paste-an-itinerary
+        booking (`/book-flight/itinerary`), both reached from `/booked-flights` and Book Flight.
+      - Change Private Event location (`/planned-private-events/{id}/matching-location`), reached
+        from the list.
+      - The conference moves (Open CFP, Record Talk, Confirm, Decline, Change Dates), reached from
+        `/conferences` and the conference detail page.
+      **Trigger:** any of them gaining a link from `/calendar` or `/itinerary`, for example a
+      pencil for private events once `ChangePrivateEventPlan.md` ships. Then the link goes through
+      `LinkOrigin.linkFrom`, the form includes `fragments/link-origin.html`, the controller returns
+      through `LinkOrigin.returnTo`, and the path goes into `LinkOriginFragmentConventionTest`'s
+      map. Pencil paths are listed by hand there; only the day menu's are discovered.
+
 - [ ] **The near-term empty lane band, 120px → 80px.** Lifted from `archived/QuietWeekRunsPlan.md`
       2026-08-31. Ted proposed it there and it was neither taken nor refused; the plan it belonged to
       was then reverted, so this is now a standalone question about the linear calendar's density.
@@ -1273,6 +1297,37 @@ count is deliberately not stated here so it cannot go stale again.)
 
 ## Done
 
+- [x] **An add or edit started from a day goes back to that day — DONE 2026-11-17** (`4823409`).
+      Ted: *"submitting a 'plan private event' takes me to the calendar upon submission, when i'd
+      prefer to go back to the view of planned private events"*, and then: use `returnTo(from)`
+      like the other forms, and make the similar cases consistent. **The finding that shaped it:**
+      `returnTo(from)` alone would have changed nothing. Only fix links and cancel bins sent a
+      `from`; the calendar day menu sent only `?date=`, so every add from a day landed on its
+      kind's list, and `returnTo` dropped the day anyway.
+      **What shipped.** The day menu's seven "Add …" items carry `from=calendar&day=`, and so do
+      the edit pencils (flight, train, hotel, gathering) on `/calendar` and `/itinerary`. All seven
+      create controllers and four change controllers return through
+      `LinkOrigin.returnTo(from, day, fallback)`, so a successful save goes back to that day, and
+      reached any other way each lands on its own list. Plan Private Event's fallback moved from
+      `/calendar` to `/planned-private-events`. Plan Ground Transfer still falls back to
+      `/calendar`, because transfers have no list. The itinerary pencil carries the window's first
+      day, as its bin does (`ItineraryRenderer.windowStart`), so the way back redraws the same
+      three columns. The calendar pencil carries the entry's start day, as its bin does.
+      **One fragment for the hidden inputs.** `fragments/link-origin.html` holds the `from`/`day`
+      pair. Every create, change and cancel form uses it, and so does clear-conflict. Before, the
+      pair was written out in eleven templates, and clear-conflict carried only `from`.
+      **A bug fixed on the way:** Book Flight's flight-number lookup and the leg chooser never
+      carried `from`, so fix link → lookup → book landed on `/booked-flights`. Both forms now
+      include the fragment, and so does Change Flight's lookup.
+      **Guards.** `LinkOriginFragmentConventionTest` reads the day menu itself, so an eighth "Add …"
+      item fails until its form carries the origin, and it looks inside the form that posts, not
+      anywhere in the file, because the flight pages each have a second form. One return case per
+      controller, and real-render `@WebMvcTest` cases on change-hotel and change-train. Verified by
+      breaking it three ways, each reverted: dropping `day` in a controller, removing the fragment
+      from a form, and removing it from the leg chooser. `-Preal-server`, `-Pjs-tests` and a
+      narrowed `-Ppit-spring` were clean, with no surviving mutant on a changed line.
+      **Not done, on purpose:** the flows no calendar or itinerary link reaches (see "Return to
+      where it was started" under Deferred).
 - [x] **"Canceled", one l, everywhere a reader sees it — DONE 2026-11-15** (Ted, 2026-11-14).
       `/booked-flights` and `/booked-hotels` went first, with `CanceledSwitch`. The rest followed:
       the change-conference-dates refusal, the two itinerary refusals ("was canceled; it cannot be
@@ -1446,7 +1501,10 @@ count is deliberately not stated here so it cannot go stale again.)
       **Since renamed (2026-11-16):** `FixOrigin` is now `LinkOrigin`, the `fixOrigin` model
       attribute is `linkOrigin`, and `?from=list` / `?from=calendar` are `problems-list` /
       `problems-calendar` — `calendar` now means `/calendar`, where cancel bins come from. See
-      `docs/CancelReturnsWhereYouCameFromPlan.md`. The entry above keeps the names it shipped with.
+      `archived/CancelReturnsWhereYouCameFromPlan.md`. The entry above keeps the names it shipped with.
+      **And since changed (2026-11-17):** `returnTo(from)` is now `returnTo(from, day, fallback)`,
+      returning the href itself, and the per-controller helpers are gone — see "An add or edit
+      started from a day goes back to that day" at the top of Done.
 
 - [x] **Every reading on the cookie probe carries a verdict** (2026-09-09). Ted, on being shown the
       raw values: *"showing me values without knowing if they're good or bad is useless."* The case

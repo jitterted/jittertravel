@@ -84,7 +84,7 @@ class CancelHotelControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // Both ways out go where the link was clicked (docs/CancelReturnsWhereYouCameFromPlan.md)
+    // Both ways out go where the link was clicked (docs/archived/CancelReturnsWhereYouCameFromPlan.md)
     // -------------------------------------------------------------------------
 
     @Test

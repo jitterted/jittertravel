@@ -137,7 +137,7 @@ class CancelPrivateEventControllerTest {
     /**
      * With no origin, a successful cancel goes where "Keep it" does: the list. It used to land on
      * the itinerary day while "Keep it" went to the list; the two now agree (D2 in
-     * {@code docs/CancelReturnsWhereYouCameFromPlan.md}), and the itinerary-day landing survives
+     * {@code docs/archived/CancelReturnsWhereYouCameFromPlan.md}), and the itinerary-day landing survives
      * for the case it was for, a bin clicked on the itinerary.
      */
     @Test

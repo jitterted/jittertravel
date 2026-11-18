@@ -60,7 +60,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * pencil was the way to cancel. When cancel moved to its own page (`a0f9085`) the calendar and
  * itinerary lost their only route to it, and the bins that arrived later were each added by the
  * slice that built that kind's cancel — none of which was the hotel's. See
- * {@code docs/CancelBinEverywherePlan.md}.
+ * {@code docs/archived/CancelBinEverywherePlan.md}.
  * <p>
  * Three mechanisms, because that failure came from the <em>route</em> side, not the kind side, and
  * a guard keyed on {@link EntryKind} alone (as {@code CalendarDayMenuTest} is) would not have seen

@@ -1,9 +1,16 @@
 # Cancel Returns Where You Came From Plan
 
-Status: **built** (2026-11-16), uncommitted at time of writing. Follows
+Status: **shipped** (`4589824` and `492cdc2`, 2026-11-16; archived 2026-11-18). Follows
 `CancelBinEverywherePlan.md`, whose bins made the gap common. Built test-first: `LinkOriginTest`,
 the convention test, the slice cases and the renderer `href` assertions were written and seen
-failing before any production change.
+failing before any production change. The one thing it left unbuilt, the missing-hotel fix row
+carrying its day, is in `../Cleanup_Tasks.md`.
+
+**Extended to create and change forms** (`4823409`, 2026-11-17). The calendar day menu's "Add …"
+items and the edit pencils on both surfaces carry `from`/`day` the same way the bins do, and every
+create and change form returns through `LinkOrigin.returnTo(from, day, fallback)`. The hidden
+inputs moved into one fragment, `fragments/link-origin.html`, which the cancel pages now use too.
+The record of that change is in `../Cleanup_Tasks.md` (Done).
 
 ### As built — differences from the plan below
 

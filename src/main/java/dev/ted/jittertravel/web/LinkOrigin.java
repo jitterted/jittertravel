@@ -12,7 +12,7 @@ import java.time.format.DateTimeParseException;
  * of {@code /schedule-problems}, and the missing-hotel row on {@code /itinerary}. Every cancel bin
  * on {@code /calendar} and {@code /itinerary} names its surface and the day it is drawn on, so
  * cancelling a stay from its check-out day lands back on that day
- * ({@code docs/CancelReturnsWhereYouCameFromPlan.md}). Every edit pencil on those two surfaces does
+ * ({@code docs/archived/CancelReturnsWhereYouCameFromPlan.md}). Every edit pencil on those two surfaces does
  * the same, and so does every "Add …" item in the calendar's day menu, so a saved change or a new
  * entry lands back on the day it was started from rather than on that kind's list.
  * <p>

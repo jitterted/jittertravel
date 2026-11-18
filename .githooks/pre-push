@@ -14,44 +14,14 @@
 #
 # git passes <remote> <url> as $1 $2 and the ref updates on stdin as
 #   <local ref> <local sha> <remote ref> <remote sha>
-# The Railway and docs gates below read them (captured once into REFS); the test gate ignores them. Exit non-zero aborts the push.
+# The docs gate below reads them (captured once into REFS); the test gate ignores them. Exit non-zero aborts the push.
 set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)" || exit 1
 cd "$ROOT" || exit 1
 
-# The ref updates, read once: stdin can only be consumed once and two gates below need it.
+# The ref updates, read once: stdin can only be consumed once.
 REFS="$(cat)"
-
-# --- Railway IaC deadline gate (Ted, 2026-11-14) -----------------------------------------------
-# Railway stops reading railway.json on 2026-12-01 (docs/RailwayIacMigrationPlan.md). Past that
-# date the health-check gate and restart policy it carries silently stop applying, and no test can
-# see it. So from the deadline on, a pushed tip that still has railway.json, or has no
-# .railway/railway.ts, is refused. Before it, a reminder only. No escape hatch, on purpose: Ted
-# asked not to be able to push past the deadline without the migration done. Checks the pushed
-# commit, not the working tree. Remove this block once the migration has shipped (plan step 7).
-RAILWAY_DEADLINE="2026-12-01"
-today="$(date +%Y-%m-%d)"
-while read -r _localref localsha _remoteref _remotesha; do
-  [[ -z "${localsha:-}" || "$localsha" =~ ^0+$ ]] && continue
-  has_json=0; has_ts=0
-  git cat-file -e "$localsha:railway.json" 2>/dev/null && has_json=1
-  git cat-file -e "$localsha:.railway/railway.ts" 2>/dev/null && has_ts=1
-  if [[ ! "$today" < "$RAILWAY_DEADLINE" ]]; then
-    if (( has_json == 1 || has_ts == 0 )); then
-      echo "Railway gate: BLOCKED — it is $today, on or past Railway's $RAILWAY_DEADLINE cutoff, and" >&2
-      echo "the pushed commit still has railway.json (or lacks .railway/railway.ts). Railway no longer" >&2
-      echo "reads railway.json, so the health check and restart policy may not apply to this deploy." >&2
-      echo "Do docs/RailwayIacMigrationPlan.md, including step 5's checks on the live service, BEFORE" >&2
-      echo "deleting railway.json. Deleting it only to clear this gate is what the gate exists to stop." >&2
-      exit 1
-    fi
-  elif (( has_json == 1 )); then
-    days_left=$(( ( $(date -j -f %Y-%m-%d "$RAILWAY_DEADLINE" +%s) - $(date -j -f %Y-%m-%d "$today" +%s) ) / 86400 ))
-    echo "Railway gate: reminder — $days_left day(s) until Railway stops reading railway.json" >&2
-    echo "($RAILWAY_DEADLINE). Pushes are blocked from then until docs/RailwayIacMigrationPlan.md is done." >&2
-  fi
-done <<<"$REFS"
 
 # --- Docs-freshness gate (Ted, 2026-08-17): keep Backlog/Cleanup_Tasks from going stale. -------
 # If the commits being pushed change code under src/ but touch NEITHER docs/Backlog.md NOR

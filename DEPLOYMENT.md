@@ -267,7 +267,7 @@ docker build -t jittertravel . && docker run --rm -p 8080:8080 \
 The app service's builder, health check, restart policy, replicas/region, CPU/memory limits and
 custom domain are declared in **`.railway/railway.ts`** (Railway Infrastructure as Code). It
 replaced `railway.json` on 2026-11-18, ahead of Railway's 2026-12-01 cutoff for Config as Code
-(`docs/RailwayIacMigrationPlan.md`).
+(`docs/archived/RailwayIacMigrationPlan.md`).
 
 **A push does not apply it.** Railway never reads `.railway/` during a deploy; the settings live on
 the service and are changed only by running the CLI. So editing `railway.ts` and pushing changes

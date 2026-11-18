@@ -1,8 +1,9 @@
 # Railway: migrate `railway.json` to Infrastructure as Code
 
-**Status:** `partial`, deadline 2026-12-01. **Applied to the live service 2026-11-18** and verified
-by a healthy redeploy. Left: push the commit that deletes `railway.json`, confirm that deploy reads
-no config file and keeps the health check, then step 7 (remove the guard, archive this plan).
+**Status:** `done` 2026-11-18, archived the same day, ahead of the 2026-12-01 deadline. Applied to
+the live service, verified by a healthy redeploy, then `5c96513` deleted `railway.json` and its
+deploy stood on the service settings alone (last row of the table below). Step 7 removed the
+pre-push date guard. How to change a deploy setting now: `DEPLOYMENT.md`, "Deploy settings".
 
 ## As done, 2026-11-18 — read this first
 
@@ -50,9 +51,18 @@ sections after it are the plan as written, kept for its reasoning.
 | Login (`TED_PASSWORD`, `REMEMBER_ME_KEY`) | works | works (Ted) |
 
 That redeploy still read `/railway.json`, which held the same values, so it proves the service
-settings are right but not that they suffice alone. **The commit deleting `railway.json` is the
-test of that:** its deploy must record no config file and still show the health check and restart
-policy.
+settings are right but not that they suffice alone. **The commit deleting `railway.json` was the
+test of that**, and it passed:
+
+| Check, deploy of `5c96513` (`beabf322`, 13:36 UTC) | Expected | Actual |
+|---|---|---|
+| Status | SUCCESS | SUCCESS |
+| Config file read | none | `configFile=None` |
+| Builder | `DOCKERFILE` | `DOCKERFILE`, `Dockerfile` |
+| Health check | passes | "Healthcheck succeeded!" |
+| Restart policy | `ON_FAILURE` ×3 | `ON_FAILURE`, 3 |
+| Boot | events loaded | "Loaded 274 events from persistent store" |
+| `/calendar` | loads | HTTP 200 |
 
 **The pre-push hook enforces the deadline** (Ted, 2026-11-14: "don't let me push after the deadline
 without ensuring the migration worked"). From 2026-12-01 on, `.githooks/pre-push` refuses any push
@@ -169,7 +179,7 @@ committed. The deploy itself never needs it.
 6. **Only after every check in step 5 passes:** delete `railway.json`, commit `.railway/railway.ts`
    (plus `package.json` if Q5 chose one), and update the docs that name `railway.json`:
    DEPLOYMENT.md (lines 4, 19, 241, 368 and 375 as of 2026-11-14) and
-   `SpringBoot41UpgradePlan.md` S9. If Q2 chose (a), also update the variable rule in
+   `../SpringBoot41UpgradePlan.md` S9. If Q2 chose (a), also update the variable rule in
    `Pre-Push-Tasks.md` and DEPLOYMENT.md. That commit is what satisfies the guard.
 7. Remove the guard from `.githooks/pre-push` once the migration has shipped. A permanent check
    that a file is absent records nothing. Then archive this plan.

@@ -54,13 +54,14 @@ public class ProblemContextAdvice {
      */
     @ModelAttribute("problemContext")
     public ProblemContextView problemContext(@RequestParam(required = false) String problem,
-                                             @RequestParam(required = false) String from) {
+                                             @RequestParam(required = false) String from,
+                                             @RequestParam(required = false) String day) {
         if (problem == null || problem.isBlank() || problemContextLookup == null || clock == null) {
             return null;
         }
         // now is captured here, at the boundary, and passed inward — the lookup never asks what
         // time it is.
-        return problemContextLookup.forKey(problem, LinkOrigin.fromParam(from), clock.instant())
+        return problemContextLookup.forKey(problem, LinkOrigin.fromParam(from), day, clock.instant())
                 .orElse(null);
     }
 

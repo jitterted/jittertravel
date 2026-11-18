@@ -43,14 +43,6 @@ down when it is created does not get written down later.
 
 ## Open
 
-- [ ] **The `/itinerary` missing-hotel fix row should carry its day.** Lifted 2026-11-18 from
-      `archived/CancelReturnsWhereYouCameFromPlan.md`, which listed it as a bonus and did not build
-      it. Today the row's "Book hotel" link sends `from=itinerary` without a day, so a booking made
-      from it, and the banner's Back link, return to `/itinerary` on its default window rather
-      than the days Ted was reading. It is not one line: `ProblemFix` and the banner's Back link
-      (`ProblemContextLookup`) both have to carry the day. `LinkOrigin.returnTo` already uses a
-      day when one arrives, so the controller side is done.
-
 - [ ] **Delete `PostgresPersister.existingCommandIds` — it has no callers.** Its javadoc says it lets
       import skip commands already written; that was the command-replay import, retired with
       event-oriented backup (`docs/archived/EventOrientedBackupRestorePlan.md`). Dead code, not a
@@ -1297,6 +1289,23 @@ count is deliberately not stated here so it cannot go stale again.)
 
 ## Done
 
+- [x] **The `/itinerary` missing-hotel fix row carries its day — DONE 2026-11-18.** Lifted the same
+      day from `archived/CancelReturnsWhereYouCameFromPlan.md`, which listed it as a bonus and left
+      it unbuilt. The row's "Book hotel →" link sent `from=itinerary` with no day, so a booking made
+      from it, and the banner's Back link, both opened `/itinerary` on today rather than the three
+      days Ted was reading. `ProblemFix.forProblem` gained an overload taking the day, which it
+      appends as `&day=` after `from`. The itinerary passes its window's first day, as its bins do.
+      `ProblemContextAdvice` passes `day` to `ProblemContextLookup`, whose Back link uses the new
+      `LinkOrigin.backHrefOn(day)`; `returnTo` uses it too, so the two cannot differ. The book-hotel
+      form already carried the day through its POST via `fragments/link-origin.html`, and
+      `BookHotelController` already returned through it. The problem report's own fixes are
+      unchanged: they pass no day.
+      **A fixture that could not tell first-column from own-day.** The first version of
+      `aNoBedRowInTheThirdColumnCarriesTheFirstColumnsDate` used a gap checking in on the window's
+      first day, so a mutation passing the night's own date survived it. The gap now starts in
+      the third column, and the mutation fails. The banner mutation (Back ignoring the day) failed
+      `ProblemContextLookupTest` and the `@WebMvcTest` case. Default PIT on the four changed classes:
+      122 of 124 killed, neither survivor on a changed line.
 - [x] **An add or edit started from a day goes back to that day — DONE 2026-11-17** (`4823409`).
       Ted: *"submitting a 'plan private event' takes me to the calendar upon submission, when i'd
       prefer to go back to the view of planned private events"*, and then: use `returnTo(from)`

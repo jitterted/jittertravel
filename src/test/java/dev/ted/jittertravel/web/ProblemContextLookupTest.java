@@ -56,6 +56,22 @@ class ProblemContextLookupTest {
                 .containsExactly("Back to itinerary", "/itinerary");
     }
 
+    /** A fix link from the itinerary names the window it was on, and Back redraws that window. */
+    @Test
+    void aCarriedDayTakesBackToThatDay() {
+        given(scheduleGapProjector.problems(NOW)).willReturn(List.of(MISSING_BED));
+        given(scheduleGapProjector.context()).willReturn(List.of());
+
+        assertThat(lookup().forKey(ProblemKey.of(MISSING_BED).value(), LinkOrigin.ITINERARY,
+                        "2026-09-13", NOW).orElseThrow().backHref())
+                .as("Back with a day")
+                .isEqualTo("/itinerary?date=2026-09-13");
+        assertThat(lookup().forKey(ProblemKey.of(MISSING_BED).value(), LinkOrigin.ITINERARY,
+                        "not-a-date", NOW).orElseThrow().backHref())
+                .as("a day that is not a date is dropped, never echoed")
+                .isEqualTo("/itinerary");
+    }
+
     /**
      * The causes are the whole point: a bed is missing <em>because</em> a conference runs those
      * days and a flight lands the morning it starts.
@@ -109,7 +125,7 @@ class ProblemContextLookupTest {
         given(scheduleGapProjector.problems(NOW)).willReturn(List.of(MISSING_BED));
 
         assertThat(lookup().forKey("hotel|Atlantis|2026-09-14|2026-09-18",
-                LinkOrigin.PROBLEM_CALENDAR, NOW))
+                LinkOrigin.PROBLEM_CALENDAR, null, NOW))
                 .isEmpty();
     }
 
@@ -126,12 +142,12 @@ class ProblemContextLookupTest {
 
     @Test
     void noKeyAtAllExplainsNothingAndAsksTheReportNothing() {
-        assertThat(lookup().forKey(null, LinkOrigin.PROBLEM_CALENDAR, NOW)).isEmpty();
-        assertThat(lookup().forKey("  ", LinkOrigin.PROBLEM_CALENDAR, NOW)).isEmpty();
+        assertThat(lookup().forKey(null, LinkOrigin.PROBLEM_CALENDAR, null, NOW)).isEmpty();
+        assertThat(lookup().forKey("  ", LinkOrigin.PROBLEM_CALENDAR, null, NOW)).isEmpty();
     }
 
     private Optional<ProblemContextView> bannerFor(ScheduleProblem problem, LinkOrigin origin) {
-        return lookup().forKey(ProblemKey.of(problem).value(), origin, NOW);
+        return lookup().forKey(ProblemKey.of(problem).value(), origin, null, NOW);
     }
 
     private ProblemContextLookup lookup() {

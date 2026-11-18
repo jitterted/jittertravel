@@ -162,7 +162,7 @@ public class ItineraryRenderer {
         if (!day.hasEntries()) {
             // A day with nothing on it still has an answer to "where am I" whenever the schedule
             // holds one. The stay wins over home: a hotel in a home city is still the hotel.
-            dayDiv.with(renderWhereabouts(day, isOwner));
+            dayDiv.with(renderWhereabouts(day, isOwner, windowStart));
         } else {
             day.entries().stream()
                     .map(entry -> renderEntry(entry, isOwner, windowStart))
@@ -171,12 +171,12 @@ public class ItineraryRenderer {
         return dayDiv;
     }
 
-    private static DivTag renderWhereabouts(ItineraryDay day, boolean isOwner) {
+    private static DivTag renderWhereabouts(ItineraryDay day, boolean isOwner, LocalDate windowStart) {
         if (day.ongoingStay().isPresent()) {
             return renderOngoingStay(day.ongoingStay().get());
         }
         if (day.nightWithoutABed().isPresent()) {
-            return renderNightWithoutABed(day.nightWithoutABed().get(), isOwner);
+            return renderNightWithoutABed(day.nightWithoutABed().get(), isOwner, windowStart);
         }
         if (day.atHome()) {
             return div().withClass("whereabouts").with(
@@ -200,7 +200,8 @@ public class ItineraryRenderer {
      * {@code /book-hotel} is a form they could never submit, and CLAUDE.md's split says a control
      * a viewer can <em>never</em> trigger is rendered not at all, rather than disabled.
      */
-    private static DivTag renderNightWithoutABed(ScheduleProblem.MissingHotel gap, boolean isOwner) {
+    private static DivTag renderNightWithoutABed(ScheduleProblem.MissingHotel gap, boolean isOwner,
+                                                 LocalDate windowStart) {
         DivTag row = div().withClass("whereabouts whereabouts--unbooked").with(
                 div().withClass("whereabouts-where").with(
                         rawHtml(HOTEL_MISSING_SVG),
@@ -209,7 +210,8 @@ public class ItineraryRenderer {
                 div("No hotel booked").withClass("whereabouts-detail")
         );
         if (isOwner) {
-            ProblemFix.forProblem(gap, LinkOrigin.ITINERARY).forEach(fix -> row.with(
+            // The window's first day, as a bin carries, so the way back redraws these three days.
+            ProblemFix.forProblem(gap, LinkOrigin.ITINERARY, windowStart).forEach(fix -> row.with(
                     div().withClass("whereabouts-fix").with(
                             a().withHref(fix.href()).with(text(fix.label()), rawHtml(" &rarr;")))));
         }

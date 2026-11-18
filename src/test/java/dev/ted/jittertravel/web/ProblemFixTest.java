@@ -49,6 +49,22 @@ class ProblemFixTest {
                 + "&problem=hotel%7CJohannesberg%7C2026-09-10%7C2026-09-14&from=problems-list"));
     }
 
+    /**
+     * A fix drawn on a surface laid out by day names the day it was drawn on, so the form's way
+     * back returns there ({@link LinkOrigin#returnTo}). It comes last, after the origin it belongs to.
+     */
+    @Test
+    void aFixDrawnOnADayCarriesThatDay() {
+        List<ProblemFix> fixes = ProblemFix.forProblem(new ScheduleProblem.MissingHotel(
+                "Johannesberg", "DE", LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 14), "JCON"),
+                LinkOrigin.ITINERARY, LocalDate.of(2026, 9, 9));
+
+        assertThat(fixes.getFirst().href())
+                .isEqualTo("/book-hotel?city=Johannesberg&country=DE&checkIn=2026-09-10&checkOut=2026-09-14"
+                           + "&problem=hotel%7CJohannesberg%7C2026-09-10%7C2026-09-14&from=itinerary"
+                           + "&day=2026-09-09");
+    }
+
     /** Also: a hotel row with no country sends no {@code country=} rather than an empty one. */
     @Test
     void aCityWithASpaceIsPercentEncodedSoTheFormReceivesItWhole() {

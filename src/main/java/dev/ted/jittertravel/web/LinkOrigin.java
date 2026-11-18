@@ -95,7 +95,15 @@ public enum LinkOrigin {
         if (from == null || from.isBlank()) {
             return fallback;
         }
-        return fromParam(from).backHref(parse(day));
+        return fromParam(from).backHrefOn(day);
+    }
+
+    /**
+     * This surface, opened on {@code day} where it has a day of its own; a {@code day} that is not
+     * a date is dropped rather than echoed. Used by the problem banner's Back link.
+     */
+    public String backHrefOn(String day) {
+        return backHref(parse(day));
     }
 
     /**

@@ -53,15 +53,16 @@ public class ProblemContextLookup {
      * explained on a page you can still reach: the link is stale in exactly the way the report says
      * it is.
      */
-    public Optional<ProblemContextView> forKey(String key, LinkOrigin origin, Instant now) {
+    public Optional<ProblemContextView> forKey(String key, LinkOrigin origin, String day, Instant now) {
         if (key == null || key.isBlank()) {
             return Optional.empty();
         }
         return new ProblemKey(key).findIn(scheduleGapProjector.problems(now))
-                .map(problem -> banner(problem, origin));
+                .map(problem -> banner(problem, origin, day));
     }
 
-    private ProblemContextView banner(ScheduleProblem problem, LinkOrigin origin) {
+    /** {@code day} is the raw {@code &day=} the fix link carried; Back opens the surface on it. */
+    private ProblemContextView banner(ScheduleProblem problem, LinkOrigin origin, String day) {
         ProblemBand band = ProblemBand.from(problem);
         return new ProblemContextView(
                 band.marker().cssModifier(),
@@ -69,7 +70,7 @@ public class ProblemContextLookup {
                 band.detail(),
                 causesAround(band),
                 origin.backLabel(),
-                origin.backHref());
+                origin.backHrefOn(day));
     }
 
     /**

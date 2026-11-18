@@ -177,8 +177,30 @@ class ItineraryRendererTest {
 
         assertThat(html)
                 .contains("<a href=\"/book-hotel?city=Denver&amp;checkIn=2026-06-01&amp;checkOut=2026-06-05"
-                          + "&amp;problem=hotel%7CDenver%7C2026-06-01%7C2026-06-05&amp;from=itinerary\">"
+                          + "&amp;problem=hotel%7CDenver%7C2026-06-01%7C2026-06-05&amp;from=itinerary"
+                          + "&amp;day=2026-06-01\">"
                           + "Book hotel &rarr;</a>");
+    }
+
+    /**
+     * Like a bin, the fix link carries the window's first day, not its own: {@code /itinerary?date=}
+     * names the first column, so a third-column night carrying its own date would come back with
+     * the columns shifted left.
+     */
+    @Test
+    void aNoBedRowInTheThirdColumnCarriesTheFirstColumnsDate() {
+        String html = render(
+                List.of(new ItineraryDay(JUN_1, List.of(gathering("Some Meetup", false, ""))),
+                        new ItineraryDay(JUN_2, List.of(gathering("Some Meetup", false, ""))),
+                        new ItineraryDay(JUN_3, List.of(), Optional.empty(),
+                                Optional.of(new ScheduleProblem.MissingHotel(
+                                        "Denver", "", JUN_3, LocalDate.of(2026, 6, 5), "ExploreDDD")),
+                                false)),
+                MAY_31, JUN_2, JUN_1, true);
+
+        assertThat(html)
+                .as("the way back redraws the same three days, not a window starting at the night")
+                .contains("&amp;from=itinerary&amp;day=2026-06-01\">Book hotel &rarr;</a>");
     }
 
     @Test

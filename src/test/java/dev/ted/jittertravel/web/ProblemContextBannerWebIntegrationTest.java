@@ -115,6 +115,23 @@ class ProblemContextBannerWebIntegrationTest {
     }
 
     /**
+     * A fix link from the itinerary carries the window it was on. The banner's Back link redraws
+     * that window, and the form passes the day on to its POST, so a booking does too.
+     */
+    @Test
+    void aFixLinkFromTheItineraryCarriesItsDayThroughTheForm() {
+        given(scheduleGapProjector.problems(NOW)).willReturn(List.of(MISSING_BED));
+        given(scheduleGapProjector.context()).willReturn(List.of());
+
+        assertThat(fixLink("/book-hotel", LinkOrigin.ITINERARY).param("day", "2026-09-13"))
+                .hasStatusOk()
+                .bodyText()
+                .contains("href=\"/itinerary?date=2026-09-13\"")
+                .contains("<input type=\"hidden\" name=\"from\" value=\"itinerary\"/>")
+                .contains("<input type=\"hidden\" name=\"day\" value=\"2026-09-13\"/>");
+    }
+
+    /**
      * The point of the whole "why are you here" chain, on Ted's own gap (2026-08-21): the fix link
      * lands on a form that has already chosen both ends. The banner says which gap, and the selects
      * say which two places — no reading two lists and matching them back by city.

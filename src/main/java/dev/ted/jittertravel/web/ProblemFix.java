@@ -5,6 +5,7 @@ import dev.ted.jittertravel.application.TravelLeg;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,8 +49,18 @@ public record ProblemFix(String label, String href) {
      * removed).
      */
     public static List<ProblemFix> forProblem(ScheduleProblem problem, LinkOrigin origin) {
+        return forProblem(problem, origin, null);
+    }
+
+    /**
+     * The same fixes, drawn on {@code day} of a surface laid out by day: each href also carries
+     * {@code &day=}, so the form's Back link and its success redirect return to that day. The
+     * itinerary passes its window's <em>first</em> day, as its bins do, because that is what
+     * {@code /itinerary?date=} names.
+     */
+    public static List<ProblemFix> forProblem(ScheduleProblem problem, LinkOrigin origin, LocalDate day) {
         return fixesFor(problem).stream()
-                .map(fix -> fix.explaining(problem, origin))
+                .map(fix -> fix.explaining(problem, origin, day))
                 .toList();
     }
 
@@ -62,11 +73,12 @@ public record ProblemFix(String label, String href) {
      * page, and a query parameter cannot escape a path matcher — so this still adds no
      * {@code SecurityConfig} matcher and no {@code AuthorizationMatrixTest} row.
      */
-    private ProblemFix explaining(ScheduleProblem problem, LinkOrigin origin) {
+    private ProblemFix explaining(ScheduleProblem problem, LinkOrigin origin, LocalDate day) {
         String separator = href.contains("?") ? "&" : "?";
         return new ProblemFix(label, href + separator
                                      + "problem=" + encode(ProblemKey.of(problem).value())
-                                     + "&from=" + origin.param());
+                                     + "&from=" + origin.param()
+                                     + (day == null ? "" : "&day=" + day));
     }
 
     private static List<ProblemFix> fixesFor(ScheduleProblem problem) {

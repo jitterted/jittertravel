@@ -1289,7 +1289,8 @@ count is deliberately not stated here so it cannot go stale again.)
 
 ## Done
 
-- [x] **The `/itinerary` missing-hotel fix row carries its day — DONE 2026-11-18.** Lifted the same
+- [x] **The `/itinerary` missing-hotel fix row carries its day — DONE 2026-11-18** (`699f464`),
+      **verified in production by Ted the same day** ("it works"). Lifted the same
       day from `archived/CancelReturnsWhereYouCameFromPlan.md`, which listed it as a bonus and left
       it unbuilt. The row's "Book hotel →" link sent `from=itinerary` with no day, so a booking made
       from it, and the banner's Back link, both opened `/itinerary` on today rather than the three

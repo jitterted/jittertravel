@@ -25,7 +25,7 @@
 #   - jq
 #
 # After ANY restore over prod, RESTART the app so the boot replay rebuilds the
-# read models; watch the logs for "Replayed N events from persistent store".
+# read models; watch the logs for "Loaded N events from persistent store".
 
 set -euo pipefail
 
@@ -146,4 +146,4 @@ docker run --rm -i -e U="$DB_URL" "$img" \
 
 printf 'ok — prod restored. Row counts: %s\n' "$(counts "$DB_URL")"
 printf '\nNOW RESTART the app so the boot replay rebuilds the read models.\n'
-printf 'Watch the logs for: "Replayed N events from persistent store".\n'
+printf 'Watch the logs for: "Loaded N events from persistent store".\n'

@@ -1,8 +1,10 @@
 # JitterTravel — Deployment (Railway)
 
 Status: **live on Railway** (first verified deploy 2026-07-26) at **<https://jittertravel.com>** —
-a custom domain attached to the Railway service. A committed `Dockerfile` and `railway.json` drive
-the build; see [Open items](#open-items) for what's still unconfirmed.
+a custom domain attached to the Railway service. A committed `Dockerfile` drives the build, and the
+service's deploy settings are declared in `.railway/railway.ts` (Railway Infrastructure as Code,
+since 2026-11-18; see [Deploy settings](#deploy-settings-railwayrailwayts)). See
+[Open items](#open-items) for what's still unconfirmed.
 
 > The site is public in the sense that anyone can reach it, but it's a private family app: the
 > data-entry and admin pages sit behind form login and only the read-only views are visible without
@@ -16,7 +18,7 @@ keeping in mind:
 
 - A merged PR is a production deploy the moment it hits `main`.
 - Anything you don't want in production stays on a branch until it's ready.
-- The health check (`/actuator/health`, `healthcheckTimeout` 120s in `railway.json`) gates the
+- The health check (`/actuator/health`, `healthcheckTimeout` 120s, set by `.railway/railway.ts`) gates the
   rollout, and `restartPolicyType: ON_FAILURE` retries up to 3 times — a container that can't boot
   (e.g. missing `TED_PASSWORD`) fails the rollout rather than replacing a healthy instance.
 - **Deploys go forward cleanly; they do not come back.** Rolling back to the previous build stops
@@ -238,8 +240,9 @@ event log does not sign anyone out.
 
 ## Build & deploy: Dockerfile, not Nixpacks
 
-The repo ships a **`Dockerfile`** and **`railway.json`** (builder = `DOCKERFILE`,
-health check = `/actuator/health`). We deploy via the Dockerfile **on purpose**:
+The repo ships a **`Dockerfile`**, and `.railway/railway.ts` sets builder = `DOCKERFILE` and
+health check = `/actuator/health` (see [Deploy settings](#deploy-settings-railwayrailwayts)). We
+deploy via the Dockerfile **on purpose**:
 
 - **This app targets Java 26.** Build-pack/auto-detect tools like **Railway's Nixpacks lag new
   runtime releases** — they often don't offer a brand-new JDK (or a specific point release) until
@@ -259,12 +262,40 @@ docker build -t jittertravel . && docker run --rm -p 8080:8080 \
   -e TED_PASSWORD=... -e FAMILY_PASSWORD=... -e REMEMBER_ME_KEY=... jittertravel
 ```
 
+## Deploy settings: `.railway/railway.ts`
+
+The app service's builder, health check, restart policy, replicas/region, CPU/memory limits and
+custom domain are declared in **`.railway/railway.ts`** (Railway Infrastructure as Code). It
+replaced `railway.json` on 2026-11-18, ahead of Railway's 2026-12-01 cutoff for Config as Code
+(`docs/RailwayIacMigrationPlan.md`).
+
+**A push does not apply it.** Railway never reads `.railway/` during a deploy; the settings live on
+the service and are changed only by running the CLI. So editing `railway.ts` and pushing changes
+nothing until someone applies it:
+
+```
+cd .railway && npm ci && cd ..      # the pinned `railway` SDK; plan/apply need it, deploys never do
+railway config plan --verbose       # read-only; read every line, and any "destroy" is a stop
+railway config apply                # writes the change to the live service, and redeploys
+```
+
+Three things that file deliberately does **not** do:
+
+- **Own the variables.** `variables: { managed: false }`: variables stay owned by the dashboard, so
+  the rule in [Before you push](#before-you-push) is unchanged (set a new one in the dashboard
+  first). Switching to `managed: true` would let an apply delete any variable missing from the file.
+- **Own Postgres or its volume.** The file is a named partial (`"jittertravel"`), and a partial
+  never deletes what it does not declare. A plan that shows either being destroyed is a stop.
+- **Get the restart policy from `railway config migrate`.** The CLI's migrate (5.74.0) silently drops
+  `restartPolicyType`/`restartPolicyMaxRetries`; they were added to the file by hand. Regenerating
+  the file loses them again.
+
 ## Open items
 
 - [x] **`eclipse-temurin:26` tags exist** (jdk + jre) — confirmed by the 2026-07-26 deploy building
       successfully. Re-check when bumping the JDK; keep the two `FROM` lines and `pom.xml` in sync.
 - [x] **DB privileges** — confirmed: the app boots, `schema.sql` runs, and the log shows
-      `Replayed N events from persistent store`, so the Postgres user has `CREATE`/`ALTER`.
+      `Loaded N events from persistent store`, so the Postgres user has `CREATE`/`ALTER`.
 - [x] **Database SSL** — settled: production connects to Postgres over Railway's **private
       network**, so the URL `jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}` needs no
       `sslmode`. Only if you ever switch to the public proxy would you append `?sslmode=require`.
@@ -328,7 +359,7 @@ scripts/restore-db.sh backups/jittertravel-<stamp>.dump --to=prod
 `pg_restore --clean --if-exists`.
 
 After **any** restore over prod, redeploy (or restart) the app so it replays `event_log` into its
-in-memory projections; watch for `Replayed N events from persistent store` and confirm `N` matches
+in-memory projections; watch for `Loaded N events from persistent store` and confirm `N` matches
 expectations. (The script reminds you of this.)
 
 Prefer a hands-on `pg_restore` instead? The manual equivalent: pull `DATABASE_PUBLIC_URL`
@@ -365,13 +396,15 @@ database.
 ## Quick start
 
 1. Create a Railway project; add the **PostgreSQL** plugin.
-2. Add this repo as a service (Railway uses the committed `Dockerfile` per `railway.json`).
+2. Add this repo as a service, then apply `.railway/railway.ts` (see
+   [Deploy settings](#deploy-settings-railwayrailwayts)), which sets the `Dockerfile` builder,
+   the health check and the restart policy. A fresh service has none of them until it is applied.
 3. Set variables: the five Postgres references (`PGDATABASE`, `PGHOST`, `PGPASSWORD`, `PGPORT`,
    `PGUSER` → `${{Postgres.*}}`), plus `TED_PASSWORD`, `FAMILY_PASSWORD` and `REMEMBER_ME_KEY`
    (all three required — the app will not start without them), and optionally
    `CALENDAR_FEED_TOKEN`, `JITTERTRAVEL_BASE_URL` and `AERODATABOX_API_KEY`.
    **Leave `SPRING_PROFILES_ACTIVE` unset.**
 4. Check [`Pre-Push-Tasks.md`](Pre-Push-Tasks.md) has no open boxes, and delete any that are done.
-5. Deploy; the health check (`/actuator/health`, from `railway.json`) gates the rollout.
-6. Watch logs for `Replayed N events from persistent store` (DB connect + replay succeeded) and
+5. Deploy; the health check (`/actuator/health`, from `.railway/railway.ts`) gates the rollout.
+6. Watch logs for `Loaded N events from persistent store` (DB connect + replay succeeded) and
    confirm `/` redirects to the login form.

@@ -1,8 +1,58 @@
 # Railway: migrate `railway.json` to Infrastructure as Code
 
-**Status:** `open`, with a **hard deadline of 2026-12-01**. Planned 2026-11-14; nothing applied yet.
-An untracked `.railway/railway.ts` that the Railway CLI generated sits in the working tree. It is a
-draft and must not be committed as it stands (see "What the draft gets wrong").
+**Status:** `partial`, deadline 2026-12-01. **Applied to the live service 2026-11-18** and verified
+by a healthy redeploy. Left: push the commit that deletes `railway.json`, confirm that deploy reads
+no config file and keeps the health check, then step 7 (remove the guard, archive this plan).
+
+## As done, 2026-11-18 — read this first
+
+Several things below were wrong or have changed since 2026-11-14. This section is the record; the
+sections after it are the plan as written, kept for its reasoning.
+
+- **The risk was bigger than the plan said.** The service's own settings were all defaults:
+  builder `RAILPACK`, no health check, no restart policy, no Config File path. Every deploy got
+  `DOCKERFILE`, `/actuator/health` (120 s) and `ON_FAILURE` ×3 only because Railway auto-detected
+  `railway.json` at the repo root (each deployment records `configFile=/railway.json`). Past the
+  cutoff, the first deploy would have lost the **Dockerfile builder** too, not just the health
+  check and restart policy.
+- **No cutover was needed.** Railway's process changed after this plan was written: `migrate
+  --apply` now only writes the file, and a separate `railway config migrate cutover` (with `undo`)
+  clears an explicit Config File path. Ours had none, so `railway config migrate status` reported
+  "No services in production read Config as Code" while every deploy was still reading it.
+- **Q1 — the restart policy is expressible** (`deploy.restartPolicyType`,
+  `deploy.restartPolicyMaxRetries`, in the SDK's `DeployConfig` type). `railway config migrate`
+  (CLI 5.74.0) drops both even when regenerated fresh, so they are **added by hand** in
+  `railway.ts`, with a comment saying so.
+- **Q2 — unmanaged** (Ted). The CLI describes `managed` as "this file owns every variable on these
+  services". With `variables: { managed: false }` the dashboard still owns them and the
+  set-it-before-the-push rule is unchanged.
+- **Q3 — keep domain, region and limits in the file** (Ted). They matched the live service, so the
+  plan showed no change for them.
+- **Q4 — Postgres was safe.** The plan showed 0 to destroy; the file is a named partial.
+- **Q5 — `.railway/package.json`** (Ted), pinning `railway` 3.17.0 with a lockfile;
+  `.railway/node_modules/` is gitignored. `railway config plan` refuses to run without it.
+- **Backup** taken by Ted before the apply. The plan was pinned with `--out` and applied with
+  `--plan`, so what ran is exactly what was reviewed.
+
+**Verification (step 5), expected → actual:**
+
+| Check | Expected | Actual |
+|---|---|---|
+| Re-plan after apply | no changes | no changes |
+| Redeploy triggered by the apply (`501510ac`, 13:27 UTC) | SUCCESS | SUCCESS |
+| Builder | `DOCKERFILE` | `DOCKERFILE`, `Dockerfile` |
+| Health check gates the rollout | passes | "Healthcheck succeeded!" on `/actuator/health` |
+| Restart policy | `ON_FAILURE` ×3 | `ON_FAILURE`, 3 |
+| Boot against the real database | events loaded | "Loaded 274 events from persistent store" |
+| Variables | the same 15 | all 15 present |
+| Postgres and its volume | untouched | both present |
+| `/calendar` | loads | HTTP 200 |
+| Login (`TED_PASSWORD`, `REMEMBER_ME_KEY`) | works | works (Ted) |
+
+That redeploy still read `/railway.json`, which held the same values, so it proves the service
+settings are right but not that they suffice alone. **The commit deleting `railway.json` is the
+test of that:** its deploy must record no config file and still show the health check and restart
+policy.
 
 **The pre-push hook enforces the deadline** (Ted, 2026-11-14: "don't let me push after the deadline
 without ensuring the migration worked"). From 2026-12-01 on, `.githooks/pre-push` refuses any push
@@ -108,7 +158,7 @@ committed. The deploy itself never needs it.
    needs a recorded expected/actual result:
    - **A deploy is gated by the health check.** Push a trivial docs-only commit (or redeploy from
      the dashboard), then watch for the health check in the deploy log and
-     `Replayed N events from persistent store`.
+     `Loaded N events from persistent store`.
    - **Restart policy:** the dashboard's service settings show `ON_FAILURE` with 3 retries, or
      whatever Q1 decided.
    - **Variables intact:** the dashboard lists the same 15 variables as before. Settings in the app
@@ -140,4 +190,18 @@ forgetting, not against intent.
 
 ## Plan output
 
-_Not yet run._
+`railway config plan --verbose`, 2026-11-18, before the apply:
+
+```
+variables: unmanaged · 15 on Railway not managed
+Plan: 0 to add, 2 to change, 0 to destroy
+  ~ Update jittertravel build.builder
+    └ build.builder (null → "DOCKERFILE")
+  ~ Update jittertravel deploy.healthcheckPath, deploy.healthcheckTimeout, deploy.restartPolicyMaxRetries
+    └ deploy.healthcheckPath (null → "/actuator/health")
+    └ deploy.healthcheckTimeout (null → 120)
+    └ deploy.restartPolicyMaxRetries (null → 3)
+```
+
+`restartPolicyType` does not appear because the service default is already `ON_FAILURE`; only the
+retry count changed (default 10 → 3).

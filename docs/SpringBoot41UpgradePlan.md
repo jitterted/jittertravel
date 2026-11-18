@@ -347,7 +347,7 @@ Plus `/actuator/metrics`, for the Micrometer minor in §7: confirm `eventstore.s
 `eventstore.subscriber.duration` and `eventstore.notification.duration` are all still listed. No test
 asserts a meter name, so this page is the only place a rename shows up.
 
-**S9 — deploy.** `railway.json` needs no change and the healthcheck stays `/actuator/health`; the image
+**S9 — deploy.** `.railway/railway.ts` (which replaced `railway.json` on 2026-11-18) needs no change and the healthcheck stays `/actuator/health`; the image
 already targets `eclipse-temurin:26`. The Dockerfile's only change is the flag from S2, so **watch the
 first build**: `-Dmaven.test.skip=true` skips test *compilation* as well as execution, which is what
 we want in an image but is a different code path through the build than the one that has been running.

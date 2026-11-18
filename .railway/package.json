@@ -1,0 +1,9 @@
+{
+  "name": "jittertravel-railway-iac",
+  "private": true,
+  "description": "The Railway IaC SDK, needed only by `railway config plan` and `railway config apply`. Deploys never read this directory.",
+  "type": "module",
+  "devDependencies": {
+    "railway": "3.17.0"
+  }
+}

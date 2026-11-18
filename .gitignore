@@ -3,6 +3,8 @@ target/
 # Local database dumps from scripts/backup-db.sh — real data, never commit.
 backups/
 .mvn/wrapper/maven-wrapper.jar
+# The Railway IaC SDK, installed by `npm ci` in .railway/ — only plan/apply need it.
+.railway/node_modules/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
